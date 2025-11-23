@@ -24,6 +24,10 @@ export type Database = {
           options: Json | null
           order_index: number
           question: string
+          reference_image_url: string | null
+          reference_link: string | null
+          reference_notes: string | null
+          reference_video_url: string | null
         }
         Insert: {
           checklist_id: string
@@ -34,6 +38,10 @@ export type Database = {
           options?: Json | null
           order_index: number
           question: string
+          reference_image_url?: string | null
+          reference_link?: string | null
+          reference_notes?: string | null
+          reference_video_url?: string | null
         }
         Update: {
           checklist_id?: string
@@ -44,6 +52,10 @@ export type Database = {
           options?: Json | null
           order_index?: number
           question?: string
+          reference_image_url?: string | null
+          reference_link?: string | null
+          reference_notes?: string | null
+          reference_video_url?: string | null
         }
         Relationships: [
           {
