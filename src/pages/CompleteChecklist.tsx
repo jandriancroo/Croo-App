@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { Upload } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface ChecklistItem {
   id: string;
@@ -18,6 +19,10 @@ interface ChecklistItem {
   item_type: string;
   options: any;
   is_required: boolean;
+  reference_image_url?: string;
+  reference_link?: string;
+  reference_video_url?: string;
+  reference_notes?: string;
 }
 
 interface Checklist {
@@ -161,6 +166,59 @@ export default function CompleteChecklist() {
                   {item.question}
                   {item.is_required && <span className="text-destructive ml-1">*</span>}
                 </CardTitle>
+                
+                {/* Reference Materials Display */}
+                {(item.reference_image_url || item.reference_link || item.reference_video_url || item.reference_notes) && (
+                  <div className="mt-4 space-y-3 bg-muted/50 p-4 rounded-lg">
+                    <div className="text-sm font-medium text-muted-foreground">Reference Materials:</div>
+                    
+                    {item.reference_image_url && (
+                      <div className="space-y-2">
+                        <Badge variant="secondary" className="text-xs">Reference Photo</Badge>
+                        <img
+                          src={item.reference_image_url}
+                          alt="Reference"
+                          className="rounded-lg max-h-48 object-cover border"
+                        />
+                      </div>
+                    )}
+                    
+                    {item.reference_link && (
+                      <div className="space-y-1">
+                        <Badge variant="secondary" className="text-xs">Reference Link</Badge>
+                        <a
+                          href={item.reference_link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:underline block break-all"
+                        >
+                          {item.reference_link}
+                        </a>
+                      </div>
+                    )}
+                    
+                    {item.reference_video_url && (
+                      <div className="space-y-1">
+                        <Badge variant="secondary" className="text-xs">Training Video</Badge>
+                        <a
+                          href={item.reference_video_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:underline block break-all"
+                        >
+                          {item.reference_video_url}
+                        </a>
+                      </div>
+                    )}
+                    
+                    {item.reference_notes && (
+                      <div className="space-y-1">
+                        <Badge variant="secondary" className="text-xs">Notes</Badge>
+                        <p className="text-sm whitespace-pre-wrap">{item.reference_notes}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 {item.item_type === 'text' && (
