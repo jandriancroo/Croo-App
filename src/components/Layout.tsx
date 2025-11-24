@@ -55,20 +55,20 @@ export const Layout = ({ children }: LayoutProps) => {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-background via-primary/5 to-accent/10">
+    <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-50 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className={`container flex items-center justify-between ${isMobile ? 'h-12' : 'h-16'}`}>
+        <div className={`container flex items-center ${isMobile ? 'h-16' : 'h-24'}`}>
           <button 
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-8"
           >
             <img 
               src={crooLogo} 
               alt="Croo" 
-              className={`${isMobile ? 'h-8' : 'h-10'} w-auto`}
+              className={`${isMobile ? 'h-16' : 'h-20'} w-auto`}
             />
           </button>
-          <nav className="hidden items-center gap-1 md:flex flex-1 justify-center">
+          <nav className="hidden items-center gap-1 md:flex flex-1">
             {mainNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
