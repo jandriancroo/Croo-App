@@ -293,7 +293,13 @@ export default function PayrollReview() {
     ? timeCards 
     : timeCards.filter(card => card.profile.id === filterEmployee);
 
-  const totalPunchesAwaitingApproval = filteredCards.reduce((sum, card) => {
+  // Total across all employees (for badge)
+  const totalPunchesAwaitingApproval = timeCards.reduce((sum, card) => {
+    return sum + card.punches.filter((p: any) => !p.approved_at).length;
+  }, 0);
+
+  // Total for filtered view (for button)
+  const filteredPunchesAwaitingApproval = filteredCards.reduce((sum, card) => {
     return sum + card.punches.filter((p: any) => !p.approved_at).length;
   }, 0);
 
@@ -607,8 +613,8 @@ export default function PayrollReview() {
                           </label>
                         </div>
                       </div>
-                      <Button onClick={handleApproveAll} disabled={totalPunchesAwaitingApproval === 0}>
-                        Approve All [{totalPunchesAwaitingApproval}]
+                      <Button onClick={handleApproveAll} disabled={filteredPunchesAwaitingApproval === 0}>
+                        Approve All [{filteredPunchesAwaitingApproval}]
                       </Button>
                     </div>
                   </CardContent>
