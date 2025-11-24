@@ -92,6 +92,10 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     if (createError) {
+      // Handle duplicate email error with a clearer message
+      if (createError.message.includes('already been registered')) {
+        throw new Error('This email address is already registered. Use the "Re-invite" button to resend an invitation to existing users.');
+      }
       throw createError;
     }
 
