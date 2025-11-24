@@ -554,17 +554,24 @@ export default function UserManagement() {
 
       if (historyError) throw historyError;
 
-      // Update current wage in profiles
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ hourly_wage: wageValue })
-        .eq('id', editingWageUser.id);
+      // Only update current wage in profiles if the effective date is today or in the past
+      const today = new Date().toISOString().split('T')[0];
+      const isEffectiveNow = wageEffectiveDate <= today;
+      
+      if (isEffectiveNow) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ hourly_wage: wageValue })
+          .eq('id', editingWageUser.id);
 
-      if (profileError) throw profileError;
+        if (profileError) throw profileError;
+      }
 
       toast({
         title: 'Success',
-        description: 'Hourly wage updated successfully',
+        description: isEffectiveNow 
+          ? 'Hourly wage updated successfully'
+          : 'Future wage scheduled successfully',
       });
 
       setIsWageDialogOpen(false);
@@ -808,6 +815,8 @@ export default function UserManagement() {
       if (!currentUser) throw new Error('Not authenticated');
 
       const effectiveDateStr = effectiveDate.toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
+      const isEffectiveNow = effectiveDateStr <= today;
 
       for (const userId of selectedUsers) {
         // Insert into wage_history
@@ -821,16 +830,20 @@ export default function UserManagement() {
             notes: notes.trim() || null,
           });
 
-        // Update current wage in profiles
-        await supabase
-          .from('profiles')
-          .update({ hourly_wage: wage })
-          .eq('id', userId);
+        // Only update current wage in profiles if effective date is today or in the past
+        if (isEffectiveNow) {
+          await supabase
+            .from('profiles')
+            .update({ hourly_wage: wage })
+            .eq('id', userId);
+        }
       }
 
       toast({
         title: 'Success',
-        description: `Wages updated for ${selectedUsers.size} user(s)`,
+        description: isEffectiveNow
+          ? `Wages updated for ${selectedUsers.size} user(s)`
+          : `Future wages scheduled for ${selectedUsers.size} user(s)`,
       });
 
       setSelectedUsers(new Set());
