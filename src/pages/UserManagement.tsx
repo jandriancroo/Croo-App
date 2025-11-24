@@ -16,6 +16,7 @@ import { useUserRole, type AppRole } from '@/hooks/useUserRole';
 import { useNavigate } from 'react-router-dom';
 import React from 'react';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
+import { InviteLinkCard } from '@/components/InviteLinkCard';
 
 interface UserProfile {
   id: string;
@@ -453,6 +454,7 @@ export default function UserManagement() {
   return (
     <Layout>
       <div className="container mx-auto p-6 space-y-6">
+        <InviteLinkCard />
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
