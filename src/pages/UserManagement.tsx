@@ -44,6 +44,7 @@ interface UserProfile {
   profile_photo_url: string | null;
   phone_number: string | null;
   birthday: string | null;
+  employee_pin: string | null;
   created_at: string;
   is_active: boolean;
   role?: AppRole;
@@ -100,6 +101,7 @@ export default function UserManagement() {
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [editBirthday, setEditBirthday] = useState<Date | undefined>();
+  const [editEmployeePin, setEditEmployeePin] = useState<string>('');
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -424,6 +426,7 @@ export default function UserManagement() {
     setEditProfilePhoto(user.profile_photo_url);
     setEditPhoneNumber(user.phone_number || '');
     setEditBirthday(user.birthday ? new Date(user.birthday) : undefined);
+    setEditEmployeePin(user.employee_pin || '');
     setEditDialogOpen(true);
   };
 
@@ -447,6 +450,7 @@ export default function UserManagement() {
           profile_photo_url: editProfilePhoto,
           phone_number: editPhoneNumber.trim() || null,
           birthday: editBirthday ? editBirthday.toISOString().split('T')[0] : null,
+          employee_pin: editEmployeePin.trim() || null,
         })
         .eq('id', editingUser.id);
 
@@ -1279,6 +1283,13 @@ export default function UserManagement() {
                       </div>
                     </div>
                   </div>
+                  <div className="space-y-2 p-4 border rounded-lg">
+                    <Label className="text-sm text-muted-foreground">Employee PIN</Label>
+                    <p className="text-2xl font-mono font-bold tracking-wider">
+                      {viewingUser.employee_pin || 'Not Set'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Used for punch clock</p>
+                  </div>
                   <div className="space-y-2 p-4 border rounded-lg col-span-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm text-muted-foreground">Current Hourly Wage</Label>
@@ -1538,6 +1549,24 @@ export default function UserManagement() {
                     />
                   </PopoverContent>
                 </Popover>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-pin">Employee PIN (4 digits)</Label>
+                <Input
+                  id="edit-pin"
+                  type="text"
+                  maxLength={4}
+                  value={editEmployeePin}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '');
+                    setEditEmployeePin(value);
+                  }}
+                  placeholder="0000"
+                  className="text-center tracking-widest text-lg font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Used for punch clock. Must be unique.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>

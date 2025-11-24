@@ -5,6 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Clock, Coffee, LogOut } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 const DAILY_QUOTES = [
   { quote: "Do your work heartily, as for the Lord", verse: "Colossians 3:23", image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80" },
@@ -22,6 +24,8 @@ export default function PunchClock() {
   const [todayShift, setTodayShift] = useState<any>(null);
   const [lastPunch, setLastPunch] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [exitPin, setExitPin] = useState('');
+  const [showExitDialog, setShowExitDialog] = useState(false);
 
   const dailyQuote = DAILY_QUOTES[new Date().getDay()];
 
@@ -44,10 +48,22 @@ export default function PunchClock() {
   };
 
   const handleClear = () => {
-    setPin('');
-    setCurrentUser(null);
-    setTodayShift(null);
-    setLastPunch(null);
+    setShowExitDialog(true);
+  };
+
+  const handleExitConfirm = () => {
+    if (exitPin === '0223') {
+      setPin('');
+      setCurrentUser(null);
+      setTodayShift(null);
+      setLastPunch(null);
+      setShowExitDialog(false);
+      setExitPin('');
+      window.location.href = '/';
+    } else {
+      toast.error('Invalid exit code');
+      setExitPin('');
+    }
   };
 
   const handleBackspace = () => {
@@ -176,7 +192,7 @@ export default function PunchClock() {
     }
 
     toast.success('Clocked out successfully!');
-    setTimeout(() => handleClear(), 2000);
+    setTimeout(() => setShowExitDialog(true), 500);
   };
 
   if (!currentUser) {
@@ -342,6 +358,36 @@ export default function PunchClock() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Exit Punch Clock</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Enter the 4-digit exit code to leave</p>
+            <Input
+              type="password"
+              maxLength={4}
+              placeholder="••••"
+              value={exitPin}
+              onChange={(e) => setExitPin(e.target.value)}
+              className="text-center text-2xl tracking-widest"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setShowExitDialog(false);
+              setExitPin('');
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleExitConfirm} disabled={exitPin.length !== 4}>
+              Exit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
