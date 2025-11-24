@@ -53,9 +53,9 @@ export function CertificationAlerts() {
   return (
     <Alert variant="destructive">
       <AlertTriangle className="h-4 w-4" />
-      <AlertTitle>Certifications Expiring Soon</AlertTitle>
+      <AlertTitle className="text-sm">Certifications Expiring Soon ({expiringCerts.length})</AlertTitle>
       <AlertDescription>
-        <div className="mt-2 space-y-1">
+        <div className="mt-1 space-y-0.5">
           {expiringCerts.map((cert) => {
             const daysUntilExpiry = differenceInDays(
               new Date(cert.expiration_date),
@@ -63,14 +63,12 @@ export function CertificationAlerts() {
             );
             const certTypeName =
               cert.certification_type === "food_handlers"
-                ? "Food Handlers Card"
-                : "ServSafe Certification";
+                ? "Food Handlers"
+                : "ServSafe";
 
             return (
-              <div key={cert.id} className="text-sm">
-                <strong>{cert.profiles.full_name}</strong>'s {certTypeName} expires in{" "}
-                {daysUntilExpiry} day{daysUntilExpiry !== 1 ? "s" : ""} (
-                {format(new Date(cert.expiration_date), "MMM d, yyyy")})
+              <div key={cert.id} className="text-xs">
+                <strong>{cert.profiles.full_name}</strong> • {certTypeName} • {daysUntilExpiry}d • {format(new Date(cert.expiration_date), "MMM d")}
               </div>
             );
           })}

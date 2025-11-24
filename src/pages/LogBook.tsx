@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,12 +17,14 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { useUserRole } from "@/hooks/useUserRole";
 import { ManageCategoriesDialog } from "@/components/logbook/ManageCategoriesDialog";
+import { useSearchParams } from "react-router-dom";
 
 export default function LogBook() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAdmin } = useUserRole();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -47,6 +49,32 @@ export default function LogBook() {
   if (!selectedCategory && categories.length > 0) {
     setSelectedCategory(categories[0].id);
   }
+
+  // Handle navigation from alert link
+  useEffect(() => {
+    const entryId = searchParams.get('entryId');
+    if (entryId) {
+      // Fetch the entry to get its date and category
+      supabase
+        .from('logbook_entries')
+        .select('entry_date, category_id')
+        .eq('id', entryId)
+        .single()
+        .then(({ data, error }) => {
+          if (data && !error) {
+            setSelectedDate(new Date(data.entry_date));
+            setSelectedCategory(data.category_id);
+            // Clear the URL parameter
+            setSearchParams({});
+            // Show toast notification
+            toast({
+              title: "Entry found",
+              description: "Navigated to the selected log entry",
+            });
+          }
+        });
+    }
+  }, [searchParams, setSearchParams, toast]);
 
   // Fetch fields for selected category
   const { data: fields = [] } = useQuery({
