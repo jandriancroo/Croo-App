@@ -5,13 +5,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, addDays, addWeeks } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
-import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, AlertTriangle, Camera, Edit, Trash2, Clock, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { QuickPunchDialog } from '@/components/timeclock/QuickPunchDialog';
-
 import { Layout } from '@/components/Layout';
+import { QuickPunchDialog } from '@/components/timeclock/QuickPunchDialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function PayrollReview() {
   const { isAdmin, isManager } = useUserRole();
@@ -19,8 +21,9 @@ export default function PayrollReview() {
   const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
   const [timeCards, setTimeCards] = useState<any[]>([]);
   const [editingPunch, setEditingPunch] = useState<any>(null);
-  const [sortBy, setSortBy] = useState<'name' | 'day'>('name');
   const [showQuickEntry, setShowQuickEntry] = useState(false);
+  const [includeApproved, setIncludeApproved] = useState(false);
+  const [filterEmployee, setFilterEmployee] = useState<string>('all');
 
   useEffect(() => {
     if (isAdmin || isManager) {
@@ -32,18 +35,16 @@ export default function PayrollReview() {
     if (selectedPeriod) {
       fetchTimeCards();
     }
-  }, [selectedPeriod, sortBy]);
+  }, [selectedPeriod]);
 
   const generatePayPeriods = () => {
     // Base period: Monday Nov 3, 2025 - Sunday Nov 16, 2025
-    // Each pay period is exactly 14 days (2 weeks), Monday to Sunday
-    const baseStart = new Date(2025, 10, 3); // Month is 0-indexed, so 10 = November
+    const baseStart = new Date(2025, 10, 3);
     const periods = [];
     
-    // Generate 10 pay periods starting from base date
     for (let i = 0; i <= 9; i++) {
-      const periodStart = addWeeks(baseStart, i * 2); // Each period is 2 weeks apart
-      const periodEnd = addDays(periodStart, 13); // 14 days total (0-13 = 14 days)
+      const periodStart = addWeeks(baseStart, i * 2);
+      const periodEnd = addDays(periodStart, 13);
       
       periods.push({
         start: periodStart,
@@ -84,22 +85,34 @@ export default function PayrollReview() {
           punchesByDay[day].push(punch);
         });
 
-        // Check for issues
+        // Calculate total hours and check for issues
+        let totalHours = 0;
         const issues: string[] = [];
+        
         Object.entries(punchesByDay).forEach(([day, dayPunches]) => {
           const clockIn = dayPunches.find(p => p.punch_type === 'clock_in');
           const clockOut = dayPunches.find(p => p.punch_type === 'clock_out');
-          const mealBreak = dayPunches.filter(p => p.notes?.includes('30 minute'));
+          const mealBreakStart = dayPunches.find(p => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
+          const mealBreakEnd = dayPunches.find(p => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
           
           if (clockIn && !clockOut) {
             issues.push(`${day}: Missing clock out`);
           }
           
-          // Check if shift is over 5 hours and no meal break
           if (clockIn && clockOut) {
             const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
-            if (hours > 5 && mealBreak.length === 0) {
-              issues.push(`${day}: Missing required meal break`);
+            
+            // Subtract meal break if present
+            if (mealBreakStart && mealBreakEnd) {
+              const breakHours = (new Date(mealBreakEnd.punch_time).getTime() - new Date(mealBreakStart.punch_time).getTime()) / 3600000;
+              totalHours += (hours - breakHours);
+            } else {
+              totalHours += hours;
+              
+              // Check if shift is over 5 hours and no meal break
+              if (hours > 5) {
+                issues.push(`${day}: Missing required meal break`);
+              }
             }
           }
         });
@@ -108,21 +121,61 @@ export default function PayrollReview() {
           profile,
           punches: punches || [],
           punchesByDay,
+          totalHours,
           issues
         };
       })
     );
 
-    // Sort cards
-    const sortedCards = sortBy === 'name' 
-      ? cards.sort((a, b) => a.profile.full_name.localeCompare(b.profile.full_name))
-      : cards.sort((a, b) => {
-          const aDays = Object.keys(a.punchesByDay).sort();
-          const bDays = Object.keys(b.punchesByDay).sort();
-          return aDays[0]?.localeCompare(bDays[0] || '') || 0;
-        });
+    setTimeCards(cards);
+  };
 
-    setTimeCards(sortedCards);
+  const calculateDayHours = (dayPunches: any[]) => {
+    const clockIn = dayPunches.find(p => p.punch_type === 'clock_in');
+    const clockOut = dayPunches.find(p => p.punch_type === 'clock_out');
+    const mealBreakStart = dayPunches.find(p => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
+    const mealBreakEnd = dayPunches.find(p => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
+    
+    if (!clockIn || !clockOut) return 0;
+    
+    const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+    
+    if (mealBreakStart && mealBreakEnd) {
+      const breakHours = (new Date(mealBreakEnd.punch_time).getTime() - new Date(mealBreakStart.punch_time).getTime()) / 3600000;
+      return hours - breakHours;
+    }
+    
+    return hours;
+  };
+
+  const hasDayIssues = (dayPunches: any[]) => {
+    const clockIn = dayPunches.find(p => p.punch_type === 'clock_in');
+    const clockOut = dayPunches.find(p => p.punch_type === 'clock_out');
+    const mealBreak = dayPunches.filter(p => p.notes?.includes('30 minute'));
+    
+    if (clockIn && !clockOut) return true;
+    
+    if (clockIn && clockOut) {
+      const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+      if (hours > 5 && mealBreak.length === 0) return true;
+    }
+    
+    return false;
+  };
+
+  const handleDeletePunch = async (punchId: string) => {
+    const { error } = await supabase
+      .from('time_punches')
+      .delete()
+      .eq('id', punchId);
+
+    if (error) {
+      toast.error('Failed to delete punch');
+      return;
+    }
+
+    toast.success('Punch deleted');
+    fetchTimeCards();
   };
 
   const handleEditPunch = async (punch: any, newTime: string) => {
@@ -141,148 +194,295 @@ export default function PayrollReview() {
     fetchTimeCards();
   };
 
+  const filteredCards = filterEmployee === 'all' 
+    ? timeCards 
+    : timeCards.filter(card => card.profile.id === filterEmployee);
+
+  const totalPunchesAwaitingApproval = filteredCards.reduce((sum, card) => {
+    return sum + Object.keys(card.punchesByDay).length;
+  }, 0);
+
   if (!isAdmin && !isManager) {
     return (
-      <div className="container mx-auto p-6">
+      <Layout>
         <Card>
           <CardContent className="p-6 text-center">
             <p>You do not have permission to view payroll data.</p>
           </CardContent>
         </Card>
-      </div>
+      </Layout>
     );
   }
 
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Payroll Review</h1>
-          <p className="text-muted-foreground">Review and manage employee time cards by pay period</p>
-        </div>
-
-      {!selectedPeriod ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {payPeriods.map((period, index) => (
-            <Card
-              key={index}
-              className="cursor-pointer hover:shadow-lg transition-shadow"
-              onClick={() => setSelectedPeriod(period)}
-            >
-              <CardHeader>
-                <CardTitle className="text-lg">{period.label}</CardTitle>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" onClick={() => setSelectedPeriod(null)}>
-                <ChevronLeft className="mr-2 h-4 w-4" />
-                Back to Pay Periods
-              </Button>
-              <h2 className="text-xl font-semibold">{selectedPeriod.label}</h2>
+        {!selectedPeriod ? (
+          <>
+            <div>
+              <h1 className="text-3xl font-bold">Payroll Review</h1>
+              <p className="text-muted-foreground">Select a pay period to review time cards</p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant={sortBy === 'name' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSortBy('name')}
-              >
-                Sort by Name
-              </Button>
-              <Button
-                variant={sortBy === 'day' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSortBy('day')}
-              >
-                Sort by Day
-              </Button>
-              <Button onClick={() => setShowQuickEntry(true)}>
-                Quick Entry
-              </Button>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {payPeriods.map((period, index) => (
+                <Card
+                  key={index}
+                  className="cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => setSelectedPeriod(period)}
+                >
+                  <CardHeader>
+                    <CardTitle className="text-lg">{period.label}</CardTitle>
+                  </CardHeader>
+                </Card>
+              ))}
             </div>
-          </div>
-
-          <QuickPunchDialog
-            open={showQuickEntry}
-            onOpenChange={setShowQuickEntry}
-            onSuccess={fetchTimeCards}
-          />
-
-          {timeCards.map((card) => (
-            <Card key={card.profile.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>{card.profile.full_name}</CardTitle>
-                  {card.issues.length > 0 && (
-                    <Badge variant="destructive" className="gap-1">
-                      <AlertTriangle className="h-3 w-3" />
-                      {card.issues.length} Issue{card.issues.length > 1 ? 's' : ''}
-                    </Badge>
-                  )}
+          </>
+        ) : (
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Button variant="ghost" onClick={() => setSelectedPeriod(null)} className="pl-0">
+                  <ChevronLeft className="mr-2 h-4 w-4" />
+                  Pay Periods
+                </Button>
+                <div>
+                  <h1 className="text-3xl font-bold">Payroll Period</h1>
+                  <p className="text-muted-foreground">{selectedPeriod.label}</p>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {card.issues.length > 0 && (
-                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-1">
-                    {card.issues.map((issue: string, i: number) => (
-                      <p key={i} className="text-sm text-destructive">⚠️ {issue}</p>
-                    ))}
-                  </div>
-                )}
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline">Close pay period</Button>
+                <Button onClick={() => setShowQuickEntry(true)}>
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Add punch
+                </Button>
+              </div>
+            </div>
 
-                <div className="space-y-2">
-                  {Object.entries(card.punchesByDay).map(([day, punches]: [string, any]) => (
-                    <div key={day} className="border rounded-lg p-3">
-                      <p className="font-medium mb-2">{format(new Date(day), 'EEEE, MMM d')}</p>
-                      <div className="space-y-1 text-sm">
-                        {punches.map((punch: any) => (
-                          <div key={punch.id} className="flex items-center justify-between">
-                            <span className="capitalize">{punch.punch_type.replace('_', ' ')}</span>
-                            <div className="flex items-center gap-2">
-                              <span>{format(new Date(punch.punch_time), 'h:mm a')}</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => setEditingPunch(punch)}
-                              >
-                                Edit
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+            {/* Filters */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <Select defaultValue="all">
+                <SelectTrigger>
+                  <SelectValue placeholder="All locations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All locations</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select defaultValue="all">
+                <SelectTrigger>
+                  <SelectValue placeholder="All departments" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All departments</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select defaultValue="all">
+                <SelectTrigger>
+                  <SelectValue placeholder="All roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All roles</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select defaultValue="all">
+                <SelectTrigger>
+                  <SelectValue placeholder="All days" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All days</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={filterEmployee} onValueChange={setFilterEmployee}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All employees" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All employees</SelectItem>
+                  {timeCards.map(card => (
+                    <SelectItem key={card.profile.id} value={card.profile.id}>
+                      {card.profile.full_name}
+                    </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+
+              <Button variant="outline">
+                <Calendar className="mr-2 h-4 w-4" />
+                Table View
+              </Button>
+            </div>
+
+            {/* Punches Awaiting Approval */}
+            <Card className="bg-muted/50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Badge variant="destructive" className="h-8 w-8 rounded-full flex items-center justify-center text-base">
+                      {totalPunchesAwaitingApproval}
+                    </Badge>
+                    <span className="font-semibold">Punches awaiting approval</span>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="include-approved"
+                        checked={includeApproved}
+                        onCheckedChange={(checked) => setIncludeApproved(checked as boolean)}
+                      />
+                      <label htmlFor="include-approved" className="text-sm text-muted-foreground cursor-pointer">
+                        Include approved
+                      </label>
+                    </div>
+                  </div>
+                  <Button>
+                    Approve All [{totalPunchesAwaitingApproval}]
+                  </Button>
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
 
-      <Dialog open={!!editingPunch} onOpenChange={() => setEditingPunch(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit Punch Time</DialogTitle>
-          </DialogHeader>
-          {editingPunch && (
-            <div className="space-y-4">
-              <Input
-                type="datetime-local"
-                defaultValue={format(new Date(editingPunch.punch_time), "yyyy-MM-dd'T'HH:mm")}
-                onChange={(e) => {
-                  const newTime = new Date(e.target.value).toISOString();
-                  handleEditPunch(editingPunch, newTime);
-                }}
-              />
+            {/* Employee Punch Cards */}
+            <div className="space-y-6">
+              {filteredCards.map((card) => (
+                <Card key={card.profile.id}>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={card.profile.profile_photo_url || undefined} />
+                          <AvatarFallback>{card.profile.full_name?.[0] || 'U'}</AvatarFallback>
+                        </Avatar>
+                        <span className="font-semibold text-lg">{card.profile.full_name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-semibold">{card.totalHours.toFixed(2)} hrs</span>
+                        <Button variant="ghost" size="icon">
+                          <Clock className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {Object.entries(card.punchesByDay).map(([day, dayPunches]: [string, any]) => {
+                        const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
+                        const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
+                        const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
+                        const mealBreakEnd = dayPunches.find((p: any) => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
+                        const dayDate = new Date(day);
+                        const hasIssues = hasDayIssues(dayPunches);
+                        const dayHours = calculateDayHours(dayPunches);
+
+                        return (
+                          <div key={day} className="border rounded-lg overflow-hidden">
+                            <div className="flex">
+                              {/* Day Sidebar */}
+                              <div className="bg-destructive text-destructive-foreground w-20 flex flex-col items-center justify-center p-2">
+                                <span className="text-xs font-medium">{format(dayDate, 'EEE')}</span>
+                                <span className="text-sm font-bold">{format(dayDate, 'MMM d')}</span>
+                              </div>
+
+                              {/* Punch Details */}
+                              <div className="flex-1 p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                                    <span className="text-sm">
+                                      {clockIn && clockOut ? (
+                                        `${format(new Date(clockIn.punch_time), 'h:mm a')} - ${format(new Date(clockOut.punch_time), 'h:mm a')}`
+                                      ) : (
+                                        'Incomplete'
+                                      )}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Button variant="ghost" size="icon" onClick={() => setEditingPunch(clockIn)}>
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => clockIn && handleDeletePunch(clockIn.id)}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button size="sm">Approve</Button>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-4 text-sm">
+                                  {clockIn && (
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="h-3 w-3 text-green-600" />
+                                      <span className="text-green-600">IN</span>
+                                      <span className="font-medium">{format(new Date(clockIn.punch_time), 'h:mm a')}</span>
+                                    </div>
+                                  )}
+                                  {clockOut && (
+                                    <div className="flex items-center gap-1">
+                                      <Clock className="h-3 w-3 text-red-600" />
+                                      <span className="text-red-600">OUT</span>
+                                      <span className="font-medium">{format(new Date(clockOut.punch_time), 'h:mm a')}</span>
+                                    </div>
+                                  )}
+                                  {!clockOut && clockIn && (
+                                    <Badge variant="outline">Late</Badge>
+                                  )}
+                                </div>
+
+                                {hasIssues && (
+                                  <div className="flex items-center gap-2 text-amber-600 text-sm">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <span>1 possible exception</span>
+                                  </div>
+                                )}
+
+                                {mealBreakStart && mealBreakEnd && (
+                                  <div className="text-sm text-muted-foreground">
+                                    <span className="font-medium">Break:</span> {format(new Date(mealBreakStart.punch_time), 'h:mm a')} - {format(new Date(mealBreakEnd.punch_time), 'h:mm a')} (30 min unpaid)
+                                  </div>
+                                )}
+
+                                <div className="text-right">
+                                  <span className="text-sm font-semibold">{dayHours.toFixed(2)} hrs</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+          </div>
+        )}
+
+        <QuickPunchDialog
+          open={showQuickEntry}
+          onOpenChange={setShowQuickEntry}
+          onSuccess={fetchTimeCards}
+        />
+
+        <Dialog open={!!editingPunch} onOpenChange={() => setEditingPunch(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Punch Time</DialogTitle>
+            </DialogHeader>
+            {editingPunch && (
+              <div className="space-y-4">
+                <Input
+                  type="datetime-local"
+                  defaultValue={format(new Date(editingPunch.punch_time), "yyyy-MM-dd'T'HH:mm")}
+                  onChange={(e) => {
+                    const newTime = new Date(e.target.value).toISOString();
+                    handleEditPunch(editingPunch, newTime);
+                  }}
+                />
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
