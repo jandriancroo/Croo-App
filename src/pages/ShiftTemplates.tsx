@@ -32,7 +32,6 @@ export default function ShiftTemplates() {
   const [customPosition, setCustomPosition] = useState("");
   const [showCustomPosition, setShowCustomPosition] = useState(false);
   const [formData, setFormData] = useState({
-    template_name: "",
     start_time: "09:00",
     end_time: "17:00",
     role: "team_member" as const,
@@ -89,8 +88,11 @@ export default function ShiftTemplates() {
     }
 
     try {
+      // Auto-generate template name from position and time
+      const templateName = `${positionValue} ${formatTime(formData.start_time)} - ${formatTime(formData.end_time)}`;
+      
       const { error } = await supabase.from("shift_templates").insert({
-        template_name: formData.template_name,
+        template_name: templateName,
         start_time: formData.start_time,
         end_time: formData.end_time,
         role: formData.role,
@@ -104,7 +106,6 @@ export default function ShiftTemplates() {
       toast.success("Shift template created");
       setDialogOpen(false);
       setFormData({
-        template_name: "",
         start_time: "09:00",
         end_time: "17:00",
         role: "team_member",
@@ -175,17 +176,6 @@ export default function ShiftTemplates() {
                 <DialogTitle>Create Shift Template</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="template_name">Template Name</Label>
-                  <Input
-                    id="template_name"
-                    value={formData.template_name}
-                    onChange={(e) => setFormData({ ...formData, template_name: e.target.value })}
-                    placeholder="e.g., Morning Shift"
-                    required
-                  />
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="start_time">Start Time</Label>
@@ -334,13 +324,8 @@ export default function ShiftTemplates() {
                         className="w-4 h-4 rounded"
                         style={{ backgroundColor: template.color }}
                       />
-                      <h3 className="font-semibold">{template.template_name}</h3>
+                      <h3 className="font-semibold text-lg">{template.position}</h3>
                     </div>
-                    {template.position && (
-                      <p className="text-sm font-medium text-primary mb-1">
-                        {template.position}
-                      </p>
-                    )}
                     <p className="text-sm text-muted-foreground">
                       {formatTime(template.start_time)} - {formatTime(template.end_time)}
                     </p>
