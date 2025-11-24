@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import CreateChecklist from "./pages/CreateChecklist";
 import CompleteChecklist from "./pages/CompleteChecklist";
 import History from "./pages/History";
+import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
             <Route path="/create" element={<ProtectedRoute><CreateChecklist /></ProtectedRoute>} />
             <Route path="/complete/:id" element={<ProtectedRoute><CompleteChecklist /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+            <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
