@@ -133,20 +133,21 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Send password reset email so user can set their own password
-    const { error: resetError } = await supabaseAdmin.auth.admin.generateLink({
+    const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: email,
     });
-
+ 
     if (resetError) {
       console.error("Password reset email error:", resetError);
     }
-
+ 
     return new Response(
       JSON.stringify({
         success: true,
         userId: newUser.user.id,
         message: "User invited successfully. They will receive an email to set their password.",
+        resetLink: resetData?.properties?.action_link ?? null,
       }),
       {
         status: 200,
