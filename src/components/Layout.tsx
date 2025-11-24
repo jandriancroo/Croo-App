@@ -2,9 +2,11 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { CheckSquare, Home, ClipboardList, History, LogOut, Plus, Users, Calendar, CalendarCheck, DollarSign, MessageSquare } from 'lucide-react';
+import { CheckSquare, Home, ClipboardList, History, LogOut, Plus, Users, Calendar, CalendarCheck, DollarSign, MessageSquare, Menu } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { useState } from 'react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -16,6 +18,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const location = useLocation();
   const { isAdmin } = useUserRole();
   const isMobile = useIsMobile();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const navItems = [
     { path: '/', label: 'Dashboard', icon: Home },
@@ -24,6 +27,20 @@ export const Layout = ({ children }: LayoutProps) => {
     { path: '/availability', label: 'Availability', icon: CalendarCheck },
     ...(isAdmin ? [{ path: '/users', label: 'Users', icon: Users }] : []),
     { path: '/messages', label: 'Messages', icon: MessageSquare },
+  ];
+
+  // Mobile bottom nav shows only main items
+  const mobileMainNavItems = [
+    { path: '/', label: 'Dashboard', icon: Home },
+    { path: '/schedule', label: 'Schedule', icon: Calendar },
+    { path: '/create', label: 'Tasks', icon: ClipboardList },
+    { path: '/messages', label: 'Messages', icon: MessageSquare },
+  ];
+
+  // Items that go in the hamburger menu on mobile
+  const mobileMenuItems = [
+    { path: '/availability', label: 'Availability', icon: CalendarCheck },
+    ...(isAdmin ? [{ path: '/users', label: 'Users', icon: Users }] : []),
   ];
 
   return (
@@ -67,7 +84,7 @@ export const Layout = ({ children }: LayoutProps) => {
       <main className="container flex-1 py-8">{children}</main>
       <nav className="sticky bottom-0 border-t border-border/40 bg-background/95 backdrop-blur md:hidden">
         <div className="flex items-center justify-around py-1.5 px-1">
-          {navItems.map((item) => {
+          {mobileMainNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             return (
@@ -83,6 +100,56 @@ export const Layout = ({ children }: LayoutProps) => {
               </Button>
             );
           })}
+          
+          {/* Hamburger Menu for Additional Items */}
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex-col gap-0.5 h-auto py-1.5 px-2 min-w-0"
+              >
+                <Menu className="h-4 w-4 flex-shrink-0" />
+                <span className="text-[10px] truncate max-w-[60px]">More</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-auto">
+              <SheetHeader>
+                <SheetTitle>Menu</SheetTitle>
+              </SheetHeader>
+              <div className="grid gap-2 py-4">
+                {mobileMenuItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  return (
+                    <Button
+                      key={item.path}
+                      variant={isActive ? 'secondary' : 'outline'}
+                      onClick={() => {
+                        navigate(item.path);
+                        setMenuOpen(false);
+                      }}
+                      className="justify-start gap-3 h-12"
+                    >
+                      <Icon className="h-5 w-5" />
+                      <span className="text-base">{item.label}</span>
+                    </Button>
+                  );
+                })}
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    signOut();
+                    setMenuOpen(false);
+                  }}
+                  className="justify-start gap-3 h-12 text-destructive hover:text-destructive"
+                >
+                  <LogOut className="h-5 w-5" />
+                  <span className="text-base">Sign Out</span>
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </nav>
     </div>
