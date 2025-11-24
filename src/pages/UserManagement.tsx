@@ -133,6 +133,7 @@ export default function UserManagement() {
   useEffect(() => {
     if (viewingUser) {
       fetchEmployeeNotes(viewingUser.id);
+      setEditEmployeePin(viewingUser.employee_pin || '');
     }
   }, [viewingUser]);
 
@@ -1232,26 +1233,24 @@ export default function UserManagement() {
 
         {/* User Profile Details Dialog */}
         <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>User Profile</DialogTitle>
-              <DialogDescription>
-                View and manage user details
-              </DialogDescription>
             </DialogHeader>
             {viewingUser && (
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <Avatar className="h-20 w-20">
+              <div className="space-y-4">
+                {/* Header Section */}
+                <div className="flex items-center gap-3 pb-3 border-b">
+                  <Avatar className="h-16 w-16">
                     <AvatarImage src={viewingUser.profile_photo_url || undefined} />
-                    <AvatarFallback className="text-2xl">
+                    <AvatarFallback className="text-xl">
                       {viewingUser.full_name?.charAt(0) || viewingUser.email.charAt(0).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex-1 space-y-1">
-                    <h3 className="text-xl font-semibold">{viewingUser.full_name || 'No name'}</h3>
-                    <p className="text-sm text-muted-foreground">{viewingUser.email}</p>
-                    <div className="flex items-center gap-2 pt-2">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold truncate">{viewingUser.full_name || 'No name'}</h3>
+                    <p className="text-sm text-muted-foreground truncate">{viewingUser.email}</p>
+                    <div className="flex items-center gap-2 mt-1">
                       <Badge variant={getRoleBadgeVariant(viewingUser.role!)} className="gap-1">
                         {getRoleIcon(viewingUser.role!)}
                         {viewingUser.role?.replace('_', ' ')}
@@ -1261,183 +1260,166 @@ export default function UserManagement() {
                       </Badge>
                     </div>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsProfileDialogOpen(false);
+                      handleEditUser(viewingUser);
+                    }}
+                  >
+                    <Camera className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2 p-4 border rounded-lg">
-                    <Label className="text-sm text-muted-foreground">Member Since</Label>
-                    <p className="text-lg font-medium">
+                {/* Info Grid - Compact */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1 p-3 border rounded-lg">
+                    <Label className="text-xs text-muted-foreground">Member Since</Label>
+                    <p className="text-sm font-medium">
                       {new Date(viewingUser.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <div className="space-y-2 p-4 border rounded-lg">
-                    <Label className="text-sm text-muted-foreground">Accrued Hours (YTD)</Label>
-                    <div className="space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Paid:</span>
-                        <span className="font-medium">{viewingUser.paid_hours || 0}h</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Unpaid:</span>
-                        <span className="font-medium">{viewingUser.unpaid_hours || 0}h</span>
-                      </div>
-                    </div>
+                  <div className="space-y-1 p-3 border rounded-lg">
+                    <Label className="text-xs text-muted-foreground">Paid Hours (YTD)</Label>
+                    <p className="text-sm font-medium">{viewingUser.paid_hours || 0}h</p>
                   </div>
-                  <div className="space-y-2 p-4 border rounded-lg">
-                    <Label className="text-sm text-muted-foreground">Employee PIN</Label>
-                    <p className="text-2xl font-mono font-bold tracking-wider">
-                      {viewingUser.employee_pin || 'Not Set'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">Used for punch clock</p>
+                  <div className="space-y-1 p-3 border rounded-lg">
+                    <Label className="text-xs text-muted-foreground">Unpaid Hours (YTD)</Label>
+                    <p className="text-sm font-medium">{viewingUser.unpaid_hours || 0}h</p>
                   </div>
-                  <div className="space-y-2 p-4 border rounded-lg col-span-2">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm text-muted-foreground">Current Hourly Wage</Label>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditingWageUser(viewingUser);
-                          setNewWage(viewingUser.hourly_wage?.toString() || '15.00');
-                          setIsWageDialogOpen(true);
-                        }}
-                      >
-                        Add/Edit
-                      </Button>
-                    </div>
+                </div>
+
+                {/* PIN and Wage Section */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2 p-3 border rounded-lg">
+                    <Label className="text-xs text-muted-foreground">Punch Clock PIN</Label>
                     <div className="flex items-center gap-2">
-                      <span className="text-2xl font-bold">${viewingUser.hourly_wage?.toFixed(2) || '15.00'}</span>
-                      <span className="text-sm text-muted-foreground">/hour</span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full mt-2"
-                      onClick={() => {
-                        setViewingWageHistory(viewingUser.id);
-                        setIsWageHistoryDialogOpen(true);
-                      }}
-                    >
-                      View Wage History
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Employee Notes Section */}
-                <div className="space-y-3 border-t pt-4">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <Label>Employee Notes</Label>
-                    <span className="text-xs text-muted-foreground">(Admin & Manager Only)</span>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Textarea
-                      placeholder="Add a note about this employee..."
-                      value={newEmployeeNote}
-                      onChange={(e) => setNewEmployeeNote(e.target.value)}
-                      className="min-h-[80px]"
-                    />
-                    <Button
-                      onClick={handleAddEmployeeNote}
-                      disabled={addingNote || !newEmployeeNote.trim()}
-                      size="sm"
-                      className="w-full"
-                    >
-                      {addingNote ? 'Adding...' : 'Add Note'}
-                    </Button>
-                  </div>
-
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                    {employeeNotes.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-4">No notes yet</p>
-                    ) : (
-                      employeeNotes.map((note) => (
-                        <div key={note.id} className="p-3 border rounded-lg space-y-1">
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm flex-1">{note.note}</p>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteEmployeeNote(note.id)}
-                              className="h-6 w-6 p-0"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>{note.creator?.full_name || 'Unknown'}</span>
-                            <span>•</span>
-                            <span>{new Date(note.created_at).toLocaleString()}</span>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <Label>Actions</Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label className="text-sm text-muted-foreground">Change Role</Label>
-                      <Select
-                        value={viewingUser.role}
-                        onValueChange={(value: AppRole) => {
-                          handleRoleChange(viewingUser.id, value);
-                          setViewingUser({ ...viewingUser, role: value });
+                      <Input
+                        type="text"
+                        maxLength={4}
+                        value={editEmployeePin}
+                        onChange={(e) => {
+                          const value = e.target.value.replace(/\D/g, '');
+                          setEditEmployeePin(value);
                         }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="team_member">Team Member</SelectItem>
-                          <SelectItem value="manager">Manager</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm text-muted-foreground">Status</Label>
+                        placeholder="0000"
+                        className="text-center tracking-widest text-lg font-mono h-9"
+                      />
                       <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => {
-                          handleToggleUserStatus(viewingUser.id, viewingUser.is_active);
-                          setViewingUser({ ...viewingUser, is_active: !viewingUser.is_active });
+                        size="sm"
+                        variant="ghost"
+                        onClick={async () => {
+                          if (editEmployeePin.length !== 4) {
+                            toast({
+                              title: 'Error',
+                              description: 'PIN must be 4 digits',
+                              variant: 'destructive',
+                            });
+                            return;
+                          }
+                          try {
+                            const { error } = await supabase
+                              .from('profiles')
+                              .update({ employee_pin: editEmployeePin })
+                              .eq('id', viewingUser.id);
+                            
+                            if (error) throw error;
+                            
+                            toast({
+                              title: 'Success',
+                              description: 'PIN updated',
+                            });
+                            setViewingUser({ ...viewingUser, employee_pin: editEmployeePin });
+                            fetchUsers();
+                          } catch (error: any) {
+                            toast({
+                              title: 'Error',
+                              description: error.message,
+                              variant: 'destructive',
+                            });
+                          }
                         }}
                       >
-                        {viewingUser.is_active ? 'Deactivate' : 'Activate'}
+                        <Check className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setIsProfileDialogOpen(false);
-                        handleEditUser(viewingUser);
-                      }}
-                    >
-                      <Camera className="h-4 w-4 mr-2" />
-                      Edit Profile
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        setIsProfileDialogOpen(false);
-                        handleOpenResendDialog(viewingUser);
-                      }}
-                    >
-                      Re-invite
-                    </Button>
+                  <div className="space-y-2 p-3 border rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">Hourly Wage</Label>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2"
+                          onClick={() => {
+                            setEditingWageUser(viewingUser);
+                            setNewWage(viewingUser.hourly_wage?.toString() || '15.00');
+                            setIsWageDialogOpen(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2"
+                          onClick={() => {
+                            setViewingWageHistory(viewingUser.id);
+                            setIsWageHistoryDialogOpen(true);
+                          }}
+                        >
+                          History
+                        </Button>
+                      </div>
+                    </div>
+                    <p className="text-lg font-bold">${viewingUser.hourly_wage?.toFixed(2) || '15.00'}/hr</p>
                   </div>
+                </div>
 
+                {/* Quick Actions Grid */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Select
+                    value={viewingUser.role}
+                    onValueChange={(value: AppRole) => {
+                      handleRoleChange(viewingUser.id, value);
+                      setViewingUser({ ...viewingUser, role: value });
+                    }}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="team_member">Team Member</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
                   <Button
                     variant="outline"
-                    className="w-full"
+                    size="sm"
+                    onClick={() => {
+                      handleToggleUserStatus(viewingUser.id, viewingUser.is_active);
+                      setViewingUser({ ...viewingUser, is_active: !viewingUser.is_active });
+                    }}
+                  >
+                    {viewingUser.is_active ? 'Deactivate' : 'Activate'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsProfileDialogOpen(false);
+                      handleOpenResendDialog(viewingUser);
+                    }}
+                  >
+                    Re-invite
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => {
                       setIsProfileDialogOpen(false);
                       handleResetPassword(viewingUser.id, viewingUser.full_name || viewingUser.email);
@@ -1446,20 +1428,73 @@ export default function UserManagement() {
                     <Key className="h-4 w-4 mr-2" />
                     Reset Password
                   </Button>
-
                   {!viewingUser.is_active && (
                     <Button
                       variant="destructive"
-                      className="w-full"
+                      size="sm"
+                      className="col-span-2"
                       onClick={() => {
                         setIsProfileDialogOpen(false);
                         setDeletingUser(viewingUser);
                         setIsDeleteDialogOpen(true);
                       }}
                     >
-                      Delete User Permanently
+                      Delete Permanently
                     </Button>
                   )}
+                </div>
+
+                {/* Employee Notes Section - Compact */}
+                <div className="space-y-2 border-t pt-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Employee Notes
+                    </Label>
+                    <span className="text-xs text-muted-foreground">Admin/Manager Only</span>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Textarea
+                      placeholder="Add note..."
+                      value={newEmployeeNote}
+                      onChange={(e) => setNewEmployeeNote(e.target.value)}
+                      className="min-h-[60px] flex-1"
+                    />
+                    <Button
+                      onClick={handleAddEmployeeNote}
+                      disabled={addingNote || !newEmployeeNote.trim()}
+                      size="sm"
+                      className="self-end"
+                    >
+                      Add
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {employeeNotes.length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-3">No notes yet</p>
+                    ) : (
+                      employeeNotes.map((note) => (
+                        <div key={note.id} className="p-2 border rounded text-xs space-y-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="flex-1">{note.note}</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteEmployeeNote(note.id)}
+                              className="h-5 w-5 p-0"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <p className="text-muted-foreground">
+                            {note.creator?.full_name || 'Unknown'} • {new Date(note.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
             )}
