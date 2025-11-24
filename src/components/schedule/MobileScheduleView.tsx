@@ -5,6 +5,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { BreakIndicator } from './BreakIndicator';
+import { shiftHasBreak } from '@/utils/shiftUtils';
 
 interface Profile {
   id: string;
@@ -186,9 +188,15 @@ export function MobileScheduleView({
                     
                     <div className="flex-1 text-left">
                       <h4 className="font-semibold">{profile.full_name}</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {formatTime(shift.start_time)} – {formatTime(shift.end_time)}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-muted-foreground">
+                          {formatTime(shift.start_time)} – {formatTime(shift.end_time)}
+                        </p>
+                        <BreakIndicator 
+                          hasBreak={shiftHasBreak(shift.start_time, shift.end_time)} 
+                          size="sm"
+                        />
+                      </div>
                       {shift.template?.position && (
                         <div className="flex items-center gap-2 mt-1">
                           <div 

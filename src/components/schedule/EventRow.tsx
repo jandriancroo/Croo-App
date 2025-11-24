@@ -5,10 +5,20 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { startOfWeek, addDays, format } from "date-fns";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface ScheduleEvent {
   id: string;
@@ -30,6 +40,8 @@ interface EventRowProps {
 export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<ScheduleEvent | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     event_name: "",
     event_time: "08:00",
@@ -113,11 +125,18 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
 
       if (error) throw error;
       toast.success("Event deleted");
+      setDeleteDialogOpen(false);
+      setEventToDelete(null);
       onUpdate();
     } catch (error: any) {
       console.error("Error deleting event:", error);
       toast.error("Failed to delete event");
     }
+  };
+
+  const confirmDelete = (eventId: string) => {
+    setEventToDelete(eventId);
+    setDeleteDialogOpen(true);
   };
 
   const formatTime = (time: string) => {
@@ -270,23 +289,60 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
             <div key={dayIndex} className="min-h-[60px] p-2 border-r last:border-r-0 border-border">
               <div className="space-y-1">
                 {dayEvents.map((event) => (
-                  <button
+                  <div
                     key={event.id}
-                    onClick={() => isEditable && handleEdit(event)}
-                    disabled={!isEditable}
-                    className="w-full p-2 bg-accent/20 hover:bg-accent/30 rounded text-xs text-left transition-colors disabled:cursor-default"
+                    className="group relative w-full p-2 bg-accent/20 hover:bg-accent/30 rounded text-xs transition-colors"
                   >
-                    <div className="font-medium truncate">
-                      {formatTime(event.event_time)} {event.event_name}
-                      {!event.is_recurring && " (One-time)"}
-                    </div>
-                  </button>
+                    <button
+                      onClick={() => isEditable && handleEdit(event)}
+                      disabled={!isEditable}
+                      className="w-full text-left disabled:cursor-default"
+                    >
+                      <div className="font-medium truncate">
+                        {formatTime(event.event_time)} {event.event_name}
+                        {!event.is_recurring && " (One-time)"}
+                      </div>
+                    </button>
+                    {isEditable && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          confirmDelete(event.id);
+                        }}
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/20 rounded transition-opacity"
+                        title="Delete event"
+                      >
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </button>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Event?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this event. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => eventToDelete && handleDelete(eventToDelete)}
+              className="bg-destructive text-destructive-foreground"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

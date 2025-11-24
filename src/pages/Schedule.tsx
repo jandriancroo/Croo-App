@@ -17,6 +17,7 @@ import { EditShiftDialog } from "@/components/schedule/EditShiftDialog";
 import { ConflictWarningDialog } from "@/components/schedule/ConflictWarningDialog";
 import { MobileScheduleView } from "@/components/schedule/MobileScheduleView";
 import { LaborTotals } from "@/components/schedule/LaborTotals";
+import { LiveStatusBadge } from "@/components/schedule/LiveStatusBadge";
 
 interface Profile {
   id: string;
@@ -88,6 +89,7 @@ export default function Schedule() {
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [pendingShiftData, setPendingShiftData] = useState<any>(null);
   const [conflicts, setConflicts] = useState<any[]>([]);
+  const [publishedSnapshot, setPublishedSnapshot] = useState<any>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -143,6 +145,7 @@ export default function Schedule() {
       if (scheduleData) {
         setScheduleId(scheduleData.id);
         setIsPublished(scheduleData.is_published || false);
+        setPublishedSnapshot(scheduleData.published_snapshot);
 
         // Fetch shifts with template data
         const { data: shiftsData, error: shiftsError } = await supabase
@@ -306,6 +309,15 @@ export default function Schedule() {
 
   const executeShiftOperation = async (active: any, userId: string, dayIndex: number, shiftDate: string) => {
     try {
+      // If schedule is published, unpublish it when making changes
+      if (isPublished && scheduleId) {
+        await supabase
+          .from('schedules')
+          .update({ is_published: false })
+          .eq('id', scheduleId);
+        setIsPublished(false);
+      }
+
       if (active.data?.current?.isTemplate || active.isTemplate) {
         // Dragging from template
         const template = active.data?.current?.template || active.template;
@@ -372,21 +384,134 @@ export default function Schedule() {
     
     setIsPublishing(true);
     try {
+      // Get current shifts snapshot
+      const { data: currentShifts, error: shiftsError } = await supabase
+        .from('scheduled_shifts')
+        .select('*')
+        .eq('schedule_id', scheduleId);
+
+      if (shiftsError) throw shiftsError;
+
+      // If republishing, detect and notify changes
+      if (publishedSnapshot) {
+        const changes = detectScheduleChanges(publishedSnapshot, currentShifts || []);
+        
+        if (changes.length > 0) {
+          // Log changes and prepare notifications
+          for (const change of changes) {
+            await supabase
+              .from('schedule_change_log')
+              .insert({
+                schedule_id: scheduleId,
+                user_id: change.user_id,
+                change_type: change.type,
+                old_shift_data: change.oldShift,
+                new_shift_data: change.newShift
+              });
+          }
+          
+          toast.success(`Schedule published! ${changes.length} change(s) notified to affected employees.`);
+        } else {
+          toast.success("Schedule published!");
+        }
+      } else {
+        toast.success("Schedule published! Team members have been notified.");
+      }
+
+      // Update schedule with new snapshot
       const { error } = await supabase
         .from('schedules')
-        .update({ is_published: true })
+        .update({ 
+          is_published: true,
+          published_snapshot: currentShifts
+        })
         .eq('id', scheduleId);
 
       if (error) throw error;
 
       setIsPublished(true);
-      toast.success("Schedule published! Team members have been notified.");
+      setPublishedSnapshot(currentShifts);
     } catch (error: any) {
       console.error('Error publishing schedule:', error);
       toast.error("Failed to publish schedule");
     } finally {
       setIsPublishing(false);
     }
+  };
+
+  const detectScheduleChanges = (oldShifts: any[], newShifts: any[]) => {
+    const changes: any[] = [];
+    const oldShiftsMap = new Map(oldShifts.map(s => [s.id, s]));
+    const newShiftsMap = new Map(newShifts.map(s => [s.id, s]));
+
+    // Check for removed shifts
+    oldShifts.forEach(oldShift => {
+      if (!newShiftsMap.has(oldShift.id) && oldShift.user_id) {
+        changes.push({
+          user_id: oldShift.user_id,
+          type: 'removed',
+          oldShift: oldShift,
+          newShift: null
+        });
+      }
+    });
+
+    // Check for added or changed shifts
+    newShifts.forEach(newShift => {
+      const oldShift = oldShiftsMap.get(newShift.id);
+      
+      if (!oldShift && newShift.user_id) {
+        // New shift added
+        changes.push({
+          user_id: newShift.user_id,
+          type: 'added',
+          oldShift: null,
+          newShift: newShift
+        });
+      } else if (oldShift && newShift.user_id) {
+        // Check if time changed
+        if (oldShift.start_time !== newShift.start_time || 
+            oldShift.end_time !== newShift.end_time) {
+          changes.push({
+            user_id: newShift.user_id,
+            type: 'time_changed',
+            oldShift: oldShift,
+            newShift: newShift
+          });
+        }
+        // Check if date changed
+        else if (oldShift.shift_date !== newShift.shift_date ||
+                 oldShift.day_of_week !== newShift.day_of_week) {
+          changes.push({
+            user_id: newShift.user_id,
+            type: 'date_changed',
+            oldShift: oldShift,
+            newShift: newShift
+          });
+        }
+        // Check if user assignment changed
+        else if (oldShift.user_id !== newShift.user_id) {
+          if (oldShift.user_id) {
+            changes.push({
+              user_id: oldShift.user_id,
+              type: 'removed',
+              oldShift: oldShift,
+              newShift: null
+            });
+          }
+          if (newShift.user_id) {
+            changes.push({
+              user_id: newShift.user_id,
+              type: 'added',
+              oldShift: null,
+              newShift: newShift
+            });
+          }
+        }
+      }
+    });
+
+    return changes;
   };
 
   if (loading) {
@@ -439,10 +564,12 @@ export default function Schedule() {
             </Button>
             {(isAdmin || isManager) && (
               <>
-                {!isPublished && scheduleId && (
-                  <Button onClick={handleGoLive} disabled={isPublishing}>
-                    {isPublishing ? "Publishing..." : "Go Live"}
-                  </Button>
+                {scheduleId && (
+                  <LiveStatusBadge
+                    isPublished={isPublished}
+                    isPublishing={isPublishing}
+                    onGoLive={handleGoLive}
+                  />
                 )}
                 <Button variant="outline" onClick={() => navigate("/shift-templates")}>
                   <Settings className="h-4 w-4 mr-2" />

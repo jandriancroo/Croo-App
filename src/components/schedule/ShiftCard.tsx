@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { BreakIndicator } from "./BreakIndicator";
+import { shiftHasBreak } from "@/utils/shiftUtils";
 
 interface ShiftCardProps {
   shift: any;
@@ -96,6 +98,11 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
       <div className="text-white text-xs font-medium">
         {shift.isTemplate ? shiftData.template_name : `${formatTime(shiftData.start_time)} - ${formatTime(shiftData.end_time)}`}
       </div>
+      {!shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
+        <div className="mt-1">
+          <BreakIndicator hasBreak={true} size="sm" />
+        </div>
+      )}
       {!shift.isTemplate && position && (
         <div className="text-white text-xs opacity-90">{position}</div>
       )}
