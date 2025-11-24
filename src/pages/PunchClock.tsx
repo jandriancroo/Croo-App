@@ -247,7 +247,82 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
           </Button>
           
           <Card className="w-full max-w-5xl overflow-hidden">
-...
+            <div className="grid md:grid-cols-2">
+              {/* Left Side - Image and Quote */}
+              <div className="relative h-full min-h-[500px] bg-cover bg-center" style={{ backgroundImage: `url(${dailyQuote.image})` }}>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
+                  <div className="text-5xl font-bold mb-4">
+                    {format(currentTime, 'h:mm:ss a')}
+                  </div>
+                  <h2 className="text-3xl font-bold mb-4">Welcome to Work!</h2>
+                  <div className="space-y-2">
+                    <p className="text-xl font-medium italic">"{dailyQuote.quote}"</p>
+                    <p className="text-sm opacity-90">- {dailyQuote.verse}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Side - Number Pad */}
+              <CardContent className="p-8 flex flex-col justify-center">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-xl font-semibold mb-4 text-center">Enter Your PIN</h3>
+                    <div className="text-center mb-6">
+                      <div className="text-3xl font-mono tracking-widest h-16 flex items-center justify-center border-2 border-primary/20 rounded-lg bg-muted/50">
+                        {pin.padEnd(4, '•')}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-3">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                      <Button
+                        key={num}
+                        variant="outline"
+                        size="lg"
+                        className="h-16 text-2xl font-semibold hover:bg-primary hover:text-primary-foreground transition-colors"
+                        onClick={() => handleNumberClick(num.toString())}
+                      >
+                        {num}
+                      </Button>
+                    ))}
+                    <Button
+                      variant="ghost"
+                      size="lg"
+                      className="h-16 text-base"
+                      onClick={handleClear}
+                    >
+                      Clear
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="h-16 text-2xl font-semibold hover:bg-primary hover:text-primary-foreground transition-colors"
+                      onClick={() => handleNumberClick('0')}
+                    >
+                      0
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="lg"
+                      className="h-16 text-base"
+                      onClick={handleBackspace}
+                    >
+                      ←
+                    </Button>
+                  </div>
+
+                  <Button
+                    className="w-full h-14 text-lg"
+                    onClick={verifyPin}
+                    disabled={pin.length !== 4}
+                  >
+                    Enter
+                  </Button>
+                </div>
+              </CardContent>
+            </div>
           </Card>
         </div>
       ) : (
@@ -263,7 +338,78 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
           </Button>
           
           <Card className="w-full max-w-md">
-...
+            <CardHeader className="text-center space-y-2">
+              <div className="text-4xl font-bold text-primary">
+                {format(currentTime, 'h:mm:ss a')}
+              </div>
+              <CardTitle className="text-xl">Hello, {currentUser.full_name}!</CardTitle>
+              {todayShift && (
+                <p className="text-sm text-muted-foreground">
+                  Scheduled: {format(new Date(`2000-01-01T${todayShift.start_time}`), 'h:mm a')} - {format(new Date(`2000-01-01T${todayShift.end_time}`), 'h:mm a')}
+                </p>
+              )}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!todayShift ? (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">You are not scheduled to work today.</p>
+                  <Button variant="ghost" onClick={() => setCurrentUser(null)} className="mt-4">
+                    Back
+                  </Button>
+                </div>
+              ) : !isClockedIn ? (
+                <div className="space-y-4">
+                  <Button
+                    className="w-full h-16 text-lg"
+                    onClick={handleClockIn}
+                    disabled={!canClockIn()}
+                  >
+                    <Clock className="mr-2 h-5 w-5" />
+                    Clock In
+                  </Button>
+                  <Button variant="outline" onClick={() => setCurrentUser(null)} className="w-full">
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="text-center py-2 bg-primary/10 rounded-lg">
+                    <p className="text-sm font-medium">Currently Clocked In</p>
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    className="w-full h-14"
+                    onClick={() => handleBreak('break_start', 30)}
+                  >
+                    <Coffee className="mr-2 h-5 w-5" />
+                    30 Min Meal Break (Unpaid)
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    className="w-full h-14"
+                    onClick={() => handleBreak('break_start', 10)}
+                  >
+                    <Coffee className="mr-2 h-5 w-5" />
+                    10 Min Break (Paid)
+                  </Button>
+                  
+                  <Button
+                    variant="destructive"
+                    className="w-full h-14"
+                    onClick={handleClockOut}
+                  >
+                    <LogOut className="mr-2 h-5 w-5" />
+                    Clock Out
+                  </Button>
+                  
+                  <Button variant="ghost" onClick={() => setCurrentUser(null)} className="w-full">
+                    Back
+                  </Button>
+                </div>
+              )}
+            </CardContent>
           </Card>
         </div>
       )}
