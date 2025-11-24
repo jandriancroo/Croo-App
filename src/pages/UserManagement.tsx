@@ -59,6 +59,8 @@ export default function UserManagement() {
   const [resetPasswordUserName, setResetPasswordUserName] = useState<string>('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deletingUser, setDeletingUser] = useState<UserProfile | null>(null);
+  const [viewingUser, setViewingUser] = useState<UserProfile | null>(null);
+  const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -720,41 +722,36 @@ export default function UserManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Photo</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Email</TableHead>
+                    <TableHead>User</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Hours (YTD)</TableHead>
-                    <TableHead>Joined</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {users.map((user) => (
-                    <TableRow key={user.id}>
+                    <TableRow 
+                      key={user.id}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => {
+                        setViewingUser(user);
+                        setIsProfileDialogOpen(true);
+                      }}
+                    >
                       <TableCell>
-                        <Avatar className="h-10 w-10">
-                          <AvatarImage src={user.profile_photo_url || undefined} />
-                          <AvatarFallback>
-                            {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{user.full_name || 'No name'}</div>
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="h-auto p-0 text-xs text-muted-foreground hover:text-primary"
-                            onClick={() => handleEditUser(user)}
-                          >
-                            Edit profile
-                          </Button>
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src={user.profile_photo_url || undefined} />
+                            <AvatarFallback>
+                              {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-medium">{user.full_name || 'No name'}</div>
+                            <div className="text-sm text-muted-foreground">{user.email}</div>
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell>{user.email}</TableCell>
                       <TableCell>
                         <Badge variant={getRoleBadgeVariant(user.role!)} className="gap-1">
                           {getRoleIcon(user.role!)}
@@ -766,71 +763,18 @@ export default function UserManagement() {
                           {user.is_active ? "Active" : "Inactive"}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <div className="space-y-1 text-sm">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="default" className="text-xs">Paid</Badge>
-                            <span>{user.paid_hours || 0}h</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-xs">Unpaid</Badge>
-                            <span>{user.unpaid_hours || 0}h</span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(user.created_at).toLocaleDateString()}
-                      </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Select
-                            value={user.role}
-                            onValueChange={(value: AppRole) => handleRoleChange(user.id, value)}
-                          >
-                            <SelectTrigger className="w-[140px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="team_member">Team Member</SelectItem>
-                              <SelectItem value="manager">Manager</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggleUserStatus(user.id, user.is_active)}
-                          >
-                            {user.is_active ? 'Deactivate' : 'Activate'}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenResendDialog(user)}
-                          >
-                            Re-invite
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleResetPassword(user.id, user.full_name || user.email)}
-                          >
-                            <Key className="h-4 w-4 mr-2" />
-                            Reset Password
-                          </Button>
-                          {!user.is_active && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => {
-                                setDeletingUser(user);
-                                setIsDeleteDialogOpen(true);
-                              }}
-                            >
-                              Delete
-                            </Button>
-                          )}
-                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setViewingUser(user);
+                            setIsProfileDialogOpen(true);
+                          }}
+                        >
+                          View Profile
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -839,6 +783,151 @@ export default function UserManagement() {
             )}
           </CardContent>
         </Card>
+
+        {/* User Profile Details Dialog */}
+        <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>User Profile</DialogTitle>
+              <DialogDescription>
+                View and manage user details
+              </DialogDescription>
+            </DialogHeader>
+            {viewingUser && (
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <Avatar className="h-20 w-20">
+                    <AvatarImage src={viewingUser.profile_photo_url || undefined} />
+                    <AvatarFallback className="text-2xl">
+                      {viewingUser.full_name?.charAt(0) || viewingUser.email.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 space-y-1">
+                    <h3 className="text-xl font-semibold">{viewingUser.full_name || 'No name'}</h3>
+                    <p className="text-sm text-muted-foreground">{viewingUser.email}</p>
+                    <div className="flex items-center gap-2 pt-2">
+                      <Badge variant={getRoleBadgeVariant(viewingUser.role!)} className="gap-1">
+                        {getRoleIcon(viewingUser.role!)}
+                        {viewingUser.role?.replace('_', ' ')}
+                      </Badge>
+                      <Badge variant={viewingUser.is_active ? "default" : "secondary"}>
+                        {viewingUser.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2 p-4 border rounded-lg">
+                    <Label className="text-sm text-muted-foreground">Member Since</Label>
+                    <p className="text-lg font-medium">
+                      {new Date(viewingUser.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="space-y-2 p-4 border rounded-lg">
+                    <Label className="text-sm text-muted-foreground">Accrued Hours (YTD)</Label>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Paid:</span>
+                        <span className="font-medium">{viewingUser.paid_hours || 0}h</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Unpaid:</span>
+                        <span className="font-medium">{viewingUser.unpaid_hours || 0}h</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>Actions</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Change Role</Label>
+                      <Select
+                        value={viewingUser.role}
+                        onValueChange={(value: AppRole) => {
+                          handleRoleChange(viewingUser.id, value);
+                          setViewingUser({ ...viewingUser, role: value });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="team_member">Team Member</SelectItem>
+                          <SelectItem value="manager">Manager</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Status</Label>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          handleToggleUserStatus(viewingUser.id, viewingUser.is_active);
+                          setViewingUser({ ...viewingUser, is_active: !viewingUser.is_active });
+                        }}
+                      >
+                        {viewingUser.is_active ? 'Deactivate' : 'Activate'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsProfileDialogOpen(false);
+                        handleEditUser(viewingUser);
+                      }}
+                    >
+                      <Camera className="h-4 w-4 mr-2" />
+                      Edit Profile
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsProfileDialogOpen(false);
+                        handleOpenResendDialog(viewingUser);
+                      }}
+                    >
+                      Re-invite
+                    </Button>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      setIsProfileDialogOpen(false);
+                      handleResetPassword(viewingUser.id, viewingUser.full_name || viewingUser.email);
+                    }}
+                  >
+                    <Key className="h-4 w-4 mr-2" />
+                    Reset Password
+                  </Button>
+
+                  {!viewingUser.is_active && (
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      onClick={() => {
+                        setIsProfileDialogOpen(false);
+                        setDeletingUser(viewingUser);
+                        setIsDeleteDialogOpen(true);
+                      }}
+                    >
+                      Delete User Permanently
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Edit User Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
@@ -986,6 +1075,155 @@ export default function UserManagement() {
                 Close
               </Button>
             </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* User Profile Details Dialog */}
+        <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>User Profile</DialogTitle>
+              <DialogDescription>
+                View and manage user details
+              </DialogDescription>
+            </DialogHeader>
+            {viewingUser && (
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <Avatar className="h-20 w-20">
+                    <AvatarImage src={viewingUser.profile_photo_url || undefined} />
+                    <AvatarFallback className="text-2xl">
+                      {viewingUser.full_name
+                        ?.split(' ')
+                        .map((n) => n[0])
+                        .join('')
+                        .toUpperCase() || '?'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 space-y-1">
+                    <h3 className="text-xl font-semibold">{viewingUser.full_name || 'No name'}</h3>
+                    <p className="text-sm text-muted-foreground">{viewingUser.email}</p>
+                    <div className="flex items-center gap-2 pt-2">
+                      <Badge variant={getRoleBadgeVariant(viewingUser.role!)}>
+                        {getRoleIcon(viewingUser.role!)}
+                        {viewingUser.role?.replace('_', ' ')}
+                      </Badge>
+                      <Badge variant={viewingUser.is_active ? "default" : "secondary"}>
+                        {viewingUser.is_active ? "Active" : "Inactive"}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2 p-4 border rounded-lg">
+                    <Label className="text-sm text-muted-foreground">Member Since</Label>
+                    <p className="text-lg font-medium">
+                      {new Date(viewingUser.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="space-y-2 p-4 border rounded-lg">
+                    <Label className="text-sm text-muted-foreground">Accrued Hours</Label>
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Paid:</span>
+                        <span className="font-medium">{viewingUser.paid_hours || 0}h</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">Unpaid:</span>
+                        <span className="font-medium">{viewingUser.unpaid_hours || 0}h</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <Label>Actions</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Change Role</Label>
+                      <Select
+                        value={viewingUser.role}
+                        onValueChange={(value: AppRole) => {
+                          handleRoleChange(viewingUser.id, value);
+                          setViewingUser({ ...viewingUser, role: value });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="team_member">Team Member</SelectItem>
+                          <SelectItem value="manager">Manager</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">Status</Label>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          handleToggleUserStatus(viewingUser.id, viewingUser.is_active);
+                          setViewingUser({ ...viewingUser, is_active: !viewingUser.is_active });
+                        }}
+                      >
+                        {viewingUser.is_active ? 'Deactivate' : 'Activate'}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsProfileDialogOpen(false);
+                        handleEditUser(viewingUser);
+                      }}
+                    >
+                      <Camera className="h-4 w-4 mr-2" />
+                      Edit Profile
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsProfileDialogOpen(false);
+                        handleOpenResendDialog(viewingUser);
+                      }}
+                    >
+                      Re-invite
+                    </Button>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      setIsProfileDialogOpen(false);
+                      handleResetPassword(viewingUser.id, viewingUser.full_name || viewingUser.email);
+                    }}
+                  >
+                    <Key className="h-4 w-4 mr-2" />
+                    Reset Password
+                  </Button>
+
+                  {!viewingUser.is_active && (
+                    <Button
+                      variant="destructive"
+                      className="w-full"
+                      onClick={() => {
+                        setIsProfileDialogOpen(false);
+                        setDeletingUser(viewingUser);
+                        setIsDeleteDialogOpen(true);
+                      }}
+                    >
+                      Delete User Permanently
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
 
