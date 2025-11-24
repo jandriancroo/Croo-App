@@ -72,7 +72,6 @@ export const Layout = ({ children }: LayoutProps) => {
             />
           </button>
           <nav className="hidden items-center gap-1 md:flex flex-1">
-            <LocationSelector />
             {mainNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -118,7 +117,8 @@ export const Layout = ({ children }: LayoutProps) => {
             </DropdownMenu>
           </nav>
           
-          <div className="hidden md:flex items-center gap-1">
+          <div className="hidden md:flex items-center gap-2">
+            <LocationSelector />
             {isAdmin && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
