@@ -2,11 +2,13 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { CheckSquare, Home, ClipboardList, History, LogOut, Plus, Users, Calendar, CalendarCheck, DollarSign, MessageSquare, Menu, Clock } from 'lucide-react';
+import { Home, ClipboardList, LogOut, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useState } from 'react';
+import crooLogo from '@/assets/croo-logo.png';
 
 interface LayoutProps {
   children: ReactNode;
@@ -20,49 +22,54 @@ export const Layout = ({ children }: LayoutProps) => {
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const navItems = [
+  const mainNavItems = [
     { path: '/', label: 'Dashboard', icon: Home },
     { path: '/create', label: 'Tasks', icon: ClipboardList },
     { path: '/schedule', label: 'Schedule', icon: Calendar },
-    { path: '/availability', label: 'Availability', icon: CalendarCheck },
-    ...(isAdmin ? [
-      { path: '/users', label: 'Users', icon: Users },
-      { path: '/punch-clock', label: 'Punch Clock', icon: Clock },
-      { path: '/payroll-review', label: 'Payroll Review', icon: DollarSign }
-    ] : []),
     { path: '/messages', label: 'Messages', icon: MessageSquare },
   ];
 
-  // Mobile bottom nav shows only main items
+  const timeMenuItems = [
+    { path: '/availability', label: 'Availability', icon: CalendarCheck },
+    ...(isAdmin ? [
+      { path: '/punch-clock', label: 'Punch Clock', icon: Clock },
+      { path: '/payroll-review', label: 'Payroll Review', icon: DollarSign }
+    ] : []),
+  ];
+
   const mobileMainNavItems = [
     { path: '/', label: 'Dashboard', icon: Home },
     { path: '/schedule', label: 'Schedule', icon: Calendar },
     { path: '/messages', label: 'Messages', icon: MessageSquare },
   ];
 
-  // Items that go in the hamburger menu on mobile
   const mobileMenuItems = [
     { path: '/create', label: 'Tasks', icon: ClipboardList },
     { path: '/availability', label: 'Availability', icon: CalendarCheck },
     ...(isAdmin ? [
-      { path: '/users', label: 'Users', icon: Users },
       { path: '/punch-clock', label: 'Punch Clock', icon: Clock },
-      { path: '/payroll-review', label: 'Payroll Review', icon: DollarSign }
+      { path: '/payroll-review', label: 'Payroll Review', icon: DollarSign },
+      { path: '/users', label: 'Users', icon: Users },
     ] : []),
+    { path: '/settings', label: 'Settings', icon: SettingsIcon },
   ];
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-br from-background via-primary/5 to-accent/10">
       <header className="sticky top-0 z-50 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className={`container flex items-center justify-between ${isMobile ? 'h-12' : 'h-16'}`}>
-          <div className="flex items-center gap-2">
-            <CheckSquare className={`${isMobile ? 'h-4 w-4' : 'h-6 w-6'} text-primary`} />
-            <h1 className={`${isMobile ? 'text-sm' : 'text-xl'} font-semibold`}>
-              {isMobile ? 'Checks' : 'Line Checks'}
-            </h1>
-          </div>
-          <nav className="hidden items-center gap-1 md:flex">
-            {navItems.map((item) => {
+          <button 
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          >
+            <img 
+              src={crooLogo} 
+              alt="Croo" 
+              className={`${isMobile ? 'h-8' : 'h-10'} w-auto`}
+            />
+          </button>
+          <nav className="hidden items-center gap-1 md:flex flex-1 justify-center">
+            {mainNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
               return (
@@ -77,16 +84,88 @@ export const Layout = ({ children }: LayoutProps) => {
                 </Button>
               );
             })}
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant={['/availability', '/punch-clock', '/payroll-review'].includes(location.pathname) ? 'secondary' : 'ghost'}
+                  className="gap-2"
+                >
+                  <Clock className="h-4 w-4" />
+                  Time
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center" className="bg-background">
+                {timeMenuItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <DropdownMenuItem
+                      key={item.path}
+                      onClick={() => navigate(item.path)}
+                      className="gap-2 cursor-pointer"
+                    >
+                      <Icon className="h-4 w-4" />
+                      {item.label}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
-          <Button 
-            variant="outline" 
-            onClick={signOut} 
-            size={isMobile ? "sm" : "default"}
-            className={`gap-2 ${isMobile ? 'px-2' : ''}`}
-          >
-            <LogOut className={`${isMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />
-            {!isMobile && 'Sign Out'}
-          </Button>
+          
+          <div className="hidden md:flex items-center gap-1">
+            {isAdmin && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant={['/settings', '/users'].includes(location.pathname) ? 'secondary' : 'ghost'}
+                    className="gap-2"
+                  >
+                    <SettingsIcon className="h-4 w-4" />
+                    Settings
+                    <ChevronDown className="h-3 w-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-background">
+                  <DropdownMenuItem
+                    onClick={() => navigate('/users')}
+                    className="gap-2 cursor-pointer"
+                  >
+                    <Users className="h-4 w-4" />
+                    Users
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => navigate('/settings')}
+                    className="gap-2 cursor-pointer"
+                  >
+                    <SettingsIcon className="h-4 w-4" />
+                    Preferences
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            
+            <Button 
+              variant="outline" 
+              onClick={signOut} 
+              className="gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </Button>
+          </div>
+
+          {isMobile && (
+            <Button 
+              variant="outline" 
+              onClick={signOut} 
+              size="sm"
+              className="gap-2 px-2"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
       </header>
       <main className="container flex-1 py-8">{children}</main>

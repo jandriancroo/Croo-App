@@ -13,6 +13,7 @@ import CompleteChecklist from "./pages/CompleteChecklist";
 import History from "./pages/History";
 import SubmissionDetails from "./pages/SubmissionDetails";
 import UserManagement from "./pages/UserManagement";
+import Settings from "./pages/Settings";
 import Schedule from "./pages/Schedule";
 import ShiftTemplates from "./pages/ShiftTemplates";
 import Availability from "./pages/Availability";
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
             <Route path="/punch-clock" element={<PunchClock />} />
             <Route path="/payroll-review" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
