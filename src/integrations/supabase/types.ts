@@ -1183,6 +1183,8 @@ export type Database = {
       }
       time_punches: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           created_at: string | null
           id: string
           notes: string | null
@@ -1192,6 +1194,8 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string | null
           id?: string
           notes?: string | null
@@ -1201,6 +1205,8 @@ export type Database = {
           user_id: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string | null
           id?: string
           notes?: string | null
@@ -1210,6 +1216,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "time_punches_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "time_punches_shift_id_fkey"
             columns: ["shift_id"]
