@@ -30,6 +30,7 @@ export default function LogBook() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
+  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
@@ -46,35 +47,49 @@ export default function LogBook() {
   });
 
   // Set initial category
-  if (!selectedCategory && categories.length > 0) {
-    setSelectedCategory(categories[0].id);
-  }
+  useEffect(() => {
+    if (!selectedCategory && categories.length > 0) {
+      setSelectedCategory(categories[0].id);
+    }
+  }, [categories, selectedCategory]);
 
   // Handle navigation from alert link
   useEffect(() => {
     const entryId = searchParams.get('entryId');
-    if (entryId) {
-      // Fetch the entry to get its date and category
+    if (entryId && categories.length > 0) {
+      setPendingEntryId(entryId);
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams, categories]);
+
+  // Process pending entry once categories are loaded
+  useEffect(() => {
+    if (pendingEntryId && categories.length > 0) {
       supabase
         .from('logbook_entries')
         .select('entry_date, category_id')
-        .eq('id', entryId)
+        .eq('id', pendingEntryId)
         .single()
         .then(({ data, error }) => {
           if (data && !error) {
-            setSelectedDate(new Date(data.entry_date));
             setSelectedCategory(data.category_id);
-            // Clear the URL parameter
-            setSearchParams({});
-            // Show toast notification
+            setSelectedDate(new Date(data.entry_date + 'T00:00:00'));
+            setPendingEntryId(null);
             toast({
               title: "Entry found",
-              description: "Navigated to the selected log entry",
+              description: "Showing the selected log entry",
             });
+          } else {
+            toast({
+              title: "Entry not found",
+              description: "Could not locate the log entry",
+              variant: "destructive",
+            });
+            setPendingEntryId(null);
           }
         });
     }
-  }, [searchParams, setSearchParams, toast]);
+  }, [pendingEntryId, categories, toast]);
 
   // Fetch fields for selected category
   const { data: fields = [] } = useQuery({
