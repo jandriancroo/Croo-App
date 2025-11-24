@@ -11,18 +11,23 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Paperclip, Search, User } from "lucide-react";
+import { CalendarIcon, Paperclip, Search, User, Settings } from "lucide-react";
 import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
+import { useUserRole } from "@/hooks/useUserRole";
+import { ManageCategoriesDialog } from "@/components/logbook/ManageCategoriesDialog";
 
 export default function LogBook() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { isAdmin } = useUserRole();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
@@ -102,6 +107,37 @@ export default function LogBook() {
 
   const [formData, setFormData] = useState<Record<string, any>>({});
 
+  // Handle file upload
+  const handleFileUpload = async (fieldId: string, file: File) => {
+    try {
+      setUploadingFiles({ ...uploadingFiles, [fieldId]: true });
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user!.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('logbook-attachments')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('logbook-attachments')
+        .getPublicUrl(fileName);
+
+      setFormData({ ...formData, [fieldId]: publicUrl });
+      toast({ title: "File uploaded successfully" });
+    } catch (error: any) {
+      toast({
+        title: "Error uploading file",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingFiles({ ...uploadingFiles, [fieldId]: false });
+    }
+  };
+
   // Save entry mutation
   const saveEntryMutation = useMutation({
     mutationFn: async () => {
@@ -179,7 +215,15 @@ export default function LogBook() {
   return (
     <Layout>
       <div className="container max-w-6xl mx-auto p-6">
-        <h1 className="text-3xl font-bold mb-6">Log Book</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Log Book</h1>
+          {isAdmin && (
+            <Button variant="outline" onClick={() => setManageCategoriesOpen(true)}>
+              <Settings className="h-4 w-4 mr-2" />
+              Manage Categories
+            </Button>
+          )}
+        </div>
 
         <Tabs defaultValue="entry" className="space-y-4">
           <TabsList>
@@ -264,19 +308,33 @@ export default function LogBook() {
                         />
                       )}
                       {field.field_type === 'attachment' && (
-                        <div className="flex items-center gap-2">
-                          <Input
-                            type="file"
-                            onChange={(e) => {
-                              // Handle file upload
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                // TODO: Upload to storage
-                                setFormData({ ...formData, [field.id]: file.name });
-                              }
-                            }}
-                          />
-                          <Paperclip className="h-4 w-4 text-muted-foreground" />
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="file"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  handleFileUpload(field.id, file);
+                                }
+                              }}
+                              disabled={uploadingFiles[field.id]}
+                            />
+                            <Paperclip className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          {uploadingFiles[field.id] && (
+                            <p className="text-xs text-muted-foreground">Uploading...</p>
+                          )}
+                          {formData[field.id] && !uploadingFiles[field.id] && (
+                            <a 
+                              href={formData[field.id]} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline"
+                            >
+                              View uploaded file
+                            </a>
+                          )}
                         </div>
                       )}
                     </div>
@@ -341,6 +399,13 @@ export default function LogBook() {
             </div>
           </TabsContent>
         </Tabs>
+
+        {isAdmin && (
+          <ManageCategoriesDialog
+            open={manageCategoriesOpen}
+            onOpenChange={setManageCategoriesOpen}
+          />
+        )}
       </div>
     </Layout>
   );
