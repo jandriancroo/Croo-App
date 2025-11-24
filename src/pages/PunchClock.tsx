@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { Clock, Coffee, LogOut } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import crooLogo from '@/assets/croo-logo.png';
 
 const DAILY_QUOTES = [
   { quote: "Do your work heartily, as for the Lord", verse: "Colossians 3:23", image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80" },
@@ -249,7 +250,12 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
       </Dialog>
 
       {!currentUser ? (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+          {/* Logo */}
+          <div className="mb-8">
+            <img src={crooLogo} alt="Croo" className="h-24 w-auto" />
+          </div>
+          
           {/* Exit Button */}
           <Button
             size="sm"
@@ -340,7 +346,12 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
           </Card>
         </div>
       ) : (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+          {/* Logo */}
+          <div className="mb-8">
+            <img src={crooLogo} alt="Croo" className="h-24 w-auto" />
+          </div>
+          
           {/* Exit Button */}
           <Button
             size="sm"
