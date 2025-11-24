@@ -19,10 +19,10 @@ interface ChecklistItem {
   item_type: 'text' | 'multiple_choice' | 'image';
   options?: string[];
   is_required: boolean;
+  reference_type?: 'none' | 'link' | 'image' | 'video';
   reference_image_url?: string;
   reference_link?: string;
   reference_video_url?: string;
-  reference_notes?: string;
 }
 
 export default function CreateChecklist() {
@@ -30,7 +30,7 @@ export default function CreateChecklist() {
   const [description, setDescription] = useState('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [items, setItems] = useState<ChecklistItem[]>([
-    { question: '', item_type: 'text', is_required: true }
+    { question: '', item_type: 'text', is_required: true, reference_type: 'none' }
   ]);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState<string | null>(null);
@@ -56,7 +56,7 @@ export default function CreateChecklist() {
   }
 
   const addItem = () => {
-    setItems([...items, { question: '', item_type: 'text', is_required: true }]);
+    setItems([...items, { question: '', item_type: 'text', is_required: true, reference_type: 'none' }]);
   };
 
   const removeItem = (index: number) => {
@@ -121,10 +121,10 @@ export default function CreateChecklist() {
         options: item.item_type === 'multiple_choice' ? item.options : null,
         order_index: index,
         is_required: item.is_required,
-        reference_image_url: item.reference_image_url || null,
-        reference_link: item.reference_link || null,
-        reference_video_url: item.reference_video_url || null,
-        reference_notes: item.reference_notes || null,
+        reference_image_url: item.reference_type === 'image' ? item.reference_image_url : null,
+        reference_link: item.reference_type === 'link' ? item.reference_link : null,
+        reference_video_url: item.reference_type === 'video' ? item.reference_video_url : null,
+        reference_notes: null,
       }));
 
       const { error: itemsError } = await supabase
@@ -254,19 +254,43 @@ export default function CreateChecklist() {
                           </div>
                         )}
 
-                        {/* Reference Materials Section */}
+                        {/* Reference Material Section */}
                         <div className="border-t pt-4 space-y-4">
-                          <Label className="text-sm font-semibold">Reference Materials (Optional)</Label>
+                          <Label className="text-sm font-semibold">Reference Material (Optional)</Label>
                           
-                          {/* Reference Image */}
-                          <div className="space-y-2">
-                            <Label htmlFor={`ref-image-${index}`} className="text-sm flex items-center gap-2">
-                              <Upload className="h-4 w-4" />
-                              Reference Photo
-                            </Label>
-                            <div className="flex gap-2">
+                          <Select
+                            value={item.reference_type || 'none'}
+                            onValueChange={(value: 'none' | 'link' | 'image' | 'video') => {
+                              updateItem(index, 'reference_type', value);
+                              // Clear other reference fields when type changes
+                              if (value !== 'link') updateItem(index, 'reference_link', undefined);
+                              if (value !== 'image') updateItem(index, 'reference_image_url', undefined);
+                              if (value !== 'video') updateItem(index, 'reference_video_url', undefined);
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              <SelectItem value="link">Link</SelectItem>
+                              <SelectItem value="image">Image Upload</SelectItem>
+                              <SelectItem value="video">Video URL</SelectItem>
+                            </SelectContent>
+                          </Select>
+
+                          {item.reference_type === 'link' && (
+                            <Input
+                              value={item.reference_link || ''}
+                              onChange={(e) => updateItem(index, 'reference_link', e.target.value)}
+                              placeholder="https://example.com/resource"
+                              type="url"
+                            />
+                          )}
+
+                          {item.reference_type === 'image' && (
+                            <div className="space-y-2">
                               <Input
-                                id={`ref-image-${index}`}
                                 type="file"
                                 accept="image/*"
                                 onChange={(e) => {
@@ -275,60 +299,24 @@ export default function CreateChecklist() {
                                 }}
                                 disabled={uploadingImage === `${index}`}
                               />
+                              {item.reference_image_url && (
+                                <img
+                                  src={item.reference_image_url}
+                                  alt="Reference"
+                                  className="mt-2 rounded-lg max-h-32 object-cover"
+                                />
+                              )}
                             </div>
-                            {item.reference_image_url && (
-                              <img
-                                src={item.reference_image_url}
-                                alt="Reference"
-                                className="mt-2 rounded-lg max-h-32 object-cover"
-                              />
-                            )}
-                          </div>
+                          )}
 
-                          {/* Reference Link */}
-                          <div className="space-y-2">
-                            <Label htmlFor={`ref-link-${index}`} className="text-sm flex items-center gap-2">
-                              <LinkIcon className="h-4 w-4" />
-                              Reference Link
-                            </Label>
+                          {item.reference_type === 'video' && (
                             <Input
-                              id={`ref-link-${index}`}
-                              type="url"
-                              value={item.reference_link || ''}
-                              onChange={(e) => updateItem(index, 'reference_link', e.target.value)}
-                              placeholder="https://example.com/resource"
-                            />
-                          </div>
-
-                          {/* Reference Video */}
-                          <div className="space-y-2">
-                            <Label htmlFor={`ref-video-${index}`} className="text-sm flex items-center gap-2">
-                              <Video className="h-4 w-4" />
-                              Training Video URL
-                            </Label>
-                            <Input
-                              id={`ref-video-${index}`}
-                              type="url"
                               value={item.reference_video_url || ''}
                               onChange={(e) => updateItem(index, 'reference_video_url', e.target.value)}
                               placeholder="https://youtube.com/watch?v=..."
+                              type="url"
                             />
-                          </div>
-
-                          {/* Reference Notes */}
-                          <div className="space-y-2">
-                            <Label htmlFor={`ref-notes-${index}`} className="text-sm flex items-center gap-2">
-                              <FileText className="h-4 w-4" />
-                              Reference Notes
-                            </Label>
-                            <Textarea
-                              id={`ref-notes-${index}`}
-                              value={item.reference_notes || ''}
-                              onChange={(e) => updateItem(index, 'reference_notes', e.target.value)}
-                              placeholder="Add any instructions or notes for this item..."
-                              rows={3}
-                            />
-                          </div>
+                          )}
                         </div>
                       </div>
                       {items.length > 1 && (
