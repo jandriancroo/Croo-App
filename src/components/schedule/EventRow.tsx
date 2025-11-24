@@ -17,6 +17,7 @@ interface ScheduleEvent {
   day_of_week: number;
   notes: string | null;
   tagged_roles: string[] | null;
+  is_recurring: boolean;
 }
 
 interface EventRowProps {
@@ -28,12 +29,14 @@ interface EventRowProps {
 
 export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<ScheduleEvent | null>(null);
   const [formData, setFormData] = useState({
     event_name: "",
     event_time: "08:00",
     day_of_week: 0,
     notes: "",
     tagged_roles: [] as string[],
+    is_recurring: true,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -41,30 +44,79 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
     if (!scheduleId) return;
 
     try {
-      const { error } = await supabase.from("schedule_events").insert({
-        schedule_id: scheduleId,
-        event_name: formData.event_name,
-        event_time: formData.event_time,
-        day_of_week: formData.day_of_week,
-        notes: formData.notes || null,
-        tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
-      });
+      if (editingEvent) {
+        const { error } = await supabase
+          .from("schedule_events")
+          .update({
+            event_name: formData.event_name,
+            event_time: formData.event_time,
+            day_of_week: formData.day_of_week,
+            notes: formData.notes || null,
+            tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
+            is_recurring: formData.is_recurring,
+          })
+          .eq("id", editingEvent.id);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success("Event updated");
+      } else {
+        const { error } = await supabase.from("schedule_events").insert({
+          schedule_id: scheduleId,
+          event_name: formData.event_name,
+          event_time: formData.event_time,
+          day_of_week: formData.day_of_week,
+          notes: formData.notes || null,
+          tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
+          is_recurring: formData.is_recurring,
+        });
 
-      toast.success("Event created");
+        if (error) throw error;
+        toast.success("Event created");
+      }
+
       setDialogOpen(false);
+      setEditingEvent(null);
       setFormData({
         event_name: "",
         event_time: "08:00",
         day_of_week: 0,
         notes: "",
         tagged_roles: [],
+        is_recurring: true,
       });
       onUpdate();
     } catch (error: any) {
-      console.error("Error creating event:", error);
-      toast.error("Failed to create event");
+      console.error("Error saving event:", error);
+      toast.error("Failed to save event");
+    }
+  };
+
+  const handleEdit = (event: ScheduleEvent) => {
+    setEditingEvent(event);
+    setFormData({
+      event_name: event.event_name,
+      event_time: event.event_time,
+      day_of_week: event.day_of_week,
+      notes: event.notes || "",
+      tagged_roles: event.tagged_roles || [],
+      is_recurring: event.is_recurring,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (eventId: string) => {
+    try {
+      const { error } = await supabase
+        .from("schedule_events")
+        .delete()
+        .eq("id", eventId);
+
+      if (error) throw error;
+      toast.success("Event deleted");
+      onUpdate();
+    } catch (error: any) {
+      console.error("Error deleting event:", error);
+      toast.error("Failed to delete event");
     }
   };
 
@@ -84,7 +136,20 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
       <div className="flex items-center justify-between mb-2 px-4 pt-4">
         <h3 className="font-semibold">Events</h3>
         {isEditable && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) {
+              setEditingEvent(null);
+              setFormData({
+                event_name: "",
+                event_time: "08:00",
+                day_of_week: 0,
+                notes: "",
+                tagged_roles: [],
+                is_recurring: true,
+              });
+            }
+          }}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm">
                 <Plus className="h-4 w-4 mr-2" />
@@ -93,7 +158,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create Event</DialogTitle>
+                <DialogTitle>{editingEvent ? "Edit Event" : "Create Event"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
@@ -175,8 +240,21 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
                   </div>
                 </div>
 
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="is_recurring"
+                    checked={formData.is_recurring}
+                    onCheckedChange={(checked) => 
+                      setFormData({ ...formData, is_recurring: checked as boolean })
+                    }
+                  />
+                  <label htmlFor="is_recurring" className="text-sm cursor-pointer">
+                    Repeat weekly on this day
+                  </label>
+                </div>
+
                 <Button type="submit" className="w-full">
-                  Create Event
+                  {editingEvent ? "Update Event" : "Create Event"}
                 </Button>
               </form>
             </DialogContent>
@@ -192,10 +270,17 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
             <div key={dayIndex} className="min-h-[60px] p-2 border-r last:border-r-0 border-border">
               <div className="space-y-1">
                 {dayEvents.map((event) => (
-                  <div key={event.id} className="p-2 bg-primary/10 rounded-md text-xs">
-                    <div className="font-medium">{formatTime(event.event_time)} {event.event_name}</div>
-                    {event.notes && <div className="text-muted-foreground text-[10px] truncate">{event.notes}</div>}
-                  </div>
+                  <button
+                    key={event.id}
+                    onClick={() => isEditable && handleEdit(event)}
+                    disabled={!isEditable}
+                    className="w-full p-2 bg-accent/20 hover:bg-accent/30 rounded text-xs text-left transition-colors disabled:cursor-default"
+                  >
+                    <div className="font-medium truncate">
+                      {formatTime(event.event_time)} {event.event_name}
+                      {!event.is_recurring && " (One-time)"}
+                    </div>
+                  </button>
                 ))}
               </div>
             </div>

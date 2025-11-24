@@ -452,6 +452,7 @@ export type Database = {
           event_name: string
           event_time: string
           id: string
+          is_recurring: boolean
           notes: string | null
           schedule_id: string | null
           tagged_roles: Json | null
@@ -462,6 +463,7 @@ export type Database = {
           event_name: string
           event_time: string
           id?: string
+          is_recurring?: boolean
           notes?: string | null
           schedule_id?: string | null
           tagged_roles?: Json | null
@@ -472,6 +474,7 @@ export type Database = {
           event_name?: string
           event_time?: string
           id?: string
+          is_recurring?: boolean
           notes?: string | null
           schedule_id?: string | null
           tagged_roles?: Json | null
