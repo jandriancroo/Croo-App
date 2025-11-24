@@ -15,9 +15,11 @@ interface EmployeeRowProps {
   templates: any[];
   isEditable: boolean;
   onUpdate: () => void;
+  canTakeShifts?: boolean;
+  currentUserId?: string;
 }
 
-export function EmployeeRow({ profile, shifts, templates, isEditable, onUpdate }: EmployeeRowProps) {
+export function EmployeeRow({ profile, shifts, templates, isEditable, onUpdate, canTakeShifts, currentUserId }: EmployeeRowProps) {
   const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
@@ -39,13 +41,37 @@ export function EmployeeRow({ profile, shifts, templates, isEditable, onUpdate }
 
       {weekDays.map((day, dayIndex) => {
         const dayShifts = shifts.filter((s) => s.day_of_week === dayIndex);
-        return <DayCell key={dayIndex} userId={profile.id} dayIndex={dayIndex} shifts={dayShifts} onUpdate={onUpdate} />;
+        return (
+          <DayCell 
+            key={dayIndex} 
+            userId={profile.id} 
+            dayIndex={dayIndex} 
+            shifts={dayShifts} 
+            onUpdate={onUpdate}
+            canTakeShifts={canTakeShifts}
+            currentUserId={currentUserId}
+          />
+        );
       })}
     </div>
   );
 }
 
-function DayCell({ userId, dayIndex, shifts, onUpdate }: { userId: string; dayIndex: number; shifts: any[]; onUpdate: () => void }) {
+function DayCell({ 
+  userId, 
+  dayIndex, 
+  shifts, 
+  onUpdate, 
+  canTakeShifts, 
+  currentUserId 
+}: { 
+  userId: string; 
+  dayIndex: number; 
+  shifts: any[]; 
+  onUpdate: () => void;
+  canTakeShifts?: boolean;
+  currentUserId?: string;
+}) {
   const dropId = `drop-${userId}-${dayIndex}`;
   const { setNodeRef, isOver } = useDroppable({
     id: dropId,
@@ -60,7 +86,14 @@ function DayCell({ userId, dayIndex, shifts, onUpdate }: { userId: string; dayIn
     >
       <div className="space-y-1">
         {shifts.map((shift) => (
-          <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} />
+          <ShiftCard 
+            key={shift.id} 
+            shift={shift} 
+            onDelete={onUpdate}
+            canTakeShift={canTakeShifts}
+            currentUserId={currentUserId}
+            onTakeShift={onUpdate}
+          />
         ))}
       </div>
     </div>

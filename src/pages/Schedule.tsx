@@ -59,6 +59,13 @@ export default function Schedule() {
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const [activeShift, setActiveShift] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setCurrentUserId(user?.id || null);
+    });
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -286,6 +293,8 @@ export default function Schedule() {
                   templates={templates}
                   isEditable={isAdmin || isManager}
                   onUpdate={fetchScheduleData}
+                  canTakeShifts={isAdmin || isManager}
+                  currentUserId={currentUserId || undefined}
                 />
               ))}
 
@@ -296,6 +305,8 @@ export default function Schedule() {
                 templates={templates}
                 isEditable={isAdmin || isManager}
                 onUpdate={fetchScheduleData}
+                canTakeShifts={isAdmin || isManager}
+                currentUserId={currentUserId || undefined}
               />
             </div>
 

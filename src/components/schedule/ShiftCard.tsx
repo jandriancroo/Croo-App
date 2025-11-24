@@ -9,9 +9,12 @@ interface ShiftCardProps {
   shift: any;
   isDragging?: boolean;
   onDelete?: () => void;
+  canTakeShift?: boolean;
+  currentUserId?: string;
+  onTakeShift?: () => void;
 }
 
-export function ShiftCard({ shift, isDragging, onDelete }: ShiftCardProps) {
+export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUserId, onTakeShift }: ShiftCardProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: shift.isTemplate ? `template-${shift.template.id}` : `shift-${shift.id}`,
     data: shift,
@@ -49,6 +52,25 @@ export function ShiftCard({ shift, isDragging, onDelete }: ShiftCardProps) {
     }
   };
 
+  const handleTakeShift = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!shift.id || !currentUserId) return;
+
+    try {
+      const { error } = await supabase
+        .from("scheduled_shifts")
+        .update({ user_id: currentUserId })
+        .eq("id", shift.id);
+
+      if (error) throw error;
+      toast.success("Shift assigned to you");
+      onTakeShift?.();
+    } catch (error) {
+      console.error("Error taking shift:", error);
+      toast.error("Failed to take shift");
+    }
+  };
+
   const shiftData = shift.isTemplate ? shift.template : shift;
   const bgColor = shiftData.color || "#ef4444";
 
@@ -64,16 +86,28 @@ export function ShiftCard({ shift, isDragging, onDelete }: ShiftCardProps) {
         {shift.isTemplate ? shiftData.template_name : `${formatTime(shiftData.start_time)} - ${formatTime(shiftData.end_time)}`}
       </div>
       {shift.is_time_off && <div className="text-white text-xs">TIME OFF</div>}
-      {!shift.isTemplate && onDelete && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="absolute top-0 right-0 h-6 w-6 opacity-0 group-hover:opacity-100 text-white hover:bg-white/20"
-          onClick={handleDelete}
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
-      )}
+      <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100">
+        {!shift.isTemplate && canTakeShift && shift.user_id !== currentUserId && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-white hover:bg-white/20"
+            onClick={handleTakeShift}
+          >
+            Take
+          </Button>
+        )}
+        {!shift.isTemplate && onDelete && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-white hover:bg-white/20"
+            onClick={handleDelete}
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
     </Card>
   );
 }
