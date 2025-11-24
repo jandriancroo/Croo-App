@@ -63,7 +63,7 @@ export const Layout = ({ children }: LayoutProps) => {
         <div className={`container flex items-center ${isMobile ? 'h-16' : 'h-24'}`}>
           <button 
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-8"
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-8 flex-shrink-0 min-w-[120px]"
           >
             <img 
               src={crooLogo} 
