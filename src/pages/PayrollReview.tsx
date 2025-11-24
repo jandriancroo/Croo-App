@@ -9,6 +9,7 @@ import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { QuickPunchDialog } from '@/components/timeclock/QuickPunchDialog';
 
 export default function PayrollReview() {
   const { isAdmin, isManager } = useUserRole();
@@ -18,12 +19,6 @@ export default function PayrollReview() {
   const [editingPunch, setEditingPunch] = useState<any>(null);
   const [sortBy, setSortBy] = useState<'name' | 'day'>('name');
   const [showQuickEntry, setShowQuickEntry] = useState(false);
-  const [quickEntryData, setQuickEntryData] = useState({
-    user_id: '',
-    punch_type: 'clock_in',
-    punch_time: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-    notes: ''
-  });
 
   useEffect(() => {
     if (isAdmin || isManager) {
@@ -127,32 +122,6 @@ export default function PayrollReview() {
     setTimeCards(sortedCards);
   };
 
-  const handleQuickEntry = async () => {
-    const { error } = await supabase
-      .from('time_punches')
-      .insert({
-        user_id: quickEntryData.user_id,
-        punch_type: quickEntryData.punch_type,
-        punch_time: new Date(quickEntryData.punch_time).toISOString(),
-        notes: quickEntryData.notes || null
-      });
-
-    if (error) {
-      toast.error('Failed to add punch entry');
-      return;
-    }
-
-    toast.success('Punch entry added');
-    setShowQuickEntry(false);
-    setQuickEntryData({
-      user_id: '',
-      punch_type: 'clock_in',
-      punch_time: format(new Date(), "yyyy-MM-dd'T'HH:mm"),
-      notes: ''
-    });
-    fetchTimeCards();
-  };
-
   const handleEditPunch = async (punch: any, newTime: string) => {
     const { error } = await supabase
       .from('time_punches')
@@ -227,70 +196,17 @@ export default function PayrollReview() {
               >
                 Sort by Day
               </Button>
-              <Button onClick={() => setShowQuickEntry(!showQuickEntry)}>
+              <Button onClick={() => setShowQuickEntry(true)}>
                 Quick Entry
               </Button>
             </div>
           </div>
 
-          {showQuickEntry && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Punch Entry</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Employee</label>
-                    <select
-                      className="w-full border rounded-md p-2"
-                      value={quickEntryData.user_id}
-                      onChange={(e) => setQuickEntryData({ ...quickEntryData, user_id: e.target.value })}
-                    >
-                      <option value="">Select employee...</option>
-                      {timeCards.map(card => (
-                        <option key={card.profile.id} value={card.profile.id}>
-                          {card.profile.full_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Punch Type</label>
-                    <select
-                      className="w-full border rounded-md p-2"
-                      value={quickEntryData.punch_type}
-                      onChange={(e) => setQuickEntryData({ ...quickEntryData, punch_type: e.target.value })}
-                    >
-                      <option value="clock_in">Clock In</option>
-                      <option value="clock_out">Clock Out</option>
-                      <option value="break_start">Break Start</option>
-                      <option value="break_end">Break End</option>
-                    </select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Date & Time</label>
-                    <Input
-                      type="datetime-local"
-                      value={quickEntryData.punch_time}
-                      onChange={(e) => setQuickEntryData({ ...quickEntryData, punch_time: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Notes</label>
-                    <Input
-                      placeholder="Optional notes..."
-                      value={quickEntryData.notes}
-                      onChange={(e) => setQuickEntryData({ ...quickEntryData, notes: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <Button onClick={handleQuickEntry} disabled={!quickEntryData.user_id}>
-                  Add Punch Entry
-                </Button>
-              </CardContent>
-            </Card>
-          )}
+          <QuickPunchDialog
+            open={showQuickEntry}
+            onOpenChange={setShowQuickEntry}
+            onSuccess={fetchTimeCards}
+          />
 
           {timeCards.map((card) => (
             <Card key={card.profile.id}>

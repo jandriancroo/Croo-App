@@ -7,13 +7,13 @@ import { format } from 'date-fns';
 import { Clock, Coffee, LogOut } from 'lucide-react';
 
 const DAILY_QUOTES = [
-  { quote: "Do your work heartily, as for the Lord", verse: "Colossians 3:23" },
-  { quote: "Whatever you do, work at it with all your heart", verse: "Colossians 3:23" },
-  { quote: "The Lord will provide", verse: "Genesis 22:14" },
-  { quote: "Trust in the Lord with all your heart", verse: "Proverbs 3:5" },
-  { quote: "I can do all things through Christ", verse: "Philippians 4:13" },
-  { quote: "Be strong and courageous", verse: "Joshua 1:9" },
-  { quote: "This is the day the Lord has made", verse: "Psalm 118:24" },
+  { quote: "Do your work heartily, as for the Lord", verse: "Colossians 3:23", image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80" },
+  { quote: "Whatever you do, work at it with all your heart", verse: "Colossians 3:23", image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&q=80" },
+  { quote: "The Lord will provide", verse: "Genesis 22:14", image: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80" },
+  { quote: "Trust in the Lord with all your heart", verse: "Proverbs 3:5", image: "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800&q=80" },
+  { quote: "I can do all things through Christ", verse: "Philippians 4:13", image: "https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?w=800&q=80" },
+  { quote: "Be strong and courageous", verse: "Joshua 1:9", image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80" },
+  { quote: "This is the day the Lord has made", verse: "Psalm 118:24", image: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80" },
 ];
 
 export default function PunchClock() {
@@ -181,73 +181,84 @@ export default function PunchClock() {
 
   if (!currentUser) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center space-y-4">
-            <div className="text-6xl font-bold text-primary">
-              {format(currentTime, 'h:mm:ss a')}
-            </div>
-            <CardTitle className="text-2xl">Welcome to Work! 🎉</CardTitle>
-            <div className="text-center space-y-1">
-              <p className="text-lg font-medium italic">"{dailyQuote.quote}"</p>
-              <p className="text-sm text-muted-foreground">- {dailyQuote.verse}</p>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div>
-              <div className="text-center mb-4">
-                <div className="text-2xl font-mono tracking-widest h-12 flex items-center justify-center border-2 border-primary/20 rounded-lg bg-muted/50">
-                  {pin.padEnd(4, '•')}
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
+        <Card className="w-full max-w-5xl overflow-hidden">
+          <div className="grid md:grid-cols-2">
+            {/* Left Side - Image and Quote */}
+            <div className="relative h-full min-h-[500px] bg-cover bg-center" style={{ backgroundImage: `url(${dailyQuote.image})` }}>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+              <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
+                <div className="text-5xl font-bold mb-4">
+                  {format(currentTime, 'h:mm:ss a')}
                 </div>
-              </div>
-              
-              <div className="grid grid-cols-3 gap-3">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                  <Button
-                    key={num}
-                    variant="outline"
-                    size="lg"
-                    className="h-16 text-2xl font-semibold"
-                    onClick={() => handleNumberClick(num.toString())}
-                  >
-                    {num}
-                  </Button>
-                ))}
-                <Button
-                  variant="ghost"
-                  size="lg"
-                  className="h-16 text-lg"
-                  onClick={handleClear}
-                >
-                  Clear
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="h-16 text-2xl font-semibold"
-                  onClick={() => handleNumberClick('0')}
-                >
-                  0
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="lg"
-                  className="h-16 text-lg"
-                  onClick={handleBackspace}
-                >
-                  ←
-                </Button>
+                <h2 className="text-3xl font-bold mb-4">Welcome to Work!</h2>
+                <div className="space-y-2">
+                  <p className="text-xl font-medium italic">"{dailyQuote.quote}"</p>
+                  <p className="text-sm opacity-90">- {dailyQuote.verse}</p>
+                </div>
               </div>
             </div>
 
-            <Button
-              className="w-full h-14 text-lg"
-              onClick={verifyPin}
-              disabled={pin.length !== 4}
-            >
-              Enter
-            </Button>
-          </CardContent>
+            {/* Right Side - Number Pad */}
+            <CardContent className="p-8 flex flex-col justify-center">
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-semibold mb-4 text-center">Enter Your PIN</h3>
+                  <div className="text-center mb-6">
+                    <div className="text-3xl font-mono tracking-widest h-16 flex items-center justify-center border-2 border-primary/20 rounded-lg bg-muted/50">
+                      {pin.padEnd(4, '•')}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-3">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                    <Button
+                      key={num}
+                      variant="outline"
+                      size="lg"
+                      className="h-16 text-2xl font-semibold hover:bg-primary hover:text-primary-foreground transition-colors"
+                      onClick={() => handleNumberClick(num.toString())}
+                    >
+                      {num}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="ghost"
+                    size="lg"
+                    className="h-16 text-base"
+                    onClick={handleClear}
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="h-16 text-2xl font-semibold hover:bg-primary hover:text-primary-foreground transition-colors"
+                    onClick={() => handleNumberClick('0')}
+                  >
+                    0
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="lg"
+                    className="h-16 text-base"
+                    onClick={handleBackspace}
+                  >
+                    ←
+                  </Button>
+                </div>
+
+                <Button
+                  className="w-full h-14 text-lg"
+                  onClick={verifyPin}
+                  disabled={pin.length !== 4}
+                >
+                  Enter
+                </Button>
+              </div>
+            </CardContent>
+          </div>
         </Card>
       </div>
     );
