@@ -46,6 +46,7 @@ interface MobileScheduleViewProps {
   profiles: Profile[];
   onShiftClick?: (shift: Shift) => void;
   onWeekChange?: (weekStart: Date) => void;
+  onUpdate?: () => void;
 }
 
 export function MobileScheduleView({
@@ -55,6 +56,7 @@ export function MobileScheduleView({
   profiles,
   onShiftClick,
   onWeekChange,
+  onUpdate,
 }: MobileScheduleViewProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
@@ -253,7 +255,8 @@ export function MobileScheduleView({
         profiles={profiles}
         isAdmin={isAdmin || isManager}
         onShiftUpdated={() => {
-          onShiftClick?.(selectedShift!);
+          onUpdate?.();
+          setShiftDialogOpen(false);
         }}
       />
     </div>
