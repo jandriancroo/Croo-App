@@ -18,6 +18,7 @@ import { ConflictWarningDialog } from "@/components/schedule/ConflictWarningDial
 import { MobileScheduleView } from "@/components/schedule/MobileScheduleView";
 import { LaborTotals } from "@/components/schedule/LaborTotals";
 import { LiveStatusBadge } from "@/components/schedule/LiveStatusBadge";
+import { DayBreakdownDialog } from "@/components/schedule/DayBreakdownDialog";
 
 interface Profile {
   id: string;
@@ -90,6 +91,8 @@ export default function Schedule() {
   const [pendingShiftData, setPendingShiftData] = useState<any>(null);
   const [conflicts, setConflicts] = useState<any[]>([]);
   const [publishedSnapshot, setPublishedSnapshot] = useState<any>(null);
+  const [selectedDayForBreakdown, setSelectedDayForBreakdown] = useState<Date | null>(null);
+  const [dayBreakdownOpen, setDayBreakdownOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -591,7 +594,14 @@ export default function Schedule() {
             <div className="grid grid-cols-8 gap-0 border-b-2 border-border">
               <div className="font-semibold p-4 border-r border-border bg-muted/50"></div>
               {weekDays.map((day, index) => (
-                <div key={index} className="text-center p-4 border-r last:border-r-0 border-border bg-muted/50">
+                <div 
+                  key={index} 
+                  className="text-center p-4 border-r last:border-r-0 border-border bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+                  onClick={() => {
+                    setSelectedDayForBreakdown(day);
+                    setDayBreakdownOpen(true);
+                  }}
+                >
                   <div className="font-semibold">{format(day, "EEE")}</div>
                   <div className="text-sm text-muted-foreground">{format(day, "MMM d")}</div>
                 </div>
@@ -722,6 +732,15 @@ export default function Schedule() {
           onConfirm={handleConflictConfirm}
           conflicts={conflicts}
         />
+
+        {selectedDayForBreakdown && scheduleId && (
+          <DayBreakdownDialog
+            open={dayBreakdownOpen}
+            onOpenChange={setDayBreakdownOpen}
+            date={selectedDayForBreakdown}
+            scheduleId={scheduleId}
+          />
+        )}
       </div>
       )}
     </Layout>

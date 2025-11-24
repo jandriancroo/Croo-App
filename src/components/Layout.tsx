@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardList, LogOut, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown } from 'lucide-react';
+import { Home, ClipboardList, LogOut, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, BookOpen } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -25,6 +25,7 @@ export const Layout = ({ children }: LayoutProps) => {
   const mainNavItems = [
     { path: '/', label: 'Dashboard', icon: Home },
     { path: '/tasks', label: 'Tasks', icon: ClipboardList },
+    { path: '/logbook', label: 'Log Book', icon: BookOpen },
     { path: '/schedule', label: 'Schedule', icon: Calendar },
     { path: '/messages', label: 'Messages', icon: MessageSquare },
   ];
@@ -39,13 +40,13 @@ export const Layout = ({ children }: LayoutProps) => {
 
   const mobileMainNavItems = [
     { path: '/', label: 'Dashboard', icon: Home },
+    { path: '/tasks', label: 'Tasks', icon: ClipboardList },
     { path: '/schedule', label: 'Schedule', icon: Calendar },
     { path: '/messages', label: 'Messages', icon: MessageSquare },
   ];
 
   const mobileMenuItems = [
-    { path: '/tasks', label: 'Tasks', icon: ClipboardList },
-    { path: '/logbook', label: 'Log Book', icon: ClipboardList },
+    { path: '/logbook', label: 'Log Book', icon: BookOpen },
     { path: '/availability', label: 'Availability', icon: CalendarCheck },
     ...(isAdmin ? [
       { path: '/punch-clock', label: 'Punch Clock', icon: Clock },
