@@ -37,35 +37,70 @@ serve(async (req) => {
         password: password,
         cid: cid,
       }).toString(),
+      redirect: 'manual', // Don't follow redirects automatically
     });
 
-    // Extract cookies from login response
-    const setCookieHeaders = loginResponse.headers.get('set-cookie');
     console.log('Login response status:', loginResponse.status);
     
-    // Step 2: Fetch sales data with authenticated session
-    const cookieString = setCookieHeaders || `CID=${cid}; SID=${sid}`;
+    // Extract ALL cookies from login response
+    const cookieHeaders = loginResponse.headers.getSetCookie?.() || [];
+    console.log('Received cookies:', cookieHeaders.length);
     
-    const salesResponse = await fetch(`${baseUrl}/reports/sales`, {
-      method: 'GET',
-      headers: {
-        'Cookie': cookieString,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-    });
-
-    if (!salesResponse.ok) {
-      console.error('QuBeyond sales fetch failed:', salesResponse.status);
-      throw new Error(`Failed to fetch sales: ${salesResponse.status}`);
+    // Build cookie string from all Set-Cookie headers
+    let cookieString = '';
+    if (cookieHeaders.length > 0) {
+      cookieString = cookieHeaders.map(cookie => {
+        // Extract just the name=value part before the first semicolon
+        const match = cookie.match(/^([^;]+)/);
+        return match ? match[1] : '';
+      }).filter(c => c).join('; ');
+    } else {
+      // Fallback to the original CID/SID
+      cookieString = `CID=${cid}; SID=${sid}`;
+    }
+    
+    console.log('Using cookies:', cookieString);
+    
+    // Step 2: Try different possible sales endpoints
+    const endpoints = [
+      '/dashboard',
+      '/reports',
+      '/sales',
+      '/api/sales',
+      '/reports/sales'
+    ];
+    
+    let salesHtml = '';
+    let successfulEndpoint = '';
+    
+    for (const endpoint of endpoints) {
+      console.log(`Trying endpoint: ${endpoint}`);
+      const response = await fetch(`${baseUrl}${endpoint}`, {
+        method: 'GET',
+        headers: {
+          'Cookie': cookieString,
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        },
+      });
+      
+      const html = await response.text();
+      
+      // Check if this looks like sales data (not a login page)
+      if (!html.includes('<!doctype html>') || html.includes('sales') || html.includes('revenue') || html.includes('total')) {
+        salesHtml = html;
+        successfulEndpoint = endpoint;
+        console.log(`Found data at endpoint: ${endpoint}, length: ${html.length}`);
+        break;
+      }
+    }
+    
+    if (!salesHtml && successfulEndpoint === '') {
+      console.log('All endpoints returned login page, authentication may have failed');
     }
 
-    const html = await salesResponse.text();
-    console.log('Received sales data (length):', html.length);
-    console.log('HTML sample (first 2000 chars):', html.substring(0, 2000));
-    console.log('HTML sample (search for sales/revenue):', html.substring(html.indexOf('sale'), html.indexOf('sale') + 500));
+    console.log('HTML sample (first 500 chars):', salesHtml.substring(0, 500));
 
-    // Parse HTML to extract actual sales data
-    // For now, returning mock data until we can inspect the actual HTML structure
+    // For now, return mock data until we can properly parse the HTML
     const mockData = {
       hourly: [
         { hour: '9:00 AM', sales: 245.50 },
@@ -79,6 +114,11 @@ serve(async (req) => {
       ],
       daily: 5066.50,
       weekly: 28450.75,
+      debug: {
+        endpoint: successfulEndpoint,
+        htmlLength: salesHtml.length,
+        hasLoginPage: salesHtml.includes('<!doctype html>'),
+      }
     };
 
     return new Response(JSON.stringify(mockData), {
