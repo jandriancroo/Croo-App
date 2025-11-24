@@ -12,9 +12,10 @@ interface ShiftCardProps {
   canTakeShift?: boolean;
   currentUserId?: string;
   onTakeShift?: () => void;
+  onEdit?: () => void;
 }
 
-export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUserId, onTakeShift }: ShiftCardProps) {
+export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUserId, onTakeShift, onEdit }: ShiftCardProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: shift.isTemplate ? `template-${shift.template.id}` : `shift-${shift.id}`,
     data: shift,
@@ -74,11 +75,19 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
   const shiftData = shift.isTemplate ? shift.template : shift;
   const bgColor = shiftData.color || "#ef4444";
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (!shift.isTemplate && onEdit) {
+      e.stopPropagation();
+      onEdit();
+    }
+  };
+
   return (
     <Card
       ref={setNodeRef}
       style={{ ...style, backgroundColor: bgColor }}
-      className={`p-2 cursor-grab active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""}`}
+      className={`p-2 ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""}`}
+      onClick={handleCardClick}
       {...listeners}
       {...attributes}
     >

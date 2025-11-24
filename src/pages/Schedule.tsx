@@ -12,6 +12,7 @@ import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSe
 import { ShiftCard } from "@/components/schedule/ShiftCard";
 import { EventRow } from "@/components/schedule/EventRow";
 import { EmployeeRow } from "@/components/schedule/EmployeeRow";
+import { EditShiftDialog } from "@/components/schedule/EditShiftDialog";
 
 interface Profile {
   id: string;
@@ -62,6 +63,7 @@ export default function Schedule() {
   const [loading, setLoading] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [editingShift, setEditingShift] = useState<any>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -327,6 +329,7 @@ export default function Schedule() {
                   onUpdate={fetchScheduleData}
                   canTakeShifts={isAdmin || isManager}
                   currentUserId={currentUserId || undefined}
+                  onEditShift={setEditingShift}
                 />
               ))}
 
@@ -339,6 +342,7 @@ export default function Schedule() {
                 onUpdate={fetchScheduleData}
                 canTakeShifts={isAdmin || isManager}
                 currentUserId={currentUserId || undefined}
+                onEditShift={setEditingShift}
               />
             </div>
 
@@ -367,6 +371,19 @@ export default function Schedule() {
 
           <DragOverlay>{activeShift ? <ShiftCard shift={activeShift} isDragging /> : null}</DragOverlay>
         </DndContext>
+
+        {editingShift && (
+          <EditShiftDialog
+            open={!!editingShift}
+            onOpenChange={(open) => !open && setEditingShift(null)}
+            shift={editingShift}
+            profiles={profiles}
+            templates={templates}
+            onUpdate={fetchScheduleData}
+            scheduleId={scheduleId || ""}
+            currentWeekStart={currentWeekStart}
+          />
+        )}
       </div>
     </Layout>
   );
