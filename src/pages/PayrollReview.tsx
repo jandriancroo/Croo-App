@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { format, startOfDay, endOfDay, addDays, startOfWeek, addWeeks } from 'date-fns';
+import { format, addDays, addWeeks } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
 import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
@@ -33,19 +33,20 @@ export default function PayrollReview() {
   }, [selectedPeriod, sortBy]);
 
   const generatePayPeriods = () => {
-    // Start from Nov 3-16, 2025
-    const baseStart = new Date('2025-11-03');
+    // Base period: Monday Nov 3, 2025 - Sunday Nov 16, 2025
+    // Each pay period is exactly 14 days (2 weeks), Monday to Sunday
+    const baseStart = new Date(2025, 10, 3); // Month is 0-indexed, so 10 = November
     const periods = [];
     
-    // Generate 10 future pay periods
+    // Generate 10 pay periods starting from base date
     for (let i = 0; i <= 9; i++) {
-      const periodStart = addWeeks(baseStart, i * 2);
-      const periodEnd = addDays(periodStart, 13);
+      const periodStart = addWeeks(baseStart, i * 2); // Each period is 2 weeks apart
+      const periodEnd = addDays(periodStart, 13); // 14 days total (0-13 = 14 days)
       
       periods.push({
         start: periodStart,
         end: periodEnd,
-        label: `${format(periodStart, 'MMM d')} - ${format(periodEnd, 'MMM d, yyyy')}`
+        label: `${format(periodStart, 'EEE MMM d')} - ${format(periodEnd, 'EEE MMM d, yyyy')}`
       });
     }
     
