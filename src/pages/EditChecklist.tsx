@@ -35,10 +35,9 @@ interface SortableChecklistItemProps {
   index: number;
   updateItem: (index: number, field: keyof ChecklistItem, value: any) => void;
   removeItem: (index: number) => void;
-  handleReferenceImageUpload: (index: number, file: File) => void;
 }
 
-function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload }: SortableChecklistItemProps) {
+function SortableChecklistItem({ id, item, index, updateItem, removeItem }: SortableChecklistItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -465,7 +464,6 @@ export default function EditChecklist() {
                     index={index}
                     updateItem={updateItem}
                     removeItem={removeItem}
-                    handleReferenceImageUpload={handleReferenceImageUpload}
                   />
                 ))}
               </SortableContext>
