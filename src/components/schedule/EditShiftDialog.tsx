@@ -18,6 +18,7 @@ interface EditShiftDialogProps {
   onUpdate: () => void;
   scheduleId: string;
   currentWeekStart: Date;
+  currentUserId?: string;
 }
 
 export function EditShiftDialog({ 
@@ -28,7 +29,8 @@ export function EditShiftDialog({
   templates,
   onUpdate,
   scheduleId,
-  currentWeekStart
+  currentWeekStart,
+  currentUserId
 }: EditShiftDialogProps) {
   const [startTime, setStartTime] = useState(shift.start_time);
   const [endTime, setEndTime] = useState(shift.end_time);
@@ -45,6 +47,28 @@ export function EditShiftDialog({
         ? prev.filter(d => d !== dayIndex)
         : [...prev, dayIndex]
     );
+  };
+
+  const handleTakeShift = async () => {
+    if (!shift.id || !currentUserId) return;
+    
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("scheduled_shifts")
+        .update({ user_id: currentUserId })
+        .eq("id", shift.id);
+
+      if (error) throw error;
+      toast.success("Shift assigned to you");
+      onUpdate();
+      onOpenChange(false);
+    } catch (error: any) {
+      console.error("Error taking shift:", error);
+      toast.error("Failed to take shift");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSave = async () => {
@@ -202,12 +226,23 @@ export function EditShiftDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
+          <div className="flex justify-between w-full">
+            <div>
+              {currentUserId && shift.user_id !== currentUserId && (
+                <Button variant="secondary" onClick={handleTakeShift} disabled={saving}>
+                  Take This Shift
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
