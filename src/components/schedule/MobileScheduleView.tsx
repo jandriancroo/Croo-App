@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
+import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Calendar as CalendarIcon, MapPin, Users } from 'lucide-react';
+import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface Profile {
@@ -31,6 +31,7 @@ interface Event {
   event_time: string;
   day_of_week: number;
   notes: string | null;
+  is_recurring: boolean;
 }
 
 interface MobileScheduleViewProps {
@@ -39,6 +40,7 @@ interface MobileScheduleViewProps {
   events: Event[];
   profiles: Profile[];
   onShiftClick?: (shift: Shift) => void;
+  onWeekChange?: (weekStart: Date) => void;
 }
 
 export function MobileScheduleView({
@@ -47,11 +49,24 @@ export function MobileScheduleView({
   events,
   profiles,
   onShiftClick,
+  onWeekChange,
 }: MobileScheduleViewProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   const selectedDayOfWeek = weekDays.findIndex(day => isSameDay(day, selectedDate));
+
+  const handlePreviousWeek = () => {
+    const newWeekStart = subWeeks(currentWeekStart, 1);
+    onWeekChange?.(newWeekStart);
+    setSelectedDate(newWeekStart);
+  };
+
+  const handleNextWeek = () => {
+    const newWeekStart = addWeeks(currentWeekStart, 1);
+    onWeekChange?.(newWeekStart);
+    setSelectedDate(newWeekStart);
+  };
 
   // Get shifts and events for selected day
   const dayShifts = shifts.filter(
@@ -77,9 +92,13 @@ export function MobileScheduleView({
     <div className="flex flex-col h-full bg-background">
       {/* Month Header */}
       <div className="flex items-center justify-between p-4 border-b">
-        <CalendarIcon className="h-6 w-6 text-muted-foreground" />
+        <Button variant="ghost" size="icon" onClick={handlePreviousWeek}>
+          <ChevronLeft className="h-5 w-5" />
+        </Button>
         <h2 className="text-lg font-semibold">{format(currentWeekStart, 'MMMM yyyy')}</h2>
-        <div className="w-6" />
+        <Button variant="ghost" size="icon" onClick={handleNextWeek}>
+          <ChevronRight className="h-5 w-5" />
+        </Button>
       </div>
 
       {/* Week Calendar */}
@@ -124,16 +143,17 @@ export function MobileScheduleView({
 
       {/* Events Summary */}
       {dayEvents.length > 0 && (
-        <div className="mx-4 mt-4">
-          <Card className="bg-accent/10 border-accent/20">
-            <div className="flex items-center justify-between p-3">
-              <div className="flex items-center gap-3">
-                <CalendarIcon className="h-5 w-5 text-accent-foreground" />
-                <span className="text-sm font-medium">
-                  There {dayEvents.length === 1 ? 'is' : 'are'} {dayEvents.length} event{dayEvents.length !== 1 ? 's' : ''} on this day
-                </span>
+        <div className="px-4 pt-3">
+          <Card className="bg-accent/30 border-accent/40">
+            <div className="px-3 py-2">
+              <div className="text-xs font-medium text-accent-foreground truncate">
+                {dayEvents.map((e, i) => (
+                  <span key={e.id}>
+                    {i > 0 && ' • '}
+                    {e.event_name}
+                  </span>
+                ))}
               </div>
-              <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </div>
           </Card>
         </div>

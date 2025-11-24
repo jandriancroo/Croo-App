@@ -52,6 +52,7 @@ interface ScheduleEvent {
   day_of_week: number;
   notes: string | null;
   tagged_roles: string[] | null;
+  is_recurring: boolean;
 }
 
 interface AvailabilityRequest {
@@ -163,7 +164,8 @@ export default function Schedule() {
         if (eventsError) throw eventsError;
         setEvents((eventsData || []).map(event => ({
           ...event,
-          tagged_roles: event.tagged_roles as string[] | null
+          tagged_roles: event.tagged_roles as string[] | null,
+          is_recurring: event.is_recurring ?? true
         })));
       }
 
@@ -411,6 +413,7 @@ export default function Schedule() {
           events={events}
           profiles={profiles}
           onShiftClick={(shift) => setEditingShift(shift)}
+          onWeekChange={setCurrentWeekStart}
         />
       ) : (
         <div className="space-y-6 pb-32">
