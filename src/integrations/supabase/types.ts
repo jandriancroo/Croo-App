@@ -122,6 +122,60 @@ export type Database = {
           },
         ]
       }
+      certifications: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          certificate_url: string
+          certification_type: string
+          created_at: string
+          expiration_date: string
+          id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          certificate_url: string
+          certification_type: string
+          created_at?: string
+          expiration_date: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          certificate_url?: string
+          certification_type?: string
+          created_at?: string
+          expiration_date?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "certifications_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "certifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_members: {
         Row: {
           chat_id: string
