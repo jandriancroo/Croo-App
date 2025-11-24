@@ -114,7 +114,12 @@ export default function ShiftTemplates() {
     <Layout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Shift Templates</h1>
+          <div className="flex items-center gap-4">
+            <Button variant="outline" onClick={() => navigate("/schedule")}>
+              ← Back to Schedule
+            </Button>
+            <h1 className="text-3xl font-bold">Shift Templates</h1>
+          </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -194,6 +199,15 @@ export default function ShiftTemplates() {
           </Dialog>
         </div>
 
+        {templates.length > 0 && (
+          <Card className="p-4 bg-muted/50 border-primary/20">
+            <p className="text-sm text-muted-foreground">
+              <strong>How to use:</strong> Create templates for your common shifts (Morning, Evening, etc.). 
+              Go to the Schedule page and drag these templates onto employee rows to quickly assign shifts for the week.
+            </p>
+          </Card>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {templates.map((template) => (
             <Card key={template.id} className="p-4">
@@ -228,7 +242,14 @@ export default function ShiftTemplates() {
 
         {templates.length === 0 && (
           <Card className="p-12 text-center">
-            <p className="text-muted-foreground">No shift templates yet. Create your first template to get started.</p>
+            <h3 className="text-lg font-semibold mb-2">No Shift Templates Yet</h3>
+            <p className="text-muted-foreground mb-4">
+              Create shift templates to quickly assign recurring shifts. Once created, you can drag templates onto employees in the schedule view.
+            </p>
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Create Your First Template
+            </Button>
           </Card>
         )}
       </div>

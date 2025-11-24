@@ -80,8 +80,8 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
   return (
-    <div className="border-b pb-4 mb-4">
-      <div className="flex items-center justify-between mb-2">
+    <div>
+      <div className="flex items-center justify-between mb-2 px-4 pt-4">
         <h3 className="font-semibold">Events</h3>
         {isEditable && (
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -184,18 +184,20 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
         )}
       </div>
 
-      <div className="grid grid-cols-8 gap-4">
-        <div></div>
+      <div className="grid grid-cols-8 gap-0">
+        <div className="p-4 border-r border-border bg-muted/30"></div>
         {weekDays.map((day, dayIndex) => {
           const dayEvents = events.filter((e) => e.day_of_week === dayIndex);
           return (
-            <div key={dayIndex} className="min-h-[60px] space-y-1">
-              {dayEvents.map((event) => (
-                <div key={event.id} className="p-2 bg-primary/10 rounded text-xs">
-                  <div className="font-medium">{formatTime(event.event_time)} {event.event_name}</div>
-                  {event.notes && <div className="text-muted-foreground text-[10px] truncate">{event.notes}</div>}
-                </div>
-              ))}
+            <div key={dayIndex} className="min-h-[60px] p-2 border-r last:border-r-0 border-border">
+              <div className="space-y-1">
+                {dayEvents.map((event) => (
+                  <div key={event.id} className="p-2 bg-primary/10 rounded-md text-xs">
+                    <div className="font-medium">{formatTime(event.event_time)} {event.event_name}</div>
+                    {event.notes && <div className="text-muted-foreground text-[10px] truncate">{event.notes}</div>}
+                  </div>
+                ))}
+              </div>
             </div>
           );
         })}
