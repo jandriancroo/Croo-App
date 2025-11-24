@@ -208,39 +208,39 @@ export default function CompleteChecklist() {
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-3">
           {items.map((item) => (
-            <Card key={item.id}>
-              <CardHeader>
-                <CardTitle className="text-lg">
+            <Card key={item.id} className="overflow-hidden">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-medium">
                   {item.question}
                   {item.is_required && <span className="text-destructive ml-1">*</span>}
                 </CardTitle>
                 
                 {/* Reference Material Display */}
                 {(item.reference_image_url || item.reference_link || item.reference_video_url) && (
-                  <div className="mt-4 space-y-3 bg-muted/50 p-4 rounded-lg">
-                    <div className="text-sm font-semibold">Reference Material:</div>
+                  <div className="mt-2 space-y-2 bg-muted/30 p-2 rounded text-xs">
+                    <div className="font-medium text-muted-foreground">Reference:</div>
                     
                     {item.reference_image_url && (
-                      <div className="space-y-2">
-                        <Badge variant="secondary" className="text-xs">Photo</Badge>
+                      <div className="space-y-1">
+                        <Badge variant="secondary" className="text-[10px] h-4">Photo</Badge>
                         <img
                           src={item.reference_image_url}
                           alt="Reference"
-                          className="rounded-lg max-h-48 object-cover border"
+                          className="rounded max-h-32 object-cover border"
                         />
                       </div>
                     )}
                     
                     {item.reference_link && (
-                      <div className="space-y-1">
-                        <Badge variant="secondary" className="text-xs">Link</Badge>
+                      <div className="space-y-0.5">
+                        <Badge variant="secondary" className="text-[10px] h-4">Link</Badge>
                         <a
                           href={item.reference_link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline block break-all"
+                          className="text-xs text-primary hover:underline block break-all"
                         >
                           {item.reference_link}
                         </a>
@@ -248,13 +248,13 @@ export default function CompleteChecklist() {
                     )}
                     
                     {item.reference_video_url && (
-                      <div className="space-y-1">
-                        <Badge variant="secondary" className="text-xs">Video</Badge>
+                      <div className="space-y-0.5">
+                        <Badge variant="secondary" className="text-[10px] h-4">Video</Badge>
                         <a
                           href={item.reference_video_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline block break-all"
+                          className="text-xs text-primary hover:underline block break-all"
                         >
                           {item.reference_video_url}
                         </a>
@@ -263,7 +263,7 @@ export default function CompleteChecklist() {
                   </div>
                 )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-0">
                 {item.item_type === 'text' && (
                   <Textarea
                     value={responses[item.id] || ''}
@@ -272,6 +272,7 @@ export default function CompleteChecklist() {
                     }
                     placeholder="Enter your response"
                     required={item.is_required}
+                    className="min-h-[60px] text-sm"
                   />
                 )}
                 {item.item_type === 'multiple_choice' && item.options && (
@@ -281,11 +282,12 @@ export default function CompleteChecklist() {
                       setResponses({ ...responses, [item.id]: value })
                     }
                     required={item.is_required}
+                    className="space-y-1.5"
                   >
                     {item.options.map((option) => (
                       <div key={option} className="flex items-center space-x-2">
-                        <RadioGroupItem value={option} id={`${item.id}-${option}`} />
-                        <Label htmlFor={`${item.id}-${option}`}>{option}</Label>
+                        <RadioGroupItem value={option} id={`${item.id}-${option}`} className="h-4 w-4" />
+                        <Label htmlFor={`${item.id}-${option}`} className="text-sm font-normal cursor-pointer">{option}</Label>
                       </div>
                     ))}
                   </RadioGroup>
@@ -293,9 +295,9 @@ export default function CompleteChecklist() {
                 {item.item_type === 'image' && (
                   <div className="space-y-2">
                     <Label htmlFor={`image-${item.id}`} className="cursor-pointer">
-                      <div className="flex items-center justify-center gap-2 p-8 border-2 border-dashed border-border rounded-lg hover:border-primary transition-colors">
-                        <Upload className="h-6 w-6" />
-                        <span>Click to upload image</span>
+                      <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-border rounded hover:border-primary transition-colors">
+                        <Upload className="h-4 w-4" />
+                        <span className="text-sm">Tap to take photo</span>
                       </div>
                     </Label>
                     <Input
@@ -307,7 +309,6 @@ export default function CompleteChecklist() {
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) handleImageUpload(item.id, file);
-                        // Clear input to force camera re-open
                         e.target.value = '';
                       }}
                       required={item.is_required && !responses[item.id]}
@@ -316,15 +317,15 @@ export default function CompleteChecklist() {
                       <img
                         src={responses[item.id]}
                         alt="Uploaded"
-                        className="mt-4 rounded-lg max-h-64 object-cover"
+                        className="rounded max-h-48 object-cover border"
                       />
                     )}
                   </div>
                 )}
                 {item.item_type === 'confirmation' && (
-                  <div className="flex items-center justify-center py-8">
+                  <div className="py-3">
                     <div 
-                      className={`flex flex-col items-center gap-4 p-8 rounded-lg border-2 transition-all cursor-pointer ${
+                      className={`flex items-center gap-3 p-3 rounded border-2 transition-all cursor-pointer ${
                         responses[item.id] 
                           ? 'bg-destructive/10 border-destructive' 
                           : 'border-border hover:border-destructive/50'
@@ -332,28 +333,31 @@ export default function CompleteChecklist() {
                       onClick={() => setResponses({ ...responses, [item.id]: !responses[item.id] })}
                     >
                       <CheckCircle2 
-                        className={`h-24 w-24 transition-colors ${
+                        className={`h-8 w-8 flex-shrink-0 transition-colors ${
                           responses[item.id] ? 'text-destructive' : 'text-muted-foreground'
                         }`}
-                        strokeWidth={2.5}
+                        strokeWidth={2}
                       />
-                      <div className="flex items-center gap-2">
-                        <Checkbox 
-                          checked={responses[item.id] || false}
-                          onCheckedChange={(checked) => 
-                            setResponses({ ...responses, [item.id]: checked })
-                          }
-                          required={item.is_required}
-                        />
-                        <Label className="text-lg font-semibold cursor-pointer">
-                          {responses[item.id] ? 'Confirmed' : 'Click to confirm'}
-                        </Label>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Checkbox 
+                            checked={responses[item.id] || false}
+                            onCheckedChange={(checked) => 
+                              setResponses({ ...responses, [item.id]: checked })
+                            }
+                            required={item.is_required}
+                            className="h-4 w-4"
+                          />
+                          <Label className="text-sm font-medium cursor-pointer">
+                            {responses[item.id] ? 'Confirmed' : 'Tap to confirm'}
+                          </Label>
+                        </div>
+                        {item.reference_notes && (
+                          <p className="text-xs text-muted-foreground">
+                            {item.reference_notes}
+                          </p>
+                        )}
                       </div>
-                      {item.reference_notes && (
-                        <p className="text-sm text-muted-foreground text-center max-w-md">
-                          {item.reference_notes}
-                        </p>
-                      )}
                     </div>
                   </div>
                 )}
@@ -362,26 +366,27 @@ export default function CompleteChecklist() {
           ))}
 
           <Card>
-            <CardHeader>
-              <CardTitle>Additional Notes (Optional)</CardTitle>
-              <CardDescription>Add any additional comments or observations</CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base font-medium">Additional Notes (Optional)</CardTitle>
+              <CardDescription className="text-xs">Add any additional comments</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Enter any additional notes"
-                rows={4}
+                rows={3}
+                className="text-sm"
               />
             </CardContent>
           </Card>
 
-          <div className="flex gap-4">
+          <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => navigate('/')} className="flex-1">
               Cancel
             </Button>
             <Button type="submit" disabled={submitting} className="flex-1">
-              {submitting ? 'Submitting...' : 'Submit Checklist'}
+              {submitting ? 'Submitting...' : 'Submit'}
             </Button>
           </div>
         </form>
