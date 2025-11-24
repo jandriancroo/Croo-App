@@ -23,7 +23,7 @@ serve(async (req) => {
 
     console.log('Authenticating with QuBeyond for period:', period);
 
-    const baseUrl = 'https://www.qubeyond.com';
+    const baseUrl = 'https://admin.qubeyond.com';
     
     // Step 1: Attempt to log in with credentials
     const loginResponse = await fetch(`${baseUrl}/login`, {
