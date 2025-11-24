@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,9 +13,9 @@ interface DayBreakdownDialogProps {
 
 export function DayBreakdownDialog({ open, onOpenChange, date, scheduleId }: DayBreakdownDialogProps) {
   const { data: dayShifts = [], isLoading } = useQuery({
-    queryKey: ['day-breakdown', scheduleId, date.toISOString()],
+    queryKey: ['day-breakdown', scheduleId, format(date, 'yyyy-MM-dd')],
     queryFn: async () => {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = format(date, 'yyyy-MM-dd');
       
       // Get all shifts for this schedule
       const { data: allShifts, error: shiftsError } = await supabase
@@ -108,6 +108,9 @@ export function DayBreakdownDialog({ open, onOpenChange, date, scheduleId }: Day
       <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-xl">{format(date, 'EEEE, MMMM d, yyyy')}</DialogTitle>
+          <DialogDescription>
+            Hourly staffing and labor cost overview for the selected day.
+          </DialogDescription>
         </DialogHeader>
 
         {isLoading ? (
