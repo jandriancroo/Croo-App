@@ -580,6 +580,7 @@ export type Database = {
           birthday: string | null
           created_at: string | null
           email: string
+          employee_pin: string | null
           full_name: string | null
           hourly_wage: number | null
           id: string
@@ -593,6 +594,7 @@ export type Database = {
           birthday?: string | null
           created_at?: string | null
           email: string
+          employee_pin?: string | null
           full_name?: string | null
           hourly_wage?: number | null
           id: string
@@ -606,6 +608,7 @@ export type Database = {
           birthday?: string | null
           created_at?: string | null
           email?: string
+          employee_pin?: string | null
           full_name?: string | null
           hourly_wage?: number | null
           id?: string
@@ -884,6 +887,51 @@ export type Database = {
         }
         Relationships: []
       }
+      time_punches: {
+        Row: {
+          created_at: string | null
+          id: string
+          notes: string | null
+          punch_time: string
+          punch_type: string
+          shift_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          punch_time?: string
+          punch_type: string
+          shift_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          punch_time?: string
+          punch_type?: string
+          shift_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "time_punches_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "scheduled_shifts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_punches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null
@@ -958,6 +1006,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_unique_pin: { Args: never; Returns: string }
       get_current_wage: {
         Args: { p_date?: string; p_user_id: string }
         Returns: number

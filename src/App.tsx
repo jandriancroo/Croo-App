@@ -18,6 +18,8 @@ import ShiftTemplates from "./pages/ShiftTemplates";
 import Availability from "./pages/Availability";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
+import PunchClock from "./pages/PunchClock";
+import TimeClock from "./pages/TimeClock";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +43,8 @@ const App = () => (
             <Route path="/shift-templates" element={<ProtectedRoute><ShiftTemplates /></ProtectedRoute>} />
             <Route path="/availability" element={<ProtectedRoute><Availability /></ProtectedRoute>} />
             <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+            <Route path="/punch-clock" element={<PunchClock />} />
+            <Route path="/time-clock" element={<ProtectedRoute><TimeClock /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

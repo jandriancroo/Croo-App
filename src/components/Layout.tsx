@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { CheckSquare, Home, ClipboardList, History, LogOut, Plus, Users, Calendar, CalendarCheck, DollarSign, MessageSquare, Menu } from 'lucide-react';
+import { CheckSquare, Home, ClipboardList, History, LogOut, Plus, Users, Calendar, CalendarCheck, DollarSign, MessageSquare, Menu, Clock } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -25,7 +25,10 @@ export const Layout = ({ children }: LayoutProps) => {
     { path: '/create', label: 'Tasks', icon: ClipboardList },
     { path: '/schedule', label: 'Schedule', icon: Calendar },
     { path: '/availability', label: 'Availability', icon: CalendarCheck },
-    ...(isAdmin ? [{ path: '/users', label: 'Users', icon: Users }] : []),
+    ...(isAdmin ? [
+      { path: '/users', label: 'Users', icon: Users },
+      { path: '/time-clock', label: 'Time Clock', icon: Clock }
+    ] : []),
     { path: '/messages', label: 'Messages', icon: MessageSquare },
   ];
 
@@ -40,7 +43,10 @@ export const Layout = ({ children }: LayoutProps) => {
   const mobileMenuItems = [
     { path: '/create', label: 'Tasks', icon: ClipboardList },
     { path: '/availability', label: 'Availability', icon: CalendarCheck },
-    ...(isAdmin ? [{ path: '/users', label: 'Users', icon: Users }] : []),
+    ...(isAdmin ? [
+      { path: '/users', label: 'Users', icon: Users },
+      { path: '/time-clock', label: 'Time Clock', icon: Clock }
+    ] : []),
   ];
 
   return (
