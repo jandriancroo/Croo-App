@@ -36,6 +36,12 @@ export default function UserManagement() {
   const [inviteProfilePhoto, setInviteProfilePhoto] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const photoInputRef = React.useRef<HTMLInputElement>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
+  const [editFullName, setEditFullName] = useState('');
+  const [editProfilePhoto, setEditProfilePhoto] = useState<string | null>(null);
+  const [updatingUser, setUpdatingUser] = useState(false);
+  const editPhotoInputRef = React.useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -185,6 +191,97 @@ export default function UserManagement() {
       toast({ title: 'Error', description: 'Failed to upload photo', variant: 'destructive' });
     } finally {
       setUploadingPhoto(false);
+    }
+  };
+
+  const handleEditPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Error', description: 'Please select an image file', variant: 'destructive' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Error', description: 'Image must be less than 5MB', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${editingUser?.id}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(fileName);
+
+      setEditProfilePhoto(publicUrl);
+      toast({ title: 'Success', description: 'Photo uploaded' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: 'Failed to upload photo', variant: 'destructive' });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleEditUser = (user: UserProfile) => {
+    setEditingUser(user);
+    setEditFullName(user.full_name || '');
+    setEditProfilePhoto(user.profile_photo_url);
+    setEditDialogOpen(true);
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editingUser || !editFullName.trim()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please provide a full name.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setUpdatingUser(true);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: editFullName.trim(),
+          profile_photo_url: editProfilePhoto,
+        })
+        .eq('id', editingUser.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'User profile updated successfully',
+      });
+
+      setEditDialogOpen(false);
+      setEditingUser(null);
+      setEditFullName('');
+      setEditProfilePhoto(null);
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update user profile',
+        variant: 'destructive',
+      });
+    } finally {
+      setUpdatingUser(false);
     }
   };
 
@@ -392,8 +489,18 @@ export default function UserManagement() {
                           </AvatarFallback>
                         </Avatar>
                       </TableCell>
-                      <TableCell className="font-medium">
-                        {user.full_name || 'No name'}
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{user.full_name || 'No name'}</div>
+                          <Button
+                            variant="link"
+                            size="sm"
+                            className="h-auto p-0 text-xs text-muted-foreground hover:text-primary"
+                            onClick={() => handleEditUser(user)}
+                          >
+                            Edit profile
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>
@@ -427,6 +534,85 @@ export default function UserManagement() {
             )}
           </CardContent>
         </Card>
+
+        {/* Edit User Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit User Profile</DialogTitle>
+              <DialogDescription>
+                Update user information and profile photo
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Profile Photo</Label>
+                <div className="flex flex-col items-center gap-4">
+                  <Avatar className="h-20 w-20">
+                    <AvatarImage src={editProfilePhoto || undefined} />
+                    <AvatarFallback>
+                      <Camera className="h-6 w-6 text-muted-foreground" />
+                    </AvatarFallback>
+                  </Avatar>
+                  <input
+                    ref={editPhotoInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleEditPhotoUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => editPhotoInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    size="sm"
+                  >
+                    <Camera className="mr-2 h-4 w-4" />
+                    {editProfilePhoto ? 'Change Photo' : 'Add Photo'}
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Full Name</Label>
+                <Input
+                  id="edit-name"
+                  value={editFullName}
+                  onChange={(e) => setEditFullName(e.target.value)}
+                  placeholder="John Doe"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input value={editingUser?.email || ''} disabled />
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setEditDialogOpen(false)}
+                disabled={updatingUser}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={handleUpdateUser}
+                disabled={updatingUser}
+              >
+                {updatingUser ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  'Save Changes'
+                )}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
