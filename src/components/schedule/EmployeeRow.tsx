@@ -2,6 +2,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShiftCard } from "./ShiftCard";
 import { addDays } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 interface Profile {
   id: string;
@@ -35,6 +36,7 @@ export function EmployeeRow({
   currentUserId, 
   onEditShift 
 }: EmployeeRowProps) {
+  const navigate = useNavigate();
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
   const calculateTotalHours = () => {
@@ -77,7 +79,10 @@ export function EmployeeRow({
       <div className="flex flex-col justify-center gap-1 p-4 border-r border-border bg-muted/30">
         {profile.id !== "unassigned" ? (
           <>
-            <div className="flex items-center gap-2">
+            <div 
+              className="flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded p-1 -m-1 transition-colors"
+              onClick={() => navigate('/users', { state: { viewUserId: profile.id } })}
+            >
               <Avatar className="h-8 w-8">
                 <AvatarImage src={profile.profile_photo_url || undefined} />
                 <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>

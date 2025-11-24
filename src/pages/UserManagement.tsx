@@ -14,7 +14,7 @@ import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key, Trash2, F
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import React from 'react';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
 import { InviteLinkCard } from '@/components/InviteLinkCard';
@@ -103,6 +103,7 @@ export default function UserManagement() {
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (!roleLoading && !isAdmin) {
@@ -132,6 +133,20 @@ export default function UserManagement() {
       fetchEmployeeNotes(viewingUser.id);
     }
   }, [viewingUser]);
+
+  // Handle opening user profile from navigation state
+  useEffect(() => {
+    const state = location.state as { viewUserId?: string } | null;
+    if (state?.viewUserId && users.length > 0) {
+      const user = users.find(u => u.id === state.viewUserId);
+      if (user) {
+        setViewingUser(user);
+        setIsProfileDialogOpen(true);
+        // Clear the state to prevent reopening on subsequent renders
+        navigate(location.pathname, { replace: true, state: {} });
+      }
+    }
+  }, [location.state, users, navigate, location.pathname]);
 
   const fetchUsers = async () => {
     try {
