@@ -611,6 +611,51 @@ export type Database = {
         }
         Relationships: []
       }
+      schedule_change_log: {
+        Row: {
+          change_type: string
+          created_at: string
+          id: string
+          new_shift_data: Json | null
+          old_shift_data: Json | null
+          schedule_id: string
+          user_id: string
+        }
+        Insert: {
+          change_type: string
+          created_at?: string
+          id?: string
+          new_shift_data?: Json | null
+          old_shift_data?: Json | null
+          schedule_id: string
+          user_id: string
+        }
+        Update: {
+          change_type?: string
+          created_at?: string
+          id?: string
+          new_shift_data?: Json | null
+          old_shift_data?: Json | null
+          schedule_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_change_log_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_change_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       schedule_events: {
         Row: {
           created_at: string | null
@@ -715,6 +760,7 @@ export type Database = {
           created_by: string | null
           id: string
           is_published: boolean | null
+          published_snapshot: Json | null
           updated_at: string | null
           week_end_date: string
           week_start_date: string
@@ -724,6 +770,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_published?: boolean | null
+          published_snapshot?: Json | null
           updated_at?: string | null
           week_end_date: string
           week_start_date: string
@@ -733,6 +780,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_published?: boolean | null
+          published_snapshot?: Json | null
           updated_at?: string | null
           week_end_date?: string
           week_start_date?: string
