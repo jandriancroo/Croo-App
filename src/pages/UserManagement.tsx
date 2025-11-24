@@ -102,6 +102,8 @@ export default function UserManagement() {
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [editBirthday, setEditBirthday] = useState<Date | undefined>();
   const [editEmployeePin, setEditEmployeePin] = useState<string>('');
+  const [availableLocations, setAvailableLocations] = useState<any[]>([]);
+  const [editUserLocations, setEditUserLocations] = useState<string[]>([]);
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -121,6 +123,7 @@ export default function UserManagement() {
   useEffect(() => {
     if (isAdmin) {
       fetchUsers();
+      fetchLocations();
     }
   }, [isAdmin]);
 
@@ -227,6 +230,20 @@ export default function UserManagement() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLocations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setAvailableLocations(data || []);
+    } catch (error: any) {
+      console.error('Error fetching locations:', error);
     }
   };
 
@@ -436,13 +453,28 @@ export default function UserManagement() {
     }
   };
 
-  const handleEditUser = (user: UserProfile) => {
+  const handleEditUser = async (user: UserProfile) => {
     setEditingUser(user);
     setEditFullName(user.full_name || '');
     setEditProfilePhoto(user.profile_photo_url);
     setEditPhoneNumber(user.phone_number || '');
     setEditBirthday(user.birthday ? new Date(user.birthday) : undefined);
     setEditEmployeePin(user.employee_pin || '');
+    
+    // Fetch user's assigned locations
+    try {
+      const { data, error } = await supabase
+        .from('user_locations')
+        .select('location_id')
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      setEditUserLocations(data?.map(ul => ul.location_id) || []);
+    } catch (error: any) {
+      console.error('Error fetching user locations:', error);
+      setEditUserLocations([]);
+    }
+    
     setEditDialogOpen(true);
   };
 
@@ -472,6 +504,29 @@ export default function UserManagement() {
 
       if (error) throw error;
 
+      // Update user location assignments
+      // First, delete existing assignments
+      const { error: deleteError } = await supabase
+        .from('user_locations')
+        .delete()
+        .eq('user_id', editingUser.id);
+
+      if (deleteError) throw deleteError;
+
+      // Then, insert new assignments
+      if (editUserLocations.length > 0) {
+        const { error: insertError } = await supabase
+          .from('user_locations')
+          .insert(
+            editUserLocations.map(locationId => ({
+              user_id: editingUser.id,
+              location_id: locationId,
+            }))
+          );
+
+        if (insertError) throw insertError;
+      }
+
       toast({
         title: 'Success',
         description: 'User profile updated successfully',
@@ -483,6 +538,7 @@ export default function UserManagement() {
       setEditProfilePhoto(null);
       setEditPhoneNumber('');
       setEditBirthday(undefined);
+      setEditUserLocations([]);
       fetchUsers();
     } catch (error: any) {
       console.error('Error updating user:', error);
@@ -1618,6 +1674,37 @@ export default function UserManagement() {
                   Used for punch clock. Must be unique.
                 </p>
               </div>
+              {availableLocations.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Assigned Locations</Label>
+                  <div className="border rounded-lg p-3 space-y-2">
+                    {availableLocations.map((location) => (
+                      <div key={location.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`location-${location.id}`}
+                          checked={editUserLocations.includes(location.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setEditUserLocations([...editUserLocations, location.id]);
+                            } else {
+                              setEditUserLocations(editUserLocations.filter(id => id !== location.id));
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`location-${location.id}`}
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                        >
+                          {location.name}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Select which locations this employee can work at
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label>Email</Label>
                 <Input value={editingUser?.email || ''} disabled />

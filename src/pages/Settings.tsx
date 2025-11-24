@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { toast as sonnerToast } from 'sonner';
+import { LocationsSection } from '@/components/settings/LocationsSection';
 
 const themes = [
   { value: 'default', label: 'Default' },
@@ -240,6 +241,8 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+
+          {isAdmin && <LocationsSection />}
 
           <Card>
             <CardHeader>
