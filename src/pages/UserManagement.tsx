@@ -583,6 +583,14 @@ export default function UserManagement() {
     if (!deletingUser) return;
 
     try {
+      // First deactivate the user
+      const { error: deactivateError } = await supabase.functions.invoke('toggle-user-status', {
+        body: { userId: deletingUser.id, isActive: false },
+      });
+
+      if (deactivateError) throw deactivateError;
+
+      // Then delete the user
       const { error } = await supabase.functions.invoke('delete-user', {
         body: {
           userId: deletingUser.id,
@@ -875,6 +883,12 @@ export default function UserManagement() {
       setBulkUpdating(true);
       
       for (const userId of selectedUsers) {
+        // First deactivate the user
+        await supabase.functions.invoke('toggle-user-status', {
+          body: { userId, isActive: false },
+        });
+        
+        // Then delete the user
         await supabase.functions.invoke('delete-user', {
           body: { userId },
         });
