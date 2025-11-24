@@ -9,7 +9,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Plus, Settings, Calendar } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
-import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor } from "@dnd-kit/core";
 import { ShiftCard } from "@/components/schedule/ShiftCard";
 import { EventRow } from "@/components/schedule/EventRow";
 import { EmployeeRow } from "@/components/schedule/EmployeeRow";
@@ -104,6 +104,12 @@ export default function Schedule() {
     useSensor(PointerSensor, {
       activationConstraint: {
         distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 8,
       },
     })
   );

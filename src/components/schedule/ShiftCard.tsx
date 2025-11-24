@@ -26,8 +26,9 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
   const style = transform
     ? {
         transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+        touchAction: 'none',
       }
-    : undefined;
+    : { touchAction: 'none' };
 
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(":");

@@ -159,6 +159,7 @@ function DayCell({
   return (
     <div 
       ref={setNodeRef} 
+      style={{ touchAction: 'none' }}
       className={`min-h-[80px] p-2 border-r last:border-r-0 border-border transition-colors ${
         isOver ? "bg-accent/50" : "hover:bg-muted/30"
       }`}
