@@ -1,0 +1,245 @@
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { format, startOfDay, endOfDay, addDays, startOfWeek, addWeeks } from 'date-fns';
+import { useUserRole } from '@/hooks/useUserRole';
+import { toast } from 'sonner';
+import { ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+
+export default function TimeClock() {
+  const { isAdmin, isManager } = useUserRole();
+  const [payPeriods, setPayPeriods] = useState<any[]>([]);
+  const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
+  const [timeCards, setTimeCards] = useState<any[]>([]);
+  const [editingPunch, setEditingPunch] = useState<any>(null);
+
+  useEffect(() => {
+    if (isAdmin || isManager) {
+      generatePayPeriods();
+    }
+  }, [isAdmin, isManager]);
+
+  useEffect(() => {
+    if (selectedPeriod) {
+      fetchTimeCards();
+    }
+  }, [selectedPeriod]);
+
+  const generatePayPeriods = () => {
+    // Last period was Nov 3-16, 2024
+    const baseStart = new Date('2024-11-03');
+    const periods = [];
+    
+    // Generate 10 pay periods (past and future)
+    for (let i = -2; i <= 7; i++) {
+      const periodStart = addWeeks(baseStart, i * 2);
+      const periodEnd = addDays(periodStart, 13);
+      
+      periods.push({
+        start: periodStart,
+        end: periodEnd,
+        label: `${format(periodStart, 'MMM d')} - ${format(periodEnd, 'MMM d, yyyy')}`
+      });
+    }
+    
+    setPayPeriods(periods);
+  };
+
+  const fetchTimeCards = async () => {
+    if (!selectedPeriod) return;
+
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('is_active', true)
+      .order('full_name');
+
+    if (!profiles) return;
+
+    const cards = await Promise.all(
+      profiles.map(async (profile) => {
+        const { data: punches } = await supabase
+          .from('time_punches')
+          .select('*')
+          .eq('user_id', profile.id)
+          .gte('punch_time', selectedPeriod.start.toISOString())
+          .lte('punch_time', selectedPeriod.end.toISOString())
+          .order('punch_time');
+
+        // Group punches by day
+        const punchesByDay: { [key: string]: any[] } = {};
+        punches?.forEach(punch => {
+          const day = format(new Date(punch.punch_time), 'yyyy-MM-dd');
+          if (!punchesByDay[day]) punchesByDay[day] = [];
+          punchesByDay[day].push(punch);
+        });
+
+        // Check for issues
+        const issues: string[] = [];
+        Object.entries(punchesByDay).forEach(([day, dayPunches]) => {
+          const clockIn = dayPunches.find(p => p.punch_type === 'clock_in');
+          const clockOut = dayPunches.find(p => p.punch_type === 'clock_out');
+          const mealBreak = dayPunches.filter(p => p.notes?.includes('30 minute'));
+          
+          if (clockIn && !clockOut) {
+            issues.push(`${day}: Missing clock out`);
+          }
+          
+          // Check if shift is over 5 hours and no meal break
+          if (clockIn && clockOut) {
+            const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+            if (hours > 5 && mealBreak.length === 0) {
+              issues.push(`${day}: Missing required meal break`);
+            }
+          }
+        });
+
+        return {
+          profile,
+          punches: punches || [],
+          punchesByDay,
+          issues
+        };
+      })
+    );
+
+    setTimeCards(cards);
+  };
+
+  const handleEditPunch = async (punch: any, newTime: string) => {
+    const { error } = await supabase
+      .from('time_punches')
+      .update({ punch_time: newTime })
+      .eq('id', punch.id);
+
+    if (error) {
+      toast.error('Failed to update punch time');
+      return;
+    }
+
+    toast.success('Punch time updated');
+    setEditingPunch(null);
+    fetchTimeCards();
+  };
+
+  if (!isAdmin && !isManager) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <p>You do not have permission to view time cards.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold">Time Clock Management</h1>
+        <p className="text-muted-foreground">View and manage employee time cards</p>
+      </div>
+
+      {!selectedPeriod ? (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {payPeriods.map((period, index) => (
+            <Card
+              key={index}
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => setSelectedPeriod(period)}
+            >
+              <CardHeader>
+                <CardTitle className="text-lg">{period.label}</CardTitle>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => setSelectedPeriod(null)}>
+              <ChevronLeft className="mr-2 h-4 w-4" />
+              Back to Pay Periods
+            </Button>
+            <h2 className="text-xl font-semibold">{selectedPeriod.label}</h2>
+          </div>
+
+          {timeCards.map((card) => (
+            <Card key={card.profile.id}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>{card.profile.full_name}</CardTitle>
+                  {card.issues.length > 0 && (
+                    <Badge variant="destructive" className="gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      {card.issues.length} Issue{card.issues.length > 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {card.issues.length > 0 && (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-3 space-y-1">
+                    {card.issues.map((issue: string, i: number) => (
+                      <p key={i} className="text-sm text-destructive">⚠️ {issue}</p>
+                    ))}
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  {Object.entries(card.punchesByDay).map(([day, punches]: [string, any]) => (
+                    <div key={day} className="border rounded-lg p-3">
+                      <p className="font-medium mb-2">{format(new Date(day), 'EEEE, MMM d')}</p>
+                      <div className="space-y-1 text-sm">
+                        {punches.map((punch: any) => (
+                          <div key={punch.id} className="flex items-center justify-between">
+                            <span className="capitalize">{punch.punch_type.replace('_', ' ')}</span>
+                            <div className="flex items-center gap-2">
+                              <span>{format(new Date(punch.punch_time), 'h:mm a')}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEditingPunch(punch)}
+                              >
+                                Edit
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={!!editingPunch} onOpenChange={() => setEditingPunch(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Punch Time</DialogTitle>
+          </DialogHeader>
+          {editingPunch && (
+            <div className="space-y-4">
+              <Input
+                type="datetime-local"
+                defaultValue={format(new Date(editingPunch.punch_time), "yyyy-MM-dd'T'HH:mm")}
+                onChange={(e) => {
+                  const newTime = new Date(e.target.value).toISOString();
+                  handleEditPunch(editingPunch, newTime);
+                }}
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
