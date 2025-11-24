@@ -410,24 +410,51 @@ export default function EditChecklist() {
 
                 <div className="space-y-2">
                   <Label>Reference Materials (Optional)</Label>
-                  <Input
-                    value={item.reference_link || ''}
-                    onChange={(e) => updateItem(index, 'reference_link', e.target.value)}
-                    placeholder="Reference link URL"
-                    className="mb-2"
-                  />
-                  <Input
-                    value={item.reference_image_url || ''}
-                    onChange={(e) => updateItem(index, 'reference_image_url', e.target.value)}
-                    placeholder="Reference image URL"
-                    className="mb-2"
-                  />
-                  <Input
-                    value={item.reference_video_url || ''}
-                    onChange={(e) => updateItem(index, 'reference_video_url', e.target.value)}
-                    placeholder="Reference video URL"
-                    className="mb-2"
-                  />
+                  
+                  {/* Reference Link */}
+                  <div className="space-y-2">
+                    <Label htmlFor={`ref-link-${index}`} className="text-sm">Reference Link</Label>
+                    <Input
+                      id={`ref-link-${index}`}
+                      value={item.reference_link || ''}
+                      onChange={(e) => updateItem(index, 'reference_link', e.target.value)}
+                      placeholder="https://example.com/resource"
+                      type="url"
+                    />
+                  </div>
+
+                  {/* Reference Image Upload */}
+                  <div className="space-y-2">
+                    <Label htmlFor={`ref-image-${index}`} className="text-sm">Reference Photo Upload</Label>
+                    <Input
+                      id={`ref-image-${index}`}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleReferenceImageUpload(index, file);
+                      }}
+                    />
+                    {item.reference_image_url && (
+                      <img
+                        src={item.reference_image_url}
+                        alt="Reference"
+                        className="mt-2 rounded-lg max-h-32 object-cover"
+                      />
+                    )}
+                  </div>
+
+                  {/* Reference Video */}
+                  <div className="space-y-2">
+                    <Label htmlFor={`ref-video-${index}`} className="text-sm">Training Video URL</Label>
+                    <Input
+                      id={`ref-video-${index}`}
+                      value={item.reference_video_url || ''}
+                      onChange={(e) => updateItem(index, 'reference_video_url', e.target.value)}
+                      placeholder="https://youtube.com/watch?v=..."
+                      type="url"
+                    />
+                  </div>
                 </div>
               </div>
             ))}
