@@ -11,6 +11,7 @@ interface InviteUserRequest {
   email: string;
   fullName: string;
   role: 'admin' | 'manager' | 'team_member';
+  profilePhotoUrl?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -55,7 +56,7 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Only admins can invite users");
     }
 
-    const { email, fullName, role }: InviteUserRequest = await req.json();
+    const { email, fullName, role, profilePhotoUrl }: InviteUserRequest = await req.json();
 
     // Validate input
     if (!email || !fullName || !role) {
@@ -71,6 +72,7 @@ const handler = async (req: Request): Promise<Response> => {
       email_confirm: true,
       user_metadata: {
         full_name: fullName,
+        profile_photo_url: profilePhotoUrl,
       },
     });
 
@@ -89,6 +91,7 @@ const handler = async (req: Request): Promise<Response> => {
         id: newUser.user.id,
         email: email,
         full_name: fullName,
+        profile_photo_url: profilePhotoUrl || null,
       });
 
     if (profileError) {
