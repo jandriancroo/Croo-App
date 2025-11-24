@@ -30,7 +30,7 @@ export default function LogBook() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
-  const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("entry");
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
@@ -55,41 +55,12 @@ export default function LogBook() {
 
   // Handle navigation from alert link
   useEffect(() => {
-    const entryId = searchParams.get('entryId');
-    if (entryId && categories.length > 0) {
-      setPendingEntryId(entryId);
+    const fromAlert = searchParams.get('fromAlert');
+    if (fromAlert === 'true') {
+      setActiveTab('search');
       setSearchParams({});
     }
-  }, [searchParams, setSearchParams, categories]);
-
-  // Process pending entry once categories are loaded
-  useEffect(() => {
-    if (pendingEntryId && categories.length > 0) {
-      supabase
-        .from('logbook_entries')
-        .select('entry_date, category_id')
-        .eq('id', pendingEntryId)
-        .single()
-        .then(({ data, error }) => {
-          if (data && !error) {
-            setSelectedCategory(data.category_id);
-            setSelectedDate(new Date(data.entry_date + 'T00:00:00'));
-            setPendingEntryId(null);
-            toast({
-              title: "Entry found",
-              description: "Showing the selected log entry",
-            });
-          } else {
-            toast({
-              title: "Entry not found",
-              description: "Could not locate the log entry",
-              variant: "destructive",
-            });
-            setPendingEntryId(null);
-          }
-        });
-    }
-  }, [pendingEntryId, categories, toast]);
+  }, [searchParams, setSearchParams]);
 
   // Fetch fields for selected category
   const { data: fields = [] } = useQuery({
@@ -255,6 +226,18 @@ export default function LogBook() {
     );
   });
 
+  // Group entries by day
+  const entriesByDay = filteredEntries.reduce((acc: any, entry: any) => {
+    const dateKey = format(new Date(entry.entry_date), 'yyyy-MM-dd');
+    if (!acc[dateKey]) {
+      acc[dateKey] = [];
+    }
+    acc[dateKey].push(entry);
+    return acc;
+  }, {});
+
+  const sortedDays = Object.keys(entriesByDay).sort((a, b) => b.localeCompare(a));
+
   return (
     <Layout>
       <div className="container max-w-6xl mx-auto p-6">
@@ -268,7 +251,7 @@ export default function LogBook() {
           )}
         </div>
 
-        <Tabs defaultValue="entry" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList>
             <TabsTrigger value="entry">New Entry</TabsTrigger>
             <TabsTrigger value="search">Search Entries</TabsTrigger>
@@ -401,42 +384,63 @@ export default function LogBook() {
               />
             </div>
 
-            <div className="space-y-2">
-              {filteredEntries.map((entry: any) => (
-                <Card key={entry.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      <Avatar>
-                        <AvatarImage src={entry.profiles?.profile_photo_url} />
-                        <AvatarFallback>
-                          <User className="h-4 w-4" />
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <div className="font-medium">{entry.profiles?.full_name}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {entry.logbook_categories?.name} • {format(new Date(entry.entry_date), 'PPP')}
+            <div className="space-y-6">
+              {sortedDays.map((dateKey) => (
+                <div key={dateKey} className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground sticky top-0 bg-background py-2">
+                    {format(new Date(dateKey), 'EEEE, MMMM d, yyyy')}
+                  </h3>
+                  <div className="space-y-2">
+                    {entriesByDay[dateKey].map((entry: any) => (
+                      <Card key={entry.id}>
+                        <CardContent className="p-4">
+                          <div className="flex items-start gap-3">
+                            <Avatar>
+                              <AvatarImage src={entry.profiles?.profile_photo_url} />
+                              <AvatarFallback>
+                                <User className="h-4 w-4" />
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <div className="font-medium">{entry.profiles?.full_name}</div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {entry.logbook_categories?.name}
+                                  </div>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {format(new Date(entry.created_at), 'h:mm a')}
+                                </div>
+                              </div>
+                              <div className="mt-2 space-y-1">
+                                {entry.logbook_entry_values?.map((val: any) => (
+                                  <div key={val.id} className="text-sm">
+                                    {val.value_text || val.value_number || val.value_date || 
+                                      (val.attachment_url && (
+                                        <a 
+                                          href={val.attachment_url} 
+                                          target="_blank" 
+                                          rel="noopener noreferrer"
+                                          className="text-primary hover:underline inline-flex items-center gap-1"
+                                        >
+                                          <Paperclip className="h-3 w-3" />
+                                          View attachment
+                                        </a>
+                                      ))
+                                    }
+                                  </div>
+                                ))}
+                              </div>
                             </div>
                           </div>
-                          <div className="text-xs text-muted-foreground">
-                            {format(new Date(entry.created_at), 'p')}
-                          </div>
-                        </div>
-                        <div className="mt-2 space-y-1">
-                          {entry.logbook_entry_values?.map((val: any) => (
-                            <div key={val.id} className="text-sm">
-                              {val.value_text || val.value_number || val.value_date || val.attachment_url}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
               ))}
-              {filteredEntries.length === 0 && (
+              {sortedDays.length === 0 && (
                 <p className="text-center text-muted-foreground py-8">No entries found</p>
               )}
             </div>

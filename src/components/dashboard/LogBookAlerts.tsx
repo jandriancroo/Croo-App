@@ -58,7 +58,7 @@ export function LogBookAlerts() {
           {alerts.slice(0, 5).map((alert: any) => (
             <button
               key={alert.id}
-              onClick={() => navigate(`/logbook?entryId=${alert.id}`)}
+              onClick={() => navigate('/logbook?fromAlert=true')}
               className="block w-full text-left py-0.5 px-1 -mx-1 rounded hover:bg-orange-100 dark:hover:bg-orange-900 transition-colors"
             >
               <span className="font-medium">{alert.logbook_categories?.name}</span>
@@ -72,7 +72,7 @@ export function LogBookAlerts() {
             <Button
               variant="link"
               size="sm"
-              onClick={() => navigate('/logbook')}
+              onClick={() => navigate('/logbook?fromAlert=true')}
               className="h-auto p-0 text-xs text-orange-600 dark:text-orange-400"
             >
               + {alerts.length - 5} more
