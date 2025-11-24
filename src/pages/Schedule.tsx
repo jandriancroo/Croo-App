@@ -203,7 +203,7 @@ export default function Schedule() {
         fetchScheduleData();
       } else {
         // Moving existing shift
-        const shift = active.data.current.shift;
+        const shift = active.data.current;
         const shiftDate = format(weekDays[dayIndex], "yyyy-MM-dd");
 
         const { error } = await supabase
