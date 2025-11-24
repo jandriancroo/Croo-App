@@ -95,14 +95,12 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
       {...listeners}
       {...attributes}
     >
-      <div className="text-white text-xs font-medium">
-        {shift.isTemplate ? shiftData.template_name : `${formatTime(shiftData.start_time)} - ${formatTime(shiftData.end_time)}`}
-      </div>
-      {!shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
-        <div className="mt-1">
+      <div className="flex items-center gap-1 text-white text-xs font-medium">
+        <span>{shift.isTemplate ? shiftData.template_name : `${formatTime(shiftData.start_time)} - ${formatTime(shiftData.end_time)}`}</span>
+        {!shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
           <BreakIndicator hasBreak={true} size="sm" />
-        </div>
-      )}
+        )}
+      </div>
       {!shift.isTemplate && position && (
         <div className="text-white text-xs opacity-90">{position}</div>
       )}

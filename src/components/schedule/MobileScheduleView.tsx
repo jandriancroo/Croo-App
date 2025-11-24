@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
+import { MobileShiftDialog } from './MobileShiftDialog';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface Profile {
   id: string;
@@ -57,6 +59,9 @@ export function MobileScheduleView({
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
   const [selectedShiftForOffer, setSelectedShiftForOffer] = useState<Shift | null>(null);
+  const [shiftDialogOpen, setShiftDialogOpen] = useState(false);
+  const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const { isAdmin, isManager } = useUserRole();
   
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   const selectedDayOfWeek = weekDays.findIndex(day => isSameDay(day, selectedDate));
@@ -177,7 +182,14 @@ export function MobileScheduleView({
             if (!profile) return null;
 
             return (
-              <Card key={shift.id} className="hover:shadow-md transition-shadow">
+              <Card 
+                key={shift.id} 
+                className="hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => {
+                  setSelectedShift(shift);
+                  setShiftDialogOpen(true);
+                }}
+              >
                 <div className="flex items-center gap-3 p-4">
                   <Avatar className="h-12 w-12">
                     <AvatarImage src={profile.profile_photo_url || undefined} />
@@ -190,10 +202,9 @@ export function MobileScheduleView({
                       <p className="text-sm text-muted-foreground">
                         {formatTime(shift.start_time)} – {formatTime(shift.end_time)}
                       </p>
-                      <BreakIndicator 
-                        hasBreak={shiftHasBreak(shift.start_time, shift.end_time)} 
-                        size="sm"
-                      />
+                      {shiftHasBreak(shift.start_time, shift.end_time) && (
+                        <BreakIndicator hasBreak={true} size="sm" />
+                      )}
                     </div>
                     {shift.template?.position && (
                       <div className="flex items-center gap-2 mt-1">
@@ -211,7 +222,8 @@ export function MobileScheduleView({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setSelectedShiftForOffer(shift);
                       setOfferDialogOpen(true);
                     }}
@@ -231,6 +243,17 @@ export function MobileScheduleView({
         shift={selectedShiftForOffer}
         onOfferCreated={() => {
           // Refresh shifts if needed
+        }}
+      />
+
+      <MobileShiftDialog
+        open={shiftDialogOpen}
+        onOpenChange={setShiftDialogOpen}
+        shift={selectedShift}
+        profiles={profiles}
+        isAdmin={isAdmin || isManager}
+        onShiftUpdated={() => {
+          onShiftClick?.(selectedShift!);
         }}
       />
     </div>

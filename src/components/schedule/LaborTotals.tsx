@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useState } from 'react';
 import { format, addDays } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Profile {
   id: string;
@@ -24,6 +25,36 @@ interface LaborTotalsProps {
 
 export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsProps) {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+  const [userWages, setUserWages] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    const fetchWages = async () => {
+      const wages: Record<string, number> = {};
+      
+      for (const shift of shifts) {
+        if (!shift.user_id || wages[shift.user_id]) continue;
+        
+        try {
+          const { data, error } = await supabase.rpc('get_current_wage', {
+            p_user_id: shift.user_id,
+            p_date: shift.shift_date
+          });
+          
+          if (!error && data) {
+            wages[shift.user_id] = data;
+          }
+        } catch (error) {
+          console.error('Error fetching wage:', error);
+        }
+      }
+      
+      setUserWages(wages);
+    };
+
+    if (shifts.length > 0) {
+      fetchWages();
+    }
+  }, [shifts]);
 
   const dailyTotals = useMemo(() => {
     return weekDays.map((day, dayIndex) => {
@@ -56,7 +87,8 @@ export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsP
         }
 
         totalHours += shiftHours;
-        totalWages += shiftHours * (profile.hourly_wage || 15);
+        const wage = userWages[shift.user_id] || profile.hourly_wage || 15;
+        totalWages += shiftHours * wage;
       });
 
       return {
@@ -65,7 +97,7 @@ export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsP
         wages: totalWages
       };
     });
-  }, [shifts, profiles, weekDays]);
+  }, [shifts, profiles, weekDays, userWages]);
 
   return (
     <div className="border-t border-border bg-muted/30">
