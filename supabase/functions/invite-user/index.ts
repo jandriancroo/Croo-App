@@ -28,24 +28,27 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Missing Supabase environment variables");
     }
 
-    // Verify the requesting user is an admin using anon key client
+    // Get the authorization header
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       throw new Error("Missing authorization header");
     }
 
-    // Create client with anon key for auth verification
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: { Authorization: authHeader },
-      },
-    });
+    // Extract the JWT token
+    const token = authHeader.replace('Bearer ', '');
 
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    // Create client with anon key
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
-    if (authError || !user) {
+    // Get the authenticated user by passing token directly
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
+    
+    if (userError || !user) {
+      console.error("Auth error:", userError);
       throw new Error("Unauthorized");
     }
+
+    console.log("Authenticated user:", user.id);
 
     // Create admin client for privileged operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
@@ -60,8 +63,11 @@ const handler = async (req: Request): Promise<Response> => {
       .rpc('has_role', { _user_id: user.id, _role: 'admin' });
 
     if (roleError || !roleData) {
+      console.error("Role check failed:", roleError);
       throw new Error("Only admins can invite users");
     }
+
+    console.log("User is admin, proceeding with invitation");
 
     const { email, fullName, role, profilePhotoUrl }: InviteUserRequest = await req.json();
 
