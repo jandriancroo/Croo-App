@@ -16,6 +16,7 @@ import { EmployeeRow } from "@/components/schedule/EmployeeRow";
 import { EditShiftDialog } from "@/components/schedule/EditShiftDialog";
 import { ConflictWarningDialog } from "@/components/schedule/ConflictWarningDialog";
 import { MobileScheduleView } from "@/components/schedule/MobileScheduleView";
+import { LaborTotals } from "@/components/schedule/LaborTotals";
 
 interface Profile {
   id: string;
@@ -520,29 +521,46 @@ export default function Schedule() {
                 onEditShift={setEditingShift}
               />
             </div>
+
+            {/* Labor Totals */}
+            <LaborTotals
+              shifts={shifts}
+              profiles={profiles}
+              currentWeekStart={currentWeekStart}
+            />
           </Card>
 
           {/* Floating Templates Bar - Bottom */}
           {(isAdmin || isManager) && (
             <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-border shadow-lg z-50">
-              <div className="max-w-screen-2xl mx-auto px-6 py-4">
-                <div className="flex items-center gap-4">
-                  <h3 className="font-semibold whitespace-nowrap">Shift Templates:</h3>
-                  {templates.length > 0 ? (
-                    <div className="flex gap-2 overflow-x-auto flex-1">
-                      {templates.map((template) => (
-                        <ShiftCard key={template.id} shift={{ template, isTemplate: true }} />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <p className="text-muted-foreground text-sm">No shift templates yet</p>
-                      <Button size="sm" onClick={() => navigate("/shift-templates")}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Create Template
-                      </Button>
-                    </div>
-                  )}
+              <div className="max-w-screen-2xl mx-auto px-6 py-3">
+                <div className="space-y-2">
+                  {/* Labor Totals Summary */}
+                  <LaborTotals
+                    shifts={shifts}
+                    profiles={profiles}
+                    currentWeekStart={currentWeekStart}
+                  />
+                  
+                  {/* Shift Templates */}
+                  <div className="flex items-center gap-4 border-t border-border pt-2">
+                    <h3 className="font-semibold whitespace-nowrap text-sm">Shift Templates:</h3>
+                    {templates.length > 0 ? (
+                      <div className="flex gap-2 overflow-x-auto flex-1">
+                        {templates.map((template) => (
+                          <ShiftCard key={template.id} shift={{ template, isTemplate: true }} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <p className="text-muted-foreground text-sm">No shift templates yet</p>
+                        <Button size="sm" onClick={() => navigate("/shift-templates")}>
+                          <Plus className="h-4 w-4 mr-2" />
+                          Create Template
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
