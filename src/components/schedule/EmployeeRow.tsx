@@ -62,7 +62,7 @@ export function EmployeeRow({ profile, shifts, templates, isEditable, onUpdate, 
                 <AvatarImage src={profile.profile_photo_url || undefined} />
                 <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
               </Avatar>
-              <span className="text-sm font-medium truncate">{profile.full_name}</span>
+              <span className="text-sm font-medium">{profile.full_name}</span>
             </div>
             <div className="text-xs text-muted-foreground ml-10">
               {calculateTotalHours()} hrs
