@@ -361,6 +361,45 @@ export type Database = {
           },
         ]
       }
+      employee_notes: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          note: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          note: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          note?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_notes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           attachment_type: string | null
@@ -643,6 +682,7 @@ export type Database = {
           effective_date: string
           hourly_wage: number
           id: string
+          notes: string | null
           user_id: string
         }
         Insert: {
@@ -651,6 +691,7 @@ export type Database = {
           effective_date: string
           hourly_wage: number
           id?: string
+          notes?: string | null
           user_id: string
         }
         Update: {
@@ -659,6 +700,7 @@ export type Database = {
           effective_date?: string
           hourly_wage?: number
           id?: string
+          notes?: string | null
           user_id?: string
         }
         Relationships: [

@@ -10,7 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key, Trash2 } from 'lucide-react';
+import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key, Trash2, FileText } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
 import { useNavigate } from 'react-router-dom';
@@ -69,6 +70,10 @@ export default function UserManagement() {
   const [isWageHistoryDialogOpen, setIsWageHistoryDialogOpen] = useState(false);
   const [viewingWageHistory, setViewingWageHistory] = useState<string | null>(null);
   const [wageHistory, setWageHistory] = useState<any[]>([]);
+  const [wageNotes, setWageNotes] = useState<string>('');
+  const [employeeNotes, setEmployeeNotes] = useState<any[]>([]);
+  const [newEmployeeNote, setNewEmployeeNote] = useState<string>('');
+  const [addingNote, setAddingNote] = useState(false);
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -95,6 +100,12 @@ export default function UserManagement() {
       fetchWageHistory(viewingWageHistory);
     }
   }, [viewingWageHistory]);
+
+  useEffect(() => {
+    if (viewingUser) {
+      fetchEmployeeNotes(viewingUser.id);
+    }
+  }, [viewingUser]);
 
   const fetchUsers = async () => {
     try {
@@ -176,6 +187,30 @@ export default function UserManagement() {
       toast({
         title: 'Error',
         description: 'Failed to load wage history',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const fetchEmployeeNotes = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('employee_notes')
+        .select(`
+          *,
+          creator:created_by(full_name)
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setEmployeeNotes(data || []);
+    } catch (error: any) {
+      console.error('Error fetching employee notes:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load employee notes',
         variant: 'destructive',
       });
     }
@@ -482,6 +517,7 @@ export default function UserManagement() {
           hourly_wage: wageValue,
           effective_date: wageEffectiveDate,
           created_by: (await supabase.auth.getUser()).data.user?.id,
+          notes: wageNotes.trim() || null,
         });
 
       if (historyError) throw historyError;
@@ -502,6 +538,7 @@ export default function UserManagement() {
       setIsWageDialogOpen(false);
       setEditingWageUser(null);
       setNewWage('');
+      setWageNotes('');
       setWageEffectiveDate(new Date().toISOString().split('T')[0]);
       fetchUsers();
       
@@ -624,6 +661,75 @@ export default function UserManagement() {
       toast({
         title: 'Error',
         description: 'Failed to copy link',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleAddEmployeeNote = async () => {
+    if (!viewingUser || !newEmployeeNote.trim()) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please enter a note',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setAddingNote(true);
+
+      const { error } = await supabase
+        .from('employee_notes')
+        .insert({
+          user_id: viewingUser.id,
+          note: newEmployeeNote.trim(),
+          created_by: (await supabase.auth.getUser()).data.user?.id,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Note added successfully',
+      });
+
+      setNewEmployeeNote('');
+      fetchEmployeeNotes(viewingUser.id);
+    } catch (error: any) {
+      console.error('Error adding note:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to add note',
+        variant: 'destructive',
+      });
+    } finally {
+      setAddingNote(false);
+    }
+  };
+
+  const handleDeleteEmployeeNote = async (noteId: string) => {
+    try {
+      const { error } = await supabase
+        .from('employee_notes')
+        .delete()
+        .eq('id', noteId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Note deleted',
+      });
+
+      if (viewingUser) {
+        fetchEmployeeNotes(viewingUser.id);
+      }
+    } catch (error: any) {
+      console.error('Error deleting note:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete note',
         variant: 'destructive',
       });
     }
@@ -997,6 +1103,59 @@ export default function UserManagement() {
                     >
                       View Wage History
                     </Button>
+                  </div>
+                </div>
+
+                {/* Employee Notes Section */}
+                <div className="space-y-3 border-t pt-4">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                    <Label>Employee Notes</Label>
+                    <span className="text-xs text-muted-foreground">(Admin & Manager Only)</span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Textarea
+                      placeholder="Add a note about this employee..."
+                      value={newEmployeeNote}
+                      onChange={(e) => setNewEmployeeNote(e.target.value)}
+                      className="min-h-[80px]"
+                    />
+                    <Button
+                      onClick={handleAddEmployeeNote}
+                      disabled={addingNote || !newEmployeeNote.trim()}
+                      size="sm"
+                      className="w-full"
+                    >
+                      {addingNote ? 'Adding...' : 'Add Note'}
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {employeeNotes.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">No notes yet</p>
+                    ) : (
+                      employeeNotes.map((note) => (
+                        <div key={note.id} className="p-3 border rounded-lg space-y-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm flex-1">{note.note}</p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteEmployeeNote(note.id)}
+                              className="h-6 w-6 p-0"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{note.creator?.full_name || 'Unknown'}</span>
+                            <span>•</span>
+                            <span>{new Date(note.created_at).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
 
@@ -1449,14 +1608,28 @@ export default function UserManagement() {
                   onChange={(e) => setWageEffectiveDate(e.target.value)}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="wage-notes">Internal Notes (Optional)</Label>
+                <Textarea
+                  id="wage-notes"
+                  placeholder="Reason for wage change (admin/manager only)..."
+                  value={wageNotes}
+                  onChange={(e) => setWageNotes(e.target.value)}
+                  className="min-h-[80px]"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Only visible to admins and managers
+                </p>
+              </div>
             </div>
             <DialogFooter>
-              <Button
+                <Button
                 variant="outline"
                 onClick={() => {
                   setIsWageDialogOpen(false);
                   setEditingWageUser(null);
                   setNewWage('');
+                  setWageNotes('');
                   setWageEffectiveDate(new Date().toISOString().split('T')[0]);
                 }}
               >
@@ -1490,23 +1663,31 @@ export default function UserManagement() {
               ) : (
                 <div className="space-y-3">
                   {wageHistory.map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-semibold">${parseFloat(entry.hourly_wage).toFixed(2)}</span>
-                          <span className="text-sm text-muted-foreground">/hour</span>
+                    <div key={entry.id} className="p-3 border rounded-lg space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-semibold">${parseFloat(entry.hourly_wage).toFixed(2)}</span>
+                            <span className="text-sm text-muted-foreground">/hour</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Effective: {new Date(entry.effective_date).toLocaleDateString()}
+                          </p>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          Effective: {new Date(entry.effective_date).toLocaleDateString()}
-                        </p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteWageHistory(entry.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteWageHistory(entry.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {entry.notes && (
+                        <div className="pt-2 border-t">
+                          <p className="text-xs text-muted-foreground mb-1">Internal Notes:</p>
+                          <p className="text-sm">{entry.notes}</p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
