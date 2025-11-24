@@ -301,8 +301,6 @@ export default function Certifications() {
         <div className="space-y-4">
           {profiles.map((profile) => {
             const employeeCerts = getCertsByEmployee(profile.id);
-            const foodHandlers = employeeCerts.find((c) => c.certification_type === "food_handlers");
-            const servSafe = employeeCerts.find((c) => c.certification_type === "servsafe");
 
             return (
               <Card key={profile.id}>
@@ -315,131 +313,73 @@ export default function Certifications() {
                       </Avatar>
                       <div>
                         <CardTitle className="text-lg">{profile.full_name}</CardTitle>
-                        <CardDescription>Employee Certifications</CardDescription>
+                        <CardDescription>
+                          {employeeCerts.length} certification{employeeCerts.length !== 1 ? 's' : ''}
+                        </CardDescription>
                       </div>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
-                    {/* Food Handlers Card */}
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-semibold">Food Handlers Card</h4>
-                          {foodHandlers ? (
-                            <div className="mt-2 space-y-2">
-                              <div className="flex items-center gap-2">
-                                {getStatusBadge(foodHandlers.status)}
-                                <span className="text-sm text-muted-foreground">
-                                  Expires: {format(new Date(foodHandlers.expiration_date), "MMM d, yyyy")}
-                                </span>
-                              </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => window.open(foodHandlers.certificate_url, "_blank")}
-                                >
-                                  <ExternalLink className="w-3 h-3 mr-1" />
-                                  View
-                                </Button>
-                                {isAdmin && (
+                  {employeeCerts.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No certifications uploaded yet
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {employeeCerts.map((cert) => (
+                        <div key={cert.id} className="border rounded-lg p-4">
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <h4 className="font-semibold">{getCertTypeName(cert.certification_type as CertificationType)}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Expires: {format(new Date(cert.expiration_date), "MMM d, yyyy")}
+                              </p>
+                            </div>
+                            {getStatusBadge(cert.status)}
+                          </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => window.open(cert.certificate_url, "_blank")}
+                            >
+                              <ExternalLink className="w-3 h-3 mr-1" />
+                              View
+                            </Button>
+                            {isAdmin && (
+                              <>
+                                {cert.status === "pending" && (
                                   <>
-                                    {foodHandlers.status === "pending" && (
-                                      <>
-                                        <Button
-                                          size="sm"
-                                          onClick={() => handleApprove(foodHandlers.id)}
-                                        >
-                                          Approve
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="destructive"
-                                          onClick={() => handleReject(foodHandlers.id)}
-                                        >
-                                          Reject
-                                        </Button>
-                                      </>
-                                    )}
                                     <Button
                                       size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleDelete(foodHandlers.id)}
+                                      onClick={() => handleApprove(cert.id)}
                                     >
-                                      <Trash2 className="w-3 h-3" />
+                                      Approve
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="destructive"
+                                      onClick={() => handleReject(cert.id)}
+                                    >
+                                      Reject
                                     </Button>
                                   </>
                                 )}
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="text-sm text-muted-foreground mt-1">Not uploaded</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* ServSafe Certification */}
-                    <div className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-semibold">ServSafe Certification</h4>
-                          {servSafe ? (
-                            <div className="mt-2 space-y-2">
-                              <div className="flex items-center gap-2">
-                                {getStatusBadge(servSafe.status)}
-                                <span className="text-sm text-muted-foreground">
-                                  Expires: {format(new Date(servSafe.expiration_date), "MMM d, yyyy")}
-                                </span>
-                              </div>
-                              <div className="flex gap-2">
                                 <Button
                                   size="sm"
-                                  variant="outline"
-                                  onClick={() => window.open(servSafe.certificate_url, "_blank")}
+                                  variant="ghost"
+                                  onClick={() => handleDelete(cert.id)}
                                 >
-                                  <ExternalLink className="w-3 h-3 mr-1" />
-                                  View
+                                  <Trash2 className="w-3 h-3" />
                                 </Button>
-                                {isAdmin && (
-                                  <>
-                                    {servSafe.status === "pending" && (
-                                      <>
-                                        <Button
-                                          size="sm"
-                                          onClick={() => handleApprove(servSafe.id)}
-                                        >
-                                          Approve
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="destructive"
-                                          onClick={() => handleReject(servSafe.id)}
-                                        >
-                                          Reject
-                                        </Button>
-                                      </>
-                                    )}
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleDelete(servSafe.id)}
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          ) : (
-                            <p className="text-sm text-muted-foreground mt-1">Not uploaded</p>
-                          )}
+                              </>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      ))}
                     </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
             );
