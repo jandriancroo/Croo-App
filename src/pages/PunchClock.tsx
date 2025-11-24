@@ -3,10 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { Clock, Coffee, LogOut } from 'lucide-react';
+import { format, differenceInDays } from 'date-fns';
+import { Clock, Coffee, LogOut, AlertTriangle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.png';
 
 const DAILY_QUOTES = [
@@ -27,6 +28,7 @@ export default function PunchClock() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [exitPin, setExitPin] = useState('');
   const [showExitDialog, setShowExitDialog] = useState(false);
+  const [expiringCerts, setExpiringCerts] = useState<any[]>([]);
 
   const dailyQuote = DAILY_QUOTES[new Date().getDay()];
 
@@ -58,6 +60,7 @@ export default function PunchClock() {
     if (currentUser) {
       checkTodayShift();
       checkLastPunch();
+      checkExpiringCertifications();
     }
   }, [currentUser]);
 
@@ -124,6 +127,30 @@ export default function PunchClock() {
       .single();
 
     setLastPunch(data || null);
+  };
+
+  const checkExpiringCertifications = async () => {
+    if (!currentUser) return;
+
+    try {
+      // Get date 30 days from now
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+
+      const { data, error } = await supabase
+        .from('certifications')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .eq('status', 'approved')
+        .lte('expiration_date', thirtyDaysFromNow.toISOString().split('T')[0])
+        .gte('expiration_date', new Date().toISOString().split('T')[0]);
+
+      if (error) throw error;
+
+      setExpiringCerts(data || []);
+    } catch (error) {
+      console.error('Error checking certifications:', error);
+    }
   };
 
   const canClockIn = () => {
@@ -368,6 +395,34 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                 {format(currentTime, 'h:mm:ss a')}
               </div>
               <CardTitle className="text-xl">Hello, {currentUser.full_name}!</CardTitle>
+              
+              {/* Certification Expiry Alerts */}
+              {expiringCerts.length > 0 && (
+                <Alert variant="destructive" className="mt-4 text-left">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertTitle>Certification Expiring Soon!</AlertTitle>
+                  <AlertDescription>
+                    {expiringCerts.map((cert) => {
+                      const daysUntilExpiry = differenceInDays(
+                        new Date(cert.expiration_date),
+                        new Date()
+                      );
+                      const certTypeName = cert.certification_type === 'food_handlers' 
+                        ? 'Food Handlers Card' 
+                        : 'ServSafe Certification';
+                      
+                      return (
+                        <div key={cert.id} className="mt-1">
+                          Your <strong>{certTypeName}</strong> expires in{' '}
+                          <strong>{daysUntilExpiry} day{daysUntilExpiry !== 1 ? 's' : ''}</strong>
+                          {' '}({format(new Date(cert.expiration_date), 'MMM d, yyyy')}).
+                          Please upload your renewed certificate.
+                        </div>
+                      );
+                    })}
+                  </AlertDescription>
+                </Alert>
+              )}
               {todayShift && !isClockedIn && (
                 <p className="text-sm text-muted-foreground">
                   Scheduled: {format(new Date(`2000-01-01T${todayShift.start_time}`), 'h:mm a')} - {format(new Date(`2000-01-01T${todayShift.end_time}`), 'h:mm a')}
