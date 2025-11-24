@@ -162,12 +162,12 @@ export default function SubmissionDetails() {
           {responses.map((response, index) => (
             <Card key={response.id}>
               <CardHeader>
-                <CardTitle className="text-base flex items-center justify-between">
-                  <span>Q{index + 1}: {response.checklist_items.question}</span>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
+                <CardTitle className="text-base flex items-center justify-between gap-3">
+                  <span className="flex-1">Q{index + 1}: {response.checklist_items.question}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Avatar className="h-8 w-8 border-2 border-primary/20 shadow-sm ring-2 ring-background">
                       <AvatarImage src={submission.profiles.profile_photo_url || undefined} />
-                      <AvatarFallback className="text-xs">
+                      <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
                         {submission.profiles.full_name?.charAt(0) || submission.profiles.email.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
