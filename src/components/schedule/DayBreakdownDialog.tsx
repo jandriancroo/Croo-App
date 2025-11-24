@@ -1,7 +1,5 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { format } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 
 interface DayBreakdownDialogProps {
@@ -9,33 +7,28 @@ interface DayBreakdownDialogProps {
   onOpenChange: (open: boolean) => void;
   date: Date;
   scheduleId: string;
+  // All shifts for the current week
+  shifts: any[];
+  // Profiles so we can resolve names and wages
+  profiles: { id: string; full_name?: string | null; hourly_wage?: number | null }[];
 }
 
-export function DayBreakdownDialog({ open, onOpenChange, date, scheduleId }: DayBreakdownDialogProps) {
-  const { data: dayShifts = [], isLoading } = useQuery({
-    queryKey: ['day-breakdown', scheduleId, format(date, 'yyyy-MM-dd')],
-    queryFn: async () => {
-      const dateStr = format(date, 'yyyy-MM-dd');
-      
-      // Get all shifts for this schedule
-      const { data: allShifts, error: shiftsError } = await supabase
-        .from('scheduled_shifts')
-        .select(`
-          *,
-          profiles!scheduled_shifts_user_id_fkey(full_name, hourly_wage)
-        `)
-        .eq('schedule_id', scheduleId)
-        .order('start_time');
+export function DayBreakdownDialog({
+  open,
+  onOpenChange,
+  date,
+  scheduleId,
+  shifts,
+  profiles,
+}: DayBreakdownDialogProps) {
+  const dateStr = format(date, "yyyy-MM-dd");
 
-      if (shiftsError) throw shiftsError;
-      
-      // Filter shifts for this specific date
-      const shiftsForDay = allShifts?.filter(shift => shift.shift_date === dateStr) || [];
-      
-      return shiftsForDay;
-    },
-    enabled: open && !!scheduleId,
-  });
+  // Use in-memory shifts from the Schedule page so we always match what the grid shows
+  const dayShifts = (shifts || []).filter(
+    (shift) => shift.shift_date === dateStr && shift.schedule_id === scheduleId
+  );
+
+  const getProfileForShift = (shift: any) => profiles.find((p) => p.id === shift.user_id) || null;
 
   // Calculate hourly breakdown
   const calculateHourlyBreakdown = () => {
@@ -44,28 +37,29 @@ export function DayBreakdownDialog({ open, onOpenChange, date, scheduleId }: Day
     dayShifts.forEach((shift: any) => {
       if (shift.is_time_off) return;
 
-      const [startHour, startMin] = shift.start_time.split(':').map(Number);
-      const [endHour, endMin] = shift.end_time.split(':').map(Number);
-      
+      const [startHour, startMin] = shift.start_time.split(":").map(Number);
+      const [endHour, endMin] = shift.end_time.split(":").map(Number);
+
       const startTime = startHour + startMin / 60;
       const endTime = endHour + endMin / 60;
       const totalHours = endTime - startTime;
       const hasBreak = totalHours > 5;
       const workedHours = hasBreak ? totalHours - 0.5 : totalHours;
-      
-      const wage = shift.profiles?.hourly_wage || 15;
+
+      const profile = getProfileForShift(shift);
+      const wage = profile?.hourly_wage ?? 15;
 
       // Fill in each hour this shift covers
       for (let hour = Math.floor(startTime); hour < Math.ceil(endTime); hour++) {
         if (!hourlyData[hour]) {
           hourlyData[hour] = { hours: 0, cost: 0, count: 0 };
         }
-        
+
         // Calculate fraction of hour worked
         const hourStart = Math.max(hour, startTime);
         const hourEnd = Math.min(hour + 1, endTime);
         const hoursThisSlot = hourEnd - hourStart;
-        
+
         hourlyData[hour].hours += hoursThisSlot;
         hourlyData[hour].cost += hoursThisSlot * wage;
         hourlyData[hour].count += 1;
@@ -76,30 +70,31 @@ export function DayBreakdownDialog({ open, onOpenChange, date, scheduleId }: Day
   };
 
   const hourlyBreakdown = calculateHourlyBreakdown();
-  
+
   // Calculate totals
   const totalHours = dayShifts.reduce((sum: number, shift: any) => {
     if (shift.is_time_off) return sum;
-    const [startHour, startMin] = shift.start_time.split(':').map(Number);
-    const [endHour, endMin] = shift.end_time.split(':').map(Number);
-    const hours = (endHour + endMin / 60) - (startHour + startMin / 60);
+    const [startHour, startMin] = shift.start_time.split(":").map(Number);
+    const [endHour, endMin] = shift.end_time.split(":").map(Number);
+    const hours = endHour + endMin / 60 - (startHour + startMin / 60);
     return sum + (hours > 5 ? hours - 0.5 : hours);
   }, 0);
 
   const totalCost = dayShifts.reduce((sum: number, shift: any) => {
     if (shift.is_time_off) return sum;
-    const [startHour, startMin] = shift.start_time.split(':').map(Number);
-    const [endHour, endMin] = shift.end_time.split(':').map(Number);
-    const hours = (endHour + endMin / 60) - (startHour + startMin / 60);
+    const [startHour, startMin] = shift.start_time.split(":").map(Number);
+    const [endHour, endMin] = shift.end_time.split(":").map(Number);
+    const hours = endHour + endMin / 60 - (startHour + startMin / 60);
     const workedHours = hours > 5 ? hours - 0.5 : hours;
-    const wage = shift.profiles?.hourly_wage || 15;
-    return sum + (workedHours * wage);
+    const profile = getProfileForShift(shift);
+    const wage = profile?.hourly_wage ?? 15;
+    return sum + workedHours * wage;
   }, 0);
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
     }).format(amount);
   };
 
@@ -107,16 +102,18 @@ export function DayBreakdownDialog({ open, onOpenChange, date, scheduleId }: Day
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl">{format(date, 'EEEE, MMMM d, yyyy')}</DialogTitle>
+          <DialogTitle className="text-xl">
+            {format(date, "EEEE, MMMM d, yyyy")}
+          </DialogTitle>
           <DialogDescription>
             Hourly staffing and labor cost overview for the selected day.
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading ? (
-          <div className="text-center py-8">Loading...</div>
-        ) : dayShifts.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">No shifts scheduled for this day</div>
+        {dayShifts.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            No shifts scheduled for this day
+          </div>
         ) : (
           <div className="space-y-4">
             {/* Hourly Breakdown Table */}
@@ -140,24 +137,33 @@ export function DayBreakdownDialog({ open, onOpenChange, date, scheduleId }: Day
                       .map(([hourStr, data]) => {
                         const hourNum = Number(hourStr);
                         const hour = hourNum % 12 === 0 ? 12 : hourNum % 12;
-                        const period = hourNum < 12 ? 'am' : 'pm';
-                        
+                        const period = hourNum < 12 ? "am" : "pm";
+
                         return (
                           <tr key={hourStr} className="border-b hover:bg-muted/50">
-                            <td className="p-2 font-medium">{hour}{period}</td>
+                            <td className="p-2 font-medium">
+                              {hour}
+                              {period}
+                            </td>
                             <td className="p-2 text-center">
                               <Badge variant="outline" className="text-[10px]">
                                 {data.count}
                               </Badge>
                             </td>
-                            <td className="p-2 text-right">{data.hours.toFixed(2)}</td>
-                            <td className="p-2 text-right font-medium">{formatCurrency(data.cost)}</td>
+                            <td className="p-2 text-right">
+                              {data.hours.toFixed(2)}
+                            </td>
+                            <td className="p-2 text-right font-medium">
+                              {formatCurrency(data.cost)}
+                            </td>
                           </tr>
                         );
                       })}
                     <tr className="bg-muted font-semibold">
                       <td className="p-2">Total</td>
-                      <td className="p-2 text-center">{dayShifts.filter((s: any) => !s.is_time_off).length}</td>
+                      <td className="p-2 text-center">
+                        {dayShifts.filter((s: any) => !s.is_time_off).length}
+                      </td>
                       <td className="p-2 text-right">{totalHours.toFixed(2)} Hrs</td>
                       <td className="p-2 text-right">{formatCurrency(totalCost)}</td>
                     </tr>
@@ -173,32 +179,40 @@ export function DayBreakdownDialog({ open, onOpenChange, date, scheduleId }: Day
               </div>
               <div className="divide-y">
                 {dayShifts.map((shift: any) => {
-                  const [startHour, startMin] = shift.start_time.split(':').map(Number);
-                  const [endHour, endMin] = shift.end_time.split(':').map(Number);
-                  const hours = (endHour + endMin / 60) - (startHour + startMin / 60);
+                  const [startHour, startMin] = shift.start_time.split(":").map(Number);
+                  const [endHour, endMin] = shift.end_time.split(":").map(Number);
+                  const hours = endHour + endMin / 60 - (startHour + startMin / 60);
                   const workedHours = hours > 5 ? hours - 0.5 : hours;
-                  const wage = shift.profiles?.hourly_wage || 15;
+                  const profile = getProfileForShift(shift);
+                  const wage = profile?.hourly_wage ?? 15;
                   const cost = workedHours * wage;
 
                   return (
-                    <div 
+                    <div
                       key={shift.id}
                       className="flex items-center justify-between p-3 hover:bg-muted/50"
                     >
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">
-                          {shift.profiles?.full_name || 'Unassigned'}
+                          {profile?.full_name || "Unassigned"}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
                           {shift.is_time_off && (
-                            <Badge variant="secondary" className="ml-2 text-[10px]">Time Off</Badge>
+                            <Badge
+                              variant="secondary"
+                              className="ml-2 text-[10px]"
+                            >
+                              Time Off
+                            </Badge>
                           )}
                         </div>
                       </div>
                       {!shift.is_time_off && (
                         <div className="text-right ml-4">
-                          <div className="font-semibold text-sm">{formatCurrency(cost)}</div>
+                          <div className="font-semibold text-sm">
+                            {formatCurrency(cost)}
+                          </div>
                           <div className="text-xs text-muted-foreground">
                             {workedHours.toFixed(2)} hrs × {formatCurrency(wage)}/hr
                           </div>
@@ -213,15 +227,21 @@ export function DayBreakdownDialog({ open, onOpenChange, date, scheduleId }: Day
             {/* Summary Stats */}
             <div className="grid grid-cols-3 gap-4 p-4 bg-muted rounded-lg">
               <div className="text-center">
-                <div className="text-2xl font-bold">{dayShifts.filter((s: any) => !s.is_time_off).length}</div>
-                <div className="text-xs text-muted-foreground">Employees Scheduled</div>
+                <div className="text-2xl font-bold">
+                  {dayShifts.filter((s: any) => !s.is_time_off).length}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Employees Scheduled
+                </div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold">{totalHours.toFixed(1)}</div>
                 <div className="text-xs text-muted-foreground">Total Hours</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold">{formatCurrency(totalCost)}</div>
+                <div className="text-2xl font-bold">
+                  {formatCurrency(totalCost)}
+                </div>
                 <div className="text-xs text-muted-foreground">Total Labor Cost</div>
               </div>
             </div>

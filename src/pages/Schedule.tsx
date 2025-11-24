@@ -162,7 +162,7 @@ export default function Schedule() {
         if (shiftsError) throw shiftsError;
         setShifts(shiftsData || []);
 
-      // Fetch events
+        // Fetch events
         const { data: eventsData, error: eventsError } = await supabase
           .from("schedule_events")
           .select("*")
@@ -739,6 +739,8 @@ export default function Schedule() {
             onOpenChange={setDayBreakdownOpen}
             date={selectedDayForBreakdown}
             scheduleId={scheduleId}
+            shifts={shifts}
+            profiles={profiles}
           />
         )}
       </div>
