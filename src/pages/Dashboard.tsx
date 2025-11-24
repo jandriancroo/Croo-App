@@ -239,7 +239,7 @@ export default function Dashboard() {
                     const checklistStats = stats[checklist.id];
                     const { expected, completed, period } = getCompletionData(checklist, checklistStats);
                     const remaining = Math.max(0, expected - completed);
-                    const completionRate = expected > 0 ? Math.round((completed / expected) * 100) : 0;
+                    const completionRate = expected > 0 ? Math.min(100, Math.round((completed / expected) * 100)) : 0;
 
                     const chartData = [
                       { name: 'Completed', value: Math.min(completed, expected) },
