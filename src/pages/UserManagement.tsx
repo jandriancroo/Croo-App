@@ -541,15 +541,17 @@ export default function UserManagement() {
     }
 
     try {
-      // Insert into wage_history
+      // Upsert into wage_history (update if exists for this date, insert if new)
       const { error: historyError } = await supabase
         .from('wage_history')
-        .insert({
+        .upsert({
           user_id: editingWageUser.id,
           hourly_wage: wageValue,
           effective_date: wageEffectiveDate,
           created_by: (await supabase.auth.getUser()).data.user?.id,
           notes: wageNotes.trim() || null,
+        }, {
+          onConflict: 'user_id,effective_date'
         });
 
       if (historyError) throw historyError;
@@ -819,15 +821,17 @@ export default function UserManagement() {
       const isEffectiveNow = effectiveDateStr <= today;
 
       for (const userId of selectedUsers) {
-        // Insert into wage_history
+        // Upsert into wage_history (update if exists for this date, insert if new)
         await supabase
           .from('wage_history')
-          .insert({
+          .upsert({
             user_id: userId,
             hourly_wage: wage,
             effective_date: effectiveDateStr,
             created_by: currentUser.id,
             notes: notes.trim() || null,
+          }, {
+            onConflict: 'user_id,effective_date'
           });
 
         // Only update current wage in profiles if effective date is today or in the past
