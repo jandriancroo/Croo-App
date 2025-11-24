@@ -7,6 +7,7 @@ import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, ChevronLeft } fr
 import { Button } from '@/components/ui/button';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
+import { ShiftOfferDialog } from './ShiftOfferDialog';
 
 interface Profile {
   id: string;
@@ -54,6 +55,8 @@ export function MobileScheduleView({
   onWeekChange,
 }: MobileScheduleViewProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [offerDialogOpen, setOfferDialogOpen] = useState(false);
+  const [selectedShiftForOffer, setSelectedShiftForOffer] = useState<Shift | null>(null);
   
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   const selectedDayOfWeek = weekDays.findIndex(day => isSameDay(day, selectedDate));
@@ -174,50 +177,62 @@ export function MobileScheduleView({
             if (!profile) return null;
 
             return (
-              <button
-                key={shift.id}
-                onClick={() => onShiftClick?.(shift)}
-                className="w-full"
-              >
-                <Card className="hover:shadow-md transition-shadow">
-                  <div className="flex items-center gap-3 p-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={profile.profile_photo_url || undefined} />
-                      <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    
-                    <div className="flex-1 text-left">
-                      <h4 className="font-semibold">{profile.full_name}</h4>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm text-muted-foreground">
-                          {formatTime(shift.start_time)} – {formatTime(shift.end_time)}
-                        </p>
-                        <BreakIndicator 
-                          hasBreak={shiftHasBreak(shift.start_time, shift.end_time)} 
-                          size="sm"
-                        />
-                      </div>
-                      {shift.template?.position && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <div 
-                            className="w-2 h-2 rounded-full" 
-                            style={{ backgroundColor: shift.template.color || '#ef4444' }}
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            {shift.template.position}
-                          </span>
-                        </div>
-                      )}
+              <Card key={shift.id} className="hover:shadow-md transition-shadow">
+                <div className="flex items-center gap-3 p-4">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={profile.profile_photo_url || undefined} />
+                    <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  
+                  <div className="flex-1 text-left">
+                    <h4 className="font-semibold">{profile.full_name}</h4>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">
+                        {formatTime(shift.start_time)} – {formatTime(shift.end_time)}
+                      </p>
+                      <BreakIndicator 
+                        hasBreak={shiftHasBreak(shift.start_time, shift.end_time)} 
+                        size="sm"
+                      />
                     </div>
-                    
-                    <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    {shift.template?.position && (
+                      <div className="flex items-center gap-2 mt-1">
+                        <div 
+                          className="w-2 h-2 rounded-full" 
+                          style={{ backgroundColor: shift.template.color || '#ef4444' }}
+                        />
+                        <span className="text-xs text-muted-foreground">
+                          {shift.template.position}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                </Card>
-              </button>
+                  
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedShiftForOffer(shift);
+                      setOfferDialogOpen(true);
+                    }}
+                  >
+                    Offer Up
+                  </Button>
+                </div>
+              </Card>
             );
           })
         )}
       </div>
+
+      <ShiftOfferDialog
+        open={offerDialogOpen}
+        onOpenChange={setOfferDialogOpen}
+        shift={selectedShiftForOffer}
+        onOfferCreated={() => {
+          // Refresh shifts if needed
+        }}
+      />
     </div>
   );
 }

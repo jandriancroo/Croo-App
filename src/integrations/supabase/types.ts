@@ -793,6 +793,58 @@ export type Database = {
         }
         Relationships: []
       }
+      shift_offers: {
+        Row: {
+          claimed_by_user_id: string | null
+          created_at: string
+          id: string
+          offered_by_user_id: string
+          shift_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          claimed_by_user_id?: string | null
+          created_at?: string
+          id?: string
+          offered_by_user_id: string
+          shift_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          claimed_by_user_id?: string | null
+          created_at?: string
+          id?: string
+          offered_by_user_id?: string
+          shift_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_offers_claimed_by_user_id_fkey"
+            columns: ["claimed_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_offers_offered_by_user_id_fkey"
+            columns: ["offered_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_offers_shift_id_fkey"
+            columns: ["shift_id"]
+            isOneToOne: false
+            referencedRelation: "scheduled_shifts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shift_templates: {
         Row: {
           color: string | null

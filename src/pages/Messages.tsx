@@ -42,7 +42,48 @@ export default function Messages() {
   const [showChatList, setShowChatList] = useState(true);
 
   const fetchChats = async () => {
+    setLoading(true);
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Ensure shift marketplace chat exists
+      let { data: marketplaceChat } = await supabase
+        .from("chats")
+        .select("id")
+        .eq("title", "🔄 Shift Marketplace")
+        .single();
+
+      if (!marketplaceChat) {
+        const { data: newChat } = await supabase
+          .from("chats")
+          .insert({
+            created_by: user.id,
+            is_group: true,
+            title: "🔄 Shift Marketplace"
+          })
+          .select()
+          .single();
+
+        if (newChat) {
+          marketplaceChat = newChat;
+          
+          // Add all users to marketplace chat
+          const { data: allUsers } = await supabase
+            .from("profiles")
+            .select("id");
+
+          if (allUsers) {
+            await supabase
+              .from("chat_members")
+              .insert(allUsers.map(u => ({
+                chat_id: newChat.id,
+                user_id: u.id
+              })));
+          }
+        }
+      }
+
       const { data, error } = await supabase
         .from('chats')
         .select(`
@@ -57,9 +98,6 @@ export default function Messages() {
       if (error) throw error;
 
       // Filter to only chats where current user is a member
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const userChats = data?.filter((chat: any) => 
         chat.chat_members.some((member: any) => member.user_id === user.id)
       ).map((chat: any) => {
@@ -71,7 +109,14 @@ export default function Messages() {
         return chat;
       }) || [];
 
-      setChats(userChats);
+      // Sort chats with Shift Marketplace always first
+      const sortedChats = userChats.sort((a, b) => {
+        if (a.title === "🔄 Shift Marketplace") return -1;
+        if (b.title === "🔄 Shift Marketplace") return 1;
+        return 0;
+      });
+
+      setChats(sortedChats);
     } catch (error: any) {
       console.error('Error fetching chats:', error);
       toast.error('Failed to load chats');

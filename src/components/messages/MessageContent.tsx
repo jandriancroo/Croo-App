@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+import { ShiftOfferMessage } from "./ShiftOfferMessage";
+
 interface MessageContentProps {
   content: string;
   chatId: string;
@@ -12,6 +14,12 @@ interface Profile {
 }
 
 export function MessageContent({ content, chatId }: MessageContentProps) {
+  // Check if this is a shift offer message
+  if (content?.startsWith("SHIFT_OFFER:")) {
+    const offerId = content.replace("SHIFT_OFFER:", "");
+    return <ShiftOfferMessage offerId={offerId} messageId={chatId} />;
+  }
+
   const [profiles, setProfiles] = useState<Profile[]>([]);
 
   useEffect(() => {

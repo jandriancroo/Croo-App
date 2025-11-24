@@ -26,6 +26,7 @@ import { format } from "date-fns";
 import { Check, X, Calendar, Clock, Plus } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
+import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
 
 interface AvailabilityRequest {
   id: string;
@@ -240,6 +241,9 @@ export default function Availability() {
             Request Time Off
           </Button>
         </div>
+
+        {/* Shift Pool - Admin and Manager Only */}
+        {isAdmin && <ShiftPoolSection />}
 
         {/* Employee Accruals - Admin Only */}
         {isAdmin && (
