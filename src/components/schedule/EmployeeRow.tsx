@@ -73,7 +73,7 @@ export function EmployeeRow({
   };
 
   return (
-    <div className="grid grid-cols-8 gap-0">
+    <div className="grid grid-cols-8 gap-0 border-b border-dotted border-border/50">
       <div className="flex flex-col justify-center gap-1 p-4 border-r border-border bg-muted/30">
         {profile.id !== "unassigned" ? (
           <>
