@@ -24,6 +24,7 @@ interface ChecklistStats {
   last_submission: string | null;
   submissions_this_week: number;
   submissions_this_month: number;
+  submissions_today: number;
 }
 
 export default function Dashboard() {
@@ -58,6 +59,7 @@ export default function Dashboard() {
 
       // Calculate stats
       const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
@@ -67,6 +69,10 @@ export default function Dashboard() {
         const checklistSubmissions = submissions?.filter(
           (sub) => sub.checklist_id === checklist.id
         ) || [];
+
+        const submissionsToday = checklistSubmissions.filter(
+          (sub) => new Date(sub.submitted_at) >= startOfToday
+        ).length;
 
         const submissionsThisWeek = checklistSubmissions.filter(
           (sub) => new Date(sub.submitted_at) >= oneWeekAgo
@@ -86,6 +92,7 @@ export default function Dashboard() {
           last_submission: sortedSubmissions[0]?.submitted_at || null,
           submissions_this_week: submissionsThisWeek,
           submissions_this_month: submissionsThisMonth,
+          submissions_today: submissionsToday,
         };
       });
 
@@ -110,19 +117,32 @@ export default function Dashboard() {
     }
   };
 
-  const getExpectedCompletions = (frequency: string) => {
-    const daysInWeek = 7;
-    const daysInMonth = 30;
-    
-    switch (frequency) {
+  const getCompletionData = (checklist: Checklist, stats: ChecklistStats | undefined) => {
+    switch (checklist.frequency) {
       case 'daily':
-        return daysInWeek;
+        return {
+          expected: 1,
+          completed: stats?.submissions_today || 0,
+          period: 'today',
+        };
       case 'weekly':
-        return 1;
+        return {
+          expected: 1,
+          completed: stats?.submissions_this_week || 0,
+          period: 'this week',
+        };
       case 'monthly':
-        return 1;
+        return {
+          expected: 1,
+          completed: stats?.submissions_this_month || 0,
+          period: 'this month',
+        };
       default:
-        return daysInWeek;
+        return {
+          expected: 1,
+          completed: stats?.submissions_today || 0,
+          period: 'today',
+        };
     }
   };
 
@@ -211,19 +231,18 @@ export default function Dashboard() {
             <Card>
               <CardHeader>
                 <CardTitle>Completion Overview</CardTitle>
-                <CardDescription>Weekly completion status</CardDescription>
+                <CardDescription>Current period completion status</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {checklists.map((checklist) => {
                     const checklistStats = stats[checklist.id];
-                    const expected = getExpectedCompletions(checklist.frequency);
-                    const completed = checklistStats?.submissions_this_week || 0;
+                    const { expected, completed, period } = getCompletionData(checklist, checklistStats);
                     const remaining = Math.max(0, expected - completed);
                     const completionRate = expected > 0 ? Math.round((completed / expected) * 100) : 0;
 
                     const chartData = [
-                      { name: 'Completed', value: completed },
+                      { name: 'Completed', value: Math.min(completed, expected) },
                       { name: 'Remaining', value: remaining },
                     ];
 
@@ -260,8 +279,11 @@ export default function Dashboard() {
                             {completionRate}%
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {completed} of {expected} this week
+                            {completed} of {expected} {period}
                           </p>
+                          <Badge variant="secondary" className="mt-1 text-xs capitalize">
+                            {checklist.frequency}
+                          </Badge>
                         </div>
                       </div>
                     );
