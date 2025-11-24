@@ -15,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
 import { useNavigate } from 'react-router-dom';
 import React from 'react';
+import { ImageCropDialog } from '@/components/ImageCropDialog';
 
 interface UserProfile {
   id: string;
@@ -42,6 +43,9 @@ export default function UserManagement() {
   const [editProfilePhoto, setEditProfilePhoto] = useState<string | null>(null);
   const [updatingUser, setUpdatingUser] = useState(false);
   const editPhotoInputRef = React.useRef<HTMLInputElement>(null);
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [tempImageSrc, setTempImageSrc] = useState<string>('');
+  const [isInviteCrop, setIsInviteCrop] = useState(false);
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -169,29 +173,14 @@ export default function UserManagement() {
       return;
     }
 
-    try {
-      setUploadingPhoto(true);
-      
-      const fileExt = file.name.split('.').pop();
-      const fileName = `temp/${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('profile-photos')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('profile-photos')
-        .getPublicUrl(fileName);
-
-      setInviteProfilePhoto(publicUrl);
-      toast({ title: 'Success', description: 'Photo uploaded' });
-    } catch (error: any) {
-      toast({ title: 'Error', description: 'Failed to upload photo', variant: 'destructive' });
-    } finally {
-      setUploadingPhoto(false);
-    }
+    // Read file as data URL for cropping
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setTempImageSrc(reader.result as string);
+      setIsInviteCrop(true);
+      setCropDialogOpen(true);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleEditPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -208,15 +197,27 @@ export default function UserManagement() {
       return;
     }
 
+    // Read file as data URL for cropping
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setTempImageSrc(reader.result as string);
+      setIsInviteCrop(false);
+      setCropDialogOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
     try {
       setUploadingPhoto(true);
       
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${editingUser?.id}/${Date.now()}.${fileExt}`;
+      const fileName = isInviteCrop
+        ? `temp/${Date.now()}.jpg`
+        : `${editingUser?.id}/${Date.now()}.jpg`;
       
       const { error: uploadError } = await supabase.storage
         .from('profile-photos')
-        .upload(fileName, file);
+        .upload(fileName, croppedBlob);
 
       if (uploadError) throw uploadError;
 
@@ -224,7 +225,12 @@ export default function UserManagement() {
         .from('profile-photos')
         .getPublicUrl(fileName);
 
-      setEditProfilePhoto(publicUrl);
+      if (isInviteCrop) {
+        setInviteProfilePhoto(publicUrl);
+      } else {
+        setEditProfilePhoto(publicUrl);
+      }
+      
       toast({ title: 'Success', description: 'Photo uploaded' });
     } catch (error: any) {
       toast({ title: 'Error', description: 'Failed to upload photo', variant: 'destructive' });
@@ -613,6 +619,14 @@ export default function UserManagement() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Image Crop Dialog */}
+        <ImageCropDialog
+          open={cropDialogOpen}
+          onOpenChange={setCropDialogOpen}
+          imageSrc={tempImageSrc}
+          onCropComplete={handleCropComplete}
+        />
       </div>
     </Layout>
   );
