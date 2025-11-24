@@ -30,6 +30,16 @@ export function DayBreakdownDialog({
 
   const getProfileForShift = (shift: any) => profiles.find((p) => p.id === shift.user_id) || null;
 
+  // Get shift template color
+  const getShiftColor = (shift: any) => {
+    // Use template color if available
+    if (shift.template?.color) {
+      return shift.template.color;
+    }
+    // Fallback to a default color
+    return "hsl(var(--primary))";
+  };
+
   // Convert 24-hour time to 12-hour format
   const formatTime = (time24: string) => {
     const [hours, minutes] = time24.split(":").map(Number);
@@ -37,6 +47,15 @@ export function DayBreakdownDialog({
     const hours12 = hours % 12 || 12;
     return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
   };
+
+  // Sort shifts by start time
+  const sortedDayShifts = [...dayShifts].sort((a, b) => {
+    const aTime = a.start_time.split(":").map(Number);
+    const bTime = b.start_time.split(":").map(Number);
+    const aMinutes = aTime[0] * 60 + aTime[1];
+    const bMinutes = bTime[0] * 60 + bTime[1];
+    return aMinutes - bMinutes;
+  });
 
   // Get earliest and latest hours for timeline
   const getTimelineBounds = () => {
@@ -133,21 +152,6 @@ export function DayBreakdownDialog({
     }).format(amount);
   };
 
-  // Generate a color for each employee
-  const getEmployeeColor = (userId: string | null) => {
-    if (!userId) return "hsl(var(--muted))";
-    const colors = [
-      "hsl(200, 80%, 60%)",
-      "hsl(160, 80%, 50%)",
-      "hsl(280, 80%, 60%)",
-      "hsl(40, 90%, 60%)",
-      "hsl(320, 80%, 60%)",
-      "hsl(100, 70%, 50%)",
-    ];
-    const hash = userId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
@@ -194,7 +198,7 @@ export function DayBreakdownDialog({
 
                   {/* Shift bars */}
                   <div className="space-y-2">
-                    {dayShifts
+                    {sortedDayShifts
                       .filter((shift: any) => !shift.is_time_off)
                       .map((shift: any) => {
                         const profile = getProfileForShift(shift);
@@ -220,7 +224,7 @@ export function DayBreakdownDialog({
                                 style={{
                                   left: `${leftPercent}%`,
                                   width: `${widthPercent}%`,
-                                  backgroundColor: getEmployeeColor(shift.user_id),
+                                  backgroundColor: getShiftColor(shift),
                                 }}
                               >
                                 <span className="truncate px-1">
@@ -297,7 +301,7 @@ export function DayBreakdownDialog({
                 <h3 className="font-semibold text-sm">Employee Shifts</h3>
               </div>
               <div className="divide-y">
-                {dayShifts.map((shift: any) => {
+                {sortedDayShifts.map((shift: any) => {
                   const [startHour, startMin] = shift.start_time.split(":").map(Number);
                   const [endHour, endMin] = shift.end_time.split(":").map(Number);
                   const hours = endHour + endMin / 60 - (startHour + startMin / 60);
@@ -314,7 +318,7 @@ export function DayBreakdownDialog({
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         <div
                           className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: getEmployeeColor(shift.user_id) }}
+                          style={{ backgroundColor: getShiftColor(shift) }}
                         />
                         <div className="flex-1 min-w-0">
                           <div className="font-medium truncate">
