@@ -17,12 +17,13 @@ import { toast } from 'sonner';
 
 interface ChecklistItem {
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation';
   options?: string[];
   is_required: boolean;
   reference_image_url?: string;
   reference_link?: string;
   reference_video_url?: string;
+  reference_notes?: string;
 }
 
 export default function CreateChecklist() {
@@ -125,7 +126,7 @@ export default function CreateChecklist() {
         reference_image_url: item.reference_image_url || null,
         reference_link: item.reference_link || null,
         reference_video_url: item.reference_video_url || null,
-        reference_notes: null,
+        reference_notes: item.reference_notes || null,
       }));
 
       const { error: itemsError } = await supabase
@@ -274,6 +275,7 @@ export default function CreateChecklist() {
                               <SelectItem value="text">Text Input</SelectItem>
                               <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
                               <SelectItem value="image">Image Upload</SelectItem>
+                              <SelectItem value="confirmation">Confirmation Checkmark</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -291,6 +293,22 @@ export default function CreateChecklist() {
                               }
                               placeholder="e.g., Yes, No, N/A"
                               required
+                            />
+                          </div>
+                        )}
+
+                        {item.item_type === 'confirmation' && (
+                          <div className="space-y-2">
+                            <Label htmlFor={`ref-notes-${index}`} className="text-sm flex items-center gap-2">
+                              <FileText className="h-4 w-4" />
+                              Instructions/Notes (Optional)
+                            </Label>
+                            <Textarea
+                              id={`ref-notes-${index}`}
+                              value={item.reference_notes || ''}
+                              onChange={(e) => updateItem(index, 'reference_notes', e.target.value)}
+                              placeholder="Add instructions or notes that will appear with the confirmation checkmark"
+                              rows={3}
                             />
                           </div>
                         )}

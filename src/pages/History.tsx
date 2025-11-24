@@ -5,13 +5,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { History as HistoryIcon, Calendar, Eye } from 'lucide-react';
+import { History as HistoryIcon, Calendar, Eye, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/auth';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Submission {
   id: string;
   submitted_at: string;
+  submitted_by: string;
   notes: string | null;
   checklists: {
     title: string;
@@ -27,7 +39,10 @@ interface Submission {
 export default function History() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingSubmission, setDeletingSubmission] = useState<Submission | null>(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchSubmissions();
@@ -51,6 +66,36 @@ export default function History() {
       toast.error('Failed to load submission history');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteSubmission = async () => {
+    if (!deletingSubmission) return;
+
+    try {
+      // Delete responses first (cascading)
+      const { error: responsesError } = await supabase
+        .from('checklist_responses')
+        .delete()
+        .eq('submission_id', deletingSubmission.id);
+
+      if (responsesError) throw responsesError;
+
+      // Delete submission
+      const { error: submissionError } = await supabase
+        .from('checklist_submissions')
+        .delete()
+        .eq('id', deletingSubmission.id);
+
+      if (submissionError) throw submissionError;
+
+      toast.success('Submission deleted successfully');
+      setDeleteDialogOpen(false);
+      setDeletingSubmission(null);
+      fetchSubmissions();
+    } catch (error: any) {
+      toast.error('Failed to delete submission');
+      console.error('Error deleting submission:', error);
     }
   };
 
@@ -118,14 +163,29 @@ export default function History() {
                         </div>
                       </CardDescription>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/submission/${submission.id}`)}
-                    >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(`/submission/${submission.id}`)}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        View Details
+                      </Button>
+                      {user?.id === submission.submitted_by && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            setDeletingSubmission(submission);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Undo
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
                 {submission.notes && (
@@ -140,6 +200,26 @@ export default function History() {
             ))}
           </div>
         )}
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete this submission and all its responses. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteSubmission}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Layout>
   );
