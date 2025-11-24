@@ -194,12 +194,27 @@ export default function UserManagement() {
         return acc;
       }, {});
 
-      // Merge profiles with their roles and hours
-      const usersWithRoles = profiles.map((profile) => ({
+      // Fetch current wages for all users using the database function
+      const wagePromises = profiles.map(async (profile) => {
+        const { data, error } = await supabase
+          .rpc('get_current_wage', { p_user_id: profile.id });
+        
+        if (error) {
+          console.error(`Error fetching wage for user ${profile.id}:`, error);
+          return profile.hourly_wage || 15.00;
+        }
+        return data;
+      });
+
+      const currentWages = await Promise.all(wagePromises);
+
+      // Merge profiles with their roles, hours, and current wages
+      const usersWithRoles = profiles.map((profile, index) => ({
         ...profile,
         role: roles.find((r) => r.user_id === profile.id)?.role as AppRole || 'team_member',
         paid_hours: hoursByUser[profile.id]?.paid || 0,
         unpaid_hours: hoursByUser[profile.id]?.unpaid || 0,
+        hourly_wage: currentWages[index],
       }));
 
       setUsers(usersWithRoles);
