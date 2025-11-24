@@ -498,23 +498,32 @@ export type Database = {
       }
       locations: {
         Row: {
+          address: string | null
           created_at: string
           created_by: string | null
           id: string
+          latitude: number | null
+          longitude: number | null
           name: string
           updated_at: string
         }
         Insert: {
+          address?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name: string
           updated_at?: string
         }
         Update: {
+          address?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           name?: string
           updated_at?: string
         }
