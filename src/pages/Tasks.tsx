@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, Clock, FileCheck, Plus } from "lucide-react";
+import { CheckCircle2, Clock, FileCheck, Plus, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -161,20 +161,31 @@ export default function Tasks() {
             ) : (
               <div className="space-y-2">
                 {checklists.map((checklist: any) => (
-                  <Button
-                    key={checklist.id}
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={() => navigate(`/complete-checklist/${checklist.id}`)}
-                  >
-                    <FileCheck className="h-4 w-4 mr-2" />
-                    <div className="flex-1 text-left">
-                      <div className="font-medium">{checklist.title}</div>
-                      {checklist.description && (
-                        <div className="text-xs text-muted-foreground">{checklist.description}</div>
-                      )}
-                    </div>
-                  </Button>
+                  <div key={checklist.id} className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1 justify-start"
+                      onClick={() => navigate(`/complete-checklist/${checklist.id}`)}
+                    >
+                      <FileCheck className="h-4 w-4 mr-2" />
+                      <div className="flex-1 text-left">
+                        <div className="font-medium">{checklist.title}</div>
+                        {checklist.description && (
+                          <div className="text-xs text-muted-foreground">{checklist.description}</div>
+                        )}
+                      </div>
+                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => navigate(`/edit-checklist/${checklist.id}`)}
+                        title="Edit checklist"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 ))}
               </div>
             )}
