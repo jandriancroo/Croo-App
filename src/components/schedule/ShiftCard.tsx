@@ -73,7 +73,9 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
   };
 
   const shiftData = shift.isTemplate ? shift.template : shift;
-  const bgColor = shiftData.color || "#ef4444";
+  const template = shift.template;
+  const bgColor = template?.color || shiftData.color || "#ef4444";
+  const position = template?.position || template?.template_name;
 
   const handleCardClick = (e: React.MouseEvent) => {
     if (!shift.isTemplate && onEdit) {
@@ -94,6 +96,9 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
       <div className="text-white text-xs font-medium">
         {shift.isTemplate ? shiftData.template_name : `${formatTime(shiftData.start_time)} - ${formatTime(shiftData.end_time)}`}
       </div>
+      {!shift.isTemplate && position && (
+        <div className="text-white text-xs opacity-90">{position}</div>
+      )}
       {shift.is_time_off && <div className="text-white text-xs">TIME OFF</div>}
       <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100">
         {!shift.isTemplate && canTakeShift && shift.user_id !== currentUserId && (
