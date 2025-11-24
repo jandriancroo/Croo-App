@@ -126,8 +126,10 @@ export default function PunchClock() {
   };
 
   const canClockIn = () => {
-    if (!todayShift) return false;
     if (lastPunch?.punch_type === 'clock_in') return false;
+    
+    // Allow clocking in without a schedule (will be flagged in payroll)
+    if (!todayShift) return true;
     
     const now = new Date();
     const shiftStart = new Date(`${todayShift.shift_date}T${todayShift.start_time}`);
@@ -137,16 +139,28 @@ export default function PunchClock() {
   };
 
   const handleClockIn = async () => {
-    if (!canClockIn()) {
-      toast.error('You cannot clock in yet. Please wait until 30 minutes before your shift.');
+    if (lastPunch?.punch_type === 'clock_in') {
+      toast.error('You are already clocked in');
       return;
+    }
+
+    // Check if clocking in early for a scheduled shift
+    if (todayShift) {
+      const now = new Date();
+      const shiftStart = new Date(`${todayShift.shift_date}T${todayShift.start_time}`);
+      const thirtyMinsBefore = new Date(shiftStart.getTime() - 30 * 60000);
+      
+      if (now < thirtyMinsBefore) {
+        toast.error('You cannot clock in yet. Please wait until 30 minutes before your shift.');
+        return;
+      }
     }
 
     const { error } = await supabase
       .from('time_punches')
       .insert({
         user_id: currentUser.id,
-        shift_id: todayShift.id,
+        shift_id: todayShift?.id || null,
         punch_type: 'clock_in',
         punch_time: new Date().toISOString()
       });
@@ -343,21 +357,27 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                 {format(currentTime, 'h:mm:ss a')}
               </div>
               <CardTitle className="text-xl">Hello, {currentUser.full_name}!</CardTitle>
-              {todayShift && (
+              {todayShift && !isClockedIn && (
                 <p className="text-sm text-muted-foreground">
                   Scheduled: {format(new Date(`2000-01-01T${todayShift.start_time}`), 'h:mm a')} - {format(new Date(`2000-01-01T${todayShift.end_time}`), 'h:mm a')}
                 </p>
               )}
+              {!todayShift && !isClockedIn && (
+                <p className="text-sm text-amber-600 font-medium">
+                  ⚠ Not scheduled today - punch will be flagged
+                </p>
+              )}
+              {todayShift && isClockedIn && (
+                <div className="mt-2 p-3 bg-primary/10 rounded-lg">
+                  <p className="text-sm font-medium mb-1">Today's Shift</p>
+                  <p className="text-lg font-bold">
+                    {format(new Date(`2000-01-01T${todayShift.start_time}`), 'h:mm a')} - {format(new Date(`2000-01-01T${todayShift.end_time}`), 'h:mm a')}
+                  </p>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
-              {!todayShift ? (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">You are not scheduled to work today.</p>
-                  <Button variant="ghost" onClick={() => setCurrentUser(null)} className="mt-4">
-                    Back
-                  </Button>
-                </div>
-              ) : !isClockedIn ? (
+              {!isClockedIn ? (
                 <div className="space-y-4">
                   <Button
                     className="w-full h-16 text-lg"
@@ -367,15 +387,27 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     <Clock className="mr-2 h-5 w-5" />
                     Clock In
                   </Button>
+                  {!todayShift && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      You can clock in without a scheduled shift, but it will require admin approval in payroll.
+                    </p>
+                  )}
                   <Button variant="outline" onClick={() => setCurrentUser(null)} className="w-full">
                     Cancel
                   </Button>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="text-center py-2 bg-primary/10 rounded-lg">
-                    <p className="text-sm font-medium">Currently Clocked In</p>
-                  </div>
+                  {!todayShift && (
+                    <div className="text-center py-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                      <p className="text-sm font-medium text-amber-700 dark:text-amber-400">⚠ No Scheduled Shift</p>
+                    </div>
+                  )}
+                  {todayShift && (
+                    <div className="text-center py-2 bg-primary/10 rounded-lg">
+                      <p className="text-sm font-medium">Currently Clocked In</p>
+                    </div>
+                  )}
                   
                   <Button
                     variant="outline"
