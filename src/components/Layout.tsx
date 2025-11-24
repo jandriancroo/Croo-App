@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/co
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useState } from 'react';
 import crooLogo from '@/assets/croo-logo.png';
+import { LocationSelector } from '@/components/LocationSelector';
 
 interface LayoutProps {
   children: ReactNode;
@@ -71,6 +72,7 @@ export const Layout = ({ children }: LayoutProps) => {
             />
           </button>
           <nav className="hidden items-center gap-1 md:flex flex-1">
+            <LocationSelector />
             {mainNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
