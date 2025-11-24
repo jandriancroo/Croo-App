@@ -13,6 +13,8 @@ import CompleteChecklist from "./pages/CompleteChecklist";
 import History from "./pages/History";
 import SubmissionDetails from "./pages/SubmissionDetails";
 import UserManagement from "./pages/UserManagement";
+import Schedule from "./pages/Schedule";
+import ShiftTemplates from "./pages/ShiftTemplates";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +35,8 @@ const App = () => (
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
             <Route path="/submission/:id" element={<ProtectedRoute><SubmissionDetails /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+            <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
+            <Route path="/shift-templates" element={<ProtectedRoute><ShiftTemplates /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
