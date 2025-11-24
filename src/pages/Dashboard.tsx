@@ -5,10 +5,11 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, Calendar, Plus, TrendingUp, CheckCircle2, Edit } from 'lucide-react';
+import { ClipboardList, Calendar, Plus, TrendingUp, CheckCircle2, Edit, DollarSign, Clock } from 'lucide-react';
 import { toast } from 'sonner';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useQuery } from '@tanstack/react-query';
 
 interface Checklist {
   id: string;
@@ -27,12 +28,34 @@ interface ChecklistStats {
   submissions_today: number;
 }
 
+type SalesData = {
+  hourly: Array<{ hour: string; sales: number }>;
+  daily: number;
+  weekly: number;
+};
+
 export default function Dashboard() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [stats, setStats] = useState<Record<string, ChecklistStats>>({});
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { isAdmin } = useUserRole();
+
+  const { data: salesData, refetch: refetchSales } = useQuery({
+    queryKey: ["qubeyond-sales"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
+        body: { period: "today" },
+      });
+
+      if (error) {
+        console.error("Error fetching sales data:", error);
+        return null;
+      }
+
+      return data as SalesData;
+    },
+  });
 
   useEffect(() => {
     fetchData();
@@ -165,6 +188,13 @@ export default function Dashboard() {
     return { totalSubmissions, submissionsThisWeek, activeChecklists };
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
   const totalStats = getTotalStats();
 
   return (
@@ -223,6 +253,104 @@ export default function Dashboard() {
                 <CardContent>
                   <div className="text-2xl font-bold">{totalStats.totalSubmissions}</div>
                   <p className="text-xs text-muted-foreground">all time</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Sales Overview */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold">Sales Overview</h3>
+                <Button onClick={() => refetchSales()} size="sm" variant="outline">
+                  Refresh
+                </Button>
+              </div>
+              <div className="grid gap-4 md:grid-cols-3 mb-6">
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Today's Sales</CardTitle>
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {salesData ? formatCurrency(salesData.daily) : "--"}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Current day total</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Weekly Sales</CardTitle>
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {salesData ? formatCurrency(salesData.weekly) : "--"}
+                    </div>
+                    <p className="text-xs text-muted-foreground">This week's total</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between pb-2">
+                    <CardTitle className="text-sm font-medium">Average per Hour</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {salesData
+                        ? formatCurrency(
+                            salesData.hourly.reduce((sum, h) => sum + h.sales, 0) /
+                              salesData.hourly.length
+                          )
+                        : "--"}
+                    </div>
+                    <p className="text-xs text-muted-foreground">Based on today</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Hourly Sales Breakdown</CardTitle>
+                  <CardDescription>Sales performance by hour</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {salesData?.hourly ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={salesData.hourly}>
+                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                        <XAxis 
+                          dataKey="hour" 
+                          className="text-xs"
+                          tick={{ fill: 'hsl(var(--foreground))' }}
+                        />
+                        <YAxis 
+                          className="text-xs"
+                          tick={{ fill: 'hsl(var(--foreground))' }}
+                          tickFormatter={(value) => `$${value}`}
+                        />
+                        <Tooltip
+                          formatter={(value) => formatCurrency(value as number)}
+                          contentStyle={{
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '6px',
+                          }}
+                        />
+                        <Bar 
+                          dataKey="sales" 
+                          fill="hsl(var(--primary))" 
+                          radius={[8, 8, 0, 0]}
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                      No sales data available
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

@@ -33,12 +33,12 @@ export const Layout = ({ children }: LayoutProps) => {
   const mobileMainNavItems = [
     { path: '/', label: 'Dashboard', icon: Home },
     { path: '/schedule', label: 'Schedule', icon: Calendar },
-    { path: '/create', label: 'Tasks', icon: ClipboardList },
     { path: '/messages', label: 'Messages', icon: MessageSquare },
   ];
 
   // Items that go in the hamburger menu on mobile
   const mobileMenuItems = [
+    { path: '/create', label: 'Tasks', icon: ClipboardList },
     { path: '/availability', label: 'Availability', icon: CalendarCheck },
     ...(isAdmin ? [{ path: '/users', label: 'Users', icon: Users }] : []),
   ];
