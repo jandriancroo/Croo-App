@@ -307,6 +307,8 @@ export default function CompleteChecklist() {
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) handleImageUpload(item.id, file);
+                        // Clear input to force camera re-open
+                        e.target.value = '';
                       }}
                       required={item.is_required && !responses[item.id]}
                     />

@@ -9,9 +9,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Save, ArrowLeft } from 'lucide-react';
+import { Loader2, Save, ArrowLeft, X, GripVertical } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useUserRole } from '@/hooks/useUserRole';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface ChecklistItem {
   id?: string;
@@ -24,6 +27,85 @@ interface ChecklistItem {
   reference_video_url?: string;
   reference_notes?: string;
   order_index: number;
+}
+
+interface SortableChecklistItemProps {
+  id: string;
+  item: ChecklistItem;
+  index: number;
+  updateItem: (index: number, field: keyof ChecklistItem, value: any) => void;
+  removeItem: (index: number) => void;
+  handleReferenceImageUpload: (index: number, file: File) => void;
+}
+
+function SortableChecklistItem({ id, item, index, updateItem, removeItem, handleReferenceImageUpload }: SortableChecklistItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex gap-2 p-3 border rounded-lg bg-background ${isDragging ? 'opacity-50 z-50' : ''}`}
+    >
+      <button
+        className="touch-none cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground mt-1"
+        {...attributes}
+        {...listeners}
+      >
+        <GripVertical className="h-5 w-5" />
+      </button>
+      
+      <div className="flex-1 space-y-3">
+        <div className="flex items-start gap-2">
+          <Input
+            value={item.question}
+            onChange={(e) => updateItem(index, 'question', e.target.value)}
+            placeholder="Question"
+            className="flex-1"
+          />
+          <Select
+            value={item.item_type}
+            onValueChange={(value) => updateItem(index, 'item_type', value)}
+          >
+            <SelectTrigger className="w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="text">Text</SelectItem>
+              <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+              <SelectItem value="image">Photo</SelectItem>
+              <SelectItem value="confirmation">Checkmark</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="ghost" size="icon" onClick={() => removeItem(index)}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {item.item_type === 'multiple_choice' && (
+          <Input
+            value={item.options?.join(', ') || ''}
+            onChange={(e) =>
+              updateItem(index, 'options', e.target.value.split(',').map((opt) => opt.trim()))
+            }
+            placeholder="Options (comma-separated)"
+            className="text-sm"
+          />
+        )}
+
+        {item.item_type === 'confirmation' && (
+          <Textarea
+            value={item.reference_notes || ''}
+            onChange={(e) => updateItem(index, 'reference_notes', e.target.value)}
+            placeholder="Instructions (optional)"
+            rows={2}
+            className="text-sm"
+          />
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function EditChecklist() {
@@ -91,12 +173,14 @@ export default function EditChecklist() {
       setItems(checklistItems.map(item => ({
         id: item.id,
         question: item.question,
-        item_type: item.item_type as 'text' | 'multiple_choice' | 'image',
+        // Map database types - 'text' in DB can be 'confirmation' in UI
+        item_type: (item.item_type === 'text' && item.question.includes('Ready')) ? 'confirmation' : item.item_type as 'text' | 'multiple_choice' | 'image' | 'confirmation',
         is_required: item.is_required,
         options: item.options as string[] | undefined,
         reference_image_url: item.reference_image_url || undefined,
         reference_link: item.reference_link || undefined,
         reference_video_url: item.reference_video_url || undefined,
+        reference_notes: item.reference_notes || undefined,
         order_index: item.order_index,
       })));
     } catch (error) {
@@ -146,11 +230,11 @@ export default function EditChecklist() {
 
       if (deleteError) throw deleteError;
 
-      // Insert updated items
+      // Insert updated items - map 'confirmation' to 'text' for database
       const itemsToInsert = items.map((item, index) => ({
         checklist_id: id,
         question: item.question,
-        item_type: item.item_type,
+        item_type: item.item_type === 'confirmation' ? 'text' : item.item_type,
         is_required: item.is_required,
         options: item.item_type === 'multiple_choice' ? item.options : null,
         reference_image_url: item.reference_image_url || null,
@@ -254,6 +338,24 @@ export default function EditChecklist() {
     setItems(newItems);
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setItems((items) => {
+        const oldIndex = items.findIndex((_, i) => `item-${i}` === active.id);
+        const newIndex = items.findIndex((_, i) => `item-${i}` === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
   if (roleLoading || loading) {
     return (
       <Layout>
@@ -350,129 +452,24 @@ export default function EditChecklist() {
         <Card>
           <CardHeader>
             <CardTitle>Checklist Items</CardTitle>
-            <CardDescription>Update the items in this checklist</CardDescription>
+            <CardDescription>Drag items to reorder</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {items.map((item, index) => (
-              <div key={index} className="p-4 border rounded-lg space-y-4">
-                <div className="flex justify-between items-center">
-                  <Label>Item {index + 1}</Label>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => removeItem(index)}
-                  >
-                    Remove
-                  </Button>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Question</Label>
-                  <Input
-                    value={item.question}
-                    onChange={(e) => updateItem(index, 'question', e.target.value)}
-                    placeholder="Enter your question"
+          <CardContent className="space-y-3">
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={items.map((_, i) => `item-${i}`)} strategy={verticalListSortingStrategy}>
+                {items.map((item, index) => (
+                  <SortableChecklistItem
+                    key={`item-${index}`}
+                    id={`item-${index}`}
+                    item={item}
+                    index={index}
+                    updateItem={updateItem}
+                    removeItem={removeItem}
+                    handleReferenceImageUpload={handleReferenceImageUpload}
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Type</Label>
-                  <Select
-                    value={item.item_type}
-                    onValueChange={(value) => updateItem(index, 'item_type', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="text">Text Response</SelectItem>
-                      <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                      <SelectItem value="image">Image Upload</SelectItem>
-                      <SelectItem value="confirmation">Confirmation Checkmark</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {item.item_type === 'multiple_choice' && (
-                  <div className="space-y-2">
-                    <Label>Options (comma-separated)</Label>
-                    <Input
-                      value={item.options?.join(', ') || ''}
-                      onChange={(e) =>
-                        updateItem(
-                          index,
-                          'options',
-                          e.target.value.split(',').map((opt) => opt.trim())
-                        )
-                      }
-                      placeholder="Option 1, Option 2, Option 3"
-                    />
-                  </div>
-                )}
-
-                {item.item_type === 'confirmation' && (
-                  <div className="space-y-2">
-                    <Label htmlFor={`ref-notes-${index}`}>Instructions/Notes (Optional)</Label>
-                    <Textarea
-                      id={`ref-notes-${index}`}
-                      value={item.reference_notes || ''}
-                      onChange={(e) => updateItem(index, 'reference_notes', e.target.value)}
-                      placeholder="Add instructions or notes that will appear with the confirmation checkmark"
-                      rows={3}
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label>Reference Materials (Optional)</Label>
-                  
-                  {/* Reference Link */}
-                  <div className="space-y-2">
-                    <Label htmlFor={`ref-link-${index}`} className="text-sm">Reference Link</Label>
-                    <Input
-                      id={`ref-link-${index}`}
-                      value={item.reference_link || ''}
-                      onChange={(e) => updateItem(index, 'reference_link', e.target.value)}
-                      placeholder="https://example.com/resource"
-                      type="url"
-                    />
-                  </div>
-
-                  {/* Reference Image Upload */}
-                  <div className="space-y-2">
-                    <Label htmlFor={`ref-image-${index}`} className="text-sm">Reference Photo Upload</Label>
-                    <Input
-                      id={`ref-image-${index}`}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleReferenceImageUpload(index, file);
-                      }}
-                    />
-                    {item.reference_image_url && (
-                      <img
-                        src={item.reference_image_url}
-                        alt="Reference"
-                        className="mt-2 rounded-lg max-h-32 object-cover"
-                      />
-                    )}
-                  </div>
-
-                  {/* Reference Video */}
-                  <div className="space-y-2">
-                    <Label htmlFor={`ref-video-${index}`} className="text-sm">Training Video URL</Label>
-                    <Input
-                      id={`ref-video-${index}`}
-                      value={item.reference_video_url || ''}
-                      onChange={(e) => updateItem(index, 'reference_video_url', e.target.value)}
-                      placeholder="https://youtube.com/watch?v=..."
-                      type="url"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
+                ))}
+              </SortableContext>
+            </DndContext>
 
             <Button onClick={addItem} variant="outline" className="w-full">
               Add Item
