@@ -302,6 +302,7 @@ export default function CompleteChecklist() {
                       id={`image-${item.id}`}
                       type="file"
                       accept="image/*"
+                      capture="environment"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
