@@ -21,91 +21,128 @@ serve(async (req) => {
       throw new Error('QuBeyond credentials not configured');
     }
 
-    console.log('Authenticating with QuBeyond for period:', period);
+    console.log('Starting QuBeyond authentication flow');
 
     const baseUrl = 'https://admin.qubeyond.com';
     
-    // Step 1: Attempt to log in with credentials
+    // Step 1: Fetch the login page to get any CSRF tokens and initial cookies
+    console.log('Step 1: Fetching login page');
+    const loginPageResponse = await fetch(`${baseUrl}/login`, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+    
+    const loginPageHtml = await loginPageResponse.text();
+    const initialCookies = loginPageResponse.headers.getSetCookie?.() || [];
+    console.log('Initial cookies received:', initialCookies.length);
+    
+    // Extract CSRF token if present
+    const csrfMatch = loginPageHtml.match(/csrf[_-]?token["']?\s*[:=]\s*["']([^"']+)["']/i);
+    const csrfToken = csrfMatch ? csrfMatch[1] : null;
+    console.log('CSRF token found:', csrfToken ? 'yes' : 'no');
+    
+    // Build initial cookie string
+    let cookieString = initialCookies.map(c => c.split(';')[0]).join('; ');
+    if (!cookieString) {
+      cookieString = `CID=${cid}; SID=${sid}`;
+    }
+    
+    // Step 2: Submit login form
+    console.log('Step 2: Submitting login credentials');
+    const loginFormData = new URLSearchParams({
+      username: username,
+      password: password,
+      cid: cid,
+    });
+    
+    if (csrfToken) {
+      loginFormData.append('_csrf', csrfToken);
+      loginFormData.append('csrf_token', csrfToken);
+    }
+    
     const loginResponse = await fetch(`${baseUrl}/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Cookie': cookieString,
+        'Referer': `${baseUrl}/login`,
+        'Origin': baseUrl,
       },
-      body: new URLSearchParams({
-        username: username,
-        password: password,
-        cid: cid,
-      }).toString(),
+      body: loginFormData.toString(),
       redirect: 'manual',
     });
 
     console.log('Login response status:', loginResponse.status);
+    console.log('Login response redirect:', loginResponse.headers.get('location'));
     
-    // Extract ALL cookies from login response
-    const cookieHeaders = loginResponse.headers.getSetCookie?.() || [];
-    console.log('Received cookies count:', cookieHeaders.length);
+    // Step 3: Update cookies from login response
+    const loginCookies = loginResponse.headers.getSetCookie?.() || [];
+    console.log('Login cookies received:', loginCookies.length);
     
-    // Build cookie string from all Set-Cookie headers
-    let cookieString = '';
-    if (cookieHeaders.length > 0) {
-      cookieString = cookieHeaders.map(cookie => {
-        const match = cookie.match(/^([^;]+)/);
-        return match ? match[1] : '';
-      }).filter(c => c).join('; ');
-    } else {
-      cookieString = `CID=${cid}; SID=${sid}`;
+    if (loginCookies.length > 0) {
+      const newCookies = loginCookies.map(c => c.split(';')[0]);
+      // Merge cookies, preferring newer ones
+      const cookieMap = new Map();
+      cookieString.split('; ').forEach(c => {
+        const [key, value] = c.split('=');
+        if (key && value) cookieMap.set(key, value);
+      });
+      newCookies.forEach(c => {
+        const [key, value] = c.split('=');
+        if (key && value) cookieMap.set(key, value);
+      });
+      cookieString = Array.from(cookieMap.entries()).map(([k, v]) => `${k}=${v}`).join('; ');
     }
     
-    console.log('Using cookie string (length):', cookieString.length);
+    console.log('Final cookie count:', cookieString.split('; ').length);
     
-    // Step 2: Fetch from the correct endpoints
+    // Step 4: Fetch sales data with authenticated session
     const hourlyUrl = `${baseUrl}/reports/sales/hourly-sales`;
     const dailyUrl = `${baseUrl}/reports/overview/real-time-summary`;
     const weeklyUrl = `${baseUrl}/reports/overview/summary`;
     
-    console.log('Fetching hourly data from:', hourlyUrl);
-    const hourlyResponse = await fetch(hourlyUrl, {
-      method: 'GET',
-      headers: {
-        'Cookie': cookieString,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-    });
+    console.log('Step 4: Fetching sales data');
     
-    console.log('Fetching daily data from:', dailyUrl);
-    const dailyResponse = await fetch(dailyUrl, {
-      method: 'GET',
-      headers: {
-        'Cookie': cookieString,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-    });
+    const fetchWithAuth = async (url: string) => {
+      return await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Cookie': cookieString,
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': `${baseUrl}/dashboard`,
+        },
+      });
+    };
     
-    console.log('Fetching weekly data from:', weeklyUrl);
-    const weeklyResponse = await fetch(weeklyUrl, {
-      method: 'GET',
-      headers: {
-        'Cookie': cookieString,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      },
-    });
+    const [hourlyResponse, dailyResponse, weeklyResponse] = await Promise.all([
+      fetchWithAuth(hourlyUrl),
+      fetchWithAuth(dailyUrl),
+      fetchWithAuth(weeklyUrl),
+    ]);
 
     const hourlyHtml = await hourlyResponse.text();
     const dailyHtml = await dailyResponse.text();
     const weeklyHtml = await weeklyResponse.text();
     
-    console.log('Hourly HTML length:', hourlyHtml.length);
-    console.log('Daily HTML length:', dailyHtml.length);
-    console.log('Weekly HTML length:', weeklyHtml.length);
+    console.log('Hourly HTML length:', hourlyHtml.length, '- Is login page:', hourlyHtml.includes('<!doctype html>') && hourlyHtml.includes('Enterprise Intelligence'));
+    console.log('Daily HTML length:', dailyHtml.length, '- Is login page:', dailyHtml.includes('<!doctype html>') && dailyHtml.includes('Enterprise Intelligence'));
+    console.log('Weekly HTML length:', weeklyHtml.length, '- Is login page:', weeklyHtml.includes('<!doctype html>') && weeklyHtml.includes('Enterprise Intelligence'));
     
-    // Log samples to inspect structure
-    console.log('Hourly HTML sample:', hourlyHtml.substring(0, 1000));
-    console.log('Daily HTML sample:', dailyHtml.substring(0, 1000));
-    console.log('Weekly HTML sample:', weeklyHtml.substring(0, 1000));
+    // Check if we're still on login page
+    const stillOnLoginPage = hourlyHtml.includes('Enterprise Intelligence') && hourlyHtml.length < 10000;
+    
+    if (stillOnLoginPage) {
+      console.log('ERROR: Still getting login page after authentication');
+      console.log('Hourly sample:', hourlyHtml.substring(0, 500));
+    } else {
+      console.log('SUCCESS: Got actual data pages');
+      console.log('Hourly sample:', hourlyHtml.substring(0, 500));
+    }
 
     // TODO: Parse the HTML to extract actual sales data
-    // For now, returning mock data until we can inspect the HTML structure
     const mockData = {
       hourly: [
         { hour: '9:00 AM', sales: 245.50 },
@@ -119,6 +156,7 @@ serve(async (req) => {
       ],
       daily: 5066.50,
       weekly: 28450.75,
+      authenticated: !stillOnLoginPage,
     };
 
     return new Response(JSON.stringify(mockData), {
