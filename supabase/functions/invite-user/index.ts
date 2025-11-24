@@ -22,31 +22,38 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
-    if (!supabaseUrl || !supabaseServiceRoleKey) {
+    if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
       throw new Error("Missing Supabase environment variables");
     }
 
-    // Create Supabase admin client
+    // Verify the requesting user is an admin using anon key client
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      throw new Error("Missing authorization header");
+    }
+
+    // Create client with anon key for auth verification
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: { Authorization: authHeader },
+      },
+    });
+
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+
+    if (authError || !user) {
+      throw new Error("Unauthorized");
+    }
+
+    // Create admin client for privileged operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
       },
     });
-
-    // Verify the requesting user is an admin
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      throw new Error("Missing authorization header");
-    }
-
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
-
-    if (authError || !user) {
-      throw new Error("Unauthorized");
-    }
 
     // Check if user has admin role
     const { data: roleData, error: roleError } = await supabaseAdmin
