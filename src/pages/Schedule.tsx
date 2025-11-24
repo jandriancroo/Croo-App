@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Plus, Settings, Calendar } from "lucide-react";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
@@ -14,6 +15,7 @@ import { EventRow } from "@/components/schedule/EventRow";
 import { EmployeeRow } from "@/components/schedule/EmployeeRow";
 import { EditShiftDialog } from "@/components/schedule/EditShiftDialog";
 import { ConflictWarningDialog } from "@/components/schedule/ConflictWarningDialog";
+import { MobileScheduleView } from "@/components/schedule/MobileScheduleView";
 
 interface Profile {
   id: string;
@@ -67,6 +69,7 @@ interface AvailabilityRequest {
 export default function Schedule() {
   const navigate = useNavigate();
   const { role, isAdmin, isManager } = useUserRole();
+  const isMobile = useIsMobile();
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [scheduleId, setScheduleId] = useState<string | null>(null);
   const [isPublished, setIsPublished] = useState(false);
@@ -395,7 +398,22 @@ export default function Schedule() {
 
   return (
     <Layout>
-      <div className="space-y-6 pb-32">
+      {isMobile ? (
+        <MobileScheduleView
+          currentWeekStart={currentWeekStart}
+          shifts={shifts.map(s => ({
+            ...s,
+            template: templates.find(t => t.id === s.template_id) ? {
+              position: templates.find(t => t.id === s.template_id)?.template_name.split(' ').slice(0, -3).join(' ') || null,
+              color: templates.find(t => t.id === s.template_id)?.color || null,
+            } : undefined,
+          }))}
+          events={events}
+          profiles={profiles}
+          onShiftClick={(shift) => setEditingShift(shift)}
+        />
+      ) : (
+        <div className="space-y-6 pb-32">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -552,6 +570,7 @@ export default function Schedule() {
           conflicts={conflicts}
         />
       </div>
+      )}
     </Layout>
   );
 }
