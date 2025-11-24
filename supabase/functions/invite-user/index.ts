@@ -113,12 +113,14 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Profile creation error:", profileError);
     }
 
-    // Assign role
+    // Assign role (upsert to handle existing role from trigger)
     const { error: roleAssignError } = await supabaseAdmin
       .from('user_roles')
-      .insert({
+      .upsert({
         user_id: newUser.user.id,
         role: role,
+      }, {
+        onConflict: 'user_id,role',
       });
 
     if (roleAssignError) {
