@@ -17,9 +17,10 @@ interface EmployeeRowProps {
   onUpdate: () => void;
   canTakeShifts?: boolean;
   currentUserId?: string;
+  onEditShift?: (shift: any) => void;
 }
 
-export function EmployeeRow({ profile, shifts, templates, isEditable, onUpdate, canTakeShifts, currentUserId }: EmployeeRowProps) {
+export function EmployeeRow({ profile, shifts, templates, isEditable, onUpdate, canTakeShifts, currentUserId, onEditShift }: EmployeeRowProps) {
   const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
@@ -84,6 +85,7 @@ export function EmployeeRow({ profile, shifts, templates, isEditable, onUpdate, 
             onUpdate={onUpdate}
             canTakeShifts={canTakeShifts}
             currentUserId={currentUserId}
+            onEditShift={onEditShift}
           />
         );
       })}
@@ -97,7 +99,8 @@ function DayCell({
   shifts, 
   onUpdate, 
   canTakeShifts, 
-  currentUserId 
+  currentUserId,
+  onEditShift 
 }: { 
   userId: string; 
   dayIndex: number; 
@@ -105,6 +108,7 @@ function DayCell({
   onUpdate: () => void;
   canTakeShifts?: boolean;
   currentUserId?: string;
+  onEditShift?: (shift: any) => void;
 }) {
   const dropId = `drop-${userId}-${dayIndex}`;
   const { setNodeRef, isOver } = useDroppable({
@@ -127,6 +131,7 @@ function DayCell({
             canTakeShift={canTakeShifts}
             currentUserId={currentUserId}
             onTakeShift={onUpdate}
+            onEdit={() => onEditShift?.(shift)}
           />
         ))}
       </div>
