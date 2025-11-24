@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { CheckSquare, Home, ClipboardList, History, LogOut, Plus, Users } from 'lucide-react';
+import { CheckSquare, Home, ClipboardList, History, LogOut, Plus, Users, Calendar } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface LayoutProps {
@@ -19,6 +19,7 @@ export const Layout = ({ children }: LayoutProps) => {
     { path: '/', label: 'Dashboard', icon: Home },
     { path: '/create', label: 'Create', icon: Plus },
     { path: '/history', label: 'History', icon: History },
+    { path: '/schedule', label: 'Schedule', icon: Calendar },
     ...(isAdmin ? [{ path: '/users', label: 'Users', icon: Users }] : []),
   ];
 

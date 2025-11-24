@@ -23,7 +23,7 @@ interface ShiftTemplate {
 
 export default function ShiftTemplates() {
   const navigate = useNavigate();
-  const { isAdmin, isManager } = useUserRole();
+  const { isAdmin, isManager, loading: roleLoading } = useUserRole();
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -35,12 +35,14 @@ export default function ShiftTemplates() {
   });
 
   useEffect(() => {
+    if (roleLoading) return;
+    
     if (!isAdmin && !isManager) {
       navigate("/");
       return;
     }
     fetchTemplates();
-  }, [isAdmin, isManager]);
+  }, [isAdmin, isManager, roleLoading, navigate]);
 
   const fetchTemplates = async () => {
     try {
