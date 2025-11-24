@@ -10,13 +10,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera } from 'lucide-react';
+import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
 import { useNavigate } from 'react-router-dom';
 import React from 'react';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
 import { InviteLinkCard } from '@/components/InviteLinkCard';
+import { Copy } from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -51,6 +52,9 @@ export default function UserManagement() {
   const [isResendDialogOpen, setIsResendDialogOpen] = useState(false);
   const [resendUser, setResendUser] = useState<UserProfile | null>(null);
   const [newEmail, setNewEmail] = useState('');
+  const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
+  const [resetPasswordLink, setResetPasswordLink] = useState<string>('');
+  const [resetPasswordUserName, setResetPasswordUserName] = useState<string>('');
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -385,6 +389,54 @@ export default function UserManagement() {
     }
   };
 
+  const handleResetPassword = async (userId: string, userName: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('resend-invite', {
+        body: { userId },
+      });
+
+      if (error) throw error;
+
+      const response = data as { resetLink?: string | null } | null;
+      const resetLink = response?.resetLink ?? null;
+
+      if (resetLink) {
+        setResetPasswordLink(resetLink);
+        setResetPasswordUserName(userName);
+        setIsResetPasswordDialogOpen(true);
+        toast({
+          title: 'Success',
+          description: 'Password reset link generated',
+        });
+      } else {
+        throw new Error('No reset link returned');
+      }
+    } catch (error: any) {
+      console.error('Error generating password reset:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to generate password reset link',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const copyResetLink = async () => {
+    try {
+      await navigator.clipboard.writeText(resetPasswordLink);
+      toast({
+        title: 'Copied!',
+        description: 'Reset link copied to clipboard',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to copy link',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleInviteUser = async () => {
     if (!inviteEmail.trim() || !inviteFullName.trim()) {
       toast({
@@ -657,6 +709,14 @@ export default function UserManagement() {
                           >
                             Re-invite
                           </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleResetPassword(user.id, user.full_name || user.email)}
+                          >
+                            <Key className="h-4 w-4 mr-2" />
+                            Reset Password
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -781,6 +841,36 @@ export default function UserManagement() {
               </Button>
               <Button onClick={handleResendInvite}>
                 Send Invitation
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Password Reset Dialog */}
+        <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Password Reset Link for {resetPasswordUserName}</DialogTitle>
+              <DialogDescription>
+                Share this link with the user so they can reset their password. The link expires after use.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 p-3 bg-muted rounded-md border font-mono text-xs break-all">
+                  {resetPasswordLink}
+                </div>
+                <Button variant="outline" size="icon" onClick={copyResetLink}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Send this link to the user via your preferred method. They can use it to set a new password.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setIsResetPasswordDialogOpen(false)}>
+                Close
               </Button>
             </DialogFooter>
           </DialogContent>
