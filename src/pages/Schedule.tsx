@@ -19,6 +19,8 @@ interface Profile {
   id: string;
   full_name: string;
   profile_photo_url: string | null;
+  role?: string;
+  hourly_wage?: number;
 }
 
 interface ShiftTemplate {
@@ -162,14 +164,44 @@ export default function Schedule() {
         })));
       }
 
-      // Fetch all profiles
+      // Fetch all profiles with roles and wages
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, full_name, profile_photo_url")
+        .select(`
+          id, 
+          full_name, 
+          profile_photo_url,
+          hourly_wage
+        `)
         .eq("is_active", true);
 
       if (profilesError) throw profilesError;
-      setProfiles(profilesData || []);
+      
+      // Fetch user roles
+      const { data: rolesData, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("user_id, role");
+
+      if (rolesError) throw rolesError;
+
+      // Merge profiles with roles
+      const profilesWithRoles = (profilesData || []).map(profile => {
+        const userRole = rolesData?.find(r => r.user_id === profile.id);
+        return {
+          ...profile,
+          role: userRole?.role || 'team_member'
+        };
+      });
+
+      // Sort by role: admin, manager, team_member
+      const roleOrder = { admin: 0, manager: 1, team_member: 2 };
+      profilesWithRoles.sort((a, b) => {
+        const aOrder = roleOrder[a.role as keyof typeof roleOrder] ?? 3;
+        const bOrder = roleOrder[b.role as keyof typeof roleOrder] ?? 3;
+        return aOrder - bOrder;
+      });
+
+      setProfiles(profilesWithRoles);
 
       // Fetch shift templates
       const { data: templatesData, error: templatesError } = await supabase
@@ -417,23 +449,41 @@ export default function Schedule() {
                   <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} />
                 </div>
 
-                {/* Shifts by User */}
+                {/* Shifts by User - Grouped by Role */}
                 <div className="divide-y divide-border">
-                  {profiles.map((profile) => (
-                    <EmployeeRow
-                      key={profile.id}
-                      profile={profile}
-                      shifts={shifts.filter((s) => s.user_id === profile.id)}
-                      templates={templates}
-                      availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
-                      currentWeekStart={currentWeekStart}
-                      isEditable={isAdmin || isManager}
-                      onUpdate={fetchScheduleData}
-                      canTakeShifts={isAdmin || isManager}
-                      currentUserId={currentUserId || undefined}
-                      onEditShift={setEditingShift}
-                    />
-                  ))}
+                  {['admin', 'manager', 'team_member'].map((roleFilter) => {
+                    const roleProfiles = profiles.filter(p => p.role === roleFilter);
+                    if (roleProfiles.length === 0) return null;
+
+                    const roleColorClass = roleFilter === 'admin' 
+                      ? 'bg-role-admin/5 border-l-4 border-role-admin' 
+                      : roleFilter === 'manager'
+                      ? 'bg-role-manager/5 border-l-4 border-role-manager'
+                      : 'bg-role-team-member/5 border-l-4 border-role-team-member';
+
+                    return (
+                      <div key={roleFilter} className={`${roleColorClass}`}>
+                        <div className="px-4 py-2 font-semibold text-sm uppercase tracking-wide">
+                          {roleFilter === 'team_member' ? 'Team Members' : `${roleFilter}s`}
+                        </div>
+                        {roleProfiles.map((profile) => (
+                          <EmployeeRow
+                            key={profile.id}
+                            profile={profile}
+                            shifts={shifts.filter((s) => s.user_id === profile.id)}
+                            templates={templates}
+                            availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
+                            currentWeekStart={currentWeekStart}
+                            isEditable={isAdmin || isManager}
+                            onUpdate={fetchScheduleData}
+                            canTakeShifts={isAdmin || isManager}
+                            currentUserId={currentUserId || undefined}
+                            onEditShift={setEditingShift}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })}
 
                   {/* Unassigned Shifts */}
                   <EmployeeRow

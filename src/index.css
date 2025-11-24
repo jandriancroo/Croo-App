@@ -9,88 +9,96 @@ All colors MUST be HSL.
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 220 13% 13%;
+    --foreground: 220 20% 8%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 13% 13%;
+    --card: 0 0% 98%;
+    --card-foreground: 220 20% 8%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 13% 13%;
+    --popover-foreground: 220 20% 8%;
 
-    --primary: 186 75% 35%;
+    --primary: 186 80% 32%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 186 45% 96%;
-    --secondary-foreground: 186 75% 25%;
+    --secondary: 186 50% 92%;
+    --secondary-foreground: 186 85% 20%;
 
-    --muted: 186 25% 96%;
-    --muted-foreground: 220 13% 46%;
+    --muted: 220 15% 94%;
+    --muted-foreground: 220 15% 40%;
 
-    --accent: 28 85% 55%;
+    --accent: 28 90% 52%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 85% 58%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 186 25% 90%;
-    --input: 186 25% 90%;
-    --ring: 186 75% 35%;
+    --border: 220 20% 85%;
+    --input: 220 20% 90%;
+    --ring: 186 80% 32%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
+    --sidebar-background: 0 0% 96%;
 
-    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-foreground: 220 20% 15%;
 
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary: 186 80% 32%;
 
-    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-primary-foreground: 0 0% 100%;
 
-    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent: 220 15% 90%;
 
-    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-accent-foreground: 220 20% 15%;
 
-    --sidebar-border: 220 13% 91%;
+    --sidebar-border: 220 20% 82%;
 
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 186 80% 32%;
+    
+    --role-admin: 280 70% 45%;
+    --role-manager: 150 60% 40%;
+    --role-team-member: 210 70% 50%;
   }
 
   .dark {
-    --background: 220 20% 8%;
-    --foreground: 186 20% 95%;
+    --background: 220 25% 6%;
+    --foreground: 186 25% 92%;
 
-    --card: 220 18% 12%;
-    --card-foreground: 186 20% 95%;
+    --card: 220 22% 10%;
+    --card-foreground: 186 25% 92%;
 
-    --popover: 220 18% 12%;
-    --popover-foreground: 186 20% 95%;
+    --popover: 220 22% 10%;
+    --popover-foreground: 186 25% 92%;
 
-    --primary: 186 75% 45%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 186 80% 50%;
+    --primary-foreground: 220 25% 6%;
 
-    --secondary: 220 15% 18%;
-    --secondary-foreground: 186 75% 85%;
+    --secondary: 220 20% 16%;
+    --secondary-foreground: 186 80% 80%;
 
-    --muted: 220 15% 18%;
-    --muted-foreground: 186 15% 65%;
+    --muted: 220 20% 16%;
+    --muted-foreground: 186 20% 60%;
 
-    --accent: 28 85% 55%;
-    --accent-foreground: 0 0% 100%;
+    --accent: 28 95% 58%;
+    --accent-foreground: 220 25% 6%;
 
-    --destructive: 0 62.8% 50%;
+    --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 20%;
-    --input: 220 15% 20%;
-    --ring: 186 75% 45%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 220 20% 18%;
+    --input: 220 20% 18%;
+    --ring: 186 80% 50%;
+    --sidebar-background: 220 25% 8%;
+    --sidebar-foreground: 186 25% 90%;
+    --sidebar-primary: 186 80% 50%;
+    --sidebar-primary-foreground: 220 25% 6%;
+    --sidebar-accent: 220 20% 14%;
+    --sidebar-accent-foreground: 186 25% 90%;
+    --sidebar-border: 220 20% 16%;
+    --sidebar-ring: 186 80% 50%;
+    
+    --role-admin: 280 75% 55%;
+    --role-manager: 150 65% 50%;
+    --role-team-member: 210 75% 60%;
   }
 }
 

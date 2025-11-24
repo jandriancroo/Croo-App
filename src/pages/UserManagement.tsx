@@ -29,6 +29,7 @@ interface UserProfile {
   role?: AppRole;
   paid_hours?: number;
   unpaid_hours?: number;
+  hourly_wage?: number;
 }
 
 export default function UserManagement() {
@@ -61,6 +62,9 @@ export default function UserManagement() {
   const [deletingUser, setDeletingUser] = useState<UserProfile | null>(null);
   const [viewingUser, setViewingUser] = useState<UserProfile | null>(null);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
+  const [isWageDialogOpen, setIsWageDialogOpen] = useState(false);
+  const [editingWageUser, setEditingWageUser] = useState<UserProfile | null>(null);
+  const [newWage, setNewWage] = useState<string>('');
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -384,6 +388,51 @@ export default function UserManagement() {
       toast({
         title: 'Error',
         description: error.message || 'Failed to delete user',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleUpdateWage = async () => {
+    if (!editingWageUser) return;
+
+    const wageValue = parseFloat(newWage);
+    if (isNaN(wageValue) || wageValue < 0) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please enter a valid wage amount',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ hourly_wage: wageValue })
+        .eq('id', editingWageUser.id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Hourly wage updated successfully',
+      });
+
+      setIsWageDialogOpen(false);
+      setEditingWageUser(null);
+      setNewWage('');
+      fetchUsers();
+      
+      // Update viewing user if open
+      if (viewingUser?.id === editingWageUser.id) {
+        setViewingUser({ ...viewingUser, hourly_wage: wageValue });
+      }
+    } catch (error: any) {
+      console.error('Error updating wage:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update wage',
         variant: 'destructive',
       });
     }
@@ -837,6 +886,26 @@ export default function UserManagement() {
                       </div>
                     </div>
                   </div>
+                  <div className="space-y-2 p-4 border rounded-lg col-span-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm text-muted-foreground">Hourly Wage</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setEditingWageUser(viewingUser);
+                          setNewWage(viewingUser.hourly_wage?.toString() || '15.00');
+                          setIsWageDialogOpen(true);
+                        }}
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold">${viewingUser.hourly_wage?.toFixed(2) || '15.00'}</span>
+                      <span className="text-sm text-muted-foreground">/hour</span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
@@ -1252,6 +1321,47 @@ export default function UserManagement() {
                 onClick={handleDeleteUser}
               >
                 Delete Permanently
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Edit Wage Dialog */}
+        <Dialog open={isWageDialogOpen} onOpenChange={setIsWageDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Update Hourly Wage</DialogTitle>
+              <DialogDescription>
+                Set the hourly wage for {editingWageUser?.full_name}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="wage-input">Hourly Wage ($)</Label>
+                <Input
+                  id="wage-input"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={newWage}
+                  onChange={(e) => setNewWage(e.target.value)}
+                  placeholder="15.00"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsWageDialogOpen(false);
+                  setEditingWageUser(null);
+                  setNewWage('');
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleUpdateWage}>
+                Save Wage
               </Button>
             </DialogFooter>
           </DialogContent>
