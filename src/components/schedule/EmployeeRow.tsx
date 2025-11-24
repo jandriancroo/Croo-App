@@ -7,6 +7,7 @@ interface Profile {
   id: string;
   full_name: string;
   profile_photo_url: string | null;
+  hourly_wage?: number;
 }
 
 interface EmployeeRowProps {
@@ -65,6 +66,12 @@ export function EmployeeRow({
     return totalHours.toFixed(1);
   };
 
+  const calculateTotalWages = () => {
+    const hours = parseFloat(calculateTotalHours());
+    const wage = profile.hourly_wage || 15.00;
+    return (hours * wage).toFixed(2);
+  };
+
   return (
     <div className="grid grid-cols-8 gap-0">
       <div className="flex flex-col justify-center gap-1 p-4 border-r border-border bg-muted/30">
@@ -79,6 +86,9 @@ export function EmployeeRow({
             </div>
             <div className="text-xs text-muted-foreground ml-10">
               {calculateTotalHours()} hrs
+            </div>
+            <div className="text-xs font-semibold text-primary ml-10">
+              ${calculateTotalWages()}
             </div>
           </>
         ) : (

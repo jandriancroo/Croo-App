@@ -295,6 +295,7 @@ export type Database = {
           created_at: string | null
           email: string
           full_name: string | null
+          hourly_wage: number | null
           id: string
           is_active: boolean | null
           profile_photo_url: string | null
@@ -305,6 +306,7 @@ export type Database = {
           created_at?: string | null
           email: string
           full_name?: string | null
+          hourly_wage?: number | null
           id: string
           is_active?: boolean | null
           profile_photo_url?: string | null
@@ -315,6 +317,7 @@ export type Database = {
           created_at?: string | null
           email?: string
           full_name?: string | null
+          hourly_wage?: number | null
           id?: string
           is_active?: boolean | null
           profile_photo_url?: string | null

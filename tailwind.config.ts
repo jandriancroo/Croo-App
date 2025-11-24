@@ -57,6 +57,11 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        role: {
+          admin: "hsl(var(--role-admin))",
+          manager: "hsl(var(--role-manager))",
+          "team-member": "hsl(var(--role-team-member))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
