@@ -251,6 +251,164 @@ export type Database = {
         }
         Relationships: []
       }
+      schedule_events: {
+        Row: {
+          created_at: string | null
+          day_of_week: number
+          event_name: string
+          event_time: string
+          id: string
+          notes: string | null
+          schedule_id: string | null
+          tagged_roles: Json | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week: number
+          event_name: string
+          event_time: string
+          id?: string
+          notes?: string | null
+          schedule_id?: string | null
+          tagged_roles?: Json | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: number
+          event_name?: string
+          event_time?: string
+          id?: string
+          notes?: string | null
+          schedule_id?: string | null
+          tagged_roles?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_events_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduled_shifts: {
+        Row: {
+          created_at: string | null
+          day_of_week: number
+          end_time: string
+          id: string
+          is_time_off: boolean | null
+          schedule_id: string | null
+          shift_date: string
+          start_time: string
+          template_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day_of_week: number
+          end_time: string
+          id?: string
+          is_time_off?: boolean | null
+          schedule_id?: string | null
+          shift_date: string
+          start_time: string
+          template_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day_of_week?: number
+          end_time?: string
+          id?: string
+          is_time_off?: boolean | null
+          schedule_id?: string | null
+          shift_date?: string
+          start_time?: string
+          template_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_shifts_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_shifts_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "shift_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedules: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_published: boolean | null
+          updated_at: string | null
+          week_end_date: string
+          week_start_date: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_published?: boolean | null
+          updated_at?: string | null
+          week_end_date: string
+          week_start_date: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_published?: boolean | null
+          updated_at?: string | null
+          week_end_date?: string
+          week_start_date?: string
+        }
+        Relationships: []
+      }
+      shift_templates: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          created_by: string | null
+          end_time: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          start_time: string
+          template_name: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          end_time: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          start_time: string
+          template_name: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          end_time?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          start_time?: string
+          template_name?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string | null
