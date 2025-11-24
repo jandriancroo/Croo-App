@@ -2,8 +2,11 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Award } from 'lucide-react';
 
 const themes = [
   { value: 'default', label: 'Default' },
@@ -24,6 +27,7 @@ const timezones = [
 
 export default function Settings() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [timezone, setTimezone] = useState(localStorage.getItem('app-timezone') || 'America/Los_Angeles');
 
@@ -109,6 +113,21 @@ export default function Settings() {
                   </SelectContent>
                 </Select>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Certifications</CardTitle>
+              <CardDescription>
+                Manage food handlers cards and ServSafe certifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => navigate('/certifications')} variant="outline" className="w-full">
+                <Award className="w-4 h-4 mr-2" />
+                Manage Certifications
+              </Button>
             </CardContent>
           </Card>
         </div>

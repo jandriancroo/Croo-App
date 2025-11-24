@@ -11,6 +11,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Ba
 import { useUserRole } from '@/hooks/useUserRole';
 import { useQuery } from '@tanstack/react-query';
 import { LogBookAlerts } from '@/components/dashboard/LogBookAlerts';
+import { CertificationAlerts } from '@/components/dashboard/CertificationAlerts';
 
 interface Checklist {
   id: string;
@@ -210,6 +211,9 @@ export default function Dashboard() {
 
         {/* Log Book Alerts */}
         <LogBookAlerts />
+
+        {/* Certification Expiry Alerts */}
+        <CertificationAlerts />
 
         {loading ? (
           <div className="text-center text-muted-foreground">Loading checklists...</div>

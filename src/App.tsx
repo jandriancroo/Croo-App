@@ -23,6 +23,7 @@ import PunchClock from "./pages/PunchClock";
 import PayrollReview from "./pages/PayrollReview";
 import Tasks from "./pages/Tasks";
 import LogBook from "./pages/LogBook";
+import Certifications from "./pages/Certifications";
 
 const queryClient = new QueryClient();
 
@@ -53,6 +54,7 @@ const App = () => (
             <Route path="/punch-clock" element={<PunchClock />} />
             <Route path="/payroll-review" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
