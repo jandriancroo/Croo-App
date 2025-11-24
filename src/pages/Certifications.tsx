@@ -329,52 +329,66 @@ export default function Certifications() {
                     <div className="space-y-3">
                       {employeeCerts.map((cert) => (
                         <div key={cert.id} className="border rounded-lg p-4">
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <h4 className="font-semibold">{getCertTypeName(cert.certification_type as CertificationType)}</h4>
-                              <p className="text-sm text-muted-foreground">
-                                Expires: {format(new Date(cert.expiration_date), "MMM d, yyyy")}
-                              </p>
-                            </div>
-                            {getStatusBadge(cert.status)}
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
+                          <div className="flex gap-4 mb-3">
+                            <div 
+                              className="w-32 h-32 flex-shrink-0 border rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-80 transition-opacity"
                               onClick={() => window.open(cert.certificate_url, "_blank")}
                             >
-                              <ExternalLink className="w-3 h-3 mr-1" />
-                              View
-                            </Button>
-                            {isAdmin && (
-                              <>
-                                {cert.status === "pending" && (
+                              <img 
+                                src={cert.certificate_url} 
+                                alt={getCertTypeName(cert.certification_type as CertificationType)}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between mb-2">
+                                <div>
+                                  <h4 className="font-semibold">{getCertTypeName(cert.certification_type as CertificationType)}</h4>
+                                  <p className="text-sm text-muted-foreground">
+                                    Expires: {format(new Date(cert.expiration_date), "MMM d, yyyy")}
+                                  </p>
+                                </div>
+                                {getStatusBadge(cert.status)}
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => window.open(cert.certificate_url, "_blank")}
+                                >
+                                  <ExternalLink className="w-3 h-3 mr-1" />
+                                  View Full Size
+                                </Button>
+                                {isAdmin && (
                                   <>
+                                    {cert.status === "pending" && (
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          onClick={() => handleApprove(cert.id)}
+                                        >
+                                          Approve
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="destructive"
+                                          onClick={() => handleReject(cert.id)}
+                                        >
+                                          Reject
+                                        </Button>
+                                      </>
+                                    )}
                                     <Button
                                       size="sm"
-                                      onClick={() => handleApprove(cert.id)}
+                                      variant="ghost"
+                                      onClick={() => handleDelete(cert.id)}
                                     >
-                                      Approve
-                                    </Button>
-                                    <Button
-                                      size="sm"
-                                      variant="destructive"
-                                      onClick={() => handleReject(cert.id)}
-                                    >
-                                      Reject
+                                      <Trash2 className="w-3 h-3" />
                                     </Button>
                                   </>
                                 )}
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => handleDelete(cert.id)}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
-                              </>
-                            )}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
