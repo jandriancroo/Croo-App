@@ -120,10 +120,13 @@ export default function Schedule() {
         setScheduleId(scheduleData.id);
         setIsPublished(scheduleData.is_published || false);
 
-        // Fetch shifts
+        // Fetch shifts with template data
         const { data: shiftsData, error: shiftsError } = await supabase
           .from("scheduled_shifts")
-          .select("*")
+          .select(`
+            *,
+            template:shift_templates(*)
+          `)
           .eq("schedule_id", scheduleData.id);
 
         if (shiftsError) throw shiftsError;
