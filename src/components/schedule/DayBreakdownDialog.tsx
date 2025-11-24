@@ -30,6 +30,41 @@ export function DayBreakdownDialog({
 
   const getProfileForShift = (shift: any) => profiles.find((p) => p.id === shift.user_id) || null;
 
+  // Convert 24-hour time to 12-hour format
+  const formatTime = (time24: string) => {
+    const [hours, minutes] = time24.split(":").map(Number);
+    const period = hours >= 12 ? "PM" : "AM";
+    const hours12 = hours % 12 || 12;
+    return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
+  };
+
+  // Get earliest and latest hours for timeline
+  const getTimelineBounds = () => {
+    let earliest = 24;
+    let latest = 0;
+
+    dayShifts.forEach((shift: any) => {
+      if (shift.is_time_off) return;
+      const [startHour] = shift.start_time.split(":").map(Number);
+      const [endHour] = shift.end_time.split(":").map(Number);
+      earliest = Math.min(earliest, startHour);
+      latest = Math.max(latest, endHour);
+    });
+
+    // Default to 6 AM to 10 PM if no shifts
+    if (earliest === 24) earliest = 6;
+    if (latest === 0) latest = 22;
+
+    // Add padding
+    earliest = Math.max(0, earliest - 1);
+    latest = Math.min(24, latest + 1);
+
+    return { earliest, latest };
+  };
+
+  const { earliest, latest } = getTimelineBounds();
+  const timelineHours = Array.from({ length: latest - earliest }, (_, i) => earliest + i);
+
   // Calculate hourly breakdown
   const calculateHourlyBreakdown = () => {
     const hourlyData: Record<number, { hours: number; cost: number; count: number }> = {};
@@ -98,6 +133,21 @@ export function DayBreakdownDialog({
     }).format(amount);
   };
 
+  // Generate a color for each employee
+  const getEmployeeColor = (userId: string | null) => {
+    if (!userId) return "hsl(var(--muted))";
+    const colors = [
+      "hsl(200, 80%, 60%)",
+      "hsl(160, 80%, 50%)",
+      "hsl(280, 80%, 60%)",
+      "hsl(40, 90%, 60%)",
+      "hsl(320, 80%, 60%)",
+      "hsl(100, 70%, 50%)",
+    ];
+    const hash = userId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[85vh] overflow-y-auto">
@@ -106,7 +156,7 @@ export function DayBreakdownDialog({
             {format(date, "EEEE, MMMM d, yyyy")}
           </DialogTitle>
           <DialogDescription>
-            Hourly staffing and labor cost overview for the selected day.
+            Visual timeline and labor breakdown for the selected day.
           </DialogDescription>
         </DialogHeader>
 
@@ -116,6 +166,76 @@ export function DayBreakdownDialog({
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Visual Timeline */}
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted p-2">
+                <h3 className="font-semibold text-sm">Visual Timeline</h3>
+              </div>
+              <div className="p-4 overflow-x-auto">
+                <div className="min-w-[600px]">
+                  {/* Hour labels */}
+                  <div className="flex mb-2">
+                    <div className="w-32 flex-shrink-0"></div>
+                    <div className="flex-1 flex">
+                      {timelineHours.map((hour) => {
+                        const hour12 = hour % 12 || 12;
+                        const period = hour < 12 ? "AM" : "PM";
+                        return (
+                          <div
+                            key={hour}
+                            className="flex-1 text-center text-xs text-muted-foreground border-l border-border first:border-l-0"
+                          >
+                            {hour12}{period}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Shift bars */}
+                  <div className="space-y-2">
+                    {dayShifts
+                      .filter((shift: any) => !shift.is_time_off)
+                      .map((shift: any) => {
+                        const profile = getProfileForShift(shift);
+                        const [startHour, startMin] = shift.start_time.split(":").map(Number);
+                        const [endHour, endMin] = shift.end_time.split(":").map(Number);
+                        
+                        const startTime = startHour + startMin / 60;
+                        const endTime = endHour + endMin / 60;
+                        
+                        // Calculate position and width as percentage
+                        const totalRange = latest - earliest;
+                        const leftPercent = ((startTime - earliest) / totalRange) * 100;
+                        const widthPercent = ((endTime - startTime) / totalRange) * 100;
+
+                        return (
+                          <div key={shift.id} className="flex items-center">
+                            <div className="w-32 flex-shrink-0 text-sm font-medium truncate pr-2">
+                              {profile?.full_name || "Unassigned"}
+                            </div>
+                            <div className="flex-1 relative h-8 bg-muted/30 rounded">
+                              <div
+                                className="absolute h-full rounded flex items-center justify-center text-xs font-medium text-white shadow-sm"
+                                style={{
+                                  left: `${leftPercent}%`,
+                                  width: `${widthPercent}%`,
+                                  backgroundColor: getEmployeeColor(shift.user_id),
+                                }}
+                              >
+                                <span className="truncate px-1">
+                                  {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Hourly Breakdown Table */}
             <div className="border rounded-lg overflow-hidden">
               <div className="bg-muted p-2">
@@ -137,13 +257,12 @@ export function DayBreakdownDialog({
                       .map(([hourStr, data]) => {
                         const hourNum = Number(hourStr);
                         const hour = hourNum % 12 === 0 ? 12 : hourNum % 12;
-                        const period = hourNum < 12 ? "am" : "pm";
+                        const period = hourNum < 12 ? "AM" : "PM";
 
                         return (
                           <tr key={hourStr} className="border-b hover:bg-muted/50">
                             <td className="p-2 font-medium">
-                              {hour}
-                              {period}
+                              {hour} {period}
                             </td>
                             <td className="p-2 text-center">
                               <Badge variant="outline" className="text-[10px]">
@@ -192,20 +311,26 @@ export function DayBreakdownDialog({
                       key={shift.id}
                       className="flex items-center justify-between p-3 hover:bg-muted/50"
                     >
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">
-                          {profile?.full_name || "Unassigned"}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {shift.start_time.slice(0, 5)} - {shift.end_time.slice(0, 5)}
-                          {shift.is_time_off && (
-                            <Badge
-                              variant="secondary"
-                              className="ml-2 text-[10px]"
-                            >
-                              Time Off
-                            </Badge>
-                          )}
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: getEmployeeColor(shift.user_id) }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">
+                            {profile?.full_name || "Unassigned"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                            {shift.is_time_off && (
+                              <Badge
+                                variant="secondary"
+                                className="ml-2 text-[10px]"
+                              >
+                                Time Off
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </div>
                       {!shift.is_time_off && (
