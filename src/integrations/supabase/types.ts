@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      availability_requests: {
+        Row: {
+          created_at: string
+          denial_reason: string | null
+          end_date: string | null
+          end_time: string | null
+          hours_requested: number
+          id: string
+          notes: string | null
+          request_type: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          start_date: string
+          start_time: string | null
+          status: string
+          time_scope: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          denial_reason?: string | null
+          end_date?: string | null
+          end_time?: string | null
+          hours_requested?: number
+          id?: string
+          notes?: string | null
+          request_type: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_date: string
+          start_time?: string | null
+          status?: string
+          time_scope: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          denial_reason?: string | null
+          end_date?: string | null
+          end_time?: string | null
+          hours_requested?: number
+          id?: string
+          notes?: string | null
+          request_type?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_date?: string
+          start_time?: string | null
+          status?: string
+          time_scope?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "availability_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_items: {
         Row: {
           checklist_id: string

@@ -27,6 +27,8 @@ interface UserProfile {
   created_at: string;
   is_active: boolean;
   role?: AppRole;
+  paid_hours?: number;
+  unpaid_hours?: number;
 }
 
 export default function UserManagement() {
@@ -95,10 +97,36 @@ export default function UserManagement() {
 
       if (rolesError) throw rolesError;
 
-      // Merge profiles with their roles
+      // Fetch availability hours for the current year
+      const currentYear = new Date().getFullYear();
+      const { data: availabilityData, error: availabilityError } = await supabase
+        .from('availability_requests')
+        .select('user_id, request_type, hours_requested, status')
+        .eq('status', 'approved')
+        .gte('start_date', `${currentYear}-01-01`)
+        .lte('start_date', `${currentYear}-12-31`);
+
+      if (availabilityError) throw availabilityError;
+
+      // Calculate total hours by user and type
+      const hoursByUser = (availabilityData || []).reduce((acc: any, req: any) => {
+        if (!acc[req.user_id]) {
+          acc[req.user_id] = { paid: 0, unpaid: 0 };
+        }
+        if (req.request_type === 'paid') {
+          acc[req.user_id].paid += req.hours_requested;
+        } else {
+          acc[req.user_id].unpaid += req.hours_requested;
+        }
+        return acc;
+      }, {});
+
+      // Merge profiles with their roles and hours
       const usersWithRoles = profiles.map((profile) => ({
         ...profile,
         role: roles.find((r) => r.user_id === profile.id)?.role as AppRole || 'team_member',
+        paid_hours: hoursByUser[profile.id]?.paid || 0,
+        unpaid_hours: hoursByUser[profile.id]?.unpaid || 0,
       }));
 
       setUsers(usersWithRoles);
@@ -637,6 +665,7 @@ export default function UserManagement() {
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
+                    <TableHead>Hours (YTD)</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -676,6 +705,18 @@ export default function UserManagement() {
                         <Badge variant={user.is_active ? "default" : "secondary"}>
                           {user.is_active ? "Active" : "Inactive"}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="default" className="text-xs">Paid</Badge>
+                            <span>{user.paid_hours || 0}h</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="secondary" className="text-xs">Unpaid</Badge>
+                            <span>{user.unpaid_hours || 0}h</span>
+                          </div>
+                        </div>
                       </TableCell>
                       <TableCell>
                         {new Date(user.created_at).toLocaleDateString()}
