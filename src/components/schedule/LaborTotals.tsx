@@ -25,7 +25,7 @@ interface LaborTotalsProps {
 
 export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsProps) {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
-  const [userWages, setUserWages] = useState<Record<string, number>>({});
+  const [shiftWages, setShiftWages] = useState<Record<string, number>>({});
   const [isLoadingWages, setIsLoadingWages] = useState(true);
 
   useEffect(() => {
@@ -33,28 +33,21 @@ export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsP
       setIsLoadingWages(true);
       const wages: Record<string, number> = {};
       
-      // Get unique user IDs from shifts
-      const uniqueUserIds = Array.from(new Set(shifts.filter(s => s.user_id).map(s => s.user_id)));
-      
-      // Fetch wage for each user
+      // Fetch wage for each shift individually based on shift date
       await Promise.all(
-        uniqueUserIds.map(async (userId) => {
-          if (!userId) return;
+        shifts.map(async (shift) => {
+          if (!shift.user_id) return;
           
           try {
-            // Use the first shift date for this user, or current week start
-            const userShift = shifts.find(s => s.user_id === userId);
-            const dateToUse = userShift?.shift_date || format(currentWeekStart, 'yyyy-MM-dd');
-            
             const { data, error } = await supabase.rpc('get_current_wage', {
-              p_user_id: userId,
-              p_date: dateToUse
+              p_user_id: shift.user_id,
+              p_date: shift.shift_date
             });
             
             if (!error && data !== null) {
-              wages[userId] = data;
+              wages[shift.id] = data;
             } else if (error) {
-              console.error('Error fetching wage for user:', userId, error);
+              console.error('Error fetching wage for shift:', shift.id, error);
             }
           } catch (error) {
             console.error('Error fetching wage:', error);
@@ -62,7 +55,7 @@ export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsP
         })
       );
       
-      setUserWages(wages);
+      setShiftWages(wages);
       setIsLoadingWages(false);
     };
 
@@ -71,7 +64,7 @@ export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsP
     } else {
       setIsLoadingWages(false);
     }
-  }, [shifts, currentWeekStart]);
+  }, [shifts]);
 
   const dailyTotals = useMemo(() => {
     return weekDays.map((day, dayIndex) => {
@@ -106,8 +99,8 @@ export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsP
 
         totalHours += shiftHours;
         
-        // Use wage from database function, fallback to profile wage, then to default
-        const wage = userWages[shift.user_id] ?? profile?.hourly_wage ?? 15;
+        // Use wage from database function for this specific shift, fallback to profile wage, then to default
+        const wage = shiftWages[shift.id] ?? profile?.hourly_wage ?? 15;
         totalWages += shiftHours * wage;
       });
 
@@ -117,7 +110,7 @@ export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsP
         wages: totalWages
       };
     });
-  }, [shifts, profiles, weekDays, userWages, isLoadingWages]);
+  }, [shifts, profiles, weekDays, shiftWages, isLoadingWages]);
 
   return (
     <div className="border-t border-border bg-muted/30">
