@@ -16,6 +16,7 @@ import { EmployeeRow } from "@/components/schedule/EmployeeRow";
 import { EditShiftDialog } from "@/components/schedule/EditShiftDialog";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
 import { AvailabilityOverview } from "@/components/availability/AvailabilityOverview";
+import { ConflictWarningDialog } from "@/components/schedule/ConflictWarningDialog";
 
 interface Profile {
   id: string;
@@ -81,6 +82,9 @@ export default function Schedule() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [editingShift, setEditingShift] = useState<any>(null);
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
+  const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
+  const [pendingShiftData, setPendingShiftData] = useState<any>(null);
+  const [conflicts, setConflicts] = useState<any[]>([]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -198,6 +202,36 @@ export default function Schedule() {
     }
   };
 
+  const checkForConflicts = (userId: string, dayIndex: number, shiftDate: string) => {
+    if (userId === "unassigned") return [];
+
+    const employee = profiles.find((p) => p.id === userId);
+    if (!employee) return [];
+
+    const conflictingRequests = availabilityRequests.filter((request) => {
+      if (request.user_id !== userId) return false;
+
+      const reqDate = new Date(request.start_date);
+      const cellDate = new Date(shiftDate);
+
+      if (request.time_scope === "multi_day" && request.end_date) {
+        const endDate = new Date(request.end_date);
+        return cellDate >= reqDate && cellDate <= endDate;
+      }
+      return reqDate.toDateString() === cellDate.toDateString();
+    });
+
+    return conflictingRequests.map((req) => ({
+      employeeName: employee.full_name,
+      date: shiftDate,
+      requestType: req.request_type,
+      timeScope: req.time_scope,
+      status: req.status,
+      startTime: req.start_time,
+      endTime: req.end_time,
+    }));
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
     setActiveShift(active.data.current);
@@ -210,17 +244,37 @@ export default function Schedule() {
     if (!over || !scheduleId) return;
 
     const overId = over.id as string;
-    // Parse drop-{userId}-{dayIndex} - dayIndex is always last after final hyphen
     const lastHyphenIndex = overId.lastIndexOf("-");
     const dayIndex = parseInt(overId.substring(lastHyphenIndex + 1));
-    const userId = overId.substring(5, lastHyphenIndex); // Remove "drop-" prefix
+    const userId = overId.substring(5, lastHyphenIndex);
+    const shiftDate = format(weekDays[dayIndex], "yyyy-MM-dd");
 
+    // Check for conflicts
+    const detectedConflicts = checkForConflicts(userId, dayIndex, shiftDate);
+
+    if (detectedConflicts.length > 0) {
+      // Store pending shift data and show conflict dialog
+      setPendingShiftData({
+        type: active.data.current?.isTemplate ? "template" : "move",
+        active,
+        userId,
+        dayIndex,
+        shiftDate,
+      });
+      setConflicts(detectedConflicts);
+      setConflictDialogOpen(true);
+      return;
+    }
+
+    // No conflicts, proceed with scheduling
+    await executeShiftOperation(active, userId, dayIndex, shiftDate);
+  };
+
+  const executeShiftOperation = async (active: any, userId: string, dayIndex: number, shiftDate: string) => {
     try {
-      if (active.data.current?.isTemplate) {
+      if (active.data?.current?.isTemplate || active.isTemplate) {
         // Dragging from template
-        const template = active.data.current.template;
-        const shiftDate = format(weekDays[dayIndex], "yyyy-MM-dd");
-
+        const template = active.data?.current?.template || active.template;
         const { error } = await supabase.from("scheduled_shifts").insert({
           schedule_id: scheduleId,
           template_id: template.id,
@@ -237,9 +291,7 @@ export default function Schedule() {
         fetchScheduleData();
       } else {
         // Moving existing shift
-        const shift = active.data.current;
-        const shiftDate = format(weekDays[dayIndex], "yyyy-MM-dd");
-
+        const shift = active.data?.current || active;
         const { error } = await supabase
           .from("scheduled_shifts")
           .update({
@@ -257,6 +309,20 @@ export default function Schedule() {
       console.error("Error handling drop:", error);
       toast.error("Failed to update shift");
     }
+  };
+
+  const handleConflictConfirm = async () => {
+    if (!pendingShiftData) return;
+
+    setConflictDialogOpen(false);
+    await executeShiftOperation(
+      pendingShiftData.active,
+      pendingShiftData.userId,
+      pendingShiftData.dayIndex,
+      pendingShiftData.shiftDate
+    );
+    setPendingShiftData(null);
+    setConflicts([]);
   };
 
   const handlePreviousWeek = () => {
@@ -438,6 +504,7 @@ export default function Schedule() {
             scheduleId={scheduleId || ""}
             currentWeekStart={currentWeekStart}
             currentUserId={currentUserId || undefined}
+            availabilityRequests={availabilityRequests}
           />
         )}
 
@@ -445,6 +512,13 @@ export default function Schedule() {
           open={requestDialogOpen}
           onOpenChange={setRequestDialogOpen}
           onSuccess={fetchScheduleData}
+        />
+
+        <ConflictWarningDialog
+          open={conflictDialogOpen}
+          onOpenChange={setConflictDialogOpen}
+          onConfirm={handleConflictConfirm}
+          conflicts={conflicts}
         />
       </div>
     </Layout>
