@@ -29,8 +29,9 @@ export default function PunchClock() {
   const [exitPin, setExitPin] = useState('');
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [expiringCerts, setExpiringCerts] = useState<any[]>([]);
+  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
 
-  const dailyQuote = DAILY_QUOTES[new Date().getDay()];
+  const currentQuote = DAILY_QUOTES[currentQuoteIndex];
 
   const handleExit = () => {
     setShowExitDialog(true);
@@ -61,6 +62,14 @@ export default function PunchClock() {
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Rotate quotes every 30 seconds
+  useEffect(() => {
+    const quoteTimer = setInterval(() => {
+      setCurrentQuoteIndex((prev) => (prev + 1) % DAILY_QUOTES.length);
+    }, 30000);
+    return () => clearInterval(quoteTimer);
   }, []);
 
   // Enter fullscreen on mount, exit on unmount
@@ -324,7 +333,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
           <Card className="w-full max-w-5xl overflow-hidden">
             <div className="grid md:grid-cols-2">
               {/* Left Side - Image and Quote */}
-              <div className="relative h-full min-h-[500px] bg-cover bg-center" style={{ backgroundImage: `url(${dailyQuote.image})` }}>
+              <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentQuote.image})` }}>
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                 <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
                   <div className="text-5xl font-bold mb-4">
@@ -332,8 +341,8 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                   </div>
                   <h2 className="text-3xl font-bold mb-4">Welcome to Work!</h2>
                   <div className="space-y-2">
-                    <p className="text-xl font-medium italic">"{dailyQuote.quote}"</p>
-                    <p className="text-sm opacity-90">- {dailyQuote.verse}</p>
+                    <p className="text-xl font-medium italic">"{currentQuote.quote}"</p>
+                    <p className="text-sm opacity-90">- {currentQuote.verse}</p>
                   </div>
                 </div>
               </div>
