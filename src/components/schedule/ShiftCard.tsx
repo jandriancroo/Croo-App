@@ -100,18 +100,8 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
         <div className="text-white text-xs opacity-90">{position}</div>
       )}
       {shift.is_time_off && <div className="text-white text-xs">TIME OFF</div>}
-      <div className="absolute top-0 right-0 flex gap-1 opacity-0 group-hover:opacity-100">
-        {!shift.isTemplate && canTakeShift && shift.user_id !== currentUserId && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-xs text-white hover:bg-white/20"
-            onClick={handleTakeShift}
-          >
-            Take
-          </Button>
-        )}
-        {!shift.isTemplate && onDelete && (
+      {!shift.isTemplate && onDelete && (
+        <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100">
           <Button
             variant="ghost"
             size="icon"
@@ -120,8 +110,8 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
           >
             <Trash2 className="h-3 w-3" />
           </Button>
-        )}
-      </div>
+        </div>
+      )}
     </Card>
   );
 }

@@ -385,6 +385,7 @@ export default function Schedule() {
             onUpdate={fetchScheduleData}
             scheduleId={scheduleId || ""}
             currentWeekStart={currentWeekStart}
+            currentUserId={currentUserId || undefined}
           />
         )}
       </div>
