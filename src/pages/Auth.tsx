@@ -1,19 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { CheckSquare } from 'lucide-react';
+import { CheckSquare, Camera } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
 
@@ -39,20 +44,89 @@ export default function Auth() {
     setLoading(false);
   };
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be less than 5MB');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      
+      // Create a temporary URL for preview
+      const tempUrl = URL.createObjectURL(file);
+      setProfilePhoto(tempUrl);
+      
+      toast.success('Photo ready to upload');
+    } catch (error: any) {
+      toast.error('Failed to process image');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-
-    const { error } = await signUp(email, password, fullName);
     
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success('Account created successfully!');
-      navigate('/');
+    if (!profilePhoto) {
+      toast.error('Please add a profile photo');
+      return;
     }
     
-    setLoading(false);
+    setLoading(true);
+
+    try {
+      // First, upload the photo to storage with a temporary name
+      const fileInput = fileInputRef.current;
+      const file = fileInput?.files?.[0];
+      
+      if (!file) {
+        toast.error('Please select a photo');
+        return;
+      }
+
+      // Generate a unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `temp/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError, data } = await supabase.storage
+        .from('profile-photos')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(fileName);
+
+      // Now sign up with the photo URL
+      const { error } = await signUp(email, password, fullName, publicUrl);
+      
+      if (error) {
+        // Clean up uploaded photo if signup fails
+        await supabase.storage
+          .from('profile-photos')
+          .remove([fileName]);
+        throw error;
+      }
+
+      toast.success('Account created successfully!');
+      navigate('/');
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -113,6 +187,35 @@ export default function Auth() {
                     onChange={(e) => setFullName(e.target.value)}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Profile Photo (Required)</Label>
+                  <div className="flex flex-col items-center gap-4">
+                    <Avatar className="h-24 w-24">
+                      <AvatarImage src={profilePhoto || undefined} />
+                      <AvatarFallback>
+                        <Camera className="h-8 w-8 text-muted-foreground" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="user"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="w-full"
+                    >
+                      <Camera className="mr-2 h-4 w-4" />
+                      {profilePhoto ? 'Change Photo' : 'Take Selfie'}
+                    </Button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>

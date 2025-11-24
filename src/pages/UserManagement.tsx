@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Users, Shield, UserCog, User, UserPlus } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
 import { useNavigate } from 'react-router-dom';
 
@@ -18,6 +19,7 @@ interface UserProfile {
   id: string;
   email: string;
   full_name: string | null;
+  profile_photo_url: string | null;
   created_at: string;
   role?: AppRole;
 }
@@ -298,6 +300,7 @@ export default function UserManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>Photo</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
@@ -308,6 +311,14 @@ export default function UserManagement() {
                 <TableBody>
                   {users.map((user) => (
                     <TableRow key={user.id}>
+                      <TableCell>
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={user.profile_photo_url || undefined} />
+                          <AvatarFallback>
+                            {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      </TableCell>
                       <TableCell className="font-medium">
                         {user.full_name || 'No name'}
                       </TableCell>
