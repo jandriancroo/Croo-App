@@ -442,6 +442,172 @@ export type Database = {
           },
         ]
       }
+      logbook_categories: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logbook_categories_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      logbook_entries: {
+        Row: {
+          category_id: string
+          created_at: string
+          created_by: string
+          entry_date: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          created_by: string
+          entry_date: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          created_by?: string
+          entry_date?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logbook_entries_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "logbook_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logbook_entries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      logbook_entry_values: {
+        Row: {
+          attachment_url: string | null
+          created_at: string
+          entry_id: string
+          field_id: string
+          id: string
+          value_date: string | null
+          value_number: number | null
+          value_text: string | null
+        }
+        Insert: {
+          attachment_url?: string | null
+          created_at?: string
+          entry_id: string
+          field_id: string
+          id?: string
+          value_date?: string | null
+          value_number?: number | null
+          value_text?: string | null
+        }
+        Update: {
+          attachment_url?: string | null
+          created_at?: string
+          entry_id?: string
+          field_id?: string
+          id?: string
+          value_date?: string | null
+          value_number?: number | null
+          value_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logbook_entry_values_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "logbook_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logbook_entry_values_field_id_fkey"
+            columns: ["field_id"]
+            isOneToOne: false
+            referencedRelation: "logbook_fields"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      logbook_fields: {
+        Row: {
+          category_id: string
+          created_at: string
+          display_order: number
+          field_name: string
+          field_type: string
+          id: string
+          is_required: boolean
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          display_order?: number
+          field_name: string
+          field_type: string
+          id?: string
+          is_required?: boolean
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          display_order?: number
+          field_name?: string
+          field_type?: string
+          id?: string
+          is_required?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "logbook_fields_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "logbook_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_reactions: {
         Row: {
           created_at: string
