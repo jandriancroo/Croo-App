@@ -83,14 +83,50 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("User must be deactivated before deletion");
     }
 
-    // Delete user from auth.users (this will cascade delete from profiles and user_roles)
+    // Delete all related records first to avoid foreign key constraints
+    // Delete in order to respect foreign key dependencies
+    
+    // Delete user-created content
+    await supabaseAdmin.from('employee_notes').delete().eq('user_id', userId);
+    await supabaseAdmin.from('employee_notes').delete().eq('created_by', userId);
+    await supabaseAdmin.from('certifications').delete().eq('user_id', userId);
+    await supabaseAdmin.from('availability_requests').delete().eq('user_id', userId);
+    await supabaseAdmin.from('time_punches').delete().eq('user_id', userId);
+    await supabaseAdmin.from('wage_history').delete().eq('user_id', userId);
+    await supabaseAdmin.from('checklist_submissions').delete().eq('submitted_by', userId);
+    
+    // Delete messaging related records
+    await supabaseAdmin.from('message_reactions').delete().eq('user_id', userId);
+    await supabaseAdmin.from('message_read_receipts').delete().eq('user_id', userId);
+    await supabaseAdmin.from('announcement_reads').delete().eq('user_id', userId);
+    await supabaseAdmin.from('messages').delete().eq('sender_id', userId);
+    await supabaseAdmin.from('chat_members').delete().eq('user_id', userId);
+    
+    // Delete schedule related records
+    await supabaseAdmin.from('shift_offers').delete().eq('offered_by_user_id', userId);
+    await supabaseAdmin.from('shift_offers').delete().eq('claimed_by_user_id', userId);
+    await supabaseAdmin.from('scheduled_shifts').delete().eq('user_id', userId);
+    
+    // Delete logbook entries
+    await supabaseAdmin.from('logbook_entries').delete().eq('created_by', userId);
+    
+    // Delete user locations
+    await supabaseAdmin.from('user_locations').delete().eq('user_id', userId);
+    
+    // Delete user roles
+    await supabaseAdmin.from('user_roles').delete().eq('user_id', userId);
+    
+    // Finally delete the profile
+    await supabaseAdmin.from('profiles').delete().eq('id', userId);
+    
+    // Delete user from auth.users
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
     if (deleteError) {
       throw deleteError;
     }
 
-    console.log(`User ${userId} permanently deleted`);
+    console.log(`User ${userId} permanently deleted with all related records`);
 
     return new Response(
       JSON.stringify({
