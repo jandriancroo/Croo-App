@@ -3,10 +3,11 @@ import { Layout } from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, ArrowLeft } from 'lucide-react';
+import { Plus, Users, ArrowLeft, Megaphone } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
+import { AnnouncementDialog } from '@/components/messages/AnnouncementDialog';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
@@ -15,6 +16,7 @@ interface Chat {
   id: string;
   title: string | null;
   is_group: boolean;
+  is_announcement: boolean;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -35,6 +37,7 @@ export default function Messages() {
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+  const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showChatList, setShowChatList] = useState(true);
 
@@ -109,14 +112,27 @@ export default function Messages() {
           <div className="w-80 border-r border-border bg-card rounded-lg p-4 flex flex-col">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold">Messages</h2>
-              <Button
-                size="sm"
-                onClick={() => setIsNewChatOpen(true)}
-                className="gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                New
-              </Button>
+              <div className="flex gap-2">
+                {isAdmin && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsAnnouncementOpen(true)}
+                    className="gap-2"
+                  >
+                    <Megaphone className="h-4 w-4" />
+                    Announce
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={() => setIsNewChatOpen(true)}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  New
+                </Button>
+              </div>
             </div>
             <ChatList
               chats={chats}
@@ -157,14 +173,25 @@ export default function Messages() {
             <div className="flex-1 bg-card rounded-lg p-4 flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">Messages</h2>
-                <Button
-                  size="sm"
-                  onClick={() => setIsNewChatOpen(true)}
-                  className="gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  New
-                </Button>
+                <div className="flex gap-2">
+                  {isAdmin && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsAnnouncementOpen(true)}
+                      className="gap-2"
+                    >
+                      <Megaphone className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    onClick={() => setIsNewChatOpen(true)}
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <ChatList
                 chats={chats}
@@ -217,6 +244,16 @@ export default function Messages() {
           setIsNewChatOpen(false);
         }}
         canCreateGroup={isAdmin || isManager}
+      />
+
+      <AnnouncementDialog
+        open={isAnnouncementOpen}
+        onOpenChange={setIsAnnouncementOpen}
+        onAnnouncementCreated={(chatId) => {
+          setSelectedChatId(chatId);
+          fetchChats();
+          setIsAnnouncementOpen(false);
+        }}
       />
     </Layout>
   );

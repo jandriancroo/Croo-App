@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      announcement_reads: {
+        Row: {
+          chat_id: string
+          id: string
+          opened_at: string
+          user_id: string
+        }
+        Insert: {
+          chat_id: string
+          id?: string
+          opened_at?: string
+          user_id: string
+        }
+        Update: {
+          chat_id?: string
+          id?: string
+          opened_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "announcement_reads_chat_id_fkey"
+            columns: ["chat_id"]
+            isOneToOne: false
+            referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "announcement_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       availability_requests: {
         Row: {
           created_at: string
@@ -128,6 +164,7 @@ export type Database = {
           created_by: string
           group_image_url: string | null
           id: string
+          is_announcement: boolean
           is_group: boolean
           title: string | null
           updated_at: string
@@ -137,6 +174,7 @@ export type Database = {
           created_by: string
           group_image_url?: string | null
           id?: string
+          is_announcement?: boolean
           is_group?: boolean
           title?: string | null
           updated_at?: string
@@ -146,6 +184,7 @@ export type Database = {
           created_by?: string
           group_image_url?: string | null
           id?: string
+          is_announcement?: boolean
           is_group?: boolean
           title?: string | null
           updated_at?: string
@@ -435,6 +474,42 @@ export type Database = {
           },
           {
             foreignKeyName: "message_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_read_receipts: {
+        Row: {
+          id: string
+          message_id: string
+          read_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          message_id: string
+          read_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          message_id?: string
+          read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_read_receipts_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_read_receipts_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

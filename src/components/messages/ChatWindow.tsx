@@ -3,14 +3,27 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Paperclip, File, Settings, MessageSquare } from 'lucide-react';
+import { Send, Paperclip, File, Settings, MessageSquare, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ReactionPicker } from './ReactionPicker';
 import { MessageReactions } from './MessageReactions';
 import { GroupSettingsDialog } from './GroupSettingsDialog';
 import { MessageContent } from './MessageContent';
+import { ReadReceipts } from './ReadReceipts';
+import { AnnouncementStats } from './AnnouncementStats';
+import { ChatSearch } from './ChatSearch';
 import { useUserRole } from '@/hooks/useUserRole';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface Message {
   id: string;
@@ -29,6 +42,7 @@ interface ChatDetails {
   id: string;
   title: string | null;
   is_group: boolean;
+  is_announcement: boolean;
   group_image_url: string | null;
   created_by: string;
 }
@@ -49,6 +63,9 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredMessages, setFilteredMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -61,6 +78,38 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       if (user) setCurrentUserId(user.id);
     });
   }, []);
+
+  useEffect(() => {
+    // Mark announcement as opened
+    if (chatDetails?.is_announcement && currentUserId && currentUserId !== chatDetails.created_by) {
+      const markAsOpened = async () => {
+        try {
+          await supabase
+            .from('announcement_reads')
+            .insert({
+              chat_id: chatId,
+              user_id: currentUserId
+            });
+        } catch (err: any) {
+          if (!err.message?.includes('duplicate')) {
+            console.error('Error marking announcement as opened:', err);
+          }
+        }
+      };
+      markAsOpened();
+    }
+  }, [chatId, chatDetails, currentUserId]);
+
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const filtered = messages.filter(m =>
+        m.content?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredMessages(filtered);
+    } else {
+      setFilteredMessages(messages);
+    }
+  }, [searchQuery, messages]);
 
   const fetchMessages = async () => {
     try {
@@ -155,6 +204,23 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     }
   };
 
+  const handleDeleteChat = async () => {
+    try {
+      const { error } = await supabase
+        .from('chats')
+        .delete()
+        .eq('id', chatId);
+
+      if (error) throw error;
+
+      toast.success('Chat deleted');
+      onChatDeleted();
+    } catch (error: any) {
+      console.error('Error deleting chat:', error);
+      toast.error('Failed to delete chat');
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -204,36 +270,67 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     <div className="flex flex-col h-full">
       {/* Header */}
       {chatDetails && (
-        <div className="border-b border-border p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarImage src={chatDetails.group_image_url || undefined} />
-              <AvatarFallback>
-                {chatDetails.title?.charAt(0) || 'C'}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h3 className="font-semibold">{chatDetails.title || 'Chat'}</h3>
-              {chatDetails.is_group && (
-                <p className="text-xs text-muted-foreground">Group Chat</p>
+        <div className="border-b border-border p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={chatDetails.group_image_url || undefined} />
+                <AvatarFallback>
+                  {chatDetails.title?.charAt(0) || 'C'}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <h3 className="font-semibold">{chatDetails.title || 'Chat'}</h3>
+                {chatDetails.is_announcement ? (
+                  <p className="text-xs text-muted-foreground">📢 Announcement</p>
+                ) : chatDetails.is_group ? (
+                  <p className="text-xs text-muted-foreground">Group Chat</p>
+                ) : null}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {chatDetails.is_group && isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSettingsOpen(true)}
+                >
+                  <Settings className="h-4 w-4" />
+                </Button>
+              )}
+              {isAdmin && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               )}
             </div>
           </div>
-          {chatDetails.is_group && isAdmin && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSettingsOpen(true)}
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
-          )}
+          <ChatSearch
+            onSearch={setSearchQuery}
+            onClear={() => setSearchQuery('')}
+          />
+        </div>
+      )}
+
+      {/* Announcement Stats */}
+      {chatDetails?.is_announcement && isAdmin && (
+        <div className="px-4 pt-4">
+          <AnnouncementStats chatId={chatId} />
         </div>
       )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => {
+        {filteredMessages.length === 0 && searchQuery && (
+          <div className="text-center text-muted-foreground py-8">
+            No messages found matching "{searchQuery}"
+          </div>
+        )}
+        {filteredMessages.map((message) => {
           const isOwnMessage = currentUserId && message.sender_id === currentUserId;
           
           return (
@@ -248,13 +345,19 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                 </AvatarFallback>
               </Avatar>
               <div className={`flex flex-col ${isOwnMessage ? 'items-end' : ''}`}>
-                <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center gap-2 mb-1">
                   <span className="text-sm font-medium">
                     {message.profiles?.full_name || 'Unknown'}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {format(new Date(message.created_at), 'h:mm a')}
                   </span>
+                  <ReadReceipts
+                    messageId={message.id}
+                    senderId={message.sender_id}
+                    currentUserId={currentUserId}
+                    chatId={chatId}
+                  />
                 </div>
                 <div>
                   <div
@@ -289,18 +392,22 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                       <MessageContent content={message.content} chatId={chatId} />
                     )}
                   </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <ReactionPicker onSelect={(reaction) => handleReaction(message.id, reaction)} />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2"
-                      onClick={() => setReplyToMessage(message)}
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <MessageReactions messageId={message.id} currentUserId={currentUserId} />
+                  {!chatDetails?.is_announcement && (
+                    <>
+                      <div className="flex items-center gap-2 mt-1">
+                        <ReactionPicker onSelect={(reaction) => handleReaction(message.id, reaction)} />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2"
+                          onClick={() => setReplyToMessage(message)}
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <MessageReactions messageId={message.id} currentUserId={currentUserId} />
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -309,8 +416,9 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t border-border p-4">
+      {/* Input - Hide for announcements unless you're admin */}
+      {(!chatDetails?.is_announcement || isAdmin) && (
+        <div className="border-t border-border p-4">
         {replyToMessage && (
           <div className="mb-2 p-2 bg-muted rounded flex items-center justify-between">
             <div className="text-sm">
@@ -359,7 +467,26 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             <Send className="h-4 w-4" />
           </Button>
         </div>
-      </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Chat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this chat and all its messages. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteChat} className="bg-destructive text-destructive-foreground">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Group Settings Dialog */}
       {chatDetails?.is_group && (
