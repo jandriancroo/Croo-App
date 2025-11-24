@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, addDays, addWeeks } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from 'sonner';
-import { ChevronLeft, AlertTriangle, Camera, Edit, Trash2, Clock, Calendar } from 'lucide-react';
+import { ChevronLeft, AlertTriangle, Camera, Edit, Trash2, Clock, Calendar, CheckCircle2, Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -14,6 +14,7 @@ import { QuickPunchDialog } from '@/components/timeclock/QuickPunchDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function PayrollReview() {
   const { isAdmin, isManager } = useUserRole();
@@ -24,6 +25,7 @@ export default function PayrollReview() {
   const [showQuickEntry, setShowQuickEntry] = useState(false);
   const [includeApproved, setIncludeApproved] = useState(false);
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
+  const [periodStatuses, setPeriodStatuses] = useState<Record<string, any>>({});
 
   useEffect(() => {
     if (isAdmin || isManager) {
@@ -37,7 +39,7 @@ export default function PayrollReview() {
     }
   }, [selectedPeriod]);
 
-  const generatePayPeriods = () => {
+  const generatePayPeriods = async () => {
     // Base period: Monday Nov 3, 2025 - Sunday Nov 16, 2025
     const baseStart = new Date(2025, 10, 3);
     const periods = [];
@@ -54,6 +56,18 @@ export default function PayrollReview() {
     }
     
     setPayPeriods(periods);
+    
+    // Fetch period statuses from database
+    const { data: statuses } = await supabase
+      .from('pay_periods')
+      .select('*');
+    
+    const statusMap: Record<string, any> = {};
+    statuses?.forEach(status => {
+      const key = `${status.start_date}_${status.end_date}`;
+      statusMap[key] = status;
+    });
+    setPeriodStatuses(statusMap);
   };
 
   const fetchTimeCards = async () => {
@@ -76,6 +90,10 @@ export default function PayrollReview() {
           .gte('punch_time', selectedPeriod.start.toISOString())
           .lte('punch_time', selectedPeriod.end.toISOString())
           .order('punch_time');
+
+        // Get current wage for this employee
+        const { data: currentWage } = await supabase
+          .rpc('get_current_wage', { p_user_id: profile.id });
 
         // Group punches by day
         const punchesByDay: { [key: string]: any[] } = {};
@@ -118,7 +136,10 @@ export default function PayrollReview() {
         });
 
         return {
-          profile,
+          profile: {
+            ...profile,
+            hourly_wage: currentWage || profile.hourly_wage || 15
+          },
           punches: punches || [],
           punchesByDay,
           totalHours,
@@ -202,6 +223,95 @@ export default function PayrollReview() {
     return sum + Object.keys(card.punchesByDay).length;
   }, 0);
 
+  const getPeriodStatus = (period: any) => {
+    const key = `${format(period.start, 'yyyy-MM-dd')}_${format(period.end, 'yyyy-MM-dd')}`;
+    return periodStatuses[key];
+  };
+
+  const handleClosePeriod = async () => {
+    if (!selectedPeriod) return;
+    
+    const startDate = format(selectedPeriod.start, 'yyyy-MM-dd');
+    const endDate = format(selectedPeriod.end, 'yyyy-MM-dd');
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    const { error } = await supabase
+      .from('pay_periods')
+      .upsert({
+        start_date: startDate,
+        end_date: endDate,
+        status: 'closed',
+        closed_at: new Date().toISOString(),
+        closed_by: user.id
+      }, { onConflict: 'start_date,end_date' });
+    
+    if (error) {
+      toast.error('Failed to close pay period');
+      return;
+    }
+    
+    toast.success('Pay period closed');
+    generatePayPeriods();
+  };
+
+  const handleReopenPeriod = async () => {
+    if (!selectedPeriod) return;
+    
+    const startDate = format(selectedPeriod.start, 'yyyy-MM-dd');
+    const endDate = format(selectedPeriod.end, 'yyyy-MM-dd');
+    
+    const { error } = await supabase
+      .from('pay_periods')
+      .update({
+        status: 'open',
+        closed_at: null,
+        closed_by: null
+      })
+      .eq('start_date', startDate)
+      .eq('end_date', endDate);
+    
+    if (error) {
+      toast.error('Failed to reopen pay period');
+      return;
+    }
+    
+    toast.success('Pay period reopened');
+    generatePayPeriods();
+  };
+
+  const calculatePayrollSummary = () => {
+    const summary = timeCards.map(card => {
+      const regularHours = Math.min(card.totalHours, 40);
+      const overtimeHours = Math.max(card.totalHours - 40, 0);
+      const wage = card.profile.hourly_wage || 15;
+      const grossWages = (regularHours * wage) + (overtimeHours * wage * 1.5);
+      
+      return {
+        name: card.profile.full_name,
+        wage,
+        regularHours,
+        overtimeHours,
+        doubleOvertimeHours: 0, // Not calculated yet
+        grossWages
+      };
+    });
+
+    const totals = summary.reduce((acc, emp) => ({
+      regularHours: acc.regularHours + emp.regularHours,
+      overtimeHours: acc.overtimeHours + emp.overtimeHours,
+      doubleOvertimeHours: acc.doubleOvertimeHours + emp.doubleOvertimeHours,
+      ptoHours: 0, // Will add PTO calculation
+      grossWages: acc.grossWages + emp.grossWages
+    }), { regularHours: 0, overtimeHours: 0, doubleOvertimeHours: 0, ptoHours: 0, grossWages: 0 });
+
+    return { employees: summary, totals };
+  };
+
+  const currentPeriodStatus = selectedPeriod ? getPeriodStatus(selectedPeriod) : null;
+  const isPeriodClosed = currentPeriodStatus?.status === 'closed';
+
   if (!isAdmin && !isManager) {
     return (
       <Layout>
@@ -224,17 +334,35 @@ export default function PayrollReview() {
               <p className="text-muted-foreground">Select a pay period to review time cards</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {payPeriods.map((period, index) => (
-                <Card
-                  key={index}
-                  className="cursor-pointer hover:shadow-lg transition-shadow"
-                  onClick={() => setSelectedPeriod(period)}
-                >
-                  <CardHeader>
-                    <CardTitle className="text-lg">{period.label}</CardTitle>
-                  </CardHeader>
-                </Card>
-              ))}
+              {payPeriods.map((period, index) => {
+                const status = getPeriodStatus(period);
+                const isClosed = status?.status === 'closed';
+                
+                return (
+                  <Card
+                    key={index}
+                    className="cursor-pointer hover:shadow-lg transition-shadow"
+                    onClick={() => setSelectedPeriod(period)}
+                  >
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg">{period.label}</CardTitle>
+                        {isClosed ? (
+                          <Badge variant="outline" className="bg-muted">
+                            <Lock className="mr-1 h-3 w-3" />
+                            Closed
+                          </Badge>
+                        ) : (
+                          <Badge variant="default">
+                            <CheckCircle2 className="mr-1 h-3 w-3" />
+                            Open
+                          </Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                  </Card>
+                );
+              })}
             </div>
           </>
         ) : (
@@ -252,11 +380,21 @@ export default function PayrollReview() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline">Close pay period</Button>
-                <Button onClick={() => setShowQuickEntry(true)}>
-                  <Calendar className="mr-2 h-4 w-4" />
-                  Add punch
-                </Button>
+                {isPeriodClosed ? (
+                  <Button variant="outline" onClick={handleReopenPeriod}>
+                    Re-Open Pay Period
+                  </Button>
+                ) : (
+                  <Button variant="outline" onClick={handleClosePeriod}>
+                    Close Pay Period
+                  </Button>
+                )}
+                {!isPeriodClosed && (
+                  <Button onClick={() => setShowQuickEntry(true)}>
+                    <Calendar className="mr-2 h-4 w-4" />
+                    Add punch
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -311,42 +449,99 @@ export default function PayrollReview() {
                   ))}
                 </SelectContent>
               </Select>
-
-              <Button variant="outline">
-                <Calendar className="mr-2 h-4 w-4" />
-                Table View
-              </Button>
             </div>
 
-            {/* Punches Awaiting Approval */}
-            <Card className="bg-muted/50">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Badge variant="destructive" className="h-8 w-8 rounded-full flex items-center justify-center text-base">
-                      {totalPunchesAwaitingApproval}
-                    </Badge>
-                    <span className="font-semibold">Punches awaiting approval</span>
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="include-approved"
-                        checked={includeApproved}
-                        onCheckedChange={(checked) => setIncludeApproved(checked as boolean)}
-                      />
-                      <label htmlFor="include-approved" className="text-sm text-muted-foreground cursor-pointer">
-                        Include approved
-                      </label>
+            {isPeriodClosed ? (
+              /* Payroll Summary */
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payroll Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Employee</TableHead>
+                        <TableHead className="text-right">Hourly Wage</TableHead>
+                        <TableHead className="text-right">Hours</TableHead>
+                        <TableHead className="text-right">Overtime</TableHead>
+                        <TableHead className="text-right">Gross Wages</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {calculatePayrollSummary().employees.map((emp, index) => (
+                        <TableRow key={index}>
+                          <TableCell className="font-medium">{emp.name}</TableCell>
+                          <TableCell className="text-right">${emp.wage.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{emp.regularHours.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{emp.overtimeHours.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">${emp.grossWages.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="font-bold border-t-2">
+                        <TableCell>TOTALS</TableCell>
+                        <TableCell></TableCell>
+                        <TableCell className="text-right">{calculatePayrollSummary().totals.regularHours.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{calculatePayrollSummary().totals.overtimeHours.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">${calculatePayrollSummary().totals.grossWages.toFixed(2)}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                  <div className="mt-4 p-4 bg-muted rounded-lg space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Total Regular Hours:</span>
+                      <span className="font-semibold">{calculatePayrollSummary().totals.regularHours.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Overtime Hours:</span>
+                      <span className="font-semibold">{calculatePayrollSummary().totals.overtimeHours.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Double Overtime Hours:</span>
+                      <span className="font-semibold">{calculatePayrollSummary().totals.doubleOvertimeHours.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Approved PTO Hours:</span>
+                      <span className="font-semibold">{calculatePayrollSummary().totals.ptoHours.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
+                      <span>Total Gross Wages:</span>
+                      <span>${calculatePayrollSummary().totals.grossWages.toFixed(2)}</span>
                     </div>
                   </div>
-                  <Button>
-                    Approve All [{totalPunchesAwaitingApproval}]
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Punches Awaiting Approval */}
+                <Card className="bg-muted/50">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="destructive" className="h-8 w-8 rounded-full flex items-center justify-center text-base">
+                          {totalPunchesAwaitingApproval}
+                        </Badge>
+                        <span className="font-semibold">Punches awaiting approval</span>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id="include-approved"
+                            checked={includeApproved}
+                            onCheckedChange={(checked) => setIncludeApproved(checked as boolean)}
+                          />
+                          <label htmlFor="include-approved" className="text-sm text-muted-foreground cursor-pointer">
+                            Include approved
+                          </label>
+                        </div>
+                      </div>
+                      <Button>
+                        Approve All [{totalPunchesAwaitingApproval}]
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
 
-            {/* Employee Punch Cards */}
-            <div className="space-y-6">
+                {/* Employee Punch Cards */}
+                <div className="space-y-6">
               {filteredCards.map((card) => (
                 <Card key={card.profile.id}>
                   <CardContent className="p-6">
@@ -454,7 +649,9 @@ export default function PayrollReview() {
                   </CardContent>
                 </Card>
               ))}
-            </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
