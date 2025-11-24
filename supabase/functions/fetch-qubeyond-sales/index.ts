@@ -61,6 +61,8 @@ serve(async (req) => {
 
     const html = await salesResponse.text();
     console.log('Received sales data (length):', html.length);
+    console.log('HTML sample (first 2000 chars):', html.substring(0, 2000));
+    console.log('HTML sample (search for sales/revenue):', html.substring(html.indexOf('sale'), html.indexOf('sale') + 500));
 
     // Parse HTML to extract actual sales data
     // For now, returning mock data until we can inspect the actual HTML structure
