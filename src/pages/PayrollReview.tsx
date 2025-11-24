@@ -11,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { QuickPunchDialog } from '@/components/timeclock/QuickPunchDialog';
 
+import { Layout } from '@/components/Layout';
+
 export default function PayrollReview() {
   const { isAdmin, isManager } = useUserRole();
   const [payPeriods, setPayPeriods] = useState<any[]>([]);
@@ -152,11 +154,12 @@ export default function PayrollReview() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Payroll Review</h1>
-        <p className="text-muted-foreground">Review and manage employee time cards by pay period</p>
-      </div>
+    <Layout>
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold">Payroll Review</h1>
+          <p className="text-muted-foreground">Review and manage employee time cards by pay period</p>
+        </div>
 
       {!selectedPeriod ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -280,6 +283,7 @@ export default function PayrollReview() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+      </div>
+    </Layout>
   );
 }
