@@ -236,7 +236,14 @@ export default function PunchClock() {
     }
 
     toast.success('Clocked in successfully!');
-    checkLastPunch();
+    
+    // Return to PIN screen after 2 seconds
+    setTimeout(() => {
+      setCurrentUser(null);
+      setPin('');
+      setTodayShift(null);
+      setLastPunch(null);
+    }, 2000);
   };
 
   const handleBreak = async (type: 'break_start' | 'break_end', duration: number) => {
@@ -256,7 +263,14 @@ export default function PunchClock() {
     }
 
     toast.success(`${type === 'break_start' ? 'Starting' : 'Ending'} ${duration} minute break`);
-    checkLastPunch();
+    
+    // Return to PIN screen after 2 seconds
+    setTimeout(() => {
+      setCurrentUser(null);
+      setPin('');
+      setTodayShift(null);
+      setLastPunch(null);
+    }, 2000);
   };
 
   const handleClockOut = async () => {
@@ -275,7 +289,14 @@ export default function PunchClock() {
     }
 
     toast.success('Clocked out successfully!');
-    setTimeout(() => setShowExitDialog(true), 500);
+    
+    // Return to PIN screen after 2 seconds
+    setTimeout(() => {
+      setCurrentUser(null);
+      setPin('');
+      setTodayShift(null);
+      setLastPunch(null);
+    }, 2000);
   };
 
 const isClockedIn = lastPunch?.punch_type === 'clock_in';
