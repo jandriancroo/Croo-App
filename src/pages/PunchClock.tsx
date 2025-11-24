@@ -48,6 +48,10 @@ export default function PunchClock() {
   };
 
   const handleClear = () => {
+    setPin('');
+  };
+
+  const handleExit = () => {
     setShowExitDialog(true);
   };
 
@@ -198,6 +202,16 @@ export default function PunchClock() {
   if (!currentUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
+        {/* Exit Button */}
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={handleExit}
+          className="fixed top-4 left-4 z-50"
+        >
+          Exit
+        </Button>
+        
         <Card className="w-full max-w-5xl overflow-hidden">
           <div className="grid md:grid-cols-2">
             {/* Left Side - Image and Quote */}
@@ -284,6 +298,16 @@ export default function PunchClock() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
+      {/* Exit Button */}
+      <Button
+        size="sm"
+        variant="destructive"
+        onClick={handleExit}
+        className="fixed top-4 left-4 z-50"
+      >
+        Exit
+      </Button>
+      
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
           <div className="text-4xl font-bold text-primary">
@@ -300,7 +324,7 @@ export default function PunchClock() {
           {!todayShift ? (
             <div className="text-center py-8">
               <p className="text-muted-foreground">You are not scheduled to work today.</p>
-              <Button variant="ghost" onClick={handleClear} className="mt-4">
+              <Button variant="ghost" onClick={() => setCurrentUser(null)} className="mt-4">
                 Back
               </Button>
             </div>
@@ -314,7 +338,7 @@ export default function PunchClock() {
                 <Clock className="mr-2 h-5 w-5" />
                 Clock In
               </Button>
-              <Button variant="outline" onClick={handleClear} className="w-full">
+              <Button variant="outline" onClick={() => setCurrentUser(null)} className="w-full">
                 Cancel
               </Button>
             </div>
@@ -351,7 +375,7 @@ export default function PunchClock() {
                 Clock Out
               </Button>
               
-              <Button variant="ghost" onClick={handleClear} className="w-full">
+              <Button variant="ghost" onClick={() => setCurrentUser(null)} className="w-full">
                 Back
               </Button>
             </div>
