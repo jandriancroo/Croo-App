@@ -22,7 +22,6 @@ interface ChecklistItem {
   reference_image_url?: string;
   reference_link?: string;
   reference_video_url?: string;
-  reference_notes?: string;
 }
 
 interface Checklist {
@@ -167,14 +166,14 @@ export default function CompleteChecklist() {
                   {item.is_required && <span className="text-destructive ml-1">*</span>}
                 </CardTitle>
                 
-                {/* Reference Materials Display */}
-                {(item.reference_image_url || item.reference_link || item.reference_video_url || item.reference_notes) && (
+                {/* Reference Material Display */}
+                {(item.reference_image_url || item.reference_link || item.reference_video_url) && (
                   <div className="mt-4 space-y-3 bg-muted/50 p-4 rounded-lg">
-                    <div className="text-sm font-medium text-muted-foreground">Reference Materials:</div>
+                    <div className="text-sm font-semibold">Reference Material:</div>
                     
                     {item.reference_image_url && (
                       <div className="space-y-2">
-                        <Badge variant="secondary" className="text-xs">Reference Photo</Badge>
+                        <Badge variant="secondary" className="text-xs">Photo</Badge>
                         <img
                           src={item.reference_image_url}
                           alt="Reference"
@@ -185,7 +184,7 @@ export default function CompleteChecklist() {
                     
                     {item.reference_link && (
                       <div className="space-y-1">
-                        <Badge variant="secondary" className="text-xs">Reference Link</Badge>
+                        <Badge variant="secondary" className="text-xs">Link</Badge>
                         <a
                           href={item.reference_link}
                           target="_blank"
@@ -199,7 +198,7 @@ export default function CompleteChecklist() {
                     
                     {item.reference_video_url && (
                       <div className="space-y-1">
-                        <Badge variant="secondary" className="text-xs">Training Video</Badge>
+                        <Badge variant="secondary" className="text-xs">Video</Badge>
                         <a
                           href={item.reference_video_url}
                           target="_blank"
@@ -208,13 +207,6 @@ export default function CompleteChecklist() {
                         >
                           {item.reference_video_url}
                         </a>
-                      </div>
-                    )}
-                    
-                    {item.reference_notes && (
-                      <div className="space-y-1">
-                        <Badge variant="secondary" className="text-xs">Notes</Badge>
-                        <p className="text-sm whitespace-pre-wrap">{item.reference_notes}</p>
                       </div>
                     )}
                   </div>
