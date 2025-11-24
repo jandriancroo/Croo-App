@@ -290,13 +290,26 @@ export default function PunchClock() {
 
     toast.success('Clocked out successfully!');
     
-    // Return to PIN screen after 2 seconds
-    setTimeout(() => {
-      setCurrentUser(null);
-      setPin('');
-      setTodayShift(null);
-      setLastPunch(null);
-    }, 2000);
+    // Check if user is admin - if not, return to PIN screen after 2 seconds
+    const { data: userRole } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', currentUser.id)
+      .single();
+
+    const isAdmin = userRole?.role === 'admin';
+    
+    if (!isAdmin) {
+      setTimeout(() => {
+        setCurrentUser(null);
+        setPin('');
+        setTodayShift(null);
+        setLastPunch(null);
+      }, 2000);
+    } else {
+      // For admins, just refresh the punch data
+      checkLastPunch();
+    }
   };
 
 const isClockedIn = lastPunch?.punch_type === 'clock_in';
