@@ -215,12 +215,86 @@ export default function PayrollReview() {
     fetchTimeCards();
   };
 
+  const handleApprovePunch = async (punchId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('time_punches')
+      .update({ 
+        approved_by: user.id,
+        approved_at: new Date().toISOString()
+      })
+      .eq('id', punchId);
+
+    if (error) {
+      toast.error('Failed to approve punch');
+      return;
+    }
+
+    toast.success('Punch approved');
+    fetchTimeCards();
+  };
+
+  const handleApproveDay = async (dayPunches: any[]) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const punchIds = dayPunches.map(p => p.id);
+
+    const { error } = await supabase
+      .from('time_punches')
+      .update({ 
+        approved_by: user.id,
+        approved_at: new Date().toISOString()
+      })
+      .in('id', punchIds);
+
+    if (error) {
+      toast.error('Failed to approve punches');
+      return;
+    }
+
+    toast.success('Day approved');
+    fetchTimeCards();
+  };
+
+  const handleApproveAll = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const allPunchIds = filteredCards.flatMap(card => 
+      card.punches.filter((p: any) => !p.approved_at).map((p: any) => p.id)
+    );
+
+    if (allPunchIds.length === 0) {
+      toast.info('No punches to approve');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('time_punches')
+      .update({ 
+        approved_by: user.id,
+        approved_at: new Date().toISOString()
+      })
+      .in('id', allPunchIds);
+
+    if (error) {
+      toast.error('Failed to approve all punches');
+      return;
+    }
+
+    toast.success(`Approved ${allPunchIds.length} punches`);
+    fetchTimeCards();
+  };
+
   const filteredCards = filterEmployee === 'all' 
     ? timeCards 
     : timeCards.filter(card => card.profile.id === filterEmployee);
 
   const totalPunchesAwaitingApproval = filteredCards.reduce((sum, card) => {
-    return sum + Object.keys(card.punchesByDay).length;
+    return sum + card.punches.filter((p: any) => !p.approved_at).length;
   }, 0);
 
   const getPeriodStatus = (period: any) => {
@@ -533,7 +607,7 @@ export default function PayrollReview() {
                           </label>
                         </div>
                       </div>
-                      <Button>
+                      <Button onClick={handleApproveAll} disabled={totalPunchesAwaitingApproval === 0}>
                         Approve All [{totalPunchesAwaitingApproval}]
                       </Button>
                     </div>
@@ -582,7 +656,7 @@ export default function PayrollReview() {
 
                               {/* Punch Details */}
                               <div className="flex-1 p-4 space-y-3">
-                                <div className="flex items-center justify-between">
+                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
                                     <Calendar className="h-4 w-4 text-muted-foreground" />
                                     <span className="text-sm">
@@ -592,6 +666,12 @@ export default function PayrollReview() {
                                         'Incomplete'
                                       )}
                                     </span>
+                                    {dayPunches.every((p: any) => p.approved_at) && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                                        Approved
+                                      </Badge>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <Button variant="ghost" size="icon" onClick={() => setEditingPunch(clockIn)}>
@@ -600,7 +680,11 @@ export default function PayrollReview() {
                                     <Button variant="ghost" size="icon" onClick={() => clockIn && handleDeletePunch(clockIn.id)}>
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
-                                    <Button size="sm">Approve</Button>
+                                    {!dayPunches.every((p: any) => p.approved_at) && (
+                                      <Button size="sm" onClick={() => handleApproveDay(dayPunches)}>
+                                        Approve
+                                      </Button>
+                                    )}
                                   </div>
                                 </div>
 
