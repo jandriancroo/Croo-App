@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ClipboardList, Calendar, Plus, TrendingUp, CheckCircle2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface Checklist {
@@ -110,15 +110,25 @@ export default function Dashboard() {
     }
   };
 
-  const getChartData = () => {
-    return checklists.map((checklist) => ({
-      name: checklist.title.length > 20 
-        ? checklist.title.substring(0, 20) + '...' 
-        : checklist.title,
-      'This Week': stats[checklist.id]?.submissions_this_week || 0,
-      'This Month': stats[checklist.id]?.submissions_this_month || 0,
-      'Total': stats[checklist.id]?.total_submissions || 0,
-    }));
+  const getExpectedCompletions = (frequency: string) => {
+    const daysInWeek = 7;
+    const daysInMonth = 30;
+    
+    switch (frequency) {
+      case 'daily':
+        return daysInWeek;
+      case 'weekly':
+        return 1;
+      case 'monthly':
+        return 1;
+      default:
+        return daysInWeek;
+    }
+  };
+
+  const COLORS = {
+    completed: 'hsl(var(--primary))',
+    remaining: 'hsl(var(--muted))',
   };
 
   const getTotalStats = () => {
@@ -197,37 +207,66 @@ export default function Dashboard() {
               </Card>
             </div>
 
-            {/* Completion Chart */}
+            {/* Completion Overview */}
             <Card>
               <CardHeader>
                 <CardTitle>Completion Overview</CardTitle>
-                <CardDescription>Submissions per checklist</CardDescription>
+                <CardDescription>Weekly completion status</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={getChartData()}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis 
-                      dataKey="name" 
-                      className="text-xs"
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                    />
-                    <YAxis className="text-xs" />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '0.5rem'
-                      }}
-                    />
-                    <Legend />
-                    <Bar dataKey="This Week" fill="hsl(var(--accent))" />
-                    <Bar dataKey="This Month" fill="hsl(var(--primary))" />
-                    <Bar dataKey="Total" fill="hsl(var(--secondary))" />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {checklists.map((checklist) => {
+                    const checklistStats = stats[checklist.id];
+                    const expected = getExpectedCompletions(checklist.frequency);
+                    const completed = checklistStats?.submissions_this_week || 0;
+                    const remaining = Math.max(0, expected - completed);
+                    const completionRate = expected > 0 ? Math.round((completed / expected) * 100) : 0;
+
+                    const chartData = [
+                      { name: 'Completed', value: completed },
+                      { name: 'Remaining', value: remaining },
+                    ];
+
+                    return (
+                      <div key={checklist.id} className="flex flex-col items-center">
+                        <ResponsiveContainer width="100%" height={180}>
+                          <PieChart>
+                            <Pie
+                              data={chartData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={50}
+                              outerRadius={70}
+                              paddingAngle={2}
+                              dataKey="value"
+                            >
+                              <Cell fill={COLORS.completed} />
+                              <Cell fill={COLORS.remaining} />
+                            </Pie>
+                            <Tooltip
+                              contentStyle={{
+                                backgroundColor: 'hsl(var(--card))',
+                                border: '1px solid hsl(var(--border))',
+                                borderRadius: '0.5rem',
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="text-center mt-2">
+                          <h4 className="font-semibold text-sm truncate max-w-[200px]">
+                            {checklist.title}
+                          </h4>
+                          <p className="text-2xl font-bold text-primary mt-1">
+                            {completionRate}%
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {completed} of {expected} this week
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
 
