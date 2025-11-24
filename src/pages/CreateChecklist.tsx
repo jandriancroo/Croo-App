@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Trash2, Upload, Link as LinkIcon, Video, FileText } from 'lucide-react';
+import { Plus, Trash2, Upload, Link as LinkIcon, Video, FileText, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface ChecklistItem {
@@ -34,7 +35,25 @@ export default function CreateChecklist() {
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState<string | null>(null);
   const { user } = useAuth();
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!roleLoading && !isAdmin) {
+      navigate('/');
+      toast.error('Only admins can create checklists');
+    }
+  }, [isAdmin, roleLoading, navigate]);
+
+  if (roleLoading || !isAdmin) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </Layout>
+    );
+  }
 
   const addItem = () => {
     setItems([...items, { question: '', item_type: 'text', is_required: true }]);
