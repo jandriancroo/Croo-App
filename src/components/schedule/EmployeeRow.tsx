@@ -1,7 +1,7 @@
 import { useDroppable } from "@dnd-kit/core";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShiftCard } from "./ShiftCard";
-import { startOfWeek, addDays } from "date-fns";
+import { addDays } from "date-fns";
 
 interface Profile {
   id: string;
@@ -13,6 +13,8 @@ interface EmployeeRowProps {
   profile: Profile;
   shifts: any[];
   templates: any[];
+  availabilityRequests: any[];
+  currentWeekStart: Date;
   isEditable: boolean;
   onUpdate: () => void;
   canTakeShifts?: boolean;
@@ -20,8 +22,18 @@ interface EmployeeRowProps {
   onEditShift?: (shift: any) => void;
 }
 
-export function EmployeeRow({ profile, shifts, templates, isEditable, onUpdate, canTakeShifts, currentUserId, onEditShift }: EmployeeRowProps) {
-  const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+export function EmployeeRow({ 
+  profile, 
+  shifts, 
+  templates, 
+  availabilityRequests,
+  currentWeekStart,
+  isEditable, 
+  onUpdate, 
+  canTakeShifts, 
+  currentUserId, 
+  onEditShift 
+}: EmployeeRowProps) {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
   const calculateTotalHours = () => {
@@ -76,12 +88,24 @@ export function EmployeeRow({ profile, shifts, templates, isEditable, onUpdate, 
 
       {weekDays.map((day, dayIndex) => {
         const dayShifts = shifts.filter((s) => s.day_of_week === dayIndex);
+        const dayAvailability = availabilityRequests.filter((r) => {
+          const reqDate = new Date(r.start_date);
+          const cellDate = day;
+          
+          if (r.time_scope === "multi_day" && r.end_date) {
+            const endDate = new Date(r.end_date);
+            return cellDate >= reqDate && cellDate <= endDate;
+          }
+          return reqDate.toDateString() === cellDate.toDateString();
+        });
+        
         return (
           <DayCell 
             key={dayIndex} 
             userId={profile.id} 
             dayIndex={dayIndex} 
-            shifts={dayShifts} 
+            shifts={dayShifts}
+            availabilityRequests={dayAvailability}
             onUpdate={onUpdate}
             canTakeShifts={canTakeShifts}
             currentUserId={currentUserId}
@@ -96,7 +120,8 @@ export function EmployeeRow({ profile, shifts, templates, isEditable, onUpdate, 
 function DayCell({ 
   userId, 
   dayIndex, 
-  shifts, 
+  shifts,
+  availabilityRequests,
   onUpdate, 
   canTakeShifts, 
   currentUserId,
@@ -104,7 +129,8 @@ function DayCell({
 }: { 
   userId: string; 
   dayIndex: number; 
-  shifts: any[]; 
+  shifts: any[];
+  availabilityRequests: any[];
   onUpdate: () => void;
   canTakeShifts?: boolean;
   currentUserId?: string;
@@ -133,6 +159,24 @@ function DayCell({
             onTakeShift={onUpdate}
             onEdit={() => onEditShift?.(shift)}
           />
+        ))}
+        {availabilityRequests.map((request) => (
+          <div 
+            key={request.id}
+            className="p-2 bg-muted/30 border-dashed border-2 rounded relative"
+            style={{
+              background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)",
+            }}
+          >
+            <div className="text-xs text-muted-foreground font-medium">
+              {request.time_scope === "partial_day" && request.start_time && request.end_time
+                ? `${request.start_time} - ${request.end_time}`
+                : "Time Off"}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {request.status === "pending" ? "Pending" : "Approved"}
+            </div>
+          </div>
         ))}
       </div>
     </div>
