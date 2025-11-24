@@ -12,38 +12,58 @@ serve(async (req) => {
 
   try {
     const { period } = await req.json();
+    const username = Deno.env.get('QU_USERNAME');
+    const password = Deno.env.get('QU_PASSWORD');
     const cid = Deno.env.get('QU_CID');
     const sid = Deno.env.get('QU_SID');
 
-    if (!cid || !sid) {
+    if (!username || !password || !cid || !sid) {
       throw new Error('QuBeyond credentials not configured');
     }
 
-    console.log('Fetching QuBeyond sales data for period:', period);
+    console.log('Authenticating with QuBeyond for period:', period);
 
-    // Attempt to fetch from QuBeyond - this is exploratory since we don't have official API docs
-    // We'll try common endpoints that sales systems typically use
     const baseUrl = 'https://www.qubeyond.com';
     
-    // Try to fetch sales data - this may need adjustment based on actual QuBeyond structure
-    const response = await fetch(`${baseUrl}/reports/sales`, {
+    // Step 1: Attempt to log in with credentials
+    const loginResponse = await fetch(`${baseUrl}/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+      body: new URLSearchParams({
+        username: username,
+        password: password,
+        cid: cid,
+      }).toString(),
+    });
+
+    // Extract cookies from login response
+    const setCookieHeaders = loginResponse.headers.get('set-cookie');
+    console.log('Login response status:', loginResponse.status);
+    
+    // Step 2: Fetch sales data with authenticated session
+    const cookieString = setCookieHeaders || `CID=${cid}; SID=${sid}`;
+    
+    const salesResponse = await fetch(`${baseUrl}/reports/sales`, {
       method: 'GET',
       headers: {
-        'Cookie': `CID=${cid}; SID=${sid}`,
+        'Cookie': cookieString,
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
     });
 
-    if (!response.ok) {
-      console.error('QuBeyond fetch failed:', response.status, response.statusText);
-      throw new Error(`Failed to fetch from QuBeyond: ${response.status}`);
+    if (!salesResponse.ok) {
+      console.error('QuBeyond sales fetch failed:', salesResponse.status);
+      throw new Error(`Failed to fetch sales: ${salesResponse.status}`);
     }
 
-    const html = await response.text();
-    console.log('Received response from QuBeyond (length):', html.length);
+    const html = await salesResponse.text();
+    console.log('Received sales data (length):', html.length);
 
-    // Parse the HTML to extract sales data
-    // This is a placeholder - actual parsing will depend on QuBeyond's HTML structure
+    // Parse HTML to extract actual sales data
+    // For now, returning mock data until we can inspect the actual HTML structure
     const mockData = {
       hourly: [
         { hour: '9:00 AM', sales: 245.50 },
