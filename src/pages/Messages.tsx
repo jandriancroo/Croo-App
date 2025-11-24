@@ -130,53 +130,58 @@ export default function Messages() {
           </div>
         )}
 
-        {/* Mobile: Chat List or Chat Window */}
+        {/* Mobile: Chat List and Slide-Over Chat Window */}
         {isMobile && (
-          <div className="flex-1 bg-card rounded-lg">
-            {!selectedChatId ? (
-              <div className="p-4 flex flex-col h-full">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">Messages</h2>
-                  <Button
-                    size="sm"
-                    onClick={() => setIsNewChatOpen(true)}
-                    className="gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    New
-                  </Button>
-                </div>
-                <ChatList
-                  chats={chats}
-                  selectedChatId={selectedChatId}
-                  onSelectChat={setSelectedChatId}
-                  loading={loading}
-                />
+          <>
+            <div className="flex-1 bg-card rounded-lg p-4 flex flex-col">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">Messages</h2>
+                <Button
+                  size="sm"
+                  onClick={() => setIsNewChatOpen(true)}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  New
+                </Button>
               </div>
-            ) : (
-              <div className="flex flex-col h-full">
-                <div className="flex items-center gap-2 p-3 border-b border-border">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedChatId(null)}
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                  </Button>
-                  <h2 className="text-lg font-semibold">Chat</h2>
+              <ChatList
+                chats={chats}
+                selectedChatId={selectedChatId}
+                onSelectChat={setSelectedChatId}
+                loading={loading}
+              />
+            </div>
+            
+            {/* Mobile Slide-Over Chat Window */}
+            <Drawer open={!!selectedChatId} onOpenChange={(open) => !open && setSelectedChatId(null)}>
+              <DrawerContent className="h-[95vh]">
+                <div className="flex flex-col h-full">
+                  <div className="flex items-center gap-2 p-4 border-b border-border">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedChatId(null)}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <h2 className="text-lg font-semibold">Chat</h2>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    {selectedChatId && (
+                      <ChatWindow
+                        chatId={selectedChatId}
+                        onChatDeleted={() => {
+                          setSelectedChatId(null);
+                          fetchChats();
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 overflow-hidden">
-                  <ChatWindow
-                    chatId={selectedChatId}
-                    onChatDeleted={() => {
-                      setSelectedChatId(null);
-                      fetchChats();
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
+              </DrawerContent>
+            </Drawer>
+          </>
         )}
       </div>
 
