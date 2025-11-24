@@ -22,8 +22,8 @@ export function EmployeeRow({ profile, shifts, templates, isEditable, onUpdate }
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
   return (
-    <div className="grid grid-cols-8 gap-4 py-2 border-b">
-      <div className="flex items-center gap-2">
+    <div className="grid grid-cols-8 gap-0">
+      <div className="flex items-center gap-2 p-4 border-r border-border bg-muted/30">
         {profile.id !== "unassigned" ? (
           <>
             <Avatar className="h-8 w-8">
@@ -52,10 +52,17 @@ function DayCell({ userId, dayIndex, shifts, onUpdate }: { userId: string; dayIn
   });
 
   return (
-    <div ref={setNodeRef} className={`min-h-[60px] space-y-1 p-1 rounded ${isOver ? "bg-accent" : ""}`}>
-      {shifts.map((shift) => (
-        <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} />
-      ))}
+    <div 
+      ref={setNodeRef} 
+      className={`min-h-[80px] p-2 border-r last:border-r-0 border-border transition-colors ${
+        isOver ? "bg-accent/50" : "hover:bg-muted/30"
+      }`}
+    >
+      <div className="space-y-1">
+        {shifts.map((shift) => (
+          <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} />
+        ))}
+      </div>
     </div>
   );
 }

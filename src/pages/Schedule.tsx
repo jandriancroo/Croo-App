@@ -259,12 +259,12 @@ export default function Schedule() {
         </div>
 
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <Card className="p-6">
+          <Card className="p-6 overflow-x-auto">
             {/* Week Day Headers */}
-            <div className="grid grid-cols-8 gap-4 mb-4">
-              <div className="font-semibold"></div>
+            <div className="grid grid-cols-8 gap-0 border-b-2 border-border">
+              <div className="font-semibold p-4 border-r border-border bg-muted/50"></div>
               {weekDays.map((day, index) => (
-                <div key={index} className="text-center">
+                <div key={index} className="text-center p-4 border-r last:border-r-0 border-border bg-muted/50">
                   <div className="font-semibold">{format(day, "EEE")}</div>
                   <div className="text-sm text-muted-foreground">{format(day, "MMM d")}</div>
                 </div>
@@ -272,11 +272,12 @@ export default function Schedule() {
             </div>
 
             {/* Events Section */}
-            <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} />
+            <div className="border-b border-border">
+              <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} />
+            </div>
 
             {/* Shifts by User */}
-            <div className="space-y-2 mt-6">
-              <h3 className="font-semibold text-lg mb-4">Assigned Shifts</h3>
+            <div className="divide-y divide-border">
               {profiles.map((profile) => (
                 <EmployeeRow
                   key={profile.id}
@@ -300,13 +301,23 @@ export default function Schedule() {
 
             {/* Templates Sidebar */}
             {(isAdmin || isManager) && templates.length > 0 && (
-              <div className="mt-6 pt-6 border-t">
+              <div className="mt-6 pt-6 border-t-2 border-border">
                 <h3 className="font-semibold mb-4">Shift Templates (Drag to Schedule)</h3>
                 <div className="flex flex-wrap gap-2">
                   {templates.map((template) => (
                     <ShiftCard key={template.id} shift={{ template, isTemplate: true }} />
                   ))}
                 </div>
+              </div>
+            )}
+
+            {(isAdmin || isManager) && templates.length === 0 && (
+              <div className="mt-6 pt-6 border-t-2 border-border text-center p-8 bg-muted/30 rounded-lg">
+                <p className="text-muted-foreground mb-4">No shift templates yet</p>
+                <Button onClick={() => navigate("/shift-templates")}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Your First Template
+                </Button>
               </div>
             )}
           </Card>
