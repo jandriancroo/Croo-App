@@ -577,34 +577,40 @@ export type Database = {
       }
       profiles: {
         Row: {
+          birthday: string | null
           created_at: string | null
           email: string
           full_name: string | null
           hourly_wage: number | null
           id: string
           is_active: boolean | null
+          phone_number: string | null
           profile_photo_url: string | null
           role: string | null
           updated_at: string | null
         }
         Insert: {
+          birthday?: string | null
           created_at?: string | null
           email: string
           full_name?: string | null
           hourly_wage?: number | null
           id: string
           is_active?: boolean | null
+          phone_number?: string | null
           profile_photo_url?: string | null
           role?: string | null
           updated_at?: string | null
         }
         Update: {
+          birthday?: string | null
           created_at?: string | null
           email?: string
           full_name?: string | null
           hourly_wage?: number | null
           id?: string
           is_active?: boolean | null
+          phone_number?: string | null
           profile_photo_url?: string | null
           role?: string | null
           updated_at?: string | null

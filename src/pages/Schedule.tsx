@@ -159,13 +159,17 @@ export default function Schedule() {
         if (shiftsError) throw shiftsError;
         setShifts(shiftsData || []);
 
-        // Fetch events
+      // Fetch events
         const { data: eventsData, error: eventsError } = await supabase
           .from("schedule_events")
           .select("*")
           .eq("schedule_id", scheduleData.id);
 
         if (eventsError) throw eventsError;
+        
+        // Sync birthday events
+        await supabase.functions.invoke('sync-birthday-events');
+        
         setEvents((eventsData || []).map(event => ({
           ...event,
           tagged_roles: event.tagged_roles as string[] | null,

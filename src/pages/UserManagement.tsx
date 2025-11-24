@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key, Trash2, FileText } from 'lucide-react';
+import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key, Trash2, FileText, Check, CalendarIcon } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
@@ -19,12 +19,31 @@ import React from 'react';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
 import { InviteLinkCard } from '@/components/InviteLinkCard';
 import { Copy } from 'lucide-react';
+import { BulkActionsBar } from '@/components/users/BulkActionsBar';
+import { BulkWageUpdateDialog } from '@/components/users/BulkWageUpdateDialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface UserProfile {
   id: string;
   email: string;
   full_name: string | null;
   profile_photo_url: string | null;
+  phone_number: string | null;
+  birthday: string | null;
   created_at: string;
   is_active: boolean;
   role?: AppRole;
@@ -74,6 +93,13 @@ export default function UserManagement() {
   const [employeeNotes, setEmployeeNotes] = useState<any[]>([]);
   const [newEmployeeNote, setNewEmployeeNote] = useState<string>('');
   const [addingNote, setAddingNote] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [isBulkDeactivateOpen, setIsBulkDeactivateOpen] = useState(false);
+  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
+  const [isBulkWageOpen, setIsBulkWageOpen] = useState(false);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [editPhoneNumber, setEditPhoneNumber] = useState('');
+  const [editBirthday, setEditBirthday] = useState<Date | undefined>();
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -381,6 +407,8 @@ export default function UserManagement() {
     setEditingUser(user);
     setEditFullName(user.full_name || '');
     setEditProfilePhoto(user.profile_photo_url);
+    setEditPhoneNumber(user.phone_number || '');
+    setEditBirthday(user.birthday ? new Date(user.birthday) : undefined);
     setEditDialogOpen(true);
   };
 
@@ -402,6 +430,8 @@ export default function UserManagement() {
         .update({
           full_name: editFullName.trim(),
           profile_photo_url: editProfilePhoto,
+          phone_number: editPhoneNumber.trim() || null,
+          birthday: editBirthday ? editBirthday.toISOString().split('T')[0] : null,
         })
         .eq('id', editingUser.id);
 
@@ -416,6 +446,8 @@ export default function UserManagement() {
       setEditingUser(null);
       setEditFullName('');
       setEditProfilePhoto(null);
+      setEditPhoneNumber('');
+      setEditBirthday(undefined);
       fetchUsers();
     } catch (error: any) {
       console.error('Error updating user:', error);
@@ -708,6 +740,134 @@ export default function UserManagement() {
     }
   };
 
+  const handleBulkDeactivate = async () => {
+    try {
+      setBulkUpdating(true);
+      
+      for (const userId of selectedUsers) {
+        await supabase.functions.invoke('toggle-user-status', {
+          body: { userId, isActive: false },
+        });
+      }
+
+      toast({
+        title: 'Success',
+        description: `${selectedUsers.size} user(s) deactivated`,
+      });
+
+      setSelectedUsers(new Set());
+      setIsBulkDeactivateOpen(false);
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error bulk deactivating:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to deactivate users',
+        variant: 'destructive',
+      });
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    try {
+      setBulkUpdating(true);
+      
+      for (const userId of selectedUsers) {
+        await supabase.functions.invoke('delete-user', {
+          body: { userId },
+        });
+      }
+
+      toast({
+        title: 'Success',
+        description: `${selectedUsers.size} user(s) deleted`,
+      });
+
+      setSelectedUsers(new Set());
+      setIsBulkDeleteOpen(false);
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error bulk deleting:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete users',
+        variant: 'destructive',
+      });
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  const handleBulkWageUpdate = async (wage: number, effectiveDate: Date, notes: string) => {
+    try {
+      setBulkUpdating(true);
+      
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('Not authenticated');
+
+      const effectiveDateStr = effectiveDate.toISOString().split('T')[0];
+
+      for (const userId of selectedUsers) {
+        // Insert into wage_history
+        await supabase
+          .from('wage_history')
+          .insert({
+            user_id: userId,
+            hourly_wage: wage,
+            effective_date: effectiveDateStr,
+            created_by: currentUser.id,
+            notes: notes.trim() || null,
+          });
+
+        // Update current wage in profiles
+        await supabase
+          .from('profiles')
+          .update({ hourly_wage: wage })
+          .eq('id', userId);
+      }
+
+      toast({
+        title: 'Success',
+        description: `Wages updated for ${selectedUsers.size} user(s)`,
+      });
+
+      setSelectedUsers(new Set());
+      setIsBulkWageOpen(false);
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error bulk updating wages:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update wages',
+        variant: 'destructive',
+      });
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUsers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        newSet.delete(userId);
+      } else {
+        newSet.add(userId);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedUsers.size === users.length) {
+      setSelectedUsers(new Set());
+    } else {
+      setSelectedUsers(new Set(users.map(u => u.id)));
+    }
+  };
+
   const handleDeleteEmployeeNote = async (noteId: string) => {
     try {
       const { error } = await supabase
@@ -958,6 +1118,12 @@ export default function UserManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12">
+                      <Checkbox
+                        checked={selectedUsers.size === users.length && users.length > 0}
+                        onCheckedChange={toggleSelectAll}
+                      />
+                    </TableHead>
                     <TableHead>User</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Status</TableHead>
@@ -968,13 +1134,21 @@ export default function UserManagement() {
                   {users.map((user) => (
                     <TableRow 
                       key={user.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => {
-                        setViewingUser(user);
-                        setIsProfileDialogOpen(true);
-                      }}
+                      className="hover:bg-muted/50"
                     >
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Checkbox
+                          checked={selectedUsers.has(user.id)}
+                          onCheckedChange={() => toggleUserSelection(user.id)}
+                        />
+                      </TableCell>
+                      <TableCell
+                        className="cursor-pointer"
+                        onClick={() => {
+                          setViewingUser(user);
+                          setIsProfileDialogOpen(true);
+                        }}
+                      >
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10">
                             <AvatarImage src={user.profile_photo_url || undefined} />
@@ -1297,6 +1471,43 @@ export default function UserManagement() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="edit-phone">Phone Number</Label>
+                <Input
+                  id="edit-phone"
+                  type="tel"
+                  value={editPhoneNumber}
+                  onChange={(e) => setEditPhoneNumber(e.target.value)}
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-birthday">Birthday</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !editBirthday && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {editBirthday ? format(editBirthday, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={editBirthday}
+                      onSelect={setEditBirthday}
+                      disabled={(date) => date > new Date()}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="space-y-2">
                 <Label>Email</Label>
                 <Input value={editingUser?.email || ''} disabled />
               </div>
@@ -1559,6 +1770,64 @@ export default function UserManagement() {
           onOpenChange={setCropDialogOpen}
           imageSrc={tempImageSrc}
           onCropComplete={handleCropComplete}
+        />
+
+        {/* Bulk Actions Bar */}
+        <BulkActionsBar
+          selectedCount={selectedUsers.size}
+          onDeactivate={() => setIsBulkDeactivateOpen(true)}
+          onDelete={() => setIsBulkDeleteOpen(true)}
+          onWageUpdate={() => setIsBulkWageOpen(true)}
+          onClearSelection={() => setSelectedUsers(new Set())}
+        />
+
+        {/* Bulk Deactivate Confirmation */}
+        <AlertDialog open={isBulkDeactivateOpen} onOpenChange={setIsBulkDeactivateOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Bulk Deactivate Users</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to deactivate {selectedUsers.size} user(s)? They will no longer be able to access the system.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleBulkDeactivate} disabled={bulkUpdating}>
+                {bulkUpdating ? 'Deactivating...' : 'Deactivate'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Bulk Delete Confirmation */}
+        <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Bulk Delete Users</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to permanently delete {selectedUsers.size} user(s)? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleBulkDelete}
+                disabled={bulkUpdating}
+                className="bg-destructive text-destructive-foreground"
+              >
+                {bulkUpdating ? 'Deleting...' : 'Delete Permanently'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Bulk Wage Update Dialog */}
+        <BulkWageUpdateDialog
+          open={isBulkWageOpen}
+          onOpenChange={setIsBulkWageOpen}
+          selectedCount={selectedUsers.size}
+          onConfirm={handleBulkWageUpdate}
+          updating={bulkUpdating}
         />
       </div>
     </Layout>
