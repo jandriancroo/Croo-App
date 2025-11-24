@@ -36,8 +36,15 @@ export default function PunchClock() {
     setShowExitDialog(true);
   };
 
-  const handleExitConfirm = () => {
+  const handleExitConfirm = async () => {
     if (exitPin === '0223') {
+      // Exit fullscreen before navigating away
+      if (document.fullscreenElement) {
+        await document.exitFullscreen().catch(error => {
+          console.error('Failed to exit fullscreen:', error);
+        });
+      }
+      
       setPin('');
       setCurrentUser(null);
       setTodayShift(null);
@@ -54,6 +61,27 @@ export default function PunchClock() {
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Enter fullscreen on mount, exit on unmount
+  useEffect(() => {
+    const enterFullscreen = async () => {
+      try {
+        await document.documentElement.requestFullscreen();
+      } catch (error) {
+        console.error('Failed to enter fullscreen:', error);
+      }
+    };
+
+    enterFullscreen();
+
+    return () => {
+      if (document.fullscreenElement) {
+        document.exitFullscreen().catch(error => {
+          console.error('Failed to exit fullscreen:', error);
+        });
+      }
+    };
   }, []);
 
   useEffect(() => {
