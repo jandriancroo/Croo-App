@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { CheckSquare, Camera } from 'lucide-react';
+import { CheckSquare, Camera, Apple } from 'lucide-react';
+import { FcGoogle } from 'react-icons/fc';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function Auth() {
@@ -51,6 +52,23 @@ export default function Auth() {
     }
     
     setLoading(false);
+  };
+
+  const handleOAuthSignIn = async (provider: 'google' | 'apple') => {
+    setLoading(true);
+    
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/`,
+      },
+    });
+    
+    if (error) {
+      toast.error(error.message);
+      setLoading(false);
+    }
+    // Don't set loading to false on success - page will redirect
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -182,6 +200,36 @@ export default function Auth() {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Signing in...' : 'Sign In'}
                 </Button>
+                
+                <div className="relative my-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleOAuthSignIn('google')}
+                    disabled={loading}
+                  >
+                    <FcGoogle className="mr-2 h-5 w-5" />
+                    Google
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleOAuthSignIn('apple')}
+                    disabled={loading}
+                  >
+                    <Apple className="mr-2 h-5 w-5" />
+                    Apple
+                  </Button>
+                </div>
               </form>
             </TabsContent>
             <TabsContent value="signup">
