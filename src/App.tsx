@@ -42,6 +42,7 @@ const App = () => (
             <Route path="/create" element={<ProtectedRoute><CreateChecklist /></ProtectedRoute>} />
             <Route path="/create-checklist" element={<ProtectedRoute><CreateChecklist /></ProtectedRoute>} />
             <Route path="/edit/:id" element={<ProtectedRoute><EditChecklist /></ProtectedRoute>} />
+            <Route path="/edit-checklist/:id" element={<ProtectedRoute><EditChecklist /></ProtectedRoute>} />
             <Route path="/complete/:id" element={<ProtectedRoute><CompleteChecklist /></ProtectedRoute>} />
             <Route path="/complete-checklist/:id" element={<ProtectedRoute><CompleteChecklist /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
