@@ -333,7 +333,7 @@ export default function UserManagement() {
 
     try {
       const emailChanged = newEmail.trim() !== resendUser.email;
-      
+       
       if (emailChanged && !newEmail.trim()) {
         toast({
           title: 'Validation Error',
@@ -342,21 +342,32 @@ export default function UserManagement() {
         });
         return;
       }
-
-      const { error } = await supabase.functions.invoke('resend-invite', {
+ 
+      const { data, error } = await supabase.functions.invoke('resend-invite', {
         body: {
           userId: resendUser.id,
           newEmail: emailChanged ? newEmail.trim() : undefined,
         },
       });
-
+ 
       if (error) throw error;
-
+ 
+      const response = data as { resetLink?: string | null } | null;
+      const resetLink = response?.resetLink ?? null;
+ 
+      if (resetLink) {
+        console.log('Resend invite reset link:', resetLink);
+      }
+ 
       toast({
         title: 'Success',
-        description: emailChanged 
-          ? 'Invitation sent to new email address' 
-          : 'Invitation resent successfully',
+        description: resetLink
+          ? (emailChanged
+              ? 'Invitation sent to new email. Copy this link and share it manually: ' + resetLink
+              : 'Invitation resent. Copy this link and share it manually: ' + resetLink)
+          : emailChanged
+            ? 'Invitation sent to new email address'
+            : 'Invitation resent successfully',
       });
 
       setIsResendDialogOpen(false);
@@ -385,7 +396,7 @@ export default function UserManagement() {
 
     try {
       setInviting(true);
-
+ 
       const { data, error } = await supabase.functions.invoke('invite-user', {
         body: {
           email: inviteEmail.trim(),
@@ -394,12 +405,21 @@ export default function UserManagement() {
           profilePhotoUrl: inviteProfilePhoto,
         },
       });
-
+ 
       if (error) throw error;
-
+ 
+      const response = data as { resetLink?: string | null } | null;
+      const resetLink = response?.resetLink ?? null;
+ 
+      if (resetLink) {
+        console.log('Invite reset link:', resetLink);
+      }
+ 
       toast({
         title: 'Success',
-        description: 'User invited successfully',
+        description: resetLink
+          ? 'User invited. Copy this password setup link and share it manually: ' + resetLink
+          : 'User invited successfully',
       });
 
       setInviteDialogOpen(false);
