@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -23,6 +23,7 @@ interface UserProfile {
   full_name: string | null;
   profile_photo_url: string | null;
   created_at: string;
+  is_active: boolean;
   role?: AppRole;
 }
 
@@ -46,6 +47,9 @@ export default function UserManagement() {
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
   const [tempImageSrc, setTempImageSrc] = useState<string>('');
   const [isInviteCrop, setIsInviteCrop] = useState(false);
+  const [isResendDialogOpen, setIsResendDialogOpen] = useState(false);
+  const [resendUser, setResendUser] = useState<UserProfile | null>(null);
+  const [newEmail, setNewEmail] = useState('');
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -291,6 +295,84 @@ export default function UserManagement() {
     }
   };
 
+  const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase.functions.invoke('toggle-user-status', {
+        body: {
+          userId,
+          isActive: !currentStatus,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: `User ${!currentStatus ? 'activated' : 'deactivated'} successfully`,
+      });
+
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error toggling user status:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update user status',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleOpenResendDialog = (user: UserProfile) => {
+    setResendUser(user);
+    setNewEmail(user.email);
+    setIsResendDialogOpen(true);
+  };
+
+  const handleResendInvite = async () => {
+    if (!resendUser) return;
+
+    try {
+      const emailChanged = newEmail.trim() !== resendUser.email;
+      
+      if (emailChanged && !newEmail.trim()) {
+        toast({
+          title: 'Validation Error',
+          description: 'Please provide a valid email address.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const { error } = await supabase.functions.invoke('resend-invite', {
+        body: {
+          userId: resendUser.id,
+          newEmail: emailChanged ? newEmail.trim() : undefined,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: emailChanged 
+          ? 'Invitation sent to new email address' 
+          : 'Invitation resent successfully',
+      });
+
+      setIsResendDialogOpen(false);
+      setResendUser(null);
+      setNewEmail('');
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error resending invite:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to resend invitation',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleInviteUser = async () => {
     if (!inviteEmail.trim() || !inviteFullName.trim()) {
       toast({
@@ -480,6 +562,7 @@ export default function UserManagement() {
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -516,22 +599,43 @@ export default function UserManagement() {
                         </Badge>
                       </TableCell>
                       <TableCell>
+                        <Badge variant={user.is_active ? "default" : "secondary"}>
+                          {user.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
                         {new Date(user.created_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Select
-                          value={user.role}
-                          onValueChange={(value: AppRole) => handleRoleChange(user.id, value)}
-                        >
-                          <SelectTrigger className="w-[140px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="team_member">Team Member</SelectItem>
-                            <SelectItem value="manager">Manager</SelectItem>
-                            <SelectItem value="admin">Admin</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="flex justify-end gap-2">
+                          <Select
+                            value={user.role}
+                            onValueChange={(value: AppRole) => handleRoleChange(user.id, value)}
+                          >
+                            <SelectTrigger className="w-[140px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="team_member">Team Member</SelectItem>
+                              <SelectItem value="manager">Manager</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleToggleUserStatus(user.id, user.is_active)}
+                          >
+                            {user.is_active ? 'Deactivate' : 'Activate'}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenResendDialog(user)}
+                          >
+                            Re-invite
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -617,6 +721,46 @@ export default function UserManagement() {
                 )}
               </Button>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Resend Invite Dialog */}
+        <Dialog open={isResendDialogOpen} onOpenChange={setIsResendDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Re-invite User</DialogTitle>
+              <DialogDescription>
+                Send a new invitation to this user. You can optionally change their email address.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="resend-email">Email Address</Label>
+                <Input
+                  id="resend-email"
+                  type="email"
+                  value={newEmail}
+                  onChange={(e) => setNewEmail(e.target.value)}
+                  placeholder="user@example.com"
+                />
+                <p className="text-xs text-muted-foreground">
+                  {newEmail !== resendUser?.email 
+                    ? "A new invitation will be sent to this email address" 
+                    : "The invitation will be resent to the current email"}
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsResendDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleResendInvite}>
+                Send Invitation
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 
