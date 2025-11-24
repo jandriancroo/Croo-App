@@ -381,8 +381,10 @@ export type Database = {
           color: string | null
           created_at: string | null
           created_by: string | null
+          days_of_week: number[] | null
           end_time: string
           id: string
+          position: string | null
           role: Database["public"]["Enums"]["app_role"]
           start_time: string
           template_name: string
@@ -391,8 +393,10 @@ export type Database = {
           color?: string | null
           created_at?: string | null
           created_by?: string | null
+          days_of_week?: number[] | null
           end_time: string
           id?: string
+          position?: string | null
           role: Database["public"]["Enums"]["app_role"]
           start_time: string
           template_name: string
@@ -401,8 +405,10 @@ export type Database = {
           color?: string | null
           created_at?: string | null
           created_by?: string | null
+          days_of_week?: number[] | null
           end_time?: string
           id?: string
+          position?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           start_time?: string
           template_name?: string

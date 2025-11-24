@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
@@ -19,6 +20,8 @@ interface ShiftTemplate {
   end_time: string;
   role: string;
   color: string;
+  position: string | null;
+  days_of_week: number[] | null;
 }
 
 export default function ShiftTemplates() {
@@ -26,13 +29,29 @@ export default function ShiftTemplates() {
   const { isAdmin, isManager, loading: roleLoading } = useUserRole();
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [customPosition, setCustomPosition] = useState("");
+  const [showCustomPosition, setShowCustomPosition] = useState(false);
   const [formData, setFormData] = useState({
     template_name: "",
     start_time: "09:00",
     end_time: "17:00",
     role: "team_member" as const,
     color: "#ef4444",
+    position: "",
+    days_of_week: [0, 1, 2, 3, 4, 5, 6] as number[],
   });
+
+  const predefinedPositions = [
+    "Pizza Smith",
+    "Dough",
+    "Line",
+    "Prep",
+    "Dishwasher",
+    "Front Counter",
+    "Delivery Driver",
+  ];
+
+  const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   useEffect(() => {
     if (roleLoading) return;
@@ -62,6 +81,13 @@ export default function ShiftTemplates() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const positionValue = showCustomPosition ? customPosition : formData.position;
+
+    if (!positionValue.trim()) {
+      toast.error("Please select or enter a position");
+      return;
+    }
+
     try {
       const { error } = await supabase.from("shift_templates").insert({
         template_name: formData.template_name,
@@ -69,6 +95,8 @@ export default function ShiftTemplates() {
         end_time: formData.end_time,
         role: formData.role,
         color: formData.color,
+        position: positionValue,
+        days_of_week: formData.days_of_week,
       });
 
       if (error) throw error;
@@ -81,12 +109,25 @@ export default function ShiftTemplates() {
         end_time: "17:00",
         role: "team_member",
         color: "#ef4444",
+        position: "",
+        days_of_week: [0, 1, 2, 3, 4, 5, 6],
       });
+      setCustomPosition("");
+      setShowCustomPosition(false);
       fetchTemplates();
     } catch (error: any) {
       console.error("Error creating template:", error);
       toast.error("Failed to create shift template");
     }
+  };
+
+  const toggleDay = (dayIndex: number) => {
+    setFormData(prev => ({
+      ...prev,
+      days_of_week: prev.days_of_week.includes(dayIndex)
+        ? prev.days_of_week.filter(d => d !== dayIndex)
+        : [...prev.days_of_week, dayIndex].sort()
+    }));
   };
 
   const handleDelete = async (id: string) => {
@@ -183,6 +224,79 @@ export default function ShiftTemplates() {
                 </div>
 
                 <div>
+                  <Label htmlFor="position">Position</Label>
+                  {!showCustomPosition ? (
+                    <Select 
+                      value={formData.position} 
+                      onValueChange={(value) => {
+                        if (value === "custom") {
+                          setShowCustomPosition(true);
+                          setFormData({ ...formData, position: "" });
+                        } else {
+                          setFormData({ ...formData, position: value });
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a position" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {predefinedPositions.map((pos) => (
+                          <SelectItem key={pos} value={pos}>
+                            {pos}
+                          </SelectItem>
+                        ))}
+                        <SelectItem value="custom">+ Add Custom Position</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <div className="space-y-2">
+                      <Input
+                        id="position"
+                        value={customPosition}
+                        onChange={(e) => setCustomPosition(e.target.value)}
+                        placeholder="Enter custom position"
+                        required
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setShowCustomPosition(false);
+                          setCustomPosition("");
+                        }}
+                      >
+                        ← Back to list
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label>Days of Week</Label>
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    {dayNames.map((day, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`day-${index}`}
+                          checked={formData.days_of_week.includes(index)}
+                          onChange={() => toggleDay(index)}
+                          className="w-4 h-4 rounded border-input"
+                        />
+                        <label htmlFor={`day-${index}`} className="text-sm cursor-pointer">
+                          {day}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Select which days this template should be available for
+                  </p>
+                </div>
+
+                <div>
                   <Label htmlFor="color">Color</Label>
                   <Input
                     id="color"
@@ -214,21 +328,33 @@ export default function ShiftTemplates() {
           {templates.map((template) => (
             <Card key={template.id} className="p-4">
               <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div
-                      className="w-4 h-4 rounded"
-                      style={{ backgroundColor: template.color }}
-                    />
-                    <h3 className="font-semibold">{template.template_name}</h3>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: template.color }}
+                      />
+                      <h3 className="font-semibold">{template.template_name}</h3>
+                    </div>
+                    {template.position && (
+                      <p className="text-sm font-medium text-primary mb-1">
+                        {template.position}
+                      </p>
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      {formatTime(template.start_time)} - {formatTime(template.end_time)}
+                    </p>
+                    <p className="text-sm text-muted-foreground capitalize mt-1">
+                      {template.role.replace("_", " ")}
+                    </p>
+                    {template.days_of_week && template.days_of_week.length < 7 && (
+                      <div className="mt-2">
+                        <p className="text-xs text-muted-foreground">
+                          {template.days_of_week.map(d => dayNames[d].slice(0, 3)).join(", ")}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {formatTime(template.start_time)} - {formatTime(template.end_time)}
-                  </p>
-                  <p className="text-sm text-muted-foreground capitalize mt-1">
-                    {template.role.replace("_", " ")}
-                  </p>
-                </div>
                 <Button
                   variant="ghost"
                   size="icon"
