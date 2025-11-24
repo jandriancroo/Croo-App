@@ -395,7 +395,7 @@ export default function Schedule() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-6 pb-32">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
