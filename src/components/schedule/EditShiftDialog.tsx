@@ -7,7 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, addDays, startOfWeek } from "date-fns";
+import { format, addDays } from "date-fns";
+import { ConflictWarningDialog } from "./ConflictWarningDialog";
 
 interface EditShiftDialogProps {
   open: boolean;
@@ -19,6 +20,7 @@ interface EditShiftDialogProps {
   scheduleId: string;
   currentWeekStart: Date;
   currentUserId?: string;
+  availabilityRequests?: any[];
 }
 
 export function EditShiftDialog({ 
@@ -30,7 +32,8 @@ export function EditShiftDialog({
   onUpdate,
   scheduleId,
   currentWeekStart,
-  currentUserId
+  currentUserId,
+  availabilityRequests = []
 }: EditShiftDialogProps) {
   const [startTime, setStartTime] = useState(shift.start_time);
   const [endTime, setEndTime] = useState(shift.end_time);
@@ -38,8 +41,50 @@ export function EditShiftDialog({
   const [position, setPosition] = useState(shift.template_id || "");
   const [selectedDays, setSelectedDays] = useState<number[]>([shift.day_of_week]);
   const [saving, setSaving] = useState(false);
+  const [showConflictWarning, setShowConflictWarning] = useState(false);
+  const [conflictDetails, setConflictDetails] = useState<any[]>([]);
 
   const weekDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  const checkForConflicts = (userId: string, dayIndices: number[]) => {
+    if (userId === "unassigned" || !availabilityRequests) return [];
+
+    const employee = profiles.find((p) => p.id === userId);
+    if (!employee) return [];
+
+    const conflicts: any[] = [];
+
+    dayIndices.forEach((dayIndex) => {
+      const shiftDate = format(addDays(currentWeekStart, dayIndex), "yyyy-MM-dd");
+      
+      const conflictingRequests = availabilityRequests.filter((request) => {
+        if (request.user_id !== userId) return false;
+
+        const reqDate = new Date(request.start_date);
+        const cellDate = new Date(shiftDate);
+
+        if (request.time_scope === "multi_day" && request.end_date) {
+          const endDate = new Date(request.end_date);
+          return cellDate >= reqDate && cellDate <= endDate;
+        }
+        return reqDate.toDateString() === cellDate.toDateString();
+      });
+
+      conflictingRequests.forEach((req) => {
+        conflicts.push({
+          employeeName: employee.full_name,
+          date: shiftDate,
+          requestType: req.request_type,
+          timeScope: req.time_scope,
+          status: req.status,
+          startTime: req.start_time,
+          endTime: req.end_time,
+        });
+      });
+    });
+
+    return conflicts;
+  };
 
   const handleDayToggle = (dayIndex: number) => {
     setSelectedDays(prev => 
@@ -71,7 +116,21 @@ export function EditShiftDialog({
     }
   };
 
-  const handleSave = async () => {
+  const handleSave = async (skipConflictCheck = false) => {
+    // Check for conflicts if not already confirmed
+    if (!skipConflictCheck) {
+      const detectedConflicts = checkForConflicts(
+        selectedUserId === "unassigned" ? "unassigned" : selectedUserId,
+        selectedDays
+      );
+
+      if (detectedConflicts.length > 0) {
+        setConflictDetails(detectedConflicts);
+        setShowConflictWarning(true);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       // Update the current shift
@@ -141,8 +200,9 @@ export function EditShiftDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Edit Shift</DialogTitle>
         </DialogHeader>
@@ -238,7 +298,7 @@ export function EditShiftDialog({
               <Button variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={() => handleSave()} disabled={saving}>
                 {saving ? "Saving..." : "Save Changes"}
               </Button>
             </div>
@@ -246,5 +306,16 @@ export function EditShiftDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <ConflictWarningDialog
+      open={showConflictWarning}
+      onOpenChange={setShowConflictWarning}
+      onConfirm={() => {
+        setShowConflictWarning(false);
+        handleSave(true);
+      }}
+      conflicts={conflictDetails}
+    />
+    </>
   );
 }
