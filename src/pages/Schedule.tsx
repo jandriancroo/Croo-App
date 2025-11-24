@@ -432,99 +432,101 @@ export default function Schedule() {
         </div>
 
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-              <Card className="p-6 overflow-x-auto">
-                {/* Week Day Headers */}
-                <div className="grid grid-cols-8 gap-0 border-b-2 border-border">
-                  <div className="font-semibold p-4 border-r border-border bg-muted/50"></div>
-                  {weekDays.map((day, index) => (
-                    <div key={index} className="text-center p-4 border-r last:border-r-0 border-border bg-muted/50">
-                      <div className="font-semibold">{format(day, "EEE")}</div>
-                      <div className="text-sm text-muted-foreground">{format(day, "MMM d")}</div>
-                    </div>
-                  ))}
-                </div>
+          <div className="flex gap-6 items-start">
+            <Card className="flex-1 p-6 overflow-x-auto">
+              {/* Week Day Headers */}
+              <div className="grid grid-cols-8 gap-0 border-b-2 border-border">
+                <div className="font-semibold p-4 border-r border-border bg-muted/50"></div>
+                {weekDays.map((day, index) => (
+                  <div key={index} className="text-center p-4 border-r last:border-r-0 border-border bg-muted/50">
+                    <div className="font-semibold">{format(day, "EEE")}</div>
+                    <div className="text-sm text-muted-foreground">{format(day, "MMM d")}</div>
+                  </div>
+                ))}
+              </div>
 
-                {/* Events Section */}
-                <div className="border-b border-border">
-                  <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} />
-                </div>
+              {/* Events Section */}
+              <div className="border-b border-border">
+                <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} />
+              </div>
 
-                {/* Shifts by User - Grouped by Role */}
-                <div className="divide-y divide-border">
-                  {['admin', 'manager', 'team_member'].map((roleFilter) => {
-                    const roleProfiles = profiles.filter(p => p.role === roleFilter);
-                    if (roleProfiles.length === 0) return null;
+              {/* Shifts by User - Grouped by Role */}
+              <div className="divide-y divide-border">
+                {['admin', 'manager', 'team_member'].map((roleFilter) => {
+                  const roleProfiles = profiles.filter(p => p.role === roleFilter);
+                  if (roleProfiles.length === 0) return null;
 
-                    const roleColorClass = roleFilter === 'admin' 
-                      ? 'bg-role-admin/5 border-l-4 border-role-admin' 
-                      : roleFilter === 'manager'
-                      ? 'bg-role-manager/5 border-l-4 border-role-manager'
-                      : 'bg-role-team-member/5 border-l-4 border-role-team-member';
+                  const roleColorClass = roleFilter === 'admin' 
+                    ? 'bg-role-admin/5 border-l-4 border-role-admin' 
+                    : roleFilter === 'manager'
+                    ? 'bg-role-manager/5 border-l-4 border-role-manager'
+                    : 'bg-role-team-member/5 border-l-4 border-role-team-member';
 
-                    return (
-                      <div key={roleFilter} className={`${roleColorClass}`}>
-                        <div className="px-4 py-2 font-semibold text-sm uppercase tracking-wide">
-                          {roleFilter === 'team_member' ? 'Team Members' : `${roleFilter}s`}
-                        </div>
-                        {roleProfiles.map((profile) => (
-                          <EmployeeRow
-                            key={profile.id}
-                            profile={profile}
-                            shifts={shifts.filter((s) => s.user_id === profile.id)}
-                            templates={templates}
-                            availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
-                            currentWeekStart={currentWeekStart}
-                            isEditable={isAdmin || isManager}
-                            onUpdate={fetchScheduleData}
-                            canTakeShifts={isAdmin || isManager}
-                            currentUserId={currentUserId || undefined}
-                            onEditShift={setEditingShift}
-                          />
-                        ))}
+                  return (
+                    <div key={roleFilter} className={`${roleColorClass}`}>
+                      <div className="px-4 py-2 font-semibold text-sm uppercase tracking-wide">
+                        {roleFilter === 'team_member' ? 'Team Members' : `${roleFilter}s`}
                       </div>
-                    );
-                  })}
-
-                  {/* Unassigned Shifts */}
-                  <EmployeeRow
-                    profile={{ id: "unassigned", full_name: "Unassigned", profile_photo_url: null }}
-                    shifts={shifts.filter((s) => s.user_id === null)}
-                    templates={templates}
-                    availabilityRequests={[]}
-                    currentWeekStart={currentWeekStart}
-                    isEditable={isAdmin || isManager}
-                    onUpdate={fetchScheduleData}
-                    canTakeShifts={isAdmin || isManager}
-                    currentUserId={currentUserId || undefined}
-                    onEditShift={setEditingShift}
-                  />
-                </div>
-
-                {/* Templates Sidebar */}
-                {(isAdmin || isManager) && templates.length > 0 && (
-                  <div className="mt-6 pt-6 border-t-2 border-border">
-                    <h3 className="font-semibold mb-4">Shift Templates (Drag to Schedule)</h3>
-                    <div className="flex flex-wrap gap-2">
-                      {templates.map((template) => (
-                        <ShiftCard key={template.id} shift={{ template, isTemplate: true }} />
+                      {roleProfiles.map((profile) => (
+                        <EmployeeRow
+                          key={profile.id}
+                          profile={profile}
+                          shifts={shifts.filter((s) => s.user_id === profile.id)}
+                          templates={templates}
+                          availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
+                          currentWeekStart={currentWeekStart}
+                          isEditable={isAdmin || isManager}
+                          onUpdate={fetchScheduleData}
+                          canTakeShifts={isAdmin || isManager}
+                          currentUserId={currentUserId || undefined}
+                          onEditShift={setEditingShift}
+                        />
                       ))}
                     </div>
-                  </div>
-                )}
+                  );
+                })}
 
-                {(isAdmin || isManager) && templates.length === 0 && (
-                  <div className="mt-6 pt-6 border-t-2 border-border text-center p-8 bg-muted/30 rounded-lg">
-                    <p className="text-muted-foreground mb-4">No shift templates yet</p>
-                    <Button onClick={() => navigate("/shift-templates")}>
+                {/* Unassigned Shifts */}
+                <EmployeeRow
+                  profile={{ id: "unassigned", full_name: "Unassigned", profile_photo_url: null }}
+                  shifts={shifts.filter((s) => s.user_id === null)}
+                  templates={templates}
+                  availabilityRequests={[]}
+                  currentWeekStart={currentWeekStart}
+                  isEditable={isAdmin || isManager}
+                  onUpdate={fetchScheduleData}
+                  canTakeShifts={isAdmin || isManager}
+                  currentUserId={currentUserId || undefined}
+                  onEditShift={setEditingShift}
+                />
+              </div>
+            </Card>
+
+            {/* Templates Sticky Sidebar */}
+            {(isAdmin || isManager) && (
+              <Card className="w-80 p-4 sticky top-6 max-h-[calc(100vh-120px)] overflow-y-auto">
+                <h3 className="font-semibold mb-4 sticky top-0 bg-card z-10 pb-2">Shift Templates</h3>
+                {templates.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {templates.map((template) => (
+                      <ShiftCard key={template.id} shift={{ template, isTemplate: true }} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center p-6 bg-muted/30 rounded-lg">
+                    <p className="text-muted-foreground text-sm mb-3">No shift templates yet</p>
+                    <Button size="sm" onClick={() => navigate("/shift-templates")}>
                       <Plus className="h-4 w-4 mr-2" />
-                      Create Your First Template
+                      Create Template
                     </Button>
                   </div>
                 )}
               </Card>
+            )}
+          </div>
 
-            <DragOverlay>{activeShift ? <ShiftCard shift={activeShift} isDragging /> : null}</DragOverlay>
-          </DndContext>
+          <DragOverlay>{activeShift ? <ShiftCard shift={activeShift} isDragging /> : null}</DragOverlay>
+        </DndContext>
 
         {editingShift && (
           <EditShiftDialog
