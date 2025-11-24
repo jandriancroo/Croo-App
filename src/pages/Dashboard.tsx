@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useQuery } from '@tanstack/react-query';
+import { LogBookAlerts } from '@/components/dashboard/LogBookAlerts';
 
 interface Checklist {
   id: string;
@@ -206,6 +207,9 @@ export default function Dashboard() {
             <p className="text-muted-foreground">Manage your line check checklists</p>
           </div>
         </div>
+
+        {/* Log Book Alerts */}
+        <LogBookAlerts />
 
         {loading ? (
           <div className="text-center text-muted-foreground">Loading checklists...</div>

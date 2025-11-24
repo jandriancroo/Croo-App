@@ -444,6 +444,7 @@ export type Database = {
       }
       logbook_categories: {
         Row: {
+          alert_enabled: boolean
           created_at: string
           created_by: string | null
           display_order: number
@@ -453,6 +454,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alert_enabled?: boolean
           created_at?: string
           created_by?: string | null
           display_order?: number
@@ -462,6 +464,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alert_enabled?: boolean
           created_at?: string
           created_by?: string | null
           display_order?: number
