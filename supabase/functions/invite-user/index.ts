@@ -132,10 +132,17 @@ const handler = async (req: Request): Promise<Response> => {
       throw roleAssignError;
     }
 
+    // Get the origin from the request to use as redirect URL
+    const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || supabaseUrl;
+    const redirectTo = `${origin}/auth`;
+
     // Send password reset email so user can set their own password
     const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: email,
+      options: {
+        redirectTo,
+      },
     });
  
     if (resetError) {
