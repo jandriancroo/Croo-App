@@ -544,6 +544,7 @@ export default function Schedule() {
           profiles={profiles}
           onShiftClick={(shift) => setEditingShift(shift)}
           onWeekChange={setCurrentWeekStart}
+          onUpdate={fetchScheduleData}
         />
       ) : (
         <div className="space-y-6 pb-32">
