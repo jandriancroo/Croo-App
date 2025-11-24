@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key } from 'lucide-react';
+import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key, Trash2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
 import { useNavigate } from 'react-router-dom';
@@ -65,6 +65,10 @@ export default function UserManagement() {
   const [isWageDialogOpen, setIsWageDialogOpen] = useState(false);
   const [editingWageUser, setEditingWageUser] = useState<UserProfile | null>(null);
   const [newWage, setNewWage] = useState<string>('');
+  const [wageEffectiveDate, setWageEffectiveDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [isWageHistoryDialogOpen, setIsWageHistoryDialogOpen] = useState(false);
+  const [viewingWageHistory, setViewingWageHistory] = useState<string | null>(null);
+  const [wageHistory, setWageHistory] = useState<any[]>([]);
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -85,6 +89,12 @@ export default function UserManagement() {
       fetchUsers();
     }
   }, [isAdmin]);
+
+  useEffect(() => {
+    if (viewingWageHistory) {
+      fetchWageHistory(viewingWageHistory);
+    }
+  }, [viewingWageHistory]);
 
   const fetchUsers = async () => {
     try {
@@ -147,6 +157,54 @@ export default function UserManagement() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchWageHistory = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('wage_history')
+        .select('*')
+        .eq('user_id', userId)
+        .order('effective_date', { ascending: false });
+
+      if (error) throw error;
+
+      setWageHistory(data || []);
+    } catch (error: any) {
+      console.error('Error fetching wage history:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load wage history',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDeleteWageHistory = async (historyId: string) => {
+    try {
+      const { error } = await supabase
+        .from('wage_history')
+        .delete()
+        .eq('id', historyId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Wage history entry deleted',
+      });
+
+      if (viewingWageHistory) {
+        fetchWageHistory(viewingWageHistory);
+      }
+    } catch (error: any) {
+      console.error('Error deleting wage history:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete wage history entry',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -406,13 +464,35 @@ export default function UserManagement() {
       return;
     }
 
+    if (!wageEffectiveDate) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select an effective date',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
-      const { error } = await supabase
+      // Insert into wage_history
+      const { error: historyError } = await supabase
+        .from('wage_history')
+        .insert({
+          user_id: editingWageUser.id,
+          hourly_wage: wageValue,
+          effective_date: wageEffectiveDate,
+          created_by: (await supabase.auth.getUser()).data.user?.id,
+        });
+
+      if (historyError) throw historyError;
+
+      // Update current wage in profiles
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({ hourly_wage: wageValue })
         .eq('id', editingWageUser.id);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
       toast({
         title: 'Success',
@@ -422,6 +502,7 @@ export default function UserManagement() {
       setIsWageDialogOpen(false);
       setEditingWageUser(null);
       setNewWage('');
+      setWageEffectiveDate(new Date().toISOString().split('T')[0]);
       fetchUsers();
       
       // Update viewing user if open
@@ -888,7 +969,7 @@ export default function UserManagement() {
                   </div>
                   <div className="space-y-2 p-4 border rounded-lg col-span-2">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm text-muted-foreground">Hourly Wage</Label>
+                      <Label className="text-sm text-muted-foreground">Current Hourly Wage</Label>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -898,13 +979,24 @@ export default function UserManagement() {
                           setIsWageDialogOpen(true);
                         }}
                       >
-                        Edit
+                        Add/Edit
                       </Button>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-2xl font-bold">${viewingUser.hourly_wage?.toFixed(2) || '15.00'}</span>
                       <span className="text-sm text-muted-foreground">/hour</span>
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2"
+                      onClick={() => {
+                        setViewingWageHistory(viewingUser.id);
+                        setIsWageHistoryDialogOpen(true);
+                      }}
+                    >
+                      View Wage History
+                    </Button>
                   </div>
                 </div>
 
@@ -1332,7 +1424,7 @@ export default function UserManagement() {
             <DialogHeader>
               <DialogTitle>Update Hourly Wage</DialogTitle>
               <DialogDescription>
-                Set the hourly wage for {editingWageUser?.full_name}
+                Set a new hourly wage with an effective date for {editingWageUser?.full_name}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -1348,6 +1440,15 @@ export default function UserManagement() {
                   placeholder="15.00"
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="wage-date">Effective Date</Label>
+                <Input
+                  id="wage-date"
+                  type="date"
+                  value={wageEffectiveDate}
+                  onChange={(e) => setWageEffectiveDate(e.target.value)}
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button
@@ -1356,12 +1457,64 @@ export default function UserManagement() {
                   setIsWageDialogOpen(false);
                   setEditingWageUser(null);
                   setNewWage('');
+                  setWageEffectiveDate(new Date().toISOString().split('T')[0]);
                 }}
               >
                 Cancel
               </Button>
               <Button onClick={handleUpdateWage}>
                 Save Wage
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Wage History Dialog */}
+        <Dialog open={isWageHistoryDialogOpen} onOpenChange={(open) => {
+          setIsWageHistoryDialogOpen(open);
+          if (!open) {
+            setViewingWageHistory(null);
+            setWageHistory([]);
+          }
+        }}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Wage History</DialogTitle>
+              <DialogDescription>
+                View all wage changes for this employee
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {wageHistory.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No wage history found</p>
+              ) : (
+                <div className="space-y-3">
+                  {wageHistory.map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-semibold">${parseFloat(entry.hourly_wage).toFixed(2)}</span>
+                          <span className="text-sm text-muted-foreground">/hour</span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Effective: {new Date(entry.effective_date).toLocaleDateString()}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteWageHistory(entry.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setIsWageHistoryDialogOpen(false)}>
+                Close
               </Button>
             </DialogFooter>
           </DialogContent>
