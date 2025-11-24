@@ -8,6 +8,12 @@ interface Chat {
   is_group: boolean;
   created_at: string;
   updated_at: string;
+  group_image_url: string | null;
+  chat_members?: Array<{
+    profiles: {
+      profile_photo_url: string | null;
+    };
+  }>;
 }
 
 interface ChatListProps {
@@ -57,12 +63,15 @@ export function ChatList({ chats, selectedChatId, onSelectChat, loading }: ChatL
         >
           <Avatar className="h-10 w-10">
             {chat.is_group ? (
-              <div className="bg-primary text-primary-foreground h-full w-full flex items-center justify-center">
-                <Users className="h-5 w-5" />
-              </div>
+              <>
+                <AvatarImage src={chat.group_image_url || undefined} />
+                <AvatarFallback>
+                  <Users className="h-5 w-5" />
+                </AvatarFallback>
+              </>
             ) : (
               <>
-                <AvatarImage src={undefined} />
+                <AvatarImage src={chat.chat_members?.[0]?.profiles?.profile_photo_url || undefined} />
                 <AvatarFallback>
                   {chat.title?.charAt(0) || 'C'}
                 </AvatarFallback>

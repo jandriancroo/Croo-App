@@ -3,9 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Paperclip, Image as ImageIcon, File } from 'lucide-react';
+import { Send, Paperclip, File, Settings, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { ReactionPicker } from './ReactionPicker';
+import { MessageReactions } from './MessageReactions';
+import { GroupSettingsDialog } from './GroupSettingsDialog';
+import { MessageContent } from './MessageContent';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface Message {
   id: string;
@@ -20,17 +25,30 @@ interface Message {
   };
 }
 
-interface ChatWindowProps {
-  chatId: string;
-  onChatDeleted: () => void;
+interface ChatDetails {
+  id: string;
+  title: string | null;
+  is_group: boolean;
+  group_image_url: string | null;
+  created_by: string;
 }
 
-export function ChatWindow({ chatId, onChatDeleted }: ChatWindowProps) {
+interface ChatWindowProps {
+  chatId: string;
+  chatDetails: ChatDetails | null;
+  onChatDeleted: () => void;
+  onChatUpdated: () => void;
+}
+
+export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }: ChatWindowProps) {
+  const { isAdmin } = useUserRole();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -102,17 +120,38 @@ export function ChatWindow({ chatId, onChatDeleted }: ChatWindowProps) {
           chat_id: chatId,
           sender_id: user.id,
           content: newMessage.trim() || null,
+          parent_message_id: replyToMessage?.id || null,
         });
 
       if (error) throw error;
 
       setNewMessage('');
+      setReplyToMessage(null);
       scrollToBottom();
     } catch (error: any) {
       console.error('Error sending message:', error);
       toast.error('Failed to send message');
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleReaction = async (messageId: string, reaction: string) => {
+    if (!currentUserId) return;
+
+    try {
+      const { error } = await supabase
+        .from('message_reactions')
+        .insert({
+          message_id: messageId,
+          user_id: currentUserId,
+          reaction
+        });
+
+      if (error) throw error;
+    } catch (error: any) {
+      console.error('Error adding reaction:', error);
+      toast.error('Failed to add reaction');
     }
   };
 
@@ -163,6 +202,35 @@ export function ChatWindow({ chatId, onChatDeleted }: ChatWindowProps) {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Header */}
+      {chatDetails && (
+        <div className="border-b border-border p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Avatar className="h-10 w-10">
+              <AvatarImage src={chatDetails.group_image_url || undefined} />
+              <AvatarFallback>
+                {chatDetails.title?.charAt(0) || 'C'}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <h3 className="font-semibold">{chatDetails.title || 'Chat'}</h3>
+              {chatDetails.is_group && (
+                <p className="text-xs text-muted-foreground">Group Chat</p>
+              )}
+            </div>
+          </div>
+          {chatDetails.is_group && isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => {
@@ -188,37 +256,51 @@ export function ChatWindow({ chatId, onChatDeleted }: ChatWindowProps) {
                     {format(new Date(message.created_at), 'h:mm a')}
                   </span>
                 </div>
-                <div
-                  className={`rounded-lg p-3 max-w-md ${
-                    isOwnMessage
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
-                  }`}
-                >
-                  {message.attachment_url && (
-                    <div className="mb-2">
-                      {message.attachment_type?.startsWith('image/') ? (
-                        <img
-                          src={message.attachment_url}
-                          alt="Attachment"
-                          className="rounded max-w-xs"
-                        />
-                      ) : (
-                        <a
-                          href={message.attachment_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-2 hover:underline"
-                        >
-                          <File className="h-4 w-4" />
-                          {message.content}
-                        </a>
-                      )}
-                    </div>
-                  )}
-                  {message.content && !message.attachment_url && (
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                  )}
+                <div>
+                  <div
+                    className={`rounded-lg p-3 max-w-md ${
+                      isOwnMessage
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted'
+                    }`}
+                  >
+                    {message.attachment_url && (
+                      <div className="mb-2">
+                        {message.attachment_type?.startsWith('image/') ? (
+                          <img
+                            src={message.attachment_url}
+                            alt="Attachment"
+                            className="rounded max-w-xs"
+                          />
+                        ) : (
+                          <a
+                            href={message.attachment_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-2 hover:underline"
+                          >
+                            <File className="h-4 w-4" />
+                            {message.content}
+                          </a>
+                        )}
+                      </div>
+                    )}
+                    {message.content && !message.attachment_url && (
+                      <MessageContent content={message.content} chatId={chatId} />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <ReactionPicker onSelect={(reaction) => handleReaction(message.id, reaction)} />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2"
+                      onClick={() => setReplyToMessage(message)}
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <MessageReactions messageId={message.id} currentUserId={currentUserId} />
                 </div>
               </div>
             </div>
@@ -229,6 +311,21 @@ export function ChatWindow({ chatId, onChatDeleted }: ChatWindowProps) {
 
       {/* Input */}
       <div className="border-t border-border p-4">
+        {replyToMessage && (
+          <div className="mb-2 p-2 bg-muted rounded flex items-center justify-between">
+            <div className="text-sm">
+              <p className="text-muted-foreground">Replying to {replyToMessage.profiles?.full_name}</p>
+              <p className="truncate">{replyToMessage.content}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setReplyToMessage(null)}
+            >
+              ×
+            </Button>
+          </div>
+        )}
         <div className="flex gap-2">
           <input
             ref={fileInputRef}
@@ -263,6 +360,18 @@ export function ChatWindow({ chatId, onChatDeleted }: ChatWindowProps) {
           </Button>
         </div>
       </div>
+
+      {/* Group Settings Dialog */}
+      {chatDetails?.is_group && (
+        <GroupSettingsDialog
+          open={settingsOpen}
+          onOpenChange={setSettingsOpen}
+          chatId={chatId}
+          chatTitle={chatDetails.title || ''}
+          groupImageUrl={chatDetails.group_image_url}
+          onUpdate={onChatUpdated}
+        />
+      )}
     </div>
   );
 }

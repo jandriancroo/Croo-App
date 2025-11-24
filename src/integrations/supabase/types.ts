@@ -126,6 +126,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string
+          group_image_url: string | null
           id: string
           is_group: boolean
           title: string | null
@@ -134,6 +135,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by: string
+          group_image_url?: string | null
           id?: string
           is_group?: boolean
           title?: string | null
@@ -142,6 +144,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string
+          group_image_url?: string | null
           id?: string
           is_group?: boolean
           title?: string | null
@@ -400,6 +403,45 @@ export type Database = {
           },
         ]
       }
+      message_reactions: {
+        Row: {
+          created_at: string
+          id: string
+          message_id: string
+          reaction: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_id: string
+          reaction: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_id?: string
+          reaction?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           attachment_type: string | null
@@ -408,6 +450,7 @@ export type Database = {
           content: string | null
           created_at: string
           id: string
+          parent_message_id: string | null
           sender_id: string
           updated_at: string
         }
@@ -418,6 +461,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           id?: string
+          parent_message_id?: string | null
           sender_id: string
           updated_at?: string
         }
@@ -428,6 +472,7 @@ export type Database = {
           content?: string | null
           created_at?: string
           id?: string
+          parent_message_id?: string | null
           sender_id?: string
           updated_at?: string
         }
@@ -437,6 +482,13 @@ export type Database = {
             columns: ["chat_id"]
             isOneToOne: false
             referencedRelation: "chats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_parent_message_id_fkey"
+            columns: ["parent_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {

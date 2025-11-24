@@ -18,6 +18,15 @@ interface Chat {
   created_by: string;
   created_at: string;
   updated_at: string;
+  group_image_url: string | null;
+  chat_members: Array<{
+    user_id: string;
+    profiles: {
+      id: string;
+      full_name: string;
+      profile_photo_url: string | null;
+    };
+  }>;
 }
 
 export default function Messages() {
@@ -35,7 +44,10 @@ export default function Messages() {
         .from('chats')
         .select(`
           *,
-          chat_members!inner(user_id)
+          chat_members!inner(
+            user_id,
+            profiles(id, full_name, profile_photo_url)
+          )
         `)
         .order('updated_at', { ascending: false });
 
@@ -47,7 +59,14 @@ export default function Messages() {
 
       const userChats = data?.filter((chat: any) => 
         chat.chat_members.some((member: any) => member.user_id === user.id)
-      ) || [];
+      ).map((chat: any) => {
+        // For DMs, set title to the other person's name
+        if (!chat.is_group && !chat.title) {
+          const otherMember = chat.chat_members.find((m: any) => m.user_id !== user.id);
+          chat.title = otherMember?.profiles?.full_name || 'Direct Message';
+        }
+        return chat;
+      }) || [];
 
       setChats(userChats);
     } catch (error: any) {
@@ -114,10 +133,12 @@ export default function Messages() {
             {selectedChatId ? (
               <ChatWindow
                 chatId={selectedChatId}
+                chatDetails={chats.find(c => c.id === selectedChatId) || null}
                 onChatDeleted={() => {
                   setSelectedChatId(null);
                   fetchChats();
                 }}
+                onChatUpdated={fetchChats}
               />
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
@@ -171,10 +192,12 @@ export default function Messages() {
                     {selectedChatId && (
                       <ChatWindow
                         chatId={selectedChatId}
+                        chatDetails={chats.find(c => c.id === selectedChatId) || null}
                         onChatDeleted={() => {
                           setSelectedChatId(null);
                           fetchChats();
                         }}
+                        onChatUpdated={fetchChats}
                       />
                     )}
                   </div>
