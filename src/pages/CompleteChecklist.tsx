@@ -10,8 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { Upload } from 'lucide-react';
+import { Upload, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface ChecklistItem {
   id: string;
@@ -22,6 +23,7 @@ interface ChecklistItem {
   reference_image_url?: string;
   reference_link?: string;
   reference_video_url?: string;
+  reference_notes?: string;
 }
 
 interface Checklist {
@@ -43,7 +45,56 @@ export default function CompleteChecklist() {
 
   useEffect(() => {
     fetchChecklistData();
+    checkForExistingSubmission();
   }, [id]);
+
+  const checkForExistingSubmission = async () => {
+    if (!id || !user?.id) return;
+
+    try {
+      const { data: checklistData } = await supabase
+        .from('checklists')
+        .select('frequency')
+        .eq('id', id)
+        .single();
+
+      if (!checklistData) return;
+
+      const now = new Date();
+      let startDate: Date;
+
+      switch (checklistData.frequency) {
+        case 'daily':
+          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'weekly':
+          const dayOfWeek = now.getDay();
+          startDate = new Date(now.getTime() - dayOfWeek * 24 * 60 * 60 * 1000);
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case 'monthly':
+          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+          break;
+        default:
+          return;
+      }
+
+      const { data: existingSubmissions } = await supabase
+        .from('checklist_submissions')
+        .select('id')
+        .eq('checklist_id', id)
+        .eq('submitted_by', user.id)
+        .gte('submitted_at', startDate.toISOString())
+        .limit(1);
+
+      if (existingSubmissions && existingSubmissions.length > 0) {
+        toast.error(`You've already submitted this ${checklistData.frequency} checklist. You can only submit once per ${checklistData.frequency === 'daily' ? 'day' : checklistData.frequency === 'weekly' ? 'week' : 'month'}.`);
+        navigate('/history');
+      }
+    } catch (error) {
+      console.error('Error checking for existing submission:', error);
+    }
+  };
 
   const fetchChecklistData = async () => {
     try {
@@ -116,7 +167,7 @@ export default function CompleteChecklist() {
       const responsesToInsert = items.map((item) => ({
         submission_id: submission.id,
         item_id: item.id,
-        response_text: item.item_type === 'image' ? null : responses[item.id] || null,
+        response_text: item.item_type === 'image' || item.item_type === 'confirmation' ? null : responses[item.id] || null,
         response_image_url: item.item_type === 'image' ? responses[item.id] || null : null,
       }));
 
@@ -265,6 +316,42 @@ export default function CompleteChecklist() {
                         className="mt-4 rounded-lg max-h-64 object-cover"
                       />
                     )}
+                  </div>
+                )}
+                {item.item_type === 'confirmation' && (
+                  <div className="flex items-center justify-center py-8">
+                    <div 
+                      className={`flex flex-col items-center gap-4 p-8 rounded-lg border-2 transition-all cursor-pointer ${
+                        responses[item.id] 
+                          ? 'bg-destructive/10 border-destructive' 
+                          : 'border-border hover:border-destructive/50'
+                      }`}
+                      onClick={() => setResponses({ ...responses, [item.id]: !responses[item.id] })}
+                    >
+                      <CheckCircle2 
+                        className={`h-24 w-24 transition-colors ${
+                          responses[item.id] ? 'text-destructive' : 'text-muted-foreground'
+                        }`}
+                        strokeWidth={2.5}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Checkbox 
+                          checked={responses[item.id] || false}
+                          onCheckedChange={(checked) => 
+                            setResponses({ ...responses, [item.id]: checked })
+                          }
+                          required={item.is_required}
+                        />
+                        <Label className="text-lg font-semibold cursor-pointer">
+                          {responses[item.id] ? 'Confirmed' : 'Click to confirm'}
+                        </Label>
+                      </div>
+                      {item.reference_notes && (
+                        <p className="text-sm text-muted-foreground text-center max-w-md">
+                          {item.reference_notes}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
               </CardContent>

@@ -16,12 +16,13 @@ import { useUserRole } from '@/hooks/useUserRole';
 interface ChecklistItem {
   id?: string;
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation';
   is_required: boolean;
   options?: string[];
   reference_image_url?: string;
   reference_link?: string;
   reference_video_url?: string;
+  reference_notes?: string;
   order_index: number;
 }
 
@@ -155,7 +156,7 @@ export default function EditChecklist() {
         reference_image_url: item.reference_image_url || null,
         reference_link: item.reference_link || null,
         reference_video_url: item.reference_video_url || null,
-        reference_notes: null,
+        reference_notes: item.reference_notes || null,
         order_index: index,
       }));
 
@@ -387,6 +388,7 @@ export default function EditChecklist() {
                       <SelectItem value="text">Text Response</SelectItem>
                       <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
                       <SelectItem value="image">Image Upload</SelectItem>
+                      <SelectItem value="confirmation">Confirmation Checkmark</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -404,6 +406,19 @@ export default function EditChecklist() {
                         )
                       }
                       placeholder="Option 1, Option 2, Option 3"
+                    />
+                  </div>
+                )}
+
+                {item.item_type === 'confirmation' && (
+                  <div className="space-y-2">
+                    <Label htmlFor={`ref-notes-${index}`}>Instructions/Notes (Optional)</Label>
+                    <Textarea
+                      id={`ref-notes-${index}`}
+                      value={item.reference_notes || ''}
+                      onChange={(e) => updateItem(index, 'reference_notes', e.target.value)}
+                      placeholder="Add instructions or notes that will appear with the confirmation checkmark"
+                      rows={3}
                     />
                   </div>
                 )}
