@@ -176,8 +176,10 @@ export default function Schedule() {
     if (!over || !scheduleId) return;
 
     const overId = over.id as string;
-    const [, userId, dayOfWeek] = overId.split("-");
-    const dayIndex = parseInt(dayOfWeek);
+    // Parse drop-{userId}-{dayIndex} - dayIndex is always last after final hyphen
+    const lastHyphenIndex = overId.lastIndexOf("-");
+    const dayIndex = parseInt(overId.substring(lastHyphenIndex + 1));
+    const userId = overId.substring(5, lastHyphenIndex); // Remove "drop-" prefix
 
     try {
       if (active.data.current?.isTemplate) {
