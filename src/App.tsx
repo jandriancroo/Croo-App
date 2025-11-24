@@ -8,6 +8,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import CreateChecklist from "./pages/CreateChecklist";
+import EditChecklist from "./pages/EditChecklist";
 import CompleteChecklist from "./pages/CompleteChecklist";
 import History from "./pages/History";
 import UserManagement from "./pages/UserManagement";
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/create" element={<ProtectedRoute><CreateChecklist /></ProtectedRoute>} />
+            <Route path="/edit/:id" element={<ProtectedRoute><EditChecklist /></ProtectedRoute>} />
             <Route path="/complete/:id" element={<ProtectedRoute><CompleteChecklist /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />

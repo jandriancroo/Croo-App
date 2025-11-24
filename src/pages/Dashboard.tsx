@@ -5,9 +5,10 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, Calendar, Plus, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { ClipboardList, Calendar, Plus, TrendingUp, CheckCircle2, Edit } from 'lucide-react';
 import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface Checklist {
   id: string;
@@ -30,6 +31,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState<Record<string, ChecklistStats>>({});
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { isAdmin } = useUserRole();
 
   useEffect(() => {
     fetchData();
@@ -233,20 +235,33 @@ export default function Dashboard() {
             <div>
               <h3 className="text-xl font-semibold mb-4">Your Checklists</h3>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {checklists.map((checklist) => {
+                 {checklists.map((checklist) => {
                   const checklistStats = stats[checklist.id];
                   return (
                     <Card 
                       key={checklist.id} 
-                      className="hover:shadow-lg transition-shadow cursor-pointer" 
-                      onClick={() => navigate(`/complete/${checklist.id}`)}
+                      className="hover:shadow-lg transition-shadow" 
                     >
                       <CardHeader>
                         <div className="flex items-start justify-between">
                           <ClipboardList className="h-8 w-8 text-primary" />
-                          <Badge className={getFrequencyColor(checklist.frequency)}>
-                            {checklist.frequency}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge className={getFrequencyColor(checklist.frequency)}>
+                              {checklist.frequency}
+                            </Badge>
+                            {isAdmin && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/edit/${checklist.id}`);
+                                }}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <CardTitle className="mt-4">{checklist.title}</CardTitle>
                         {checklist.description && (
@@ -270,6 +285,12 @@ export default function Dashboard() {
                             </span>
                           </div>
                         )}
+                        <Button 
+                          className="w-full mt-4" 
+                          onClick={() => navigate(`/complete/${checklist.id}`)}
+                        >
+                          Complete Checklist
+                        </Button>
                       </CardContent>
                     </Card>
                   );
