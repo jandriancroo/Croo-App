@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
@@ -14,8 +13,6 @@ import { ShiftCard } from "@/components/schedule/ShiftCard";
 import { EventRow } from "@/components/schedule/EventRow";
 import { EmployeeRow } from "@/components/schedule/EmployeeRow";
 import { EditShiftDialog } from "@/components/schedule/EditShiftDialog";
-import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
-import { AvailabilityOverview } from "@/components/availability/AvailabilityOverview";
 import { ConflictWarningDialog } from "@/components/schedule/ConflictWarningDialog";
 
 interface Profile {
@@ -81,7 +78,6 @@ export default function Schedule() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [editingShift, setEditingShift] = useState<any>(null);
-  const [requestDialogOpen, setRequestDialogOpen] = useState(false);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [pendingShiftData, setPendingShiftData] = useState<any>(null);
   const [conflicts, setConflicts] = useState<any[]>([]);
@@ -368,49 +364,42 @@ export default function Schedule() {
   return (
     <Layout>
       <div className="space-y-6">
-        <Tabs defaultValue="schedule" className="w-full">
-          <TabsList>
-            <TabsTrigger value="schedule">Schedule</TabsTrigger>
-            <TabsTrigger value="availability">Availability Requests</TabsTrigger>
-          </TabsList>
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={handlePreviousWeek}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="text-2xl font-bold">
+              {format(currentWeekStart, "MMM d, yyyy")} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMM d, yyyy")}
+            </h1>
+            <Button variant="outline" size="icon" onClick={handleNextWeek}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
 
-          <TabsContent value="schedule" className="space-y-6">
-            {/* Header */}
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-4">
-                <Button variant="outline" size="icon" onClick={handlePreviousWeek}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <h1 className="text-2xl font-bold">
-                  {format(currentWeekStart, "MMM d, yyyy")} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMM d, yyyy")}
-                </h1>
-                <Button variant="outline" size="icon" onClick={handleNextWeek}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={() => setRequestDialogOpen(true)}>
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Request Time Off
-                </Button>
-                {(isAdmin || isManager) && (
-                  <>
-                    {!isPublished && scheduleId && (
-                      <Button onClick={handleGoLive} disabled={isPublishing}>
-                        {isPublishing ? "Publishing..." : "Go Live"}
-                      </Button>
-                    )}
-                    <Button variant="outline" onClick={() => navigate("/shift-templates")}>
-                      <Settings className="h-4 w-4 mr-2" />
-                      Manage Templates
-                    </Button>
-                  </>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate("/availability")}>
+              <Calendar className="h-4 w-4 mr-2" />
+              View Availability
+            </Button>
+            {(isAdmin || isManager) && (
+              <>
+                {!isPublished && scheduleId && (
+                  <Button onClick={handleGoLive} disabled={isPublishing}>
+                    {isPublishing ? "Publishing..." : "Go Live"}
+                  </Button>
                 )}
-              </div>
-            </div>
+                <Button variant="outline" onClick={() => navigate("/shift-templates")}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Manage Templates
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
 
-            <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
               <Card className="p-6 overflow-x-auto">
                 {/* Week Day Headers */}
                 <div className="grid grid-cols-8 gap-0 border-b-2 border-border">
@@ -484,14 +473,8 @@ export default function Schedule() {
                 )}
               </Card>
 
-              <DragOverlay>{activeShift ? <ShiftCard shift={activeShift} isDragging /> : null}</DragOverlay>
-            </DndContext>
-          </TabsContent>
-
-          <TabsContent value="availability" className="space-y-6">
-            <AvailabilityOverview />
-          </TabsContent>
-        </Tabs>
+            <DragOverlay>{activeShift ? <ShiftCard shift={activeShift} isDragging /> : null}</DragOverlay>
+          </DndContext>
 
         {editingShift && (
           <EditShiftDialog
@@ -507,12 +490,6 @@ export default function Schedule() {
             availabilityRequests={availabilityRequests}
           />
         )}
-
-        <RequestAvailabilityDialog
-          open={requestDialogOpen}
-          onOpenChange={setRequestDialogOpen}
-          onSuccess={fetchScheduleData}
-        />
 
         <ConflictWarningDialog
           open={conflictDialogOpen}
