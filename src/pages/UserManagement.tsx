@@ -57,6 +57,8 @@ export default function UserManagement() {
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [resetPasswordLink, setResetPasswordLink] = useState<string>('');
   const [resetPasswordUserName, setResetPasswordUserName] = useState<string>('');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deletingUser, setDeletingUser] = useState<UserProfile | null>(null);
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -355,6 +357,36 @@ export default function UserManagement() {
     }
   };
 
+  const handleDeleteUser = async () => {
+    if (!deletingUser) return;
+
+    try {
+      const { error } = await supabase.functions.invoke('delete-user', {
+        body: {
+          userId: deletingUser.id,
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'User permanently deleted',
+      });
+
+      setIsDeleteDialogOpen(false);
+      setDeletingUser(null);
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error deleting user:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete user',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleOpenResendDialog = (user: UserProfile) => {
     setResendUser(user);
     setNewEmail(user.email);
@@ -521,6 +553,28 @@ export default function UserManagement() {
     }
   };
 
+  const handleCreateTestUsers = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('create-test-users');
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: `Created ${data.created} test users`,
+      });
+
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error creating test users:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create test users',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (roleLoading || !isAdmin) {
     return (
       <Layout>
@@ -545,13 +599,14 @@ export default function UserManagement() {
                   <CardDescription>Manage user roles and permissions</CardDescription>
                 </div>
               </div>
-              <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <UserPlus className="h-4 w-4" />
-                    Invite User
-                  </Button>
-                </DialogTrigger>
+              <div className="flex items-center gap-2">
+                <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="gap-2">
+                      <UserPlus className="h-4 w-4" />
+                      Invite User
+                    </Button>
+                  </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle>Invite New User</DialogTitle>
@@ -649,7 +704,12 @@ export default function UserManagement() {
                   </div>
                 </DialogContent>
               </Dialog>
+              <Button variant="outline" onClick={handleCreateTestUsers} className="gap-2">
+                <Users className="h-4 w-4" />
+                Create Test Users
+              </Button>
             </div>
+          </div>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -758,6 +818,18 @@ export default function UserManagement() {
                             <Key className="h-4 w-4 mr-2" />
                             Reset Password
                           </Button>
+                          {!user.is_active && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => {
+                                setDeletingUser(user);
+                                setIsDeleteDialogOpen(true);
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
@@ -912,6 +984,36 @@ export default function UserManagement() {
             <DialogFooter>
               <Button onClick={() => setIsResetPasswordDialogOpen(false)}>
                 Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete User Confirmation Dialog */}
+        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete User Permanently</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to permanently delete {deletingUser?.full_name || deletingUser?.email}? 
+                This action cannot be undone and will remove all user data.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsDeleteDialogOpen(false);
+                  setDeletingUser(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteUser}
+              >
+                Delete Permanently
               </Button>
             </DialogFooter>
           </DialogContent>
