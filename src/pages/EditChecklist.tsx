@@ -19,7 +19,6 @@ interface ChecklistItem {
   item_type: 'text' | 'multiple_choice' | 'image';
   is_required: boolean;
   options?: string[];
-  reference_type?: 'none' | 'link' | 'image' | 'video';
   reference_image_url?: string;
   reference_link?: string;
   reference_video_url?: string;
@@ -88,26 +87,17 @@ export default function EditChecklist() {
       setDescription(checklist.description || '');
       setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly');
       setSelectedRoles(roleTags?.map(rt => rt.role) || []);
-      setItems(checklistItems.map(item => {
-        // Determine reference type based on what's populated
-        let refType: 'none' | 'link' | 'image' | 'video' = 'none';
-        if (item.reference_link) refType = 'link';
-        else if (item.reference_image_url) refType = 'image';
-        else if (item.reference_video_url) refType = 'video';
-
-        return {
-          id: item.id,
-          question: item.question,
-          item_type: item.item_type as 'text' | 'multiple_choice' | 'image',
-          is_required: item.is_required,
-          options: item.options as string[] | undefined,
-          reference_type: refType,
-          reference_image_url: item.reference_image_url || undefined,
-          reference_link: item.reference_link || undefined,
-          reference_video_url: item.reference_video_url || undefined,
-          order_index: item.order_index,
-        };
-      }));
+      setItems(checklistItems.map(item => ({
+        id: item.id,
+        question: item.question,
+        item_type: item.item_type as 'text' | 'multiple_choice' | 'image',
+        is_required: item.is_required,
+        options: item.options as string[] | undefined,
+        reference_image_url: item.reference_image_url || undefined,
+        reference_link: item.reference_link || undefined,
+        reference_video_url: item.reference_video_url || undefined,
+        order_index: item.order_index,
+      })));
     } catch (error) {
       console.error('Error fetching checklist:', error);
       toast({
@@ -162,9 +152,9 @@ export default function EditChecklist() {
         item_type: item.item_type,
         is_required: item.is_required,
         options: item.item_type === 'multiple_choice' ? item.options : null,
-        reference_image_url: item.reference_type === 'image' ? item.reference_image_url : null,
-        reference_link: item.reference_type === 'link' ? item.reference_link : null,
-        reference_video_url: item.reference_type === 'video' ? item.reference_video_url : null,
+        reference_image_url: item.reference_image_url || null,
+        reference_link: item.reference_link || null,
+        reference_video_url: item.reference_video_url || null,
         reference_notes: null,
         order_index: index,
       }));
@@ -220,7 +210,6 @@ export default function EditChecklist() {
       question: '',
       item_type: 'text',
       is_required: true,
-      reference_type: 'none',
       order_index: items.length,
     }]);
   };
@@ -420,65 +409,25 @@ export default function EditChecklist() {
                 )}
 
                 <div className="space-y-2">
-                  <Label>Reference Material (Optional)</Label>
-                  <Select
-                    value={item.reference_type || 'none'}
-                    onValueChange={(value: 'none' | 'link' | 'image' | 'video') => {
-                      updateItem(index, 'reference_type', value);
-                      // Clear other reference fields when type changes
-                      if (value !== 'link') updateItem(index, 'reference_link', undefined);
-                      if (value !== 'image') updateItem(index, 'reference_image_url', undefined);
-                      if (value !== 'video') updateItem(index, 'reference_video_url', undefined);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="link">Link</SelectItem>
-                      <SelectItem value="image">Image Upload</SelectItem>
-                      <SelectItem value="video">Video URL</SelectItem>
-                    </SelectContent>
-                  </Select>
-
-                  {item.reference_type === 'link' && (
-                    <Input
-                      value={item.reference_link || ''}
-                      onChange={(e) => updateItem(index, 'reference_link', e.target.value)}
-                      placeholder="https://example.com/resource"
-                      type="url"
-                    />
-                  )}
-
-                  {item.reference_type === 'image' && (
-                    <div className="space-y-2">
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleReferenceImageUpload(index, file);
-                        }}
-                      />
-                      {item.reference_image_url && (
-                        <img
-                          src={item.reference_image_url}
-                          alt="Reference"
-                          className="mt-2 rounded-lg max-h-32 object-cover"
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {item.reference_type === 'video' && (
-                    <Input
-                      value={item.reference_video_url || ''}
-                      onChange={(e) => updateItem(index, 'reference_video_url', e.target.value)}
-                      placeholder="https://youtube.com/watch?v=..."
-                      type="url"
-                    />
-                  )}
+                  <Label>Reference Materials (Optional)</Label>
+                  <Input
+                    value={item.reference_link || ''}
+                    onChange={(e) => updateItem(index, 'reference_link', e.target.value)}
+                    placeholder="Reference link URL"
+                    className="mb-2"
+                  />
+                  <Input
+                    value={item.reference_image_url || ''}
+                    onChange={(e) => updateItem(index, 'reference_image_url', e.target.value)}
+                    placeholder="Reference image URL"
+                    className="mb-2"
+                  />
+                  <Input
+                    value={item.reference_video_url || ''}
+                    onChange={(e) => updateItem(index, 'reference_video_url', e.target.value)}
+                    placeholder="Reference video URL"
+                    className="mb-2"
+                  />
                 </div>
               </div>
             ))}
