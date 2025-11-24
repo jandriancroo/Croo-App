@@ -164,12 +164,12 @@ export function EditShiftDialog({
 
           <div className="space-y-2">
             <Label htmlFor="position">Position</Label>
-            <Select value={position} onValueChange={setPosition}>
+            <Select value={position || "none"} onValueChange={(val) => setPosition(val === "none" ? "" : val)}>
               <SelectTrigger id="position">
                 <SelectValue placeholder="Select position" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="none">None</SelectItem>
                 {templates.map((template) => (
                   <SelectItem key={template.id} value={template.id}>
                     {template.position || template.template_name}
