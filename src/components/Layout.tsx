@@ -24,7 +24,7 @@ export const Layout = ({ children }: LayoutProps) => {
 
   const mainNavItems = [
     { path: '/', label: 'Dashboard', icon: Home },
-    { path: '/create', label: 'Tasks', icon: ClipboardList },
+    { path: '/tasks', label: 'Tasks', icon: ClipboardList },
     { path: '/schedule', label: 'Schedule', icon: Calendar },
     { path: '/messages', label: 'Messages', icon: MessageSquare },
   ];
@@ -44,7 +44,8 @@ export const Layout = ({ children }: LayoutProps) => {
   ];
 
   const mobileMenuItems = [
-    { path: '/create', label: 'Tasks', icon: ClipboardList },
+    { path: '/tasks', label: 'Tasks', icon: ClipboardList },
+    { path: '/logbook', label: 'Log Book', icon: ClipboardList },
     { path: '/availability', label: 'Availability', icon: CalendarCheck },
     ...(isAdmin ? [
       { path: '/punch-clock', label: 'Punch Clock', icon: Clock },

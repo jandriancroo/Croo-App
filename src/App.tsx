@@ -21,6 +21,8 @@ import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import PunchClock from "./pages/PunchClock";
 import PayrollReview from "./pages/PayrollReview";
+import Tasks from "./pages/Tasks";
+import LogBook from "./pages/LogBook";
 
 const queryClient = new QueryClient();
 
@@ -34,9 +36,13 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+            <Route path="/logbook" element={<ProtectedRoute><LogBook /></ProtectedRoute>} />
             <Route path="/create" element={<ProtectedRoute><CreateChecklist /></ProtectedRoute>} />
+            <Route path="/create-checklist" element={<ProtectedRoute><CreateChecklist /></ProtectedRoute>} />
             <Route path="/edit/:id" element={<ProtectedRoute><EditChecklist /></ProtectedRoute>} />
             <Route path="/complete/:id" element={<ProtectedRoute><CompleteChecklist /></ProtectedRoute>} />
+            <Route path="/complete-checklist/:id" element={<ProtectedRoute><CompleteChecklist /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
             <Route path="/submission/:id" element={<ProtectedRoute><SubmissionDetails /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />

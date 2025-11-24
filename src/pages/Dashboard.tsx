@@ -205,10 +205,6 @@ export default function Dashboard() {
             <h2 className="text-3xl font-bold">Dashboard</h2>
             <p className="text-muted-foreground">Manage your line check checklists</p>
           </div>
-          <Button onClick={() => navigate('/create')} className="gap-2">
-            <Plus className="h-4 w-4" />
-            New Checklist
-          </Button>
         </div>
 
         {loading ? (
@@ -218,8 +214,8 @@ export default function Dashboard() {
             <CardContent>
               <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No checklists yet</h3>
-              <p className="text-muted-foreground mb-4">Create your first checklist to get started</p>
-              <Button onClick={() => navigate('/create')}>Create Checklist</Button>
+              <p className="text-muted-foreground mb-4">Go to Tasks to create your first checklist</p>
+              <Button onClick={() => navigate('/tasks')}>Go to Tasks</Button>
             </CardContent>
           </Card>
         ) : (
