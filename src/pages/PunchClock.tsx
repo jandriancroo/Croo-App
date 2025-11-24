@@ -84,12 +84,44 @@ export default function PunchClock() {
 
     enterFullscreen();
 
+    // Prevent swipe down to exit fullscreen
+    const preventPullToRefresh = (e: TouchEvent) => {
+      // Only prevent if we're at the top of the page
+      if (window.scrollY === 0) {
+        e.preventDefault();
+      }
+    };
+
+    const preventScroll = (e: Event) => {
+      e.preventDefault();
+    };
+
+    // Add event listeners to prevent swipe gestures
+    document.addEventListener('touchmove', preventPullToRefresh, { passive: false });
+    document.addEventListener('gesturestart', preventScroll, { passive: false });
+    document.addEventListener('gesturechange', preventScroll, { passive: false });
+    document.addEventListener('gestureend', preventScroll, { passive: false });
+    
+    // Prevent default scroll behavior
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+
     return () => {
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(error => {
           console.error('Failed to exit fullscreen:', error);
         });
       }
+      
+      // Clean up event listeners
+      document.removeEventListener('touchmove', preventPullToRefresh);
+      document.removeEventListener('gesturestart', preventScroll);
+      document.removeEventListener('gesturechange', preventScroll);
+      document.removeEventListener('gestureend', preventScroll);
+      
+      // Restore default behavior
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
     };
   }, []);
 
@@ -348,7 +380,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
       </Dialog>
 
       {!currentUser ? (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 overflow-hidden touch-none" style={{ touchAction: 'none' }}>
           {/* Logo */}
           <div className="mb-8">
             <img src={crooLogo} alt="Croo" className="h-24 w-auto" />
@@ -444,7 +476,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
           </Card>
         </div>
       ) : (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4">
+        <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 overflow-hidden touch-none" style={{ touchAction: 'none' }}>
           {/* Logo */}
           <div className="mb-8">
             <img src={crooLogo} alt="Croo" className="h-24 w-auto" />
