@@ -52,6 +52,18 @@ interface ScheduleEvent {
   tagged_roles: string[] | null;
 }
 
+interface AvailabilityRequest {
+  id: string;
+  user_id: string;
+  request_type: string;
+  time_scope: string;
+  start_date: string;
+  end_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  status: string;
+}
+
 export default function Schedule() {
   const navigate = useNavigate();
   const { role, isAdmin, isManager } = useUserRole();
@@ -62,6 +74,7 @@ export default function Schedule() {
   const [shifts, setShifts] = useState<ScheduledShift[]>([]);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
+  const [availabilityRequests, setAvailabilityRequests] = useState<AvailabilityRequest[]>([]);
   const [activeShift, setActiveShift] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -165,6 +178,18 @@ export default function Schedule() {
 
       if (templatesError) throw templatesError;
       setTemplates(templatesData || []);
+
+      // Fetch unpaid availability requests (pending or approved) that overlap with current week
+      const { data: availabilityData, error: availabilityError } = await supabase
+        .from("availability_requests")
+        .select("*")
+        .eq("request_type", "unpaid")
+        .in("status", ["pending", "approved"])
+        .gte("start_date", format(currentWeekStart, "yyyy-MM-dd"))
+        .lte("start_date", format(weekEnd, "yyyy-MM-dd"));
+
+      if (availabilityError) throw availabilityError;
+      setAvailabilityRequests(availabilityData || []);
     } catch (error: any) {
       console.error("Error fetching schedule data:", error);
       toast.error("Failed to load schedule");
@@ -345,6 +370,8 @@ export default function Schedule() {
                       profile={profile}
                       shifts={shifts.filter((s) => s.user_id === profile.id)}
                       templates={templates}
+                      availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
+                      currentWeekStart={currentWeekStart}
                       isEditable={isAdmin || isManager}
                       onUpdate={fetchScheduleData}
                       canTakeShifts={isAdmin || isManager}
@@ -358,6 +385,8 @@ export default function Schedule() {
                     profile={{ id: "unassigned", full_name: "Unassigned", profile_photo_url: null }}
                     shifts={shifts.filter((s) => s.user_id === null)}
                     templates={templates}
+                    availabilityRequests={[]}
+                    currentWeekStart={currentWeekStart}
                     isEditable={isAdmin || isManager}
                     onUpdate={fetchScheduleData}
                     canTakeShifts={isAdmin || isManager}

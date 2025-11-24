@@ -16,7 +16,7 @@ interface RequestAvailabilityDialogProps {
 }
 
 export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: RequestAvailabilityDialogProps) {
-  const [requestType, setRequestType] = useState<"paid" | "unpaid">("paid");
+  const [requestType, setRequestType] = useState<"paid" | "unpaid">("unpaid");
   const [timeScope, setTimeScope] = useState<"multi_day" | "full_day" | "partial_day">("full_day");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -24,6 +24,17 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
   const [endTime, setEndTime] = useState("17:00");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const today = format(new Date(), "yyyy-MM-dd");
+  
+  // Get max date for paid (today) and min date for unpaid (today)
+  const getDateConstraints = () => {
+    if (requestType === "paid") {
+      return { max: today }; // Paid can only be present or past
+    } else {
+      return { min: today }; // Unpaid can only be present or future
+    }
+  };
 
   const calculateHours = () => {
     if (timeScope === "partial_day") {
@@ -88,13 +99,20 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
   };
 
   const resetForm = () => {
-    setRequestType("paid");
+    setRequestType("unpaid");
     setTimeScope("full_day");
     setStartDate("");
     setEndDate("");
     setStartTime("09:00");
     setEndTime("17:00");
     setNotes("");
+  };
+
+  // Reset date when changing request type
+  const handleRequestTypeChange = (newType: "paid" | "unpaid") => {
+    setRequestType(newType);
+    setStartDate("");
+    setEndDate("");
   };
 
   return (
@@ -107,13 +125,13 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="request-type">Request Type</Label>
-            <Select value={requestType} onValueChange={(val) => setRequestType(val as "paid" | "unpaid")}>
+            <Select value={requestType} onValueChange={handleRequestTypeChange}>
               <SelectTrigger id="request-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="paid">Paid Time Off</SelectItem>
-                <SelectItem value="unpaid">Unpaid Time Off</SelectItem>
+                <SelectItem value="paid">Paid Sick Leave (Past/Present)</SelectItem>
+                <SelectItem value="unpaid">Unpaid Time Off (Present/Future)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -140,6 +158,7 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
+                {...getDateConstraints()}
               />
             </div>
             {timeScope === "multi_day" && (
@@ -151,6 +170,7 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   min={startDate}
+                  {...getDateConstraints()}
                 />
               </div>
             )}
