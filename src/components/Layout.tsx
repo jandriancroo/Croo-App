@@ -82,8 +82,8 @@ export const Layout = ({ children }: LayoutProps) => {
                   onClick={() => navigate(item.path)}
                   className="gap-2"
                 >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
+                  <Icon className="h-4 w-4 flex-shrink-0" />
+                  <span className="hidden lg:inline">{item.label}</span>
                 </Button>
               );
             })}
@@ -94,9 +94,9 @@ export const Layout = ({ children }: LayoutProps) => {
                   variant={['/availability', '/punch-clock', '/payroll-review'].includes(location.pathname) ? 'secondary' : 'ghost'}
                   className="gap-2"
                 >
-                  <Clock className="h-4 w-4" />
-                  Time
-                  <ChevronDown className="h-3 w-3" />
+                  <Clock className="h-4 w-4 flex-shrink-0" />
+                  <span className="hidden lg:inline">Time</span>
+                  <ChevronDown className="h-3 w-3 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center" className="bg-background">
@@ -126,9 +126,9 @@ export const Layout = ({ children }: LayoutProps) => {
                     variant={['/settings', '/users'].includes(location.pathname) ? 'secondary' : 'ghost'}
                     className="gap-2"
                   >
-                    <SettingsIcon className="h-4 w-4" />
-                    Settings
-                    <ChevronDown className="h-3 w-3" />
+                    <SettingsIcon className="h-4 w-4 flex-shrink-0" />
+                    <span className="hidden lg:inline">Settings</span>
+                    <ChevronDown className="h-3 w-3 flex-shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-background">
@@ -155,8 +155,8 @@ export const Layout = ({ children }: LayoutProps) => {
               onClick={signOut} 
               className="gap-2"
             >
-              <LogOut className="h-4 w-4" />
-              Sign Out
+              <LogOut className="h-4 w-4 flex-shrink-0" />
+              <span className="hidden lg:inline">Sign Out</span>
             </Button>
           </div>
 
