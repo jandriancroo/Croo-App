@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, ArrowLeft } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useUserRole } from '@/hooks/useUserRole';
 
 interface ChecklistItem {
@@ -35,6 +36,7 @@ export default function EditChecklist() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [items, setItems] = useState<ChecklistItem[]>([]);
 
   useEffect(() => {
@@ -74,9 +76,18 @@ export default function EditChecklist() {
 
       if (itemsError) throw itemsError;
 
+      // Fetch role tags
+      const { data: roleTags, error: roleTagsError } = await supabase
+        .from('checklist_role_tags')
+        .select('role')
+        .eq('checklist_id', id);
+
+      if (roleTagsError) throw roleTagsError;
+
       setTitle(checklist.title);
       setDescription(checklist.description || '');
       setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly');
+      setSelectedRoles(roleTags?.map(rt => rt.role) || []);
       setItems(checklistItems.map(item => {
         // Determine reference type based on what's populated
         let refType: 'none' | 'link' | 'image' | 'video' = 'none';
@@ -163,6 +174,28 @@ export default function EditChecklist() {
         .insert(itemsToInsert);
 
       if (itemsError) throw itemsError;
+
+      // Delete existing role tags
+      const { error: deleteRoleTagsError } = await supabase
+        .from('checklist_role_tags')
+        .delete()
+        .eq('checklist_id', id);
+
+      if (deleteRoleTagsError) throw deleteRoleTagsError;
+
+      // Insert new role tags if any are selected
+      if (selectedRoles.length > 0) {
+        const roleTagsToInsert = selectedRoles.map(role => ({
+          checklist_id: id,
+          role: role as 'admin' | 'manager' | 'team_member',
+        }));
+
+        const { error: roleTagsError } = await supabase
+          .from('checklist_role_tags')
+          .insert(roleTagsToInsert);
+
+        if (roleTagsError) throw roleTagsError;
+      }
 
       toast({
         title: 'Success',
@@ -294,6 +327,32 @@ export default function EditChecklist() {
                   <SelectItem value="monthly">Monthly</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Assigned Roles (Optional)</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                If no roles are selected, all users can see this checklist
+              </p>
+              <div className="space-y-2">
+                {['admin', 'manager', 'team_member'].map((role) => (
+                  <div key={role} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`role-${role}`}
+                      checked={selectedRoles.includes(role)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedRoles([...selectedRoles, role]);
+                        } else {
+                          setSelectedRoles(selectedRoles.filter(r => r !== role));
+                        }
+                      }}
+                    />
+                    <Label htmlFor={`role-${role}`} className="text-sm font-normal capitalize">
+                      {role.replace('_', ' ')}
+                    </Label>
+                  </div>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>

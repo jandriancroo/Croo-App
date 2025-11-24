@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus, Trash2, Upload, Link as LinkIcon, Video, FileText, Loader2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 
 interface ChecklistItem {
@@ -29,6 +30,7 @@ export default function CreateChecklist() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [items, setItems] = useState<ChecklistItem[]>([
     { question: '', item_type: 'text', is_required: true, reference_type: 'none' }
   ]);
@@ -133,6 +135,20 @@ export default function CreateChecklist() {
 
       if (itemsError) throw itemsError;
 
+      // Create role tags if any roles are selected
+      if (selectedRoles.length > 0) {
+        const roleTagsToInsert = selectedRoles.map(role => ({
+          checklist_id: checklist.id,
+          role: role as 'admin' | 'manager' | 'team_member',
+        }));
+
+        const { error: roleTagsError } = await supabase
+          .from('checklist_role_tags')
+          .insert(roleTagsToInsert);
+
+        if (roleTagsError) throw roleTagsError;
+      }
+
       toast.success('Checklist created successfully!');
       navigate('/');
     } catch (error: any) {
@@ -188,6 +204,32 @@ export default function CreateChecklist() {
                     <SelectItem value="monthly">Monthly</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Assigned Roles (Optional)</Label>
+                <p className="text-sm text-muted-foreground mb-2">
+                  If no roles are selected, all users can see this checklist
+                </p>
+                <div className="space-y-2">
+                  {['admin', 'manager', 'team_member'].map((role) => (
+                    <div key={role} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`role-${role}`}
+                        checked={selectedRoles.includes(role)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedRoles([...selectedRoles, role]);
+                          } else {
+                            setSelectedRoles(selectedRoles.filter(r => r !== role));
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`role-${role}`} className="text-sm font-normal capitalize">
+                        {role.replace('_', ' ')}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
