@@ -22,9 +22,8 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
 
-    if (!supabaseUrl || !supabaseServiceRoleKey || !supabaseAnonKey) {
+    if (!supabaseUrl || !supabaseServiceRoleKey) {
       throw new Error("Missing Supabase environment variables");
     }
 
@@ -37,18 +36,21 @@ const handler = async (req: Request): Promise<Response> => {
     // Extract the JWT token
     const token = authHeader.replace('Bearer ', '');
 
-    // Create client with anon key
-    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+    // Decode JWT payload (Supabase already verified this token before invoking the function)
+    const payloadBase64 = token.split('.')[1];
+    if (!payloadBase64) {
+      throw new Error("Invalid token");
+    }
 
-    // Get the authenticated user by passing token directly
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
-    
-    if (userError || !user) {
-      console.error("Auth error:", userError);
+    const payloadJson = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
+    const payload = JSON.parse(payloadJson);
+    const userId = payload.sub as string | undefined;
+
+    if (!userId) {
       throw new Error("Unauthorized");
     }
 
-    console.log("Authenticated user:", user.id);
+    console.log("Authenticated user:", userId);
 
     // Create admin client for privileged operations
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
@@ -58,9 +60,9 @@ const handler = async (req: Request): Promise<Response> => {
       },
     });
 
-    // Check if user has admin role
+    // Check if user has admin role via has_role function
     const { data: roleData, error: roleError } = await supabaseAdmin
-      .rpc('has_role', { _user_id: user.id, _role: 'admin' });
+      .rpc('has_role', { _user_id: userId, _role: 'admin' });
 
     if (roleError || !roleData) {
       console.error("Role check failed:", roleError);
