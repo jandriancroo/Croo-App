@@ -27,7 +27,8 @@ export const Layout = ({ children }: LayoutProps) => {
     { path: '/availability', label: 'Availability', icon: CalendarCheck },
     ...(isAdmin ? [
       { path: '/users', label: 'Users', icon: Users },
-      { path: '/time-clock', label: 'Time Clock', icon: Clock }
+      { path: '/punch-clock', label: 'Punch Clock', icon: Clock },
+      { path: '/payroll-review', label: 'Payroll Review', icon: DollarSign }
     ] : []),
     { path: '/messages', label: 'Messages', icon: MessageSquare },
   ];
@@ -45,7 +46,8 @@ export const Layout = ({ children }: LayoutProps) => {
     { path: '/availability', label: 'Availability', icon: CalendarCheck },
     ...(isAdmin ? [
       { path: '/users', label: 'Users', icon: Users },
-      { path: '/time-clock', label: 'Time Clock', icon: Clock }
+      { path: '/punch-clock', label: 'Punch Clock', icon: Clock },
+      { path: '/payroll-review', label: 'Payroll Review', icon: DollarSign }
     ] : []),
   ];
 
