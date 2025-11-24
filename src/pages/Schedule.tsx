@@ -53,12 +53,14 @@ export default function Schedule() {
   const { role, isAdmin, isManager } = useUserRole();
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [scheduleId, setScheduleId] = useState<string | null>(null);
+  const [isPublished, setIsPublished] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [shifts, setShifts] = useState<ScheduledShift[]>([]);
   const [events, setEvents] = useState<ScheduleEvent[]>([]);
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const [activeShift, setActiveShift] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -114,6 +116,7 @@ export default function Schedule() {
 
       if (scheduleData) {
         setScheduleId(scheduleData.id);
+        setIsPublished(scheduleData.is_published || false);
 
         // Fetch shifts
         const { data: shiftsData, error: shiftsError } = await supabase
@@ -228,6 +231,28 @@ export default function Schedule() {
     setCurrentWeekStart(addWeeks(currentWeekStart, 1));
   };
 
+  const handleGoLive = async () => {
+    if (!scheduleId) return;
+    
+    setIsPublishing(true);
+    try {
+      const { error } = await supabase
+        .from('schedules')
+        .update({ is_published: true })
+        .eq('id', scheduleId);
+
+      if (error) throw error;
+
+      setIsPublished(true);
+      toast.success("Schedule published! Team members have been notified.");
+    } catch (error: any) {
+      console.error('Error publishing schedule:', error);
+      toast.error("Failed to publish schedule");
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -257,6 +282,11 @@ export default function Schedule() {
 
           {(isAdmin || isManager) && (
             <div className="flex gap-2">
+              {!isPublished && scheduleId && (
+                <Button onClick={handleGoLive} disabled={isPublishing}>
+                  {isPublishing ? "Publishing..." : "Go Live"}
+                </Button>
+              )}
               <Button variant="outline" onClick={() => navigate("/shift-templates")}>
                 <Settings className="h-4 w-4 mr-2" />
                 Manage Templates
