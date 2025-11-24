@@ -10,10 +10,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, Shield, UserCog, User, UserPlus } from 'lucide-react';
+import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
 import { useNavigate } from 'react-router-dom';
+import React from 'react';
 
 interface UserProfile {
   id: string;
@@ -32,6 +33,9 @@ export default function UserManagement() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteFullName, setInviteFullName] = useState('');
   const [inviteRole, setInviteRole] = useState<AppRole>('team_member');
+  const [inviteProfilePhoto, setInviteProfilePhoto] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = React.useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -145,6 +149,45 @@ export default function UserManagement() {
     }
   };
 
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast({ title: 'Error', description: 'Please select an image file', variant: 'destructive' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: 'Error', description: 'Image must be less than 5MB', variant: 'destructive' });
+      return;
+    }
+
+    try {
+      setUploadingPhoto(true);
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `temp/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('profile-photos')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(fileName);
+
+      setInviteProfilePhoto(publicUrl);
+      toast({ title: 'Success', description: 'Photo uploaded' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: 'Failed to upload photo', variant: 'destructive' });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const handleInviteUser = async () => {
     if (!inviteEmail.trim() || !inviteFullName.trim()) {
       toast({
@@ -163,6 +206,7 @@ export default function UserManagement() {
           email: inviteEmail.trim(),
           fullName: inviteFullName.trim(),
           role: inviteRole,
+          profilePhotoUrl: inviteProfilePhoto,
         },
       });
 
@@ -177,6 +221,7 @@ export default function UserManagement() {
       setInviteEmail('');
       setInviteFullName('');
       setInviteRole('team_member');
+      setInviteProfilePhoto(null);
       fetchUsers();
     } catch (error: any) {
       console.error('Error inviting user:', error);
@@ -228,6 +273,34 @@ export default function UserManagement() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label>Profile Photo (Optional)</Label>
+                      <div className="flex flex-col items-center gap-4">
+                        <Avatar className="h-20 w-20">
+                          <AvatarImage src={inviteProfilePhoto || undefined} />
+                          <AvatarFallback>
+                            <Camera className="h-6 w-6 text-muted-foreground" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <input
+                          ref={photoInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoUpload}
+                          className="hidden"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => photoInputRef.current?.click()}
+                          disabled={uploadingPhoto}
+                          size="sm"
+                        >
+                          <Camera className="mr-2 h-4 w-4" />
+                          {inviteProfilePhoto ? 'Change Photo' : 'Add Photo'}
+                        </Button>
+                      </div>
+                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="invite-email">Email</Label>
                       <Input

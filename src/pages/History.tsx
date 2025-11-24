@@ -3,7 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { History as HistoryIcon, User, Calendar } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { History as HistoryIcon, Calendar, Eye } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 interface Submission {
@@ -17,12 +20,14 @@ interface Submission {
   profiles: {
     full_name: string | null;
     email: string;
+    profile_photo_url: string | null;
   };
 }
 
 export default function History() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchSubmissions();
@@ -35,7 +40,7 @@ export default function History() {
         .select(`
           *,
           checklists (title, frequency),
-          profiles (full_name, email)
+          profiles (full_name, email, profile_photo_url)
         `)
         .order('submitted_at', { ascending: false })
         .limit(50);
@@ -95,8 +100,13 @@ export default function History() {
                       </CardTitle>
                       <CardDescription className="mt-2 space-y-1">
                         <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          <span>
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={submission.profiles.profile_photo_url || undefined} />
+                            <AvatarFallback>
+                              {submission.profiles.full_name?.charAt(0) || submission.profiles.email.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="font-medium">
                             {submission.profiles.full_name || submission.profiles.email}
                           </span>
                         </div>
@@ -108,6 +118,14 @@ export default function History() {
                         </div>
                       </CardDescription>
                     </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/submission/${submission.id}`)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Details
+                    </Button>
                   </div>
                 </CardHeader>
                 {submission.notes && (

@@ -11,6 +11,7 @@ import CreateChecklist from "./pages/CreateChecklist";
 import EditChecklist from "./pages/EditChecklist";
 import CompleteChecklist from "./pages/CompleteChecklist";
 import History from "./pages/History";
+import SubmissionDetails from "./pages/SubmissionDetails";
 import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
 
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/edit/:id" element={<ProtectedRoute><EditChecklist /></ProtectedRoute>} />
             <Route path="/complete/:id" element={<ProtectedRoute><CompleteChecklist /></ProtectedRoute>} />
             <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+            <Route path="/submission/:id" element={<ProtectedRoute><SubmissionDetails /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
