@@ -91,30 +91,30 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
     <Card
       ref={setNodeRef}
       style={{ ...style, backgroundColor: bgColor }}
-      className={`p-2 ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""}`}
+      className={`p-1 ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""}`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
     >
-      <div className="flex items-center gap-1 text-white text-xs font-medium">
+      <div className="flex items-center gap-1 text-white text-[10px] font-medium">
         <span>{shift.isTemplate ? shiftData.template_name : `${formatTime(shiftData.start_time)} - ${formatTime(shiftData.end_time)}`}</span>
         {!shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
           <BreakIndicator hasBreak={true} size="sm" />
         )}
       </div>
       {!shift.isTemplate && position && (
-        <div className="text-white text-xs opacity-90">{position}</div>
+        <div className="text-white text-[10px] opacity-90">{position}</div>
       )}
-      {shift.is_time_off && <div className="text-white text-xs">TIME OFF</div>}
+      {shift.is_time_off && <div className="text-white text-[10px]">TIME OFF</div>}
       {!shift.isTemplate && onDelete && (
         <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100">
           <Button
             variant="ghost"
             size="icon"
-            className="h-6 w-6 text-white hover:bg-white/20"
+            className="h-5 w-5 text-white hover:bg-white/20"
             onClick={handleDelete}
           >
-            <Trash2 className="h-3 w-3" />
+            <Trash2 className="h-2.5 w-2.5" />
           </Button>
         </div>
       )}

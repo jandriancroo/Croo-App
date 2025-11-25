@@ -766,7 +766,7 @@ export default function Schedule() {
           onUpdate={fetchScheduleData}
         />
       ) : (
-        <div className="space-y-6 pb-32">
+        <div className="space-y-6 pb-20">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
@@ -830,18 +830,18 @@ export default function Schedule() {
           <Card className="p-6 overflow-x-auto">
             {/* Week Day Headers */}
             <div className="grid grid-cols-8 gap-0 border-b-2 border-border">
-              <div className="font-semibold p-4 border-r border-border bg-muted/50"></div>
+              <div className="font-semibold p-2 border-r border-border bg-muted/50 text-xs"></div>
               {weekDays.map((day, index) => (
                 <div 
                   key={index} 
-                  className="text-center p-4 border-r last:border-r-0 border-border bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+                  className="text-center p-2 border-r last:border-r-0 border-border bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
                   onClick={() => {
                     setSelectedDayForBreakdown(day);
                     setDayBreakdownOpen(true);
                   }}
                 >
-                  <div className="font-semibold">{format(day, "EEE")}</div>
-                  <div className="text-sm text-muted-foreground">{format(day, "MMM d")}</div>
+                  <div className="font-semibold text-xs">{format(day, "EEE")}</div>
+                  <div className="text-[10px] text-muted-foreground">{format(day, "M/d")}</div>
                 </div>
               ))}
             </div>
@@ -865,7 +865,7 @@ export default function Schedule() {
 
                 return (
                   <div key={roleFilter} className={`${roleColorClass}`}>
-                    <div className="px-4 py-2 font-semibold text-sm uppercase tracking-wide">
+                    <div className="px-3 py-1 font-semibold text-xs uppercase tracking-wide">
                       {roleFilter === 'team_member' ? 'Team Members' : `${roleFilter}s`}
                     </div>
                     <SortableContext
@@ -912,26 +912,26 @@ export default function Schedule() {
           {/* Floating Templates Bar - Bottom */}
           {(isAdmin || isManager) && (
             <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-border shadow-lg z-50">
-              <div className="max-w-screen-2xl mx-auto px-6 py-3">
-                <div className="space-y-2">
+              <div className="max-w-screen-2xl mx-auto px-4 py-2">
+                <div className="space-y-1">
                   {/* Labor Totals Toggle Button */}
-                  <div className="flex items-center justify-between border-b border-border pb-2">
-                    <h3 className="font-semibold text-sm">Schedule Tools</h3>
+                  <div className="flex items-center justify-between border-b border-border pb-1">
+                    <h3 className="font-semibold text-xs">Schedule Tools</h3>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setLaborTotalsExpanded(!laborTotalsExpanded)}
-                      className="h-7"
+                      className="h-6 text-xs"
                     >
                       {laborTotalsExpanded ? (
                         <>
-                          <ChevronDown className="h-4 w-4 mr-1" />
-                          Hide Totals
+                          <ChevronDown className="h-3 w-3 mr-1" />
+                          Hide
                         </>
                       ) : (
                         <>
-                          <ChevronUp className="h-4 w-4 mr-1" />
-                          Show Totals
+                          <ChevronUp className="h-3 w-3 mr-1" />
+                          Show
                         </>
                       )}
                     </Button>
@@ -949,8 +949,8 @@ export default function Schedule() {
                   )}
                   
                   {/* Shift Templates */}
-                  <div className="flex items-center gap-4 border-t border-border pt-2">
-                    <h3 className="font-semibold whitespace-nowrap text-sm">Shift Templates:</h3>
+                  <div className="flex items-center gap-3 border-t border-border pt-1">
+                    <h3 className="font-semibold whitespace-nowrap text-xs">Templates:</h3>
                     {templates.length > 0 ? (
                       <div className="flex gap-2 overflow-x-auto flex-1">
                         {templates.map((template) => (
@@ -959,10 +959,10 @@ export default function Schedule() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <p className="text-muted-foreground text-sm">No shift templates yet</p>
-                        <Button size="sm" onClick={() => navigate("/shift-templates")}>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Create Template
+                        <p className="text-muted-foreground text-xs">No templates</p>
+                        <Button size="sm" onClick={() => navigate("/shift-templates")} className="h-6 text-xs px-2">
+                          <Plus className="h-3 w-3 mr-1" />
+                          Create
                         </Button>
                       </div>
                     )}
