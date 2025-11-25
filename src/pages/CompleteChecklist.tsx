@@ -105,6 +105,18 @@ export default function CompleteChecklist() {
         .single();
 
       if (checklistError) throw checklistError;
+
+      // Check if checklist is day-specific and if today is the right day
+      if (checklistData.assigned_day_of_week !== null) {
+        const currentDay = new Date().getDay();
+        if (checklistData.assigned_day_of_week !== currentDay) {
+          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          toast.error(`This checklist can only be completed on ${dayNames[checklistData.assigned_day_of_week]}`);
+          navigate('/tasks');
+          return;
+        }
+      }
+
       setChecklist(checklistData);
 
       const { data: itemsData, error: itemsError } = await supabase

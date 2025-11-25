@@ -421,6 +421,7 @@ export default function DynamicChecklistCalendar() {
             template_type: 'standard',
             frequency: 'daily',
             created_by: user.id,
+            assigned_day_of_week: dayIndex,
           })
           .select()
           .single();

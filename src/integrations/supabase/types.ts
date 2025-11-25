@@ -421,6 +421,7 @@ export type Database = {
       }
       checklists: {
         Row: {
+          assigned_day_of_week: number | null
           created_at: string | null
           created_by: string | null
           description: string | null
@@ -433,6 +434,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          assigned_day_of_week?: number | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
@@ -445,6 +447,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          assigned_day_of_week?: number | null
           created_at?: string | null
           created_by?: string | null
           description?: string | null
