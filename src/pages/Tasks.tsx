@@ -173,20 +173,35 @@ export default function Tasks() {
 
           if (itemCount === 0) return null;
 
-          // Check if completed on this date
+          // Check submissions and responses on this date
           const { data: submissions } = await supabase
             .from('checklist_submissions')
-            .select('id')
+            .select(`
+              id,
+              submitted_by,
+              profiles(full_name, profile_photo_url),
+              checklist_responses(id)
+            `)
             .eq('checklist_id', checklist.id)
-            .eq('submitted_by', user!.id)
             .gte('submitted_at', dateStr)
             .lt('submitted_at', format(addDays(historyDate, 1), 'yyyy-MM-dd'));
 
+          const completedCount = submissions?.reduce((sum, sub: any) => 
+            sum + (sub.checklist_responses?.length || 0), 0) || 0;
+          
+          const completionRate = itemCount > 0 ? completedCount / itemCount : 0;
+          
           return {
             id: checklist.id,
             title: checklist.title,
-            completed: (submissions?.length || 0) > 0,
+            completed: completionRate === 1,
+            completionRate,
             itemCount,
+            completedCount,
+            contributors: submissions?.map((sub: any) => ({
+              name: sub.profiles?.full_name,
+              photo: sub.profiles?.profile_photo_url
+            })) || []
           };
         })
       );
@@ -380,28 +395,71 @@ export default function Tasks() {
               </CardHeader>
               <CardContent>
                 {historyStats && historyStats.length > 0 ? (
-                  <div className="space-y-2">
-                    {historyStats.map((stat: any) => (
-                      <div
-                        key={stat.id}
-                        className="flex items-center justify-between p-3 rounded-lg border"
-                      >
-                        <span className="font-medium">{stat.title}</span>
-                        <div className="flex items-center gap-2">
-                          {stat.completed ? (
-                            <>
-                              <CheckCircle2 className="h-5 w-5 text-green-600" />
-                              <span className="text-sm text-green-600 font-medium">Completed</span>
-                            </>
-                          ) : (
-                            <>
-                              <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                              <span className="text-sm text-muted-foreground">Not Completed</span>
-                            </>
+                  <div className="space-y-4">
+                    {historyStats.map((stat: any) => {
+                      const completionPercent = stat.completionRate * 100;
+                      const isComplete = stat.completionRate === 1;
+                      const isPartial = stat.completionRate > 0 && stat.completionRate < 1;
+                      const barColor = isComplete ? 'bg-green-500' : isPartial ? 'bg-yellow-500' : 'bg-red-500';
+                      
+                      return (
+                        <div key={stat.id} className="p-4 rounded-lg border space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">{stat.title}</span>
+                            <div className="text-xl">
+                              {isComplete ? '🎉' : isPartial ? '😕' : '😞'}
+                            </div>
+                          </div>
+                          
+                          {/* Progress bar */}
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>{stat.completedCount} of {stat.itemCount} items</span>
+                              <span>{completionPercent.toFixed(0)}%</span>
+                            </div>
+                            <div className="h-3 bg-secondary rounded-full overflow-hidden">
+                              <div 
+                                className={`h-full ${barColor} transition-all`}
+                                style={{ width: `${completionPercent}%` }}
+                              />
+                            </div>
+                          </div>
+                          
+                          {/* Contributors */}
+                          {stat.contributors.length > 0 && (
+                            <div className="flex items-center gap-2 pt-2 border-t">
+                              <span className="text-xs text-muted-foreground">Completed by:</span>
+                              <div className="flex -space-x-2">
+                                {stat.contributors.slice(0, 5).map((contributor: any, idx: number) => (
+                                  <div
+                                    key={idx}
+                                    className="h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted"
+                                    title={contributor.name}
+                                  >
+                                    {contributor.photo ? (
+                                      <img 
+                                        src={contributor.photo} 
+                                        alt={contributor.name}
+                                        className="h-full w-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="h-full w-full flex items-center justify-center text-xs font-medium">
+                                        {contributor.name?.charAt(0)}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                                {stat.contributors.length > 5 && (
+                                  <div className="h-8 w-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs">
+                                    +{stat.contributors.length - 5}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 ) : (
                   <Alert>
