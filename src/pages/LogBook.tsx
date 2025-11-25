@@ -242,7 +242,7 @@ export default function LogBook() {
     <Layout>
       <div className="container max-w-6xl mx-auto p-6">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Log Book</h1>
+          <h1 className="text-3xl font-bold">Log</h1>
           {isAdmin && (
             <Button variant="outline" onClick={() => setManageCategoriesOpen(true)}>
               <Settings className="h-4 w-4 mr-2" />

@@ -235,7 +235,7 @@ export default function Alerts() {
               Punch Clock ({punchClockAlerts.length})
             </TabsTrigger>
             <TabsTrigger value="logbook">
-              Log Book ({logbookAlerts.length})
+              Log ({logbookAlerts.length})
             </TabsTrigger>
             <TabsTrigger value="checklists">
               Checklists ({checklistAlerts.length})
@@ -296,7 +296,7 @@ export default function Alerts() {
                         : alert.type === 'punch_clock' ? 'outline'
                         : 'destructive'
                       }>
-                        {alert.type === 'logbook' ? 'Log Book' 
+                        {alert.type === 'logbook' ? 'Log' 
                          : alert.type === 'punch_clock' ? 'Punch Clock'
                          : 'Checklist'}
                       </Badge>
@@ -409,7 +409,7 @@ export default function Alerts() {
             {logbookAlerts.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
-                  No log book alerts in the last 7 days
+                  No log alerts in the last 7 days
                 </CardContent>
               </Card>
             ) : (
@@ -432,7 +432,7 @@ export default function Alerts() {
                           </CardDescription>
                         </div>
                       </div>
-                      <Badge variant="secondary">Log Book</Badge>
+                      <Badge variant="secondary">Log</Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
