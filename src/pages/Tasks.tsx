@@ -61,6 +61,9 @@ export default function Tasks() {
 
       const userRole = userRoles?.[0]?.role;
 
+      // Get current day of week (0 = Sunday, 1 = Monday, etc.)
+      const currentDay = new Date().getDay();
+
       const { data, error } = await supabase
         .from('checklists')
         .select(`
@@ -69,6 +72,7 @@ export default function Tasks() {
         `)
         .eq('is_active', true)
         .eq('template_type', 'standard')
+        .or(`assigned_day_of_week.is.null,assigned_day_of_week.eq.${currentDay}`)
         .order('due_by_time', { ascending: true, nullsFirst: false });
 
       if (error) throw error;

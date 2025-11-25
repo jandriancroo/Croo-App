@@ -83,11 +83,15 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      // Fetch checklists
+      // Get current day of week (0 = Sunday, 1 = Monday, etc.)
+      const currentDay = new Date().getDay();
+      
+      // Fetch checklists - filter for current day or unassigned
       const { data: checklistsData, error: checklistsError } = await supabase
         .from('checklists')
         .select('*')
         .eq('is_active', true)
+        .or(`assigned_day_of_week.is.null,assigned_day_of_week.eq.${currentDay}`)
         .order('created_at', { ascending: false });
 
       if (checklistsError) throw checklistsError;
