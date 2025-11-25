@@ -42,7 +42,7 @@ type SalesData = {
   daily: number;
   weekly: number;
 };
-const DEFAULT_SECTION_ORDER = ['alerts', 'stats-overview', 'sales-overview', 'checklists-grid'];
+const DEFAULT_SECTION_ORDER = ['alerts', 'sales-overview', 'checklists-grid'];
 const STORAGE_KEY = 'dashboard-section-order';
 export default function Dashboard() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
@@ -247,36 +247,6 @@ export default function Dashboard() {
         <LogBookAlerts />
         <CertificationAlerts />
       </div>,
-    'stats-overview': <div>
-        <h3 className="text-xl font-semibold mb-4">Completion Status</h3>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {checklists.map(checklist => {
-          const {
-            expected,
-            completed
-          } = getCompletionData(checklist.id);
-          const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
-          return <Card key={checklist.id}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm font-medium truncate">{checklist.title}</CardTitle>
-                    <Badge variant="secondary" className="text-xs capitalize">{checklist.frequency}</Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="text-lg font-semibold text-muted-foreground">
-                      {completed} out of {expected}
-                    </div>
-                    <div className="text-3xl font-bold text-primary">
-                      {completionRate}%
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>;
-        })}
-        </div>
-      </div>,
     'sales-overview': <div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-semibold">Sales Overview</h3>
@@ -327,7 +297,7 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Hourly Sales </CardTitle>
+            <CardTitle>Hourly Sales </CardTitle>
             <CardDescription>Sales performance by hour</CardDescription>
           </CardHeader>
           <CardContent>
@@ -357,7 +327,11 @@ export default function Dashboard() {
         <h3 className="text-xl font-semibold mb-4">Tasks</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {checklists.map(checklist => {
-          const checklistStats = stats[checklist.id];
+          const {
+            expected,
+            completed
+          } = getCompletionData(checklist.id);
+          const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
           return <Card key={checklist.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between">
@@ -369,11 +343,16 @@ export default function Dashboard() {
                   <CardTitle className="mt-4">{checklist.title}</CardTitle>
                   {checklist.description && <CardDescription>{checklist.description}</CardDescription>}
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  
-                  
-                  {checklistStats?.last_submission}
-                  <Button className="w-full mt-4" onClick={() => navigate(`/complete/${checklist.id}`)}>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-lg font-semibold text-muted-foreground">
+                      {completed} out of {expected}
+                    </div>
+                    <div className="text-2xl font-bold text-primary">
+                      {completionRate}%
+                    </div>
+                  </div>
+                  <Button className="w-full" onClick={() => navigate(`/complete/${checklist.id}`)}>
                     Complete Checklist
                   </Button>
                 </CardContent>
