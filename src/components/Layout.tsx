@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardList, LogOut, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, BookOpen } from 'lucide-react';
+import { Home, ClipboardList, LogOut, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, BookOpen, Radio } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -29,6 +29,7 @@ export const Layout = ({ children }: LayoutProps) => {
     { path: '/logbook', label: 'Log Book', icon: BookOpen },
     { path: '/schedule', label: 'Schedule', icon: Calendar },
     { path: '/messages', label: 'Messages', icon: MessageSquare },
+    { path: '/alerts', label: 'Alerts', icon: Radio, badge: true },
   ];
 
   const timeMenuItems = [
@@ -43,10 +44,11 @@ export const Layout = ({ children }: LayoutProps) => {
     { path: '/', label: 'Dashboard', icon: Home },
     { path: '/tasks', label: 'Tasks', icon: ClipboardList },
     { path: '/schedule', label: 'Schedule', icon: Calendar },
-    { path: '/messages', label: 'Messages', icon: MessageSquare },
+    { path: '/alerts', label: 'Alerts', icon: Radio, badge: true },
   ];
 
   const mobileMenuItems = [
+    { path: '/messages', label: 'Messages', icon: MessageSquare },
     { path: '/logbook', label: 'Log Book', icon: BookOpen },
     { path: '/availability', label: 'Availability', icon: CalendarCheck },
     ...(isAdmin ? [
@@ -80,10 +82,13 @@ export const Layout = ({ children }: LayoutProps) => {
                   key={item.path}
                   variant={isActive ? 'secondary' : 'ghost'}
                   onClick={() => navigate(item.path)}
-                  className="gap-2"
+                  className="gap-2 relative"
                 >
                   <Icon className="h-4 w-4 flex-shrink-0" />
                   <span className="hidden lg:inline">{item.label}</span>
+                  {item.badge && (
+                    <div className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-destructive rounded-full animate-pulse" />
+                  )}
                 </Button>
               );
             })}
@@ -184,10 +189,13 @@ export const Layout = ({ children }: LayoutProps) => {
                 variant={isActive ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => navigate(item.path)}
-                className="flex-col gap-0.5 h-auto py-1.5 px-2 min-w-0"
+                className="flex-col gap-0.5 h-auto py-1.5 px-2 min-w-0 relative"
               >
                 <Icon className="h-4 w-4 flex-shrink-0" />
                 <span className="text-[10px] truncate max-w-[60px]">{item.label}</span>
+                {item.badge && (
+                  <div className="absolute top-0.5 right-0.5 h-2 w-2 bg-destructive rounded-full animate-pulse" />
+                )}
               </Button>
             );
           })}
