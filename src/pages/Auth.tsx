@@ -159,14 +159,14 @@ export default function Auth() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
-      <Card className="w-full max-w-md shadow-xl">
+      <Card className="w-full max-w-md shadow-2xl border-2 hover:shadow-3xl transition-all duration-300 hover:scale-[1.02]">
         <CardHeader className="space-y-1 text-center">
           <div className="mx-auto">
             <img src={crooLogo} alt="Croo Logo" className="h-24 w-auto mx-auto" />
           </div>
-          <CardDescription className="font-semibold text-base tracking-wide italic">
+          <p className="font-pacifico text-2xl text-[#E67E22] drop-shadow-sm">
             food service made smart
-          </CardDescription>
+          </p>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
