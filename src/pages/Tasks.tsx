@@ -18,6 +18,7 @@ import { format, addDays, subDays } from "date-fns";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableChecklistItem } from '@/components/tasks/SortableChecklistItem';
+import { ChecklistDetailsDialog } from '@/components/tasks/ChecklistDetailsDialog';
 
 export default function Tasks() {
   const navigate = useNavigate();
@@ -27,6 +28,7 @@ export default function Tasks() {
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [historyDate, setHistoryDate] = useState(new Date());
   const [isReordering, setIsReordering] = useState(false);
+  const [selectedChecklistId, setSelectedChecklistId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -420,7 +422,11 @@ export default function Tasks() {
                       const barColor = isComplete ? 'bg-green-500' : isPartial ? 'bg-yellow-500' : 'bg-red-500';
                       
                       return (
-                        <div key={stat.id} className="p-4 rounded-lg border space-y-3">
+                        <div 
+                          key={stat.id} 
+                          className="p-4 rounded-lg border space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => setSelectedChecklistId(stat.id)}
+                        >
                           <div className="flex items-center justify-between">
                             <span className="font-medium">{stat.title}</span>
                             <div className="text-xl">
@@ -492,6 +498,12 @@ export default function Tasks() {
         </Tabs>
       </div>
       <TemplateTypeDialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog} />
+      <ChecklistDetailsDialog 
+        open={!!selectedChecklistId} 
+        onOpenChange={(open) => !open && setSelectedChecklistId(null)}
+        checklistId={selectedChecklistId || ''}
+        date={historyDate}
+      />
     </Layout>
   );
 }
