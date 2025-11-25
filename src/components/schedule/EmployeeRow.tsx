@@ -99,36 +99,36 @@ export function EmployeeRow({
   };
 
   return (
-    <div ref={setNodeRef} style={style} className="grid grid-cols-8 gap-0 border-b border-dotted border-border/50">
+    <div ref={setNodeRef} style={style} className="grid grid-cols-8 gap-0 border-b border-dotted border-border/50 relative">
+      {/* Drag Handle in Left Margin */}
+      {isDraggable && profile.id !== "unassigned" && (
+        <div 
+          {...attributes}
+          {...listeners}
+          className="absolute -left-5 top-0 bottom-0 w-4 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground z-20"
+        >
+          <GripVertical className="h-4 w-4" />
+        </div>
+      )}
+      
       <div className="flex items-center gap-2 p-2 border-r border-border bg-muted/30">
         {profile.id !== "unassigned" ? (
-          <>
-            {isDraggable && (
-              <button
-                className="cursor-grab active:cursor-grabbing hover:bg-accent/50 rounded p-1 transition-colors flex-shrink-0"
-                {...attributes}
-                {...listeners}
-              >
-                <GripVertical className="h-3 w-3 text-muted-foreground" />
-              </button>
-            )}
-            <div 
-              className="flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded p-1 transition-colors flex-1 min-w-0"
-              onClick={() => navigate('/users', { state: { viewUserId: profile.id } })}
-            >
-              <Avatar className="h-6 w-6 flex-shrink-0">
-                <AvatarImage src={profile.profile_photo_url || undefined} />
-                <AvatarFallback className="text-[10px]">{profile.full_name.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">{profile.full_name}</p>
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                  <span>{calculateTotalHours()}h</span>
-                  <span className="text-primary font-semibold">${calculateTotalWages()}</span>
-                </div>
+          <div 
+            className="flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded p-1 transition-colors flex-1 min-w-0"
+            onClick={() => navigate('/users', { state: { viewUserId: profile.id } })}
+          >
+            <Avatar className="h-6 w-6 flex-shrink-0">
+              <AvatarImage src={profile.profile_photo_url || undefined} />
+              <AvatarFallback className="text-[10px]">{profile.full_name.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium truncate">{profile.full_name}</p>
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <span>{calculateTotalHours()}h</span>
+                <span className="text-primary font-semibold">${calculateTotalWages()}</span>
               </div>
             </div>
-          </>
+          </div>
         ) : (
           <span className="text-xs font-medium text-muted-foreground">Unassigned</span>
         )}
