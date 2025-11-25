@@ -205,7 +205,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
       <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {editingCategoryId ? 'Edit Category Fields' : 'Manage Log Book Categories'}
+            {editingCategoryId ? 'Edit Category Fields' : 'Manage Logs Categories'}
           </DialogTitle>
         </DialogHeader>
 
