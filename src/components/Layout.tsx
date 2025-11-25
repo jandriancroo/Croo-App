@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardList, LogOut, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, BookOpen, Radio } from 'lucide-react';
+import { Home, ClipboardList, LogOut, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, BookOpen } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -60,20 +60,6 @@ export const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-50 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        {/* Alerts Icon - Above Menu Bar */}
-        <div className="absolute top-2 right-4 z-50">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/alerts')}
-            className="relative hover:bg-muted"
-            title="Alerts"
-          >
-            <Radio className="h-5 w-5 text-destructive" />
-            <div className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 bg-destructive rounded-full animate-pulse" />
-          </Button>
-        </div>
-
         <div className={`container flex items-center ${isMobile ? 'h-16' : 'h-24'}`}>
           <button 
             onClick={() => navigate('/')}
@@ -86,16 +72,6 @@ export const Layout = ({ children }: LayoutProps) => {
             />
           </button>
           <nav className="hidden items-center gap-1 md:flex flex-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate('/alerts')}
-              className="relative hover:bg-muted mr-2"
-              title="Alerts"
-            >
-              <Radio className="h-5 w-5 text-destructive" />
-              <div className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 bg-destructive rounded-full animate-pulse" />
-            </Button>
             {mainNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -139,6 +115,16 @@ export const Layout = ({ children }: LayoutProps) => {
                 })}
               </DropdownMenuContent>
             </DropdownMenu>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/alerts')}
+              className="relative hover:bg-muted ml-1"
+              title="Live Alerts"
+            >
+              <div className="h-3 w-3 bg-destructive rounded-full animate-pulse shadow-lg shadow-destructive/50" />
+            </Button>
           </nav>
           
           <div className="hidden md:flex items-center gap-2">
