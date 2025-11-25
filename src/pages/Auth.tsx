@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { CheckSquare, Camera, Apple } from 'lucide-react';
+import { Camera, Apple } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import crooLogo from '@/assets/croo-logo.png';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -160,10 +161,9 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-3 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <CheckSquare className="h-8 w-8 text-primary" />
+          <div className="mx-auto">
+            <img src={crooLogo} alt="Croo Logo" className="h-24 w-auto mx-auto" />
           </div>
-          <CardTitle className="text-2xl">Restaurant Line Checks</CardTitle>
           <CardDescription>
             Manage your daily, weekly, and monthly checklists
           </CardDescription>
