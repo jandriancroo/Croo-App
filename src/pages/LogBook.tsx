@@ -18,12 +18,15 @@ import { Label } from "@/components/ui/label";
 import { useUserRole } from "@/hooks/useUserRole";
 import { ManageCategoriesDialog } from "@/components/logbook/ManageCategoriesDialog";
 import { useSearchParams } from "react-router-dom";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function LogBook() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAdmin } = useUserRole();
+  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [searchQuery, setSearchQuery] = useState("");
@@ -258,16 +261,31 @@ export default function LogBook() {
           </TabsList>
 
           <TabsContent value="entry" className="space-y-4">
-            {/* Category Tabs */}
-            <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-              <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
-                {categories.map((category: any) => (
-                  <TabsTrigger key={category.id} value={category.id} className="text-xs sm:text-sm whitespace-nowrap">
-                    {category.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            {/* Category Selection - Dropdown on mobile/tablet, Tabs on desktop */}
+            {isMobile ? (
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category: any) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
+                <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
+                  {categories.map((category: any) => (
+                    <TabsTrigger key={category.id} value={category.id} className="text-xs sm:text-sm whitespace-nowrap">
+                      {category.name}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            )}
 
             <Card>
               <CardHeader>
