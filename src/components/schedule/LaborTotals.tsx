@@ -1,6 +1,8 @@
 import { useMemo, useEffect, useState } from 'react';
 import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import { Input } from '@/components/ui/input';
+import { toast } from 'sonner';
 
 interface Profile {
   id: string;
@@ -21,12 +23,16 @@ interface LaborTotalsProps {
   shifts: ScheduledShift[];
   profiles: Profile[];
   currentWeekStart: Date;
+  scheduleId?: string | null;
+  isEditable?: boolean;
 }
 
-export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsProps) {
+export function LaborTotals({ shifts, profiles, currentWeekStart, scheduleId, isEditable = false }: LaborTotalsProps) {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   const [shiftWages, setShiftWages] = useState<Record<string, number>>({});
   const [isLoadingWages, setIsLoadingWages] = useState(true);
+  const [projectedSales, setProjectedSales] = useState<Record<number, number>>({});
+  const [isLoadingSales, setIsLoadingSales] = useState(true);
 
   useEffect(() => {
     const fetchWages = async () => {
@@ -87,6 +93,61 @@ export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsP
     }
   }, [shifts]);
 
+  useEffect(() => {
+    const fetchProjectedSales = async () => {
+      if (!scheduleId) {
+        setIsLoadingSales(false);
+        return;
+      }
+
+      setIsLoadingSales(true);
+      try {
+        const { data, error } = await supabase
+          .from('schedule_projected_sales')
+          .select('*')
+          .eq('schedule_id', scheduleId);
+
+        if (error) throw error;
+
+        const sales: Record<number, number> = {};
+        data?.forEach(item => {
+          sales[item.day_of_week] = Number(item.projected_sales);
+        });
+        setProjectedSales(sales);
+      } catch (error) {
+        console.error('Error fetching projected sales:', error);
+      } finally {
+        setIsLoadingSales(false);
+      }
+    };
+
+    fetchProjectedSales();
+  }, [scheduleId]);
+
+  const handleSalesChange = async (dayIndex: number, value: string) => {
+    if (!scheduleId) return;
+
+    const numValue = parseFloat(value) || 0;
+    setProjectedSales(prev => ({ ...prev, [dayIndex]: numValue }));
+
+    try {
+      const { error } = await supabase
+        .from('schedule_projected_sales')
+        .upsert({
+          schedule_id: scheduleId,
+          day_of_week: dayIndex,
+          projected_sales: numValue
+        }, {
+          onConflict: 'schedule_id,day_of_week'
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving projected sales:', error);
+      toast.error('Failed to save projected sales');
+    }
+  };
+
   const dailyTotals = useMemo(() => {
     return weekDays.map((day, dayIndex) => {
       const dayShifts = shifts.filter(s => s.day_of_week === dayIndex);
@@ -135,7 +196,8 @@ export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsP
 
   return (
     <div className="border-t border-border bg-muted/30">
-      <div className="grid grid-cols-8 gap-0">
+      {/* Daily Labor Totals */}
+      <div className="grid grid-cols-8 gap-0 border-b border-border">
         <div className="p-3 border-r border-border">
           <p className="text-sm font-semibold">Daily Totals</p>
         </div>
@@ -151,6 +213,64 @@ export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsP
             )}
           </div>
         ))}
+      </div>
+
+      {/* Projected Sales Row */}
+      <div className="grid grid-cols-8 gap-0 border-b border-border">
+        <div className="p-3 border-r border-border">
+          <p className="text-sm font-semibold">Projected Sales</p>
+        </div>
+        {weekDays.map((day, index) => (
+          <div key={index} className="p-2 border-r last:border-r-0 border-border text-center">
+            {isEditable ? (
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={projectedSales[index] || ''}
+                onChange={(e) => handleSalesChange(index, e.target.value)}
+                className="h-8 text-center text-sm"
+                placeholder="$0"
+              />
+            ) : (
+              <p className="text-sm">
+                {isLoadingSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
+              </p>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Labor Percentage Row */}
+      <div className="grid grid-cols-8 gap-0">
+        <div className="p-3 border-r border-border">
+          <p className="text-sm font-semibold">Labor %</p>
+        </div>
+        {dailyTotals.map((day, index) => {
+          const sales = projectedSales[index] || 0;
+          const laborPercent = sales > 0 ? (day.wages / sales) * 100 : 0;
+          const isGood = laborPercent > 0 && laborPercent <= 30;
+          const isWarning = laborPercent > 30 && laborPercent <= 35;
+          const isBad = laborPercent > 35;
+
+          return (
+            <div key={index} className="p-3 border-r last:border-r-0 border-border text-center">
+              {isLoadingWages || isLoadingSales ? (
+                <p className="text-sm text-muted-foreground">...</p>
+              ) : sales > 0 ? (
+                <p className={`text-sm font-semibold ${
+                  isGood ? 'text-green-600' : 
+                  isWarning ? 'text-yellow-600' : 
+                  isBad ? 'text-red-600' : ''
+                }`}>
+                  {laborPercent.toFixed(1)}%
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">-</p>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
