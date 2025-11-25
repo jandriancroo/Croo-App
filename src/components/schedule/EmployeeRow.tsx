@@ -1,14 +1,18 @@
 import { useDroppable } from "@dnd-kit/core";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShiftCard } from "./ShiftCard";
 import { addDays } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { GripVertical } from "lucide-react";
 
 interface Profile {
   id: string;
   full_name: string;
   profile_photo_url: string | null;
   hourly_wage?: number;
+  display_order?: number;
 }
 
 interface EmployeeRowProps {
@@ -22,6 +26,7 @@ interface EmployeeRowProps {
   canTakeShifts?: boolean;
   currentUserId?: string;
   onEditShift?: (shift: any) => void;
+  isDraggable?: boolean;
 }
 
 export function EmployeeRow({ 
@@ -34,10 +39,29 @@ export function EmployeeRow({
   onUpdate, 
   canTakeShifts, 
   currentUserId, 
-  onEditShift 
+  onEditShift,
+  isDraggable = false
 }: EmployeeRowProps) {
   const navigate = useNavigate();
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: profile.id,
+    disabled: !isDraggable || profile.id === "unassigned",
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   const calculateTotalHours = () => {
     let totalHours = 0;
@@ -75,19 +99,30 @@ export function EmployeeRow({
   };
 
   return (
-    <div className="grid grid-cols-8 gap-0 border-b border-dotted border-border/50">
+    <div ref={setNodeRef} style={style} className="grid grid-cols-8 gap-0 border-b border-dotted border-border/50">
       <div className="flex flex-col justify-center gap-1 p-4 border-r border-border bg-muted/30">
         {profile.id !== "unassigned" ? (
           <>
-            <div 
-              className="flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded p-1 -m-1 transition-colors"
-              onClick={() => navigate('/users', { state: { viewUserId: profile.id } })}
-            >
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={profile.profile_photo_url || undefined} />
-                <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium">{profile.full_name}</span>
+            <div className="flex items-center gap-2">
+              {isDraggable && (
+                <button
+                  className="cursor-grab active:cursor-grabbing hover:bg-accent/50 rounded p-1 transition-colors"
+                  {...attributes}
+                  {...listeners}
+                >
+                  <GripVertical className="h-4 w-4 text-muted-foreground" />
+                </button>
+              )}
+              <div 
+                className="flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded p-1 -m-1 transition-colors flex-1"
+                onClick={() => navigate('/users', { state: { viewUserId: profile.id } })}
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={profile.profile_photo_url || undefined} />
+                  <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium">{profile.full_name}</span>
+              </div>
             </div>
             <div className="text-xs text-muted-foreground ml-10">
               {calculateTotalHours()} hrs

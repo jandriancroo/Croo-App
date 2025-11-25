@@ -14,7 +14,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
-import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor } from "@dnd-kit/core";
+import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { ShiftCard } from "@/components/schedule/ShiftCard";
 import { EventRow } from "@/components/schedule/EventRow";
 import { EmployeeRow } from "@/components/schedule/EmployeeRow";
@@ -31,6 +32,7 @@ interface Profile {
   profile_photo_url: string | null;
   role?: string;
   hourly_wage?: number;
+  display_order?: number;
 }
 
 interface ShiftTemplate {
@@ -208,7 +210,8 @@ export default function Schedule() {
             id, 
             full_name, 
             profile_photo_url,
-            hourly_wage
+            hourly_wage,
+            display_order
           `)
           .eq("is_active", true),
         
@@ -275,16 +278,23 @@ export default function Schedule() {
         const userRole = rolesResult.data?.find(r => r.user_id === profile.id);
         return {
           ...profile,
-          role: userRole?.role || 'team_member'
+          role: userRole?.role || 'team_member',
+          display_order: profile.display_order ?? 0
         };
       });
 
-      // Sort by role: admin, manager, team_member
+      // Sort by role first, then by display_order within each role
       const roleOrder = { admin: 0, manager: 1, team_member: 2 };
       profilesWithRoles.sort((a, b) => {
-        const aOrder = roleOrder[a.role as keyof typeof roleOrder] ?? 3;
-        const bOrder = roleOrder[b.role as keyof typeof roleOrder] ?? 3;
-        return aOrder - bOrder;
+        const aRoleOrder = roleOrder[a.role as keyof typeof roleOrder] ?? 3;
+        const bRoleOrder = roleOrder[b.role as keyof typeof roleOrder] ?? 3;
+        
+        // If same role, sort by display_order
+        if (aRoleOrder === bRoleOrder) {
+          return (a.display_order ?? 0) - (b.display_order ?? 0);
+        }
+        
+        return aRoleOrder - bRoleOrder;
       });
 
       setProfiles(profilesWithRoles);
@@ -348,7 +358,57 @@ export default function Schedule() {
     const { active, over } = event;
     setActiveShift(null);
 
-    if (!over || !scheduleId) return;
+    if (!over) return;
+
+    // Check if we're dragging an employee (for reordering)
+    const isEmployeeDrag = profiles.some(p => p.id === active.id);
+    
+    if (isEmployeeDrag && active.id !== over.id) {
+      // Handle employee reordering
+      const activeProfile = profiles.find(p => p.id === active.id);
+      const overProfile = profiles.find(p => p.id === over.id);
+      
+      // Only allow reordering within the same role
+      if (activeProfile && overProfile && activeProfile.role === overProfile.role) {
+        const roleProfiles = profiles.filter(p => p.role === activeProfile.role);
+        const oldIndex = roleProfiles.findIndex(p => p.id === active.id);
+        const newIndex = roleProfiles.findIndex(p => p.id === over.id);
+        
+        const reorderedRoleProfiles = arrayMove(roleProfiles, oldIndex, newIndex);
+        
+        // Update display_order for all profiles in this role
+        try {
+          await Promise.all(
+            reorderedRoleProfiles.map((profile, index) =>
+              supabase
+                .from('profiles')
+                .update({ display_order: index })
+                .eq('id', profile.id)
+            )
+          );
+          
+          // Update local state
+          const newProfiles = profiles.map(p => {
+            const reordered = reorderedRoleProfiles.find(rp => rp.id === p.id);
+            if (reordered) {
+              const newOrder = reorderedRoleProfiles.findIndex(rp => rp.id === p.id);
+              return { ...p, display_order: newOrder };
+            }
+            return p;
+          });
+          
+          setProfiles(newProfiles);
+          toast.success("Employee order updated");
+        } catch (error) {
+          console.error("Error updating employee order:", error);
+          toast.error("Failed to update employee order");
+        }
+      }
+      return;
+    }
+
+    // Handle shift drag and drop (existing logic)
+    if (!scheduleId) return;
 
     const overId = over.id as string;
     const lastHyphenIndex = overId.lastIndexOf("-");
@@ -761,7 +821,12 @@ export default function Schedule() {
           </div>
         </div>
 
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext 
+          sensors={sensors} 
+          onDragStart={handleDragStart} 
+          onDragEnd={handleDragEnd}
+          collisionDetection={closestCenter}
+        >
           <Card className="p-6 overflow-x-auto">
             {/* Week Day Headers */}
             <div className="grid grid-cols-8 gap-0 border-b-2 border-border">
@@ -803,21 +868,27 @@ export default function Schedule() {
                     <div className="px-4 py-2 font-semibold text-sm uppercase tracking-wide">
                       {roleFilter === 'team_member' ? 'Team Members' : `${roleFilter}s`}
                     </div>
-                    {roleProfiles.map((profile) => (
-                      <EmployeeRow
-                        key={profile.id}
-                        profile={profile}
-                        shifts={shifts.filter((s) => s.user_id === profile.id)}
-                        templates={templates}
-                        availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
-                        currentWeekStart={currentWeekStart}
-                        isEditable={isAdmin || isManager}
-                        onUpdate={fetchScheduleData}
-                        canTakeShifts={isAdmin || isManager}
-                        currentUserId={currentUserId || undefined}
-                        onEditShift={setEditingShift}
-                      />
-                    ))}
+                    <SortableContext
+                      items={roleProfiles.map(p => p.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {roleProfiles.map((profile) => (
+                        <EmployeeRow
+                          key={profile.id}
+                          profile={profile}
+                          shifts={shifts.filter((s) => s.user_id === profile.id)}
+                          templates={templates}
+                          availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
+                          currentWeekStart={currentWeekStart}
+                          isEditable={isAdmin || isManager}
+                          onUpdate={fetchScheduleData}
+                          canTakeShifts={isAdmin || isManager}
+                          currentUserId={currentUserId || undefined}
+                          onEditShift={setEditingShift}
+                          isDraggable={isAdmin || isManager}
+                        />
+                      ))}
+                    </SortableContext>
                   </div>
                 );
               })}
