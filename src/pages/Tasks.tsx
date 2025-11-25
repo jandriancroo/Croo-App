@@ -4,15 +4,49 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, Clock, FileCheck, Plus, Pencil } from "lucide-react";
+import { CheckCircle2, Clock, FileCheck, Plus, Pencil, MoreVertical, Trash2, EyeOff } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 export default function Tasks() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
+  const queryClient = useQueryClient();
+
+  const handleDeactivate = async (checklistId: string) => {
+    const { error } = await supabase
+      .from('checklists')
+      .update({ is_active: false })
+      .eq('id', checklistId);
+
+    if (error) {
+      toast.error("Failed to deactivate checklist");
+      return;
+    }
+
+    toast.success("Checklist deactivated");
+    queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
+  };
+
+  const handleDelete = async (checklistId: string) => {
+    const { error } = await supabase
+      .from('checklists')
+      .delete()
+      .eq('id', checklistId);
+
+    if (error) {
+      toast.error("Failed to delete checklist");
+      return;
+    }
+
+    toast.success("Checklist deleted");
+    queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
+  };
 
   // Fetch checklists for user's role
   const { data: checklists = [], isLoading: checklistsLoading } = useQuery({
@@ -176,14 +210,36 @@ export default function Tasks() {
                       </div>
                     </Button>
                     {isAdmin && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => navigate(`/edit-checklist/${checklist.id}`)}
-                        title="Edit checklist"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => navigate(`/edit-checklist/${checklist.id}`)}
+                          title="Edit checklist"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleDeactivate(checklist.id)}>
+                              <EyeOff className="h-4 w-4 mr-2" />
+                              Make Inactive
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleDelete(checklist.id)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </>
                     )}
                   </div>
                 ))}
