@@ -83,16 +83,32 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      // Fetch all active checklists (exclude dynamic templates)
+      const currentDay = new Date().getDay();
+      
+      // Fetch all active checklists
       const { data: checklistsData, error: checklistsError } = await supabase
         .from('checklists')
-        .select('*')
+        .select(`
+          *,
+          checklist_items(id, days_of_week)
+        `)
         .eq('is_active', true)
-        .neq('template_type', 'dynamic')
         .order('created_at', { ascending: false });
 
       if (checklistsError) throw checklistsError;
-      setChecklists(checklistsData || []);
+      
+      // Filter checklists - exclude dynamic templates with no items for today
+      const filteredChecklists = (checklistsData || []).filter(checklist => {
+        if (checklist.template_type === 'dynamic') {
+          const todayItems = checklist.checklist_items?.filter((item: any) => 
+            item.days_of_week && item.days_of_week.includes(currentDay)
+          );
+          return todayItems && todayItems.length > 0;
+        }
+        return true;
+      });
+      
+      setChecklists(filteredChecklists);
 
       // Fetch submissions for stats
       const { data: submissions, error: submissionsError } = await supabase
