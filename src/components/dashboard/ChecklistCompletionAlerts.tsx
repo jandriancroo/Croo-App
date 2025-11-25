@@ -110,7 +110,7 @@ export function ChecklistCompletionAlerts() {
           {alerts.slice(0, 5).map((alert: any) => (
             <button
               key={alert.id}
-              onClick={() => navigate('/tasks')}
+              onClick={() => navigate(`/complete-checklist/${alert.id}`)}
               className="block w-full text-left py-0.5 px-1 -mx-1 rounded hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
             >
               <span className="font-semibold">{alert.title}</span>
