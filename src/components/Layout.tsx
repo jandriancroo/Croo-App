@@ -166,7 +166,7 @@ export const Layout = ({
             </Button>
           </div>
 
-          {isMobile && <Button variant="outline" onClick={signOut} size="sm" className="gap-2 px-2 text-destructive hover:text-destructive text-right">
+          {isMobile && <Button variant="outline" onClick={signOut} size="sm" className="gap-2 text-destructive hover:text-destructive text-right px-[5px] mx-[125px]">
               <DoorOpen className="h-3.5 w-3.5" />
             </Button>}
         </div>
