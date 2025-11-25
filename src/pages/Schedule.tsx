@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown, ChevronUp } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -101,6 +101,7 @@ export default function Schedule() {
   const [clearScheduleDialogOpen, setClearScheduleDialogOpen] = useState(false);
   const [copyScheduleDialogOpen, setCopyScheduleDialogOpen] = useState(false);
   const [weeksToAdd, setWeeksToAdd] = useState(1);
+  const [laborTotalsExpanded, setLaborTotalsExpanded] = useState(true);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -835,15 +836,6 @@ export default function Schedule() {
                 onEditShift={setEditingShift}
               />
             </div>
-
-            {/* Labor Totals */}
-            <LaborTotals
-              shifts={shifts}
-              profiles={profiles}
-              currentWeekStart={currentWeekStart}
-              scheduleId={scheduleId}
-              isEditable={isAdmin || isManager}
-            />
           </Card>
 
           {/* Floating Templates Bar - Bottom */}
@@ -851,14 +843,39 @@ export default function Schedule() {
             <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-border shadow-lg z-50">
               <div className="max-w-screen-2xl mx-auto px-6 py-3">
                 <div className="space-y-2">
-                  {/* Labor Totals Summary */}
-                  <LaborTotals
-                    shifts={shifts}
-                    profiles={profiles}
-                    currentWeekStart={currentWeekStart}
-                    scheduleId={scheduleId}
-                    isEditable={isAdmin || isManager}
-                  />
+                  {/* Labor Totals Toggle Button */}
+                  <div className="flex items-center justify-between border-b border-border pb-2">
+                    <h3 className="font-semibold text-sm">Schedule Tools</h3>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setLaborTotalsExpanded(!laborTotalsExpanded)}
+                      className="h-7"
+                    >
+                      {laborTotalsExpanded ? (
+                        <>
+                          <ChevronDown className="h-4 w-4 mr-1" />
+                          Hide Totals
+                        </>
+                      ) : (
+                        <>
+                          <ChevronUp className="h-4 w-4 mr-1" />
+                          Show Totals
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  {/* Labor Totals Summary - Collapsible */}
+                  {laborTotalsExpanded && (
+                    <LaborTotals
+                      shifts={shifts}
+                      profiles={profiles}
+                      currentWeekStart={currentWeekStart}
+                      scheduleId={scheduleId}
+                      isEditable={isAdmin || isManager}
+                    />
+                  )}
                   
                   {/* Shift Templates */}
                   <div className="flex items-center gap-4 border-t border-border pt-2">
