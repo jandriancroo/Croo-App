@@ -28,7 +28,7 @@ export const Layout = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const mainNavItems = [{
     path: '/',
-    label: 'Dashboard',
+    label: 'Dash',
     icon: Home
   }, {
     path: '/tasks',
@@ -62,7 +62,7 @@ export const Layout = ({
   }] : [])];
   const mobileMainNavItems = [{
     path: '/',
-    label: 'Dashboard',
+    label: 'Dash',
     icon: Home
   }, {
     path: '/tasks',
