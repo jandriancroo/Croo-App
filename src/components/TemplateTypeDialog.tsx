@@ -38,33 +38,31 @@ export function TemplateTypeDialog({ open, onOpenChange }: TemplateTypeDialogPro
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <Button
-            variant="outline"
-            className="h-auto p-4 text-left flex flex-col items-start gap-2"
+          <button
             onClick={handleSelectStandard}
+            className="text-left p-4 border rounded-lg hover:bg-accent transition-colors"
           >
-            <div className="flex items-center gap-2 w-full">
+            <div className="flex items-center gap-3 mb-2">
               <FileText className="h-5 w-5 flex-shrink-0" />
               <span className="font-semibold">Standard Checklist</span>
             </div>
-            <p className="text-xs text-muted-foreground pl-7">
+            <p className="text-sm text-muted-foreground">
               Create a regular checklist that can be completed daily, weekly, or monthly
             </p>
-          </Button>
+          </button>
           
-          <Button
-            variant="outline"
-            className="h-auto p-4 text-left flex flex-col items-start gap-2"
+          <button
             onClick={handleSelectDynamic}
+            className="text-left p-4 border rounded-lg hover:bg-accent transition-colors"
           >
-            <div className="flex items-center gap-2 w-full">
+            <div className="flex items-center gap-3 mb-2">
               <Calendar className="h-5 w-5 flex-shrink-0" />
               <span className="font-semibold">Dynamic Weekly Template</span>
             </div>
-            <p className="text-xs text-muted-foreground pl-7">
+            <p className="text-sm text-muted-foreground">
               Create a weekly template where different tasks are assigned to specific days
             </p>
-          </Button>
+          </button>
         </div>
       </DialogContent>
     </Dialog>
