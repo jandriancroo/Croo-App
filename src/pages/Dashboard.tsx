@@ -274,9 +274,6 @@ export default function Dashboard() {
   const sections = {
     'alerts': (
       <div className="space-y-6">
-        <div className="flex justify-end mb-4">
-          <LocationSelector />
-        </div>
         <ChecklistCompletionAlerts />
         <LogBookAlerts />
         <CertificationAlerts />
@@ -541,7 +538,8 @@ export default function Dashboard() {
             <h2 className="text-3xl font-bold">Dashboard</h2>
             <p className="text-muted-foreground">Manage your line check checklists</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <LocationSelector />
             {isEditMode && (
               <Button onClick={resetLayout} variant="outline" size="sm">
                 Reset Layout
@@ -550,10 +548,10 @@ export default function Dashboard() {
             <Button
               onClick={toggleEditMode}
               variant={isEditMode ? 'default' : 'outline'}
-              size="sm"
+              size="icon"
+              title={isEditMode ? "Save Layout" : "Edit Layout"}
             >
-              <Settings className="h-4 w-4 mr-2" />
-              {isEditMode ? 'Done' : 'Edit Layout'}
+              <Settings className="h-4 w-4" />
             </Button>
           </div>
         </div>
