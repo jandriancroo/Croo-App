@@ -24,12 +24,15 @@ interface ChecklistItem {
   reference_link?: string;
   reference_video_url?: string;
   reference_notes?: string;
+  days_of_week?: number[]; // 0=Sunday, 1=Monday, etc.
 }
 
 export default function CreateChecklist() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [dueByTime, setDueByTime] = useState('');
+  const [templateType, setTemplateType] = useState<'standard' | 'weekly'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [items, setItems] = useState<ChecklistItem[]>([
     { question: '', item_type: 'text', is_required: true }
@@ -40,6 +43,8 @@ export default function CreateChecklist() {
   const { user } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   useEffect(() => {
     if (!roleLoading && !isAdmin) {
@@ -157,13 +162,103 @@ export default function CreateChecklist() {
     setLoading(true);
 
     try {
-      // Create checklist
+      if (templateType === 'weekly') {
+        // For weekly templates, generate daily checklists
+        await generateDailyChecklists();
+      } else {
+        // Standard checklist creation
+        await createStandardChecklist();
+      }
+
+      toast.success('Checklist created successfully!');
+      navigate('/tasks');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create checklist');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createStandardChecklist = async () => {
+    // Create checklist
+    const { data: checklist, error: checklistError } = await supabase
+      .from('checklists')
+      .insert({
+        title,
+        description,
+        frequency,
+        due_by_time: dueByTime || null,
+        template_type: 'standard',
+        created_by: user?.id,
+      })
+      .select()
+      .single();
+
+    if (checklistError) throw checklistError;
+
+    // Create checklist items
+    const itemsToInsert = items.map((item, index) => ({
+      checklist_id: checklist.id,
+      question: item.question,
+      item_type: item.item_type,
+      options: item.item_type === 'multiple_choice' ? item.options : null,
+      order_index: index,
+      is_required: item.is_required,
+      reference_image_url: item.reference_image_url || null,
+      reference_link: item.reference_link || null,
+      reference_video_url: item.reference_video_url || null,
+      reference_notes: item.reference_notes || null,
+    }));
+
+    const { error: itemsError } = await supabase
+      .from('checklist_items')
+      .insert(itemsToInsert);
+
+    if (itemsError) throw itemsError;
+
+    // Create role tags if any roles are selected
+    if (selectedRoles.length > 0) {
+      const roleTagsToInsert = selectedRoles.map(role => ({
+        checklist_id: checklist.id,
+        role: role as 'admin' | 'manager' | 'team_member',
+      }));
+
+      const { error: roleTagsError } = await supabase
+        .from('checklist_role_tags')
+        .insert(roleTagsToInsert);
+
+      if (roleTagsError) throw roleTagsError;
+    }
+  };
+
+  const generateDailyChecklists = async () => {
+    // Group items by day of week
+    const itemsByDay: { [key: number]: ChecklistItem[] } = {};
+    
+    items.forEach(item => {
+      if (item.days_of_week && item.days_of_week.length > 0) {
+        item.days_of_week.forEach(day => {
+          if (!itemsByDay[day]) {
+            itemsByDay[day] = [];
+          }
+          itemsByDay[day].push(item);
+        });
+      }
+    });
+
+    // Create a checklist for each day that has items
+    for (const [dayStr, dayItems] of Object.entries(itemsByDay)) {
+      const day = parseInt(dayStr);
+      const dayName = dayNames[day];
+      
       const { data: checklist, error: checklistError } = await supabase
         .from('checklists')
         .insert({
-          title,
-          description,
-          frequency,
+          title: `${title} - ${dayName}`,
+          description: description || `Daily deep cleaning for ${dayName}`,
+          frequency: 'daily',
+          due_by_time: dueByTime || null,
+          template_type: 'standard',
           created_by: user?.id,
         })
         .select()
@@ -171,8 +266,8 @@ export default function CreateChecklist() {
 
       if (checklistError) throw checklistError;
 
-      // Create checklist items
-      const itemsToInsert = items.map((item, index) => ({
+      // Create items for this day
+      const itemsToInsert = dayItems.map((item, index) => ({
         checklist_id: checklist.id,
         question: item.question,
         item_type: item.item_type,
@@ -204,13 +299,6 @@ export default function CreateChecklist() {
 
         if (roleTagsError) throw roleTagsError;
       }
-
-      toast.success('Checklist created successfully!');
-      navigate('/');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to create checklist');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -260,6 +348,34 @@ export default function CreateChecklist() {
                     <SelectItem value="monthly">Monthly</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="due_by_time">Due By Time (Optional)</Label>
+                <Input
+                  id="due_by_time"
+                  type="time"
+                  value={dueByTime}
+                  onChange={(e) => setDueByTime(e.target.value)}
+                  placeholder="e.g., 14:00"
+                />
+                <p className="text-xs text-muted-foreground">Suggested completion time for this checklist</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="template_type">Template Type</Label>
+                <Select value={templateType} onValueChange={(value: any) => setTemplateType(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="standard">Standard Checklist</SelectItem>
+                    <SelectItem value="weekly">Weekly Template (Generate Daily Checklists)</SelectItem>
+                  </SelectContent>
+                </Select>
+                {templateType === 'weekly' && (
+                  <p className="text-xs text-muted-foreground">
+                    Items will be organized by day of week and generate separate daily checklists
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>Assigned Roles (Optional)</Label>
@@ -383,6 +499,34 @@ export default function CreateChecklist() {
                               placeholder="e.g., Yes, No, N/A"
                               required
                             />
+                          </div>
+                        )}
+
+                        {templateType === 'weekly' && (
+                          <div className="space-y-2">
+                            <Label>Days of Week</Label>
+                            <div className="grid grid-cols-4 gap-2">
+                              {dayNames.map((day, dayIndex) => (
+                                <div key={dayIndex} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`item-${index}-day-${dayIndex}`}
+                                    checked={item.days_of_week?.includes(dayIndex) || false}
+                                    onCheckedChange={(checked) => {
+                                      const currentDays = item.days_of_week || [];
+                                      if (checked) {
+                                        updateItem(index, 'days_of_week', [...currentDays, dayIndex].sort());
+                                      } else {
+                                        updateItem(index, 'days_of_week', currentDays.filter(d => d !== dayIndex));
+                                      }
+                                    }}
+                                  />
+                                  <Label htmlFor={`item-${index}-day-${dayIndex}`} className="text-sm font-normal">
+                                    {day.substring(0, 3)}
+                                  </Label>
+                                </div>
+                              ))}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Select which days this item appears on</p>
                           </div>
                         )}
 
