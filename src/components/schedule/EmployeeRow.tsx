@@ -117,20 +117,20 @@ export function EmployeeRow({
             className="flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded p-1 transition-colors flex-1 min-w-0"
             onClick={() => navigate('/users', { state: { viewUserId: profile.id } })}
           >
-            <Avatar className="h-6 w-6 flex-shrink-0">
+            <Avatar className="h-7 w-7 flex-shrink-0">
               <AvatarImage src={profile.profile_photo_url || undefined} />
-              <AvatarFallback className="text-[10px]">{profile.full_name.charAt(0)}</AvatarFallback>
+              <AvatarFallback className="text-xs">{profile.full_name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium truncate">{profile.full_name}</p>
-              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+              <p className="text-sm font-medium truncate">{profile.full_name}</p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>{calculateTotalHours()}h</span>
                 <span className="text-primary font-semibold">${calculateTotalWages()}</span>
               </div>
             </div>
           </div>
         ) : (
-          <span className="text-xs font-medium text-muted-foreground">Unassigned</span>
+          <span className="text-sm font-medium text-muted-foreground">Unassigned</span>
         )}
       </div>
 
