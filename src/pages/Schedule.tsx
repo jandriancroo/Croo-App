@@ -7,10 +7,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
@@ -930,41 +931,48 @@ export default function Schedule() {
           {(isAdmin || isManager) && (
             <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-border shadow-lg z-50">
               <div className="max-w-screen-2xl mx-auto px-4 py-2">
-                <div className="space-y-1">
+                <Collapsible defaultOpen={true}>
                   {/* Labor Totals Header */}
-                  <div className="border-b border-border pb-1">
+                  <div className="border-b border-border pb-1 flex items-center justify-between">
                     <h3 className="font-semibold text-xs">Schedule Tools</h3>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </CollapsibleTrigger>
                   </div>
 
-                  {/* Labor Totals Summary */}
-                  <LaborTotals
-                    shifts={shifts}
-                    profiles={profiles}
-                    currentWeekStart={currentWeekStart}
-                    scheduleId={scheduleId}
-                    isEditable={isAdmin || isManager}
-                  />
-                  
-                  {/* Shift Templates */}
-                  <div className="flex items-center gap-3 border-t border-border pt-1">
-                    <h3 className="font-semibold whitespace-nowrap text-xs">Templates:</h3>
-                    {templates.length > 0 ? (
-                      <div className="flex gap-2 overflow-x-auto flex-1">
-                        {templates.map((template) => (
-                          <ShiftCard key={template.id} shift={{ template, isTemplate: true }} />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <p className="text-muted-foreground text-xs">No templates</p>
-                        <Button size="sm" onClick={() => navigate("/shift-templates")} className="h-6 text-xs px-2">
-                          <Plus className="h-3 w-3 mr-1" />
-                          Create
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  <CollapsibleContent>
+                    {/* Labor Totals Summary */}
+                    <LaborTotals
+                      shifts={shifts}
+                      profiles={profiles}
+                      currentWeekStart={currentWeekStart}
+                      scheduleId={scheduleId}
+                      isEditable={isAdmin || isManager}
+                    />
+                    
+                    {/* Shift Templates */}
+                    <div className="flex items-center gap-3 border-t border-border pt-1">
+                      <h3 className="font-semibold whitespace-nowrap text-xs">Templates:</h3>
+                      {templates.length > 0 ? (
+                        <div className="flex gap-2 overflow-x-auto flex-1">
+                          {templates.map((template) => (
+                            <ShiftCard key={template.id} shift={{ template, isTemplate: true }} />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <p className="text-muted-foreground text-xs">No templates</p>
+                          <Button size="sm" onClick={() => navigate("/shift-templates")} className="h-6 text-xs px-2">
+                            <Plus className="h-3 w-3 mr-1" />
+                            Create
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
             </div>
           )}
