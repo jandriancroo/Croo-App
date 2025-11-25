@@ -94,6 +94,7 @@ export default function Dashboard() {
           checklist_items(id, days_of_week)
         `)
         .eq('is_active', true)
+        .order('display_order', { ascending: true })
         .order('created_at', { ascending: false });
 
       if (checklistsError) throw checklistsError;

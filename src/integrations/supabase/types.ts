@@ -425,6 +425,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           description: string | null
+          display_order: number | null
           due_by_time: string | null
           frequency: string
           id: string
@@ -438,6 +439,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          display_order?: number | null
           due_by_time?: string | null
           frequency: string
           id?: string
@@ -451,6 +453,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          display_order?: number | null
           due_by_time?: string | null
           frequency?: string
           id?: string

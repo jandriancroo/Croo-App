@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, Clock, FileCheck, Plus, Pencil, MoreVertical, Trash2, EyeOff, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react";
+import { CheckCircle2, Clock, FileCheck, Plus, Pencil, MoreVertical, Trash2, EyeOff, ChevronLeft, ChevronRight, AlertCircle, GripVertical } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -15,6 +15,9 @@ import { TemplateTypeDialog } from "@/components/TemplateTypeDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { format, addDays, subDays } from "date-fns";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { SortableChecklistItem } from '@/components/tasks/SortableChecklistItem';
 
 export default function Tasks() {
   const navigate = useNavigate();
@@ -23,6 +26,43 @@ export default function Tasks() {
   const queryClient = useQueryClient();
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [historyDate, setHistoryDate] = useState(new Date());
+  const [isReordering, setIsReordering] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor)
+  );
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = checklists.findIndex((c: any) => c.id === active.id);
+    const newIndex = checklists.findIndex((c: any) => c.id === over.id);
+    
+    const reorderedChecklists = arrayMove(checklists, oldIndex, newIndex);
+    
+    // Update display_order for all affected checklists
+    const updates = reorderedChecklists.map((checklist: any, index: number) => ({
+      id: checklist.id,
+      display_order: index,
+    }));
+
+    try {
+      for (const update of updates) {
+        await supabase
+          .from('checklists')
+          .update({ display_order: update.display_order })
+          .eq('id', update.id);
+      }
+      
+      toast.success("Checklist order updated");
+      queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
+      queryClient.invalidateQueries({ queryKey: ['checklists'] });
+    } catch (error) {
+      toast.error("Failed to update order");
+    }
+  };
 
   const handleDeactivate = async (checklistId: string) => {
     const { error } = await supabase
@@ -73,7 +113,7 @@ export default function Tasks() {
           checklist_items(id, days_of_week)
         `)
         .eq('is_active', true)
-        .order('due_by_time', { ascending: true, nullsFirst: false });
+        .order('display_order', { ascending: true });
 
       if (error) throw error;
 
@@ -156,7 +196,8 @@ export default function Tasks() {
           template_type,
           checklist_items(id, days_of_week)
         `)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
 
       if (!checklistsData) return [];
 
@@ -290,80 +331,56 @@ export default function Tasks() {
             {/* Available Checklists */}
             <Card>
               <CardHeader>
-                <CardTitle>Available Checklists</CardTitle>
-                <CardDescription>Select a checklist to complete</CardDescription>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Available Checklists</CardTitle>
+                    <CardDescription>Select a checklist to complete</CardDescription>
+                  </div>
+                  {isAdmin && checklists.length > 1 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsReordering(!isReordering)}
+                    >
+                      {isReordering ? "Done" : "Reorder"}
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
                 {checklists.length === 0 ? (
                   <p className="text-center text-muted-foreground py-8">No checklists available for today</p>
                 ) : (
-                  <div className="space-y-2">
-                    {checklists.map((checklist: any) => {
-                      const isDynamic = checklist.template_type === 'dynamic';
-                      return (
-                        <div key={checklist.id} className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            className="flex-1 justify-start"
-                            onClick={() => navigate(`/complete-checklist/${checklist.id}`)}
-                          >
-                            <FileCheck className="h-4 w-4 mr-2" />
-                            <div className="flex-1 text-left">
-                              <div className="font-medium">
-                                {checklist.title}
-                                {isDynamic && (
-                                  <span className="ml-2 text-xs font-normal text-muted-foreground">
-                                    ({dayNames[currentDay]})
-                                  </span>
-                                )}
-                              </div>
-                              {checklist.description && (
-                                <div className="text-xs text-muted-foreground">{checklist.description}</div>
-                              )}
-                            </div>
-                          </Button>
-                          {isAdmin && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => {
-                                  if (isDynamic) {
-                                    navigate(`/dynamic-checklist/${checklist.id}`);
-                                  } else {
-                                    navigate(`/edit-checklist/${checklist.id}`);
-                                  }
-                                }}
-                                title="Edit checklist"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon">
-                                    <MoreVertical className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handleDeactivate(checklist.id)}>
-                                    <EyeOff className="h-4 w-4 mr-2" />
-                                    Make Inactive
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem 
-                                    onClick={() => handleDelete(checklist.id)}
-                                    className="text-destructive"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={checklists.map((c: any) => c.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-2">
+                        {checklists.map((checklist: any) => {
+                          const isDynamic = checklist.template_type === 'dynamic';
+                          return (
+                            <SortableChecklistItem
+                              key={checklist.id}
+                              checklist={checklist}
+                              isDynamic={isDynamic}
+                              isReordering={isReordering}
+                              isAdmin={isAdmin}
+                              currentDay={currentDay}
+                              dayNames={dayNames}
+                              onNavigate={navigate}
+                              onDeactivate={handleDeactivate}
+                              onDelete={handleDelete}
+                            />
+                          );
+                        })}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
                 )}
               </CardContent>
             </Card>
