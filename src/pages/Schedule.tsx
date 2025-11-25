@@ -951,28 +951,28 @@ export default function Schedule() {
                       scheduleId={scheduleId}
                       isEditable={isAdmin || isManager}
                     />
-                    
-                    {/* Shift Templates */}
-                    <div className="flex items-center gap-3 border-t border-border pt-1">
-                      <h3 className="font-semibold whitespace-nowrap text-xs">Templates:</h3>
-                      {templates.length > 0 ? (
-                        <div className="flex gap-2 overflow-x-auto flex-1">
-                          {templates.map((template) => (
-                            <ShiftCard key={template.id} shift={{ template, isTemplate: true }} />
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <p className="text-muted-foreground text-xs">No templates</p>
-                          <Button size="sm" onClick={() => navigate("/shift-templates")} className="h-6 text-xs px-2">
-                            <Plus className="h-3 w-3 mr-1" />
-                            Create
-                          </Button>
-                        </div>
-                      )}
-                    </div>
                   </CollapsibleContent>
                 </Collapsible>
+                
+                {/* Shift Templates - Always visible */}
+                <div className="flex items-center gap-3 border-t border-border pt-1">
+                  <h3 className="font-semibold whitespace-nowrap text-xs">Templates:</h3>
+                  {templates.length > 0 ? (
+                    <div className="flex gap-2 overflow-x-auto flex-1">
+                      {templates.map((template) => (
+                        <ShiftCard key={template.id} shift={{ template, isTemplate: true }} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <p className="text-muted-foreground text-xs">No templates</p>
+                      <Button size="sm" onClick={() => navigate("/shift-templates")} className="h-6 text-xs px-2">
+                        <Plus className="h-3 w-3 mr-1" />
+                        Create
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
