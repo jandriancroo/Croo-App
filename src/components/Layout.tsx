@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardList, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -33,7 +33,7 @@ export const Layout = ({
   }, {
     path: '/tasks',
     label: 'Tasks',
-    icon: ClipboardList
+    icon: ClipboardCheck
   }, {
     path: '/logbook',
     label: 'Logs',
@@ -67,7 +67,7 @@ export const Layout = ({
   }, {
     path: '/tasks',
     label: 'Tasks',
-    icon: ClipboardList
+    icon: ClipboardCheck
   }, {
     path: '/schedule',
     label: 'Schedule',
