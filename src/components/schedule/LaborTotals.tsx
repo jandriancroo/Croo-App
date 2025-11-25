@@ -33,25 +33,46 @@ export function LaborTotals({ shifts, profiles, currentWeekStart }: LaborTotalsP
       setIsLoadingWages(true);
       const wages: Record<string, number> = {};
       
-      // Fetch wage for each shift individually based on shift date
+      // Group shifts by user to reduce queries
+      const shiftsByUser = shifts.reduce((acc, shift) => {
+        if (!shift.user_id) return acc;
+        if (!acc[shift.user_id]) acc[shift.user_id] = [];
+        acc[shift.user_id].push(shift);
+        return acc;
+      }, {} as Record<string, ScheduledShift[]>);
+
+      // Fetch wages for all users in parallel, one query per user
       await Promise.all(
-        shifts.map(async (shift) => {
-          if (!shift.user_id) return;
+        Object.entries(shiftsByUser).map(async ([userId, userShifts]) => {
+          // Get unique dates for this user
+          const uniqueDates = [...new Set(userShifts.map(s => s.shift_date))];
           
-          try {
-            const { data, error } = await supabase.rpc('get_current_wage', {
-              p_user_id: shift.user_id,
-              p_date: shift.shift_date
-            });
-            
-            if (!error && data !== null) {
-              wages[shift.id] = data;
-            } else if (error) {
-              console.error('Error fetching wage for shift:', shift.id, error);
+          // Fetch wage for each unique date
+          const userWages = await Promise.all(
+            uniqueDates.map(async (date) => {
+              try {
+                const { data, error } = await supabase.rpc('get_current_wage', {
+                  p_user_id: userId,
+                  p_date: date
+                });
+                
+                if (!error && data !== null) {
+                  return { date, wage: data };
+                }
+              } catch (error) {
+                console.error('Error fetching wage:', error);
+              }
+              return null;
+            })
+          );
+
+          // Map wages to shifts
+          userShifts.forEach(shift => {
+            const wageData = userWages.find(w => w?.date === shift.shift_date);
+            if (wageData) {
+              wages[shift.id] = wageData.wage;
             }
-          } catch (error) {
-            console.error('Error fetching wage:', error);
-          }
+          });
         })
       );
       
