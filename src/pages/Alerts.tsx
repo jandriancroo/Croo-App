@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, AlertTriangle, Radio } from "lucide-react";
-import { format } from "date-fns";
+import { AlertCircle, AlertTriangle, Radio, Clock } from "lucide-react";
+import { format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
 export default function Alerts() {
@@ -40,6 +40,83 @@ export default function Alerts() {
         .order('created_at', { ascending: false });
 
       return entries?.map(e => ({ ...e, type: 'logbook' })) || [];
+    },
+  });
+
+  const { data: punchClockAlerts = [] } = useQuery({
+    queryKey: ['punch-clock-alerts'],
+    queryFn: async () => {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      // Get all scheduled shifts from the last 7 days
+      const { data: shifts } = await supabase
+        .from('scheduled_shifts')
+        .select(`
+          id,
+          shift_date,
+          start_time,
+          user_id,
+          profiles(full_name, profile_photo_url)
+        `)
+        .gte('shift_date', format(sevenDaysAgo, 'yyyy-MM-dd'))
+        .lte('shift_date', format(new Date(), 'yyyy-MM-dd'))
+        .not('user_id', 'is', null);
+
+      if (!shifts) return [];
+
+      // Get all time punches for these shifts
+      const { data: punches } = await supabase
+        .from('time_punches')
+        .select('shift_id, punch_time, punch_type')
+        .in('shift_id', shifts.map(s => s.id))
+        .eq('punch_type', 'clock_in');
+
+      const alerts = [];
+      const now = new Date();
+
+      for (const shift of shifts) {
+        const shiftDateTime = parseISO(`${shift.shift_date}T${shift.start_time}`);
+        const tenMinutesAfterStart = new Date(shiftDateTime.getTime() + 10 * 60 * 1000);
+        
+        // Only consider shifts that have already started + 10 minutes
+        if (tenMinutesAfterStart > now) continue;
+
+        // Check if there's a punch for this shift
+        const punch = punches?.find(p => p.shift_id === shift.id);
+
+        if (!punch) {
+          // No punch at all - missed punch
+          alerts.push({
+            id: `missing-${shift.id}`,
+            shift_id: shift.id,
+            shift_date: shift.shift_date,
+            shift_start_time: shift.start_time,
+            status: 'missing',
+            profile: shift.profiles,
+            type: 'punch_clock',
+          });
+        } else {
+          // Check if late (more than 10 minutes after start)
+          const punchTime = new Date(punch.punch_time);
+          if (punchTime > tenMinutesAfterStart) {
+            const minutesLate = Math.floor((punchTime.getTime() - shiftDateTime.getTime()) / (1000 * 60));
+            alerts.push({
+              id: `late-${shift.id}`,
+              shift_id: shift.id,
+              shift_date: shift.shift_date,
+              shift_start_time: shift.start_time,
+              punch_time: punch.punch_time,
+              minutes_late: minutesLate,
+              status: 'late',
+              profile: shift.profiles,
+              type: 'punch_clock',
+            });
+          }
+        }
+      }
+
+      return alerts;
     },
   });
 
@@ -128,9 +205,10 @@ export default function Alerts() {
   const allAlerts = [
     ...logbookAlerts,
     ...checklistAlerts,
+    ...punchClockAlerts,
   ].sort((a, b) => {
-    const dateA = new Date(a.created_at || a.date);
-    const dateB = new Date(b.created_at || b.date);
+    const dateA = new Date(a.created_at || a.date || a.shift_date);
+    const dateB = new Date(b.created_at || b.date || b.shift_date);
     return dateB.getTime() - dateA.getTime();
   });
 
@@ -149,9 +227,12 @@ export default function Alerts() {
         </div>
 
         <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="all">
-              All Alerts ({allAlerts.length})
+              All ({allAlerts.length})
+            </TabsTrigger>
+            <TabsTrigger value="punch">
+              Punch Clock ({punchClockAlerts.length})
             </TabsTrigger>
             <TabsTrigger value="logbook">
               Log Book ({logbookAlerts.length})
@@ -175,29 +256,49 @@ export default function Alerts() {
                   className={`cursor-pointer hover:shadow-md transition-shadow ${
                     alert.type === 'logbook' 
                       ? 'border-l-4 border-l-orange-500' 
+                      : alert.type === 'punch_clock'
+                      ? 'border-l-4 border-l-blue-500'
                       : 'border-l-4 border-l-destructive'
                   }`}
-                  onClick={() => navigate(alert.type === 'logbook' ? '/logbook' : '/tasks')}
+                  onClick={() => navigate(
+                    alert.type === 'logbook' ? '/logbook' 
+                    : alert.type === 'punch_clock' ? '/payroll-review'
+                    : '/tasks'
+                  )}
                 >
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
                       <div className="flex items-start gap-3">
                         {alert.type === 'logbook' ? (
                           <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
+                        ) : alert.type === 'punch_clock' ? (
+                          <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
                         ) : (
                           <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
                         )}
                         <div>
                           <CardTitle className="text-base">
-                            {alert.type === 'logbook' ? alert.logbook_categories?.name : alert.title}
+                            {alert.type === 'logbook' 
+                              ? alert.logbook_categories?.name 
+                              : alert.type === 'punch_clock'
+                              ? `${alert.status === 'missing' ? 'Missed Punch' : 'Late Punch'} - ${alert.profile?.full_name}`
+                              : alert.title}
                           </CardTitle>
                           <CardDescription className="text-xs mt-1">
-                            {format(new Date(alert.created_at || alert.date), 'MMM d, yyyy • h:mm a')}
+                            {alert.type === 'punch_clock' 
+                              ? `${format(parseISO(alert.shift_date), 'MMM d, yyyy')} • Shift: ${alert.shift_start_time}`
+                              : format(new Date(alert.created_at || alert.date), 'MMM d, yyyy • h:mm a')}
                           </CardDescription>
                         </div>
                       </div>
-                      <Badge variant={alert.type === 'logbook' ? 'secondary' : 'destructive'}>
-                        {alert.type === 'logbook' ? 'Log Book' : 'Checklist'}
+                      <Badge variant={
+                        alert.type === 'logbook' ? 'secondary' 
+                        : alert.type === 'punch_clock' ? 'outline'
+                        : 'destructive'
+                      }>
+                        {alert.type === 'logbook' ? 'Log Book' 
+                         : alert.type === 'punch_clock' ? 'Punch Clock'
+                         : 'Checklist'}
                       </Badge>
                     </div>
                   </CardHeader>
@@ -216,6 +317,19 @@ export default function Alerts() {
                       </div>
                     </CardContent>
                   )}
+                  {alert.type === 'punch_clock' && (
+                    <CardContent className="pt-0">
+                      <div className="flex items-center gap-2">
+                        {alert.status === 'missing' ? (
+                          <Badge variant="destructive" className="text-xs">No Punch Recorded</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs border-blue-500 text-blue-700">
+                            {alert.minutes_late} minutes late
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  )}
                   {alert.type === 'checklist' && (
                     <CardContent className="pt-0">
                       <div className="flex items-center gap-2">
@@ -229,6 +343,63 @@ export default function Alerts() {
                       </div>
                     </CardContent>
                   )}
+                </Card>
+              ))
+            )}
+          </TabsContent>
+
+          <TabsContent value="punch" className="space-y-3 mt-4">
+            {punchClockAlerts.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  No punch clock alerts in the last 7 days
+                </CardContent>
+              </Card>
+            ) : (
+              punchClockAlerts.map((alert: any) => (
+                <Card 
+                  key={alert.id}
+                  className="cursor-pointer hover:shadow-md transition-shadow border-l-4 border-l-blue-500"
+                  onClick={() => navigate('/payroll-review')}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3">
+                        <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
+                        <div>
+                          <CardTitle className="text-base">
+                            {alert.status === 'missing' ? 'Missed Punch' : 'Late Punch'} - {alert.profile?.full_name}
+                          </CardTitle>
+                          <CardDescription className="text-xs mt-1">
+                            {format(parseISO(alert.shift_date), 'MMM d, yyyy')} • Shift Start: {alert.shift_start_time}
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <Badge variant="outline" className="border-blue-500">Punch Clock</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={alert.profile?.profile_photo_url || ''} />
+                          <AvatarFallback className="text-xs">
+                            {alert.profile?.full_name?.charAt(0) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm text-muted-foreground">
+                          {alert.profile?.full_name}
+                        </span>
+                      </div>
+                      {alert.status === 'missing' ? (
+                        <Badge variant="destructive" className="text-xs">No Punch</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs border-blue-500 text-blue-700">
+                          {alert.minutes_late} min late
+                        </Badge>
+                      )}
+                    </div>
+                  </CardContent>
                 </Card>
               ))
             )}

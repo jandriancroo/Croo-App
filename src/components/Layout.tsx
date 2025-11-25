@@ -29,7 +29,6 @@ export const Layout = ({ children }: LayoutProps) => {
     { path: '/logbook', label: 'Log Book', icon: BookOpen },
     { path: '/schedule', label: 'Schedule', icon: Calendar },
     { path: '/messages', label: 'Messages', icon: MessageSquare },
-    { path: '/alerts', label: 'Alerts', icon: Radio, badge: true },
   ];
 
   const timeMenuItems = [
@@ -44,11 +43,10 @@ export const Layout = ({ children }: LayoutProps) => {
     { path: '/', label: 'Dashboard', icon: Home },
     { path: '/tasks', label: 'Tasks', icon: ClipboardList },
     { path: '/schedule', label: 'Schedule', icon: Calendar },
-    { path: '/alerts', label: 'Alerts', icon: Radio, badge: true },
+    { path: '/messages', label: 'Messages', icon: MessageSquare },
   ];
 
   const mobileMenuItems = [
-    { path: '/messages', label: 'Messages', icon: MessageSquare },
     { path: '/logbook', label: 'Log Book', icon: BookOpen },
     { path: '/availability', label: 'Availability', icon: CalendarCheck },
     ...(isAdmin ? [
@@ -62,6 +60,20 @@ export const Layout = ({ children }: LayoutProps) => {
   return (
     <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-50 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        {/* Alerts Icon - Above Menu Bar */}
+        <div className="absolute top-2 right-4 z-50">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/alerts')}
+            className="relative hover:bg-muted"
+            title="Alerts"
+          >
+            <Radio className="h-5 w-5 text-destructive" />
+            <div className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 bg-destructive rounded-full animate-pulse" />
+          </Button>
+        </div>
+
         <div className={`container flex items-center ${isMobile ? 'h-16' : 'h-24'}`}>
           <button 
             onClick={() => navigate('/')}
@@ -82,13 +94,10 @@ export const Layout = ({ children }: LayoutProps) => {
                   key={item.path}
                   variant={isActive ? 'secondary' : 'ghost'}
                   onClick={() => navigate(item.path)}
-                  className="gap-2 relative"
+                  className="gap-2"
                 >
                   <Icon className="h-4 w-4 flex-shrink-0" />
                   <span className="hidden lg:inline">{item.label}</span>
-                  {item.badge && (
-                    <div className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-destructive rounded-full animate-pulse" />
-                  )}
                 </Button>
               );
             })}
@@ -189,13 +198,10 @@ export const Layout = ({ children }: LayoutProps) => {
                 variant={isActive ? 'secondary' : 'ghost'}
                 size="sm"
                 onClick={() => navigate(item.path)}
-                className="flex-col gap-0.5 h-auto py-1.5 px-2 min-w-0 relative"
+                className="flex-col gap-0.5 h-auto py-1.5 px-2 min-w-0"
               >
                 <Icon className="h-4 w-4 flex-shrink-0" />
                 <span className="text-[10px] truncate max-w-[60px]">{item.label}</span>
-                {item.badge && (
-                  <div className="absolute top-0.5 right-0.5 h-2 w-2 bg-destructive rounded-full animate-pulse" />
-                )}
               </Button>
             );
           })}
