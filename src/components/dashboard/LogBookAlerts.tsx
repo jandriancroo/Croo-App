@@ -51,7 +51,7 @@ export function LogBookAlerts() {
     <Alert className="border-orange-500 bg-orange-50 dark:bg-orange-950">
       <AlertCircle className="h-4 w-4 text-orange-600" />
       <AlertTitle className="text-orange-900 dark:text-orange-100 text-sm">
-        Recent Log Book Entries ({alerts.length})
+        Recent Logs ({alerts.length})
       </AlertTitle>
       <AlertDescription className="space-y-1 mt-1">
         <div className="text-xs text-orange-800 dark:text-orange-200 space-y-0.5">

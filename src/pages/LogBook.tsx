@@ -240,11 +240,11 @@ export default function LogBook() {
 
   return (
     <Layout>
-      <div className="container max-w-6xl mx-auto p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Log</h1>
+      <div className="container max-w-6xl mx-auto p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+          <h1 className="text-2xl md:text-3xl font-bold">Logs</h1>
           {isAdmin && (
-            <Button variant="outline" onClick={() => setManageCategoriesOpen(true)}>
+            <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>
               <Settings className="h-4 w-4 mr-2" />
               Manage Categories
             </Button>
@@ -260,9 +260,9 @@ export default function LogBook() {
           <TabsContent value="entry" className="space-y-4">
             {/* Category Tabs */}
             <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-              <TabsList className="w-full justify-start overflow-x-auto">
+              <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
                 {categories.map((category: any) => (
-                  <TabsTrigger key={category.id} value={category.id}>
+                  <TabsTrigger key={category.id} value={category.id} className="text-xs sm:text-sm whitespace-nowrap">
                     {category.name}
                   </TabsTrigger>
                 ))}
@@ -271,15 +271,15 @@ export default function LogBook() {
 
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
-                  <CardTitle>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                  <CardTitle className="text-base sm:text-lg">
                     {categories.find((c: any) => c.id === selectedCategory)?.name}
                   </CardTitle>
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" className="w-full sm:w-auto">
                         <CalendarIcon className="h-4 w-4 mr-2" />
-                        {format(selectedDate, 'PPP')}
+                        <span className="text-xs sm:text-sm">{format(selectedDate, 'PPP')}</span>
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="end">
@@ -291,7 +291,7 @@ export default function LogBook() {
                     </PopoverContent>
                   </Popover>
                 </div>
-                <CardDescription>
+                <CardDescription className="text-xs sm:text-sm">
                   {entry ? `Entry by ${entry.profiles?.full_name} at ${format(new Date(entry.created_at), 'PPp')}` : 'No entry for this date'}
                 </CardDescription>
               </CardHeader>
