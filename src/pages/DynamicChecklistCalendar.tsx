@@ -64,6 +64,63 @@ function DraggableTask({ task, onDelete }: { task: ChecklistItem; onDelete?: (id
   );
 }
 
+function UnassignedDropzone({ unassignedItems, onDelete, onQuickAdd, newQuestion, setNewQuestion, newItemType, setNewItemType }: { 
+  unassignedItems: ChecklistItem[]; 
+  onDelete: (id: string) => void; 
+  onQuickAdd: () => void;
+  newQuestion: string;
+  setNewQuestion: (value: string) => void;
+  newItemType: string;
+  setNewItemType: (value: string) => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: 'unassigned',
+  });
+
+  return (
+    <Card 
+      ref={setNodeRef} 
+      className={`p-4 lg:col-span-1 ${isOver ? "border-2 border-primary" : ""}`}
+    >
+      <h2 className="font-semibold mb-3">Unassigned Tasks</h2>
+      
+      {/* Quick Add Form */}
+      <div className="mb-4 space-y-2 pb-4 border-b">
+        <Input
+          placeholder="Task description..."
+          value={newQuestion}
+          onChange={(e) => setNewQuestion(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && onQuickAdd()}
+        />
+        <Select value={newItemType} onValueChange={setNewItemType}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="TEXT">Text</SelectItem>
+            <SelectItem value="CHECKBOX">Checkbox</SelectItem>
+            <SelectItem value="NUMBER">Number</SelectItem>
+            <SelectItem value="PHOTO">Photo</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button onClick={onQuickAdd} className="w-full" size="sm">
+          <Plus className="h-4 w-4 mr-2" />
+          Add Task
+        </Button>
+      </div>
+
+      <p className="text-sm text-muted-foreground mb-4">
+        Drag tasks to days to assign them
+      </p>
+      <div className="space-y-2">
+        {unassignedItems.map((task) => (
+          <DraggableTask key={task.id} task={task} onDelete={onDelete} />
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function DroppableDay({ dayIndex, dayName, tasks }: { dayIndex: number; dayName: string; tasks: ChecklistItem[] }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${dayIndex}`,
@@ -80,10 +137,7 @@ function DroppableDay({ dayIndex, dayName, tasks }: { dayIndex: number; dayName:
       <h3 className="font-semibold mb-3">{dayName}</h3>
       <div className="space-y-2">
         {tasks.map((task) => (
-          <div key={task.id} className="p-2 bg-muted rounded text-sm">
-            <p>{task.question}</p>
-            <p className="text-xs text-muted-foreground mt-1">{task.item_type}</p>
-          </div>
+          <DraggableTask key={task.id} task={task} />
         ))}
       </div>
     </div>
@@ -294,30 +348,33 @@ export default function DynamicChecklistCalendar() {
     const task = active.data.current?.task as ChecklistItem;
     const overId = over.id as string;
 
-    if (overId.startsWith('day-')) {
+    // Remove from current location first
+    const newUnassigned = unassignedItems.filter((item) => item.id !== task.id);
+    const newAssignedByDay = new Map(assignedByDay);
+
+    // Remove from all days
+    assignedByDay.forEach((tasks, day) => {
+      newAssignedByDay.set(
+        day,
+        tasks.filter((t) => t.id !== task.id)
+      );
+    });
+
+    if (overId === 'unassigned') {
+      // Move back to unassigned
+      newUnassigned.push(task);
+    } else if (overId.startsWith('day-')) {
+      // Move to a specific day
       const dayIndex = parseInt(overId.replace('day-', ''));
 
-      // Update local state
-      const newUnassigned = unassignedItems.filter((item) => item.id !== task.id);
-      const newAssignedByDay = new Map(assignedByDay);
-
-      // Remove from other days
-      assignedByDay.forEach((tasks, day) => {
-        newAssignedByDay.set(
-          day,
-          tasks.filter((t) => t.id !== task.id)
-        );
-      });
-
-      // Add to target day
       if (!newAssignedByDay.has(dayIndex)) {
         newAssignedByDay.set(dayIndex, []);
       }
       newAssignedByDay.get(dayIndex)!.push(task);
-
-      setUnassignedItems(newUnassigned);
-      setAssignedByDay(newAssignedByDay);
     }
+
+    setUnassignedItems(newUnassigned);
+    setAssignedByDay(newAssignedByDay);
   };
 
   const handleSave = async () => {
@@ -435,43 +492,7 @@ export default function DynamicChecklistCalendar() {
           onDragEnd={handleDragEnd}
         >
           <div className="grid lg:grid-cols-4 gap-6">
-            <Card className="p-4 lg:col-span-1">
-              <h2 className="font-semibold mb-3">Unassigned Tasks</h2>
-              
-              {/* Quick Add Form */}
-              <div className="mb-4 space-y-2 pb-4 border-b">
-                <Input
-                  placeholder="Task description..."
-                  value={newQuestion}
-                  onChange={(e) => setNewQuestion(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
-                />
-                <Select value={newItemType} onValueChange={setNewItemType}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="TEXT">Text</SelectItem>
-                    <SelectItem value="CHECKBOX">Checkbox</SelectItem>
-                    <SelectItem value="NUMBER">Number</SelectItem>
-                    <SelectItem value="PHOTO">Photo</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button onClick={handleQuickAdd} className="w-full" size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Task
-                </Button>
-              </div>
-
-              <p className="text-sm text-muted-foreground mb-4">
-                Drag tasks to days to assign them
-              </p>
-              <div className="space-y-2">
-                {unassignedItems.map((task) => (
-                  <DraggableTask key={task.id} task={task} onDelete={handleDeleteItem} />
-                ))}
-              </div>
-            </Card>
+            <UnassignedDropzone unassignedItems={unassignedItems} onDelete={handleDeleteItem} onQuickAdd={handleQuickAdd} newQuestion={newQuestion} setNewQuestion={setNewQuestion} newItemType={newItemType} setNewItemType={setNewItemType} />
 
             <div className="lg:col-span-3">
               <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
