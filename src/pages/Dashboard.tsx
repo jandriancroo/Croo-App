@@ -47,7 +47,10 @@ const STORAGE_KEY = 'dashboard-section-order';
 export default function Dashboard() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [stats, setStats] = useState<Record<string, ChecklistStats>>({});
-  const [completionData, setCompletionData] = useState<Record<string, { expected: number; completed: number }>>({});
+  const [completionData, setCompletionData] = useState<Record<string, {
+    expected: number;
+    completed: number;
+  }>>({});
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
@@ -82,54 +85,42 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData();
   }, []);
-
   useEffect(() => {
     if (checklists.length > 0) {
       loadCompletionData();
     }
   }, [checklists]);
-
   const loadCompletionData = async () => {
     const today = new Date();
     const todayStr = format(today, 'yyyy-MM-dd');
     const currentDay = today.getDay();
-    
-    const dataMap: Record<string, { expected: number; completed: number }> = {};
-
+    const dataMap: Record<string, {
+      expected: number;
+      completed: number;
+    }> = {};
     for (const checklist of checklists) {
       // Get checklist items
-      const { data: checklistItems } = await supabase
-        .from('checklist_items')
-        .select('id, days_of_week')
-        .eq('checklist_id', checklist.id);
-      
+      const {
+        data: checklistItems
+      } = await supabase.from('checklist_items').select('id, days_of_week').eq('checklist_id', checklist.id);
       let itemCount = checklistItems?.length || 0;
       if (checklist.template_type === 'dynamic' && checklistItems) {
-        itemCount = checklistItems.filter(item => 
-          item.days_of_week && item.days_of_week.includes(currentDay)
-        ).length;
+        itemCount = checklistItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).length;
       }
 
       // Get submissions and count responses for today
-      const { data: submissions } = await supabase
-        .from('checklist_submissions')
-        .select(`
+      const {
+        data: submissions
+      } = await supabase.from('checklist_submissions').select(`
           id,
           checklist_responses(id)
-        `)
-        .eq('checklist_id', checklist.id)
-        .gte('submitted_at', todayStr)
-        .lt('submitted_at', format(addDays(today, 1), 'yyyy-MM-dd'));
-
-      const completedCount = submissions?.reduce((sum, sub: any) => 
-        sum + (sub.checklist_responses?.length || 0), 0) || 0;
-
+        `).eq('checklist_id', checklist.id).gte('submitted_at', todayStr).lt('submitted_at', format(addDays(today, 1), 'yyyy-MM-dd'));
+      const completedCount = submissions?.reduce((sum, sub: any) => sum + (sub.checklist_responses?.length || 0), 0) || 0;
       dataMap[checklist.id] = {
         expected: itemCount,
         completed: completedCount
       };
     }
-
     setCompletionData(dataMap);
   };
   const fetchData = async () => {
@@ -237,7 +228,10 @@ export default function Dashboard() {
     }
   };
   const getCompletionData = (checklistId: string) => {
-    return completionData[checklistId] || { expected: 0, completed: 0 };
+    return completionData[checklistId] || {
+      expected: 0,
+      completed: 0
+    };
   };
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -257,11 +251,12 @@ export default function Dashboard() {
         <h3 className="text-xl font-semibold mb-4">Completion Status</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {checklists.map(checklist => {
-            const { expected, completed } = getCompletionData(checklist.id);
-            const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
-            
-            return (
-              <Card key={checklist.id}>
+          const {
+            expected,
+            completed
+          } = getCompletionData(checklist.id);
+          const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
+          return <Card key={checklist.id}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm font-medium truncate">{checklist.title}</CardTitle>
@@ -278,9 +273,8 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </CardContent>
-              </Card>
-            );
-          })}
+              </Card>;
+        })}
         </div>
       </div>,
     'sales-overview': <div>
@@ -376,20 +370,9 @@ export default function Dashboard() {
                   {checklist.description && <CardDescription>{checklist.description}</CardDescription>}
                 </CardHeader>
                 <CardContent className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Total completions:</span>
-                    <span className="font-semibold">{checklistStats?.total_submissions || 0}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">This week:</span>
-                    <span className="font-semibold">{checklistStats?.submissions_this_week || 0}</span>
-                  </div>
-                  {checklistStats?.last_submission && <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2 border-t">
-                      <Calendar className="h-3 w-3" />
-                      <span>
-                        Last: {new Date(checklistStats.last_submission).toLocaleDateString()}
-                      </span>
-                    </div>}
+                  
+                  
+                  {checklistStats?.last_submission}
                   <Button className="w-full mt-4" onClick={() => navigate(`/complete/${checklist.id}`)}>
                     Complete Checklist
                   </Button>
