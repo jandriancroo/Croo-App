@@ -83,11 +83,12 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      // Fetch all active checklists
+      // Fetch all active checklists (exclude dynamic templates)
       const { data: checklistsData, error: checklistsError } = await supabase
         .from('checklists')
         .select('*')
         .eq('is_active', true)
+        .neq('template_type', 'dynamic')
         .order('created_at', { ascending: false });
 
       if (checklistsError) throw checklistsError;
@@ -468,23 +469,9 @@ export default function Dashboard() {
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <ClipboardList className="h-8 w-8 text-primary" />
-                    <div className="flex items-center gap-2">
-                      <Badge className={getFrequencyColor(checklist.frequency)}>
-                        {checklist.frequency}
-                      </Badge>
-                      {isAdmin && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/edit/${checklist.id}`);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+                    <Badge className={getFrequencyColor(checklist.frequency)}>
+                      {checklist.frequency}
+                    </Badge>
                   </div>
                   <CardTitle className="mt-4">{checklist.title}</CardTitle>
                   {checklist.description && (
