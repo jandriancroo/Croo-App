@@ -164,6 +164,7 @@ export default function Schedule() {
       const [
         shiftsResult,
         eventsResult,
+        recurringEventsResult,
         profilesResult,
         rolesResult,
         templatesResult,
@@ -178,11 +179,18 @@ export default function Schedule() {
           `)
           .eq("schedule_id", scheduleData.id),
         
-        // Fetch events
+        // Fetch events for this schedule
         supabase
           .from("schedule_events")
           .select("*")
           .eq("schedule_id", scheduleData.id),
+        
+        // Fetch recurring events (not tied to specific schedule)
+        supabase
+          .from("schedule_events")
+          .select("*")
+          .eq("is_recurring", true)
+          .is("schedule_id", null),
         
         // Fetch all profiles
         supabase
@@ -219,13 +227,36 @@ export default function Schedule() {
       if (shiftsResult.error) throw shiftsResult.error;
       setShifts(shiftsResult.data || []);
 
-      // Handle events
+      // Handle events - combine schedule-specific and recurring events
       if (eventsResult.error) throw eventsResult.error;
-      setEvents((eventsResult.data || []).map(event => ({
+      if (recurringEventsResult.error) throw recurringEventsResult.error;
+      
+      const scheduleEvents = (eventsResult.data || []).map(event => ({
         ...event,
         tagged_roles: event.tagged_roles as string[] | null,
         is_recurring: event.is_recurring ?? true
-      })));
+      }));
+      
+      const recurringEvents = (recurringEventsResult.data || []).map(event => ({
+        ...event,
+        tagged_roles: event.tagged_roles as string[] | null,
+        is_recurring: true
+      }));
+      
+      // Merge and deduplicate (schedule-specific events take precedence)
+      const allEvents = [...scheduleEvents];
+      recurringEvents.forEach(recurEvent => {
+        const exists = scheduleEvents.some(e => 
+          e.event_name === recurEvent.event_name && 
+          e.day_of_week === recurEvent.day_of_week &&
+          e.event_time === recurEvent.event_time
+        );
+        if (!exists) {
+          allEvents.push(recurEvent);
+        }
+      });
+      
+      setEvents(allEvents);
 
       // Handle profiles and roles
       if (profilesResult.error) throw profilesResult.error;
