@@ -511,6 +511,44 @@ export type Database = {
           },
         ]
       }
+      location_settings: {
+        Row: {
+          blackout_dates: string[] | null
+          created_at: string
+          hours_close: string | null
+          hours_open: string | null
+          id: string
+          location_id: string
+          updated_at: string
+        }
+        Insert: {
+          blackout_dates?: string[] | null
+          created_at?: string
+          hours_close?: string | null
+          hours_open?: string | null
+          id?: string
+          location_id: string
+          updated_at?: string
+        }
+        Update: {
+          blackout_dates?: string[] | null
+          created_at?: string
+          hours_close?: string | null
+          hours_open?: string | null
+          id?: string
+          location_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_settings_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       locations: {
         Row: {
           address: string | null

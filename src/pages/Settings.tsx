@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { format } from 'date-fns';
 import { toast as sonnerToast } from 'sonner';
 import { LocationsSection } from '@/components/settings/LocationsSection';
+import { LocationSettingsSection } from '@/components/settings/LocationSettingsSection';
 
 const themes = [
   { value: 'default', label: 'Default' },
@@ -243,6 +244,8 @@ export default function Settings() {
           </Card>
 
           {isAdmin && <LocationsSection />}
+          
+          {isAdmin && <LocationSettingsSection />}
 
           <Card>
             <CardHeader>
