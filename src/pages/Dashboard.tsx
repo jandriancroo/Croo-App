@@ -327,7 +327,7 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Hourly Sales Breakdown</CardTitle>
+            <CardTitle>Hourly Sales </CardTitle>
             <CardDescription>Sales performance by hour</CardDescription>
           </CardHeader>
           <CardContent>
@@ -354,7 +354,7 @@ export default function Dashboard() {
         </Card>
       </div>,
     'checklists-grid': <div>
-        <h3 className="text-xl font-semibold mb-4">Your Checklists</h3>
+        <h3 className="text-xl font-semibold mb-4">Tasks</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {checklists.map(checklist => {
           const checklistStats = stats[checklist.id];
