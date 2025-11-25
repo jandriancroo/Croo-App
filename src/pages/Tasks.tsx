@@ -65,7 +65,9 @@ export default function Tasks() {
           *,
           checklist_role_tags(role)
         `)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('template_type', 'standard')
+        .order('due_by_time', { ascending: true, nullsFirst: false });
 
       if (error) throw error;
 

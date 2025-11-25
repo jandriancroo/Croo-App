@@ -257,6 +257,7 @@ export type Database = {
         Row: {
           checklist_id: string
           created_at: string | null
+          days_of_week: number[] | null
           id: string
           is_required: boolean | null
           item_type: string
@@ -271,6 +272,7 @@ export type Database = {
         Insert: {
           checklist_id: string
           created_at?: string | null
+          days_of_week?: number[] | null
           id?: string
           is_required?: boolean | null
           item_type: string
@@ -285,6 +287,7 @@ export type Database = {
         Update: {
           checklist_id?: string
           created_at?: string | null
+          days_of_week?: number[] | null
           id?: string
           is_required?: boolean | null
           item_type?: string
@@ -421,9 +424,11 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           description: string | null
+          due_by_time: string | null
           frequency: string
           id: string
           is_active: boolean | null
+          template_type: string | null
           title: string
           updated_at: string | null
         }
@@ -431,9 +436,11 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          due_by_time?: string | null
           frequency: string
           id?: string
           is_active?: boolean | null
+          template_type?: string | null
           title: string
           updated_at?: string | null
         }
@@ -441,9 +448,11 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           description?: string | null
+          due_by_time?: string | null
           frequency?: string
           id?: string
           is_active?: boolean | null
+          template_type?: string | null
           title?: string
           updated_at?: string | null
         }

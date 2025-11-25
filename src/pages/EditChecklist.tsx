@@ -27,6 +27,7 @@ interface ChecklistItem {
   reference_video_url?: string;
   reference_notes?: string;
   order_index: number;
+  days_of_week?: number[];
 }
 
 interface SortableChecklistItemProps {
@@ -35,9 +36,11 @@ interface SortableChecklistItemProps {
   index: number;
   updateItem: (index: number, field: keyof ChecklistItem, value: any) => void;
   removeItem: (index: number) => void;
+  templateType: 'standard' | 'weekly';
+  dayNames: string[];
 }
 
-function SortableChecklistItem({ id, item, index, updateItem, removeItem }: SortableChecklistItemProps) {
+function SortableChecklistItem({ id, item, index, updateItem, removeItem, templateType, dayNames }: SortableChecklistItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -93,6 +96,33 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem }: Sort
           />
         )}
 
+        {templateType === 'weekly' && (
+          <div className="space-y-2">
+            <Label className="text-sm">Days of Week</Label>
+            <div className="grid grid-cols-4 gap-2">
+              {dayNames.map((day, dayIndex) => (
+                <div key={dayIndex} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`item-${index}-day-${dayIndex}`}
+                    checked={item.days_of_week?.includes(dayIndex) || false}
+                    onCheckedChange={(checked) => {
+                      const currentDays = item.days_of_week || [];
+                      if (checked) {
+                        updateItem(index, 'days_of_week', [...currentDays, dayIndex].sort());
+                      } else {
+                        updateItem(index, 'days_of_week', currentDays.filter(d => d !== dayIndex));
+                      }
+                    }}
+                  />
+                  <Label htmlFor={`item-${index}-day-${dayIndex}`} className="text-xs font-normal">
+                    {day.substring(0, 3)}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {item.item_type === 'confirmation' && (
           <Textarea
             value={item.reference_notes || ''}
@@ -117,8 +147,12 @@ export default function EditChecklist() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [frequency, setFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [dueByTime, setDueByTime] = useState('');
+  const [templateType, setTemplateType] = useState<'standard' | 'weekly'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [items, setItems] = useState<ChecklistItem[]>([]);
+
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   useEffect(() => {
     if (!roleLoading && !isAdmin) {
@@ -168,6 +202,8 @@ export default function EditChecklist() {
       setTitle(checklist.title);
       setDescription(checklist.description || '');
       setFrequency(checklist.frequency as 'daily' | 'weekly' | 'monthly');
+      setDueByTime(checklist.due_by_time || '');
+      setTemplateType((checklist.template_type || 'standard') as 'standard' | 'weekly');
       setSelectedRoles(roleTags?.map(rt => rt.role) || []);
       setItems(checklistItems.map(item => ({
         id: item.id,
@@ -181,6 +217,7 @@ export default function EditChecklist() {
         reference_video_url: item.reference_video_url || undefined,
         reference_notes: item.reference_notes || undefined,
         order_index: item.order_index,
+        days_of_week: item.days_of_week as number[] | undefined,
       })));
     } catch (error) {
       console.error('Error fetching checklist:', error);
@@ -215,6 +252,8 @@ export default function EditChecklist() {
           title,
           description,
           frequency,
+          due_by_time: dueByTime || null,
+          template_type: templateType,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id);
@@ -241,6 +280,7 @@ export default function EditChecklist() {
         reference_video_url: item.reference_video_url || null,
         reference_notes: item.reference_notes || null,
         order_index: index,
+        days_of_week: item.days_of_week || null,
       }));
 
       const { error: itemsError } = await supabase
@@ -420,6 +460,33 @@ export default function EditChecklist() {
               </Select>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="due_by_time">Due By Time (Optional)</Label>
+              <Input
+                id="due_by_time"
+                type="time"
+                value={dueByTime}
+                onChange={(e) => setDueByTime(e.target.value)}
+              />
+              <p className="text-sm text-muted-foreground">Suggested completion time</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="template_type">Template Type</Label>
+              <Select value={templateType} onValueChange={(value: 'standard' | 'weekly') => setTemplateType(value)}>
+                <SelectTrigger id="template_type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="standard">Standard Checklist</SelectItem>
+                  <SelectItem value="weekly">Weekly Template</SelectItem>
+                </SelectContent>
+              </Select>
+              {templateType === 'weekly' && (
+                <p className="text-xs text-muted-foreground">
+                  Assign items to specific days of the week
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
               <Label>Assigned Roles (Optional)</Label>
               <p className="text-sm text-muted-foreground mb-2">
                 If no roles are selected, all users can see this checklist
@@ -464,6 +531,8 @@ export default function EditChecklist() {
                     index={index}
                     updateItem={updateItem}
                     removeItem={removeItem}
+                    templateType={templateType}
+                    dayNames={dayNames}
                   />
                 ))}
               </SortableContext>
