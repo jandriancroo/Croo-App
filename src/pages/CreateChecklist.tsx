@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Trash2, Upload, Link as LinkIcon, Video, FileText, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Upload, Link as LinkIcon, Video, FileText, Loader2, FileInput } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 
@@ -36,6 +36,7 @@ export default function CreateChecklist() {
   ]);
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState<string | null>(null);
+  const [bulkText, setBulkText] = useState('');
   const { user } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const navigate = useNavigate();
@@ -93,6 +94,61 @@ export default function CreateChecklist() {
       toast.error('Failed to upload image');
     } finally {
       setUploadingImage(null);
+    }
+  };
+
+  const parseBulkText = () => {
+    if (!bulkText.trim()) {
+      toast.error('Please enter some text to parse');
+      return;
+    }
+
+    const lines = bulkText.split('\n').filter(line => line.trim());
+    const newItems: ChecklistItem[] = [];
+
+    lines.forEach(line => {
+      const trimmedLine = line.trim();
+      let item: ChecklistItem = {
+        question: trimmedLine,
+        item_type: 'text',
+        is_required: true
+      };
+
+      // Parse type indicators
+      if (trimmedLine.toLowerCase().startsWith('photo:')) {
+        item.question = trimmedLine.substring(6).trim();
+        item.item_type = 'image';
+      } else if (trimmedLine.toLowerCase().startsWith('confirm:') || trimmedLine.toLowerCase().startsWith('check:')) {
+        const colonIndex = trimmedLine.indexOf(':');
+        item.question = trimmedLine.substring(colonIndex + 1).trim();
+        item.item_type = 'confirmation';
+      } else if (trimmedLine.toLowerCase().startsWith('mc:') || trimmedLine.toLowerCase().startsWith('choice:')) {
+        const colonIndex = trimmedLine.indexOf(':');
+        const rest = trimmedLine.substring(colonIndex + 1).trim();
+        const pipeIndex = rest.indexOf('|');
+        
+        if (pipeIndex > -1) {
+          item.question = rest.substring(0, pipeIndex).trim();
+          item.options = rest.substring(pipeIndex + 1).split(',').map(opt => opt.trim()).filter(opt => opt);
+          item.item_type = 'multiple_choice';
+        } else {
+          item.question = rest;
+          item.item_type = 'multiple_choice';
+          item.options = ['Yes', 'No', 'N/A'];
+        }
+      }
+
+      if (item.question) {
+        newItems.push(item);
+      }
+    });
+
+    if (newItems.length > 0) {
+      setItems([...items, ...newItems]);
+      setBulkText('');
+      toast.success(`Added ${newItems.length} item${newItems.length > 1 ? 's' : ''}`);
+    } else {
+      toast.error('No valid items found');
     }
   };
 
@@ -248,6 +304,39 @@ export default function CreateChecklist() {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Bulk Upload Section */}
+              <Card className="bg-muted/50">
+                <CardContent className="pt-6 space-y-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileInput className="h-4 w-4 text-primary" />
+                    <Label className="text-sm font-semibold">Bulk Add Items</Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Paste your checklist items (one per line). Use prefixes for specific types:
+                    <br />• <code className="text-xs">Photo:</code> for image uploads
+                    <br />• <code className="text-xs">Confirm:</code> for confirmation checkmarks
+                    <br />• <code className="text-xs">MC: question | option1, option2, option3</code> for multiple choice
+                    <br />• Plain text for text input questions
+                  </p>
+                  <Textarea
+                    value={bulkText}
+                    onChange={(e) => setBulkText(e.target.value)}
+                    placeholder="Photo: Take picture of prep station&#10;Confirm: All surfaces sanitized&#10;MC: Temperature check | Pass, Fail, Needs Adjustment&#10;Any cleaning issues?"
+                    rows={6}
+                    className="font-mono text-sm"
+                  />
+                  <Button 
+                    type="button" 
+                    onClick={parseBulkText}
+                    variant="secondary"
+                    size="sm"
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Parse & Add Items
+                  </Button>
+                </CardContent>
+              </Card>
               {items.map((item, index) => (
                 <Card key={index}>
                   <CardContent className="pt-6 space-y-4">
