@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 
 export function ChecklistCompletionAlerts() {
   const navigate = useNavigate();
+  const today = new Date().toDateString(); // Gets current date as string
   
   const { data: alerts = [] } = useQuery({
-    queryKey: ['checklist-completion-alerts'],
+    queryKey: ['checklist-completion-alerts', today], // Include date in key to reset at midnight
     queryFn: async () => {
       const currentDay = new Date().getDay();
       const startOfToday = new Date();
