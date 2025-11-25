@@ -153,7 +153,7 @@ export const Layout = ({
           </nav>
           
           {/* Mobile Alerts Button */}
-          <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative hover:bg-muted rounded-none font-extrabold mx-[130px]">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative hover:bg-muted rounded-none font-extrabold ml-auto">
             <div className="h-5 w-5 bg-destructive rounded-full animate-pulse shadow-lg shadow-destructive/50" />
           </Button>
           
