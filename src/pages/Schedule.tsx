@@ -78,6 +78,13 @@ interface AvailabilityRequest {
   status: string;
 }
 
+interface Holiday {
+  id: string;
+  holiday_name: string;
+  holiday_date: string;
+  holiday_type: string;
+}
+
 export default function Schedule() {
   const navigate = useNavigate();
   const { role, isAdmin, isManager } = useUserRole();
@@ -105,6 +112,8 @@ export default function Schedule() {
   const [copyScheduleDialogOpen, setCopyScheduleDialogOpen] = useState(false);
   const [weeksToAdd, setWeeksToAdd] = useState(1);
   const [weeklyTotalSales, setWeeklyTotalSales] = useState(0);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -181,7 +190,9 @@ export default function Schedule() {
         rolesResult,
         templatesResult,
         availabilityResult,
-        salesResult
+        salesResult,
+        holidaysResult,
+        locationSettingsResult
       ] = await Promise.all([
         // Fetch shifts with template data
         supabase
@@ -240,7 +251,20 @@ export default function Schedule() {
         scheduleData ? supabase
           .from("schedule_projected_sales")
           .select("*")
-          .eq("schedule_id", scheduleData.id) : Promise.resolve({ data: [], error: null })
+          .eq("schedule_id", scheduleData.id) : Promise.resolve({ data: [], error: null }),
+        
+        // Fetch holidays for the week
+        supabase
+          .from("holidays")
+          .select("*")
+          .gte("holiday_date", format(currentWeekStart, "yyyy-MM-dd"))
+          .lte("holiday_date", format(weekEnd, "yyyy-MM-dd")),
+        
+        // Fetch location blackout dates
+        supabase
+          .from("location_settings")
+          .select("blackout_dates")
+          .single()
       ]);
 
       // Handle shifts
@@ -325,9 +349,23 @@ export default function Schedule() {
         setWeeklyTotalSales(0);
       }
 
-      // Sync birthday events (non-blocking, happens in background)
+      // Handle holidays
+      if (holidaysResult.error) {
+        console.error('Error fetching holidays:', holidaysResult.error);
+      } else {
+        setHolidays(holidaysResult.data || []);
+      }
+
+      // Handle blackout dates
+      if (locationSettingsResult && !locationSettingsResult.error && locationSettingsResult.data) {
+        setBlackoutDates(locationSettingsResult.data.blackout_dates || []);
+      } else {
+        setBlackoutDates([]);
+      }
+
+      // Sync birthday holidays (non-blocking, happens in background)
       supabase.functions.invoke('sync-birthday-events').catch(err => 
-        console.error('Failed to sync birthday events:', err)
+        console.error('Failed to sync birthday holidays:', err)
       );
     } catch (error: any) {
       console.error("Error fetching schedule data:", error);
@@ -849,19 +887,39 @@ export default function Schedule() {
             {/* Week Day Headers */}
             <div className="grid grid-cols-8 gap-0 border-b-2 border-border">
               <div className="font-semibold p-2 border-r border-border bg-muted/50 text-xs"></div>
-              {weekDays.map((day, index) => (
-                <div 
-                  key={index} 
-                  className="text-center p-2 border-r last:border-r-0 border-border bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
-                  onClick={() => {
-                    setSelectedDayForBreakdown(day);
-                    setDayBreakdownOpen(true);
-                  }}
-                >
-                  <div className="font-semibold text-sm">{format(day, "EEE")}</div>
-                  <div className="text-xs text-muted-foreground">{format(day, "M/d")}</div>
-                </div>
-              ))}
+              {weekDays.map((day, index) => {
+                const dayString = format(day, "yyyy-MM-dd");
+                const dayHolidays = holidays.filter(h => h.holiday_date === dayString);
+                const isBlackout = blackoutDates.includes(dayString);
+                
+                return (
+                  <div 
+                    key={index} 
+                    className="text-center p-2 border-r last:border-r-0 border-border bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+                    onClick={() => {
+                      setSelectedDayForBreakdown(day);
+                      setDayBreakdownOpen(true);
+                    }}
+                  >
+                    <div className="font-semibold text-sm">{format(day, "EEE")}</div>
+                    <div className="text-xs text-muted-foreground">{format(day, "M/d")}</div>
+                    {dayHolidays.length > 0 && (
+                      <div className="mt-1 space-y-0.5">
+                        {dayHolidays.map(holiday => (
+                          <div key={holiday.id} className="text-[10px] text-primary font-medium leading-tight">
+                            {holiday.holiday_name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {isBlackout && (
+                      <div className="mt-1 text-[10px] text-destructive font-medium leading-tight">
+                        🚫 Blackout
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Events Section */}
