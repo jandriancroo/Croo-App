@@ -117,16 +117,15 @@ export function EmployeeRow({
             className="flex items-center gap-3 cursor-pointer hover:bg-accent/50 rounded p-2 transition-colors flex-1 min-w-0"
             onClick={() => navigate('/users', { state: { viewUserId: profile.id } })}
           >
-            <Avatar className="h-10 w-10 flex-shrink-0">
+            <Avatar className="h-12 w-12 flex-shrink-0">
               <AvatarImage src={profile.profile_photo_url || undefined} />
-              <AvatarFallback className="text-sm">{profile.full_name.charAt(0)}</AvatarFallback>
+              <AvatarFallback className="text-base">{profile.full_name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold truncate leading-tight">{profile.full_name}</p>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                <span className="font-medium">{calculateTotalHours()}h</span>
-                <span className="text-primary font-semibold">${calculateTotalWages()}</span>
-              </div>
+              <p className="text-base font-semibold leading-tight mb-1">{profile.full_name}</p>
+              <p className="text-sm text-muted-foreground leading-tight">
+                {calculateTotalHours()} hrs • ${calculateTotalWages()}
+              </p>
             </div>
           </div>
         ) : (
