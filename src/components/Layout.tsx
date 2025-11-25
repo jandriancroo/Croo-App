@@ -10,6 +10,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useState } from 'react';
 import crooLogo from '@/assets/croo-logo.png';
 import { LocationSelector } from '@/components/LocationSelector';
+import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import { Badge } from '@/components/ui/badge';
+
 interface LayoutProps {
   children: ReactNode;
 }
@@ -26,6 +29,7 @@ export const Layout = ({
   } = useUserRole();
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { unreadCount } = useUnreadMessages();
   const mainNavItems = [{
     path: '/',
     label: 'Dash',
@@ -112,9 +116,15 @@ export const Layout = ({
             {mainNavItems.map(item => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
-            return <Button key={item.path} variant={isActive ? 'secondary' : 'ghost'} onClick={() => navigate(item.path)} className="gap-2">
+            const showBadge = item.path === '/messages' && unreadCount > 0;
+            return <Button key={item.path} variant={isActive ? 'secondary' : 'ghost'} onClick={() => navigate(item.path)} className="gap-2 relative">
                   <Icon className="h-4 w-4 flex-shrink-0" />
                   <span className="hidden lg:inline">{item.label}</span>
+                  {showBadge && (
+                    <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Badge>
+                  )}
                 </Button>;
           })}
             
@@ -179,9 +189,15 @@ export const Layout = ({
           {mobileMainNavItems.map(item => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
-          return <Button key={item.path} variant={isActive ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate(item.path)} className="flex-col gap-0.5 h-auto py-1.5 px-2 min-w-0">
+          const showBadge = item.path === '/messages' && unreadCount > 0;
+          return <Button key={item.path} variant={isActive ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate(item.path)} className="flex-col gap-0.5 h-auto py-1.5 px-2 min-w-0 relative">
                 <Icon className="h-4 w-4 flex-shrink-0" />
                 <span className="text-[10px] truncate max-w-[60px]">{item.label}</span>
+                {showBadge && (
+                  <Badge variant="destructive" className="absolute -top-0.5 -right-0.5 h-4 min-w-4 flex items-center justify-center p-0 text-[8px] rounded-full">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Badge>
+                )}
               </Button>;
         })}
           
