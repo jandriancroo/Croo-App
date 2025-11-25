@@ -92,8 +92,11 @@ export default function Dashboard() {
   }, [checklists]);
   const loadCompletionData = async () => {
     const today = new Date();
-    const todayStr = format(today, 'yyyy-MM-dd');
     const currentDay = today.getDay();
+    const startOfToday = new Date(today);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(today);
+    endOfToday.setHours(23, 59, 59, 999);
     const dataMap: Record<string, {
       expected: number;
       completed: number;
@@ -114,7 +117,10 @@ export default function Dashboard() {
       } = await supabase.from('checklist_submissions').select(`
           id,
           checklist_responses(id)
-        `).eq('checklist_id', checklist.id).gte('submitted_at', todayStr).lt('submitted_at', format(addDays(today, 1), 'yyyy-MM-dd'));
+        `)
+        .eq('checklist_id', checklist.id)
+        .gte('submitted_at', startOfToday.toISOString())
+        .lte('submitted_at', endOfToday.toISOString());
       const completedCount = submissions?.reduce((sum, sub: any) => sum + (sub.checklist_responses?.length || 0), 0) || 0;
       dataMap[checklist.id] = {
         expected: itemCount,
