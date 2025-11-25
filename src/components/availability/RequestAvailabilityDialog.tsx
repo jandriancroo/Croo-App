@@ -1,13 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { differenceInHours, parseISO, format } from "date-fns";
+import { useLocation } from "@/hooks/useLocation";
+import { AlertTriangle } from "lucide-react";
 
 interface RequestAvailabilityDialogProps {
   open: boolean;
@@ -16,6 +19,7 @@ interface RequestAvailabilityDialogProps {
 }
 
 export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: RequestAvailabilityDialogProps) {
+  const { currentLocation } = useLocation();
   const [requestType, setRequestType] = useState<"paid" | "unpaid">("unpaid");
   const [timeScope, setTimeScope] = useState<"multi_day" | "full_day" | "partial_day">("full_day");
   const [startDate, setStartDate] = useState("");
@@ -24,6 +28,62 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
   const [endTime, setEndTime] = useState("17:00");
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
+  const [hasBlackoutWarning, setHasBlackoutWarning] = useState(false);
+
+  useEffect(() => {
+    if (currentLocation && open) {
+      fetchBlackoutDates();
+    }
+  }, [currentLocation, open]);
+
+  useEffect(() => {
+    checkBlackoutDates();
+  }, [startDate, endDate, blackoutDates, timeScope]);
+
+  const fetchBlackoutDates = async () => {
+    if (!currentLocation) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("location_settings")
+        .select("blackout_dates")
+        .eq("location_id", currentLocation.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      setBlackoutDates(data?.blackout_dates || []);
+    } catch (error) {
+      console.error("Error fetching blackout dates:", error);
+    }
+  };
+
+  const checkBlackoutDates = () => {
+    if (blackoutDates.length === 0) {
+      setHasBlackoutWarning(false);
+      return;
+    }
+
+    const dates: string[] = [];
+    
+    if (timeScope === "full_day" || timeScope === "partial_day") {
+      if (startDate) dates.push(startDate);
+    } else if (timeScope === "multi_day") {
+      if (startDate && endDate) {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const current = new Date(start);
+        
+        while (current <= end) {
+          dates.push(format(current, "yyyy-MM-dd"));
+          current.setDate(current.getDate() + 1);
+        }
+      }
+    }
+
+    const hasConflict = dates.some(date => blackoutDates.includes(date));
+    setHasBlackoutWarning(hasConflict);
+  };
 
   const today = format(new Date(), "yyyy-MM-dd");
   
@@ -123,6 +183,15 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {hasBlackoutWarning && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertDescription>
+                Warning: One or more selected dates are blackout dates. Your request can still be submitted but may require special approval.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="space-y-2">
             <Label htmlFor="request-type">Request Type</Label>
             <Select value={requestType} onValueChange={handleRequestTypeChange}>
