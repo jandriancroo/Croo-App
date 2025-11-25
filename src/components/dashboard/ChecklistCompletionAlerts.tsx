@@ -43,7 +43,10 @@ export function ChecklistCompletionAlerts() {
         return checklist.frequency === 'daily';
       });
 
-      // Get submissions for today
+      // Get submissions for today only (between midnight and end of day)
+      const endOfToday = new Date(startOfToday);
+      endOfToday.setHours(23, 59, 59, 999);
+
       const { data: submissions, error: submissionsError } = await supabase
         .from('checklist_submissions')
         .select(`
@@ -52,7 +55,8 @@ export function ChecklistCompletionAlerts() {
           submitted_at,
           checklist_responses(id)
         `)
-        .gte('submitted_at', startOfToday.toISOString());
+        .gte('submitted_at', startOfToday.toISOString())
+        .lte('submitted_at', endOfToday.toISOString());
 
       if (submissionsError) throw submissionsError;
 
