@@ -269,7 +269,12 @@ export default function Certifications() {
                 Upload Certificate
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent onOpenAutoFocus={(e) => {
+              // Set current user as default if admin
+              if (isAdmin && user?.id && !selectedEmployeeId) {
+                setSelectedEmployeeId(user.id);
+              }
+            }}>
               <DialogHeader>
                 <DialogTitle>Upload Certificate</DialogTitle>
                 <DialogDescription>
