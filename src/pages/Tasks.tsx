@@ -56,7 +56,7 @@ export default function Tasks() {
 
   // Fetch checklists for user's role
   const { data: checklists = [], isLoading: checklistsLoading } = useQuery({
-    queryKey: ['user-checklists', user?.id],
+    queryKey: ['user-checklists', user?.id, isAdmin],
     queryFn: async () => {
       const { data: userRoles } = await supabase
         .from('user_roles')
@@ -85,8 +85,12 @@ export default function Tasks() {
         
         if (!roleMatch) return false;
         
-        // For dynamic checklists, check if there are items for today
+        // For dynamic checklists
         if (checklist.template_type === 'dynamic') {
+          // Admins always see dynamic checklists (for editing)
+          if (isAdmin) return true;
+          
+          // Non-admins only see if there are items for today
           const todayItems = checklist.checklist_items?.filter((item: any) => 
             item.days_of_week && item.days_of_week.includes(currentDay)
           );
