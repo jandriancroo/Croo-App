@@ -10,15 +10,44 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.png';
 
-const DAILY_QUOTES = [
-  { quote: "Do your work heartily, as for the Lord", verse: "Colossians 3:23", image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80" },
-  { quote: "Whatever you do, work at it with all your heart", verse: "Colossians 3:23", image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&q=80" },
-  { quote: "The Lord will provide", verse: "Genesis 22:14", image: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80" },
-  { quote: "Trust in the Lord with all your heart", verse: "Proverbs 3:5", image: "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800&q=80" },
-  { quote: "I can do all things through Christ", verse: "Philippians 4:13", image: "https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?w=800&q=80" },
-  { quote: "Be strong and courageous", verse: "Joshua 1:9", image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80" },
-  { quote: "This is the day the Lord has made", verse: "Psalm 118:24", image: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80" },
+const ALL_QUOTES = [
+  { quote: "Whatever you do, work heartily, as for the Lord and not for men, knowing that from the Lord you will receive the inheritance as your reward", verse: "Colossians 3:23-24", image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80" },
+  { quote: "Trust in the Lord with all your heart, and do not lean on your own understanding. In all your ways acknowledge him, and he will make straight your paths", verse: "Proverbs 3:5-6", image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&q=80" },
+  { quote: "I can do all things through Christ who strengthens me", verse: "Philippians 4:13", image: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80" },
+  { quote: "Have I not commanded you? Be strong and courageous. Do not be frightened, and do not be dismayed, for the Lord your God is with you wherever you go", verse: "Joshua 1:9", image: "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800&q=80" },
+  { quote: "This is the day that the Lord has made; let us rejoice and be glad in it", verse: "Psalm 118:24", image: "https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?w=800&q=80" },
+  { quote: "For I know the plans I have for you, declares the Lord, plans for welfare and not for evil, to give you a future and a hope", verse: "Jeremiah 29:11", image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80" },
+  { quote: "The Lord is my shepherd; I shall not want. He makes me lie down in green pastures. He leads me beside still waters", verse: "Psalm 23:1-2", image: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80" },
+  { quote: "Come to me, all who labor and are heavy laden, and I will give you rest. Take my yoke upon you, and learn from me", verse: "Matthew 11:28-29", image: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80" },
+  { quote: "But they who wait for the Lord shall renew their strength; they shall mount up with wings like eagles; they shall run and not be weary", verse: "Isaiah 40:31", image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80" },
+  { quote: "The Lord bless you and keep you; the Lord make his face to shine upon you and be gracious to you", verse: "Numbers 6:24-25", image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&q=80" },
+  { quote: "Commit your work to the Lord, and your plans will be established", verse: "Proverbs 16:3", image: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80" },
+  { quote: "Do not be anxious about anything, but in everything by prayer and supplication with thanksgiving let your requests be made known to God", verse: "Philippians 4:6", image: "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800&q=80" },
+  { quote: "And we know that for those who love God all things work together for good, for those who are called according to his purpose", verse: "Romans 8:28", image: "https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?w=800&q=80" },
+  { quote: "The steadfast love of the Lord never ceases; his mercies never come to an end; they are new every morning; great is your faithfulness", verse: "Lamentations 3:22-23", image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80" },
+  { quote: "Be still, and know that I am God. I will be exalted among the nations, I will be exalted in the earth", verse: "Psalm 46:10", image: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80" },
+  { quote: "The name of the Lord is a strong tower; the righteous man runs into it and is safe", verse: "Proverbs 18:10", image: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80" },
+  { quote: "Cast all your anxieties on him, because he cares for you", verse: "1 Peter 5:7", image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80" },
+  { quote: "Let all that you do be done in love", verse: "1 Corinthians 16:14", image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&q=80" },
+  { quote: "May the God of hope fill you with all joy and peace in believing, so that by the power of the Holy Spirit you may abound in hope", verse: "Romans 15:13", image: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80" },
+  { quote: "Let your light shine before others, so that they may see your good works and give glory to your Father who is in heaven", verse: "Matthew 5:16", image: "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800&q=80" },
 ];
+
+// Select 5 quotes for today based on the day of year
+const getDailyQuotes = () => {
+  const today = new Date();
+  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
+  const startIndex = (dayOfYear * 5) % ALL_QUOTES.length;
+  const selectedQuotes = [];
+  
+  for (let i = 0; i < 5; i++) {
+    selectedQuotes.push(ALL_QUOTES[(startIndex + i) % ALL_QUOTES.length]);
+  }
+  
+  return selectedQuotes;
+};
+
+const DAILY_QUOTES = getDailyQuotes();
 
 export default function PunchClock() {
   const [pin, setPin] = useState('');
