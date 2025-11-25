@@ -138,9 +138,14 @@ export const Layout = ({
             </DropdownMenu>
             
             <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="relative hover:bg-muted ml-1 rounded-none font-extrabold">
-              <div className="h-3 w-3 bg-destructive rounded-full animate-pulse shadow-lg shadow-destructive/50" />
+              <div className="h-5 w-5 bg-destructive rounded-full animate-pulse shadow-lg shadow-destructive/50" />
             </Button>
           </nav>
+          
+          {/* Mobile Alerts Button */}
+          <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative hover:bg-muted rounded-none font-extrabold">
+            <div className="h-5 w-5 bg-destructive rounded-full animate-pulse shadow-lg shadow-destructive/50" />
+          </Button>
           
           <div className="hidden md:flex items-center gap-2">
             {isAdmin && <DropdownMenu>
@@ -166,9 +171,6 @@ export const Layout = ({
             </Button>
           </div>
 
-          {isMobile && <Button variant="outline" onClick={signOut} size="sm" className="gap-2 text-destructive hover:text-destructive text-right px-[5px] mx-[125px]">
-              <DoorOpen className="h-3.5 w-3.5" />
-            </Button>}
         </div>
       </header>
       <main className="container flex-1 py-8">{children}</main>

@@ -7,7 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Plus, Settings, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Settings, Calendar, MoreVertical, Copy, Trash2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor } from "@dnd-kit/core";
 import { ShiftCard } from "@/components/schedule/ShiftCard";
@@ -93,6 +98,9 @@ export default function Schedule() {
   const [publishedSnapshot, setPublishedSnapshot] = useState<any>(null);
   const [selectedDayForBreakdown, setSelectedDayForBreakdown] = useState<Date | null>(null);
   const [dayBreakdownOpen, setDayBreakdownOpen] = useState(false);
+  const [clearScheduleDialogOpen, setClearScheduleDialogOpen] = useState(false);
+  const [copyScheduleDialogOpen, setCopyScheduleDialogOpen] = useState(false);
+  const [weeksToAdd, setWeeksToAdd] = useState(1);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -432,6 +440,99 @@ export default function Schedule() {
     setConflicts([]);
   };
 
+  const handleClearSchedule = async () => {
+    if (!scheduleId) return;
+    
+    try {
+      const { error } = await supabase
+        .from("scheduled_shifts")
+        .delete()
+        .eq("schedule_id", scheduleId);
+
+      if (error) throw error;
+
+      // Unpublish the schedule after clearing
+      await supabase
+        .from("schedules")
+        .update({ is_published: false, published_snapshot: null })
+        .eq("id", scheduleId);
+
+      toast.success("Schedule cleared successfully");
+      setClearScheduleDialogOpen(false);
+      fetchScheduleData();
+    } catch (error: any) {
+      console.error("Error clearing schedule:", error);
+      toast.error("Failed to clear schedule");
+    }
+  };
+
+  const handleCopySchedule = async () => {
+    if (!scheduleId || weeksToAdd < 1) return;
+
+    try {
+      const targetWeekStart = addWeeks(currentWeekStart, weeksToAdd);
+      const targetWeekEnd = endOfWeek(targetWeekStart, { weekStartsOn: 1 });
+
+      // Check if target schedule already exists
+      const { data: existingSchedule } = await supabase
+        .from("schedules")
+        .select("id")
+        .eq("week_start_date", format(targetWeekStart, "yyyy-MM-dd"))
+        .single();
+
+      let targetScheduleId = existingSchedule?.id;
+
+      // Create target schedule if it doesn't exist
+      if (!targetScheduleId) {
+        const { data: newSchedule, error: createError } = await supabase
+          .from("schedules")
+          .insert({
+            week_start_date: format(targetWeekStart, "yyyy-MM-dd"),
+            week_end_date: format(targetWeekEnd, "yyyy-MM-dd"),
+            is_published: false,
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        targetScheduleId = newSchedule.id;
+      }
+
+      // Copy all shifts to the target week
+      const shiftsToCopy = shifts.map((shift) => {
+        const shiftDate = new Date(shift.shift_date);
+        const dayOffset = Math.floor((shiftDate.getTime() - currentWeekStart.getTime()) / (1000 * 60 * 60 * 24));
+        const newShiftDate = addDays(targetWeekStart, dayOffset);
+
+        return {
+          schedule_id: targetScheduleId,
+          user_id: shift.user_id,
+          day_of_week: shift.day_of_week,
+          start_time: shift.start_time,
+          end_time: shift.end_time,
+          is_time_off: shift.is_time_off,
+          template_id: shift.template_id,
+          shift_date: format(newShiftDate, "yyyy-MM-dd"),
+        };
+      });
+
+      if (shiftsToCopy.length > 0) {
+        const { error: copyError } = await supabase
+          .from("scheduled_shifts")
+          .insert(shiftsToCopy);
+
+        if (copyError) throw copyError;
+      }
+
+      toast.success(`Schedule copied to week of ${format(targetWeekStart, "MMM d, yyyy")}`);
+      setCopyScheduleDialogOpen(false);
+      setWeeksToAdd(1);
+    } catch (error: any) {
+      console.error("Error copying schedule:", error);
+      toast.error("Failed to copy schedule");
+    }
+  };
+
   const handlePreviousWeek = () => {
     setCurrentWeekStart(subWeeks(currentWeekStart, 1));
   };
@@ -633,10 +734,28 @@ export default function Schedule() {
                     onGoLive={handleGoLive}
                   />
                 )}
-                <Button variant="outline" onClick={() => navigate("/shift-templates")}>
-                  <Settings className="h-4 w-4 mr-2" />
-                  Manage Templates
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                      <MoreVertical className="h-4 w-4 mr-2" />
+                      Actions
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-background">
+                    <DropdownMenuItem onClick={() => navigate("/shift-templates")} className="gap-2 cursor-pointer">
+                      <Settings className="h-4 w-4" />
+                      Manage Templates
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setCopyScheduleDialogOpen(true)} className="gap-2 cursor-pointer">
+                      <Copy className="h-4 w-4" />
+                      Copy Schedule to Future Week
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setClearScheduleDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                      Clear Schedule
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )}
           </div>
@@ -797,6 +916,57 @@ export default function Schedule() {
             profiles={profiles}
           />
         )}
+
+        <AlertDialog open={clearScheduleDialogOpen} onOpenChange={setClearScheduleDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Clear Schedule</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will remove all shifts from the current week's schedule. This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                Clear Schedule
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <Dialog open={copyScheduleDialogOpen} onOpenChange={setCopyScheduleDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Copy Schedule to Future Week</DialogTitle>
+              <DialogDescription>
+                Copy all shifts from this week to a future week. The schedule will remain unpublished.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="weeks">Weeks from now</Label>
+                <Input
+                  id="weeks"
+                  type="number"
+                  min="1"
+                  value={weeksToAdd}
+                  onChange={(e) => setWeeksToAdd(parseInt(e.target.value) || 1)}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Target week: {format(addWeeks(currentWeekStart, weeksToAdd), "MMM d, yyyy")} - {format(endOfWeek(addWeeks(currentWeekStart, weeksToAdd), { weekStartsOn: 1 }), "MMM d, yyyy")}
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCopyScheduleDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCopySchedule}>
+                Copy Schedule
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
       )}
     </Layout>
