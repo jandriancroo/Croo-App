@@ -66,6 +66,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
             notes: formData.notes || null,
             tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
             is_recurring: formData.is_recurring,
+            schedule_id: formData.is_recurring ? null : scheduleId,
           })
           .eq("id", editingEvent.id);
 
@@ -73,7 +74,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
         toast.success("Event updated");
       } else {
         const { error } = await supabase.from("schedule_events").insert({
-          schedule_id: scheduleId,
+          schedule_id: formData.is_recurring ? null : scheduleId,
           event_name: formData.event_name,
           event_time: formData.event_time,
           day_of_week: formData.day_of_week,
@@ -152,29 +153,29 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2 px-4 pt-4">
-        <h3 className="font-semibold">Events</h3>
-        {isEditable && (
-          <Dialog open={dialogOpen} onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) {
-              setEditingEvent(null);
-              setFormData({
-                event_name: "",
-                event_time: "08:00",
-                day_of_week: 0,
-                notes: "",
-                tagged_roles: [],
-                is_recurring: true,
-              });
-            }
-          }}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Event
-              </Button>
-            </DialogTrigger>
+      <div className="grid grid-cols-8 gap-0 bg-[hsl(30,25%,45%)]">
+        <div className="flex items-center gap-2 px-4 py-2 border-r border-border/20">
+          <h3 className="font-semibold text-white text-sm">Events</h3>
+          {isEditable && (
+            <Dialog open={dialogOpen} onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) {
+                setEditingEvent(null);
+                setFormData({
+                  event_name: "",
+                  event_time: "08:00",
+                  day_of_week: 0,
+                  notes: "",
+                  tagged_roles: [],
+                  is_recurring: true,
+                });
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6 hover:bg-white/20 text-white">
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{editingEvent ? "Edit Event" : "Create Event"}</DialogTitle>
@@ -279,26 +280,23 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
             </DialogContent>
           </Dialog>
         )}
-      </div>
-
-      <div className="grid grid-cols-8 gap-0">
-        <div className="p-4 border-r border-border bg-muted/30"></div>
+        </div>
         {weekDays.map((day, dayIndex) => {
           const dayEvents = events.filter((e) => e.day_of_week === dayIndex);
           return (
-            <div key={dayIndex} className="min-h-[60px] p-2 border-r last:border-r-0 border-border">
+            <div key={dayIndex} className="min-h-[40px] p-1.5 border-r last:border-r-0 border-border/20 bg-[hsl(30,25%,45%)]">
               <div className="space-y-1">
                 {dayEvents.map((event) => (
                   <div
                     key={event.id}
-                    className="group relative w-full p-2 bg-accent/20 hover:bg-accent/30 rounded text-xs transition-colors"
+                    className="group relative w-full p-1.5 bg-white/10 hover:bg-white/20 rounded text-xs transition-colors"
                   >
                     <button
                       onClick={() => isEditable && handleEdit(event)}
                       disabled={!isEditable}
                       className="w-full text-left disabled:cursor-default"
                     >
-                      <div className="font-medium truncate">
+                      <div className="font-medium truncate text-white">
                         {formatTime(event.event_time)} {event.event_name}
                         {!event.is_recurring && " (One-time)"}
                       </div>
@@ -309,10 +307,10 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
                           e.stopPropagation();
                           confirmDelete(event.id);
                         }}
-                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/20 rounded transition-opacity"
+                        className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/30 rounded transition-opacity"
                         title="Delete event"
                       >
-                        <Trash2 className="h-3 w-3 text-destructive" />
+                        <Trash2 className="h-3 w-3 text-white" />
                       </button>
                     )}
                   </div>
