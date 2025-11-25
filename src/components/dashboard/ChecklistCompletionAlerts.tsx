@@ -14,6 +14,7 @@ export function ChecklistCompletionAlerts() {
       const currentDay = new Date().getDay();
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
+      const now = new Date();
 
       // Get all active checklists
       const { data: checklists, error: checklistsError } = await supabase
@@ -23,6 +24,7 @@ export function ChecklistCompletionAlerts() {
           title,
           frequency,
           template_type,
+          due_by_time,
           checklist_items(id, days_of_week)
         `)
         .eq('is_active', true);
@@ -57,6 +59,18 @@ export function ChecklistCompletionAlerts() {
       // Calculate completion status for each checklist
       const incompleteAlerts = [];
       for (const checklist of relevantChecklists) {
+        // Check if we should show alert based on due_by_time
+        if (checklist.due_by_time) {
+          const [hours, minutes] = checklist.due_by_time.split(':').map(Number);
+          const dueTime = new Date(startOfToday);
+          dueTime.setHours(hours, minutes, 0, 0);
+          
+          // Only show alert if current time is past the due time
+          if (now < dueTime) {
+            continue; // Skip this checklist, it's not due yet
+          }
+        }
+        
         const checklistSubmissions = submissions?.filter(s => s.checklist_id === checklist.id) || [];
         
         let totalItems = checklist.checklist_items?.length || 0;
