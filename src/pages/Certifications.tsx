@@ -54,6 +54,7 @@ export default function Certifications() {
   const [uploading, setUploading] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedCertification, setSelectedCertification] = useState<Certification | null>(null);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
 
   useEffect(() => {
     fetchData();
@@ -106,12 +107,21 @@ export default function Certifications() {
       return;
     }
 
+    // If admin and no employee selected, show error
+    if (isAdmin && !selectedEmployeeId) {
+      toast.error("Please select an employee");
+      return;
+    }
+
+    // Use selected employee ID for admin, or current user for non-admin
+    const targetUserId = isAdmin ? selectedEmployeeId : user.id;
+
     try {
       setUploading(true);
 
       // Upload file to storage
       const fileExt = selectedFile.name.split(".").pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      const fileName = `${targetUserId}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("certificates")
@@ -128,19 +138,21 @@ export default function Certifications() {
       const { error: insertError } = await supabase
         .from("certifications")
         .insert({
-          user_id: user.id,
+          user_id: targetUserId,
           certification_type: selectedType,
           certificate_url: publicUrl,
           expiration_date: expirationDate,
-          status: "pending",
+          status: isAdmin ? "approved" : "pending",
+          ...(isAdmin && { approved_by: user.id, approved_at: new Date().toISOString() })
         });
 
       if (insertError) throw insertError;
 
-      toast.success("Certificate uploaded successfully! Awaiting admin approval.");
+      toast.success(isAdmin ? "Certificate uploaded and approved!" : "Certificate uploaded successfully! Awaiting admin approval.");
       setUploadDialogOpen(false);
       setSelectedFile(null);
       setExpirationDate("");
+      setSelectedEmployeeId("");
       fetchData();
     } catch (error: any) {
       console.error("Error uploading certificate:", error);
@@ -261,10 +273,27 @@ export default function Certifications() {
               <DialogHeader>
                 <DialogTitle>Upload Certificate</DialogTitle>
                 <DialogDescription>
-                  Upload your certification document. It will be reviewed by an admin.
+                  {isAdmin ? "Upload a certification for an employee." : "Upload your certification document. It will be reviewed by an admin."}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4">
+                {isAdmin && (
+                  <div>
+                    <Label>Employee</Label>
+                    <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select employee" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {profiles.map((profile) => (
+                          <SelectItem key={profile.id} value={profile.id}>
+                            {profile.full_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div>
                   <Label>Certification Type</Label>
                   <Select value={selectedType} onValueChange={(value: CertificationType) => setSelectedType(value)}>
