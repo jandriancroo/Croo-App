@@ -86,6 +86,16 @@ export const Layout = ({ children }: LayoutProps) => {
             />
           </button>
           <nav className="hidden items-center gap-1 md:flex flex-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/alerts')}
+              className="relative hover:bg-muted mr-2"
+              title="Alerts"
+            >
+              <Radio className="h-5 w-5 text-destructive" />
+              <div className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 bg-destructive rounded-full animate-pulse" />
+            </Button>
             {mainNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
@@ -132,7 +142,6 @@ export const Layout = ({ children }: LayoutProps) => {
           </nav>
           
           <div className="hidden md:flex items-center gap-2">
-            <LocationSelector />
             {isAdmin && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
