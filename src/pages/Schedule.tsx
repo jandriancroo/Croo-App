@@ -151,64 +151,88 @@ export default function Schedule() {
         }
       }
 
-      if (scheduleData) {
-        setScheduleId(scheduleData.id);
-        setIsPublished(scheduleData.is_published || false);
-        setPublishedSnapshot(scheduleData.published_snapshot);
+      if (!scheduleData) {
+        setLoading(false);
+        return;
+      }
 
+      setScheduleId(scheduleData.id);
+      setIsPublished(scheduleData.is_published || false);
+      setPublishedSnapshot(scheduleData.published_snapshot);
+
+      // Parallelize all independent data fetches
+      const [
+        shiftsResult,
+        eventsResult,
+        profilesResult,
+        rolesResult,
+        templatesResult,
+        availabilityResult
+      ] = await Promise.all([
         // Fetch shifts with template data
-        const { data: shiftsData, error: shiftsError } = await supabase
+        supabase
           .from("scheduled_shifts")
           .select(`
             *,
             template:shift_templates(*)
           `)
-          .eq("schedule_id", scheduleData.id);
-
-        if (shiftsError) throw shiftsError;
-        setShifts(shiftsData || []);
-
+          .eq("schedule_id", scheduleData.id),
+        
         // Fetch events
-        const { data: eventsData, error: eventsError } = await supabase
+        supabase
           .from("schedule_events")
           .select("*")
-          .eq("schedule_id", scheduleData.id);
-
-        if (eventsError) throw eventsError;
+          .eq("schedule_id", scheduleData.id),
         
-        // Sync birthday events
-        await supabase.functions.invoke('sync-birthday-events');
+        // Fetch all profiles
+        supabase
+          .from("profiles")
+          .select(`
+            id, 
+            full_name, 
+            profile_photo_url,
+            hourly_wage
+          `)
+          .eq("is_active", true),
         
-        setEvents((eventsData || []).map(event => ({
-          ...event,
-          tagged_roles: event.tagged_roles as string[] | null,
-          is_recurring: event.is_recurring ?? true
-        })));
-      }
+        // Fetch user roles
+        supabase
+          .from("user_roles")
+          .select("user_id, role"),
+        
+        // Fetch shift templates
+        supabase
+          .from("shift_templates")
+          .select("*"),
+        
+        // Fetch availability requests
+        supabase
+          .from("availability_requests")
+          .select("*")
+          .eq("request_type", "unpaid")
+          .in("status", ["pending", "approved"])
+          .gte("start_date", format(currentWeekStart, "yyyy-MM-dd"))
+          .lte("start_date", format(weekEnd, "yyyy-MM-dd"))
+      ]);
 
-      // Fetch all profiles with roles and wages
-      const { data: profilesData, error: profilesError } = await supabase
-        .from("profiles")
-        .select(`
-          id, 
-          full_name, 
-          profile_photo_url,
-          hourly_wage
-        `)
-        .eq("is_active", true);
+      // Handle shifts
+      if (shiftsResult.error) throw shiftsResult.error;
+      setShifts(shiftsResult.data || []);
 
-      if (profilesError) throw profilesError;
-      
-      // Fetch user roles
-      const { data: rolesData, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id, role");
+      // Handle events
+      if (eventsResult.error) throw eventsResult.error;
+      setEvents((eventsResult.data || []).map(event => ({
+        ...event,
+        tagged_roles: event.tagged_roles as string[] | null,
+        is_recurring: event.is_recurring ?? true
+      })));
 
-      if (rolesError) throw rolesError;
+      // Handle profiles and roles
+      if (profilesResult.error) throw profilesResult.error;
+      if (rolesResult.error) throw rolesResult.error;
 
-      // Merge profiles with roles
-      const profilesWithRoles = (profilesData || []).map(profile => {
-        const userRole = rolesData?.find(r => r.user_id === profile.id);
+      const profilesWithRoles = (profilesResult.data || []).map(profile => {
+        const userRole = rolesResult.data?.find(r => r.user_id === profile.id);
         return {
           ...profile,
           role: userRole?.role || 'team_member'
@@ -225,25 +249,18 @@ export default function Schedule() {
 
       setProfiles(profilesWithRoles);
 
-      // Fetch shift templates
-      const { data: templatesData, error: templatesError } = await supabase
-        .from("shift_templates")
-        .select("*");
+      // Handle templates
+      if (templatesResult.error) throw templatesResult.error;
+      setTemplates(templatesResult.data || []);
 
-      if (templatesError) throw templatesError;
-      setTemplates(templatesData || []);
+      // Handle availability
+      if (availabilityResult.error) throw availabilityResult.error;
+      setAvailabilityRequests(availabilityResult.data || []);
 
-      // Fetch unpaid availability requests (pending or approved) that overlap with current week
-      const { data: availabilityData, error: availabilityError } = await supabase
-        .from("availability_requests")
-        .select("*")
-        .eq("request_type", "unpaid")
-        .in("status", ["pending", "approved"])
-        .gte("start_date", format(currentWeekStart, "yyyy-MM-dd"))
-        .lte("start_date", format(weekEnd, "yyyy-MM-dd"));
-
-      if (availabilityError) throw availabilityError;
-      setAvailabilityRequests(availabilityData || []);
+      // Sync birthday events (non-blocking, happens in background)
+      supabase.functions.invoke('sync-birthday-events').catch(err => 
+        console.error('Failed to sync birthday events:', err)
+      );
     } catch (error: any) {
       console.error("Error fetching schedule data:", error);
       toast.error("Failed to load schedule");
