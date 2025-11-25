@@ -5,7 +5,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardList, Calendar, Plus, TrendingUp, CheckCircle2, Edit, DollarSign, Clock, Settings } from 'lucide-react';
+import { ClipboardCheck, Calendar, Plus, TrendingUp, CheckCircle2, Edit, DollarSign, Clock, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -244,7 +244,7 @@ export default function Dashboard() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Active Checklists</CardTitle>
-            <ClipboardList className="h-4 w-4 text-muted-foreground" />
+            <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalStats.activeChecklists}</div>
@@ -411,7 +411,7 @@ export default function Dashboard() {
           return <Card key={checklist.id} className="hover:shadow-lg transition-shadow">
                 <CardHeader>
                   <div className="flex items-start justify-between">
-                    <ClipboardList className="h-8 w-8 text-primary" />
+                    <ClipboardCheck className="h-8 w-8 text-primary" />
                     <Badge className={getFrequencyColor(checklist.frequency)}>
                       {checklist.frequency}
                     </Badge>
@@ -463,7 +463,7 @@ export default function Dashboard() {
 
         {loading ? <div className="text-center text-muted-foreground">Loading checklists...</div> : checklists.length === 0 ? <Card className="text-center py-12">
             <CardContent>
-              <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+              <ClipboardCheck className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No checklists yet</h3>
               <p className="text-muted-foreground mb-4">Go to Tasks to create your first checklist</p>
               <Button onClick={() => navigate('/tasks')}>Go to Tasks</Button>
