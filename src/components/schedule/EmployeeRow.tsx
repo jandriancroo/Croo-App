@@ -105,26 +105,26 @@ export function EmployeeRow({
         <div 
           {...attributes}
           {...listeners}
-          className="absolute -left-5 top-0 bottom-0 w-4 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground z-20"
+          className="absolute -left-6 top-0 bottom-0 w-5 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground z-20"
         >
-          <GripVertical className="h-4 w-4" />
+          <GripVertical className="h-5 w-5" />
         </div>
       )}
       
-      <div className="flex items-center gap-2 p-2 border-r border-border bg-muted/30">
+      <div className="flex items-center gap-3 p-3 border-r border-border bg-muted/30 min-h-[70px]">
         {profile.id !== "unassigned" ? (
           <div 
-            className="flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded p-1 transition-colors flex-1 min-w-0"
+            className="flex items-center gap-3 cursor-pointer hover:bg-accent/50 rounded p-2 transition-colors flex-1 min-w-0"
             onClick={() => navigate('/users', { state: { viewUserId: profile.id } })}
           >
-            <Avatar className="h-7 w-7 flex-shrink-0">
+            <Avatar className="h-10 w-10 flex-shrink-0">
               <AvatarImage src={profile.profile_photo_url || undefined} />
-              <AvatarFallback className="text-xs">{profile.full_name.charAt(0)}</AvatarFallback>
+              <AvatarFallback className="text-sm">{profile.full_name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{profile.full_name}</p>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{calculateTotalHours()}h</span>
+              <p className="text-sm font-semibold truncate leading-tight">{profile.full_name}</p>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                <span className="font-medium">{calculateTotalHours()}h</span>
                 <span className="text-primary font-semibold">${calculateTotalWages()}</span>
               </div>
             </div>
@@ -193,7 +193,7 @@ function DayCell({
     <div 
       ref={setNodeRef} 
       style={{ touchAction: 'none' }}
-      className={`min-h-[60px] p-1 border-r last:border-r-0 border-border transition-colors ${
+      className={`min-h-[70px] p-2 border-r last:border-r-0 border-border transition-colors ${
         isOver ? "bg-accent/50" : "hover:bg-muted/30"
       }`}
     >

@@ -91,21 +91,21 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
     <Card
       ref={setNodeRef}
       style={{ ...style, backgroundColor: bgColor }}
-      className={`p-1 ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""}`}
+      className={`p-2 min-h-[60px] flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""}`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
     >
-      <div className="flex items-center gap-1 text-white text-xs font-medium">
+      <div className="flex items-center gap-1 text-white text-sm font-semibold leading-tight">
         <span>{shift.isTemplate ? shiftData.template_name : `${formatTime(shiftData.start_time)} - ${formatTime(shiftData.end_time)}`}</span>
         {!shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
           <BreakIndicator hasBreak={true} size="sm" />
         )}
       </div>
       {!shift.isTemplate && position && (
-        <div className="text-white text-xs opacity-90">{position}</div>
+        <div className="text-white text-xs opacity-90 mt-0.5">{position}</div>
       )}
-      {shift.is_time_off && <div className="text-white text-xs">TIME OFF</div>}
+      {shift.is_time_off && <div className="text-white text-sm font-medium">TIME OFF</div>}
       {!shift.isTemplate && onDelete && (
         <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100">
           <Button

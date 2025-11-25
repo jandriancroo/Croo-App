@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -103,7 +103,6 @@ export default function Schedule() {
   const [clearScheduleDialogOpen, setClearScheduleDialogOpen] = useState(false);
   const [copyScheduleDialogOpen, setCopyScheduleDialogOpen] = useState(false);
   const [weeksToAdd, setWeeksToAdd] = useState(1);
-  const [laborTotalsExpanded, setLaborTotalsExpanded] = useState(true);
   const [weeklyTotalSales, setWeeklyTotalSales] = useState(0);
 
   useEffect(() => {
@@ -932,59 +931,19 @@ export default function Schedule() {
             <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-border shadow-lg z-50">
               <div className="max-w-screen-2xl mx-auto px-4 py-2">
                 <div className="space-y-1">
-                  {/* Labor Totals Toggle Button */}
-                  <div className="flex items-center justify-between border-b border-border pb-1">
-                    <div className="flex items-center gap-4">
-                      <h3 className="font-semibold text-xs">Schedule Tools</h3>
-                      {(() => {
-                        const totalHours = shifts.reduce((sum, shift) => {
-                          const [startHour, startMin] = shift.start_time.split(':').map(Number);
-                          const [endHour, endMin] = shift.end_time.split(':').map(Number);
-                          let hours = endHour - startHour + (endMin - startMin) / 60;
-                          if (hours < 0) hours += 24;
-                          if (hours > 5) hours -= 0.5;
-                          return sum + hours;
-                        }, 0);
-                        
-                        const salesPerLaborHour = totalHours > 0 ? weeklyTotalSales / totalHours : 0;
-                        
-                        return totalHours > 0 && salesPerLaborHour > 0 ? (
-                          <span className="text-[10px] text-muted-foreground">
-                            Sales/LH: <span className="font-semibold text-foreground">${salesPerLaborHour.toFixed(2)}</span>
-                          </span>
-                        ) : null;
-                      })()}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setLaborTotalsExpanded(!laborTotalsExpanded)}
-                      className="h-6 text-xs"
-                    >
-                      {laborTotalsExpanded ? (
-                        <>
-                          <ChevronDown className="h-3 w-3 mr-1" />
-                          Hide
-                        </>
-                      ) : (
-                        <>
-                          <ChevronUp className="h-3 w-3 mr-1" />
-                          Show
-                        </>
-                      )}
-                    </Button>
+                  {/* Labor Totals Header */}
+                  <div className="border-b border-border pb-1">
+                    <h3 className="font-semibold text-xs">Schedule Tools</h3>
                   </div>
 
-                  {/* Labor Totals Summary - Collapsible */}
-                  {laborTotalsExpanded && (
-                    <LaborTotals
-                      shifts={shifts}
-                      profiles={profiles}
-                      currentWeekStart={currentWeekStart}
-                      scheduleId={scheduleId}
-                      isEditable={isAdmin || isManager}
-                    />
-                  )}
+                  {/* Labor Totals Summary */}
+                  <LaborTotals
+                    shifts={shifts}
+                    profiles={profiles}
+                    currentWeekStart={currentWeekStart}
+                    scheduleId={scheduleId}
+                    isEditable={isAdmin || isManager}
+                  />
                   
                   {/* Shift Templates */}
                   <div className="flex items-center gap-3 border-t border-border pt-1">
