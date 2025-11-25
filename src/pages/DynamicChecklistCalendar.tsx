@@ -3,11 +3,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
-import { ArrowLeft, Save } from "lucide-react";
-import { format, startOfWeek, addDays } from "date-fns";
+import { ArrowLeft, Save, Plus, X } from "lucide-react";
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
@@ -26,13 +27,7 @@ interface Checklist {
   description: string | null;
 }
 
-interface TaskAssignment {
-  itemId: string;
-  question: string;
-  dayIndex: number;
-}
-
-function DraggableTask({ task }: { task: ChecklistItem }) {
+function DraggableTask({ task, onDelete }: { task: ChecklistItem; onDelete?: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
     data: { task },
@@ -49,11 +44,22 @@ function DraggableTask({ task }: { task: ChecklistItem }) {
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
-      className="p-2 bg-card border rounded cursor-grab active:cursor-grabbing hover:bg-accent"
+      className="p-2 bg-card border rounded flex items-center justify-between group"
     >
-      <p className="text-sm">{task.question}</p>
+      <div {...listeners} {...attributes} className="flex-1 cursor-grab active:cursor-grabbing">
+        <p className="text-sm">{task.question}</p>
+        <p className="text-xs text-muted-foreground">{task.item_type}</p>
+      </div>
+      {onDelete && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={() => onDelete(task.id)}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      )}
     </div>
   );
 }
@@ -75,7 +81,8 @@ function DroppableDay({ dayIndex, dayName, tasks }: { dayIndex: number; dayName:
       <div className="space-y-2">
         {tasks.map((task) => (
           <div key={task.id} className="p-2 bg-muted rounded text-sm">
-            {task.question}
+            <p>{task.question}</p>
+            <p className="text-xs text-muted-foreground mt-1">{task.item_type}</p>
           </div>
         ))}
       </div>
@@ -94,14 +101,12 @@ export default function DynamicChecklistCalendar() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTask, setActiveTask] = useState<ChecklistItem | null>(null);
+  
+  // Quick add form state
+  const [newQuestion, setNewQuestion] = useState("");
+  const [newItemType, setNewItemType] = useState("TEXT");
 
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 0 });
-  const weekDays = Array.from({ length: 7 }, (_, i) => ({
-    index: i,
-    name: dayNames[i],
-    date: addDays(currentWeekStart, i),
-  }));
+  const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -125,10 +130,43 @@ export default function DynamicChecklistCalendar() {
   }, [isAdmin, roleLoading, navigate]);
 
   useEffect(() => {
-    if (isAdmin && id) {
-      fetchChecklistData();
+    if (isAdmin) {
+      if (id === 'new') {
+        createNewTemplate();
+      } else if (id) {
+        fetchChecklistData();
+      }
     }
   }, [isAdmin, id]);
+
+  const createNewTemplate = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { data, error } = await supabase
+        .from('checklists')
+        .insert({
+          title: 'New Dynamic Template',
+          description: 'Weekly template - assign tasks to days',
+          template_type: 'dynamic',
+          frequency: 'weekly',
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      navigate(`/dynamic-checklist/${data.id}`, { replace: true });
+      setChecklist(data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error creating template:', error);
+      toast.error('Failed to create template');
+      navigate('/tasks');
+    }
+  };
 
   const fetchChecklistData = async () => {
     try {
@@ -180,6 +218,68 @@ export default function DynamicChecklistCalendar() {
     }
   };
 
+  const handleQuickAdd = async () => {
+    if (!newQuestion.trim() || !id) return;
+
+    try {
+      const nextOrderIndex = items.length;
+      
+      const { data, error } = await supabase
+        .from('checklist_items')
+        .insert({
+          checklist_id: id,
+          question: newQuestion.trim(),
+          item_type: newItemType,
+          order_index: nextOrderIndex,
+          is_required: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newItem: ChecklistItem = {
+        ...data,
+        days_of_week: null,
+      };
+
+      setItems([...items, newItem]);
+      setUnassignedItems([...unassignedItems, newItem]);
+      setNewQuestion("");
+      setNewItemType("TEXT");
+      toast.success('Task added');
+    } catch (error) {
+      console.error('Error adding task:', error);
+      toast.error('Failed to add task');
+    }
+  };
+
+  const handleDeleteItem = async (itemId: string) => {
+    try {
+      const { error } = await supabase
+        .from('checklist_items')
+        .delete()
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      setItems(items.filter(item => item.id !== itemId));
+      setUnassignedItems(unassignedItems.filter(item => item.id !== itemId));
+      
+      // Remove from assigned days
+      const newAssignedByDay = new Map(assignedByDay);
+      newAssignedByDay.forEach((tasks, day) => {
+        newAssignedByDay.set(day, tasks.filter(t => t.id !== itemId));
+      });
+      setAssignedByDay(newAssignedByDay);
+
+      toast.success('Task deleted');
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast.error('Failed to delete task');
+    }
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     const task = event.active.data.current?.task;
     setActiveTask(task || null);
@@ -221,6 +321,8 @@ export default function DynamicChecklistCalendar() {
   };
 
   const handleSave = async () => {
+    if (!checklist) return;
+
     try {
       setSaving(true);
 
@@ -242,11 +344,54 @@ export default function DynamicChecklistCalendar() {
         if (error) throw error;
       }
 
-      toast.success('Task assignments saved!');
+      // Generate 7 daily checklists
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+        const dayTasks = assignedByDay.get(dayIndex) || [];
+        
+        if (dayTasks.length === 0) continue;
+
+        const dayName = dayNames[dayIndex];
+        
+        // Create daily checklist
+        const { data: newChecklist, error: checklistError } = await supabase
+          .from('checklists')
+          .insert({
+            title: `${checklist.title} - ${dayName}`,
+            description: `Auto-generated from weekly template for ${dayName}`,
+            template_type: 'standard',
+            frequency: 'daily',
+            created_by: user.id,
+          })
+          .select()
+          .single();
+
+        if (checklistError) throw checklistError;
+
+        // Copy items for this day
+        for (let i = 0; i < dayTasks.length; i++) {
+          const task = dayTasks[i];
+          const { error: itemError } = await supabase
+            .from('checklist_items')
+            .insert({
+              checklist_id: newChecklist.id,
+              question: task.question,
+              item_type: task.item_type,
+              order_index: i,
+              is_required: true,
+            });
+
+          if (itemError) throw itemError;
+        }
+      }
+
+      toast.success('Weekly template saved and daily checklists generated!');
       navigate('/tasks');
     } catch (error) {
-      console.error('Error saving assignments:', error);
-      toast.error('Failed to save assignments');
+      console.error('Error saving:', error);
+      toast.error('Failed to save template');
     } finally {
       setSaving(false);
     }
@@ -279,64 +424,78 @@ export default function DynamicChecklistCalendar() {
           </div>
           <Button onClick={handleSave} disabled={saving}>
             <Save className="mr-2 h-4 w-4" />
-            {saving ? 'Saving...' : 'Save Assignments'}
+            {saving ? 'Saving...' : 'Save & Generate'}
           </Button>
         </div>
 
-        <div className="grid lg:grid-cols-4 gap-6">
-          <Card className="p-4 lg:col-span-1">
-            <h2 className="font-semibold mb-3">Unassigned Tasks</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Drag tasks to days to assign them
-            </p>
-            <div className="space-y-2">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-              >
-                {unassignedItems.map((task) => (
-                  <DraggableTask key={task.id} task={task} />
-                ))}
-                <DragOverlay>
-                  {activeTask ? (
-                    <div className="p-2 bg-card border rounded shadow-lg">
-                      <p className="text-sm">{activeTask.question}</p>
-                    </div>
-                  ) : null}
-                </DragOverlay>
-              </DndContext>
-            </div>
-          </Card>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid lg:grid-cols-4 gap-6">
+            <Card className="p-4 lg:col-span-1">
+              <h2 className="font-semibold mb-3">Unassigned Tasks</h2>
+              
+              {/* Quick Add Form */}
+              <div className="mb-4 space-y-2 pb-4 border-b">
+                <Input
+                  placeholder="Task description..."
+                  value={newQuestion}
+                  onChange={(e) => setNewQuestion(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleQuickAdd()}
+                />
+                <Select value={newItemType} onValueChange={setNewItemType}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="TEXT">Text</SelectItem>
+                    <SelectItem value="CHECKBOX">Checkbox</SelectItem>
+                    <SelectItem value="NUMBER">Number</SelectItem>
+                    <SelectItem value="PHOTO">Photo</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button onClick={handleQuickAdd} className="w-full" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Task
+                </Button>
+              </div>
 
-          <div className="lg:col-span-3">
-            <DndContext
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-            >
+              <p className="text-sm text-muted-foreground mb-4">
+                Drag tasks to days to assign them
+              </p>
+              <div className="space-y-2">
+                {unassignedItems.map((task) => (
+                  <DraggableTask key={task.id} task={task} onDelete={handleDeleteItem} />
+                ))}
+              </div>
+            </Card>
+
+            <div className="lg:col-span-3">
               <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {weekDays.map((day) => (
+                {dayNames.map((dayName, index) => (
                   <DroppableDay
-                    key={day.index}
-                    dayIndex={day.index}
-                    dayName={`${day.name} (${format(day.date, 'MMM d')})`}
-                    tasks={assignedByDay.get(day.index) || []}
+                    key={index}
+                    dayIndex={index}
+                    dayName={dayName}
+                    tasks={assignedByDay.get(index) || []}
                   />
                 ))}
               </div>
-              <DragOverlay>
-                {activeTask ? (
-                  <div className="p-2 bg-card border rounded shadow-lg">
-                    <p className="text-sm">{activeTask.question}</p>
-                  </div>
-                ) : null}
-              </DragOverlay>
-            </DndContext>
+            </div>
           </div>
-        </div>
+
+          <DragOverlay>
+            {activeTask ? (
+              <div className="p-2 bg-card border rounded shadow-lg">
+                <p className="text-sm">{activeTask.question}</p>
+                <p className="text-xs text-muted-foreground">{activeTask.item_type}</p>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </div>
     </Layout>
   );

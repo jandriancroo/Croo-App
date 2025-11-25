@@ -11,12 +11,14 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { TemplateTypeDialog } from "@/components/TemplateTypeDialog";
 
 export default function Tasks() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
   const queryClient = useQueryClient();
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
 
   const handleDeactivate = async (checklistId: string) => {
     const { error } = await supabase
@@ -136,7 +138,7 @@ export default function Tasks() {
             <p className="text-muted-foreground">Manage your checklists and completions</p>
           </div>
           {isAdmin && (
-            <Button onClick={() => navigate('/create-checklist')}>
+            <Button onClick={() => setShowTemplateDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
               New Checklist
             </Button>
@@ -250,6 +252,7 @@ export default function Tasks() {
           </CardContent>
         </Card>
       </div>
+      <TemplateTypeDialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog} />
     </Layout>
   );
 }
