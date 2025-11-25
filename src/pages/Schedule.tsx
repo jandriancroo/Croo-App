@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Plus, Settings, Calendar, MoreVertical, Copy, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -721,27 +721,19 @@ export default function Schedule() {
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => navigate("/availability")}>
-              <Calendar className="h-4 w-4 mr-2" />
-              View Availability
-            </Button>
             {(isAdmin || isManager) && (
               <>
-                {scheduleId && (
-                  <LiveStatusBadge
-                    isPublished={isPublished}
-                    isPublishing={isPublishing}
-                    onGoLive={handleGoLive}
-                  />
-                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline">
-                      <MoreVertical className="h-4 w-4 mr-2" />
-                      Actions
+                    <Button variant="outline" size="icon">
+                      <Wrench className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="bg-background">
+                    <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
+                      <Calendar className="h-4 w-4" />
+                      View Availability
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/shift-templates")} className="gap-2 cursor-pointer">
                       <Settings className="h-4 w-4" />
                       Manage Templates
@@ -756,6 +748,13 @@ export default function Schedule() {
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                {scheduleId && (
+                  <LiveStatusBadge
+                    isPublished={isPublished}
+                    isPublishing={isPublishing}
+                    onGoLive={handleGoLive}
+                  />
+                )}
               </>
             )}
           </div>
