@@ -401,51 +401,7 @@ export default function DynamicChecklistCalendar() {
         if (error) throw error;
       }
 
-      // Generate 7 daily checklists
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
-      for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-        const dayTasks = assignedByDay.get(dayIndex) || [];
-        
-        if (dayTasks.length === 0) continue;
-
-        const dayName = dayNames[dayIndex];
-        
-        // Create daily checklist
-        const { data: newChecklist, error: checklistError } = await supabase
-          .from('checklists')
-          .insert({
-            title: `${checklist.title} - ${dayName}`,
-            description: `Auto-generated from weekly template for ${dayName}`,
-            template_type: 'standard',
-            frequency: 'daily',
-            created_by: user.id,
-            assigned_day_of_week: dayIndex,
-          })
-          .select()
-          .single();
-
-        if (checklistError) throw checklistError;
-
-        // Copy items for this day
-        for (let i = 0; i < dayTasks.length; i++) {
-          const task = dayTasks[i];
-          const { error: itemError } = await supabase
-            .from('checklist_items')
-            .insert({
-              checklist_id: newChecklist.id,
-              question: task.question,
-              item_type: task.item_type,
-              order_index: i,
-              is_required: true,
-            });
-
-          if (itemError) throw itemError;
-        }
-      }
-
-      toast.success('Weekly template saved and daily checklists generated!');
+      toast.success('Dynamic weekly template saved!');
       navigate('/tasks');
     } catch (error) {
       console.error('Error saving:', error);
@@ -482,7 +438,7 @@ export default function DynamicChecklistCalendar() {
           </div>
           <Button onClick={handleSave} disabled={saving}>
             <Save className="mr-2 h-4 w-4" />
-            {saving ? 'Saving...' : 'Save & Generate'}
+            {saving ? 'Saving...' : 'Save Template'}
           </Button>
         </div>
 

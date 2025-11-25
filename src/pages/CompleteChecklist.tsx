@@ -105,18 +105,6 @@ export default function CompleteChecklist() {
         .single();
 
       if (checklistError) throw checklistError;
-
-      // Check if checklist is day-specific and if today is the right day
-      if (checklistData.assigned_day_of_week !== null) {
-        const currentDay = new Date().getDay();
-        if (checklistData.assigned_day_of_week !== currentDay) {
-          const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-          toast.error(`This checklist can only be completed on ${dayNames[checklistData.assigned_day_of_week]}`);
-          navigate('/tasks');
-          return;
-        }
-      }
-
       setChecklist(checklistData);
 
       const { data: itemsData, error: itemsError } = await supabase
@@ -126,7 +114,24 @@ export default function CompleteChecklist() {
         .order('order_index');
 
       if (itemsError) throw itemsError;
-      setItems(itemsData || []);
+      
+      // For dynamic checklists, filter items for current day
+      if (checklistData.template_type === 'dynamic') {
+        const currentDay = new Date().getDay();
+        const todayItems = (itemsData || []).filter(item => 
+          item.days_of_week && item.days_of_week.includes(currentDay)
+        );
+        
+        if (todayItems.length === 0) {
+          toast.error("No tasks assigned for today in this checklist");
+          navigate('/tasks');
+          return;
+        }
+        
+        setItems(todayItems);
+      } else {
+        setItems(itemsData || []);
+      }
     } catch (error: any) {
       toast.error('Failed to load checklist');
       navigate('/');
