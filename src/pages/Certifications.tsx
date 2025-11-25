@@ -12,8 +12,9 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Upload, CheckCircle, XCircle, Clock, ExternalLink, Trash2 } from "lucide-react";
+import { Upload, CheckCircle, XCircle, Clock, ExternalLink, Trash2, Edit } from "lucide-react";
 import { format } from "date-fns";
+import { EditCertificationDialog } from "@/components/users/EditCertificationDialog";
 
 type CertificationType = "food_handlers" | "servsafe";
 
@@ -51,6 +52,8 @@ export default function Certifications() {
   const [selectedType, setSelectedType] = useState<CertificationType>("food_handlers");
   const [expirationDate, setExpirationDate] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedCertification, setSelectedCertification] = useState<Certification | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -361,6 +364,17 @@ export default function Certifications() {
                                 </Button>
                                 {isAdmin && (
                                   <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setSelectedCertification(cert);
+                                        setEditDialogOpen(true);
+                                      }}
+                                    >
+                                      <Edit className="w-3 h-3 mr-1" />
+                                      Edit
+                                    </Button>
                                     {cert.status === "pending" && (
                                       <>
                                         <Button
@@ -400,6 +414,13 @@ export default function Certifications() {
           })}
         </div>
       </div>
+
+      <EditCertificationDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        certification={selectedCertification}
+        onSuccess={fetchData}
+      />
     </Layout>
   );
 }
