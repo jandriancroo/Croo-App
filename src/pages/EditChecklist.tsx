@@ -156,7 +156,7 @@ export default function EditChecklist() {
 
   useEffect(() => {
     if (!roleLoading && !isAdmin) {
-      navigate('/dashboard');
+      navigate('/tasks');
       toast({
         title: 'Access Denied',
         description: 'Only admins can edit checklist templates.',
@@ -226,7 +226,7 @@ export default function EditChecklist() {
         description: 'Failed to load checklist',
         variant: 'destructive',
       });
-      navigate('/dashboard');
+      navigate('/tasks');
     } finally {
       setLoading(false);
     }
@@ -316,7 +316,7 @@ export default function EditChecklist() {
         description: 'Checklist updated successfully',
       });
 
-      navigate('/dashboard');
+      navigate('/tasks');
     } catch (error) {
       console.error('Error updating checklist:', error);
       toast({
@@ -411,7 +411,7 @@ export default function EditChecklist() {
     <Layout>
       <div className="container mx-auto p-6 max-w-4xl space-y-6">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/dashboard')}>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/tasks')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
@@ -545,7 +545,7 @@ export default function EditChecklist() {
         </Card>
 
         <div className="flex gap-4">
-          <Button onClick={() => navigate('/dashboard')} variant="outline" className="flex-1">
+          <Button onClick={() => navigate('/tasks')} variant="outline" className="flex-1">
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving} className="flex-1">
