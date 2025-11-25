@@ -100,39 +100,37 @@ export function EmployeeRow({
 
   return (
     <div ref={setNodeRef} style={style} className="grid grid-cols-8 gap-0 border-b border-dotted border-border/50">
-      <div className="flex flex-col justify-center gap-1 p-4 border-r border-border bg-muted/30">
+      <div className="flex items-center gap-2 p-2 border-r border-border bg-muted/30">
         {profile.id !== "unassigned" ? (
           <>
-            <div className="flex items-center gap-2">
-              {isDraggable && (
-                <button
-                  className="cursor-grab active:cursor-grabbing hover:bg-accent/50 rounded p-1 transition-colors"
-                  {...attributes}
-                  {...listeners}
-                >
-                  <GripVertical className="h-4 w-4 text-muted-foreground" />
-                </button>
-              )}
-              <div 
-                className="flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded p-1 -m-1 transition-colors flex-1"
-                onClick={() => navigate('/users', { state: { viewUserId: profile.id } })}
+            {isDraggable && (
+              <button
+                className="cursor-grab active:cursor-grabbing hover:bg-accent/50 rounded p-1 transition-colors flex-shrink-0"
+                {...attributes}
+                {...listeners}
               >
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={profile.profile_photo_url || undefined} />
-                  <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <span className="text-sm font-medium">{profile.full_name}</span>
+                <GripVertical className="h-3 w-3 text-muted-foreground" />
+              </button>
+            )}
+            <div 
+              className="flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded p-1 transition-colors flex-1 min-w-0"
+              onClick={() => navigate('/users', { state: { viewUserId: profile.id } })}
+            >
+              <Avatar className="h-6 w-6 flex-shrink-0">
+                <AvatarImage src={profile.profile_photo_url || undefined} />
+                <AvatarFallback className="text-[10px]">{profile.full_name.charAt(0)}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-medium truncate">{profile.full_name}</p>
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                  <span>{calculateTotalHours()}h</span>
+                  <span className="text-primary font-semibold">${calculateTotalWages()}</span>
+                </div>
               </div>
-            </div>
-            <div className="text-xs text-muted-foreground ml-10">
-              {calculateTotalHours()} hrs
-            </div>
-            <div className="text-xs font-semibold text-primary ml-10">
-              ${calculateTotalWages()}
             </div>
           </>
         ) : (
-          <span className="text-sm font-medium text-muted-foreground">Unassigned</span>
+          <span className="text-xs font-medium text-muted-foreground">Unassigned</span>
         )}
       </div>
 
@@ -195,7 +193,7 @@ function DayCell({
     <div 
       ref={setNodeRef} 
       style={{ touchAction: 'none' }}
-      className={`min-h-[80px] p-2 border-r last:border-r-0 border-border transition-colors ${
+      className={`min-h-[60px] p-1 border-r last:border-r-0 border-border transition-colors ${
         isOver ? "bg-accent/50" : "hover:bg-muted/30"
       }`}
     >
@@ -214,18 +212,15 @@ function DayCell({
         {availabilityRequests.map((request) => (
           <div 
             key={request.id}
-            className="p-2 bg-muted/30 border-dashed border-2 rounded relative"
+            className="p-1 bg-muted/30 border-dashed border rounded relative text-[10px]"
             style={{
               background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)",
             }}
           >
-            <div className="text-xs text-muted-foreground font-medium">
+            <div className="text-[10px] text-muted-foreground font-medium">
               {request.time_scope === "partial_day" && request.start_time && request.end_time
                 ? `${request.start_time} - ${request.end_time}`
                 : "Time Off"}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {request.status === "pending" ? "Pending" : "Approved"}
             </div>
           </div>
         ))}

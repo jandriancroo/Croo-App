@@ -194,34 +194,52 @@ export function LaborTotals({ shifts, profiles, currentWeekStart, scheduleId, is
     });
   }, [shifts, profiles, weekDays, shiftWages, isLoadingWages]);
 
+  const weeklyTotals = useMemo(() => {
+    const totalHours = dailyTotals.reduce((sum, day) => sum + day.hours, 0);
+    const totalWages = dailyTotals.reduce((sum, day) => sum + day.wages, 0);
+    const totalSales = Object.values(projectedSales).reduce((sum, sale) => sum + sale, 0);
+    const avgLaborPercent = totalSales > 0 ? (totalWages / totalSales) * 100 : 0;
+
+    return {
+      hours: totalHours,
+      wages: totalWages,
+      sales: totalSales,
+      laborPercent: avgLaborPercent
+    };
+  }, [dailyTotals, projectedSales]);
+
   return (
-    <div className="border-t border-border bg-muted/30">
+    <div className="border-t border-border bg-muted/30 text-xs">
       {/* Daily Labor Totals */}
-      <div className="grid grid-cols-8 gap-0 border-b border-border">
-        <div className="p-3 border-r border-border">
-          <p className="text-sm font-semibold">Daily Totals</p>
+      <div className="grid grid-cols-9 gap-0 border-b border-border">
+        <div className="p-2 border-r border-border">
+          <p className="text-xs font-semibold">Daily</p>
         </div>
         {dailyTotals.map((day, index) => (
-          <div key={index} className="p-3 border-r last:border-r-0 border-border text-center">
+          <div key={index} className="p-2 border-r border-border text-center">
             {isLoadingWages ? (
-              <p className="text-sm text-muted-foreground">...</p>
+              <p className="text-xs text-muted-foreground">...</p>
             ) : (
               <>
-                <p className="text-sm font-semibold">{day.hours.toFixed(1)}h</p>
-                <p className="text-xs text-muted-foreground">${day.wages.toFixed(0)}</p>
+                <p className="text-xs font-semibold">{day.hours.toFixed(1)}h</p>
+                <p className="text-[10px] text-muted-foreground">${day.wages.toFixed(0)}</p>
               </>
             )}
           </div>
         ))}
+        <div className="p-2 text-center bg-muted/50">
+          <p className="text-xs font-bold">{weeklyTotals.hours.toFixed(1)}h</p>
+          <p className="text-[10px] font-bold text-primary">${weeklyTotals.wages.toFixed(0)}</p>
+        </div>
       </div>
 
       {/* Projected Sales Row */}
-      <div className="grid grid-cols-8 gap-0 border-b border-border">
-        <div className="p-3 border-r border-border">
-          <p className="text-sm font-semibold">Projected Sales</p>
+      <div className="grid grid-cols-9 gap-0 border-b border-border">
+        <div className="p-2 border-r border-border">
+          <p className="text-xs font-semibold">Sales</p>
         </div>
         {weekDays.map((day, index) => (
-          <div key={index} className="p-2 border-r last:border-r-0 border-border text-center">
+          <div key={index} className="p-1 border-r border-border text-center">
             {isEditable ? (
               <Input
                 type="number"
@@ -229,22 +247,25 @@ export function LaborTotals({ shifts, profiles, currentWeekStart, scheduleId, is
                 min="0"
                 value={projectedSales[index] || ''}
                 onChange={(e) => handleSalesChange(index, e.target.value)}
-                className="h-8 text-center text-sm"
+                className="h-7 text-center text-xs p-1"
                 placeholder="$0"
               />
             ) : (
-              <p className="text-sm">
+              <p className="text-xs py-1">
                 {isLoadingSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
               </p>
             )}
           </div>
         ))}
+        <div className="p-2 text-center bg-muted/50">
+          <p className="text-xs font-bold">${weeklyTotals.sales.toFixed(0)}</p>
+        </div>
       </div>
 
       {/* Labor Percentage Row */}
-      <div className="grid grid-cols-8 gap-0">
-        <div className="p-3 border-r border-border">
-          <p className="text-sm font-semibold">Labor %</p>
+      <div className="grid grid-cols-9 gap-0">
+        <div className="p-2 border-r border-border">
+          <p className="text-xs font-semibold">Labor %</p>
         </div>
         {dailyTotals.map((day, index) => {
           const sales = projectedSales[index] || 0;
@@ -254,11 +275,11 @@ export function LaborTotals({ shifts, profiles, currentWeekStart, scheduleId, is
           const isBad = laborPercent > 35;
 
           return (
-            <div key={index} className="p-3 border-r last:border-r-0 border-border text-center">
+            <div key={index} className="p-2 border-r border-border text-center">
               {isLoadingWages || isLoadingSales ? (
-                <p className="text-sm text-muted-foreground">...</p>
+                <p className="text-xs text-muted-foreground">...</p>
               ) : sales > 0 ? (
-                <p className={`text-sm font-semibold ${
+                <p className={`text-xs font-semibold ${
                   isGood ? 'text-green-600' : 
                   isWarning ? 'text-yellow-600' : 
                   isBad ? 'text-red-600' : ''
@@ -266,11 +287,24 @@ export function LaborTotals({ shifts, profiles, currentWeekStart, scheduleId, is
                   {laborPercent.toFixed(1)}%
                 </p>
               ) : (
-                <p className="text-sm text-muted-foreground">-</p>
+                <p className="text-xs text-muted-foreground">-</p>
               )}
             </div>
           );
         })}
+        <div className="p-2 text-center bg-muted/50">
+          {weeklyTotals.sales > 0 ? (
+            <p className={`text-xs font-bold ${
+              weeklyTotals.laborPercent <= 30 ? 'text-green-600' : 
+              weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 
+              'text-red-600'
+            }`}>
+              {weeklyTotals.laborPercent.toFixed(1)}%
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">-</p>
+          )}
+        </div>
       </div>
     </div>
   );
