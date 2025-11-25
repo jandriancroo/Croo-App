@@ -5,7 +5,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardCheck, Calendar, Plus, TrendingUp, CheckCircle2, Edit, DollarSign, Clock, Settings } from 'lucide-react';
+import { ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -17,12 +17,14 @@ import { LocationSelector } from '@/components/LocationSelector';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
+import { format, addDays } from 'date-fns';
 interface Checklist {
   id: string;
   title: string;
   description: string | null;
   frequency: string;
   created_at: string;
+  template_type: string | null;
 }
 interface ChecklistStats {
   checklist_id: string;
@@ -40,11 +42,12 @@ type SalesData = {
   daily: number;
   weekly: number;
 };
-const DEFAULT_SECTION_ORDER = ['alerts', 'stats-overview', 'sales-overview', 'completion-overview', 'checklists-grid'];
+const DEFAULT_SECTION_ORDER = ['alerts', 'stats-overview', 'sales-overview', 'checklists-grid'];
 const STORAGE_KEY = 'dashboard-section-order';
 export default function Dashboard() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [stats, setStats] = useState<Record<string, ChecklistStats>>({});
+  const [completionData, setCompletionData] = useState<Record<string, { expected: number; completed: number }>>({});
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
   const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
@@ -79,6 +82,56 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (checklists.length > 0) {
+      loadCompletionData();
+    }
+  }, [checklists]);
+
+  const loadCompletionData = async () => {
+    const today = new Date();
+    const todayStr = format(today, 'yyyy-MM-dd');
+    const currentDay = today.getDay();
+    
+    const dataMap: Record<string, { expected: number; completed: number }> = {};
+
+    for (const checklist of checklists) {
+      // Get checklist items
+      const { data: checklistItems } = await supabase
+        .from('checklist_items')
+        .select('id, days_of_week')
+        .eq('checklist_id', checklist.id);
+      
+      let itemCount = checklistItems?.length || 0;
+      if (checklist.template_type === 'dynamic' && checklistItems) {
+        itemCount = checklistItems.filter(item => 
+          item.days_of_week && item.days_of_week.includes(currentDay)
+        ).length;
+      }
+
+      // Get submissions and count responses for today
+      const { data: submissions } = await supabase
+        .from('checklist_submissions')
+        .select(`
+          id,
+          checklist_responses(id)
+        `)
+        .eq('checklist_id', checklist.id)
+        .gte('submitted_at', todayStr)
+        .lt('submitted_at', format(addDays(today, 1), 'yyyy-MM-dd'));
+
+      const completedCount = submissions?.reduce((sum, sub: any) => 
+        sum + (sub.checklist_responses?.length || 0), 0) || 0;
+
+      dataMap[checklist.id] = {
+        expected: itemCount,
+        completed: completedCount
+      };
+    }
+
+    setCompletionData(dataMap);
+  };
   const fetchData = async () => {
     try {
       const currentDay = new Date().getDay();
@@ -183,47 +236,8 @@ export default function Dashboard() {
         return 'bg-muted';
     }
   };
-  const getCompletionData = (checklist: Checklist, stats: ChecklistStats | undefined) => {
-    switch (checklist.frequency) {
-      case 'daily':
-        return {
-          expected: 1,
-          completed: stats?.submissions_today || 0,
-          period: 'today'
-        };
-      case 'weekly':
-        return {
-          expected: 1,
-          completed: stats?.submissions_this_week || 0,
-          period: 'this week'
-        };
-      case 'monthly':
-        return {
-          expected: 1,
-          completed: stats?.submissions_this_month || 0,
-          period: 'this month'
-        };
-      default:
-        return {
-          expected: 1,
-          completed: stats?.submissions_today || 0,
-          period: 'today'
-        };
-    }
-  };
-  const COLORS = {
-    completed: 'hsl(var(--primary))',
-    remaining: 'hsl(var(--muted))'
-  };
-  const getTotalStats = () => {
-    const totalSubmissions = Object.values(stats).reduce((sum, stat) => sum + stat.total_submissions, 0);
-    const submissionsThisWeek = Object.values(stats).reduce((sum, stat) => sum + stat.submissions_this_week, 0);
-    const activeChecklists = checklists.length;
-    return {
-      totalSubmissions,
-      submissionsThisWeek,
-      activeChecklists
-    };
+  const getCompletionData = (checklistId: string) => {
+    return completionData[checklistId] || { expected: 0, completed: 0 };
   };
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -231,7 +245,6 @@ export default function Dashboard() {
       currency: 'USD'
     }).format(amount);
   };
-  const totalStats = getTotalStats();
 
   // Define all dashboard sections as components
   const sections = {
@@ -240,36 +253,35 @@ export default function Dashboard() {
         <LogBookAlerts />
         <CertificationAlerts />
       </div>,
-    'stats-overview': <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active Checklists</CardTitle>
-            <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalStats.activeChecklists}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">This Week</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalStats.submissionsThisWeek}</div>
-            <p className="text-xs text-muted-foreground">submissions</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Completions</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalStats.totalSubmissions}</div>
-            <p className="text-xs text-muted-foreground">all time</p>
-          </CardContent>
-        </Card>
+    'stats-overview': <div>
+        <h3 className="text-xl font-semibold mb-4">Completion Status</h3>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {checklists.map(checklist => {
+            const { expected, completed } = getCompletionData(checklist.id);
+            const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
+            
+            return (
+              <Card key={checklist.id}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium truncate">{checklist.title}</CardTitle>
+                    <Badge variant="secondary" className="text-xs capitalize">{checklist.frequency}</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="text-lg font-semibold text-muted-foreground">
+                      {completed} out of {expected}
+                    </div>
+                    <div className="text-3xl font-bold text-primary">
+                      {completionRate}%
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>,
     'sales-overview': <div>
         <div className="flex items-center justify-between mb-4">
@@ -347,62 +359,6 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>,
-    'completion-overview': <Card>
-        <CardHeader>
-          <CardTitle>Completion Overview</CardTitle>
-          <CardDescription>Current period completion status</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {checklists.map(checklist => {
-            const checklistStats = stats[checklist.id];
-            const {
-              expected,
-              completed,
-              period
-            } = getCompletionData(checklist, checklistStats);
-            const remaining = Math.max(0, expected - completed);
-            const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
-            const chartData = [{
-              name: 'Completed',
-              value: Math.min(completed, expected)
-            }, {
-              name: 'Remaining',
-              value: remaining
-            }];
-            return <div key={checklist.id} className="flex flex-col items-center">
-                  <ResponsiveContainer width="100%" height={180}>
-                    <PieChart>
-                      <Pie data={chartData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={2} dataKey="value">
-                        <Cell fill={COLORS.completed} />
-                        <Cell fill={COLORS.remaining} />
-                      </Pie>
-                      <Tooltip contentStyle={{
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '0.5rem'
-                  }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="text-center mt-2">
-                    <h4 className="font-semibold text-sm truncate max-w-[200px]">
-                      {checklist.title}
-                    </h4>
-                    <p className="text-2xl font-bold text-primary mt-1">
-                      {completionRate}%
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {completed} of {expected} {period}
-                    </p>
-                    <Badge variant="secondary" className="mt-1 text-xs capitalize">
-                      {checklist.frequency}
-                    </Badge>
-                  </div>
-                </div>;
-          })}
-          </div>
-        </CardContent>
-      </Card>,
     'checklists-grid': <div>
         <h3 className="text-xl font-semibold mb-4">Your Checklists</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
