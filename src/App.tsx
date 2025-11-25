@@ -27,6 +27,7 @@ import PayrollReview from "./pages/PayrollReview";
 import Tasks from "./pages/Tasks";
 import LogBook from "./pages/LogBook";
 import Certifications from "./pages/Certifications";
+import Alerts from "./pages/Alerts";
 
 const queryClient = new QueryClient();
 
@@ -56,6 +57,7 @@ const AppContent = () => {
       <Route path="/payroll-review" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
+      <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

@@ -12,6 +12,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useQuery } from '@tanstack/react-query';
 import { LogBookAlerts } from '@/components/dashboard/LogBookAlerts';
 import { CertificationAlerts } from '@/components/dashboard/CertificationAlerts';
+import { ChecklistCompletionAlerts } from '@/components/dashboard/ChecklistCompletionAlerts';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
@@ -271,6 +272,7 @@ export default function Dashboard() {
   const sections = {
     'alerts': (
       <div className="space-y-6">
+        <ChecklistCompletionAlerts />
         <LogBookAlerts />
         <CertificationAlerts />
       </div>
