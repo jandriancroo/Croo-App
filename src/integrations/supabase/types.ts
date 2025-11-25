@@ -511,6 +511,57 @@ export type Database = {
           },
         ]
       }
+      holidays: {
+        Row: {
+          created_at: string
+          holiday_date: string
+          holiday_name: string
+          holiday_type: string
+          id: string
+          is_recurring: boolean
+          location_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          holiday_date: string
+          holiday_name: string
+          holiday_type?: string
+          id?: string
+          is_recurring?: boolean
+          location_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          holiday_date?: string
+          holiday_name?: string
+          holiday_type?: string
+          id?: string
+          is_recurring?: boolean
+          location_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holidays_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "holidays_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_settings: {
         Row: {
           blackout_dates: string[] | null

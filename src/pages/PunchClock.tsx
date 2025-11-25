@@ -59,6 +59,7 @@ export default function PunchClock() {
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [expiringCerts, setExpiringCerts] = useState<any[]>([]);
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
+  const [isBirthday, setIsBirthday] = useState(false);
 
   const currentQuote = DAILY_QUOTES[currentQuoteIndex];
 
@@ -159,8 +160,20 @@ export default function PunchClock() {
       checkTodayShift();
       checkLastPunch();
       checkExpiringCertifications();
+      checkBirthday();
     }
   }, [currentUser]);
+
+  const checkBirthday = () => {
+    if (!currentUser || !currentUser.birthday) return;
+    
+    const today = new Date();
+    const [year, month, day] = currentUser.birthday.split('-').map(Number);
+    const todayMonth = today.getMonth() + 1;
+    const todayDay = today.getDate();
+    
+    setIsBirthday(month === todayMonth && day === todayDay);
+  };
 
   const handleNumberClick = (num: string) => {
     if (pin.length < 4) {
@@ -427,20 +440,36 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
           
           <Card className="w-full max-w-5xl overflow-hidden">
             <div className="grid md:grid-cols-2">
-              {/* Left Side - Image and Quote */}
-              <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentQuote.image})` }}>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
-                  <div className="text-5xl font-bold mb-4">
-                    {format(currentTime, 'h:mm:ss a')}
-                  </div>
-                  <h2 className="text-3xl font-bold mb-4">Welcome to Work!</h2>
-                  <div className="space-y-2">
-                    <p className="text-xl font-medium italic">"{currentQuote.quote}"</p>
-                    <p className="text-sm opacity-90">- {currentQuote.verse}</p>
+              {/* Left Side - Image and Quote or Birthday Message */}
+              {isBirthday ? (
+                <div className="relative h-full min-h-[500px] bg-gradient-to-br from-primary via-accent to-primary">
+                  <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-white">
+                    <div className="text-9xl mb-6 animate-bounce">🎂</div>
+                    <h2 className="text-6xl font-bold mb-4 text-center">Happy Birthday!</h2>
+                    <p className="text-4xl font-semibold mb-6 text-center">{currentUser?.full_name}</p>
+                    <div className="text-5xl font-bold">
+                      {format(currentTime, 'h:mm:ss a')}
+                    </div>
+                    <p className="text-2xl mt-6 text-center italic">
+                      Wishing you a wonderful day full of joy and blessings!
+                    </p>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentQuote.image})` }}>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                  <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
+                    <div className="text-5xl font-bold mb-4">
+                      {format(currentTime, 'h:mm:ss a')}
+                    </div>
+                    <h2 className="text-3xl font-bold mb-4">Welcome to Work!</h2>
+                    <div className="space-y-2">
+                      <p className="text-xl font-medium italic">"{currentQuote.quote}"</p>
+                      <p className="text-sm opacity-90">- {currentQuote.verse}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Right Side - Number Pad */}
               <CardContent className="p-8 flex flex-col justify-center">

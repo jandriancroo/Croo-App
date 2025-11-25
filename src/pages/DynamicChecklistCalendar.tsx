@@ -27,6 +27,13 @@ interface Checklist {
   description: string | null;
 }
 
+interface Holiday {
+  id: string;
+  holiday_name: string;
+  holiday_date: string;
+  holiday_type: string;
+}
+
 function DraggableTask({ task, onDelete }: { task: ChecklistItem; onDelete?: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
@@ -121,11 +128,26 @@ function UnassignedDropzone({ unassignedItems, onDelete, onQuickAdd, newQuestion
   );
 }
 
-function DroppableDay({ dayIndex, dayName, tasks }: { dayIndex: number; dayName: string; tasks: ChecklistItem[] }) {
+function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates }: { 
+  dayIndex: number; 
+  dayName: string; 
+  tasks: ChecklistItem[];
+  holidays: Holiday[];
+  blackoutDates: string[];
+}) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${dayIndex}`,
     data: { dayIndex },
   });
+
+  // Calculate the date for this day of the week
+  const today = new Date();
+  const startOfWeek = new Date(today);
+  startOfWeek.setDate(today.getDate() - today.getDay() + 1 + dayIndex);
+  const dateString = startOfWeek.toISOString().split('T')[0];
+
+  const dayHolidays = holidays.filter(h => h.holiday_date === dateString);
+  const isBlackout = blackoutDates.includes(dateString);
 
   return (
     <div
@@ -134,7 +156,24 @@ function DroppableDay({ dayIndex, dayName, tasks }: { dayIndex: number; dayName:
         isOver ? "border-primary bg-accent" : "border-border"
       }`}
     >
-      <h3 className="font-semibold mb-3">{dayName}</h3>
+      <div className="mb-3">
+        <h3 className="font-semibold">{dayName}</h3>
+        <div className="text-xs text-muted-foreground">{startOfWeek.toLocaleDateString()}</div>
+        {dayHolidays.length > 0 && (
+          <div className="mt-1 space-y-0.5">
+            {dayHolidays.map(holiday => (
+              <div key={holiday.id} className="text-xs text-primary font-medium">
+                {holiday.holiday_name}
+              </div>
+            ))}
+          </div>
+        )}
+        {isBlackout && (
+          <div className="mt-1 text-xs text-destructive font-medium">
+            🚫 Blackout Date
+          </div>
+        )}
+      </div>
       <div className="space-y-2">
         {tasks.map((task) => (
           <DraggableTask key={task.id} task={task} />
@@ -155,6 +194,8 @@ export default function DynamicChecklistCalendar() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTask, setActiveTask] = useState<ChecklistItem | null>(null);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
   
   // Quick add form state
   const [newQuestion, setNewQuestion] = useState("");
@@ -190,8 +231,40 @@ export default function DynamicChecklistCalendar() {
       } else if (id) {
         fetchChecklistData();
       }
+      fetchHolidaysAndBlackouts();
     }
   }, [isAdmin, id]);
+
+  const fetchHolidaysAndBlackouts = async () => {
+    try {
+      // Fetch holidays for the current week
+      const startOfWeek = new Date();
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1);
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+
+      const { data: holidaysData, error: holidaysError } = await supabase
+        .from("holidays")
+        .select("*")
+        .gte("holiday_date", startOfWeek.toISOString().split('T')[0])
+        .lte("holiday_date", endOfWeek.toISOString().split('T')[0]);
+
+      if (holidaysError) throw holidaysError;
+      setHolidays(holidaysData || []);
+
+      // Fetch location blackout dates
+      const { data: settingsData, error: settingsError } = await supabase
+        .from("location_settings")
+        .select("blackout_dates")
+        .single();
+
+      if (!settingsError && settingsData) {
+        setBlackoutDates(settingsData.blackout_dates || []);
+      }
+    } catch (error) {
+      console.error('Error fetching holidays/blackouts:', error);
+    }
+  };
 
   const createNewTemplate = async () => {
     try {
@@ -459,6 +532,8 @@ export default function DynamicChecklistCalendar() {
                     dayIndex={index}
                     dayName={dayName}
                     tasks={assignedByDay.get(index) || []}
+                    holidays={holidays}
+                    blackoutDates={blackoutDates}
                   />
                 ))}
               </div>
