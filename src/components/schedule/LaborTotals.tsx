@@ -33,6 +33,7 @@ export function LaborTotals({ shifts, profiles, currentWeekStart, scheduleId, is
   const [isLoadingWages, setIsLoadingWages] = useState(true);
   const [projectedSales, setProjectedSales] = useState<Record<number, number>>({});
   const [isLoadingSales, setIsLoadingSales] = useState(true);
+  const [weeklyTotalsExpanded, setWeeklyTotalsExpanded] = useState(true);
 
   useEffect(() => {
     const fetchWages = async () => {
@@ -211,7 +212,7 @@ export function LaborTotals({ shifts, profiles, currentWeekStart, scheduleId, is
   return (
     <div className="border-t border-border bg-muted/30 text-xs">
       {/* Daily Labor Totals */}
-      <div className="grid grid-cols-9 gap-0 border-b border-border">
+      <div className={`grid gap-0 border-b border-border ${weeklyTotalsExpanded ? 'grid-cols-9' : 'grid-cols-8'}`}>
         <div className="p-2 border-r border-border">
           <p className="text-xs font-semibold">Daily</p>
         </div>
@@ -227,14 +228,35 @@ export function LaborTotals({ shifts, profiles, currentWeekStart, scheduleId, is
             )}
           </div>
         ))}
-        <div className="p-2 text-center bg-muted/50">
-          <p className="text-xs font-bold">{weeklyTotals.hours.toFixed(1)}h</p>
-          <p className="text-[10px] font-bold text-primary">${weeklyTotals.wages.toFixed(0)}</p>
-        </div>
+        {weeklyTotalsExpanded && (
+          <div className="p-2 text-center bg-muted/50 relative">
+            <button
+              onClick={() => setWeeklyTotalsExpanded(false)}
+              className="absolute -left-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <svg width="8" height="12" viewBox="0 0 8 12" fill="currentColor">
+                <path d="M8 6L0 12V0L8 6Z" />
+              </svg>
+            </button>
+            <p className="text-xs font-bold">{weeklyTotals.hours.toFixed(1)}h</p>
+            <p className="text-[10px] font-bold text-primary">${weeklyTotals.wages.toFixed(0)}</p>
+          </div>
+        )}
+        {!weeklyTotalsExpanded && (
+          <button
+            onClick={() => setWeeklyTotalsExpanded(true)}
+            className="p-2 text-center bg-muted/50 hover:bg-muted border-r border-border"
+            title="Show weekly totals"
+          >
+            <svg width="8" height="12" viewBox="0 0 8 12" fill="currentColor" className="mx-auto">
+              <path d="M0 6L8 0V12L0 6Z" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Projected Sales Row */}
-      <div className="grid grid-cols-9 gap-0 border-b border-border">
+      <div className={`grid gap-0 border-b border-border ${weeklyTotalsExpanded ? 'grid-cols-9' : 'grid-cols-8'}`}>
         <div className="p-2 border-r border-border">
           <p className="text-xs font-semibold">Sales</p>
         </div>
@@ -257,13 +279,18 @@ export function LaborTotals({ shifts, profiles, currentWeekStart, scheduleId, is
             )}
           </div>
         ))}
-        <div className="p-2 text-center bg-muted/50">
-          <p className="text-xs font-bold">${weeklyTotals.sales.toFixed(0)}</p>
-        </div>
+        {weeklyTotalsExpanded && (
+          <div className="p-2 text-center bg-muted/50">
+            <p className="text-xs font-bold">${weeklyTotals.sales.toFixed(0)}</p>
+          </div>
+        )}
+        {!weeklyTotalsExpanded && (
+          <div className="p-2 text-center bg-muted/50 border-r border-border" />
+        )}
       </div>
 
       {/* Labor Percentage Row */}
-      <div className="grid grid-cols-9 gap-0">
+      <div className={`grid gap-0 ${weeklyTotalsExpanded ? 'grid-cols-9' : 'grid-cols-8'}`}>
         <div className="p-2 border-r border-border">
           <p className="text-xs font-semibold">Labor %</p>
         </div>
@@ -292,19 +319,24 @@ export function LaborTotals({ shifts, profiles, currentWeekStart, scheduleId, is
             </div>
           );
         })}
-        <div className="p-2 text-center bg-muted/50">
-          {weeklyTotals.sales > 0 ? (
-            <p className={`text-xs font-bold ${
-              weeklyTotals.laborPercent <= 30 ? 'text-green-600' : 
-              weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 
-              'text-red-600'
-            }`}>
-              {weeklyTotals.laborPercent.toFixed(1)}%
-            </p>
-          ) : (
-            <p className="text-xs text-muted-foreground">-</p>
-          )}
-        </div>
+        {weeklyTotalsExpanded && (
+          <div className="p-2 text-center bg-muted/50">
+            {weeklyTotals.sales > 0 ? (
+              <p className={`text-xs font-bold ${
+                weeklyTotals.laborPercent <= 30 ? 'text-green-600' : 
+                weeklyTotals.laborPercent <= 35 ? 'text-yellow-600' : 
+                'text-red-600'
+              }`}>
+                {weeklyTotals.laborPercent.toFixed(1)}%
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">-</p>
+            )}
+          </div>
+        )}
+        {!weeklyTotalsExpanded && (
+          <div className="p-2 text-center bg-muted/50 border-r border-border" />
+        )}
       </div>
     </div>
   );
