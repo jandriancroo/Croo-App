@@ -160,11 +160,11 @@ export default function Auth() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
       <Card className="w-full max-w-md shadow-xl">
-        <CardHeader className="space-y-3 text-center">
+        <CardHeader className="space-y-1 text-center">
           <div className="mx-auto">
             <img src={crooLogo} alt="Croo Logo" className="h-24 w-auto mx-auto" />
           </div>
-          <CardDescription>
+          <CardDescription className="font-semibold text-base tracking-wide italic">
             food service made smart
           </CardDescription>
         </CardHeader>
