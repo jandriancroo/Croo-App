@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardList, LogOut, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, BookOpen } from 'lucide-react';
+import { Home, ClipboardList, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, BookOpen, DoorOpen } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -36,7 +36,7 @@ export const Layout = ({
     icon: ClipboardList
   }, {
     path: '/logbook',
-    label: 'Log Book',
+    label: 'Log',
     icon: BookOpen
   }, {
     path: '/schedule',
@@ -44,7 +44,7 @@ export const Layout = ({
     icon: Calendar
   }, {
     path: '/messages',
-    label: 'Messages',
+    label: 'Chat',
     icon: MessageSquare
   }];
   const timeMenuItems = [{
@@ -74,12 +74,12 @@ export const Layout = ({
     icon: Calendar
   }, {
     path: '/messages',
-    label: 'Messages',
+    label: 'Chat',
     icon: MessageSquare
   }];
   const mobileMenuItems = [{
     path: '/logbook',
-    label: 'Log Book',
+    label: 'Log',
     icon: BookOpen
   }, {
     path: '/availability',
@@ -145,10 +145,8 @@ export const Layout = ({
           <div className="hidden md:flex items-center gap-2">
             {isAdmin && <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant={['/settings', '/users'].includes(location.pathname) ? 'secondary' : 'ghost'} className="gap-2">
+                  <Button variant={['/settings', '/users'].includes(location.pathname) ? 'secondary' : 'ghost'} size="icon" title="Settings">
                     <SettingsIcon className="h-4 w-4 flex-shrink-0" />
-                    <span className="hidden lg:inline">Settings</span>
-                    <ChevronDown className="h-3 w-3 flex-shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-background">
@@ -163,14 +161,13 @@ export const Layout = ({
                 </DropdownMenuContent>
               </DropdownMenu>}
             
-            <Button variant="outline" onClick={signOut} className="gap-2">
-              <LogOut className="h-4 w-4 flex-shrink-0" />
-              <span className="hidden lg:inline">Sign Out</span>
+            <Button variant="outline" onClick={signOut} size="icon" title="Sign Out" className="text-destructive hover:text-destructive">
+              <DoorOpen className="h-4 w-4 flex-shrink-0" />
             </Button>
           </div>
 
-          {isMobile && <Button variant="outline" onClick={signOut} size="sm" className="gap-2 px-2">
-              <LogOut className="h-3.5 w-3.5" />
+          {isMobile && <Button variant="outline" onClick={signOut} size="sm" className="gap-2 px-2 text-destructive hover:text-destructive">
+              <DoorOpen className="h-3.5 w-3.5" />
             </Button>}
         </div>
       </header>
@@ -214,7 +211,7 @@ export const Layout = ({
                 signOut();
                 setMenuOpen(false);
               }} className="justify-start gap-3 h-12 text-destructive hover:text-destructive">
-                  <LogOut className="h-5 w-5" />
+                  <DoorOpen className="h-5 w-5" />
                   <span className="text-base">Sign Out</span>
                 </Button>
               </div>
