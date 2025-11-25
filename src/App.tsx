@@ -12,6 +12,7 @@ import Auth from "./pages/Auth";
 import CreateChecklist from "./pages/CreateChecklist";
 import EditChecklist from "./pages/EditChecklist";
 import CompleteChecklist from "./pages/CompleteChecklist";
+import DynamicChecklistCalendar from "./pages/DynamicChecklistCalendar";
 import History from "./pages/History";
 import SubmissionDetails from "./pages/SubmissionDetails";
 import UserManagement from "./pages/UserManagement";
@@ -41,6 +42,7 @@ const AppContent = () => {
       <Route path="/create-checklist" element={<ProtectedRoute><CreateChecklist /></ProtectedRoute>} />
       <Route path="/edit/:id" element={<ProtectedRoute><EditChecklist /></ProtectedRoute>} />
       <Route path="/edit-checklist/:id" element={<ProtectedRoute><EditChecklist /></ProtectedRoute>} />
+      <Route path="/dynamic-checklist/:id" element={<ProtectedRoute><DynamicChecklistCalendar /></ProtectedRoute>} />
       <Route path="/complete/:id" element={<ProtectedRoute><CompleteChecklist /></ProtectedRoute>} />
       <Route path="/complete-checklist/:id" element={<ProtectedRoute><CompleteChecklist /></ProtectedRoute>} />
       <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
