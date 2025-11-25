@@ -104,6 +104,7 @@ export default function Schedule() {
   const [copyScheduleDialogOpen, setCopyScheduleDialogOpen] = useState(false);
   const [weeksToAdd, setWeeksToAdd] = useState(1);
   const [laborTotalsExpanded, setLaborTotalsExpanded] = useState(true);
+  const [weeklyTotalSales, setWeeklyTotalSales] = useState(0);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -179,7 +180,8 @@ export default function Schedule() {
         profilesResult,
         rolesResult,
         templatesResult,
-        availabilityResult
+        availabilityResult,
+        salesResult
       ] = await Promise.all([
         // Fetch shifts with template data
         supabase
@@ -232,7 +234,13 @@ export default function Schedule() {
           .eq("request_type", "unpaid")
           .in("status", ["pending", "approved"])
           .gte("start_date", format(currentWeekStart, "yyyy-MM-dd"))
-          .lte("start_date", format(weekEnd, "yyyy-MM-dd"))
+          .lte("start_date", format(weekEnd, "yyyy-MM-dd")),
+        
+        // Fetch projected sales for the week
+        scheduleData ? supabase
+          .from("schedule_projected_sales")
+          .select("*")
+          .eq("schedule_id", scheduleData.id) : Promise.resolve({ data: [], error: null })
       ]);
 
       // Handle shifts
@@ -306,6 +314,16 @@ export default function Schedule() {
       // Handle availability
       if (availabilityResult.error) throw availabilityResult.error;
       setAvailabilityRequests(availabilityResult.data || []);
+
+      // Handle projected sales
+      if (salesResult && !salesResult.error && salesResult.data) {
+        const totalSales = (salesResult.data as any[]).reduce((sum: number, sale: any) => 
+          sum + (Number(sale.projected_sales) || 0)
+        , 0);
+        setWeeklyTotalSales(totalSales);
+      } else {
+        setWeeklyTotalSales(0);
+      }
 
       // Sync birthday events (non-blocking, happens in background)
       supabase.functions.invoke('sync-birthday-events').catch(err => 
@@ -840,8 +858,8 @@ export default function Schedule() {
                     setDayBreakdownOpen(true);
                   }}
                 >
-                  <div className="font-semibold text-xs">{format(day, "EEE")}</div>
-                  <div className="text-[10px] text-muted-foreground">{format(day, "M/d")}</div>
+                  <div className="font-semibold text-sm">{format(day, "EEE")}</div>
+                  <div className="text-xs text-muted-foreground">{format(day, "M/d")}</div>
                 </div>
               ))}
             </div>
@@ -865,7 +883,7 @@ export default function Schedule() {
 
                 return (
                   <div key={roleFilter} className={`${roleColorClass}`}>
-                    <div className="px-3 py-1 font-semibold text-xs uppercase tracking-wide">
+                    <div className="px-3 py-1 font-semibold text-sm uppercase tracking-wide">
                       {roleFilter === 'team_member' ? 'Team Members' : `${roleFilter}s`}
                     </div>
                     <SortableContext
@@ -916,7 +934,27 @@ export default function Schedule() {
                 <div className="space-y-1">
                   {/* Labor Totals Toggle Button */}
                   <div className="flex items-center justify-between border-b border-border pb-1">
-                    <h3 className="font-semibold text-xs">Schedule Tools</h3>
+                    <div className="flex items-center gap-4">
+                      <h3 className="font-semibold text-xs">Schedule Tools</h3>
+                      {(() => {
+                        const totalHours = shifts.reduce((sum, shift) => {
+                          const [startHour, startMin] = shift.start_time.split(':').map(Number);
+                          const [endHour, endMin] = shift.end_time.split(':').map(Number);
+                          let hours = endHour - startHour + (endMin - startMin) / 60;
+                          if (hours < 0) hours += 24;
+                          if (hours > 5) hours -= 0.5;
+                          return sum + hours;
+                        }, 0);
+                        
+                        const salesPerLaborHour = totalHours > 0 ? weeklyTotalSales / totalHours : 0;
+                        
+                        return totalHours > 0 && salesPerLaborHour > 0 ? (
+                          <span className="text-[10px] text-muted-foreground">
+                            Sales/LH: <span className="font-semibold text-foreground">${salesPerLaborHour.toFixed(2)}</span>
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
