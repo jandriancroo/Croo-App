@@ -1018,6 +1018,41 @@ export type Database = {
           },
         ]
       }
+      schedule_projected_sales: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          id: string
+          projected_sales: number
+          schedule_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          id?: string
+          projected_sales?: number
+          schedule_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          projected_sales?: number
+          schedule_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_projected_sales_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scheduled_shifts: {
         Row: {
           created_at: string | null

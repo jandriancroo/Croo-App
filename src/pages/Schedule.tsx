@@ -841,6 +841,8 @@ export default function Schedule() {
               shifts={shifts}
               profiles={profiles}
               currentWeekStart={currentWeekStart}
+              scheduleId={scheduleId}
+              isEditable={isAdmin || isManager}
             />
           </Card>
 
@@ -854,6 +856,8 @@ export default function Schedule() {
                     shifts={shifts}
                     profiles={profiles}
                     currentWeekStart={currentWeekStart}
+                    scheduleId={scheduleId}
+                    isEditable={isAdmin || isManager}
                   />
                   
                   {/* Shift Templates */}
