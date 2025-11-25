@@ -59,7 +59,7 @@ export default function PunchClock() {
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [expiringCerts, setExpiringCerts] = useState<any[]>([]);
   const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
-  const [isBirthday, setIsBirthday] = useState(false);
+  const [birthdayEmployees, setBirthdayEmployees] = useState<any[]>([]);
 
   const currentQuote = DAILY_QUOTES[currentQuoteIndex];
 
@@ -100,6 +100,11 @@ export default function PunchClock() {
       setCurrentQuoteIndex((prev) => (prev + 1) % DAILY_QUOTES.length);
     }, 30000);
     return () => clearInterval(quoteTimer);
+  }, []);
+
+  // Check for birthdays on mount
+  useEffect(() => {
+    checkAllBirthdays();
   }, []);
 
   // Enter fullscreen on mount, exit on unmount
@@ -160,19 +165,33 @@ export default function PunchClock() {
       checkTodayShift();
       checkLastPunch();
       checkExpiringCertifications();
-      checkBirthday();
     }
   }, [currentUser]);
 
-  const checkBirthday = () => {
-    if (!currentUser || !currentUser.birthday) return;
-    
-    const today = new Date();
-    const [year, month, day] = currentUser.birthday.split('-').map(Number);
-    const todayMonth = today.getMonth() + 1;
-    const todayDay = today.getDate();
-    
-    setIsBirthday(month === todayMonth && day === todayDay);
+  const checkAllBirthdays = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, birthday')
+        .eq('is_active', true)
+        .not('birthday', 'is', null);
+
+      if (error) throw error;
+
+      const today = new Date();
+      const todayMonth = today.getMonth() + 1;
+      const todayDay = today.getDate();
+
+      const employeesWithBirthdays = (data || []).filter(profile => {
+        if (!profile.birthday) return false;
+        const [year, month, day] = profile.birthday.split('-').map(Number);
+        return month === todayMonth && day === todayDay;
+      });
+
+      setBirthdayEmployees(employeesWithBirthdays);
+    } catch (error) {
+      console.error('Error checking birthdays:', error);
+    }
   };
 
   const handleNumberClick = (num: string) => {
@@ -441,12 +460,19 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
           <Card className="w-full max-w-5xl overflow-hidden">
             <div className="grid md:grid-cols-2">
               {/* Left Side - Image and Quote or Birthday Message */}
-              {isBirthday ? (
+              {birthdayEmployees.length > 0 ? (
                 <div className="relative h-full min-h-[500px] bg-gradient-to-br from-primary via-accent to-primary">
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-white">
                     <div className="text-9xl mb-6 animate-bounce">🎂</div>
                     <h2 className="text-6xl font-bold mb-4 text-center">Happy Birthday!</h2>
-                    <p className="text-4xl font-semibold mb-6 text-center">{currentUser?.full_name}</p>
+                    <div className="text-4xl font-semibold mb-6 text-center">
+                      {birthdayEmployees.map((emp, idx) => (
+                        <div key={emp.id}>
+                          {emp.full_name}
+                          {idx < birthdayEmployees.length - 1 && ' & '}
+                        </div>
+                      ))}
+                    </div>
                     <div className="text-5xl font-bold">
                       {format(currentTime, 'h:mm:ss a')}
                     </div>
