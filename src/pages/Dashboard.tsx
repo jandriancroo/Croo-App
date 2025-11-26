@@ -81,7 +81,8 @@ export default function Dashboard() {
       }
       return data;
     },
-    enabled: !!currentLocation
+    enabled: !!currentLocation,
+    refetchInterval: 15000, // Refresh every 15 seconds
   });
 
   const {

@@ -110,7 +110,7 @@ export function ChecklistCompletionAlerts() {
 
       return incompleteAlerts;
     },
-    refetchInterval: 60000, // Refresh every minute
+    refetchInterval: 15000, // Refresh every 15 seconds
   });
 
   if (alerts.length === 0) return null;
