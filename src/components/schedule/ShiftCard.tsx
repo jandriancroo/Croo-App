@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BreakIndicator } from "./BreakIndicator";
 import { shiftHasBreak } from "@/utils/shiftUtils";
+import { formatTime12Hour } from "@/lib/utils";
 
 interface ShiftCardProps {
   shift: any;
@@ -30,13 +31,6 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
       }
     : { touchAction: 'none' };
 
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(":");
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes}${ampm}`;
-  };
 
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -97,7 +91,7 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
       {...attributes}
     >
       <div className="flex items-center gap-1 text-white text-sm font-semibold leading-tight">
-        <span>{shift.isTemplate ? shiftData.template_name : `${formatTime(shiftData.start_time)} - ${formatTime(shiftData.end_time)}`}</span>
+        <span>{shift.isTemplate ? shiftData.template_name : `${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}</span>
         {!shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
           <BreakIndicator hasBreak={true} size="sm" />
         )}

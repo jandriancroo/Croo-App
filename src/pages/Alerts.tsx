@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertCircle, AlertTriangle, Radio, Clock } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { formatTime12Hour } from "@/lib/utils";
 
 export default function Alerts() {
   const navigate = useNavigate();
@@ -286,7 +287,7 @@ export default function Alerts() {
                           </CardTitle>
                           <CardDescription className="text-xs mt-1">
                             {alert.type === 'punch_clock' 
-                              ? `${format(parseISO(alert.shift_date), 'MMM d, yyyy')} • Shift: ${alert.shift_start_time}`
+                              ? `${format(parseISO(alert.shift_date), 'MMM d, yyyy')} • Shift: ${formatTime12Hour(alert.shift_start_time)}`
                               : format(new Date(alert.created_at || alert.date), 'MMM d, yyyy • h:mm a')}
                           </CardDescription>
                         </div>
@@ -371,7 +372,7 @@ export default function Alerts() {
                             {alert.status === 'missing' ? 'Missed Punch' : 'Late Punch'} - {alert.profile?.full_name}
                           </CardTitle>
                           <CardDescription className="text-xs mt-1">
-                            {format(parseISO(alert.shift_date), 'MMM d, yyyy')} • Shift Start: {alert.shift_start_time}
+                            {format(parseISO(alert.shift_date), 'MMM d, yyyy')} • Shift Start: {formatTime12Hour(alert.shift_start_time)}
                           </CardDescription>
                         </div>
                       </div>

@@ -10,6 +10,7 @@ import { shiftHasBreak } from '@/utils/shiftUtils';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
 import { MobileShiftDialog } from './MobileShiftDialog';
 import { useUserRole } from '@/hooks/useUserRole';
+import { formatTime12Hour } from '@/lib/utils';
 
 interface Profile {
   id: string;
@@ -90,13 +91,6 @@ export function MobileScheduleView({
     return profiles.find(p => p.id === shift.user_id);
   };
 
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
 
   const totalPeopleScheduled = dayShifts.length;
 
@@ -202,7 +196,7 @@ export function MobileScheduleView({
                     <h4 className="font-semibold">{profile.full_name}</h4>
                     <div className="flex items-center gap-2">
                       <p className="text-sm text-muted-foreground">
-                        {formatTime(shift.start_time)} – {formatTime(shift.end_time)}
+                        {formatTime12Hour(shift.start_time)} – {formatTime12Hour(shift.end_time)}
                       </p>
                       {shiftHasBreak(shift.start_time, shift.end_time) && (
                         <BreakIndicator hasBreak={true} size="sm" />

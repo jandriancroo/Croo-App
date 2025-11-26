@@ -19,6 +19,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
 import { format, addDays } from 'date-fns';
 import { useLocation } from '@/hooks/useLocation';
+import { formatTime12Hour } from '@/lib/utils';
 interface Checklist {
   id: string;
   title: string;
@@ -114,14 +115,14 @@ export default function Dashboard() {
         // Create a complete array of business hours with data or zeros
         const completeHourly = [];
         for (let hour = openHour; hour < closeHour; hour++) {
-          const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+          const hourStr24 = `${hour.toString().padStart(2, '0')}:00`;
           const existingData = rawSalesData.hourly.find(item => {
             const itemHour = parseInt(item.hour.split(':')[0]);
             return itemHour === hour;
           });
           
           completeHourly.push({
-            hour: hourStr,
+            hour: formatTime12Hour(hourStr24),
             sales: existingData?.sales || 0
           });
         }
