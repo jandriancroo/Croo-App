@@ -13,6 +13,8 @@ import { toast } from 'sonner';
 import { Upload, CheckCircle2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { formatTime12Hour } from '@/lib/utils';
 
 interface ChecklistItem {
   id: string;
@@ -32,11 +34,24 @@ interface Checklist {
   description: string | null;
 }
 
+interface ResponseWithCompleter {
+  responseId: string;
+  value: any;
+  isImage: boolean;
+  completedBy?: {
+    userId: string;
+    fullName: string;
+    profilePhoto: string | null;
+    completedAt: string;
+  };
+}
+
 export default function CompleteChecklist() {
   const { id } = useParams();
   const [checklist, setChecklist] = useState<Checklist | null>(null);
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [responses, setResponses] = useState<Record<string, any>>({});
+  const [responsesWithCompleters, setResponsesWithCompleters] = useState<Record<string, ResponseWithCompleter>>({});
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -65,7 +80,7 @@ export default function CompleteChecklist() {
     setCompletionPercentage(Math.round((completedCount / items.length) * 100));
   }, [responses, items]);
 
-  // Create or get draft submission
+  // Create or get shared daily submission (one per checklist per day, not per user)
   useEffect(() => {
     if (!id || !user?.id || submissionId) return;
     
@@ -74,35 +89,72 @@ export default function CompleteChecklist() {
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
         
-        // Check if there's already a submission for today
+        // Check if there's already ANY submission for today (shared by all users)
         const { data: existingSubmission } = await supabase
           .from('checklist_submissions')
-          .select('id, checklist_responses(id, item_id, response_text, response_image_url)')
+          .select(`
+            id, 
+            checklist_responses(
+              id, 
+              item_id, 
+              response_text, 
+              response_image_url,
+              completed_by,
+              created_at,
+              profiles:completed_by(full_name, profile_photo_url)
+            )
+          `)
           .eq('checklist_id', id)
-          .eq('submitted_by', user.id)
           .gte('submitted_at', startOfToday.toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1)
           .single();
 
         if (existingSubmission) {
           setSubmissionId(existingSubmission.id);
           
-          // Load existing responses
+          // Load existing responses with completer info
           const loadedResponses: Record<string, any> = {};
+          const loadedWithCompleters: Record<string, ResponseWithCompleter> = {};
+          
           existingSubmission.checklist_responses?.forEach((resp: any) => {
+            let value: any;
+            let isImage = false;
+            
             if (resp.response_image_url) {
-              loadedResponses[resp.item_id] = resp.response_image_url;
+              value = resp.response_image_url;
+              isImage = true;
             } else if (resp.response_text !== null) {
               // Convert string "true"/"false" to boolean for checkboxes
               if (resp.response_text === 'true' || resp.response_text === 'false') {
-                loadedResponses[resp.item_id] = resp.response_text === 'true';
+                value = resp.response_text === 'true';
               } else {
-                loadedResponses[resp.item_id] = resp.response_text;
+                value = resp.response_text;
               }
             }
+            
+            loadedResponses[resp.item_id] = value;
+            
+            // Store completer info
+            if (resp.completed_by && resp.profiles) {
+              loadedWithCompleters[resp.item_id] = {
+                responseId: resp.id,
+                value,
+                isImage,
+                completedBy: {
+                  userId: resp.completed_by,
+                  fullName: resp.profiles.full_name || 'Unknown',
+                  profilePhoto: resp.profiles.profile_photo_url,
+                  completedAt: resp.created_at,
+                },
+              };
+            }
           });
+          
           setResponses(loadedResponses);
+          setResponsesWithCompleters(loadedWithCompleters);
         } else {
-          // Create new draft submission
+          // Create new shared daily submission
           const { data: newSubmission, error } = await supabase
             .from('checklist_submissions')
             .insert({
@@ -172,7 +224,7 @@ export default function CompleteChecklist() {
 
   // Debounced auto-save function
   const autoSaveResponse = useCallback(async (itemId: string, value: any, isImage: boolean = false) => {
-    if (!submissionId) return;
+    if (!submissionId || !user?.id) return;
 
     try {
       // Check if response already exists
@@ -185,28 +237,58 @@ export default function CompleteChecklist() {
 
       if (existing) {
         // Update existing response
-        await supabase
+        const { error } = await supabase
           .from('checklist_responses')
           .update({
             response_text: isImage ? null : (typeof value === 'boolean' ? String(value) : value),
             response_image_url: isImage ? value : null,
+            completed_by: user.id,
           })
           .eq('id', existing.id);
+          
+        if (error) throw error;
       } else {
         // Insert new response
-        await supabase
+        const { error } = await supabase
           .from('checklist_responses')
           .insert({
             submission_id: submissionId,
             item_id: itemId,
             response_text: isImage ? null : (typeof value === 'boolean' ? String(value) : value),
             response_image_url: isImage ? value : null,
+            completed_by: user.id,
           });
+          
+        if (error) throw error;
+      }
+      
+      // Fetch updated completer info
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, profile_photo_url')
+        .eq('id', user.id)
+        .single();
+        
+      if (profile) {
+        setResponsesWithCompleters(prev => ({
+          ...prev,
+          [itemId]: {
+            responseId: existing?.id || '',
+            value,
+            isImage,
+            completedBy: {
+              userId: user.id,
+              fullName: profile.full_name || 'Unknown',
+              profilePhoto: profile.profile_photo_url,
+              completedAt: new Date().toISOString(),
+            },
+          },
+        }));
       }
     } catch (error) {
       console.error('Error auto-saving response:', error);
     }
-  }, [submissionId]);
+  }, [submissionId, user]);
 
   const handleResponseChange = (itemId: string, value: any, isImage: boolean = false) => {
     setResponses({ ...responses, [itemId]: value });
@@ -224,6 +306,34 @@ export default function CompleteChecklist() {
       autoSaveTimeoutRef.current = setTimeout(() => {
         autoSaveResponse(itemId, value, isImage);
       }, 1000);
+    }
+  };
+  
+  const handleUndoCompletion = async (itemId: string) => {
+    const responseData = responsesWithCompleters[itemId];
+    if (!responseData?.responseId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('checklist_responses')
+        .delete()
+        .eq('id', responseData.responseId);
+        
+      if (error) throw error;
+      
+      // Remove from state
+      const newResponses = { ...responses };
+      delete newResponses[itemId];
+      setResponses(newResponses);
+      
+      const newCompleters = { ...responsesWithCompleters };
+      delete newCompleters[itemId];
+      setResponsesWithCompleters(newCompleters);
+      
+      toast.success('Item uncompleted');
+    } catch (error) {
+      console.error('Error undoing completion:', error);
+      toast.error('Failed to undo completion');
     }
   };
 
@@ -301,13 +411,52 @@ export default function CompleteChecklist() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
-          {items.map((item) => (
-            <Card key={item.id} className="overflow-hidden">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base font-medium">
-                  {item.question}
-                  {item.is_required && <span className="text-destructive ml-1">*</span>}
-                </CardTitle>
+          {items.map((item) => {
+            const isCompleted = responsesWithCompleters[item.id]?.completedBy;
+            const completerInfo = responsesWithCompleters[item.id]?.completedBy;
+            
+            return (
+              <Card key={item.id} className="overflow-hidden relative">
+                {isCompleted && (
+                  <div 
+                    className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex items-start justify-between p-4 cursor-pointer hover:bg-background/60 transition-colors"
+                    onClick={() => handleUndoCompletion(item.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="bg-green-600 rounded-full p-3 shadow-lg">
+                        <CheckCircle2 className="h-8 w-8 text-white" />
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Click to undo
+                      </div>
+                    </div>
+                    
+                    {completerInfo && (
+                      <div className="flex items-center gap-2 bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 shadow-md">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={completerInfo.profilePhoto || undefined} />
+                          <AvatarFallback className="text-xs">
+                            {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="text-left">
+                          <div className="text-sm font-medium">
+                            {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-medium">
+                    {item.question}
+                    {item.is_required && <span className="text-destructive ml-1">*</span>}
+                  </CardTitle>
                 
                 {/* Reference Material Display */}
                 {(item.reference_image_url || item.reference_link || item.reference_video_url) && (
@@ -428,7 +577,8 @@ export default function CompleteChecklist() {
                 )}
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
 
           <Card>
             <CardHeader className="pb-3">

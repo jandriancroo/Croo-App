@@ -311,6 +311,7 @@ export type Database = {
       }
       checklist_responses: {
         Row: {
+          completed_by: string | null
           created_at: string | null
           id: string
           item_id: string
@@ -319,6 +320,7 @@ export type Database = {
           submission_id: string
         }
         Insert: {
+          completed_by?: string | null
           created_at?: string | null
           id?: string
           item_id: string
@@ -327,6 +329,7 @@ export type Database = {
           submission_id: string
         }
         Update: {
+          completed_by?: string | null
           created_at?: string | null
           id?: string
           item_id?: string
