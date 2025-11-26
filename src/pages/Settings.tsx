@@ -404,6 +404,48 @@ export default function Settings() {
               )}
             </CardContent>
           </Card>
+
+          {isAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle>System Maintenance</CardTitle>
+                <CardDescription>
+                  One-time system tools and data fixes
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="border rounded-lg p-4">
+                  <h4 className="font-semibold mb-2">Backfill Photo Completions</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Updates older checklist photo responses to include who completed them. 
+                    This is a one-time fix for legacy data.
+                  </p>
+                  <Button 
+                    variant="outline"
+                    onClick={async () => {
+                      try {
+                        sonnerToast.info('Starting backfill...');
+                        const { data, error } = await supabase.functions.invoke('backfill-photo-completions');
+                        
+                        if (error) throw error;
+                        
+                        if (data.success) {
+                          sonnerToast.success(`Backfill complete: ${data.updated} photo responses updated`);
+                        } else {
+                          sonnerToast.error(data.error || 'Backfill failed');
+                        }
+                      } catch (error: any) {
+                        console.error('Backfill error:', error);
+                        sonnerToast.error('Failed to run backfill');
+                      }
+                    }}
+                  >
+                    Run Backfill
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </Layout>
