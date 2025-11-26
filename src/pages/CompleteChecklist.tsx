@@ -92,7 +92,12 @@ export default function CompleteChecklist() {
             if (resp.response_image_url) {
               loadedResponses[resp.item_id] = resp.response_image_url;
             } else if (resp.response_text !== null) {
-              loadedResponses[resp.item_id] = resp.response_text;
+              // Convert string "true"/"false" to boolean for checkboxes
+              if (resp.response_text === 'true' || resp.response_text === 'false') {
+                loadedResponses[resp.item_id] = resp.response_text === 'true';
+              } else {
+                loadedResponses[resp.item_id] = resp.response_text;
+              }
             }
           });
           setResponses(loadedResponses);
