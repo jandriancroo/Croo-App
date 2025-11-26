@@ -28,19 +28,9 @@ export default function Auth() {
   const [activeTab, setActiveTab] = useState<string>('signin');
 
   const handleLocationCodeChange = (value: string) => {
-    // Remove all non-alphabetic characters and convert to uppercase
-    const cleaned = value.replace(/[^a-zA-Z]/g, '').toUpperCase();
-    
-    // Auto-format with dashes: XXX-XXX-XXX
-    let formatted = cleaned;
-    if (cleaned.length > 3) {
-      formatted = cleaned.slice(0, 3) + '-' + cleaned.slice(3);
-    }
-    if (cleaned.length > 6) {
-      formatted = cleaned.slice(0, 3) + '-' + cleaned.slice(3, 6) + '-' + cleaned.slice(6, 9);
-    }
-    
-    setLocationCode(formatted);
+    // Allow only letters and dashes, convert to lowercase
+    const cleaned = value.replace(/[^a-zA-Z-]/g, '').toLowerCase();
+    setLocationCode(cleaned);
   };
 
   useEffect(() => {
@@ -302,11 +292,10 @@ export default function Auth() {
                   <Input
                     id="locationCode"
                     type="text"
-                    placeholder="HAPPY-RIVER-EAGLE"
+                    placeholder="happy-river-eagle"
                     value={locationCode}
                     onChange={(e) => handleLocationCodeChange(e.target.value)}
                     required
-                    maxLength={11}
                   />
                   <p className="text-xs text-muted-foreground">
                     Enter the 3-word code provided by your manager
