@@ -340,42 +340,21 @@ export default function CompleteChecklist() {
                   </div>
                 )}
                 {item.item_type === 'confirmation' && (
-                  <div className="py-3">
-                    <div 
-                      className={`flex items-center gap-3 p-3 rounded border-2 transition-all cursor-pointer ${
-                        responses[item.id] 
-                          ? 'bg-destructive/10 border-destructive' 
-                          : 'border-border hover:border-destructive/50'
-                      }`}
-                      onClick={() => setResponses({ ...responses, [item.id]: !responses[item.id] })}
+                  <div className="flex items-center space-x-2 py-2">
+                    <Checkbox 
+                      id={`confirm-${item.id}`}
+                      checked={responses[item.id] || false}
+                      onCheckedChange={(checked) => 
+                        setResponses({ ...responses, [item.id]: checked })
+                      }
+                      required={item.is_required}
+                    />
+                    <Label 
+                      htmlFor={`confirm-${item.id}`}
+                      className="text-sm font-normal cursor-pointer leading-relaxed"
                     >
-                      <CheckCircle2 
-                        className={`h-8 w-8 flex-shrink-0 transition-colors ${
-                          responses[item.id] ? 'text-destructive' : 'text-muted-foreground'
-                        }`}
-                        strokeWidth={2}
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Checkbox 
-                            checked={responses[item.id] || false}
-                            onCheckedChange={(checked) => 
-                              setResponses({ ...responses, [item.id]: checked })
-                            }
-                            required={item.is_required}
-                            className="h-4 w-4"
-                          />
-                          <Label className="text-sm font-medium cursor-pointer">
-                            {responses[item.id] ? 'Confirmed' : 'Tap to confirm'}
-                          </Label>
-                        </div>
-                        {item.reference_notes && (
-                          <p className="text-xs text-muted-foreground">
-                            {item.reference_notes}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                      {item.question}
+                    </Label>
                   </div>
                 )}
               </CardContent>
