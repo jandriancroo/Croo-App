@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 // You can get a free Mapbox token at https://account.mapbox.com/
 mapboxgl.accessToken = 'pk.eyJ1IjoibG92YWJsZS1kZXYiLCJhIjoiY20zODZ6ZDZ5MGYydjJqczhybmo5YjBnbCJ9.6_KlNjM0EfVaEq2pjPmYRg';
@@ -34,5 +35,5 @@ export const LocationMap = ({ lat, lng }: LocationMapProps) => {
     };
   }, [lat, lng]);
 
-  return <div ref={mapContainer} className="w-full h-full" />;
+  return <div ref={mapContainer} className="w-full h-48 md:h-64 rounded-md overflow-hidden" />;
 };
