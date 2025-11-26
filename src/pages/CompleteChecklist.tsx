@@ -48,7 +48,6 @@ export default function CompleteChecklist() {
 
   useEffect(() => {
     fetchChecklistData();
-    checkForExistingSubmission();
   }, [id]);
 
   // Calculate completion percentage
@@ -120,53 +119,7 @@ export default function CompleteChecklist() {
     createDraftSubmission();
   }, [id, user, submissionId]);
 
-  const checkForExistingSubmission = async () => {
-    if (!id || !user?.id) return;
-
-    try {
-      const { data: checklistData } = await supabase
-        .from('checklists')
-        .select('frequency')
-        .eq('id', id)
-        .single();
-
-      if (!checklistData) return;
-
-      const now = new Date();
-      let startDate: Date;
-
-      switch (checklistData.frequency) {
-        case 'daily':
-          startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          break;
-        case 'weekly':
-          const dayOfWeek = now.getDay();
-          startDate = new Date(now.getTime() - dayOfWeek * 24 * 60 * 60 * 1000);
-          startDate.setHours(0, 0, 0, 0);
-          break;
-        case 'monthly':
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          break;
-        default:
-          return;
-      }
-
-      const { data: existingSubmissions } = await supabase
-        .from('checklist_submissions')
-        .select('id')
-        .eq('checklist_id', id)
-        .eq('submitted_by', user.id)
-        .gte('submitted_at', startDate.toISOString())
-        .limit(1);
-
-      if (existingSubmissions && existingSubmissions.length > 0) {
-        toast.error(`You've already submitted this ${checklistData.frequency} checklist. You can only submit once per ${checklistData.frequency === 'daily' ? 'day' : checklistData.frequency === 'weekly' ? 'week' : 'month'}.`);
-        navigate('/history');
-      }
-    } catch (error) {
-      console.error('Error checking for existing submission:', error);
-    }
-  };
+  // Removed - no longer blocking users from continuing draft submissions
 
   const fetchChecklistData = async () => {
     try {
