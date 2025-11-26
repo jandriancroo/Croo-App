@@ -131,7 +131,7 @@ export function EditCertificationDialog({
                   {expirationDate ? format(expirationDate, 'PPP') : 'Pick a date'}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
+              <PopoverContent className="w-auto p-0 z-50 bg-popover" align="start">
                 <Calendar
                   mode="single"
                   selected={expirationDate}
@@ -140,7 +140,6 @@ export function EditCertificationDialog({
                   captionLayout="dropdown"
                   fromYear={new Date().getFullYear()}
                   toYear={new Date().getFullYear() + 10}
-                  className="pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
