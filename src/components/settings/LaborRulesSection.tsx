@@ -17,9 +17,10 @@ interface LaborRule {
   location_id?: string;
   rule_name: string;
   state_code: string;
-  overtime_threshold: number;
+  daily_overtime_threshold: number;
+  daily_double_time_threshold: number;
+  weekly_overtime_threshold: number;
   overtime_multiplier: number;
-  double_time_threshold: number | null;
   double_time_multiplier: number;
   meal_break_hours: number | null;
   meal_break_duration: number | null;
@@ -36,9 +37,10 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
   const emptyRule: LaborRule = {
     rule_name: '',
     state_code: '',
-    overtime_threshold: 40,
+    daily_overtime_threshold: 8,
+    daily_double_time_threshold: 12,
+    weekly_overtime_threshold: 40,
     overtime_multiplier: 1.5,
-    double_time_threshold: null,
     double_time_multiplier: 2.0,
     meal_break_hours: null,
     meal_break_duration: null,
@@ -99,9 +101,10 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
           .update({
             rule_name: formData.rule_name,
             state_code: formData.state_code,
-            overtime_threshold: formData.overtime_threshold,
+            daily_overtime_threshold: formData.daily_overtime_threshold,
+            daily_double_time_threshold: formData.daily_double_time_threshold,
+            weekly_overtime_threshold: formData.weekly_overtime_threshold,
             overtime_multiplier: formData.overtime_multiplier,
-            double_time_threshold: formData.double_time_threshold,
             double_time_multiplier: formData.double_time_multiplier,
             meal_break_hours: formData.meal_break_hours,
             meal_break_duration: formData.meal_break_duration,
@@ -121,9 +124,10 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             location_id: locationId,
             rule_name: formData.rule_name,
             state_code: formData.state_code,
-            overtime_threshold: formData.overtime_threshold,
+            daily_overtime_threshold: formData.daily_overtime_threshold,
+            daily_double_time_threshold: formData.daily_double_time_threshold,
+            weekly_overtime_threshold: formData.weekly_overtime_threshold,
             overtime_multiplier: formData.overtime_multiplier,
-            double_time_threshold: formData.double_time_threshold,
             double_time_multiplier: formData.double_time_multiplier,
             meal_break_hours: formData.meal_break_hours,
             meal_break_duration: formData.meal_break_duration,
@@ -217,17 +221,52 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                 </div>
 
                 <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3">Overtime Rules</h4>
+                  <h4 className="font-semibold mb-3">Daily Overtime Rules</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Daily overtime calculated after unpaid meal breaks are deducted
+                  </p>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="ot-threshold">Overtime Starts After (hours)</Label>
+                      <Label htmlFor="daily-ot-threshold">Daily Overtime After (hours)</Label>
                       <Input
-                        id="ot-threshold"
+                        id="daily-ot-threshold"
                         type="number"
                         step="0.5"
-                        value={formData.overtime_threshold}
-                        onChange={(e) => setFormData({...formData, overtime_threshold: parseFloat(e.target.value)})}
+                        value={formData.daily_overtime_threshold}
+                        onChange={(e) => setFormData({...formData, daily_overtime_threshold: parseFloat(e.target.value)})}
                       />
+                      <p className="text-xs text-muted-foreground">Typically 8 hours/day</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="daily-dt-threshold">Daily Double Time After (hours)</Label>
+                      <Input
+                        id="daily-dt-threshold"
+                        type="number"
+                        step="0.5"
+                        value={formData.daily_double_time_threshold}
+                        onChange={(e) => setFormData({...formData, daily_double_time_threshold: parseFloat(e.target.value)})}
+                      />
+                      <p className="text-xs text-muted-foreground">Typically 12 hours/day</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-3">Weekly Overtime Rules</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Employee receives the higher of daily or weekly overtime
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="weekly-ot-threshold">Weekly Overtime After (hours)</Label>
+                      <Input
+                        id="weekly-ot-threshold"
+                        type="number"
+                        step="0.5"
+                        value={formData.weekly_overtime_threshold}
+                        onChange={(e) => setFormData({...formData, weekly_overtime_threshold: parseFloat(e.target.value)})}
+                      />
+                      <p className="text-xs text-muted-foreground">Typically 40 hours/week</p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="ot-multiplier">Overtime Pay Multiplier</Label>
@@ -238,24 +277,14 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                         value={formData.overtime_multiplier}
                         onChange={(e) => setFormData({...formData, overtime_multiplier: parseFloat(e.target.value)})}
                       />
+                      <p className="text-xs text-muted-foreground">Typically 1.5x</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3">Double Time Rules (Optional)</h4>
+                  <h4 className="font-semibold mb-3">Pay Multipliers</h4>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="dt-threshold">Double Time Starts After (hours)</Label>
-                      <Input
-                        id="dt-threshold"
-                        type="number"
-                        step="0.5"
-                        placeholder="Leave empty if N/A"
-                        value={formData.double_time_threshold || ''}
-                        onChange={(e) => setFormData({...formData, double_time_threshold: e.target.value ? parseFloat(e.target.value) : null})}
-                      />
-                    </div>
                     <div className="space-y-2">
                       <Label htmlFor="dt-multiplier">Double Time Pay Multiplier</Label>
                       <Input
@@ -265,6 +294,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                         value={formData.double_time_multiplier}
                         onChange={(e) => setFormData({...formData, double_time_multiplier: parseFloat(e.target.value)})}
                       />
+                      <p className="text-xs text-muted-foreground">Typically 2.0x</p>
                     </div>
                   </div>
                 </div>
@@ -373,13 +403,17 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
 
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
                   <div>
-                    <span className="text-muted-foreground">Overtime:</span> After {rule.overtime_threshold}h at {rule.overtime_multiplier}x pay
+                    <span className="text-muted-foreground">Daily OT:</span> After {rule.daily_overtime_threshold}h at {rule.overtime_multiplier}x
                   </div>
-                  {rule.double_time_threshold && (
-                    <div>
-                      <span className="text-muted-foreground">Double Time:</span> After {rule.double_time_threshold}h at {rule.double_time_multiplier}x pay
-                    </div>
-                  )}
+                  <div>
+                    <span className="text-muted-foreground">Daily DT:</span> After {rule.daily_double_time_threshold}h at {rule.double_time_multiplier}x
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Weekly OT:</span> After {rule.weekly_overtime_threshold}h at {rule.overtime_multiplier}x
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Higher of daily/weekly applies</span>
+                  </div>
                   {rule.meal_break_hours && (
                     <div>
                       <span className="text-muted-foreground">Meal Break:</span> {rule.meal_break_duration}min after {rule.meal_break_hours}h
