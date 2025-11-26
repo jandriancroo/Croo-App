@@ -9,6 +9,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { startOfWeek, addDays, format } from "date-fns";
+import { formatTime12Hour } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -140,13 +141,6 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
     setDeleteDialogOpen(true);
   };
 
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(":");
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? "pm" : "am";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes}${ampm}`;
-  };
 
   const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
@@ -297,7 +291,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate }: EventRowP
                       className="w-full text-left disabled:cursor-default"
                     >
                       <div className="font-medium truncate text-white">
-                        {formatTime(event.event_time)} {event.event_name}
+                        {formatTime12Hour(event.event_time)} {event.event_name}
                         {!event.is_recurring && " (One-time)"}
                       </div>
                     </button>

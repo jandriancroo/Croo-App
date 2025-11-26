@@ -12,6 +12,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { formatTime12Hour } from "@/lib/utils";
 
 interface ShiftTemplate {
   id: string;
@@ -89,7 +90,7 @@ export default function ShiftTemplates() {
 
     try {
       // Auto-generate template name from position and time
-      const templateName = `${positionValue} ${formatTime(formData.start_time)} - ${formatTime(formData.end_time)}`;
+      const templateName = `${positionValue} ${formatTime12Hour(formData.start_time)} - ${formatTime12Hour(formData.end_time)}`;
       
       const { error } = await supabase.from("shift_templates").insert({
         template_name: templateName,
@@ -146,13 +147,6 @@ export default function ShiftTemplates() {
     }
   };
 
-  const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(":");
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
 
   return (
     <Layout>
@@ -327,7 +321,7 @@ export default function ShiftTemplates() {
                       <h3 className="font-semibold text-lg">{template.position}</h3>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {formatTime(template.start_time)} - {formatTime(template.end_time)}
+                      {formatTime12Hour(template.start_time)} - {formatTime12Hour(template.end_time)}
                     </p>
                     <p className="text-sm text-muted-foreground capitalize mt-1">
                       {template.role.replace("_", " ")}

@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { formatTime12Hour } from "@/lib/utils";
 
 interface DayBreakdownDialogProps {
   open: boolean;
@@ -40,13 +41,6 @@ export function DayBreakdownDialog({
     return "hsl(var(--primary))";
   };
 
-  // Convert 24-hour time to 12-hour format
-  const formatTime = (time24: string) => {
-    const [hours, minutes] = time24.split(":").map(Number);
-    const period = hours >= 12 ? "PM" : "AM";
-    const hours12 = hours % 12 || 12;
-    return `${hours12}:${minutes.toString().padStart(2, "0")} ${period}`;
-  };
 
   // Sort shifts by start time
   const sortedDayShifts = [...dayShifts].sort((a, b) => {
@@ -228,7 +222,7 @@ export function DayBreakdownDialog({
                                 }}
                               >
                                 <span className="truncate px-1">
-                                  {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                                  {formatTime12Hour(shift.start_time)} - {formatTime12Hour(shift.end_time)}
                                 </span>
                               </div>
                             </div>
@@ -325,7 +319,7 @@ export function DayBreakdownDialog({
                             {profile?.full_name || "Unassigned"}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                            {formatTime12Hour(shift.start_time)} - {formatTime12Hour(shift.end_time)}
                             {shift.is_time_off && (
                               <Badge
                                 variant="secondary"
