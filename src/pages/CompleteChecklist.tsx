@@ -430,7 +430,7 @@ export default function CompleteChecklist() {
           const hasResponse = responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
           
           return <Card key={item.id} className="overflow-hidden relative">
-                {hasResponse && completerInfo && <div className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex items-center justify-center p-4 cursor-pointer hover:bg-background/60 transition-colors" onClick={() => handleUndoCompletion(item.id)}>
+                {hasResponse && <div className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex items-center justify-center p-4 cursor-pointer hover:bg-background/60 transition-colors" onClick={() => handleUndoCompletion(item.id)}>
                     <div className="flex items-center gap-3">
                       <div className="bg-green-600/80 rounded-full p-4 shadow-lg">
                         <CheckCircle2 className="h-10 w-10 text-white" />
@@ -438,7 +438,8 @@ export default function CompleteChecklist() {
                       
                     </div>
                     
-                    <div className="gap-2 bg-background/80 backdrop-blur-sm rounded-lg shadow-md py-[4px] px-[6px] flex-row flex items-center justify-center">
+                    {completerInfo && (
+                      <div className="gap-2 bg-background/80 backdrop-blur-sm rounded-lg shadow-md py-[4px] px-[6px] flex-row flex items-center justify-center">
                         <Avatar className="h-8 w-8">
                           <AvatarImage src={completerInfo.profilePhoto || undefined} />
                           <AvatarFallback className="text-xs">
@@ -454,6 +455,8 @@ export default function CompleteChecklist() {
                           </div>
                         </div>
                       </div>
+                    )}
+
                     
                     {(responsesWithCompleters[item.id]?.isImage || item.item_type === 'image' || item.item_type === 'PHOTO') && responses[item.id] && <button
                         onClick={(e) => {
