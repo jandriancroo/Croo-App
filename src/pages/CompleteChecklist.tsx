@@ -430,7 +430,11 @@ export default function CompleteChecklist() {
           const hasResponse = responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
           
           return <Card key={item.id} className="overflow-hidden relative">
-                {hasResponse && <div className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex items-center justify-center p-4 cursor-pointer hover:bg-background/60 transition-colors" onClick={() => handleUndoCompletion(item.id)}>
+                {hasResponse && <div 
+                  className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex items-center justify-center p-4 cursor-pointer hover:bg-background/60 transition-colors" 
+                  onClick={() => handleUndoCompletion(item.id)}
+                  style={{ pointerEvents: 'auto' }}
+                >
                     <div className="flex items-center gap-3">
                       <div className="bg-green-600/80 rounded-full p-4 shadow-lg">
                         <CheckCircle2 className="h-10 w-10 text-white" />
@@ -469,7 +473,7 @@ export default function CompleteChecklist() {
                       </button>}
                   </div>}
                 
-                <CardHeader className="pb-3">
+                <CardHeader className={`pb-3 ${hasResponse ? 'pointer-events-none' : ''}`}>
                   <CardTitle className="text-base font-medium">
                     {item.question}
                     {item.is_required && <span className="text-destructive ml-1">*</span>}
@@ -499,7 +503,7 @@ export default function CompleteChecklist() {
                       </div>}
                   </div>}
               </CardHeader>
-              <CardContent className="pt-0">
+              <CardContent className={`pt-0 ${hasResponse ? 'pointer-events-none' : ''}`}>
                 {item.item_type === 'text' && <Textarea value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter your response" required={item.is_required} className="min-h-[60px] text-sm" />}
                 {item.item_type === 'multiple_choice' && item.options && <RadioGroup value={responses[item.id] || ''} onValueChange={value => handleResponseChange(item.id, value)} required={item.is_required} className="space-y-1.5">
                     {item.options.map(option => <div key={option} className="flex items-center space-x-2">
