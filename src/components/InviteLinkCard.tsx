@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 
 export function InviteLinkCard() {
   const [copied, setCopied] = useState(false);
-  const inviteUrl = `${window.location.origin}/auth?signup=true`;
+  const inviteUrl = `https://www.croohq.com/auth?signup=true`;
 
   const handleCopy = async () => {
     try {
