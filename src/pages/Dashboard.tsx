@@ -5,7 +5,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, Settings } from 'lucide-react';
+import { ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -380,7 +380,7 @@ export default function Dashboard() {
                 Reset Layout
               </Button>}
             <Button onClick={toggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="icon" title={isEditMode ? "Save Layout" : "Edit Layout"}>
-              <Settings className="h-4 w-4" />
+              <ArrowUpDown className="h-4 w-4" />
             </Button>
           </div>
         </div>
