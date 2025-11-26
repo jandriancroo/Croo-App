@@ -17,6 +17,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [locationCode, setLocationCode] = useState('');
   const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -110,10 +111,28 @@ export default function Auth() {
       toast.error('Please add a profile photo');
       return;
     }
+
+    if (!locationCode.trim()) {
+      toast.error('Please enter a location code');
+      return;
+    }
     
     setLoading(true);
 
     try {
+      // Validate location code first
+      const { data: location, error: locationError } = await supabase
+        .from('locations')
+        .select('id, name')
+        .eq('location_code', locationCode.toLowerCase().trim())
+        .single();
+
+      if (locationError || !location) {
+        toast.error('Invalid location code. Please check with your manager.');
+        setLoading(false);
+        return;
+      }
+
       // First, upload the photo to storage with a temporary name
       const fileInput = fileInputRef.current;
       const file = fileInput?.files?.[0];
@@ -148,7 +167,24 @@ export default function Auth() {
         throw error;
       }
 
-      toast.success('Account created successfully!');
+      // Get the newly created user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // Assign user to location
+        const { error: locationAssignError } = await supabase
+          .from('user_locations')
+          .insert({
+            user_id: user.id,
+            location_id: location.id
+          });
+
+        if (locationAssignError) {
+          console.error('Failed to assign location:', locationAssignError);
+        }
+      }
+
+      toast.success(`Welcome to ${location.name}!`);
       navigate('/');
     } catch (error: any) {
       toast.error(error.message);
@@ -244,6 +280,20 @@ export default function Auth() {
                     onChange={(e) => setFullName(e.target.value)}
                     required
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="locationCode">Location Code</Label>
+                  <Input
+                    id="locationCode"
+                    type="text"
+                    placeholder="happy-river-eagle"
+                    value={locationCode}
+                    onChange={(e) => setLocationCode(e.target.value)}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter the 3-word code provided by your manager
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Profile Photo (Required)</Label>
