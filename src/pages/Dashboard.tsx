@@ -105,21 +105,31 @@ export default function Dashboard() {
     }
   });
 
-  // Filter sales data based on business hours
+  // Filter and fill sales data based on business hours
   const salesData = rawSalesData && locationSettings?.hours_open && locationSettings?.hours_close
     ? (() => {
         const openHour = parseInt(locationSettings.hours_open.split(':')[0]);
         const closeHour = parseInt(locationSettings.hours_close.split(':')[0]);
         
-        const filteredHourly = rawSalesData.hourly.filter(item => {
-          const hour = parseInt(item.hour.split(':')[0]);
-          return hour >= openHour && hour < closeHour;
-        });
+        // Create a complete array of business hours with data or zeros
+        const completeHourly = [];
+        for (let hour = openHour; hour < closeHour; hour++) {
+          const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+          const existingData = rawSalesData.hourly.find(item => {
+            const itemHour = parseInt(item.hour.split(':')[0]);
+            return itemHour === hour;
+          });
+          
+          completeHourly.push({
+            hour: hourStr,
+            sales: existingData?.sales || 0
+          });
+        }
 
-        const filteredDaily = filteredHourly.reduce((sum, h) => sum + h.sales, 0);
+        const filteredDaily = completeHourly.reduce((sum, h) => sum + h.sales, 0);
 
         return {
-          hourly: filteredHourly,
+          hourly: completeHourly,
           daily: filteredDaily,
           weekly: rawSalesData.weekly
         };
