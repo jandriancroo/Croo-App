@@ -540,18 +540,30 @@ export default function CompleteChecklist() {
                       </div>
                     )}
 
-                    {/* Temperature Warning Overlay */}
+                    {/* Temperature Indicator Overlay */}
                     {responsesWithCompleters[item.id]?.extractedTemperature !== null && 
-                     responsesWithCompleters[item.id]?.extractedTemperature !== undefined && 
-                     responsesWithCompleters[item.id]?.temperatureValid === false && (
-                      <div className="absolute left-4 top-1/2 -translate-y-1/2 px-4 py-2 bg-red-500 text-white rounded-lg shadow-lg animate-pulse border-2 border-red-600">
-                        <span className="font-bold text-sm">
-                          Temp Outside of Safe Zone
-                        </span>
-                        <div className="text-xs mt-0.5">
-                          {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
-                        </div>
-                      </div>
+                     responsesWithCompleters[item.id]?.extractedTemperature !== undefined && (
+                      <>
+                        {responsesWithCompleters[item.id]?.temperatureValid === false ? (
+                          <div className="absolute left-4 top-1/2 -translate-y-1/2 px-4 py-2 bg-red-500 text-white rounded-lg shadow-lg animate-pulse border-2 border-red-600">
+                            <span className="font-bold text-sm">
+                              Temp Outside of Safe Zone
+                            </span>
+                            <div className="text-xs mt-0.5">
+                              {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="absolute left-4 top-1/2 -translate-y-1/2 px-4 py-2 bg-green-500 text-white rounded-lg shadow-lg animate-pulse border-2 border-green-600">
+                            <span className="font-bold text-sm">
+                              Safe
+                            </span>
+                            <div className="text-xs mt-0.5">
+                              {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
 
                     
