@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,10 +18,7 @@ export default function Auth() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [locationCode, setLocationCode] = useState('');
-  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -79,50 +76,15 @@ export default function Auth() {
     // Don't set loading to false on success - page will redirect
   };
 
-  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select an image file');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image must be less than 5MB');
-      return;
-    }
-
-    try {
-      setUploading(true);
-      
-      // Create a temporary URL for preview
-      const tempUrl = URL.createObjectURL(file);
-      setProfilePhoto(tempUrl);
-      
-      toast.success('Photo ready to upload');
-    } catch (error: any) {
-      toast.error('Failed to process image');
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!profilePhoto) {
-      toast.error('Please add a profile photo');
-      return;
-    }
 
     if (!locationCode.trim()) {
       toast.error('Please enter a location code');
       return;
     }
-    
+
     setLoading(true);
 
     try {
@@ -139,48 +101,19 @@ export default function Auth() {
         return;
       }
 
-      // First, upload the photo to storage with a temporary name
-      const fileInput = fileInputRef.current;
-      const file = fileInput?.files?.[0];
-      
-      if (!file) {
-        toast.error('Please select a photo');
+      const { error } = await signUp(email, password, fullName);
+
+      if (error) {
+        toast.error(error.message);
         return;
       }
 
-      // Generate a unique filename
-      const fileExt = file.name.split('.').pop();
-      const fileName = `temp/${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError, data } = await supabase.storage
-        .from('profile-photos')
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('profile-photos')
-        .getPublicUrl(fileName);
-
-      // Now sign up with the photo URL
-      const { error } = await signUp(email, password, fullName, publicUrl);
-      
-      if (error) {
-        // Clean up uploaded photo if signup fails
-        await supabase.storage
-          .from('profile-photos')
-          .remove([fileName]);
-        throw error;
-      }
-
-      // Get the newly created user
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       if (user) {
-        // Assign user to location using secure function
         const { error: locationAssignError } = await supabase.rpc('assign_user_to_location', {
           p_user_id: user.id,
-          p_location_id: location.id
+          p_location_id: location.id,
         });
 
         if (locationAssignError) {
@@ -188,10 +121,10 @@ export default function Auth() {
         }
       }
 
-      toast.success(`Welcome to ${location.name}!`);
-      navigate('/dashboard');
+      toast.success(`Welcome to ${location.name}! Let's finish setting up your profile.`);
+      navigate('/welcome');
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || 'Failed to sign up');
     } finally {
       setLoading(false);
     }
@@ -298,34 +231,6 @@ export default function Auth() {
                   <p className="text-xs text-muted-foreground">
                     Enter the 3-word code provided by your manager
                   </p>
-                </div>
-                <div className="space-y-2">
-                  <Label>Profile Photo (Required)</Label>
-                  <div className="flex flex-col items-center gap-4">
-                    <Avatar className="h-24 w-24">
-                      <AvatarImage src={profilePhoto || undefined} />
-                      <AvatarFallback>
-                        <Camera className="h-8 w-8 text-muted-foreground" />
-                      </AvatarFallback>
-                    </Avatar>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handlePhotoUpload}
-                      className="hidden"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading}
-                      className="w-full"
-                    >
-                      <Camera className="mr-2 h-4 w-4" />
-                      {profilePhoto ? 'Change Photo' : 'Add Photo'}
-                    </Button>
-                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="signup-email">Email</Label>
