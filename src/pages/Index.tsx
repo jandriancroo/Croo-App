@@ -4,9 +4,9 @@ import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { CheckCircle2, Calendar, Users, Clock, MessageSquare, BarChart3 } from 'lucide-react';
 import crooLogo from '@/assets/croo-logo.png';
-import featureSchedule from '@/assets/feature-schedule-real.png';
-import featureTasks from '@/assets/feature-tasks-real.png';
-import featurePayroll from '@/assets/feature-payroll-real.png';
+import featureSchedule from '@/assets/feature-schedule.jpg';
+import featureTasks from '@/assets/feature-tasks.jpg';
+import featureTimeclock from '@/assets/feature-timeclock.jpg';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -168,9 +168,9 @@ const Index = () => {
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div className="order-2 md:order-1">
               <Clock className="w-12 h-12 text-primary mb-4" />
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">Payroll & Time Tracking</h2>
+              <h2 className="text-3xl md:text-4xl font-bold mb-4">Time Tracking</h2>
               <p className="text-lg text-muted-foreground mb-6">
-                Streamlined payroll review with detailed wage tracking. Tablet-friendly punch clock and automatic break compliance.
+                Tablet-friendly punch clock with PIN access. Automatic break tracking and overtime alerts keep your labor compliant.
               </p>
               <ul className="space-y-3">
                 <li className="flex items-start gap-3">
@@ -189,8 +189,8 @@ const Index = () => {
             </div>
             <div className="order-1 md:order-2 relative">
               <img 
-                src={featurePayroll} 
-                alt="Payroll Review" 
+                src={featureTimeclock} 
+                alt="Time Clock" 
                 className="rounded-lg shadow-2xl border border-border w-full"
               />
             </div>
