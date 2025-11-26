@@ -30,6 +30,7 @@ import Certifications from "./pages/Certifications";
 import Alerts from "./pages/Alerts";
 import LocationProfile from "./pages/LocationProfile";
 import FontPreviewPage from "./pages/FontPreviewPage";
+import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
 
@@ -38,7 +39,8 @@ const AppContent = () => {
   return (
     <Routes>
       <Route path="/auth" element={<Auth />} />
-      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/" element={<Index />} />
+      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
       <Route path="/logbook" element={<ProtectedRoute><LogBook /></ProtectedRoute>} />
       <Route path="/create" element={<ProtectedRoute><CreateChecklist /></ProtectedRoute>} />
