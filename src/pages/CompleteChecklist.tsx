@@ -90,7 +90,7 @@ export default function CompleteChecklist() {
         // Check if there's already ANY submission for today (shared by all users)
         // Get the FIRST submission created today so all users work on the same one
         const {
-          data: existingSubmission
+          data: submissions
         } = await supabase.from('checklist_submissions').select(`
             id, 
             checklist_responses(
@@ -104,7 +104,9 @@ export default function CompleteChecklist() {
             )
           `).eq('checklist_id', id).gte('submitted_at', startOfToday.toISOString()).order('created_at', {
           ascending: true
-        }).limit(1).maybeSingle();
+        }).limit(1);
+
+        const existingSubmission = submissions?.[0];
         if (existingSubmission) {
           setSubmissionId(existingSubmission.id);
 
