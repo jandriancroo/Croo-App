@@ -135,6 +135,7 @@ export default function CompleteChecklist() {
     const loadResponses = async () => {
       if (!submissionId) return;
       try {
+        // First load all responses for this submission
         const { data: responsesData, error } = await supabase
           .from('checklist_responses')
           .select(`
@@ -143,8 +144,7 @@ export default function CompleteChecklist() {
             response_text,
             response_image_url,
             completed_by,
-            created_at,
-            profiles:completed_by(full_name, profile_photo_url)
+            created_at
           `)
           .eq('submission_id', submissionId);
 
@@ -152,6 +152,8 @@ export default function CompleteChecklist() {
 
         const loadedResponses: Record<string, any> = {};
         const loadedWithCompleters: Record<string, ResponseWithCompleter> = {};
+
+        const completerIds = new Set<string>();
 
         (responsesData || []).forEach((resp: any) => {
           let value: any;
@@ -170,19 +172,52 @@ export default function CompleteChecklist() {
 
           loadedResponses[resp.item_id] = value;
 
-          if (resp.completed_by && resp.profiles) {
+          if (resp.completed_by) {
+            completerIds.add(resp.completed_by);
+            // We'll fill in profile details after we load profiles
             loadedWithCompleters[resp.item_id] = {
               responseId: resp.id,
               value,
               isImage,
-              completedBy: {
-                userId: resp.completed_by,
-                fullName: resp.profiles.full_name || 'Unknown',
-                profilePhoto: resp.profiles.profile_photo_url,
-                completedAt: resp.created_at
-              }
-            };
+              completedBy: undefined,
+            } as any;
           }
+        });
+
+        // Load profile details for all completers in one query
+        let profilesMap: Record<string, { full_name: string | null; profile_photo_url: string | null }> = {};
+        if (completerIds.size > 0) {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, full_name, profile_photo_url')
+            .in('id', Array.from(completerIds));
+
+          if (profilesError) throw profilesError;
+
+          (profilesData || []).forEach((p: any) => {
+            profilesMap[p.id] = {
+              full_name: p.full_name,
+              profile_photo_url: p.profile_photo_url,
+            };
+          });
+        }
+
+        // Attach completedBy info where we have it
+        Object.entries(loadedWithCompleters).forEach(([itemId, data]) => {
+          const response = responsesData?.find((r: any) => r.id === data.responseId);
+          if (!response) return;
+          const profile = response.completed_by ? profilesMap[response.completed_by] : undefined;
+          (loadedWithCompleters as any)[itemId] = {
+            ...data,
+            completedBy: response.completed_by
+              ? {
+                  userId: response.completed_by,
+                  fullName: profile?.full_name || 'Unknown',
+                  profilePhoto: profile?.profile_photo_url || null,
+                  completedAt: response.created_at,
+                }
+              : undefined,
+          };
         });
 
         setResponses(loadedResponses);
