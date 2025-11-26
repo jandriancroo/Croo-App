@@ -271,28 +271,40 @@ export default function CompleteChecklist() {
       const {
         data: existing
       } = await supabase.from('checklist_responses').select('id').eq('submission_id', submissionId).eq('item_id', itemId).single();
+      let responseId: string | undefined = existing?.id;
+
       if (existing) {
         // Update existing response
-        const {
-          error
-        } = await supabase.from('checklist_responses').update({
-          response_text: isImage ? null : typeof value === 'boolean' ? String(value) : value,
-          response_image_url: isImage ? value : null,
-          completed_by: user.id
-        }).eq('id', existing.id);
+        const { error } = await supabase
+          .from('checklist_responses')
+          .update({
+            response_text: isImage ? null : typeof value === 'boolean' ? String(value) : value,
+            response_image_url: isImage ? value : null,
+            completed_by: user.id
+          })
+          .eq('id', existing.id);
         if (error) throw error;
       } else {
-        // Insert new response
-        const {
-          error
-        } = await supabase.from('checklist_responses').insert({
-          submission_id: submissionId,
-          item_id: itemId,
-          response_text: isImage ? null : typeof value === 'boolean' ? String(value) : value,
-          response_image_url: isImage ? value : null,
-          completed_by: user.id
-        });
+        // Insert new response and get its id
+        const { data: newResponse, error } = await supabase
+          .from('checklist_responses')
+          .insert({
+            submission_id: submissionId,
+            item_id: itemId,
+            response_text: isImage ? null : typeof value === 'boolean' ? String(value) : value,
+            response_image_url: isImage ? value : null,
+            completed_by: user.id
+          })
+          .select('id')
+          .single();
+
         if (error) throw error;
+        responseId = newResponse?.id;
+      }
+
+      if (!responseId) {
+        console.warn('No responseId available after save for item', itemId);
+        return;
       }
 
       // Fetch updated completer info
