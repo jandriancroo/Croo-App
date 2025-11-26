@@ -168,15 +168,16 @@ export default function CompleteChecklist() {
 
           loadedResponses[resp.item_id] = value;
 
+          // Always track the response so undo works even without completed_by
+          loadedWithCompleters[resp.item_id] = {
+            responseId: resp.id,
+            value,
+            isImage,
+            completedBy: undefined,
+          } as any;
+
           if (resp.completed_by) {
             completerIds.add(resp.completed_by);
-            // We'll fill in profile details after we load profiles
-            loadedWithCompleters[resp.item_id] = {
-              responseId: resp.id,
-              value,
-              isImage,
-              completedBy: undefined,
-            } as any;
           }
         });
 
