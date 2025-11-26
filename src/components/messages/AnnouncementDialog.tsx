@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
+import { Paperclip, X } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -27,6 +28,9 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated }
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [creating, setCreating] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -51,6 +55,48 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated }
       console.error('Error fetching profiles:', error);
       toast.error('Failed to load users');
     }
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Check file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File size must be less than 10MB');
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('message-attachments')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('message-attachments')
+        .getPublicUrl(fileName);
+
+      setUploadedFile(file);
+      setUploadedFileUrl(publicUrl);
+      toast.success('File attached');
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
+      toast.error('Failed to upload file');
+    }
+  };
+
+  const removeAttachment = () => {
+    setUploadedFile(null);
+    setUploadedFileUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleCreate = async () => {
@@ -107,6 +153,8 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated }
           chat_id: chat.id,
           sender_id: user.id,
           content: message.trim(),
+          attachment_url: uploadedFileUrl,
+          attachment_type: uploadedFile?.type || null,
         });
 
       if (messageError) throw messageError;
@@ -118,6 +166,7 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated }
       setSelectedUsers([]);
       setTitle('');
       setMessage('');
+      removeAttachment();
     } catch (error: any) {
       console.error('Error creating announcement:', error);
       toast.error('Failed to create announcement');
@@ -169,6 +218,45 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated }
               placeholder="Enter announcement message"
               rows={4}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Attachment (optional)</Label>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!!uploadedFile}
+              >
+                <Paperclip className="h-4 w-4 mr-2" />
+                {uploadedFile ? 'File Attached' : 'Attach File'}
+              </Button>
+              {uploadedFile && (
+                <div className="flex items-center gap-2 text-sm">
+                  <span className="truncate max-w-[200px]">{uploadedFile.name}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={removeAttachment}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={handleFileSelect}
+              accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx"
+            />
+            <p className="text-xs text-muted-foreground">
+              Max file size: 10MB. Supported: Images, PDF, Word, Excel
+            </p>
           </div>
 
           <div className="space-y-2">
