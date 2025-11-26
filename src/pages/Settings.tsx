@@ -415,17 +415,18 @@ export default function Settings() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="border rounded-lg p-4">
-                  <h4 className="font-semibold mb-2">Backfill Photo Completions</h4>
+                  <h4 className="font-semibold mb-2">Backfill Alle Photo Completions</h4>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Updates older checklist photo responses to include who completed them. 
-                    This is a one-time fix for legacy data.
+                    Sets Alle Rowe as the completer for legacy photo responses on the Morning Line Check checklist.
                   </p>
                   <Button 
                     variant="outline"
                     onClick={async () => {
                       try {
-                        sonnerToast.info('Starting backfill...');
-                        const { data, error } = await supabase.functions.invoke('backfill-photo-completions');
+                        sonnerToast.info('Starting Alle backfill...');
+                        const { data, error } = await supabase.functions.invoke('backfill-alle-photo-completions', {
+                          body: { checklist_id: '9eaed930-e88a-4874-9045-b4c7fb91e6bd' },
+                        });
                         
                         if (error) throw error;
                         
@@ -435,12 +436,12 @@ export default function Settings() {
                           sonnerToast.error(data.error || 'Backfill failed');
                         }
                       } catch (error: any) {
-                        console.error('Backfill error:', error);
-                        sonnerToast.error('Failed to run backfill');
+                        console.error('Alle backfill error:', error);
+                        sonnerToast.error('Failed to run Alle backfill');
                       }
                     }}
                   >
-                    Run Backfill
+                    Run Alle Backfill
                   </Button>
                 </div>
               </CardContent>
