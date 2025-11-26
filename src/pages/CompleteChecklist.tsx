@@ -368,9 +368,7 @@ export default function CompleteChecklist() {
                       <div className="bg-green-600 rounded-full p-3 shadow-lg">
                         <CheckCircle2 className="h-8 w-8 text-white" />
                       </div>
-                      <div className="text-sm text-muted-foreground">
-                        Click to undo
-                      </div>
+                      
                     </div>
                     
                     {completerInfo && <div className="gap-2 bg-background/80 backdrop-blur-sm rounded-lg shadow-md py-[4px] px-[6px] flex-row flex items-center justify-center">
