@@ -1549,6 +1549,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      assign_user_to_location: {
+        Args: { p_location_id: string; p_user_id: string }
+        Returns: undefined
+      }
       generate_location_code: { Args: never; Returns: string }
       generate_unique_pin: { Args: never; Returns: string }
       get_current_wage: {
