@@ -247,14 +247,26 @@ export default function Messages() {
             </div>
             
             {/* Mobile Slide-Over Chat Window */}
-            <Drawer open={!!selectedChatId} onOpenChange={(open) => !open && setSelectedChatId(null)}>
+            <Drawer 
+              open={!!selectedChatId} 
+              onOpenChange={(open) => {
+                if (!open) {
+                  setSelectedChatId(null);
+                }
+              }}
+              modal={true}
+              dismissible={true}
+            >
               <DrawerContent className="h-[95vh]">
                 <div className="flex flex-col h-full">
                   <div className="flex items-center gap-2 p-4 border-b border-border">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => setSelectedChatId(null)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedChatId(null);
+                      }}
                     >
                       <ArrowLeft className="h-4 w-4" />
                     </Button>
