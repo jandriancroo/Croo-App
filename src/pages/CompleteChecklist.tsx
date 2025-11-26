@@ -509,8 +509,8 @@ export default function CompleteChecklist() {
           const hasResponse = responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
           
           return <Card key={item.id} className="overflow-hidden relative">
-                {hasResponse && <div 
-                  className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex items-center justify-center p-4 cursor-pointer hover:bg-background/60 transition-colors" 
+              {hasResponse && <div 
+                  className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 cursor-pointer hover:bg-background/60 transition-colors gap-3" 
                   onClick={() => handleUndoCompletion(item.id)}
                   style={{ pointerEvents: 'auto' }}
                 >
@@ -519,33 +519,32 @@ export default function CompleteChecklist() {
                         <CheckCircle2 className="h-10 w-10 text-white" />
                       </div>
                       
-                    </div>
-                    
-                    {completerInfo && (
-                      <div className="gap-2 bg-background/80 backdrop-blur-sm rounded-lg shadow-md py-[4px] px-[6px] flex-row flex items-center justify-center">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={completerInfo.profilePhoto || undefined} />
-                          <AvatarFallback className="text-xs">
-                            {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="text-left">
-                          <div className="text-sm font-medium">
-                            {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
+                      {completerInfo && (
+                        <div className="gap-2 bg-background/80 backdrop-blur-sm rounded-lg shadow-md py-[4px] px-[6px] flex-row flex items-center justify-center">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={completerInfo.profilePhoto || undefined} />
+                            <AvatarFallback className="text-xs">
+                              {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="text-left">
+                            <div className="text-sm font-medium">
+                              {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
 
-                    {/* Temperature Indicator Overlay */}
+                    {/* Temperature Indicator Below User Info */}
                     {responsesWithCompleters[item.id]?.extractedTemperature !== null && 
                      responsesWithCompleters[item.id]?.extractedTemperature !== undefined && (
-                      <>
+                      <div className="w-full max-w-md">
                         {responsesWithCompleters[item.id]?.temperatureValid === false ? (
-                          <div className="absolute left-4 top-1/2 -translate-y-1/2 px-4 py-2 bg-red-500 text-white rounded-lg shadow-lg animate-pulse border-2 border-red-600">
+                          <div className="px-6 py-3 bg-red-500 text-white rounded-lg shadow-lg animate-pulse border-2 border-red-600 text-center">
                             <span className="font-bold text-sm">
                               Temp Outside of Safe Zone
                             </span>
@@ -554,7 +553,7 @@ export default function CompleteChecklist() {
                             </div>
                           </div>
                         ) : (
-                          <div className="absolute left-4 top-1/2 -translate-y-1/2 px-4 py-2 bg-green-500 text-white rounded-lg shadow-lg animate-pulse border-2 border-green-600">
+                          <div className="px-6 py-3 bg-green-500 text-white rounded-lg shadow-lg animate-pulse border-2 border-green-600 text-center">
                             <span className="font-bold text-sm">
                               Safe
                             </span>
@@ -563,7 +562,7 @@ export default function CompleteChecklist() {
                             </div>
                           </div>
                         )}
-                      </>
+                      </div>
                     )}
 
                     
