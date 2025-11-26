@@ -79,130 +79,76 @@ export default function CompleteChecklist() {
     setCompletionPercentage(Math.round(completedCount / items.length * 100));
   }, [responses, items]);
 
-  // Create or get shared daily submission (one per checklist per day, shared by all users)
+  // Ensure a submission for current user and load today's collaborative responses
   useEffect(() => {
     if (!id || !user?.id || submissionId) return;
-    const createDraftSubmission = async () => {
+
+    const initSubmissionAndResponses = async () => {
       try {
         const startOfToday = new Date();
         startOfToday.setHours(0, 0, 0, 0);
 
-        // Check if there's already ANY submission for today (shared by all users)
-        const {
-          data: existingSubmission
-        } = await supabase.from('checklist_submissions').select(`
-            id, 
+        // Get all submissions for this checklist today with their responses
+        const { data: submissionsToday } = await supabase
+          .from('checklist_submissions')
+          .select(`
+            id,
+            checklist_id,
+            submitted_by,
+            submitted_at,
             checklist_responses(
-              id, 
-              item_id, 
-              response_text, 
+              id,
+              item_id,
+              response_text,
               response_image_url,
               completed_by,
               created_at,
               profiles:completed_by(full_name, profile_photo_url)
             )
-          `).eq('checklist_id', id).gte('submitted_at', startOfToday.toISOString()).order('created_at', {
-          ascending: false
-        }).limit(1).single();
-        if (existingSubmission) {
-          setSubmissionId(existingSubmission.id);
+          `)
+          .eq('checklist_id', id)
+          .gte('submitted_at', startOfToday.toISOString());
 
-          // Load existing responses with completer info
-          const loadedResponses: Record<string, any> = {};
-          const loadedWithCompleters: Record<string, ResponseWithCompleter> = {};
-          existingSubmission.checklist_responses?.forEach((resp: any) => {
-            let value: any;
-            let isImage = false;
-            if (resp.response_image_url) {
-              value = resp.response_image_url;
-              isImage = true;
-            } else if (resp.response_text !== null) {
-              // Convert string "true"/"false" to boolean for checkboxes
-              if (resp.response_text === 'true' || resp.response_text === 'false') {
-                value = resp.response_text === 'true';
-              } else {
-                value = resp.response_text;
-              }
-            }
-            loadedResponses[resp.item_id] = value;
+        let activeSubmissionId: string | null = null;
+        let allSubmissions: any[] = submissionsToday || [];
 
-            // Store completer info
-            if (resp.completed_by && resp.profiles) {
-              loadedWithCompleters[resp.item_id] = {
-                responseId: resp.id,
-                value,
-                isImage,
-                completedBy: {
-                  userId: resp.completed_by,
-                  fullName: resp.profiles.full_name || 'Unknown',
-                  profilePhoto: resp.profiles.profile_photo_url,
-                  completedAt: resp.created_at
-                }
-              };
-            }
-          });
-          setResponses(loadedResponses);
-          setResponsesWithCompleters(loadedWithCompleters);
+        // Find an existing submission for current user
+        const userSubmission = allSubmissions.find((sub: any) => sub.submitted_by === user.id);
+
+        if (userSubmission) {
+          activeSubmissionId = userSubmission.id;
         } else {
-          // Create new shared daily submission
-          const {
-            data: newSubmission,
-            error
-          } = await supabase.from('checklist_submissions').insert({
-            checklist_id: id,
-            submitted_by: user.id,
-            notes: ''
-          }).select().single();
-          if (error) throw error;
-          setSubmissionId(newSubmission.id);
-        }
-      } catch (error) {
-        console.error('Error creating draft submission:', error);
-      }
-    };
-    createDraftSubmission();
-  }, [id, user, submissionId]);
-
-  // Real-time subscription for collaborative completion
-  useEffect(() => {
-    if (!submissionId) return;
-
-    const channel = supabase
-      .channel('checklist-responses')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'checklist_responses',
-          filter: `submission_id=eq.${submissionId}`
-        },
-        async (payload) => {
-          // Reload responses when any user makes changes
-          const { data: updatedSubmission } = await supabase
+          // Create a new submission for current user for today
+          const { data: newSubmission, error } = await supabase
             .from('checklist_submissions')
-            .select(`
-              id, 
-              checklist_responses(
-                id, 
-                item_id, 
-                response_text, 
-                response_image_url,
-                completed_by,
-                created_at,
-                profiles:completed_by(full_name, profile_photo_url)
-              )
-            `)
-            .eq('id', submissionId)
+            .insert({
+              checklist_id: id,
+              submitted_by: user.id,
+              notes: ''
+            })
+            .select()
             .single();
 
-          if (updatedSubmission) {
-            const loadedResponses: Record<string, any> = {};
-            const loadedWithCompleters: Record<string, ResponseWithCompleter> = {};
-            
-            updatedSubmission.checklist_responses?.forEach((resp: any) => {
+          if (error) throw error;
+          activeSubmissionId = newSubmission.id;
+          allSubmissions = [...allSubmissions, { ...newSubmission, checklist_responses: [] }];
+        }
+
+        setSubmissionId(activeSubmissionId);
+
+        // Build responses by taking the latest response per item across ALL submissions today
+        const loadedResponses: Record<string, any> = {};
+        const loadedWithCompleters: Record<string, ResponseWithCompleter> = {};
+        const latestTimestamps: Record<string, string> = {};
+
+        allSubmissions.forEach((sub: any) => {
+          sub.checklist_responses?.forEach((resp: any) => {
+            const createdAt = resp.created_at || new Date().toISOString();
+            const existingTs = latestTimestamps[resp.item_id];
+            if (!existingTs || new Date(createdAt) > new Date(existingTs)) {
               let value: any;
               let isImage = false;
+
               if (resp.response_image_url) {
                 value = resp.response_image_url;
                 isImage = true;
@@ -213,6 +159,8 @@ export default function CompleteChecklist() {
                   value = resp.response_text;
                 }
               }
+
+              latestTimestamps[resp.item_id] = createdAt;
               loadedResponses[resp.item_id] = value;
 
               if (resp.completed_by && resp.profiles) {
@@ -224,23 +172,23 @@ export default function CompleteChecklist() {
                     userId: resp.completed_by,
                     fullName: resp.profiles.full_name || 'Unknown',
                     profilePhoto: resp.profiles.profile_photo_url,
-                    completedAt: resp.created_at
+                    completedAt: createdAt
                   }
                 };
               }
-            });
-            
-            setResponses(loadedResponses);
-            setResponsesWithCompleters(loadedWithCompleters);
-          }
-        }
-      )
-      .subscribe();
+            }
+          });
+        });
 
-    return () => {
-      supabase.removeChannel(channel);
+        setResponses(loadedResponses);
+        setResponsesWithCompleters(loadedWithCompleters);
+      } catch (error) {
+        console.error('Error initializing checklist submission:', error);
+      }
     };
-  }, [submissionId]);
+
+    initSubmissionAndResponses();
+  }, [id, user, submissionId]);
 
   const fetchChecklistData = async () => {
     try {
