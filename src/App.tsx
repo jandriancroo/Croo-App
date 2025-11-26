@@ -31,6 +31,7 @@ import Alerts from "./pages/Alerts";
 import LocationProfile from "./pages/LocationProfile";
 import FontPreviewPage from "./pages/FontPreviewPage";
 import Index from "./pages/Index";
+import WelcomeProfile from "./pages/WelcomeProfile";
 
 const queryClient = new QueryClient();
 
@@ -41,7 +42,8 @@ const AppContent = () => {
           <Route path="/auth" element={<Auth />} />
           <Route path="/landing" element={<Index />} />
           <Route path="/" element={<Navigate to="/auth" replace />} />
-      <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/welcome" element={<ProtectedRoute><WelcomeProfile /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
       <Route path="/logbook" element={<ProtectedRoute><LogBook /></ProtectedRoute>} />
       <Route path="/create" element={<ProtectedRoute><CreateChecklist /></ProtectedRoute>} />
