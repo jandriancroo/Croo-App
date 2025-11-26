@@ -144,7 +144,7 @@ export default function LocationProfile() {
               )}
             </div>
             {location.latitude && location.longitude && (
-              <div className="w-48 h-32 rounded-lg overflow-hidden border shadow-sm flex-shrink-0">
+              <div className="w-64 h-32 rounded-lg overflow-hidden border shadow-sm flex-shrink-0">
                 <LocationMap 
                   lat={parseFloat(location.latitude)} 
                   lng={parseFloat(location.longitude)}
@@ -180,39 +180,6 @@ export default function LocationProfile() {
                   onChange={(e) => setLocation({...location, address: e.target.value})}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="location-lat">Latitude</Label>
-                  <Input
-                    id="location-lat"
-                    type="number"
-                    step="0.0001"
-                    placeholder="33.7294"
-                    value={location.latitude || ''}
-                    onChange={(e) => setLocation({...location, latitude: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="location-lng">Longitude</Label>
-                  <Input
-                    id="location-lng"
-                    type="number"
-                    step="0.0001"
-                    placeholder="-116.9719"
-                    value={location.longitude || ''}
-                    onChange={(e) => setLocation({...location, longitude: e.target.value})}
-                  />
-                </div>
-              </div>
-              {location.latitude && location.longitude && (
-                <div className="h-48 rounded-md overflow-hidden border">
-                  <LocationMap 
-                    lat={parseFloat(location.latitude)} 
-                    lng={parseFloat(location.longitude)}
-                    locationName={location.name}
-                  />
-                </div>
-              )}
               {location.location_code && (
                 <div className="pt-4 border-t space-y-2">
                   <Label>Location Code</Label>
