@@ -607,6 +607,7 @@ export type Database = {
           created_by: string | null
           id: string
           latitude: number | null
+          location_code: string | null
           longitude: number | null
           name: string
           updated_at: string
@@ -617,6 +618,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           latitude?: number | null
+          location_code?: string | null
           longitude?: number | null
           name: string
           updated_at?: string
@@ -627,6 +629,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           latitude?: number | null
+          location_code?: string | null
           longitude?: number | null
           name?: string
           updated_at?: string
@@ -1484,6 +1487,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_location_code: { Args: never; Returns: string }
       generate_unique_pin: { Args: never; Returns: string }
       get_current_wage: {
         Args: { p_date?: string; p_user_id: string }
