@@ -126,12 +126,12 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      // Validate location code first (case-insensitive)
-      const { data: location, error: locationError } = await supabase
-        .from('locations')
-        .select('id, name')
-        .ilike('location_code', locationCode.trim())
-        .single();
+      // Validate location code via backend function (case-insensitive)
+      const { data: locationData, error: locationError } = await supabase.rpc('validate_location_code', {
+        p_code: locationCode.trim(),
+      });
+
+      const location = Array.isArray(locationData) && locationData.length > 0 ? locationData[0] : null;
 
       if (locationError || !location) {
         toast.error('Invalid location code. Please check with your manager.');
