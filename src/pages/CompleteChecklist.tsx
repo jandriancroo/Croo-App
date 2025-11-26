@@ -108,44 +108,8 @@ export default function CompleteChecklist() {
 
         const existingSubmission = submissions?.[0];
         if (existingSubmission) {
+          // Use the existing shared submission for today
           setSubmissionId(existingSubmission.id);
-
-          // Load existing responses with completer info
-          const loadedResponses: Record<string, any> = {};
-          const loadedWithCompleters: Record<string, ResponseWithCompleter> = {};
-          existingSubmission.checklist_responses?.forEach((resp: any) => {
-            let value: any;
-            let isImage = false;
-            if (resp.response_image_url) {
-              value = resp.response_image_url;
-              isImage = true;
-            } else if (resp.response_text !== null) {
-              // Convert string "true"/"false" to boolean for checkboxes
-              if (resp.response_text === 'true' || resp.response_text === 'false') {
-                value = resp.response_text === 'true';
-              } else {
-                value = resp.response_text;
-              }
-            }
-            loadedResponses[resp.item_id] = value;
-
-            // Store completer info
-            if (resp.completed_by && resp.profiles) {
-              loadedWithCompleters[resp.item_id] = {
-                responseId: resp.id,
-                value,
-                isImage,
-                completedBy: {
-                  userId: resp.completed_by,
-                  fullName: resp.profiles.full_name || 'Unknown',
-                  profilePhoto: resp.profiles.profile_photo_url,
-                  completedAt: resp.created_at
-                }
-              };
-            }
-          });
-          setResponses(loadedResponses);
-          setResponsesWithCompleters(loadedWithCompleters);
         } else {
           // Create new shared daily submission
           const {
@@ -165,6 +129,71 @@ export default function CompleteChecklist() {
     };
     createDraftSubmission();
   }, [id, user, submissionId]);
+
+  // Load existing responses (and completer info) whenever we have a submissionId
+  useEffect(() => {
+    const loadResponses = async () => {
+      if (!submissionId) return;
+      try {
+        const { data: responsesData, error } = await supabase
+          .from('checklist_responses')
+          .select(`
+            id,
+            item_id,
+            response_text,
+            response_image_url,
+            completed_by,
+            created_at,
+            profiles:completed_by(full_name, profile_photo_url)
+          `)
+          .eq('submission_id', submissionId);
+
+        if (error) throw error;
+
+        const loadedResponses: Record<string, any> = {};
+        const loadedWithCompleters: Record<string, ResponseWithCompleter> = {};
+
+        (responsesData || []).forEach((resp: any) => {
+          let value: any;
+          let isImage = false;
+
+          if (resp.response_image_url) {
+            value = resp.response_image_url;
+            isImage = true;
+          } else if (resp.response_text !== null) {
+            if (resp.response_text === 'true' || resp.response_text === 'false') {
+              value = resp.response_text === 'true';
+            } else {
+              value = resp.response_text;
+            }
+          }
+
+          loadedResponses[resp.item_id] = value;
+
+          if (resp.completed_by && resp.profiles) {
+            loadedWithCompleters[resp.item_id] = {
+              responseId: resp.id,
+              value,
+              isImage,
+              completedBy: {
+                userId: resp.completed_by,
+                fullName: resp.profiles.full_name || 'Unknown',
+                profilePhoto: resp.profiles.profile_photo_url,
+                completedAt: resp.created_at
+              }
+            };
+          }
+        });
+
+        setResponses(loadedResponses);
+        setResponsesWithCompleters(loadedWithCompleters);
+      } catch (error) {
+        console.error('Error loading existing responses:', error);
+      }
+    };
+
+    loadResponses();
+  }, [submissionId]);
 
   // Removed - no longer blocking users from continuing draft submissions
 
