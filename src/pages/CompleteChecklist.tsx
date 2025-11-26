@@ -90,21 +90,17 @@ export default function CompleteChecklist() {
         // Check if there's already ANY submission for today (shared by all users)
         // Get the FIRST submission created today so all users work on the same one
         const {
-          data: submissions
-        } = await supabase.from('checklist_submissions').select(`
-            id, 
-            checklist_responses(
-              id, 
-              item_id, 
-              response_text, 
-              response_image_url,
-              completed_by,
-              created_at,
-              profiles:completed_by(full_name, profile_photo_url)
-            )
-          `).eq('checklist_id', id).gte('submitted_at', startOfToday.toISOString()).order('created_at', {
-          ascending: true
-        }).limit(1);
+          data: submissions,
+          error: submissionsError,
+        } = await supabase
+          .from('checklist_submissions')
+          .select('id')
+          .eq('checklist_id', id)
+          .gte('submitted_at', startOfToday.toISOString())
+          .order('submitted_at', { ascending: true })
+          .limit(1);
+
+        if (submissionsError) throw submissionsError;
 
         const existingSubmission = submissions?.[0];
         if (existingSubmission) {
