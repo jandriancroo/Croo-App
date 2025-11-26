@@ -365,12 +365,15 @@ export default function CompleteChecklist() {
           const isCompleted = responsesWithCompleters[item.id]?.completedBy;
           const completerInfo = responsesWithCompleters[item.id]?.completedBy;
           return <Card key={item.id} className="overflow-hidden relative">
-                {isCompleted && <div className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex items-center justify-center p-4 cursor-pointer hover:bg-background/60 transition-colors" onClick={() => handleUndoCompletion(item.id)}>
+                {isCompleted && <div 
+                    className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex items-center justify-center p-4 cursor-pointer hover:bg-background/60 transition-colors" 
+                    onClick={() => handleUndoCompletion(item.id)}
+                    title="Click to undo completion"
+                  >
                     <div className="flex items-center gap-3">
                       <div className="bg-green-600/80 rounded-full p-4 shadow-lg">
                         <CheckCircle2 className="h-10 w-10 text-white" />
                       </div>
-                      
                     </div>
                     
                     {completerInfo && <div className="gap-2 bg-background/80 backdrop-blur-sm rounded-lg shadow-md py-[4px] px-[6px] flex-row flex items-center justify-center">
@@ -396,6 +399,7 @@ export default function CompleteChecklist() {
                           setPreviewImage(responses[item.id]);
                         }}
                         className="absolute bottom-3 right-3 z-20 bg-background/80 backdrop-blur-sm rounded-full p-2 hover:bg-background transition-colors shadow-lg"
+                        title="Preview photo"
                       >
                         <Eye className="h-4 w-4" />
                       </button>}
