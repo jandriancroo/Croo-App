@@ -1570,6 +1570,13 @@ export type Database = {
         Args: { _chat_id: string; _user_id: string }
         Returns: boolean
       }
+      validate_location_code: {
+        Args: { p_code: string }
+        Returns: {
+          id: string
+          name: string
+        }[]
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "team_member"
