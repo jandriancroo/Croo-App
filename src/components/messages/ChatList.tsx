@@ -9,6 +9,7 @@ interface Chat {
   created_at: string;
   updated_at: string;
   group_image_url: string | null;
+  unreadCount?: number;
   chat_members?: Array<{
     profiles: {
       profile_photo_url: string | null;
@@ -58,6 +59,8 @@ export function ChatList({ chats, selectedChatId, onSelectChat, loading }: ChatL
           className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left ${
             selectedChatId === chat.id
               ? 'bg-accent text-accent-foreground'
+              : chat.unreadCount && chat.unreadCount > 0
+              ? 'bg-primary/5 hover:bg-primary/10'
               : 'hover:bg-muted'
           }`}
         >
@@ -79,9 +82,18 @@ export function ChatList({ chats, selectedChatId, onSelectChat, loading }: ChatL
             )}
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="font-medium truncate">
-              {chat.title || (chat.is_group ? 'Group Chat' : 'Direct Message')}
-            </p>
+            <div className="flex items-center justify-between gap-2">
+              <p className={`truncate ${
+                chat.unreadCount && chat.unreadCount > 0 ? 'font-bold' : 'font-medium'
+              }`}>
+                {chat.title || (chat.is_group ? 'Group Chat' : 'Direct Message')}
+              </p>
+              {chat.unreadCount && chat.unreadCount > 0 && (
+                <span className="flex-shrink-0 bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                  {chat.unreadCount}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground truncate">
               {new Date(chat.updated_at).toLocaleDateString()}
             </p>

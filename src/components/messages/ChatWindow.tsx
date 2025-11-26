@@ -125,6 +125,28 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       if (error) throw error;
       setMessages(data || []);
       setTimeout(scrollToBottom, 100);
+
+      // Mark messages as read
+      if (currentUserId && data && data.length > 0) {
+        const lastMessage = data[data.length - 1];
+        
+        // Only mark as read if the last message wasn't sent by current user
+        if (lastMessage.sender_id !== currentUserId) {
+          try {
+            await supabase
+              .from('message_read_receipts')
+              .insert({
+                message_id: lastMessage.id,
+                user_id: currentUserId
+              });
+          } catch (err: any) {
+            // Ignore duplicate key errors (already marked as read)
+            if (!err.message?.includes('duplicate')) {
+              console.error('Error marking message as read:', err);
+            }
+          }
+        }
+      }
     } catch (error: any) {
       console.error('Error fetching messages:', error);
       toast.error('Failed to load messages');
@@ -153,7 +175,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [chatId]);
+  }, [chatId, currentUserId]);
 
   const handleSend = async () => {
     if (!newMessage.trim() && !uploading) return;
