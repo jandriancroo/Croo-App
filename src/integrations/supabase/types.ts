@@ -313,29 +313,38 @@ export type Database = {
         Row: {
           completed_by: string | null
           created_at: string | null
+          extracted_temperature: number | null
           id: string
           item_id: string
           response_image_url: string | null
           response_text: string | null
           submission_id: string
+          temperature_valid: boolean | null
+          temperature_validated_at: string | null
         }
         Insert: {
           completed_by?: string | null
           created_at?: string | null
+          extracted_temperature?: number | null
           id?: string
           item_id: string
           response_image_url?: string | null
           response_text?: string | null
           submission_id: string
+          temperature_valid?: boolean | null
+          temperature_validated_at?: string | null
         }
         Update: {
           completed_by?: string | null
           created_at?: string | null
+          extracted_temperature?: number | null
           id?: string
           item_id?: string
           response_image_url?: string | null
           response_text?: string | null
           submission_id?: string
+          temperature_valid?: boolean | null
+          temperature_validated_at?: string | null
         }
         Relationships: [
           {
