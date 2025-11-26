@@ -18,6 +18,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
 import { format, addDays } from 'date-fns';
+import { useLocation } from '@/hooks/useLocation';
 interface Checklist {
   id: string;
   title: string;
@@ -61,8 +62,29 @@ export default function Dashboard() {
   const {
     isAdmin
   } = useUserRole();
+  const { currentLocation } = useLocation();
+  
+  // Fetch location settings for business hours
+  const { data: locationSettings } = useQuery({
+    queryKey: ["location-settings", currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation) return null;
+      const { data, error } = await supabase
+        .from('location_settings')
+        .select('hours_open, hours_close')
+        .eq('location_id', currentLocation.id)
+        .maybeSingle();
+      if (error) {
+        console.error("Error fetching location settings:", error);
+        return null;
+      }
+      return data;
+    },
+    enabled: !!currentLocation
+  });
+
   const {
-    data: salesData,
+    data: rawSalesData,
     refetch: refetchSales
   } = useQuery({
     queryKey: ["qubeyond-sales"],
@@ -82,6 +104,27 @@ export default function Dashboard() {
       return data as SalesData;
     }
   });
+
+  // Filter sales data based on business hours
+  const salesData = rawSalesData && locationSettings?.hours_open && locationSettings?.hours_close
+    ? (() => {
+        const openHour = parseInt(locationSettings.hours_open.split(':')[0]);
+        const closeHour = parseInt(locationSettings.hours_close.split(':')[0]);
+        
+        const filteredHourly = rawSalesData.hourly.filter(item => {
+          const hour = parseInt(item.hour.split(':')[0]);
+          return hour >= openHour && hour < closeHour;
+        });
+
+        const filteredDaily = filteredHourly.reduce((sum, h) => sum + h.sales, 0);
+
+        return {
+          hourly: filteredHourly,
+          daily: filteredDaily,
+          weekly: rawSalesData.weekly
+        };
+      })()
+    : rawSalesData;
   useEffect(() => {
     fetchData();
   }, []);
