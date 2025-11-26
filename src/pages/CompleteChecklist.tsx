@@ -10,8 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { Upload, CheckCircle2 } from 'lucide-react';
+import { Upload, CheckCircle2, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { formatTime12Hour } from '@/lib/utils';
@@ -55,6 +56,7 @@ export default function CompleteChecklist() {
   const [submitting, setSubmitting] = useState(false);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [completionPercentage, setCompletionPercentage] = useState(0);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const {
     user
   } = useAuth();
@@ -387,6 +389,16 @@ export default function CompleteChecklist() {
                           </div>
                         </div>
                       </div>}
+                    
+                    {responsesWithCompleters[item.id]?.isImage && responses[item.id] && <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPreviewImage(responses[item.id]);
+                        }}
+                        className="absolute bottom-3 right-3 z-20 bg-background/80 backdrop-blur-sm rounded-full p-2 hover:bg-background transition-colors shadow-lg"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>}
                   </div>}
                 
                 <CardHeader className="pb-3">
@@ -470,6 +482,12 @@ export default function CompleteChecklist() {
             </Button>
           </div>
         </form>
+
+        <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+          <DialogContent className="max-w-2xl">
+            <img src={previewImage || ''} alt="Photo preview" className="w-full rounded" />
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>;
 }
