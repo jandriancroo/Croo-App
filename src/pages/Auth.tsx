@@ -27,6 +27,22 @@ export default function Auth() {
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<string>('signin');
 
+  const handleLocationCodeChange = (value: string) => {
+    // Remove all non-alphabetic characters and convert to uppercase
+    const cleaned = value.replace(/[^a-zA-Z]/g, '').toUpperCase();
+    
+    // Auto-format with dashes: XXX-XXX-XXX
+    let formatted = cleaned;
+    if (cleaned.length > 3) {
+      formatted = cleaned.slice(0, 3) + '-' + cleaned.slice(3);
+    }
+    if (cleaned.length > 6) {
+      formatted = cleaned.slice(0, 3) + '-' + cleaned.slice(3, 6) + '-' + cleaned.slice(6, 9);
+    }
+    
+    setLocationCode(formatted);
+  };
+
   useEffect(() => {
     // Check if signup parameter is in URL
     if (searchParams.get('signup') === 'true') {
@@ -120,11 +136,11 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      // Validate location code first
+      // Validate location code first (case-insensitive)
       const { data: location, error: locationError } = await supabase
         .from('locations')
         .select('id, name')
-        .eq('location_code', locationCode.toLowerCase().trim())
+        .ilike('location_code', locationCode.trim())
         .single();
 
       if (locationError || !location) {
@@ -286,10 +302,11 @@ export default function Auth() {
                   <Input
                     id="locationCode"
                     type="text"
-                    placeholder="happy-river-eagle"
+                    placeholder="HAPPY-RIVER-EAGLE"
                     value={locationCode}
-                    onChange={(e) => setLocationCode(e.target.value)}
+                    onChange={(e) => handleLocationCodeChange(e.target.value)}
                     required
+                    maxLength={11}
                   />
                   <p className="text-xs text-muted-foreground">
                     Enter the 3-word code provided by your manager
@@ -308,7 +325,6 @@ export default function Auth() {
                       ref={fileInputRef}
                       type="file"
                       accept="image/*"
-                      capture="user"
                       onChange={handlePhotoUpload}
                       className="hidden"
                     />
@@ -320,7 +336,7 @@ export default function Auth() {
                       className="w-full"
                     >
                       <Camera className="mr-2 h-4 w-4" />
-                      {profilePhoto ? 'Change Photo' : 'Take Selfie'}
+                      {profilePhoto ? 'Change Photo' : 'Add Photo'}
                     </Button>
                   </div>
                 </div>
