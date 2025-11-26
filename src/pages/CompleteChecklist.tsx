@@ -309,7 +309,7 @@ export default function CompleteChecklist() {
                     ))}
                   </RadioGroup>
                 )}
-                {item.item_type === 'image' && (
+                {(item.item_type === 'image' || item.item_type === 'PHOTO') && (
                   <div className="space-y-2">
                     <Label htmlFor={`image-${item.id}`} className="cursor-pointer">
                       <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-border rounded hover:border-primary transition-colors">
@@ -339,7 +339,7 @@ export default function CompleteChecklist() {
                     )}
                   </div>
                 )}
-                {item.item_type === 'confirmation' && (
+                {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK') && (
                   <div className="flex items-center space-x-2 py-2">
                     <Checkbox 
                       id={`confirm-${item.id}`}
