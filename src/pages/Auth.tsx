@@ -36,7 +36,7 @@ export default function Auth() {
 
   useEffect(() => {
     if (user) {
-      navigate('/');
+      navigate('/dashboard');
     }
   }, [user, navigate]);
 
@@ -50,7 +50,7 @@ export default function Auth() {
       toast.error(error.message);
     } else {
       toast.success('Signed in successfully');
-      navigate('/');
+      navigate('/dashboard');
     }
     
     setLoading(false);
@@ -62,7 +62,7 @@ export default function Auth() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: `${window.location.origin}/dashboard`,
       },
     });
     
