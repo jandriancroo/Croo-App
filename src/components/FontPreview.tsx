@@ -1,10 +1,11 @@
 import { Card } from "@/components/ui/card";
 
 const fonts = [
-  { name: "Inter", class: "font-inter", description: "Modern, highly legible, slightly geometric" },
-  { name: "Nunito", class: "font-nunito", description: "Rounded, friendly, warm and approachable" },
-  { name: "Poppins", class: "font-poppins", description: "Geometric, clean, professional with personality" },
-  { name: "Outfit", class: "font-outfit", description: "Round, modern, soft and contemporary" },
+  { name: "Manrope", class: "font-manrope", description: "Super rounded geometric, very distinctive curves" },
+  { name: "Plus Jakarta Sans", class: "font-jakarta", description: "Modern rounded geometric, professional yet warm" },
+  { name: "Space Grotesk", class: "font-grotesk", description: "Unique geometric proportions, bold personality" },
+  { name: "Lexend", class: "font-lexend", description: "Rounded readability-focused, clean and accessible" },
+  { name: "Comfortaa", class: "font-comfortaa", description: "Very rounded, distinctive and friendly" },
 ];
 
 export function FontPreview() {
