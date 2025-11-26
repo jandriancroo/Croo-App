@@ -565,51 +565,54 @@ export type Database = {
       labor_rules: {
         Row: {
           created_at: string | null
+          daily_double_time_threshold: number | null
+          daily_overtime_threshold: number | null
           double_time_multiplier: number | null
-          double_time_threshold: number | null
           id: string
           location_id: string
           meal_break_duration: number | null
           meal_break_hours: number | null
           overtime_multiplier: number | null
-          overtime_threshold: number | null
           rest_break_duration: number | null
           rest_break_hours: number | null
           rule_name: string
           state_code: string | null
           updated_at: string | null
+          weekly_overtime_threshold: number | null
         }
         Insert: {
           created_at?: string | null
+          daily_double_time_threshold?: number | null
+          daily_overtime_threshold?: number | null
           double_time_multiplier?: number | null
-          double_time_threshold?: number | null
           id?: string
           location_id: string
           meal_break_duration?: number | null
           meal_break_hours?: number | null
           overtime_multiplier?: number | null
-          overtime_threshold?: number | null
           rest_break_duration?: number | null
           rest_break_hours?: number | null
           rule_name: string
           state_code?: string | null
           updated_at?: string | null
+          weekly_overtime_threshold?: number | null
         }
         Update: {
           created_at?: string | null
+          daily_double_time_threshold?: number | null
+          daily_overtime_threshold?: number | null
           double_time_multiplier?: number | null
-          double_time_threshold?: number | null
           id?: string
           location_id?: string
           meal_break_duration?: number | null
           meal_break_hours?: number | null
           overtime_multiplier?: number | null
-          overtime_threshold?: number | null
           rest_break_duration?: number | null
           rest_break_hours?: number | null
           rule_name?: string
           state_code?: string | null
           updated_at?: string | null
+          weekly_overtime_threshold?: number | null
         }
         Relationships: [
           {
