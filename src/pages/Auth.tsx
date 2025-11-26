@@ -185,7 +185,7 @@ export default function Auth() {
       }
 
       toast.success(`Welcome to ${location.name}!`);
-      navigate('/');
+      navigate('/dashboard');
     } catch (error: any) {
       toast.error(error.message);
     } finally {

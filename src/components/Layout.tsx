@@ -31,7 +31,7 @@ export const Layout = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const { unreadCount } = useUnreadMessages();
   const mainNavItems = [{
-    path: '/',
+    path: '/dashboard',
     label: 'Dash',
     icon: Home
   }, {
@@ -65,7 +65,7 @@ export const Layout = ({
     icon: DollarSign
   }] : [])];
   const mobileMainNavItems = [{
-    path: '/',
+    path: '/dashboard',
     label: 'Dash',
     icon: Home
   }, {
@@ -109,7 +109,7 @@ export const Layout = ({
   return <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-50 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className={`container flex items-center ${isMobile ? 'h-16' : 'h-24'}`}>
-          <button onClick={() => navigate('/')} className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-8 flex-shrink-0 min-w-[120px]">
+          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-8 flex-shrink-0 min-w-[120px]">
             <img src={crooLogo} alt="Croo" className={`${isMobile ? 'h-16' : 'h-20'} w-auto`} />
           </button>
           <nav className="hidden items-center gap-1 md:flex flex-1">
