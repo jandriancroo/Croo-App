@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -40,13 +40,85 @@ export default function CompleteChecklist() {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [completionPercentage, setCompletionPercentage] = useState(0);
   const { user } = useAuth();
   const navigate = useNavigate();
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     fetchChecklistData();
     checkForExistingSubmission();
   }, [id]);
+
+  // Calculate completion percentage
+  useEffect(() => {
+    if (items.length === 0) return;
+    
+    const completedCount = items.filter(item => {
+      const response = responses[item.id];
+      if (item.item_type === 'confirmation' || item.item_type === 'CHECKMARK') {
+        return response === true;
+      }
+      return response !== undefined && response !== '' && response !== null;
+    }).length;
+    
+    setCompletionPercentage(Math.round((completedCount / items.length) * 100));
+  }, [responses, items]);
+
+  // Create or get draft submission
+  useEffect(() => {
+    if (!id || !user?.id || submissionId) return;
+    
+    const createDraftSubmission = async () => {
+      try {
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
+        
+        // Check if there's already a submission for today
+        const { data: existingSubmission } = await supabase
+          .from('checklist_submissions')
+          .select('id, checklist_responses(id, item_id, response_text, response_image_url)')
+          .eq('checklist_id', id)
+          .eq('submitted_by', user.id)
+          .gte('submitted_at', startOfToday.toISOString())
+          .single();
+
+        if (existingSubmission) {
+          setSubmissionId(existingSubmission.id);
+          
+          // Load existing responses
+          const loadedResponses: Record<string, any> = {};
+          existingSubmission.checklist_responses?.forEach((resp: any) => {
+            if (resp.response_image_url) {
+              loadedResponses[resp.item_id] = resp.response_image_url;
+            } else if (resp.response_text !== null) {
+              loadedResponses[resp.item_id] = resp.response_text;
+            }
+          });
+          setResponses(loadedResponses);
+        } else {
+          // Create new draft submission
+          const { data: newSubmission, error } = await supabase
+            .from('checklist_submissions')
+            .insert({
+              checklist_id: id,
+              submitted_by: user.id,
+              notes: '',
+            })
+            .select()
+            .single();
+
+          if (error) throw error;
+          setSubmissionId(newSubmission.id);
+        }
+      } catch (error) {
+        console.error('Error creating draft submission:', error);
+      }
+    };
+
+    createDraftSubmission();
+  }, [id, user, submissionId]);
 
   const checkForExistingSubmission = async () => {
     if (!id || !user?.id) return;
@@ -140,6 +212,63 @@ export default function CompleteChecklist() {
     }
   };
 
+  // Debounced auto-save function
+  const autoSaveResponse = useCallback(async (itemId: string, value: any, isImage: boolean = false) => {
+    if (!submissionId) return;
+
+    try {
+      // Check if response already exists
+      const { data: existing } = await supabase
+        .from('checklist_responses')
+        .select('id')
+        .eq('submission_id', submissionId)
+        .eq('item_id', itemId)
+        .single();
+
+      if (existing) {
+        // Update existing response
+        await supabase
+          .from('checklist_responses')
+          .update({
+            response_text: isImage ? null : (typeof value === 'boolean' ? String(value) : value),
+            response_image_url: isImage ? value : null,
+          })
+          .eq('id', existing.id);
+      } else {
+        // Insert new response
+        await supabase
+          .from('checklist_responses')
+          .insert({
+            submission_id: submissionId,
+            item_id: itemId,
+            response_text: isImage ? null : (typeof value === 'boolean' ? String(value) : value),
+            response_image_url: isImage ? value : null,
+          });
+      }
+    } catch (error) {
+      console.error('Error auto-saving response:', error);
+    }
+  }, [submissionId]);
+
+  const handleResponseChange = (itemId: string, value: any, isImage: boolean = false) => {
+    setResponses({ ...responses, [itemId]: value });
+    
+    // Debounce auto-save for text inputs
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    
+    if (isImage || typeof value === 'boolean') {
+      // Save immediately for images and checkboxes
+      autoSaveResponse(itemId, value, isImage);
+    } else {
+      // Debounce text inputs
+      autoSaveTimeoutRef.current = setTimeout(() => {
+        autoSaveResponse(itemId, value, isImage);
+      }, 1000);
+    }
+  };
+
   const handleImageUpload = async (itemId: string, file: File) => {
     try {
       const fileExt = file.name.split('.').pop();
@@ -155,7 +284,7 @@ export default function CompleteChecklist() {
         .from('checklist-images')
         .getPublicUrl(fileName);
 
-      setResponses({ ...responses, [itemId]: data.publicUrl });
+      handleResponseChange(itemId, data.publicUrl, true);
       toast.success('Image uploaded successfully');
     } catch (error: any) {
       toast.error('Failed to upload image');
@@ -167,32 +296,15 @@ export default function CompleteChecklist() {
     setSubmitting(true);
 
     try {
-      // Create submission
-      const { data: submission, error: submissionError } = await supabase
-        .from('checklist_submissions')
-        .insert({
-          checklist_id: id,
-          submitted_by: user?.id,
-          notes,
-        })
-        .select()
-        .single();
+      // Update notes on existing submission
+      if (submissionId) {
+        const { error: updateError } = await supabase
+          .from('checklist_submissions')
+          .update({ notes })
+          .eq('id', submissionId);
 
-      if (submissionError) throw submissionError;
-
-      // Create responses
-      const responsesToInsert = items.map((item) => ({
-        submission_id: submission.id,
-        item_id: item.id,
-        response_text: item.item_type === 'image' || item.item_type === 'confirmation' ? null : responses[item.id] || null,
-        response_image_url: item.item_type === 'image' ? responses[item.id] || null : null,
-      }));
-
-      const { error: responsesError } = await supabase
-        .from('checklist_responses')
-        .insert(responsesToInsert);
-
-      if (responsesError) throw responsesError;
+        if (updateError) throw updateError;
+      }
 
       toast.success('Checklist submitted successfully!');
       navigate('/history');
@@ -219,7 +331,12 @@ export default function CompleteChecklist() {
     <Layout>
       <div className="max-w-3xl mx-auto space-y-6">
         <div>
-          <h2 className="text-3xl font-bold">{checklist.title}</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-3xl font-bold">{checklist.title}</h2>
+            <Badge variant={completionPercentage === 100 ? "default" : "secondary"} className="text-lg px-3 py-1">
+              {completionPercentage}%
+            </Badge>
+          </div>
           {checklist.description && (
             <p className="text-muted-foreground">{checklist.description}</p>
           )}
@@ -284,9 +401,7 @@ export default function CompleteChecklist() {
                 {item.item_type === 'text' && (
                   <Textarea
                     value={responses[item.id] || ''}
-                    onChange={(e) =>
-                      setResponses({ ...responses, [item.id]: e.target.value })
-                    }
+                    onChange={(e) => handleResponseChange(item.id, e.target.value)}
                     placeholder="Enter your response"
                     required={item.is_required}
                     className="min-h-[60px] text-sm"
@@ -295,9 +410,7 @@ export default function CompleteChecklist() {
                 {item.item_type === 'multiple_choice' && item.options && (
                   <RadioGroup
                     value={responses[item.id] || ''}
-                    onValueChange={(value) =>
-                      setResponses({ ...responses, [item.id]: value })
-                    }
+                    onValueChange={(value) => handleResponseChange(item.id, value)}
                     required={item.is_required}
                     className="space-y-1.5"
                   >
@@ -344,9 +457,7 @@ export default function CompleteChecklist() {
                     <Checkbox 
                       id={`confirm-${item.id}`}
                       checked={responses[item.id] || false}
-                      onCheckedChange={(checked) => 
-                        setResponses({ ...responses, [item.id]: checked })
-                      }
+                      onCheckedChange={(checked) => handleResponseChange(item.id, checked)}
                       required={item.is_required}
                     />
                     <Label 
