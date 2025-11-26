@@ -29,6 +29,7 @@ import LogBook from "./pages/LogBook";
 import Certifications from "./pages/Certifications";
 import Alerts from "./pages/Alerts";
 import LocationProfile from "./pages/LocationProfile";
+import FontPreviewPage from "./pages/FontPreviewPage";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +61,7 @@ const AppContent = () => {
       <Route path="/location/:locationId" element={<ProtectedRoute><LocationProfile /></ProtectedRoute>} />
       <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
       <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
+      <Route path="/font-preview" element={<ProtectedRoute><FontPreviewPage /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

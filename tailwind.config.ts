@@ -15,6 +15,10 @@ export default {
     extend: {
       fontFamily: {
         'pacifico': ['Pacifico', 'cursive'],
+        'inter': ['Inter', 'sans-serif'],
+        'nunito': ['Nunito', 'sans-serif'],
+        'poppins': ['Poppins', 'sans-serif'],
+        'outfit': ['Outfit', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
