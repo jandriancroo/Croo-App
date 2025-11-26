@@ -79,7 +79,7 @@ export default function CompleteChecklist() {
     setCompletionPercentage(Math.round(completedCount / items.length * 100));
   }, [responses, items]);
 
-  // Create or get shared daily submission (one per checklist per day, not per user)
+  // Create or get shared daily submission (one per checklist per day, shared by all users)
   useEffect(() => {
     if (!id || !user?.id || submissionId) return;
     const createDraftSubmission = async () => {
@@ -163,7 +163,84 @@ export default function CompleteChecklist() {
     createDraftSubmission();
   }, [id, user, submissionId]);
 
-  // Removed - no longer blocking users from continuing draft submissions
+  // Real-time subscription for collaborative completion
+  useEffect(() => {
+    if (!submissionId) return;
+
+    const channel = supabase
+      .channel('checklist-responses')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'checklist_responses',
+          filter: `submission_id=eq.${submissionId}`
+        },
+        async (payload) => {
+          // Reload responses when any user makes changes
+          const { data: updatedSubmission } = await supabase
+            .from('checklist_submissions')
+            .select(`
+              id, 
+              checklist_responses(
+                id, 
+                item_id, 
+                response_text, 
+                response_image_url,
+                completed_by,
+                created_at,
+                profiles:completed_by(full_name, profile_photo_url)
+              )
+            `)
+            .eq('id', submissionId)
+            .single();
+
+          if (updatedSubmission) {
+            const loadedResponses: Record<string, any> = {};
+            const loadedWithCompleters: Record<string, ResponseWithCompleter> = {};
+            
+            updatedSubmission.checklist_responses?.forEach((resp: any) => {
+              let value: any;
+              let isImage = false;
+              if (resp.response_image_url) {
+                value = resp.response_image_url;
+                isImage = true;
+              } else if (resp.response_text !== null) {
+                if (resp.response_text === 'true' || resp.response_text === 'false') {
+                  value = resp.response_text === 'true';
+                } else {
+                  value = resp.response_text;
+                }
+              }
+              loadedResponses[resp.item_id] = value;
+
+              if (resp.completed_by && resp.profiles) {
+                loadedWithCompleters[resp.item_id] = {
+                  responseId: resp.id,
+                  value,
+                  isImage,
+                  completedBy: {
+                    userId: resp.completed_by,
+                    fullName: resp.profiles.full_name || 'Unknown',
+                    profilePhoto: resp.profiles.profile_photo_url,
+                    completedAt: resp.created_at
+                  }
+                };
+              }
+            });
+            
+            setResponses(loadedResponses);
+            setResponsesWithCompleters(loadedWithCompleters);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [submissionId]);
 
   const fetchChecklistData = async () => {
     try {
