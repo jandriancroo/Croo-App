@@ -177,13 +177,11 @@ export default function Auth() {
       const { data: { user } } = await supabase.auth.getUser();
       
       if (user) {
-        // Assign user to location
-        const { error: locationAssignError } = await supabase
-          .from('user_locations')
-          .insert({
-            user_id: user.id,
-            location_id: location.id
-          });
+        // Assign user to location using secure function
+        const { error: locationAssignError } = await supabase.rpc('assign_user_to_location', {
+          p_user_id: user.id,
+          p_location_id: location.id
+        });
 
         if (locationAssignError) {
           console.error('Failed to assign location:', locationAssignError);
