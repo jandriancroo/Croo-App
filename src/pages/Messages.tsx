@@ -21,6 +21,7 @@ interface Chat {
   created_at: string;
   updated_at: string;
   group_image_url: string | null;
+  unreadCount?: number;
   chat_members: Array<{
     user_id: string;
     profiles: {
@@ -100,20 +101,61 @@ export default function Messages() {
       // Filter to only chats where current user is a member
       const userChats = data?.filter((chat: any) => 
         chat.chat_members.some((member: any) => member.user_id === user.id)
-      ).map((chat: any) => {
-        // For DMs, set title to the other person's name
-        if (!chat.is_group && !chat.title) {
-          const otherMember = chat.chat_members.find((m: any) => m.user_id !== user.id);
-          chat.title = otherMember?.profiles?.full_name || 'Direct Message';
-        }
-        return chat;
-      }) || [];
+      ) || [];
 
-      // Sort chats with Shift Marketplace always first
-      const sortedChats = userChats.sort((a, b) => {
+      // Get unread counts for each chat
+      const chatsWithUnread = await Promise.all(
+        userChats.map(async (chat: any) => {
+          // Get last message in this chat
+          const { data: messages } = await supabase
+            .from('messages')
+            .select('id, created_at, sender_id')
+            .eq('chat_id', chat.id)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          let unreadCount = 0;
+          
+          if (messages && messages.length > 0) {
+            const lastMessage = messages[0];
+            
+            // Only count as unread if last message wasn't sent by current user
+            if (lastMessage.sender_id !== user.id) {
+              // Check if user has read this message
+              const { data: receipt } = await supabase
+                .from('message_read_receipts')
+                .select('id')
+                .eq('message_id', lastMessage.id)
+                .eq('user_id', user.id)
+                .single();
+              
+              if (!receipt) {
+                unreadCount = 1;
+              }
+            }
+          }
+
+          // For DMs, set title to the other person's name
+          if (!chat.is_group && !chat.title) {
+            const otherMember = chat.chat_members.find((m: any) => m.user_id !== user.id);
+            chat.title = otherMember?.profiles?.full_name || 'Direct Message';
+          }
+
+          return { ...chat, unreadCount };
+        })
+      );
+
+      // Sort chats: Shift Marketplace first, then unread chats, then by updated_at
+      const sortedChats = chatsWithUnread.sort((a, b) => {
         if (a.title === "🔄 Shift Marketplace") return -1;
         if (b.title === "🔄 Shift Marketplace") return 1;
-        return 0;
+        
+        // Sort by unread status
+        if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
+        if (a.unreadCount === 0 && b.unreadCount > 0) return 1;
+        
+        // If both have same unread status, sort by updated_at
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
       });
 
       setChats(sortedChats);
