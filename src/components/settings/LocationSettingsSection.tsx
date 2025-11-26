@@ -11,8 +11,13 @@ import { useLocation } from "@/hooks/useLocation";
 import { CalendarIcon, X } from "lucide-react";
 import { format } from "date-fns";
 
-export const LocationSettingsSection = () => {
+interface LocationSettingsSectionProps {
+  locationId?: string;
+}
+
+export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionProps) => {
   const { currentLocation } = useLocation();
+  const effectiveLocationId = locationId || currentLocation?.id;
   const { toast } = useToast();
   const [hoursOpen, setHoursOpen] = useState("");
   const [hoursClose, setHoursClose] = useState("");
@@ -21,19 +26,17 @@ export const LocationSettingsSection = () => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (currentLocation) {
-      fetchLocationSettings();
-    }
-  }, [currentLocation]);
+    fetchLocationSettings();
+  }, [effectiveLocationId]);
 
   const fetchLocationSettings = async () => {
-    if (!currentLocation) return;
+    if (!effectiveLocationId) return;
 
     try {
       const { data, error } = await supabase
         .from("location_settings")
         .select("*")
-        .eq("location_id", currentLocation.id)
+        .eq("location_id", effectiveLocationId)
         .maybeSingle();
 
       if (error) throw error;
@@ -46,7 +49,6 @@ export const LocationSettingsSection = () => {
           data.blackout_dates ? data.blackout_dates.map((d: string) => new Date(d)) : []
         );
       } else {
-        // Reset if no settings exist
         setSettingsId(null);
         setHoursOpen("");
         setHoursClose("");
@@ -58,31 +60,41 @@ export const LocationSettingsSection = () => {
   };
 
   const handleSave = async () => {
-    if (!currentLocation) return;
+    if (!effectiveLocationId) {
+      toast({
+        title: "Error",
+        description: "No location selected",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setLoading(true);
 
     try {
       const settingsData = {
-        location_id: currentLocation.id,
         hours_open: hoursOpen || null,
         hours_close: hoursClose || null,
         blackout_dates: blackoutDates.map(d => format(d, "yyyy-MM-dd")),
-        updated_at: new Date().toISOString(),
       };
 
       if (settingsId) {
-        // Update existing
         const { error } = await supabase
           .from("location_settings")
-          .update(settingsData)
-          .eq("id", settingsId);
+          .update({
+            ...settingsData,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("location_id", effectiveLocationId);
 
         if (error) throw error;
       } else {
-        // Create new
         const { data, error } = await supabase
           .from("location_settings")
-          .insert([settingsData])
+          .insert({
+            location_id: effectiveLocationId,
+            ...settingsData,
+          })
           .select()
           .single();
 
@@ -109,7 +121,6 @@ export const LocationSettingsSection = () => {
   const addBlackoutDate = (date: Date | undefined) => {
     if (!date) return;
     
-    // Check if date already exists
     const exists = blackoutDates.some(
       d => format(d, "yyyy-MM-dd") === format(date, "yyyy-MM-dd")
     );
@@ -127,23 +138,16 @@ export const LocationSettingsSection = () => {
     );
   };
 
-  if (!currentLocation) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Location Settings</CardTitle>
-          <CardDescription>Please select a location first.</CardDescription>
-        </CardHeader>
-      </Card>
-    );
+  if (!effectiveLocationId) {
+    return null;
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Location Settings - {currentLocation.name}</CardTitle>
+        <CardTitle>Location Settings</CardTitle>
         <CardDescription>
-          Configure hours of operation and blackout dates for time-off requests.
+          Configure operational hours and blackout dates for time-off requests
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

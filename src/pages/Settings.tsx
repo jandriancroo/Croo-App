@@ -10,13 +10,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
-import { Award, Upload, ExternalLink, Trash2 } from 'lucide-react';
+import { Award, Upload, ExternalLink, Trash2, MapPin, ExternalLink as ExternalLinkIcon } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { format } from 'date-fns';
 import { toast as sonnerToast } from 'sonner';
-import { LocationsSection } from '@/components/settings/LocationsSection';
-import { LocationSettingsSection } from '@/components/settings/LocationSettingsSection';
 
 const themes = [
   { value: 'default', label: 'Default' },
@@ -50,6 +48,7 @@ export default function Settings() {
   const [selectedType, setSelectedType] = useState<CertificationType>('food_handlers');
   const [expirationDate, setExpirationDate] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [locations, setLocations] = useState<any[]>([]);
 
   useEffect(() => {
     // Apply theme to document
@@ -60,7 +59,24 @@ export default function Settings() {
     if (user) {
       fetchMyCertifications();
     }
-  }, [user]);
+    if (isAdmin) {
+      fetchLocations();
+    }
+  }, [user, isAdmin]);
+
+  const fetchLocations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('id, name')
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setLocations(data || []);
+    } catch (error: any) {
+      console.error('Error fetching locations:', error);
+    }
+  };
 
   const fetchMyCertifications = async () => {
     if (!user) return;
@@ -243,9 +259,43 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {isAdmin && <LocationsSection />}
-          
-          {isAdmin && <LocationSettingsSection />}
+          {isAdmin && locations.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MapPin className="h-5 w-5" />
+                  Locations
+                </CardTitle>
+                <CardDescription>
+                  Manage your company locations and location-specific settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {locations.map((location) => (
+                  <Button
+                    key={location.id}
+                    variant="outline"
+                    className="w-full justify-between h-auto py-3"
+                    onClick={() => navigate(`/location/${location.id}`)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      <span className="font-medium">{location.name}</span>
+                    </div>
+                    <ExternalLinkIcon className="h-4 w-4" />
+                  </Button>
+                ))}
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => navigate('/location/new')}
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Add New Location
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
