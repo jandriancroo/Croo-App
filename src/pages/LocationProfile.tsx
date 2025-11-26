@@ -12,7 +12,6 @@ import { MapPin, ArrowLeft, Copy, RefreshCw } from 'lucide-react';
 import { LocationMap } from '@/components/settings/LocationMap';
 import { LocationSettingsSection } from '@/components/settings/LocationSettingsSection';
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
-import 'mapbox-gl/dist/mapbox-gl.css';
 
 export default function LocationProfile() {
   const { locationId } = useParams();
@@ -129,16 +128,30 @@ export default function LocationProfile() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
+        <div className="flex items-start gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} className="mt-2">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              <MapPin className="h-8 w-8 text-primary" />
-              {location.name}
-            </h1>
-            <p className="text-muted-foreground">Manage location details and settings</p>
+          <div className="flex-1 flex items-center gap-4">
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold flex items-center gap-2">
+                <MapPin className="h-8 w-8 text-primary" />
+                {location.name}
+              </h1>
+              <p className="text-muted-foreground">Manage location details and settings</p>
+              {location.address && (
+                <p className="text-sm text-muted-foreground mt-1">{location.address}</p>
+              )}
+            </div>
+            {location.latitude && location.longitude && (
+              <div className="w-48 h-32 rounded-lg overflow-hidden border shadow-sm flex-shrink-0">
+                <LocationMap 
+                  lat={parseFloat(location.latitude)} 
+                  lng={parseFloat(location.longitude)}
+                  locationName={location.name}
+                />
+              </div>
+            )}
           </div>
         </div>
 
@@ -192,10 +205,11 @@ export default function LocationProfile() {
                 </div>
               </div>
               {location.latitude && location.longitude && (
-                <div className="h-64 rounded-md overflow-hidden border">
+                <div className="h-48 rounded-md overflow-hidden border">
                   <LocationMap 
                     lat={parseFloat(location.latitude)} 
-                    lng={parseFloat(location.longitude)} 
+                    lng={parseFloat(location.longitude)}
+                    locationName={location.name}
                   />
                 </div>
               )}

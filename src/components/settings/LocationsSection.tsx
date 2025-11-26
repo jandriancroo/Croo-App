@@ -10,7 +10,6 @@ import { toast } from 'sonner';
 import { MapPin, Plus, Trash2, Edit, Copy, RefreshCw } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
 import { LocationMap } from './LocationMap';
-import 'mapbox-gl/dist/mapbox-gl.css';
 
 export const LocationsSection = () => {
   const [locations, setLocations] = useState<any[]>([]);
@@ -317,7 +316,11 @@ export const LocationsSection = () => {
                   )}
                   {location.latitude && location.longitude && (
                     <div className="mt-3 h-48 rounded-md overflow-hidden border">
-                      <LocationMap lat={location.latitude} lng={location.longitude} />
+                      <LocationMap 
+                        lat={location.latitude} 
+                        lng={location.longitude}
+                        locationName={location.name}
+                      />
                     </div>
                   )}
                 </div>
