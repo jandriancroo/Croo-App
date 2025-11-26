@@ -19,6 +19,11 @@ export default {
         'nunito': ['Nunito', 'sans-serif'],
         'poppins': ['Poppins', 'sans-serif'],
         'outfit': ['Outfit', 'sans-serif'],
+        'manrope': ['Manrope', 'sans-serif'],
+        'jakarta': ['Plus Jakarta Sans', 'sans-serif'],
+        'grotesk': ['Space Grotesk', 'sans-serif'],
+        'lexend': ['Lexend', 'sans-serif'],
+        'comfortaa': ['Comfortaa', 'sans-serif'],
       },
       colors: {
         border: "hsl(var(--border))",
