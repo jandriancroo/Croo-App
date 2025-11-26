@@ -176,8 +176,7 @@ export default function EditChecklist() {
       setItems(checklistItems.map(item => ({
         id: item.id,
         question: item.question,
-        // Map database types - 'text' in DB can be 'confirmation' in UI
-        item_type: (item.item_type === 'text' && item.question.includes('Ready')) ? 'confirmation' : item.item_type as 'text' | 'multiple_choice' | 'image' | 'confirmation',
+        item_type: item.item_type as 'text' | 'multiple_choice' | 'image' | 'confirmation',
         is_required: item.is_required,
         options: item.options as string[] | undefined,
         reference_image_url: item.reference_image_url || undefined,
@@ -235,11 +234,11 @@ export default function EditChecklist() {
 
       if (deleteError) throw deleteError;
 
-      // Insert updated items - map 'confirmation' to 'text' for database
+      // Insert updated items
       const itemsToInsert = items.map((item, index) => ({
         checklist_id: id,
         question: item.question,
-        item_type: item.item_type === 'confirmation' ? 'text' : item.item_type,
+        item_type: item.item_type,
         is_required: item.is_required,
         options: item.item_type === 'multiple_choice' ? item.options : null,
         reference_image_url: item.reference_image_url || null,
