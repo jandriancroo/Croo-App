@@ -173,13 +173,13 @@ export const Layout = ({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="bg-background">
-                  <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
-                    <Users className="h-4 w-4" />
-                    Users
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
                     <SettingsIcon className="h-4 w-4" />
                     Preferences
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
+                    <Users className="h-4 w-4" />
+                    User Management
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>}
