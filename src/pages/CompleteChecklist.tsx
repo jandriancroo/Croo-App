@@ -36,6 +36,8 @@ interface ResponseWithCompleter {
   responseId: string;
   value: any;
   isImage: boolean;
+  extractedTemperature?: number | null;
+  temperatureValid?: boolean | null;
   completedBy?: {
     userId: string;
     fullName: string;
@@ -140,7 +142,9 @@ export default function CompleteChecklist() {
             response_text,
             response_image_url,
             completed_by,
-            created_at
+            created_at,
+            extracted_temperature,
+            temperature_valid
           `)
           .eq('submission_id', submissionId);
 
@@ -173,6 +177,8 @@ export default function CompleteChecklist() {
             responseId: resp.id,
             value,
             isImage,
+            extractedTemperature: resp.extracted_temperature,
+            temperatureValid: resp.temperature_valid,
             completedBy: undefined,
           } as any;
 
@@ -389,6 +395,66 @@ export default function CompleteChecklist() {
       const {
         data
       } = supabase.storage.from('checklist-images').getPublicUrl(fileName);
+      
+      // Extract temperature from image using AI
+      const { data: tempData, error: tempError } = await supabase.functions.invoke(
+        'extract-temperature',
+        { body: { imageUrl: data.publicUrl } }
+      );
+
+      let extractedTemp = null;
+      let tempValid = null;
+
+      if (!tempError && tempData) {
+        extractedTemp = tempData.temperature;
+        tempValid = tempData.isValid;
+        
+        // Store temperature data in responsesWithCompleters for immediate UI update
+        setResponsesWithCompleters(prev => ({
+          ...prev,
+          [itemId]: {
+            ...prev[itemId],
+            extractedTemperature: extractedTemp,
+            temperatureValid: tempValid
+          }
+        }));
+      }
+
+      // Save the response with temperature data
+      if (submissionId && user?.id) {
+        const { data: existing } = await supabase
+          .from('checklist_responses')
+          .select('id')
+          .eq('submission_id', submissionId)
+          .eq('item_id', itemId)
+          .single();
+
+        if (existing) {
+          await supabase
+            .from('checklist_responses')
+            .update({
+              response_image_url: data.publicUrl,
+              completed_by: user.id,
+              extracted_temperature: extractedTemp,
+              temperature_valid: tempValid,
+              temperature_validated_at: new Date().toISOString()
+            })
+            .eq('id', existing.id);
+        } else {
+          await supabase
+            .from('checklist_responses')
+            .insert({
+              submission_id: submissionId,
+              item_id: itemId,
+              response_image_url: data.publicUrl,
+              completed_by: user.id,
+              extracted_temperature: extractedTemp,
+              temperature_valid: tempValid,
+              temperature_validated_at: new Date().toISOString()
+            });
+        }
+      }
+
       handleResponseChange(itemId, data.publicUrl, true);
       toast.success('Image uploaded successfully');
     } catch (error: any) {
@@ -470,6 +536,20 @@ export default function CompleteChecklist() {
                           <div className="text-xs text-muted-foreground">
                             {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
                           </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Temperature Warning Overlay */}
+                    {responsesWithCompleters[item.id]?.extractedTemperature !== null && 
+                     responsesWithCompleters[item.id]?.extractedTemperature !== undefined && 
+                     responsesWithCompleters[item.id]?.temperatureValid === false && (
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 px-4 py-2 bg-red-500 text-white rounded-lg shadow-lg animate-pulse border-2 border-red-600">
+                        <span className="font-bold text-sm">
+                          Temp Outside of Safe Zone
+                        </span>
+                        <div className="text-xs mt-0.5">
+                          {responsesWithCompleters[item.id]?.extractedTemperature?.toFixed(1)}°F
                         </div>
                       </div>
                     )}

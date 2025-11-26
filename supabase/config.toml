@@ -1,1 +1,4 @@
 project_id = "lmodeiyrpwvgyqcvjkjr"
+
+[functions.extract-temperature]
+verify_jwt = false
