@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Clock, Calendar, User, Check, X } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useCrooCashAnimation } from "@/contexts/CrooCashAnimationContext";
 import {
   Select,
   SelectContent,
@@ -37,7 +38,17 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const { isAdmin } = useUserRole();
+  const { triggerAnimation } = useCrooCashAnimation();
+
+  useEffect(() => {
+    const getCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setCurrentUserId(user.id);
+    };
+    getCurrentUser();
+  }, []);
 
   useEffect(() => {
     fetchOffer();
@@ -241,6 +252,12 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
 
     setProcessing(true);
     try {
+      // Determine if this is a weekend shift for Croo Cash amount
+      const shiftDate = new Date(offer.shift.shift_date);
+      const dayOfWeek = shiftDate.getDay();
+      const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
+      const amount = isWeekend ? 2 : 1;
+
       // Update shift_offers status to approved
       const { error: offerError } = await supabase
         .from("shift_offers")
@@ -259,6 +276,11 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
         .eq("id", offer.shift.id);
 
       if (shiftError) throw shiftError;
+
+      // Trigger animation if the current user is the one who got approved
+      if (currentUserId === selectedClaimerId) {
+        triggerAnimation(amount);
+      }
 
       toast.success("Shift approved and assigned!");
     } catch (error) {
@@ -362,12 +384,12 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
   };
 
   return (
-    <Card className="p-4 bg-accent/20 border-accent">
+    <Card className="p-4 bg-[hsl(var(--croo-beige))]/30 border-[hsl(var(--croo-orange))] border-2">
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h4 className="font-semibold text-lg">{offer.shift.template?.position || "Shift"}</h4>
-            <p className="text-sm text-muted-foreground">
+            <h4 className="font-semibold text-lg text-[hsl(var(--croo-orange))]">{offer.shift.template?.position || "Shift"}</h4>
+            <p className="text-sm text-foreground/70">
               Offered by {offer.offered_by.full_name}
             </p>
           </div>

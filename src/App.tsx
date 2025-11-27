@@ -7,6 +7,7 @@ import { AuthProvider } from "@/lib/auth";
 import { LocationProvider } from "@/hooks/useLocation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { CrooCashAnimationProvider } from "@/contexts/CrooCashAnimationContext";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import CreateChecklist from "./pages/CreateChecklist";
@@ -80,7 +81,9 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <LocationProvider>
-            <AppContent />
+            <CrooCashAnimationProvider>
+              <AppContent />
+            </CrooCashAnimationProvider>
           </LocationProvider>
         </AuthProvider>
       </BrowserRouter>

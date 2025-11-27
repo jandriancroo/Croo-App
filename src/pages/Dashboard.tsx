@@ -5,7 +5,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown, Banknote } from 'lucide-react';
+import { ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown, Banknote, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -20,6 +20,7 @@ import { DashboardSection } from '@/components/dashboard/DashboardSection';
 import { format, addDays } from 'date-fns';
 import { useLocation } from '@/hooks/useLocation';
 import { formatTime12Hour } from '@/lib/utils';
+import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
 interface Checklist {
   id: string;
   title: string;
@@ -65,6 +66,7 @@ export default function Dashboard() {
     isAdmin
   } = useUserRole();
   const { currentLocation } = useLocation();
+  const { animationAmount } = useCrooCashAnimation();
   
   // Fetch location settings for business hours
   const { data: locationSettings } = useQuery({
@@ -479,9 +481,25 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-bold">Dash</h1>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 relative">
               <Banknote className="h-4 w-4" style={{ transform: 'rotate(90deg) rotate(-10deg)' }} />
               <span className="text-sm font-bold">{crooCashBalance}</span>
+              
+              {/* Celebration Animation */}
+              {animationAmount !== null && (
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none animate-bounce z-50">
+                  <div className="flex items-center gap-1 text-2xl font-black text-green-500 whitespace-nowrap" style={{
+                    textShadow: '0 0 20px rgba(34, 197, 94, 0.8)',
+                    fontFamily: 'Comic Sans MS, cursive',
+                    animation: 'bounce 0.8s ease-in-out 3, fade-out 0.5s ease-out 2.5s forwards'
+                  }}>
+                    +{animationAmount}
+                    <Sparkles className="h-6 w-6 animate-spin" style={{
+                      filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.8))'
+                    }} />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex gap-2 items-center">
