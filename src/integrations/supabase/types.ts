@@ -1363,6 +1363,42 @@ export type Database = {
         }
         Relationships: []
       }
+      shift_offer_claims: {
+        Row: {
+          created_at: string
+          id: string
+          shift_offer_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          shift_offer_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          shift_offer_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shift_offer_claims_shift_offer_id_fkey"
+            columns: ["shift_offer_id"]
+            isOneToOne: false
+            referencedRelation: "shift_offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shift_offer_claims_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shift_offers: {
         Row: {
           claimed_by_user_id: string | null
