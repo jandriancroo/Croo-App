@@ -47,9 +47,9 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
         );
       }
 
-      // Get the single shared submission for this date
+      // Get all submissions for this checklist on this date (collaborative model)
       const nextDateStr = new Date(date.getTime() + 86400000).toISOString().split('T')[0];
-      const { data: submission } = await supabase
+      const { data: submissions } = await supabase
         .from('checklist_submissions')
         .select(`
           id,
@@ -57,11 +57,10 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
         `)
         .eq('checklist_id', checklistId)
         .gte('submitted_at', dateStr)
-        .lt('submitted_at', nextDateStr)
-        .maybeSingle();
+        .lt('submitted_at', nextDateStr);
 
-      if (!submission) {
-        // No submission for this date - all items incomplete
+      if (!submissions || submissions.length === 0) {
+        // No submissions for this date - all items incomplete
         return {
           ...checklist,
           items: filteredItems
@@ -71,7 +70,9 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
         };
       }
 
-      // Get all responses for this submission with user info
+      const submissionIds = submissions.map((s: any) => s.id);
+
+      // Get all responses for these submissions with user info
       const { data: responses } = await supabase
         .from('checklist_responses')
         .select(`
@@ -86,11 +87,11 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
             profile_photo_url
           )
         `)
-        .eq('submission_id', submission.id);
+        .in('submission_id', submissionIds);
 
-      // Map responses to items
+      // Map responses to items (treat items with any completed response as completed)
       const items = filteredItems.map((item: any) => {
-        const itemResponses = responses?.filter((r: any) => r.item_id === item.id) || [];
+        const itemResponses = (responses || []).filter((r: any) => r.item_id === item.id && r.completed_by);
         
         return {
           ...item,
@@ -102,7 +103,7 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
       return {
         ...checklist,
         items: items.sort((a: any, b: any) => a.order_index - b.order_index),
-        submission
+        submissions,
       };
     },
     enabled: open && !!checklistId,
