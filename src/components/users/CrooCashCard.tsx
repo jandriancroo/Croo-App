@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { Banknote, TrendingDown, TrendingUp, Calendar } from "lucide-react";
+import { Banknote, TrendingDown, TrendingUp, Calendar, Sparkles } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useCrooCashAnimation } from "@/contexts/CrooCashAnimationContext";
 
 interface CrooCashCardProps {
   userId: string;
@@ -24,6 +25,7 @@ interface Transaction {
 export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const { animationAmount } = useCrooCashAnimation();
 
   useEffect(() => {
     fetchTransactions();
@@ -84,11 +86,27 @@ export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
         {/* Balance Display */}
         <div className="flex items-center justify-center py-6 relative">
           <div className="text-center">
-            <div className={`text-6xl font-black ${getBalanceColor()} comic-style`} style={{
+            <div className={`text-6xl font-black ${getBalanceColor()} comic-style relative`} style={{
               textShadow: '3px 3px 0px rgba(0,0,0,0.1)',
               fontFamily: 'Comic Sans MS, cursive'
             }}>
               {balance}
+              
+              {/* Celebration Animation */}
+              {animationAmount !== null && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none animate-scale-in">
+                  <div className="text-6xl font-black text-green-500 animate-bounce" style={{
+                    textShadow: '0 0 20px rgba(34, 197, 94, 0.8)',
+                    fontFamily: 'Comic Sans MS, cursive',
+                    animation: 'bounce 1s ease-in-out 3, fade-out 0.5s ease-out 2.5s forwards'
+                  }}>
+                    +{animationAmount}
+                    <Sparkles className="inline-block h-10 w-10 ml-2 animate-spin" style={{
+                      filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.8))'
+                    }} />
+                  </div>
+                </div>
+              )}
             </div>
             <div className="text-sm text-muted-foreground mt-2 uppercase tracking-wider font-bold">
               Current Balance
