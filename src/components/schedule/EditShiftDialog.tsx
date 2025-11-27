@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import { ConflictWarningDialog } from "./ConflictWarningDialog";
 import { ArrowUp } from "lucide-react";
+import { ShiftOfferDialog } from "./ShiftOfferDialog";
 
 interface EditShiftDialogProps {
   open: boolean;
@@ -22,6 +23,7 @@ interface EditShiftDialogProps {
   currentWeekStart: Date;
   currentUserId?: string;
   availabilityRequests?: any[];
+  isAdmin?: boolean;
 }
 
 export function EditShiftDialog({ 
@@ -34,7 +36,8 @@ export function EditShiftDialog({
   scheduleId,
   currentWeekStart,
   currentUserId,
-  availabilityRequests = []
+  availabilityRequests = [],
+  isAdmin = false
 }: EditShiftDialogProps) {
   const [startTime, setStartTime] = useState(shift.start_time);
   const [endTime, setEndTime] = useState(shift.end_time);
@@ -46,6 +49,7 @@ export function EditShiftDialog({
   const [conflictDetails, setConflictDetails] = useState<any[]>([]);
   const [offeredShifts, setOfferedShifts] = useState<any[]>([]);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
+  const [showOfferDialog, setShowOfferDialog] = useState(false);
 
   const weekDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
@@ -413,10 +417,16 @@ export function EditShiftDialog({
 
         <DialogFooter>
           <div className="flex justify-between w-full">
-            <div>
+            <div className="flex gap-2">
               {currentUserId && shift.user_id !== currentUserId && (
                 <Button variant="secondary" onClick={handleTakeShift} disabled={saving}>
                   Take This Shift
+                </Button>
+              )}
+              {currentUserId && (isAdmin || shift.user_id === currentUserId) && (
+                <Button variant="outline" onClick={() => setShowOfferDialog(true)}>
+                  <ArrowUp className="h-4 w-4 mr-2" />
+                  Offer Up
                 </Button>
               )}
             </div>
@@ -441,6 +451,16 @@ export function EditShiftDialog({
         handleSave(true);
       }}
       conflicts={conflictDetails}
+    />
+
+    <ShiftOfferDialog
+      open={showOfferDialog}
+      onOpenChange={setShowOfferDialog}
+      shift={shift}
+      onOfferCreated={() => {
+        onUpdate();
+        onOpenChange(false);
+      }}
     />
     </>
   );
