@@ -304,7 +304,7 @@ export default function Tasks() {
 
   return (
     <Layout>
-      <div className="container max-w-6xl mx-auto p-6 space-y-6">
+      <div className="space-y-6">
         <Tabs defaultValue="active" className="w-full">
           <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4">
             <div>
