@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addDays } from "date-fns";
 import { ConflictWarningDialog } from "./ConflictWarningDialog";
+import { ArrowUp } from "lucide-react";
 
 interface EditShiftDialogProps {
   open: boolean;
@@ -43,8 +44,52 @@ export function EditShiftDialog({
   const [saving, setSaving] = useState(false);
   const [showConflictWarning, setShowConflictWarning] = useState(false);
   const [conflictDetails, setConflictDetails] = useState<any[]>([]);
+  const [offeredShifts, setOfferedShifts] = useState<any[]>([]);
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
 
   const weekDays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+  useEffect(() => {
+    if (open) {
+      fetchOfferedShifts();
+    }
+  }, [open]);
+
+  const fetchOfferedShifts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('shift_offers')
+        .select(`
+          id,
+          shift_id,
+          offered_by_user_id,
+          status,
+          scheduled_shifts!inner (
+            id,
+            start_time,
+            end_time,
+            shift_date,
+            day_of_week,
+            user_id,
+            template_id,
+            shift_templates (
+              template_name,
+              position
+            )
+          ),
+          profiles!shift_offers_offered_by_user_id_fkey (
+            full_name
+          )
+        `)
+        .eq('status', 'available')
+        .eq('scheduled_shifts.schedule_id', scheduleId);
+
+      if (error) throw error;
+      setOfferedShifts(data || []);
+    } catch (error) {
+      console.error('Error fetching offered shifts:', error);
+    }
+  };
 
   const checkForConflicts = (userId: string, dayIndices: number[]) => {
     if (userId === "unassigned" || !availabilityRequests) return [];
@@ -133,6 +178,16 @@ export function EditShiftDialog({
 
     setSaving(true);
     try {
+      // If an offered shift was selected, approve it
+      if (selectedOfferId) {
+        const { error: offerError } = await supabase
+          .from('shift_offers')
+          .update({ status: 'approved' })
+          .eq('id', selectedOfferId);
+
+        if (offerError) throw offerError;
+      }
+
       // Update the current shift
       const { error: updateError } = await supabase
         .from("scheduled_shifts")
@@ -247,13 +302,57 @@ export function EditShiftDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="position">Position</Label>
-            <Select value={position || "none"} onValueChange={(val) => setPosition(val === "none" ? "" : val)}>
-              <SelectTrigger id="position">
-                <SelectValue placeholder="Select position" />
+            <Label htmlFor="position">Quick Fill</Label>
+            <Select 
+              value={position || "none"} 
+              onValueChange={(val) => {
+                if (val.startsWith('offer-')) {
+                  // Handle offered shift selection
+                  const offerId = val.replace('offer-', '');
+                  const offer = offeredShifts.find(o => o.id === offerId);
+                  if (offer && offer.scheduled_shifts) {
+                    setSelectedOfferId(offerId);
+                    setStartTime(offer.scheduled_shifts.start_time);
+                    setEndTime(offer.scheduled_shifts.end_time);
+                    if (offer.scheduled_shifts.template_id) {
+                      setPosition(offer.scheduled_shifts.template_id);
+                    }
+                  }
+                } else {
+                  setSelectedOfferId(null);
+                  setPosition(val === "none" ? "" : val);
+                }
+              }}
+            >
+              <SelectTrigger id="position" className="bg-background">
+                <SelectValue placeholder="Select quick fill option" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-background z-50">
                 <SelectItem value="none">None</SelectItem>
+                
+                {/* Offered Shifts Section */}
+                {offeredShifts.length > 0 && offeredShifts.map((offer) => {
+                  const shiftData = offer.scheduled_shifts;
+                  const offeredBy = offer.profiles?.full_name || 'Unknown';
+                  const templateName = shiftData?.shift_templates?.template_name || shiftData?.shift_templates?.position || 'Shift';
+                  
+                  return (
+                    <SelectItem 
+                      key={offer.id} 
+                      value={`offer-${offer.id}`}
+                      className="font-semibold text-primary bg-primary/10 border-l-4 border-primary"
+                    >
+                      <div className="flex items-center gap-2">
+                        <ArrowUp className="h-4 w-4 animate-pulse" />
+                        <span className="italic">
+                          {templateName} - Offered by {offeredBy}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+                
+                {/* Regular Templates */}
                 {templates.map((template) => (
                   <SelectItem key={template.id} value={template.id}>
                     {template.position || template.template_name}
