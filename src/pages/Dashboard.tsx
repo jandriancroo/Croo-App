@@ -166,17 +166,27 @@ export default function Dashboard() {
         itemCount = checklistItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).length;
       }
 
-      // Get submissions and count responses for today
+      // Get submissions and count unique completed items for today
       const {
         data: submissions
       } = await supabase.from('checklist_submissions').select(`
           id,
-          checklist_responses(id)
+          checklist_responses(id, item_id)
         `)
         .eq('checklist_id', checklist.id)
         .gte('submitted_at', startOfToday.toISOString())
         .lte('submitted_at', endOfToday.toISOString());
-      const completedCount = submissions?.reduce((sum, sub: any) => sum + (sub.checklist_responses?.length || 0), 0) || 0;
+      
+      // Count unique item_ids to avoid double-counting collaborative completions
+      const uniqueItemIds = new Set();
+      submissions?.forEach((sub: any) => {
+        sub.checklist_responses?.forEach((response: any) => {
+          if (response.item_id) {
+            uniqueItemIds.add(response.item_id);
+          }
+        });
+      });
+      const completedCount = uniqueItemIds.size;
       dataMap[checklist.id] = {
         expected: itemCount,
         completed: completedCount

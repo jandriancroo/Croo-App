@@ -54,7 +54,7 @@ export function ChecklistCompletionAlerts() {
           id,
           checklist_id,
           submitted_at,
-          checklist_responses(id)
+          checklist_responses(id, item_id)
         `)
         .gte('submitted_at', startOfToday.toISOString())
         .lte('submitted_at', endOfToday.toISOString());
@@ -85,9 +85,16 @@ export function ChecklistCompletionAlerts() {
           ).length || 0;
         }
 
-        const totalResponses = checklistSubmissions.reduce((sum, sub: any) => 
-          sum + (sub.checklist_responses?.length || 0), 0
-        );
+        // Count unique completed items (not total responses)
+        const uniqueItemIds = new Set();
+        checklistSubmissions.forEach((sub: any) => {
+          sub.checklist_responses?.forEach((response: any) => {
+            if (response.item_id) {
+              uniqueItemIds.add(response.item_id);
+            }
+          });
+        });
+        const totalResponses = uniqueItemIds.size;
 
         const completionRate = totalItems > 0 ? (totalResponses / totalItems) : 0;
         
