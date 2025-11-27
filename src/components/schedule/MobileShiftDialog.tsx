@@ -55,7 +55,7 @@ export function MobileShiftDialog({
     if (shift) {
       setStartTime(shift.start_time);
       setEndTime(shift.end_time);
-      setSelectedUserId(shift.user_id || '');
+      setSelectedUserId(shift.user_id || 'unassigned');
     }
   }, [shift]);
 
@@ -82,7 +82,7 @@ export function MobileShiftDialog({
         .update({
           start_time: startTime,
           end_time: endTime,
-          user_id: selectedUserId || null
+          user_id: selectedUserId === 'unassigned' ? null : selectedUserId
         })
         .eq('id', shift.id);
 
@@ -190,7 +190,7 @@ export function MobileShiftDialog({
                   <SelectValue placeholder="Select employee" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {profiles.map(p => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.full_name}
