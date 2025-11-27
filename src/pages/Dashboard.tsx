@@ -5,7 +5,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown } from 'lucide-react';
+import { ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown, Coins } from 'lucide-react';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -59,6 +59,7 @@ export default function Dashboard() {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : DEFAULT_SECTION_ORDER;
   });
+  const [crooCashBalance, setCrooCashBalance] = useState<number>(0);
   const navigate = useNavigate();
   const {
     isAdmin
@@ -139,12 +140,53 @@ export default function Dashboard() {
     : rawSalesData;
   useEffect(() => {
     fetchData();
+    fetchCrooCashBalance();
   }, []);
+  
   useEffect(() => {
     if (checklists.length > 0) {
       loadCompletionData();
     }
   }, [checklists]);
+
+  const fetchCrooCashBalance = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("croo_cash_balance")
+        .eq("id", user.id)
+        .single();
+
+      if (error) throw error;
+      setCrooCashBalance(data?.croo_cash_balance || 0);
+
+      // Set up real-time subscription for balance updates
+      const channel = supabase
+        .channel(`croo-cash-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "profiles",
+            filter: `id=eq.${user.id}`
+          },
+          (payload: any) => {
+            setCrooCashBalance(payload.new.croo_cash_balance || 0);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } catch (error) {
+      console.error("Error fetching Croo Cash balance:", error);
+    }
+  };
   const loadCompletionData = async () => {
     const today = new Date();
     const currentDay = today.getDay();
@@ -435,9 +477,12 @@ export default function Dashboard() {
   return <Layout>
       <div className={`space-y-6 ${isEditMode ? 'pl-12' : ''}`}>
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex items-center gap-4">
             <h1 className="text-3xl font-bold">Dash</h1>
-            
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+              <Coins className="h-4 w-4" />
+              <span className="text-sm font-bold">{crooCashBalance}</span>
+            </div>
           </div>
           <div className="flex gap-2 items-center">
             <LocationSelector />
