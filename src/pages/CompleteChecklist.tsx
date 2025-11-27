@@ -676,16 +676,13 @@ export default function CompleteChecklist() {
             </Card>
           )}
 
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={() => navigate('/')} className="flex-1">
-              Cancel
-            </Button>
-            {!showNotes && (
-              <Button type="button" onClick={() => setShowNotes(true)} variant="outline" className="flex-1">
+          {!showNotes && (
+            <div className="flex justify-center pt-2">
+              <Button type="button" onClick={() => setShowNotes(true)} variant="outline">
                 Add Notes
               </Button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
