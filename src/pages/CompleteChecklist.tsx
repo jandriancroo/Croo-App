@@ -569,7 +569,9 @@ export default function CompleteChecklist() {
 
                     
                     {(responsesWithCompleters[item.id]?.isImage || item.item_type === 'image' || item.item_type === 'PHOTO') && responses[item.id] && <button
+                        type="button"
                         onClick={(e) => {
+                          e.preventDefault();
                           e.stopPropagation();
                           setPreviewImage(responses[item.id]);
                         }}
