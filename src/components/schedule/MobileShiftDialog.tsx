@@ -39,6 +39,7 @@ interface MobileShiftDialogProps {
   isAdmin: boolean;
   onShiftUpdated?: () => void;
   isCreating?: boolean;
+  scheduleId?: string | null;
   templates?: Array<{
     id: string;
     template_name: string;
@@ -56,6 +57,7 @@ export function MobileShiftDialog({
   isAdmin,
   onShiftUpdated,
   isCreating = false,
+  scheduleId,
   templates = []
 }: MobileShiftDialogProps) {
   const [startTime, setStartTime] = useState('');
@@ -100,9 +102,14 @@ export function MobileShiftDialog({
     try {
       if (isCreating) {
         // Create new shift
+        if (!scheduleId) {
+          throw new Error('Schedule ID is required to create a shift');
+        }
+        
         const { error: shiftError } = await supabase
           .from('scheduled_shifts')
           .insert({
+            schedule_id: scheduleId,
             start_time: startTime,
             end_time: endTime,
             user_id: selectedUserId === 'unassigned' ? null : selectedUserId,

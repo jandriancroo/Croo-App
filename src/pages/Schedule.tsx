@@ -822,6 +822,7 @@ export default function Schedule() {
           onWeekChange={setCurrentWeekStart}
           onUpdate={fetchScheduleData}
           isPublished={isPublished}
+          scheduleId={scheduleId}
           templates={templates}
         />
       ) : (
