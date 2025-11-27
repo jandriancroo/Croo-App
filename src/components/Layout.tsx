@@ -107,7 +107,7 @@ export const Layout = ({
     icon: SettingsIcon
   }];
   return <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 border-b border-border/40 bg-background backdrop-blur supports-[backdrop-filter]:bg-background">
         <div className={`container flex items-center ${isMobile ? 'h-16' : 'h-24'}`}>
           <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-8 flex-shrink-0 min-w-[120px]">
             <img src={crooLogo} alt="Croo" className={`${isMobile ? 'h-16' : 'h-20'} w-auto`} />
@@ -192,7 +192,7 @@ export const Layout = ({
         </div>
       </header>
       <main className="container flex-1 py-8">{children}</main>
-      <nav className="sticky bottom-0 border-t border-border/40 bg-background/95 backdrop-blur md:hidden">
+      <nav className="sticky bottom-0 z-50 border-t border-border/40 bg-background backdrop-blur md:hidden">
         <div className="flex items-center justify-around py-1.5 px-1">
           {mobileMainNavItems.map(item => {
           const Icon = item.icon;
