@@ -18,7 +18,6 @@ import { format, addDays, subDays } from "date-fns";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableChecklistItem } from '@/components/tasks/SortableChecklistItem';
-import { ChecklistDetailsDialog } from '@/components/tasks/ChecklistDetailsDialog';
 
 export default function Tasks() {
   const navigate = useNavigate();
@@ -28,7 +27,6 @@ export default function Tasks() {
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [historyDate, setHistoryDate] = useState(new Date());
   const [isReordering, setIsReordering] = useState(false);
-  const [selectedChecklistId, setSelectedChecklistId] = useState<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -443,7 +441,7 @@ export default function Tasks() {
                         <div 
                           key={stat.id} 
                           className="p-4 rounded-lg border space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => setSelectedChecklistId(stat.id)}
+                          onClick={() => navigate(`/complete-checklist/${stat.id}`)}
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-medium">{stat.title}</span>
@@ -516,12 +514,6 @@ export default function Tasks() {
         </Tabs>
       </div>
       <TemplateTypeDialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog} />
-      <ChecklistDetailsDialog 
-        open={!!selectedChecklistId} 
-        onOpenChange={(open) => !open && setSelectedChecklistId(null)}
-        checklistId={selectedChecklistId || ''}
-        date={historyDate}
-      />
     </Layout>
   );
 }
