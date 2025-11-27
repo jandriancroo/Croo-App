@@ -1108,17 +1108,12 @@ export default function UserManagement() {
   return (
     <Layout>
       <div className="container mx-auto p-6 space-y-6">
+        <h1 className="text-3xl font-bold">User Management</h1>
         <InviteLinkCard />
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Users className="h-6 w-6 text-primary" />
-                <div>
-                  <CardTitle>User Management</CardTitle>
-                  <CardDescription>Manage user roles and permissions</CardDescription>
-                </div>
-              </div>
+              <CardDescription>Manage user roles and permissions</CardDescription>
               <div className="flex items-center gap-2">
                 <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
                   <DialogTrigger asChild>

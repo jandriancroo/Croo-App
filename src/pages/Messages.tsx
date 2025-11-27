@@ -198,7 +198,7 @@ export default function Messages() {
         {!isMobile && (
           <div className="w-80 border-r border-border bg-card rounded-lg p-4 flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">Chat</h2>
+              <h1 className="text-3xl font-bold">Chat</h1>
               <div className="flex gap-2">
                 {isAdmin && (
                   <Button
