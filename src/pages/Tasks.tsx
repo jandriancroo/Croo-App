@@ -441,7 +441,7 @@ export default function Tasks() {
                         <div 
                           key={stat.id} 
                           className="p-4 rounded-lg border space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => navigate(`/complete-checklist/${stat.id}`)}
+                          onClick={() => navigate(`/complete-checklist/${stat.id}?date=${format(historyDate, 'yyyy-MM-dd')}`)}
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-medium">{stat.title}</span>
