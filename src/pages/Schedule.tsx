@@ -23,6 +23,7 @@ import { EmployeeRow } from "@/components/schedule/EmployeeRow";
 import { EditShiftDialog } from "@/components/schedule/EditShiftDialog";
 import { ConflictWarningDialog } from "@/components/schedule/ConflictWarningDialog";
 import { MobileScheduleView } from "@/components/schedule/MobileScheduleView";
+import { MobileShiftDialog } from "@/components/schedule/MobileShiftDialog";
 import { LaborTotals } from "@/components/schedule/LaborTotals";
 import { LiveStatusBadge } from "@/components/schedule/LiveStatusBadge";
 import { DayBreakdownDialog } from "@/components/schedule/DayBreakdownDialog";
@@ -114,6 +115,7 @@ export default function Schedule() {
   const [weeklyTotalSales, setWeeklyTotalSales] = useState(0);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
+  const [isCreatingShift, setIsCreatingShift] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -844,6 +846,14 @@ export default function Schedule() {
           <div className="flex gap-2">
             {(isAdmin || isManager) && (
               <>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setIsCreatingShift(true)}
+                  className="opacity-60 hover:opacity-100 transition-opacity"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="icon">
@@ -1074,6 +1084,25 @@ export default function Schedule() {
             profiles={profiles}
           />
         )}
+
+        <MobileShiftDialog
+          open={isCreatingShift}
+          onOpenChange={setIsCreatingShift}
+          shift={{
+            id: '',
+            user_id: null,
+            day_of_week: 0,
+            start_time: '09:00',
+            end_time: '17:00',
+            shift_date: format(currentWeekStart, 'yyyy-MM-dd'),
+          }}
+          profiles={profiles}
+          isAdmin={isAdmin || isManager}
+          onShiftUpdated={fetchScheduleData}
+          isCreating={true}
+          scheduleId={scheduleId}
+          templates={templates}
+        />
 
         <AlertDialog open={clearScheduleDialogOpen} onOpenChange={setClearScheduleDialogOpen}>
           <AlertDialogContent>
