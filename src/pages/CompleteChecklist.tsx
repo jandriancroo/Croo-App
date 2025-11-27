@@ -59,6 +59,8 @@ export default function CompleteChecklist() {
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [completionPercentage, setCompletionPercentage] = useState(0);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [showNotes, setShowNotes] = useState(false);
+  const notesTimeoutRef = useRef<NodeJS.Timeout>();
   const {
     user
   } = useAuth();
@@ -149,6 +151,18 @@ export default function CompleteChecklist() {
           .eq('submission_id', submissionId);
 
         if (error) throw error;
+
+        // Load the submission notes
+        const { data: submissionData } = await supabase
+          .from('checklist_submissions')
+          .select('notes')
+          .eq('id', submissionId)
+          .single();
+        
+        if (submissionData?.notes) {
+          setNotes(submissionData.notes);
+          setShowNotes(true); // Show notes section if notes exist
+        }
 
         const loadedResponses: Record<string, any> = {};
         const loadedWithCompleters: Record<string, ResponseWithCompleter> = {};
@@ -358,6 +372,28 @@ export default function CompleteChecklist() {
       }, 1000);
     }
   };
+
+  const handleNotesChange = (value: string) => {
+    setNotes(value);
+
+    // Debounce auto-save for notes
+    if (notesTimeoutRef.current) {
+      clearTimeout(notesTimeoutRef.current);
+    }
+    
+    notesTimeoutRef.current = setTimeout(async () => {
+      if (submissionId) {
+        try {
+          await supabase
+            .from('checklist_submissions')
+            .update({ notes: value })
+            .eq('id', submissionId);
+        } catch (error) {
+          console.error('Error saving notes:', error);
+        }
+      }
+    }, 1000);
+  };
   const handleUndoCompletion = async (itemId: string) => {
     const responseData = responsesWithCompleters[itemId];
     if (!responseData?.responseId) return;
@@ -461,27 +497,6 @@ export default function CompleteChecklist() {
       toast.error('Failed to upload image');
     }
   };
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      // Update notes on existing submission
-      if (submissionId) {
-        const {
-          error: updateError
-        } = await supabase.from('checklist_submissions').update({
-          notes
-        }).eq('id', submissionId);
-        if (updateError) throw updateError;
-      }
-      toast.success('Checklist submitted successfully!');
-      navigate('/history');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to submit checklist');
-    } finally {
-      setSubmitting(false);
-    }
-  };
   if (loading) {
     return <Layout>
         <div className="text-center text-muted-foreground">Loading checklist...</div>
@@ -502,7 +517,7 @@ export default function CompleteChecklist() {
           {checklist.description && <p className="text-muted-foreground">{checklist.description}</p>}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="space-y-3">
           {items.map(item => {
           const isCompleted = responsesWithCompleters[item.id]?.completedBy;
           const completerInfo = responsesWithCompleters[item.id]?.completedBy;
@@ -641,27 +656,37 @@ export default function CompleteChecklist() {
                   </div>}
               </CardContent>
             </Card>;
-        })}
+          })}
 
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-medium">Additional Notes (Optional)</CardTitle>
-              <CardDescription className="text-xs">Add any additional comments</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Enter any additional notes" rows={3} className="text-sm" />
-            </CardContent>
-          </Card>
+          {showNotes && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base font-medium">Additional Notes</CardTitle>
+                <CardDescription className="text-xs">Add any additional comments</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <Textarea 
+                  value={notes} 
+                  onChange={e => handleNotesChange(e.target.value)} 
+                  placeholder="Enter any additional notes" 
+                  rows={3} 
+                  className="text-sm" 
+                />
+              </CardContent>
+            </Card>
+          )}
 
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={() => navigate('/')} className="flex-1">
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting} className="flex-1">
-              {submitting ? 'Submitting...' : 'Submit'}
-            </Button>
+            {!showNotes && (
+              <Button type="button" onClick={() => setShowNotes(true)} variant="outline" className="flex-1">
+                Add Notes
+              </Button>
+            )}
           </div>
-        </form>
+        </div>
 
         <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
           <DialogContent className="max-w-2xl">
