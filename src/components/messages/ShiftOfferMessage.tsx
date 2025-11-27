@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Clock, Calendar, User } from "lucide-react";
+import { Clock, Calendar, User, Check, X } from "lucide-react";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface ShiftOfferMessageProps {
   offerId: string;
@@ -15,6 +16,8 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
   const [offer, setOffer] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const { isAdmin } = useUserRole();
 
   useEffect(() => {
     fetchOffer();
@@ -147,6 +150,95 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
     }
   };
 
+  const handleApprove = async () => {
+    setProcessing(true);
+    try {
+      // Update shift_offers status to approved
+      const { error: offerError } = await supabase
+        .from("shift_offers")
+        .update({ status: "approved" })
+        .eq("id", offerId);
+
+      if (offerError) throw offerError;
+
+      // Update the scheduled_shifts to assign the claimer
+      const { error: shiftError } = await supabase
+        .from("scheduled_shifts")
+        .update({ user_id: offer.claimed_by.id })
+        .eq("id", offer.shift.id);
+
+      if (shiftError) throw shiftError;
+
+      toast.success("Shift approved and assigned!");
+    } catch (error) {
+      console.error("Error approving shift:", error);
+      toast.error("Failed to approve shift");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleDeny = async () => {
+    setProcessing(true);
+    try {
+      // Get the claimer's info
+      const claimedBy = offer.claimed_by?.id;
+      
+      // Determine if this was a weekend shift
+      const shiftDate = new Date(offer.shift.shift_date);
+      const dayOfWeek = shiftDate.getDay();
+      const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
+      const amount = isWeekend ? 2 : 1;
+
+      // Update shift_offers status to denied and clear claimed_by
+      const { error: offerError } = await supabase
+        .from("shift_offers")
+        .update({ 
+          status: "denied",
+          claimed_by_user_id: null
+        })
+        .eq("id", offerId);
+
+      if (offerError) throw offerError;
+
+      if (claimedBy) {
+        // Reverse the Croo Cash transaction
+        const { error: transactionError } = await supabase
+          .from("croo_cash_transactions")
+          .insert({
+            user_id: claimedBy,
+            amount: -amount,
+            transaction_type: "denied_claim",
+            shift_offer_id: offerId,
+            shift_date: offer.shift.shift_date,
+            is_weekend: isWeekend,
+            notes: `Claim denied for shift on ${shiftDate.toLocaleDateString()}`
+          });
+
+        if (transactionError) throw transactionError;
+
+        // Update claimer's Croo Cash balance
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("croo_cash_balance")
+          .eq("id", claimedBy)
+          .single();
+        
+        await supabase
+          .from("profiles")
+          .update({ croo_cash_balance: (profile?.croo_cash_balance || 0) - amount })
+          .eq("id", claimedBy);
+      }
+
+      toast.success("Shift claim denied");
+    } catch (error) {
+      console.error("Error denying shift:", error);
+      toast.error("Failed to deny shift");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   if (loading) {
     return <div className="text-sm text-muted-foreground">Loading shift...</div>;
   }
@@ -206,6 +298,28 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
           >
             {claiming ? "Claiming..." : "Claim This Shift"}
           </Button>
+        )}
+
+        {offer.status === "claimed" && isAdmin && (
+          <div className="flex gap-2">
+            <Button 
+              className="flex-1 bg-green-600 hover:bg-green-700" 
+              onClick={handleApprove}
+              disabled={processing}
+            >
+              <Check className="h-4 w-4 mr-2" />
+              {processing ? "Approving..." : "Approve"}
+            </Button>
+            <Button 
+              variant="destructive"
+              className="flex-1" 
+              onClick={handleDeny}
+              disabled={processing}
+            >
+              <X className="h-4 w-4 mr-2" />
+              {processing ? "Denying..." : "Deny"}
+            </Button>
+          </div>
         )}
       </div>
     </Card>
