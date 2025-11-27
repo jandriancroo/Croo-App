@@ -234,12 +234,14 @@ export function MobileShiftDialog({
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
+                  autoFocus={false}
                 />
                 <span>-</span>
                 <Input
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
+                  autoFocus={false}
                 />
               </div>
             </div>
