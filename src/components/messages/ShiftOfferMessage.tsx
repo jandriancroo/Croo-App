@@ -6,14 +6,34 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Clock, Calendar, User, Check, X } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ShiftOfferMessageProps {
   offerId: string;
   messageId: string;
 }
 
+interface ShiftClaim {
+  id: string;
+  user_id: string;
+  created_at: string;
+  profile: {
+    id: string;
+    full_name: string;
+    profile_photo_url: string | null;
+  };
+}
+
 export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps) {
   const [offer, setOffer] = useState<any>(null);
+  const [claims, setClaims] = useState<ShiftClaim[]>([]);
+  const [selectedClaimerId, setSelectedClaimerId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [claiming, setClaiming] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -21,8 +41,9 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
 
   useEffect(() => {
     fetchOffer();
+    fetchClaims();
 
-    const channel = supabase
+    const offerChannel = supabase
       .channel(`shift-offer-${offerId}`)
       .on(
         "postgres_changes",
@@ -36,8 +57,23 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
       )
       .subscribe();
 
+    const claimsChannel = supabase
+      .channel(`shift-claims-${offerId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "shift_offer_claims",
+          filter: `shift_offer_id=eq.${offerId}`
+        },
+        () => fetchClaims()
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(offerChannel);
+      supabase.removeChannel(claimsChannel);
     };
   }, [offerId]);
 
@@ -79,6 +115,33 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
     }
   };
 
+  const fetchClaims = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("shift_offer_claims")
+        .select(`
+          id,
+          user_id,
+          created_at,
+          profile:profiles (
+            id,
+            full_name,
+            profile_photo_url
+          )
+        `)
+        .eq("shift_offer_id", offerId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      setClaims(data || []);
+      if (data && data.length > 0 && !selectedClaimerId) {
+        setSelectedClaimerId(data[0].user_id);
+      }
+    } catch (error) {
+      console.error("Error fetching claims:", error);
+    }
+  };
+
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(":");
     const hour = parseInt(hours);
@@ -98,21 +161,41 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
         return;
       }
 
+      // Check if user already claimed this shift
+      const existingClaim = claims.find(c => c.user_id === user.id);
+      if (existingClaim) {
+        toast.error("You've already claimed this shift");
+        return;
+      }
+
       // Determine if this is a weekend (Friday = 5, Saturday = 6)
       const shiftDate = new Date(offer.shift.shift_date);
       const dayOfWeek = shiftDate.getDay();
       const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
       const amount = isWeekend ? 2 : 1;
 
-      const { error } = await supabase
-        .from("shift_offers")
-        .update({ 
-          claimed_by_user_id: user.id,
-          status: "claimed" 
-        })
-        .eq("id", offerId);
+      // Create claim record
+      const { error: claimError } = await supabase
+        .from("shift_offer_claims")
+        .insert({
+          shift_offer_id: offerId,
+          user_id: user.id
+        });
 
-      if (error) throw error;
+      if (claimError) throw claimError;
+
+      // Update shift_offers status to claimed if this is the first claim
+      if (claims.length === 0) {
+        const { error } = await supabase
+          .from("shift_offers")
+          .update({ 
+            claimed_by_user_id: user.id,
+            status: "claimed" 
+          })
+          .eq("id", offerId);
+
+        if (error) throw error;
+      }
 
       // Create Croo Cash transaction for taking shift
       const { error: transactionError } = await supabase
@@ -151,20 +234,28 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
   };
 
   const handleApprove = async () => {
+    if (!selectedClaimerId) {
+      toast.error("Please select a team member to approve");
+      return;
+    }
+
     setProcessing(true);
     try {
       // Update shift_offers status to approved
       const { error: offerError } = await supabase
         .from("shift_offers")
-        .update({ status: "approved" })
+        .update({ 
+          status: "approved",
+          claimed_by_user_id: selectedClaimerId
+        })
         .eq("id", offerId);
 
       if (offerError) throw offerError;
 
-      // Update the scheduled_shifts to assign the claimer
+      // Update the scheduled_shifts to assign the selected claimer
       const { error: shiftError } = await supabase
         .from("scheduled_shifts")
-        .update({ user_id: offer.claimed_by.id })
+        .update({ user_id: selectedClaimerId })
         .eq("id", offer.shift.id);
 
       if (shiftError) throw shiftError;
@@ -181,32 +272,19 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
   const handleDeny = async () => {
     setProcessing(true);
     try {
-      // Get the claimer's info
-      const claimedBy = offer.claimed_by?.id;
-      
-      // Determine if this was a weekend shift
+      // Get all claimers for this shift
       const shiftDate = new Date(offer.shift.shift_date);
       const dayOfWeek = shiftDate.getDay();
       const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
       const amount = isWeekend ? 2 : 1;
 
-      // Update shift_offers status to denied and clear claimed_by
-      const { error: offerError } = await supabase
-        .from("shift_offers")
-        .update({ 
-          status: "denied",
-          claimed_by_user_id: null
-        })
-        .eq("id", offerId);
-
-      if (offerError) throw offerError;
-
-      if (claimedBy) {
-        // Reverse the Croo Cash transaction
+      // Reverse Croo Cash for all claimers
+      for (const claim of claims) {
+        // Create reversal transaction
         const { error: transactionError } = await supabase
           .from("croo_cash_transactions")
           .insert({
-            user_id: claimedBy,
+            user_id: claim.user_id,
             amount: -amount,
             transaction_type: "denied_claim",
             shift_offer_id: offerId,
@@ -221,16 +299,35 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
         const { data: profile } = await supabase
           .from("profiles")
           .select("croo_cash_balance")
-          .eq("id", claimedBy)
+          .eq("id", claim.user_id)
           .single();
         
         await supabase
           .from("profiles")
           .update({ croo_cash_balance: (profile?.croo_cash_balance || 0) - amount })
-          .eq("id", claimedBy);
+          .eq("id", claim.user_id);
       }
 
-      toast.success("Shift claim denied");
+      // Delete all claims
+      const { error: deleteClaimsError } = await supabase
+        .from("shift_offer_claims")
+        .delete()
+        .eq("shift_offer_id", offerId);
+
+      if (deleteClaimsError) throw deleteClaimsError;
+
+      // Update shift_offers status to available and clear claimed_by
+      const { error: offerError } = await supabase
+        .from("shift_offers")
+        .update({ 
+          status: "available",
+          claimed_by_user_id: null
+        })
+        .eq("id", offerId);
+
+      if (offerError) throw offerError;
+
+      toast.success("All claims denied - shift is available again");
     } catch (error) {
       console.error("Error denying shift:", error);
       toast.error("Failed to deny shift");
@@ -252,7 +349,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
       case "available":
         return <Badge variant="default">Available</Badge>;
       case "claimed":
-        return <Badge variant="secondary">Claimed by {offer.claimed_by?.full_name}</Badge>;
+        return <Badge variant="secondary">{claims.length} {claims.length === 1 ? 'Person' : 'People'} Interested</Badge>;
       case "approved":
         return <Badge className="bg-green-500">Approved</Badge>;
       case "denied":
@@ -290,6 +387,31 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
           </div>
         </div>
 
+        {claims.length > 0 && offer.status === "claimed" && (
+          <div className="space-y-2 border-t pt-3">
+            <p className="text-sm font-medium">Interested Team Members:</p>
+            <div className="space-y-2">
+              {claims.map((claim) => (
+                <div key={claim.id} className="flex items-center gap-2 text-sm">
+                  {claim.profile.profile_photo_url ? (
+                    <img 
+                      src={claim.profile.profile_photo_url} 
+                      alt={claim.profile.full_name}
+                      className="w-6 h-6 rounded-full"
+                    />
+                  ) : (
+                    <User className="w-6 h-6 text-muted-foreground" />
+                  )}
+                  <span>{claim.profile.full_name}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">
+                    {new Date(claim.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {offer.status === "available" && (
           <Button 
             className="w-full" 
@@ -300,25 +422,42 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
           </Button>
         )}
 
-        {offer.status === "claimed" && isAdmin && (
-          <div className="flex gap-2">
-            <Button 
-              className="flex-1 bg-green-600 hover:bg-green-700" 
-              onClick={handleApprove}
-              disabled={processing}
-            >
-              <Check className="h-4 w-4 mr-2" />
-              {processing ? "Approving..." : "Approve"}
-            </Button>
-            <Button 
-              variant="destructive"
-              className="flex-1" 
-              onClick={handleDeny}
-              disabled={processing}
-            >
-              <X className="h-4 w-4 mr-2" />
-              {processing ? "Denying..." : "Deny"}
-            </Button>
+        {offer.status === "claimed" && isAdmin && claims.length > 0 && (
+          <div className="space-y-3 border-t pt-3">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select who gets the shift:</label>
+              <Select value={selectedClaimerId} onValueChange={setSelectedClaimerId}>
+                <SelectTrigger className="w-full bg-background">
+                  <SelectValue placeholder="Choose team member" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {claims.map((claim) => (
+                    <SelectItem key={claim.id} value={claim.user_id}>
+                      {claim.profile.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                className="flex-1 bg-green-600 hover:bg-green-700" 
+                onClick={handleApprove}
+                disabled={processing || !selectedClaimerId}
+              >
+                <Check className="h-4 w-4 mr-2" />
+                {processing ? "Approving..." : "Approve"}
+              </Button>
+              <Button 
+                variant="destructive"
+                className="flex-1" 
+                onClick={handleDeny}
+                disabled={processing}
+              >
+                <X className="h-4 w-4 mr-2" />
+                {processing ? "Denying..." : "Deny All"}
+              </Button>
+            </div>
           </div>
         )}
       </div>
