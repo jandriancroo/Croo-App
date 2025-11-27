@@ -424,7 +424,7 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <Button className="w-full" onClick={() => navigate(`/complete/${checklist.id}`)}>
-                    Complete Checklist
+                    {completionRate === 100 ? 'Review' : 'Complete Checklist'}
                   </Button>
                 </CardContent>
               </Card>;
