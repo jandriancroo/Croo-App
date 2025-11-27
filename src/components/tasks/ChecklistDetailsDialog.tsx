@@ -16,7 +16,11 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
   const { data: checklistDetails, isLoading } = useQuery({
     queryKey: ['checklist-details', checklistId, date],
     queryFn: async () => {
-      const dateStr = date.toISOString().split('T')[0];
+      // Use local day boundaries to match completion history logic
+      const startOfDay = new Date(date);
+      startOfDay.setHours(0, 0, 0, 0);
+      const endOfDay = new Date(date);
+      endOfDay.setHours(23, 59, 59, 999);
       const dayOfWeek = date.getDay();
       
       // Get checklist with items
@@ -48,7 +52,6 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
       }
 
       // Get all submissions for this checklist on this date (collaborative model)
-      const nextDateStr = new Date(date.getTime() + 86400000).toISOString().split('T')[0];
       const { data: submissions } = await supabase
         .from('checklist_submissions')
         .select(`
@@ -56,8 +59,8 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
           submitted_at
         `)
         .eq('checklist_id', checklistId)
-        .gte('submitted_at', dateStr)
-        .lt('submitted_at', nextDateStr);
+        .gte('submitted_at', startOfDay.toISOString())
+        .lte('submitted_at', endOfDay.toISOString());
 
       if (!submissions || submissions.length === 0) {
         // No submissions for this date - all items incomplete
