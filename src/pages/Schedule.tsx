@@ -810,6 +810,7 @@ export default function Schedule() {
           currentWeekStart={currentWeekStart}
           shifts={shifts.map(s => ({
             ...s,
+            template_id: s.template_id,
             template: templates.find(t => t.id === s.template_id) ? {
               position: templates.find(t => t.id === s.template_id)?.template_name.split(' ').slice(0, -3).join(' ') || null,
               color: templates.find(t => t.id === s.template_id)?.color || null,
@@ -820,6 +821,8 @@ export default function Schedule() {
           onShiftClick={(shift) => setEditingShift(shift)}
           onWeekChange={setCurrentWeekStart}
           onUpdate={fetchScheduleData}
+          isPublished={isPublished}
+          templates={templates}
         />
       ) : (
         <div className="space-y-6 pb-20">

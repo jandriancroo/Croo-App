@@ -9,6 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
+import { Trash2 } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -23,6 +24,7 @@ interface Shift {
   start_time: string;
   end_time: string;
   shift_date: string;
+  template_id?: string | null;
   template?: {
     position: string | null;
     color: string | null;
@@ -36,6 +38,14 @@ interface MobileShiftDialogProps {
   profiles: Profile[];
   isAdmin: boolean;
   onShiftUpdated?: () => void;
+  isCreating?: boolean;
+  templates?: Array<{
+    id: string;
+    template_name: string;
+    start_time: string;
+    end_time: string;
+    color: string | null;
+  }>;
 }
 
 export function MobileShiftDialog({ 
@@ -44,20 +54,32 @@ export function MobileShiftDialog({
   shift, 
   profiles,
   isAdmin,
-  onShiftUpdated 
+  onShiftUpdated,
+  isCreating = false,
+  templates = []
 }: MobileShiftDialogProps) {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (shift) {
       setStartTime(shift.start_time);
       setEndTime(shift.end_time);
       setSelectedUserId(shift.user_id || 'unassigned');
+      setSelectedTemplateId(shift.template_id || '');
+    } else if (isCreating && templates.length > 0) {
+      // Set defaults for new shift
+      setStartTime('09:00');
+      setEndTime('17:00');
+      setSelectedUserId('unassigned');
+      setSelectedTemplateId('');
     }
-  }, [shift]);
+  }, [shift, isCreating, templates]);
 
   if (!shift) return null;
 
@@ -71,45 +93,100 @@ export function MobileShiftDialog({
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
-  const handleSave = async () => {
+  const handleSave = async (publish = false) => {
     if (!isAdmin) return;
 
     setSaving(true);
     try {
-      // Update the shift
-      const { error: shiftError } = await supabase
-        .from('scheduled_shifts')
-        .update({
-          start_time: startTime,
-          end_time: endTime,
-          user_id: selectedUserId === 'unassigned' ? null : selectedUserId
-        })
-        .eq('id', shift.id);
+      if (isCreating) {
+        // Create new shift
+        const { error: shiftError } = await supabase
+          .from('scheduled_shifts')
+          .insert({
+            start_time: startTime,
+            end_time: endTime,
+            user_id: selectedUserId === 'unassigned' ? null : selectedUserId,
+            template_id: selectedTemplateId || null,
+            day_of_week: shift?.day_of_week || 0,
+            shift_date: shift?.shift_date || new Date().toISOString(),
+          });
 
-      if (shiftError) throw shiftError;
+        if (shiftError) throw shiftError;
+      } else {
+        // Update existing shift
+        const { error: shiftError } = await supabase
+          .from('scheduled_shifts')
+          .update({
+            start_time: startTime,
+            end_time: endTime,
+            user_id: selectedUserId === 'unassigned' ? null : selectedUserId,
+            template_id: selectedTemplateId || null,
+          })
+          .eq('id', shift!.id);
 
-      // Mark schedule as unpublished since changes were made
+        if (shiftError) throw shiftError;
+      }
+
+      // Handle publish status
+      const shiftDate = shift?.shift_date || new Date().toISOString();
       const { data: scheduleData } = await supabase
         .from('schedules')
         .select('id')
-        .eq('week_start_date', shift.shift_date.split('T')[0])
+        .eq('week_start_date', shiftDate.split('T')[0])
         .single();
 
       if (scheduleData) {
-        await supabase
-          .from('schedules')
-          .update({ is_published: false })
-          .eq('id', scheduleData.id);
+        if (publish) {
+          await supabase
+            .from('schedules')
+            .update({ is_published: true })
+            .eq('id', scheduleData.id);
+        } else {
+          // Mark as unpublished if just saving
+          await supabase
+            .from('schedules')
+            .update({ is_published: false })
+            .eq('id', scheduleData.id);
+        }
       }
 
-      toast.success('Shift updated');
+      toast.success(isCreating ? 'Shift created' : 'Shift updated');
       onShiftUpdated?.();
       onOpenChange(false);
     } catch (error) {
-      console.error('Error updating shift:', error);
-      toast.error('Failed to update shift');
+      console.error('Error saving shift:', error);
+      toast.error('Failed to save shift');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handlePublish = async () => {
+    setPublishing(true);
+    await handleSave(true);
+    setPublishing(false);
+  };
+
+  const handleDelete = async () => {
+    if (!isAdmin || !shift) return;
+
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from('scheduled_shifts')
+        .delete()
+        .eq('id', shift.id);
+
+      if (error) throw error;
+
+      toast.success('Shift deleted');
+      onShiftUpdated?.();
+      onOpenChange(false);
+    } catch (error) {
+      console.error('Error deleting shift:', error);
+      toast.error('Failed to delete shift');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -117,7 +194,7 @@ export function MobileShiftDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Shift Details</DialogTitle>
+          <DialogTitle>{isCreating ? 'Add Shift' : 'Shift Details'}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -181,6 +258,33 @@ export function MobileShiftDialog({
             </div>
           )}
 
+          {/* Template Selection - Admin Only */}
+          {isAdmin && templates.length > 0 && (
+            <div className="space-y-2">
+              <Label>Shift Template</Label>
+              <Select value={selectedTemplateId} onValueChange={(value) => {
+                setSelectedTemplateId(value);
+                const template = templates.find(t => t.id === value);
+                if (template) {
+                  setStartTime(template.start_time);
+                  setEndTime(template.end_time);
+                }
+              }}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select template (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">None</SelectItem>
+                  {templates.map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.template_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Employee Assignment - Admin Only */}
           {isAdmin && (
             <div className="space-y-2">
@@ -202,15 +306,33 @@ export function MobileShiftDialog({
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {isAdmin ? 'Cancel' : 'Close'}
-          </Button>
-          {isAdmin && (
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Saving...' : 'Save Changes'}
+        <DialogFooter className="flex-col sm:flex-row gap-2">
+          {isAdmin && !isCreating && (
+            <Button 
+              variant="destructive" 
+              onClick={handleDelete} 
+              disabled={deleting}
+              className="w-full sm:w-auto sm:mr-auto"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {deleting ? 'Deleting...' : 'Delete'}
             </Button>
           )}
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button variant="outline" onClick={() => onOpenChange(false)} className="flex-1 sm:flex-none">
+              {isAdmin ? 'Cancel' : 'Close'}
+            </Button>
+            {isAdmin && (
+              <>
+                <Button onClick={() => handleSave(false)} disabled={saving} className="flex-1 sm:flex-none">
+                  {saving ? 'Saving...' : isCreating ? 'Create' : 'Save'}
+                </Button>
+                <Button onClick={handlePublish} disabled={publishing} variant="default" className="flex-1 sm:flex-none">
+                  {publishing ? 'Publishing...' : 'Publish'}
+                </Button>
+              </>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
