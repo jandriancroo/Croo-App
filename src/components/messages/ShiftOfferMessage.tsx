@@ -95,6 +95,12 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
         return;
       }
 
+      // Determine if this is a weekend (Friday = 5, Saturday = 6)
+      const shiftDate = new Date(offer.shift.shift_date);
+      const dayOfWeek = shiftDate.getDay();
+      const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
+      const amount = isWeekend ? 2 : 1;
+
       const { error } = await supabase
         .from("shift_offers")
         .update({ 
@@ -104,6 +110,34 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
         .eq("id", offerId);
 
       if (error) throw error;
+
+      // Create Croo Cash transaction for taking shift
+      const { error: transactionError } = await supabase
+        .from("croo_cash_transactions")
+        .insert({
+          user_id: user.id,
+          amount: amount,
+          transaction_type: "take_shift",
+          shift_offer_id: offerId,
+          shift_date: offer.shift.shift_date,
+          is_weekend: isWeekend,
+          notes: `Claimed shift on ${shiftDate.toLocaleDateString()}`
+        });
+
+      if (transactionError) throw transactionError;
+
+      // Update claimer's Croo Cash balance
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("croo_cash_balance")
+        .eq("id", user.id)
+        .single();
+      
+      await supabase
+        .from("profiles")
+        .update({ croo_cash_balance: (profile?.croo_cash_balance || 0) + amount })
+        .eq("id", user.id);
+
       toast.success("Shift claimed! Awaiting approval.");
     } catch (error) {
       console.error("Error claiming shift:", error);

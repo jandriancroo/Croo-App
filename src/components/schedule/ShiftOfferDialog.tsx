@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface ShiftOfferDialogProps {
   open: boolean;
@@ -13,6 +15,27 @@ interface ShiftOfferDialogProps {
 
 export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: ShiftOfferDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [existingOffer, setExistingOffer] = useState<any>(null);
+
+  // Check if shift is already offered
+  useEffect(() => {
+    const checkExistingOffer = async () => {
+      if (!shift?.id) return;
+      
+      const { data } = await supabase
+        .from("shift_offers")
+        .select("*")
+        .eq("shift_id", shift.id)
+        .eq("status", "available")
+        .maybeSingle();
+      
+      setExistingOffer(data);
+    };
+    
+    if (open) {
+      checkExistingOffer();
+    }
+  }, [open, shift?.id]);
 
   const formatTime = (time: string) => {
     const [hours, minutes] = time.split(":");
@@ -28,6 +51,26 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Check if this shift is already offered to prevent duplicates
+      const { data: existingOfferCheck } = await supabase
+        .from("shift_offers")
+        .select("id")
+        .eq("shift_id", shift.id)
+        .in("status", ["available", "claimed"])
+        .maybeSingle();
+
+      if (existingOfferCheck) {
+        toast.error("This shift is already in the marketplace");
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Determine if this is a weekend (Friday = 5, Saturday = 6)
+      const shiftDate = new Date(shift.shift_date);
+      const dayOfWeek = shiftDate.getDay();
+      const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
+      const amount = isWeekend ? -2 : -1;
+
       // Create shift offer
       const { data: newOffer, error: offerError } = await supabase
         .from("shift_offers")
@@ -40,6 +83,35 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
         .single();
 
       if (offerError) throw offerError;
+
+      // Create Croo Cash transaction for offering up shift
+      const { error: transactionError } = await supabase
+        .from("croo_cash_transactions")
+        .insert({
+          user_id: user.id,
+          amount: amount,
+          transaction_type: "offer_shift",
+          shift_offer_id: newOffer.id,
+          shift_date: shift.shift_date,
+          is_weekend: isWeekend,
+          notes: `Offered shift on ${shiftDate.toLocaleDateString()}`
+        });
+
+      if (transactionError) throw transactionError;
+
+      // Update user's Croo Cash balance
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("croo_cash_balance")
+        .eq("id", user.id)
+        .single();
+      
+      const { error: balanceError } = await supabase
+        .from("profiles")
+        .update({ croo_cash_balance: (profile?.croo_cash_balance || 0) + amount })
+        .eq("id", user.id);
+      
+      if (balanceError) throw balanceError;
 
       // Get or create shift marketplace chat
       let { data: marketplaceChat } = await supabase
@@ -78,7 +150,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
       }
 
       // Post message about the shift offer with offer ID
-      const shiftDate = new Date(shift.shift_date).toLocaleDateString();
+      const shiftDateFormatted = new Date(shift.shift_date).toLocaleDateString();
       const messageContent = `SHIFT_OFFER:${newOffer.id}`;
 
       await supabase
@@ -106,9 +178,19 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
         <DialogHeader>
           <DialogTitle>Offer Up Shift</DialogTitle>
           <DialogDescription>
-            This will make your shift available for other team members to claim.
+            This will make your shift available for other team members to claim in the Shift Marketplace.
           </DialogDescription>
         </DialogHeader>
+        
+        {existingOffer && (
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              This shift is already offered up in the marketplace.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className="py-4 space-y-2">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Position:</span>
@@ -129,12 +211,24 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
             </span>
           </div>
         </div>
+        <div className="text-sm text-muted-foreground space-y-1">
+          <p>💰 <strong>Croo Cash:</strong></p>
+          <p>• You'll lose 1 Croo Cash for offering this shift</p>
+          {(() => {
+            const offerDate = new Date(shift?.shift_date);
+            const dayOfWeek = offerDate.getDay();
+            return (dayOfWeek === 5 || dayOfWeek === 6) && (
+              <p className="text-primary font-semibold">🎉 Weekend Bonus! You'll lose 2 Croo Cash (doubled)</p>
+            );
+          })()}
+        </div>
+        
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleOfferUp} disabled={isSubmitting}>
-            {isSubmitting ? "Offering..." : "Offer Up Shift"}
+          <Button onClick={handleOfferUp} disabled={isSubmitting || !!existingOffer}>
+            {isSubmitting ? "Offering..." : existingOffer ? "Already Offered" : "Offer Up Shift"}
           </Button>
         </DialogFooter>
       </DialogContent>

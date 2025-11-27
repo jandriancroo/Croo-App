@@ -36,6 +36,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { CrooCashCard } from '@/components/users/CrooCashCard';
 
 interface UserProfile {
   id: string;
@@ -51,6 +52,7 @@ interface UserProfile {
   paid_hours?: number;
   unpaid_hours?: number;
   hourly_wage?: number;
+  croo_cash_balance?: number;
 }
 
 export default function UserManagement() {
@@ -1524,7 +1526,7 @@ export default function UserManagement() {
                   )}
                 </div>
 
-                {/* Employee Notes Section - Compact */}
+                 {/* Employee Notes Section - Compact */}
                 <div className="space-y-2 border-t pt-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm flex items-center gap-2">
@@ -1575,6 +1577,14 @@ export default function UserManagement() {
                       ))
                     )}
                   </div>
+                </div>
+
+                {/* Croo Cash Card */}
+                <div className="border-t pt-3">
+                  <CrooCashCard 
+                    userId={viewingUser.id}
+                    balance={users.find(u => u.id === viewingUser.id)?.croo_cash_balance || 0}
+                  />
                 </div>
               </div>
             )}

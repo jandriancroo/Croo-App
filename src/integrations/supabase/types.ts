@@ -484,6 +484,57 @@ export type Database = {
           },
         ]
       }
+      croo_cash_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          is_weekend: boolean
+          notes: string | null
+          shift_date: string
+          shift_offer_id: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          is_weekend?: boolean
+          notes?: string | null
+          shift_date: string
+          shift_offer_id?: string | null
+          transaction_type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          is_weekend?: boolean
+          notes?: string | null
+          shift_date?: string
+          shift_offer_id?: string | null
+          transaction_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "croo_cash_transactions_shift_offer_id_fkey"
+            columns: ["shift_offer_id"]
+            isOneToOne: false
+            referencedRelation: "shift_offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "croo_cash_transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_notes: {
         Row: {
           created_at: string
@@ -1054,6 +1105,7 @@ export type Database = {
         Row: {
           birthday: string | null
           created_at: string | null
+          croo_cash_balance: number
           display_order: number | null
           email: string
           employee_pin: string | null
@@ -1069,6 +1121,7 @@ export type Database = {
         Insert: {
           birthday?: string | null
           created_at?: string | null
+          croo_cash_balance?: number
           display_order?: number | null
           email: string
           employee_pin?: string | null
@@ -1084,6 +1137,7 @@ export type Database = {
         Update: {
           birthday?: string | null
           created_at?: string | null
+          croo_cash_balance?: number
           display_order?: number | null
           email?: string
           employee_pin?: string | null
