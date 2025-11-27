@@ -191,7 +191,7 @@ export const Layout = ({
 
         </div>
       </header>
-      <main className="container flex-1 py-8">{children}</main>
+      <main className="container flex-1 py-3 md:py-8">{children}</main>
       <nav className="sticky bottom-0 z-50 border-t border-border/40 bg-background backdrop-blur md:hidden">
         <div className="flex items-center justify-around py-1.5 px-1">
           {mobileMainNavItems.map(item => {
