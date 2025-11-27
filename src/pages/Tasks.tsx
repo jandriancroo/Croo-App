@@ -186,7 +186,13 @@ export default function Tasks() {
   const { data: historyStats } = useQuery({
     queryKey: ['completion-history', format(historyDate, 'yyyy-MM-dd'), user?.id],
     queryFn: async () => {
-      const dateStr = format(historyDate, 'yyyy-MM-dd');
+      // Get start and end of day in user's local timezone
+      const startOfDay = new Date(historyDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(historyDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      
       const currentDay = historyDate.getDay();
 
       // Get all checklists
@@ -216,7 +222,7 @@ export default function Tasks() {
 
           if (itemCount === 0) return null;
 
-          // Check submissions and responses on this date
+          // Check submissions and responses on this date (using local timezone)
           const { data: submissions } = await supabase
             .from('checklist_submissions')
             .select(`
@@ -225,8 +231,8 @@ export default function Tasks() {
               profiles(full_name, profile_photo_url)
             `)
             .eq('checklist_id', checklist.id)
-            .gte('submitted_at', dateStr)
-            .lt('submitted_at', format(addDays(historyDate, 1), 'yyyy-MM-dd'));
+            .gte('submitted_at', startOfDay.toISOString())
+            .lte('submitted_at', endOfDay.toISOString());
 
           // Get completed responses (those with completed_by set)
           const submissionIds = submissions?.map(s => s.id) || [];
