@@ -1064,6 +1064,7 @@ export default function Schedule() {
             currentWeekStart={currentWeekStart}
             currentUserId={currentUserId || undefined}
             availabilityRequests={availabilityRequests}
+            isAdmin={isAdmin}
           />
         )}
 
