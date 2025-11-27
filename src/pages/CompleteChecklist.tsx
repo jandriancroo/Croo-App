@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -49,7 +49,14 @@ export default function CompleteChecklist() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
-  const viewDate = dateParam ? new Date(dateParam) : new Date();
+
+  // Parse YYYY-MM-DD as a LOCAL date (not UTC) to avoid off-by-one day issues
+  const viewDate = useMemo(() => {
+    if (!dateParam) return new Date();
+    const [year, month, day] = dateParam.split('-').map(Number);
+    if (!year || !month || !day) return new Date();
+    return new Date(year, month - 1, day);
+  }, [dateParam]);
   const [checklist, setChecklist] = useState<Checklist | null>(null);
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [responses, setResponses] = useState<Record<string, any>>({});
