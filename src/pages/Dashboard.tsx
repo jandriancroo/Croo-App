@@ -404,26 +404,26 @@ export default function Dashboard() {
           } = getCompletionData(checklist.id);
           const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
           return <Card key={checklist.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
+                <CardHeader className="py-3 md:py-6">
                   <div className="flex items-start justify-between">
-                    <ClipboardCheck className="h-8 w-8 text-primary" />
+                    <ClipboardCheck className="h-6 w-6 md:h-8 md:w-8 text-primary" />
                     <Badge className={getFrequencyColor(checklist.frequency)}>
                       {checklist.frequency}
                     </Badge>
                   </div>
-                  <CardTitle className="mt-4">{checklist.title}</CardTitle>
-                  {checklist.description && <CardDescription>{checklist.description}</CardDescription>}
+                  <CardTitle className="mt-2 md:mt-4 text-base md:text-lg">{checklist.title}</CardTitle>
+                  {checklist.description && <CardDescription className="text-sm">{checklist.description}</CardDescription>}
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-2 md:space-y-4 py-3 md:py-6">
                   <div className="flex items-center justify-between">
-                    <div className="text-lg font-semibold text-muted-foreground">
+                    <div className="text-base md:text-lg font-semibold text-muted-foreground">
                       {completed} out of {expected}
                     </div>
-                    <div className="text-2xl font-bold text-primary">
+                    <div className="text-xl md:text-2xl font-bold text-primary">
                       {completionRate}%
                     </div>
                   </div>
-                  <Button className="w-full" onClick={() => navigate(`/complete/${checklist.id}`)}>
+                  <Button className="w-full" size="sm" onClick={() => navigate(`/complete/${checklist.id}`)}>
                     {completionRate === 100 ? 'Review' : 'Complete Checklist'}
                   </Button>
                 </CardContent>
