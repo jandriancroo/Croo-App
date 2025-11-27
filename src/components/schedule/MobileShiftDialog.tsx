@@ -269,8 +269,8 @@ export function MobileShiftDialog({
           {isAdmin && templates.length > 0 && (
             <div className="space-y-2">
               <Label>Shift Template</Label>
-              <Select value={selectedTemplateId} onValueChange={(value) => {
-                setSelectedTemplateId(value);
+              <Select value={selectedTemplateId || 'none'} onValueChange={(value) => {
+                setSelectedTemplateId(value === 'none' ? '' : value);
                 const template = templates.find(t => t.id === value);
                 if (template) {
                   setStartTime(template.start_time);
@@ -281,7 +281,7 @@ export function MobileShiftDialog({
                   <SelectValue placeholder="Select template (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {templates.map(t => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.template_name}
