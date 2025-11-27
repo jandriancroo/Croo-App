@@ -308,7 +308,7 @@ export default function Tasks() {
         <Tabs defaultValue="active" className="w-full">
           <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4">
             <div>
-              <h1 className="text-3xl font-bold mb-4">Tasks</h1>
+              <h1 className="text-3xl font-bold">Tasks</h1>
               <TabsList>
                 <TabsTrigger value="active">Active Tasks</TabsTrigger>
                 <TabsTrigger value="history">Completion History</TabsTrigger>
