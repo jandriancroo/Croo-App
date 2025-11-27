@@ -222,15 +222,25 @@ export default function Tasks() {
             .select(`
               id,
               submitted_by,
-              profiles(full_name, profile_photo_url),
-              checklist_responses(id)
+              profiles(full_name, profile_photo_url)
             `)
             .eq('checklist_id', checklist.id)
             .gte('submitted_at', dateStr)
             .lt('submitted_at', format(addDays(historyDate, 1), 'yyyy-MM-dd'));
 
-          const completedCount = submissions?.reduce((sum, sub: any) => 
-            sum + (sub.checklist_responses?.length || 0), 0) || 0;
+          // Get completed responses (those with completed_by set)
+          const submissionIds = submissions?.map(s => s.id) || [];
+          let completedCount = 0;
+          
+          if (submissionIds.length > 0) {
+            const { data: completedResponses } = await supabase
+              .from('checklist_responses')
+              .select('id')
+              .in('submission_id', submissionIds)
+              .not('completed_by', 'is', null);
+            
+            completedCount = completedResponses?.length || 0;
+          }
           
           const completionRate = itemCount > 0 ? completedCount / itemCount : 0;
           
