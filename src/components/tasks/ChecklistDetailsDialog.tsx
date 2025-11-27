@@ -16,12 +16,7 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
   const { data: checklistDetails, isLoading } = useQuery({
     queryKey: ['checklist-details', checklistId, date],
     queryFn: async () => {
-      // Use local day boundaries to match completion history logic
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
-      const dayOfWeek = date.getDay();
+      const dateStr = date.toISOString().split('T')[0];
       
       // Get checklist with items
       const { data: checklist } = await supabase
@@ -29,13 +24,11 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
         .select(`
           id,
           title,
-          frequency,
           checklist_items (
             id,
             question,
             order_index,
-            item_type,
-            days_of_week
+            item_type
           )
         `)
         .eq('id', checklistId)
@@ -43,70 +36,41 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
 
       if (!checklist) return null;
 
-      // Filter items by day of week for dynamic checklists
-      let filteredItems = checklist.checklist_items;
-      if (checklist.frequency === 'dynamic') {
-        filteredItems = checklist.checklist_items.filter((item: any) => 
-          !item.days_of_week || item.days_of_week.length === 0 || item.days_of_week.includes(dayOfWeek)
-        );
-      }
-
-      // Get all submissions for this checklist on this date (collaborative model)
+      // Get submissions for this date
       const { data: submissions } = await supabase
         .from('checklist_submissions')
         .select(`
           id,
-          submitted_at
-        `)
-        .eq('checklist_id', checklistId)
-        .gte('submitted_at', startOfDay.toISOString())
-        .lte('submitted_at', endOfDay.toISOString());
-
-      if (!submissions || submissions.length === 0) {
-        // No submissions for this date - all items incomplete
-        return {
-          ...checklist,
-          items: filteredItems
-            .map((item: any) => ({ ...item, responses: [], completed: false }))
-            .sort((a: any, b: any) => a.order_index - b.order_index),
-          submissions: []
-        };
-      }
-
-      const submissionIds = submissions.map((s: any) => s.id);
-
-      // Get all responses for these submissions with user info
-      const { data: responses } = await supabase
-        .from('checklist_responses')
-        .select(`
-          id,
-          item_id,
-          response_text,
-          response_image_url,
-          completed_by,
-          created_at,
-          profiles:completed_by (
-            full_name,
-            profile_photo_url
+          submitted_by,
+          profiles(full_name, profile_photo_url),
+          checklist_responses(
+            id,
+            item_id,
+            response_text,
+            response_image_url
           )
         `)
-        .in('submission_id', submissionIds);
+        .eq('checklist_id', checklistId)
+        .gte('submitted_at', dateStr)
+        .lt('submitted_at', new Date(date.getTime() + 86400000).toISOString().split('T')[0]);
 
-      // Map responses to items (treat items with any completed response as completed)
-      const items = filteredItems.map((item: any) => {
-        const itemResponses = (responses || []).filter((r: any) => r.item_id === item.id && r.completed_by);
+      // Map responses to items
+      const items = checklist.checklist_items.map((item: any) => {
+        const responses = submissions?.flatMap((sub: any) => 
+          sub.checklist_responses?.filter((r: any) => r.item_id === item.id) || []
+        ) || [];
         
         return {
           ...item,
-          responses: itemResponses,
-          completed: itemResponses.length > 0
+          responses,
+          completed: responses.length > 0
         };
       });
 
       return {
         ...checklist,
         items: items.sort((a: any, b: any) => a.order_index - b.order_index),
-        submissions,
+        submissions
       };
     },
     enabled: open && !!checklistId,
@@ -146,7 +110,7 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
                       {item.responses.length > 0 && (
                         <div className="mt-2 space-y-1">
                           {item.responses.map((response: any, idx: number) => (
-                            <div key={idx} className="text-sm space-y-1">
+                            <div key={idx} className="text-sm">
                               {response.response_text && (
                                 <p className="text-muted-foreground bg-muted/50 rounded px-2 py-1">
                                   {response.response_text}
@@ -158,20 +122,6 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
                                   alt="Response"
                                   className="mt-1 max-w-[200px] rounded border"
                                 />
-                              )}
-                              {response.profiles && (
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                  {response.profiles.profile_photo_url && (
-                                    <img 
-                                      src={response.profiles.profile_photo_url} 
-                                      alt={response.profiles.full_name}
-                                      className="w-4 h-4 rounded-full"
-                                    />
-                                  )}
-                                  <span>{response.profiles.full_name}</span>
-                                  <span>•</span>
-                                  <span>{new Date(response.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span>
-                                </div>
                               )}
                             </div>
                           ))}
