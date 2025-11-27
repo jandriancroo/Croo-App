@@ -48,6 +48,7 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
       }
 
       // Get the single shared submission for this date
+      const nextDateStr = new Date(date.getTime() + 86400000).toISOString().split('T')[0];
       const { data: submission } = await supabase
         .from('checklist_submissions')
         .select(`
@@ -55,8 +56,8 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
           submitted_at
         `)
         .eq('checklist_id', checklistId)
-        .gte('submitted_at', `${dateStr}T00:00:00`)
-        .lt('submitted_at', `${dateStr}T23:59:59`)
+        .gte('submitted_at', dateStr)
+        .lt('submitted_at', nextDateStr)
         .maybeSingle();
 
       if (!submission) {
