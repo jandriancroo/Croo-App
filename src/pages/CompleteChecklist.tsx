@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Layout } from '@/components/Layout';
@@ -46,9 +46,10 @@ interface ResponseWithCompleter {
   };
 }
 export default function CompleteChecklist() {
-  const {
-    id
-  } = useParams();
+  const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const dateParam = searchParams.get('date');
+  const viewDate = dateParam ? new Date(dateParam) : new Date();
   const [checklist, setChecklist] = useState<Checklist | null>(null);
   const [items, setItems] = useState<ChecklistItem[]>([]);
   const [responses, setResponses] = useState<Record<string, any>>({});
@@ -68,7 +69,7 @@ export default function CompleteChecklist() {
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
   useEffect(() => {
     fetchChecklistData();
-  }, [id]);
+  }, [id, viewDate]);
 
   // Calculate completion percentage
   useEffect(() => {
@@ -88,11 +89,14 @@ export default function CompleteChecklist() {
     if (!id || !user?.id || submissionId) return;
     const createDraftSubmission = async () => {
       try {
-        const startOfToday = new Date();
-        startOfToday.setHours(0, 0, 0, 0);
+        const startOfDay = new Date(viewDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        
+        const endOfDay = new Date(viewDate);
+        endOfDay.setHours(23, 59, 59, 999);
 
-        // Check if there's already ANY submission for today (shared by all users)
-        // Get the FIRST submission created today so all users work on the same one
+        // Check if there's already ANY submission for this day (shared by all users)
+        // Get the FIRST submission created on this day so all users work on the same one
         const {
           data: submissions,
           error: submissionsError,
@@ -100,7 +104,8 @@ export default function CompleteChecklist() {
           .from('checklist_submissions')
           .select('id')
           .eq('checklist_id', id)
-          .gte('submitted_at', startOfToday.toISOString())
+          .gte('submitted_at', startOfDay.toISOString())
+          .lte('submitted_at', endOfDay.toISOString())
           .order('submitted_at', { ascending: true })
           .limit(1);
 
@@ -108,7 +113,7 @@ export default function CompleteChecklist() {
 
         const existingSubmission = submissions?.[0];
         if (existingSubmission) {
-          // Use the existing shared submission for today
+          // Use the existing shared submission for this day
           setSubmissionId(existingSubmission.id);
         } else {
           // Create new shared daily submission
@@ -128,7 +133,7 @@ export default function CompleteChecklist() {
       }
     };
     createDraftSubmission();
-  }, [id, user, submissionId]);
+  }, [id, user, submissionId, viewDate]);
 
   // Load existing responses (and completer info) whenever we have a submissionId
   useEffect(() => {
@@ -263,16 +268,16 @@ export default function CompleteChecklist() {
       } = await supabase.from('checklist_items').select('*').eq('checklist_id', id).order('order_index');
       if (itemsError) throw itemsError;
 
-      // For dynamic checklists, filter items for current day
+      // For dynamic checklists, filter items for the viewing day
       if (checklistData.template_type === 'dynamic') {
-        const currentDay = new Date().getDay();
-        const todayItems = (itemsData || []).filter(item => item.days_of_week && item.days_of_week.includes(currentDay));
-        if (todayItems.length === 0) {
-          toast.error("No tasks assigned for today in this checklist");
+        const dayOfWeek = viewDate.getDay();
+        const dayItems = (itemsData || []).filter(item => item.days_of_week && item.days_of_week.includes(dayOfWeek));
+        if (dayItems.length === 0) {
+          toast.error("No tasks assigned for this day in this checklist");
           navigate('/tasks');
           return;
         }
-        setItems(todayItems);
+        setItems(dayItems);
       } else {
         setItems(itemsData || []);
       }
