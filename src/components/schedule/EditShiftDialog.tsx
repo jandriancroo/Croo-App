@@ -316,11 +316,21 @@ export function EditShiftDialog({
                     setEndTime(offer.scheduled_shifts.end_time);
                     if (offer.scheduled_shifts.template_id) {
                       setPosition(offer.scheduled_shifts.template_id);
+                    } else {
+                      setPosition(`offer-${offerId}`);
                     }
+                  }
+                } else if (val !== "none") {
+                  setSelectedOfferId(null);
+                  setPosition(val);
+                  const template = templates.find(t => t.id === val);
+                  if (template) {
+                    setStartTime(template.start_time);
+                    setEndTime(template.end_time);
                   }
                 } else {
                   setSelectedOfferId(null);
-                  setPosition(val === "none" ? "" : val);
+                  setPosition("");
                 }
               }}
             >
@@ -335,6 +345,13 @@ export function EditShiftDialog({
                   const shiftData = offer.scheduled_shifts;
                   const offeredBy = offer.profiles?.full_name || 'Unknown';
                   const templateName = shiftData?.shift_templates?.template_name || shiftData?.shift_templates?.position || 'Shift';
+                  const formatTime = (time: string) => {
+                    const [hours, minutes] = time.split(':');
+                    const hour = parseInt(hours);
+                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                    const displayHour = hour % 12 || 12;
+                    return `${displayHour}:${minutes} ${ampm}`;
+                  };
                   
                   return (
                     <SelectItem 
@@ -345,7 +362,7 @@ export function EditShiftDialog({
                       <div className="flex items-center gap-2">
                         <ArrowUp className="h-4 w-4 animate-pulse" />
                         <span className="italic">
-                          {templateName} - Offered by {offeredBy}
+                          {templateName} ({formatTime(shiftData.start_time)} - {formatTime(shiftData.end_time)}) - Offered by {offeredBy}
                         </span>
                       </div>
                     </SelectItem>
@@ -353,11 +370,21 @@ export function EditShiftDialog({
                 })}
                 
                 {/* Regular Templates */}
-                {templates.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    {template.position || template.template_name}
-                  </SelectItem>
-                ))}
+                {templates.map((template) => {
+                  const formatTime = (time: string) => {
+                    const [hours, minutes] = time.split(':');
+                    const hour = parseInt(hours);
+                    const ampm = hour >= 12 ? 'PM' : 'AM';
+                    const displayHour = hour % 12 || 12;
+                    return `${displayHour}:${minutes} ${ampm}`;
+                  };
+                  
+                  return (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.position || template.template_name} ({formatTime(template.start_time)} - {formatTime(template.end_time)})
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
