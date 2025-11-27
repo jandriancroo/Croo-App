@@ -829,7 +829,7 @@ export default function Schedule() {
             <Button variant="outline" size="icon" onClick={handlePreviousWeek}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-3xl font-bold">
               {format(currentWeekStart, "MMM d, yyyy")} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMM d, yyyy")}
             </h1>
             <Button variant="outline" size="icon" onClick={handleNextWeek}>
