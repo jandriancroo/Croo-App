@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { TrendingDown, TrendingUp, Calendar } from "lucide-react";
-import crooCashIcon from "@/assets/croo-cash-icon.png";
+import { Banknote, TrendingDown, TrendingUp, Calendar } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -75,7 +74,7 @@ export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
       
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <img src={crooCashIcon} alt="Croo Cash" className="h-6 w-6 animate-pulse" style={{ transform: 'rotate(-5deg)' }} />
+          <Banknote className="h-5 w-5 text-primary animate-pulse" style={{ transform: 'rotate(90deg) rotate(-10deg)' }} />
           Croo Cash
         </CardTitle>
         <CardDescription>Your shift marketplace currency</CardDescription>
