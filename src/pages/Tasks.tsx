@@ -235,15 +235,37 @@ export default function Tasks() {
           // Get completed responses (those with completed_by set)
           const submissionIds = submissions?.map(s => s.id) || [];
           let completedCount = 0;
+          let uniqueContributorIds = new Set<string>();
           
           if (submissionIds.length > 0) {
             const { data: completedResponses } = await supabase
               .from('checklist_responses')
-              .select('id')
+              .select('id, completed_by')
               .in('submission_id', submissionIds)
               .not('completed_by', 'is', null);
             
             completedCount = completedResponses?.length || 0;
+            
+            // Collect unique user IDs who completed items
+            completedResponses?.forEach((resp: any) => {
+              if (resp.completed_by) {
+                uniqueContributorIds.add(resp.completed_by);
+              }
+            });
+          }
+          
+          // Fetch profiles for unique contributors
+          let contributors: Array<{ name: string; photo: string | null }> = [];
+          if (uniqueContributorIds.size > 0) {
+            const { data: profilesData } = await supabase
+              .from('profiles')
+              .select('id, full_name, profile_photo_url')
+              .in('id', Array.from(uniqueContributorIds));
+            
+            contributors = profilesData?.map((profile: any) => ({
+              name: profile.full_name,
+              photo: profile.profile_photo_url
+            })) || [];
           }
           
           // Cap completed count at item count and completion rate at 100%
@@ -257,10 +279,7 @@ export default function Tasks() {
             completionRate,
             itemCount,
             completedCount: cappedCompletedCount,
-            contributors: submissions?.map((sub: any) => ({
-              name: sub.profiles?.full_name,
-              photo: sub.profiles?.profile_photo_url
-            })) || []
+            contributors
           };
         })
       );
