@@ -248,7 +248,9 @@ export default function Tasks() {
             completedCount = completedResponses?.length || 0;
           }
           
-          const completionRate = itemCount > 0 ? completedCount / itemCount : 0;
+          // Cap completed count at item count and completion rate at 100%
+          const cappedCompletedCount = Math.min(completedCount, itemCount);
+          const completionRate = itemCount > 0 ? Math.min(cappedCompletedCount / itemCount, 1) : 0;
           
           return {
             id: checklist.id,
@@ -256,7 +258,7 @@ export default function Tasks() {
             completed: completionRate === 1,
             completionRate,
             itemCount,
-            completedCount,
+            completedCount: cappedCompletedCount,
             contributors: submissions?.map((sub: any) => ({
               name: sub.profiles?.full_name,
               photo: sub.profiles?.profile_photo_url
