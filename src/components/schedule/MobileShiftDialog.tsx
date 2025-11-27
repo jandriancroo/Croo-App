@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
-import { Trash2 } from 'lucide-react';
+import { Trash2, ArrowUp } from 'lucide-react';
 
 interface Profile {
   id: string;
@@ -67,6 +67,8 @@ export function MobileShiftDialog({
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [offeredShifts, setOfferedShifts] = useState<any[]>([]);
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
 
   useEffect(() => {
     if (shift) {
@@ -82,6 +84,50 @@ export function MobileShiftDialog({
       setSelectedTemplateId('');
     }
   }, [shift, isCreating, templates]);
+
+  useEffect(() => {
+    if (open && scheduleId) {
+      fetchOfferedShifts();
+    }
+  }, [open, scheduleId]);
+
+  const fetchOfferedShifts = async () => {
+    if (!scheduleId) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('shift_offers')
+        .select(`
+          id,
+          shift_id,
+          offered_by_user_id,
+          status,
+          scheduled_shifts!inner (
+            id,
+            start_time,
+            end_time,
+            shift_date,
+            day_of_week,
+            user_id,
+            template_id,
+            shift_templates (
+              template_name,
+              position
+            )
+          ),
+          profiles!shift_offers_offered_by_user_id_fkey (
+            full_name
+          )
+        `)
+        .eq('status', 'available')
+        .eq('scheduled_shifts.schedule_id', scheduleId);
+
+      if (error) throw error;
+      setOfferedShifts(data || []);
+    } catch (error) {
+      console.error('Error fetching offered shifts:', error);
+    }
+  };
 
   if (!shift) return null;
 
@@ -100,6 +146,16 @@ export function MobileShiftDialog({
 
     setSaving(true);
     try {
+      // If an offered shift was selected, approve it
+      if (selectedOfferId) {
+        const { error: offerError } = await supabase
+          .from('shift_offers')
+          .update({ status: 'approved' })
+          .eq('id', selectedOfferId);
+
+        if (offerError) throw offerError;
+      }
+
       if (isCreating) {
         // Create new shift
         if (!scheduleId) {
@@ -270,20 +326,62 @@ export function MobileShiftDialog({
           {/* Template Selection - Admin Only */}
           {isAdmin && templates.length > 0 && (
             <div className="space-y-2">
-              <Label>Shift Template</Label>
-              <Select value={selectedTemplateId || 'none'} onValueChange={(value) => {
-                setSelectedTemplateId(value === 'none' ? '' : value);
-                const template = templates.find(t => t.id === value);
-                if (template) {
-                  setStartTime(template.start_time);
-                  setEndTime(template.end_time);
-                }
-              }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select template (optional)" />
+              <Label>Quick Fill</Label>
+              <Select 
+                value={selectedTemplateId || 'none'} 
+                onValueChange={(value) => {
+                  if (value.startsWith('offer-')) {
+                    // Handle offered shift selection
+                    const offerId = value.replace('offer-', '');
+                    const offer = offeredShifts.find(o => o.id === offerId);
+                    if (offer && offer.scheduled_shifts) {
+                      setSelectedOfferId(offerId);
+                      setStartTime(offer.scheduled_shifts.start_time);
+                      setEndTime(offer.scheduled_shifts.end_time);
+                      if (offer.scheduled_shifts.template_id) {
+                        setSelectedTemplateId(offer.scheduled_shifts.template_id);
+                      }
+                    }
+                  } else {
+                    setSelectedOfferId(null);
+                    setSelectedTemplateId(value === 'none' ? '' : value);
+                    const template = templates.find(t => t.id === value);
+                    if (template) {
+                      setStartTime(template.start_time);
+                      setEndTime(template.end_time);
+                    }
+                  }
+                }}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select quick fill option" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background z-50">
                   <SelectItem value="none">None</SelectItem>
+                  
+                  {/* Offered Shifts Section */}
+                  {offeredShifts.length > 0 && offeredShifts.map((offer) => {
+                    const shiftData = offer.scheduled_shifts;
+                    const offeredBy = offer.profiles?.full_name || 'Unknown';
+                    const templateName = shiftData?.shift_templates?.template_name || shiftData?.shift_templates?.position || 'Shift';
+                    
+                    return (
+                      <SelectItem 
+                        key={offer.id} 
+                        value={`offer-${offer.id}`}
+                        className="font-semibold text-primary bg-primary/10 border-l-4 border-primary"
+                      >
+                        <div className="flex items-center gap-2">
+                          <ArrowUp className="h-4 w-4 animate-pulse" />
+                          <span className="italic">
+                            {templateName} - Offered by {offeredBy}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                  
+                  {/* Regular Templates */}
                   {templates.map(t => (
                     <SelectItem key={t.id} value={t.id}>
                       {t.template_name}
