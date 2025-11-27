@@ -3,13 +3,14 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks } from 'dat
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, ChevronLeft } from 'lucide-react';
+import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, ChevronLeft, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
 import { MobileShiftDialog } from './MobileShiftDialog';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useAuth } from '@/lib/auth';
 import { formatTime12Hour } from '@/lib/utils';
 
 interface Profile {
@@ -25,6 +26,7 @@ interface Shift {
   start_time: string;
   end_time: string;
   shift_date: string;
+  template_id?: string | null;
   template?: {
     position: string | null;
     color: string | null;
@@ -48,6 +50,14 @@ interface MobileScheduleViewProps {
   onShiftClick?: (shift: Shift) => void;
   onWeekChange?: (weekStart: Date) => void;
   onUpdate?: () => void;
+  isPublished?: boolean;
+  templates?: Array<{
+    id: string;
+    template_name: string;
+    start_time: string;
+    end_time: string;
+    color: string | null;
+  }>;
 }
 
 export function MobileScheduleView({
@@ -58,13 +68,17 @@ export function MobileScheduleView({
   onShiftClick,
   onWeekChange,
   onUpdate,
+  isPublished = false,
+  templates = []
 }: MobileScheduleViewProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
   const [selectedShiftForOffer, setSelectedShiftForOffer] = useState<Shift | null>(null);
   const [shiftDialogOpen, setShiftDialogOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
+  const [isCreatingShift, setIsCreatingShift] = useState(false);
   const { isAdmin, isManager } = useUserRole();
+  const { user } = useAuth();
   
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   const selectedDayOfWeek = weekDays.findIndex(day => isSameDay(day, selectedDate));
@@ -82,8 +96,9 @@ export function MobileScheduleView({
   };
 
   // Get shifts and events for selected day
+  // Admins see all shifts, non-admins only see published shifts
   const dayShifts = shifts.filter(
-    s => s.day_of_week === selectedDayOfWeek && s.user_id
+    s => s.day_of_week === selectedDayOfWeek && s.user_id && (isAdmin || isManager || isPublished)
   );
   const dayEvents = events.filter(e => e.day_of_week === selectedDayOfWeek);
 
@@ -141,9 +156,31 @@ export function MobileScheduleView({
       {/* Selected Date Header */}
       <div className="flex items-center justify-between p-4 bg-muted/30">
         <h3 className="text-lg font-semibold">{format(selectedDate, 'EEEE, MMM d')}</h3>
-        <div className="flex items-center gap-1 text-muted-foreground">
-          <Users className="h-4 w-4" />
-          <span className="text-sm font-medium">{totalPeopleScheduled}</span>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span className="text-sm font-medium">{totalPeopleScheduled}</span>
+          </div>
+          {isAdmin && (
+            <Button 
+              size="sm" 
+              onClick={() => {
+                setSelectedShift({
+                  id: '',
+                  user_id: null,
+                  day_of_week: selectedDayOfWeek,
+                  start_time: '09:00',
+                  end_time: '17:00',
+                  shift_date: format(selectedDate, 'yyyy-MM-dd'),
+                });
+                setIsCreatingShift(true);
+                setShiftDialogOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Add Shift
+            </Button>
+          )}
         </div>
       </div>
 
@@ -215,17 +252,19 @@ export function MobileScheduleView({
                     )}
                   </div>
                   
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedShiftForOffer(shift);
-                      setOfferDialogOpen(true);
-                    }}
-                  >
-                    Offer Up
-                  </Button>
+                  {(isAdmin || shift.user_id === user?.id) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedShiftForOffer(shift);
+                        setOfferDialogOpen(true);
+                      }}
+                    >
+                      Offer Up
+                    </Button>
+                  )}
                 </div>
               </Card>
             );
@@ -244,13 +283,19 @@ export function MobileScheduleView({
 
       <MobileShiftDialog
         open={shiftDialogOpen}
-        onOpenChange={setShiftDialogOpen}
+        onOpenChange={(open) => {
+          setShiftDialogOpen(open);
+          if (!open) setIsCreatingShift(false);
+        }}
         shift={selectedShift}
         profiles={profiles}
         isAdmin={isAdmin || isManager}
+        isCreating={isCreatingShift}
+        templates={templates}
         onShiftUpdated={() => {
           onUpdate?.();
           setShiftDialogOpen(false);
+          setIsCreatingShift(false);
         }}
       />
     </div>
