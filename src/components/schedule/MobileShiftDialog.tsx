@@ -199,7 +199,7 @@ export function MobileShiftDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle>{isCreating ? 'Add Shift' : 'Shift Details'}</DialogTitle>
         </DialogHeader>
