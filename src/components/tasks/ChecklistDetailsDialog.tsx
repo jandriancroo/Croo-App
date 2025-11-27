@@ -60,10 +60,13 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
           sub.checklist_responses?.filter((r: any) => r.item_id === item.id) || []
         ) || [];
         
+        // Item is completed if there's a response with completed_by set
+        const completedResponse = responses.find((r: any) => r.completed_by !== null);
+        
         return {
           ...item,
           responses,
-          completed: responses.length > 0
+          completed: !!completedResponse
         };
       });
 
