@@ -5,7 +5,8 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown, Banknote } from 'lucide-react';
+import { ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown } from 'lucide-react';
+import crooCashIcon from '@/assets/croo-cash-icon.png';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -480,7 +481,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-bold">Dash</h1>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
-              <Banknote className="h-4 w-4" />
+              <img src={crooCashIcon} alt="Croo Cash" className="h-5 w-5" style={{ transform: 'rotate(-5deg)' }} />
               <span className="text-sm font-bold">{crooCashBalance}</span>
             </div>
           </div>
