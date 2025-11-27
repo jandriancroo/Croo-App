@@ -340,16 +340,21 @@ export function MobileShiftDialog({
                       setEndTime(offer.scheduled_shifts.end_time);
                       if (offer.scheduled_shifts.template_id) {
                         setSelectedTemplateId(offer.scheduled_shifts.template_id);
+                      } else {
+                        setSelectedTemplateId(`offer-${offerId}`);
                       }
                     }
-                  } else {
+                  } else if (value !== 'none') {
                     setSelectedOfferId(null);
-                    setSelectedTemplateId(value === 'none' ? '' : value);
+                    setSelectedTemplateId(value);
                     const template = templates.find(t => t.id === value);
                     if (template) {
                       setStartTime(template.start_time);
                       setEndTime(template.end_time);
                     }
+                  } else {
+                    setSelectedOfferId(null);
+                    setSelectedTemplateId('');
                   }
                 }}
               >
@@ -364,6 +369,13 @@ export function MobileShiftDialog({
                     const shiftData = offer.scheduled_shifts;
                     const offeredBy = offer.profiles?.full_name || 'Unknown';
                     const templateName = shiftData?.shift_templates?.template_name || shiftData?.shift_templates?.position || 'Shift';
+                    const formatTime = (time: string) => {
+                      const [hours, minutes] = time.split(':');
+                      const hour = parseInt(hours);
+                      const ampm = hour >= 12 ? 'PM' : 'AM';
+                      const displayHour = hour % 12 || 12;
+                      return `${displayHour}:${minutes} ${ampm}`;
+                    };
                     
                     return (
                       <SelectItem 
@@ -374,7 +386,7 @@ export function MobileShiftDialog({
                         <div className="flex items-center gap-2">
                           <ArrowUp className="h-4 w-4 animate-pulse" />
                           <span className="italic">
-                            {templateName} - Offered by {offeredBy}
+                            {templateName} ({formatTime(shiftData.start_time)} - {formatTime(shiftData.end_time)}) - Offered by {offeredBy}
                           </span>
                         </div>
                       </SelectItem>
@@ -382,11 +394,21 @@ export function MobileShiftDialog({
                   })}
                   
                   {/* Regular Templates */}
-                  {templates.map(t => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.template_name}
-                    </SelectItem>
-                  ))}
+                  {templates.map(t => {
+                    const formatTime = (time: string) => {
+                      const [hours, minutes] = time.split(':');
+                      const hour = parseInt(hours);
+                      const ampm = hour >= 12 ? 'PM' : 'AM';
+                      const displayHour = hour % 12 || 12;
+                      return `${displayHour}:${minutes} ${ampm}`;
+                    };
+                    
+                    return (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.template_name} ({formatTime(t.start_time)} - {formatTime(t.end_time)})
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
