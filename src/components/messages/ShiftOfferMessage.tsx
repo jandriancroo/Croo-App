@@ -153,16 +153,6 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
   const handleApprove = async () => {
     setProcessing(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      // Prevent admins from approving their own claims
-      if (user.id === offer.claimed_by?.id) {
-        toast.error("You cannot approve your own shift claim");
-        setProcessing(false);
-        return;
-      }
-
       // Update shift_offers status to approved
       const { error: offerError } = await supabase
         .from("shift_offers")
