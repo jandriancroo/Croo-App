@@ -51,6 +51,7 @@ interface MobileScheduleViewProps {
   onWeekChange?: (weekStart: Date) => void;
   onUpdate?: () => void;
   isPublished?: boolean;
+  scheduleId?: string | null;
   templates?: Array<{
     id: string;
     template_name: string;
@@ -69,6 +70,7 @@ export function MobileScheduleView({
   onWeekChange,
   onUpdate,
   isPublished = false,
+  scheduleId,
   templates = []
 }: MobileScheduleViewProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -291,6 +293,7 @@ export function MobileScheduleView({
         profiles={profiles}
         isAdmin={isAdmin || isManager}
         isCreating={isCreatingShift}
+        scheduleId={scheduleId}
         templates={templates}
         onShiftUpdated={() => {
           onUpdate?.();
