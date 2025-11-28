@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Camera, Apple } from 'lucide-react';
+import { Camera } from 'lucide-react';
 import { FcGoogle } from 'react-icons/fc';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import crooLogo from '@/assets/croo-logo.png';
@@ -183,26 +183,16 @@ export default function Auth() {
                   </div>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => handleOAuthSignIn('google')}
-                    disabled={loading}
-                  >
-                    <FcGoogle className="mr-2 h-5 w-5" />
-                    Google
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => handleOAuthSignIn('apple')}
-                    disabled={loading}
-                  >
-                    <Apple className="mr-2 h-5 w-5" />
-                    Apple
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleOAuthSignIn('google')}
+                  disabled={loading}
+                  className="w-full"
+                >
+                  <FcGoogle className="mr-2 h-5 w-5" />
+                  Google
+                </Button>
               </form>
             </TabsContent>
             <TabsContent value="signup">
