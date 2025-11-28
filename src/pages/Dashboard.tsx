@@ -362,82 +362,58 @@ export default function Dashboard() {
         <LogBookAlerts />
         <CertificationAlerts />
       </div>,
-    'sales-overview': <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-semibold">Sales Overview</h3>
-          <Button onClick={() => refetchSales()} size="sm" variant="outline">
-            Refresh
-          </Button>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3 mb-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Today's Sales</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+    'sales-overview': <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Sales Overview</CardTitle>
+            <Button onClick={() => refetchSales()} size="sm" variant="outline">
+              Refresh
+            </Button>
+          </div>
+          <CardDescription className="mt-2">Today's performance and hourly breakdown</CardDescription>
+          <div className="grid grid-cols-3 gap-4 mt-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Today</p>
+              <p className="text-2xl font-bold">
                 {salesData ? formatCurrency(salesData.daily) : "--"}
-              </div>
-              <p className="text-xs text-muted-foreground">Current day total</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Weekly Sales</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">This Week</p>
+              <p className="text-2xl font-bold">
                 {salesData ? formatCurrency(salesData.weekly) : "--"}
-              </div>
-              <p className="text-xs text-muted-foreground">This week's total</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Average per Hour</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Avg/Hour</p>
+              <p className="text-2xl font-bold">
                 {salesData ? formatCurrency(salesData.hourly.reduce((sum, h) => sum + h.sales, 0) / salesData.hourly.length) : "--"}
-              </div>
-              <p className="text-xs text-muted-foreground">Based on today</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Hourly Sales </CardTitle>
-            <CardDescription>Sales performance by hour</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {salesData?.hourly ? <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={salesData.hourly}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="hour" className="text-xs" tick={{
-                fill: 'hsl(var(--foreground))'
-              }} />
-                  <YAxis className="text-xs" tick={{
-                fill: 'hsl(var(--foreground))'
-              }} tickFormatter={value => `$${value}`} />
-                  <Tooltip formatter={value => formatCurrency(value as number)} contentStyle={{
-                backgroundColor: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '6px'
-              }} />
-                  <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer> : <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                No sales data available
-              </div>}
-          </CardContent>
-        </Card>
-      </div>,
+              </p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {salesData?.hourly ? <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={salesData.hourly}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="hour" className="text-xs" tick={{
+              fill: 'hsl(var(--foreground))'
+            }} />
+                <YAxis className="text-xs" tick={{
+              fill: 'hsl(var(--foreground))'
+            }} tickFormatter={value => `$${value}`} />
+                <Tooltip formatter={value => formatCurrency(value as number)} contentStyle={{
+              backgroundColor: 'hsl(var(--card))',
+              border: '1px solid hsl(var(--border))',
+              borderRadius: '6px'
+            }} />
+                <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer> : <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              No sales data available
+            </div>}
+        </CardContent>
+      </Card>,
     'checklists-grid': <div>
         <h3 className="text-xl font-semibold mb-4">Tasks</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
