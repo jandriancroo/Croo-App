@@ -268,17 +268,6 @@ export function MobileScheduleView({
                           <BreakIndicator hasBreak={true} size="sm" />
                         )}
                       </div>
-                      {shift.template?.position && (
-                        <div className="flex items-center gap-2 mt-1">
-                          <div 
-                            className="w-2 h-2 rounded-full" 
-                            style={{ backgroundColor: shift.template.color || '#ef4444' }}
-                          />
-                          <span className="text-xs text-muted-foreground">
-                            {shift.template.position}
-                          </span>
-                        </div>
-                      )}
                     </div>
                     
                     {(isAdmin || shift.user_id === user?.id) && (
