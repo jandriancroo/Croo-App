@@ -191,7 +191,7 @@ export function ChecklistLeaderboard() {
                 .select('id')
                 .eq('user_id', shift.user_id)
                 .eq('shift_date', dayFormatted)
-                .eq('transaction_type', 'checklist_incomplete')
+                .eq('transaction_type', 'incomplete_checklist')
                 .eq('notes', `Incomplete: ${checklist.title}`)
                 .maybeSingle();
               
@@ -202,7 +202,7 @@ export function ChecklistLeaderboard() {
                   .insert({
                     user_id: shift.user_id,
                     amount: -25, // -0.25 dollars = -25 cents
-                    transaction_type: 'checklist_incomplete',
+                    transaction_type: 'incomplete_checklist',
                     shift_date: dayFormatted,
                     notes: `Incomplete: ${checklist.title}`,
                     is_weekend: day.getDay() === 0 || day.getDay() === 6
