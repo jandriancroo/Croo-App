@@ -42,18 +42,26 @@ export default function PayrollReview() {
   const generatePayPeriods = async () => {
     // Base period: Monday Nov 3, 2025 - Sunday Nov 16, 2025
     const baseStart = new Date(2025, 10, 3);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
     const periods = [];
     
     for (let i = 0; i <= 9; i++) {
       const periodStart = addWeeks(baseStart, i * 2);
       const periodEnd = addDays(periodStart, 13);
       
-      periods.push({
-        start: periodStart,
-        end: periodEnd,
-        label: `${format(periodStart, 'EEE MMM d')} - ${format(periodEnd, 'EEE MMM d, yyyy')}`
-      });
+      // Only include periods that have already started (not in the future)
+      if (periodStart <= today) {
+        periods.push({
+          start: periodStart,
+          end: periodEnd,
+          label: `${format(periodStart, 'EEE MMM d')} - ${format(periodEnd, 'EEE MMM d, yyyy')}`
+        });
+      }
     }
+    
+    // Reverse to show most recent first
+    periods.reverse();
     
     setPayPeriods(periods);
     
