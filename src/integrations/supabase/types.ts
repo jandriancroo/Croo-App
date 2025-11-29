@@ -1672,6 +1672,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_croo_cash: {
+        Args: { amount: number; user_id: string }
+        Returns: undefined
+      }
       is_chat_member: {
         Args: { _chat_id: string; _user_id: string }
         Returns: boolean

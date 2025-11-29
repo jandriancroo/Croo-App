@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Trophy } from "lucide-react";
-import { format, startOfDay, endOfDay } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfDay, endOfDay } from "date-fns";
 
 interface ManagerStats {
   userId: string;
@@ -20,8 +20,14 @@ export function ChecklistLeaderboard() {
     queryKey: ['checklist-leaderboard'],
     queryFn: async () => {
       const today = new Date();
-      const todayStart = startOfDay(today);
-      const todayEnd = endOfDay(today);
+      const monthStart = startOfMonth(today);
+      const monthEnd = endOfMonth(today);
+      
+      // Get all days in the current month up to today
+      const daysToProcess = eachDayOfInterval({
+        start: monthStart,
+        end: today
+      });
       
       // Get all managers and admins
       const { data: managerRoles } = await supabase
@@ -33,50 +39,13 @@ export function ChecklistLeaderboard() {
       
       const managerIds = managerRoles.map(r => r.user_id);
       
-      // Get shifts for managers/admins today
+      // Get all shifts for managers/admins this month
       const { data: shifts } = await supabase
         .from('scheduled_shifts')
         .select('user_id, start_time, end_time, shift_date')
         .in('user_id', managerIds)
-        .eq('shift_date', format(today, 'yyyy-MM-dd'));
-      
-      // Get all checklists with their completion status
-      const { data: checklists } = await supabase
-        .from('checklists')
-        .select(`
-          id,
-          title,
-          due_by_time,
-          checklist_items(id),
-          checklist_submissions!inner(
-            id,
-            submitted_at
-          )
-        `)
-        .eq('is_active', true)
-        .gte('checklist_submissions.submitted_at', todayStart.toISOString())
-        .lte('checklist_submissions.submitted_at', todayEnd.toISOString());
-      
-      // Get checklist responses to calculate completion
-      const checklistIds = checklists?.map(c => c.id) || [];
-      const { data: allResponses } = await supabase
-        .from('checklist_responses')
-        .select('item_id, submission_id, completed_by')
-        .in('submission_id', checklists?.flatMap(c => c.checklist_submissions.map(s => s.id)) || [])
-        .not('completed_by', 'is', null);
-      
-      // Build completion map
-      const checklistCompletionMap = new Map<string, { completed: number; total: number }>();
-      checklists?.forEach(checklist => {
-        const itemCount = checklist.checklist_items?.length || 0;
-        const submissionIds = checklist.checklist_submissions.map(s => s.id);
-        const completedCount = allResponses?.filter(r => submissionIds.includes(r.submission_id)).length || 0;
-        
-        checklistCompletionMap.set(checklist.id, {
-          completed: Math.min(completedCount, itemCount),
-          total: itemCount
-        });
-      });
+        .gte('shift_date', format(monthStart, 'yyyy-MM-dd'))
+        .lte('shift_date', format(today, 'yyyy-MM-dd'));
       
       // Get profiles
       const { data: profiles } = await supabase
@@ -86,71 +55,180 @@ export function ChecklistLeaderboard() {
       
       const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
       
-      // Calculate stats for each manager
-      const managerStats: ManagerStats[] = [];
+      // Initialize manager stats
+      const managerStatsMap = new Map<string, ManagerStats>();
+      managerIds.forEach(id => {
+        const profile = profileMap.get(id);
+        if (profile) {
+          managerStatsMap.set(id, {
+            userId: id,
+            fullName: profile.full_name || 'Unknown',
+            profilePhoto: profile.profile_photo_url,
+            completedCount: 0,
+            totalApplicable: 0,
+            completionRate: 0
+          });
+        }
+      });
       
-      for (const managerId of managerIds) {
-        const profile = profileMap.get(managerId);
-        if (!profile) continue;
+      // Process each day
+      for (const day of daysToProcess) {
+        const dayStart = startOfDay(day);
+        const dayEnd = endOfDay(day);
+        const dayFormatted = format(day, 'yyyy-MM-dd');
         
-        const managerShifts = shifts?.filter(s => s.user_id === managerId) || [];
+        // Get all checklists
+        const { data: checklists } = await supabase
+          .from('checklists')
+          .select(`
+            id,
+            title,
+            due_by_time,
+            checklist_items(id)
+          `)
+          .eq('is_active', true);
         
-        let totalApplicable = 0;
-        let completedCount = 0;
+        if (!checklists) continue;
         
-        // Check each checklist
-        checklists?.forEach(checklist => {
+        // Get shifts for this day
+        const dayShifts = shifts?.filter(s => s.shift_date === dayFormatted) || [];
+        
+        // For each checklist, check completion and assign credit/debit
+        for (const checklist of checklists) {
           const dueTime = checklist.due_by_time;
-          if (!dueTime) return;
+          if (!dueTime) continue;
           
-          // Determine if this checklist applies to any of the manager's shifts
-          const applies = managerShifts.some(shift => {
-            const shiftStart = shift.start_time;
-            const shiftEnd = shift.end_time;
+          const itemCount = checklist.checklist_items?.length || 0;
+          if (itemCount === 0) continue;
+          
+          // Check if checklist was completed on this day
+          const { data: submissions } = await supabase
+            .from('checklist_submissions')
+            .select(`
+              id,
+              submitted_at
+            `)
+            .eq('checklist_id', checklist.id)
+            .gte('submitted_at', dayStart.toISOString())
+            .lte('submitted_at', dayEnd.toISOString());
+          
+          const submissionIds = submissions?.map(s => s.id) || [];
+          let isComplete = false;
+          
+          if (submissionIds.length > 0) {
+            const { data: responses } = await supabase
+              .from('checklist_responses')
+              .select('id, completed_by')
+              .in('submission_id', submissionIds)
+              .not('completed_by', 'is', null);
             
-            // Parse times (assuming HH:MM:SS format)
+            const completedCount = responses?.length || 0;
+            isComplete = completedCount >= itemCount;
+          }
+          
+          // Find which managers worked during this checklist's due time
+          const applicableManagers = dayShifts.filter(shift => {
             const parseTime = (timeStr: string) => {
               const [hours, minutes] = timeStr.split(':').map(Number);
               return hours * 60 + minutes;
             };
             
-            const shiftStartMin = parseTime(shiftStart);
-            const shiftEndMin = parseTime(shiftEnd);
+            const shiftStartMin = parseTime(shift.start_time);
+            const shiftEndMin = parseTime(shift.end_time);
             const dueTimeMin = parseTime(dueTime);
             
             // Handle overnight shifts
             if (shiftEndMin < shiftStartMin) {
-              // Shift crosses midnight
               return dueTimeMin >= shiftStartMin || dueTimeMin <= shiftEndMin;
             }
             
-            // Normal shift - check if due time falls within shift
             return dueTimeMin >= shiftStartMin && dueTimeMin <= shiftEndMin;
           });
           
-          if (applies) {
-            totalApplicable++;
-            const completion = checklistCompletionMap.get(checklist.id);
-            if (completion && completion.completed === completion.total && completion.total > 0) {
-              completedCount++;
+          // Award/deduct Croo Cash and update stats
+          for (const shift of applicableManagers) {
+            const stats = managerStatsMap.get(shift.user_id);
+            if (!stats) continue;
+            
+            stats.totalApplicable++;
+            
+            if (isComplete) {
+              stats.completedCount++;
+              
+              // Check if transaction already exists
+              const { data: existingTransaction } = await supabase
+                .from('croo_cash_transactions')
+                .select('id')
+                .eq('user_id', shift.user_id)
+                .eq('shift_date', dayFormatted)
+                .eq('transaction_type', 'checklist_completion')
+                .eq('notes', `Completed: ${checklist.title}`)
+                .maybeSingle();
+              
+              if (!existingTransaction) {
+                // Create transaction
+                await supabase
+                  .from('croo_cash_transactions')
+                  .insert({
+                    user_id: shift.user_id,
+                    amount: 25, // 0.25 dollars = 25 cents
+                    transaction_type: 'checklist_completion',
+                    shift_date: dayFormatted,
+                    notes: `Completed: ${checklist.title}`,
+                    is_weekend: day.getDay() === 0 || day.getDay() === 6
+                  });
+                
+                // Update profile balance
+                await supabase.rpc('increment_croo_cash', {
+                  user_id: shift.user_id,
+                  amount: 25
+                });
+              }
+            } else {
+              // Check if transaction already exists
+              const { data: existingTransaction } = await supabase
+                .from('croo_cash_transactions')
+                .select('id')
+                .eq('user_id', shift.user_id)
+                .eq('shift_date', dayFormatted)
+                .eq('transaction_type', 'checklist_incomplete')
+                .eq('notes', `Incomplete: ${checklist.title}`)
+                .maybeSingle();
+              
+              if (!existingTransaction) {
+                // Create transaction
+                await supabase
+                  .from('croo_cash_transactions')
+                  .insert({
+                    user_id: shift.user_id,
+                    amount: -25, // -0.25 dollars = -25 cents
+                    transaction_type: 'checklist_incomplete',
+                    shift_date: dayFormatted,
+                    notes: `Incomplete: ${checklist.title}`,
+                    is_weekend: day.getDay() === 0 || day.getDay() === 6
+                  });
+                
+                // Update profile balance
+                await supabase.rpc('increment_croo_cash', {
+                  user_id: shift.user_id,
+                  amount: -25
+                });
+              }
             }
           }
-        });
-        
-        if (totalApplicable > 0) {
-          managerStats.push({
-            userId: managerId,
-            fullName: profile.full_name || 'Unknown',
-            profilePhoto: profile.profile_photo_url,
-            completedCount,
-            totalApplicable,
-            completionRate: (completedCount / totalApplicable) * 100
-          });
         }
       }
       
-      // Sort by completion rate descending
-      return managerStats.sort((a, b) => b.completionRate - a.completionRate);
+      // Calculate completion rates and filter out managers with no applicable checklists
+      const finalStats = Array.from(managerStatsMap.values())
+        .filter(stat => stat.totalApplicable > 0)
+        .map(stat => ({
+          ...stat,
+          completionRate: (stat.completedCount / stat.totalApplicable) * 100
+        }))
+        .sort((a, b) => b.completionRate - a.completionRate);
+      
+      return finalStats;
     },
     refetchInterval: 30000, // Refresh every 30 seconds
   });
@@ -163,7 +241,7 @@ export function ChecklistLeaderboard() {
             <Trophy className="h-5 w-5 text-yellow-500" />
             Manager Leaderboard
           </CardTitle>
-          <CardDescription>Checklist completion during shifts</CardDescription>
+        <CardDescription>Monthly checklist completion during shifts</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-center text-muted-foreground py-4">Loading...</div>
@@ -180,7 +258,7 @@ export function ChecklistLeaderboard() {
             <Trophy className="h-5 w-5 text-yellow-500" />
             Manager Leaderboard
           </CardTitle>
-          <CardDescription>Checklist completion during shifts</CardDescription>
+        <CardDescription>Monthly checklist completion during shifts</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="text-center text-muted-foreground py-4">
