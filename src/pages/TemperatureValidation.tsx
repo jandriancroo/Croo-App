@@ -232,16 +232,16 @@ export default function TemperatureValidation() {
             {readings.map((reading) => (
               <Card key={reading.id}>
                 <CardContent className="pt-6">
-                  <div className="flex gap-4 items-center">
+                  <div className="flex flex-col gap-4">
                     <div className="flex-shrink-0">
                       <img
                         src={reading.response_image_url}
                         alt="Thermometer reading"
-                        className="w-48 h-48 object-cover rounded-lg cursor-pointer border"
+                        className="w-full max-w-md h-auto object-cover rounded-lg cursor-pointer border mx-auto"
                         onClick={() => setPreviewImage(reading.response_image_url)}
                       />
                     </div>
-                    <div className="flex-1 space-y-2">
+                    <div className="space-y-3">
                       <div>
                         <p className="text-sm text-muted-foreground">{reading.checklist_title}</p>
                         <p className="text-xs text-muted-foreground">
@@ -251,7 +251,7 @@ export default function TemperatureValidation() {
                       {editingId === reading.id ? (
                         <div className="space-y-2">
                           <Label>Correct Temperature (°F)</Label>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap">
                             <Input
                               type="number"
                               step="0.1"
@@ -281,17 +281,17 @@ export default function TemperatureValidation() {
                         </div>
                       ) : (
                         <>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-3xl font-bold">
                               {reading.extracted_temperature}°F
                             </p>
                             {getStatusBadge(reading.temperature_valid, reading.extracted_temperature)}
                           </div>
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap">
                             <Button
                               size="sm"
                               onClick={() => handleConfirm(reading.id)}
-                              className="bg-green-600 hover:bg-green-700"
+                              className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none"
                             >
                               <CheckCircle2 className="w-4 h-4 mr-1" />
                               Confirm Correct
@@ -300,6 +300,7 @@ export default function TemperatureValidation() {
                               size="sm"
                               variant="outline"
                               onClick={() => handleEdit(reading)}
+                              className="flex-1 sm:flex-none"
                             >
                               <Edit2 className="w-4 h-4 mr-1" />
                               Edit
