@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertCircle, AlertTriangle, Radio, Clock } from "lucide-react";
+import { AlertCircle, AlertTriangle, Radio, Clock, UserPlus } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { formatTime12Hour } from "@/lib/utils";
@@ -277,10 +277,32 @@ export default function Alerts() {
     },
   });
 
+  const { data: signupAlerts = [] } = useQuery({
+    queryKey: ['user-signup-alerts'],
+    queryFn: async () => {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+      const { data: signups } = await supabase
+        .from('user_signup_alerts')
+        .select(`
+          id,
+          signed_up_at,
+          created_at,
+          profiles(full_name, profile_photo_url, email)
+        `)
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: false });
+
+      return signups?.map(s => ({ ...s, type: 'signup' })) || [];
+    },
+  });
+
   const allAlerts = [
     ...logbookAlerts,
     ...checklistAlerts,
     ...punchClockAlerts,
+    ...signupAlerts,
   ].sort((a, b) => {
     const dateA = new Date(a.created_at || a.date || a.shift_date);
     const dateB = new Date(b.created_at || b.date || b.shift_date);
@@ -302,7 +324,7 @@ export default function Alerts() {
         </div>
 
         <Tabs defaultValue="all" className="w-full">
-          <TabsList className="w-full flex flex-wrap gap-2 h-auto md:grid md:grid-cols-4 p-1">
+          <TabsList className="w-full flex flex-wrap gap-2 h-auto md:grid md:grid-cols-5 p-1">
             <TabsTrigger value="all" className="flex-1 min-w-[100px]">
               All ({allAlerts.length})
             </TabsTrigger>
@@ -314,6 +336,9 @@ export default function Alerts() {
             </TabsTrigger>
             <TabsTrigger value="checklists" className="flex-1 min-w-[100px]">
               Checklists ({checklistAlerts.length})
+            </TabsTrigger>
+            <TabsTrigger value="signups" className="flex-1 min-w-[100px]">
+              New Users ({signupAlerts.length})
             </TabsTrigger>
           </TabsList>
 
@@ -333,11 +358,14 @@ export default function Alerts() {
                       ? 'border-l-4 border-l-orange-500' 
                       : alert.type === 'punch_clock'
                       ? 'border-l-4 border-l-blue-500'
+                      : alert.type === 'signup'
+                      ? 'border-l-4 border-l-green-500'
                       : 'border-l-4 border-l-destructive'
                   }`}
                   onClick={() => navigate(
                     alert.type === 'logbook' ? '/logbook' 
                     : alert.type === 'punch_clock' ? '/payroll-review'
+                    : alert.type === 'signup' ? '/users'
                     : '/tasks'
                   )}
                 >
@@ -348,6 +376,8 @@ export default function Alerts() {
                           <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
                         ) : alert.type === 'punch_clock' ? (
                           <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
+                        ) : alert.type === 'signup' ? (
+                          <UserPlus className="h-5 w-5 text-green-600 mt-0.5" />
                         ) : (
                           <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
                         )}
@@ -357,6 +387,8 @@ export default function Alerts() {
                               ? alert.logbook_categories?.name 
                               : alert.type === 'punch_clock'
                               ? `${alert.status === 'missing' ? 'Missed Punch' : 'Late Punch'} - ${alert.profile?.full_name}`
+                              : alert.type === 'signup'
+                              ? `New User Joined - ${alert.profiles?.full_name}`
                               : alert.title}
                           </CardTitle>
                           <CardDescription className="text-xs mt-1">
@@ -369,10 +401,12 @@ export default function Alerts() {
                       <Badge variant={
                         alert.type === 'logbook' ? 'secondary' 
                         : alert.type === 'punch_clock' ? 'outline'
+                        : alert.type === 'signup' ? 'default'
                         : 'destructive'
                       }>
                         {alert.type === 'logbook' ? 'Log' 
                          : alert.type === 'punch_clock' ? 'Punch Clock'
+                         : alert.type === 'signup' ? 'New User'
                          : 'Checklist'}
                       </Badge>
                     </div>
@@ -389,6 +423,22 @@ export default function Alerts() {
                         <span className="text-sm text-muted-foreground">
                           {alert.profiles.full_name}
                         </span>
+                      </div>
+                    </CardContent>
+                  )}
+                  {alert.type === 'signup' && alert.profiles && (
+                    <CardContent className="pt-0">
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={alert.profiles.profile_photo_url || ''} />
+                          <AvatarFallback>
+                            {alert.profiles.full_name?.charAt(0) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium">{alert.profiles.full_name}</span>
+                          <span className="text-xs text-muted-foreground">{alert.profiles.email}</span>
+                        </div>
                       </div>
                     </CardContent>
                   )}
@@ -582,6 +632,55 @@ export default function Alerts() {
                           <span>{alert.managerNames.join(', ')}</span>
                         </div>
                       )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </TabsContent>
+
+          <TabsContent value="signups" className="space-y-3 mt-4">
+            {signupAlerts.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center text-muted-foreground">
+                  No new user signups in the last 7 days
+                </CardContent>
+              </Card>
+            ) : (
+              signupAlerts.map((alert: any) => (
+                <Card 
+                  key={alert.id}
+                  className="cursor-pointer hover:shadow-md transition-shadow border-l-4 border-l-green-500"
+                  onClick={() => navigate('/users')}
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-3">
+                        <UserPlus className="h-5 w-5 text-green-600 mt-0.5" />
+                        <div>
+                          <CardTitle className="text-base">
+                            New User Joined - {alert.profiles?.full_name}
+                          </CardTitle>
+                          <CardDescription className="text-xs mt-1">
+                            {format(new Date(alert.created_at), 'MMM d, yyyy • h:mm a')}
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <Badge variant="default">New User</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={alert.profiles?.profile_photo_url || ''} />
+                        <AvatarFallback>
+                          {alert.profiles?.full_name?.charAt(0) || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{alert.profiles?.full_name}</span>
+                        <span className="text-xs text-muted-foreground">{alert.profiles?.email}</span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
