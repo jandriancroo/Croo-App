@@ -230,26 +230,15 @@ export default function Messages() {
               <h1 className="text-3xl font-bold">Chat</h1>
               <div className="flex gap-2">
                 {isAdmin && (
-                  <>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setIsMarketplaceIconOpen(true)}
-                      className="gap-2"
-                      disabled={!marketplaceChatId}
-                    >
-                      🏪 Icon
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setIsAnnouncementOpen(true)}
-                      className="gap-2"
-                    >
-                      <Megaphone className="h-4 w-4" />
-                      Announce
-                    </Button>
-                  </>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsAnnouncementOpen(true)}
+                    className="gap-2"
+                  >
+                    <Megaphone className="h-4 w-4" />
+                    Announce
+                  </Button>
                 )}
                 <Button
                   size="sm"
@@ -302,24 +291,14 @@ export default function Messages() {
                 <h2 className="text-lg font-semibold">Chat</h2>
                 <div className="flex gap-2">
                   {isAdmin && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setIsMarketplaceIconOpen(true)}
-                        disabled={!marketplaceChatId}
-                      >
-                        🏪
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setIsAnnouncementOpen(true)}
-                        className="gap-2"
-                      >
-                        <Megaphone className="h-4 w-4" />
-                      </Button>
-                    </>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsAnnouncementOpen(true)}
+                      className="gap-2"
+                    >
+                      <Megaphone className="h-4 w-4" />
+                    </Button>
                   )}
                   <Button
                     size="sm"
