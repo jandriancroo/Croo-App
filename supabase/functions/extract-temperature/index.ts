@@ -35,14 +35,14 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a temperature extraction assistant. Extract the exact numeric temperature value from thermometer images, including both digital LCD thermometers and analog round gauge thermometers. IMPORTANT: First, zoom all the way into the display area (LCD screen for digital or dial face for analog) to read the numbers clearly. If the thermometer appears tilted or at an angle, mentally rotate it to horizontal/upright position before reading. For analog thermometers, carefully read where the needle/indicator points on the numbered scale. Return ONLY the numeric value with decimal if present, nothing else. If you cannot read a temperature, return 'NONE'."
+            content: "You are a temperature extraction assistant. Extract the exact numeric temperature value from thermometer images, including both digital LCD thermometers and analog round gauge thermometers. IMPORTANT: First, zoom all the way into the display area (LCD screen for digital or dial face for analog) to read the numbers clearly. For digital LCD thermometers: note that the digit after the decimal point is typically smaller than the main digits, and there's usually a small 'F' in the top right corner of the LCD screen. If the thermometer appears tilted or at an angle, mentally rotate it to horizontal/upright position before reading (do NOT rotate round gauge thermometers). For analog thermometers, carefully read where the needle/indicator points on the numbered scale. Return ONLY the numeric value with decimal if present, nothing else. If you cannot read a temperature, return 'NONE'."
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "What is the temperature reading on this thermometer? This may be a digital LCD thermometer or an analog round gauge thermometer. IMPORTANT: First zoom all the way into the display area (LCD screen for digital or dial face for analog) to see the numbers clearly, then if the thermometer is tilted at an angle, imagine rotating it to be horizontal before reading. For analog thermometers, read where the needle points on the scale. Return only the numeric value (e.g., 41.7 or 165 or 143)."
+                text: "What is the temperature reading on this thermometer? This may be a digital LCD thermometer or an analog round gauge thermometer. IMPORTANT: First zoom all the way into the display area (LCD screen for digital or dial face for analog) to see the numbers clearly. For digital LCD thermometers, the digit after the decimal point is smaller, and there's a small 'F' in the top right corner. If it's a digital LCD thermometer and appears tilted at an angle, imagine rotating it to be horizontal before reading (do NOT rotate round gauge thermometers). For analog thermometers, read where the needle points on the scale. Return only the numeric value (e.g., 38.5 or 165 or 143)."
               },
               {
                 type: "image_url",
