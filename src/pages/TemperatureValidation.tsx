@@ -256,8 +256,7 @@ export default function TemperatureValidation() {
                         alt="Thermometer reading"
                         className="h-auto object-contain rounded-lg cursor-pointer border"
                         style={{ 
-                          transform: 'rotate(90deg)',
-                          maxHeight: '200px',
+                          maxHeight: '300px',
                           maxWidth: '90vw'
                         }}
                         onClick={() => setPreviewImage(reading.response_image_url)}
