@@ -1259,9 +1259,9 @@ export default function UserManagement() {
                       />
                     </TableHead>
                     <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Croo Cash</TableHead>
-                    <TableHead>Cert</TableHead>
+                    <TableHead className="hidden md:table-cell">Role</TableHead>
+                    <TableHead className="hidden md:table-cell">Croo Cash</TableHead>
+                    <TableHead className="hidden md:table-cell">Cert</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -1286,30 +1286,42 @@ export default function UserManagement() {
                         }}
                       >
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10">
+                          <Avatar className="h-10 w-10 flex-shrink-0">
                             <AvatarImage src={user.profile_photo_url || undefined} />
                             <AvatarFallback>
                               {user.full_name?.charAt(0) || user.email.charAt(0).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <div>
-                            <div className="font-medium">{user.full_name || 'No name'}</div>
-                            <div className="text-sm text-muted-foreground">{user.email}</div>
+                          <div className="flex-1 min-w-0">
+                            {/* Desktop view - stacked vertically */}
+                            <div className="hidden md:block">
+                              <div className="font-medium">{user.full_name || 'No name'}</div>
+                              <div className="text-sm text-muted-foreground">{user.email}</div>
+                            </div>
+                            {/* Mobile view - name on top, role and croo cash below */}
+                            <div className="md:hidden">
+                              <div className="font-medium">{user.full_name || 'No name'}</div>
+                              <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+                                <span>{user.role?.replace('_', ' ')}</span>
+                                <span>•</span>
+                                <span>${(user.croo_cash_balance || 0) / 100}</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <Badge variant={getRoleBadgeVariant(user.role!)} className="gap-1">
                           {getRoleIcon(user.role!)}
                           {user.role?.replace('_', ' ')}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="font-medium">
                           ${(user.croo_cash_balance || 0) / 100}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div className="flex items-center justify-center">
                           {user.has_certification ? (
                             <Check className="h-5 w-5 text-green-500" />
@@ -1332,8 +1344,10 @@ export default function UserManagement() {
                             setViewingUser(user);
                             setIsProfileDialogOpen(true);
                           }}
+                          className="text-xs md:text-sm"
                         >
-                          View Profile
+                          <span className="hidden md:inline">View Profile</span>
+                          <span className="md:hidden">View</span>
                         </Button>
                       </TableCell>
                     </TableRow>
