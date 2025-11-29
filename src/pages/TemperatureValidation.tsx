@@ -250,13 +250,15 @@ export default function TemperatureValidation() {
               <Card key={reading.id}>
                 <CardContent className="pt-6">
                   <div className="flex flex-col gap-4">
-                    <div className="flex-shrink-0 py-4">
+                    <div className="flex-shrink-0 py-4 flex justify-center items-center" style={{ minHeight: '300px' }}>
                       <img
                         src={reading.response_image_url}
                         alt="Thermometer reading"
-                        className="w-full max-w-2xl h-auto object-contain rounded-lg cursor-pointer border mx-auto"
+                        className="max-w-full h-auto object-contain rounded-lg cursor-pointer border"
                         style={{ 
-                          maxHeight: '400px'
+                          transform: 'rotate(90deg)',
+                          maxHeight: '500px',
+                          maxWidth: '500px'
                         }}
                         onClick={() => setPreviewImage(reading.response_image_url)}
                       />
@@ -306,38 +308,31 @@ export default function TemperatureValidation() {
                               {reading.extracted_temperature}°F
                             </p>
                             {getStatusBadge(reading.temperature_valid, reading.extracted_temperature)}
+                            {reading.temperature_validated_at && (
+                              <Badge className="bg-green-700 text-white">
+                                <CheckCircle2 className="w-3 h-3 mr-1" />
+                                Corrected
+                              </Badge>
+                            )}
                           </div>
                           <div className="flex gap-2 flex-wrap">
-                            {reading.temperature_validated_at ? (
-                              <Button
-                                size="sm"
-                                disabled
-                                className="bg-green-700 hover:bg-green-700 opacity-80 flex-1 sm:flex-none"
-                              >
-                                <CheckCircle2 className="w-4 h-4 mr-1" />
-                                Corrected
-                              </Button>
-                            ) : (
-                              <>
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleConfirm(reading.id)}
-                                  className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none"
-                                >
-                                  <CheckCircle2 className="w-4 h-4 mr-1" />
-                                  Confirm Correct
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleEdit(reading)}
-                                  className="flex-1 sm:flex-none"
-                                >
-                                  <Edit2 className="w-4 h-4 mr-1" />
-                                  Edit
-                                </Button>
-                              </>
-                            )}
+                            <Button
+                              size="sm"
+                              onClick={() => handleConfirm(reading.id)}
+                              className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none"
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-1" />
+                              Confirm Correct
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEdit(reading)}
+                              className="flex-1 sm:flex-none"
+                            >
+                              <Edit2 className="w-4 h-4 mr-1" />
+                              Edit
+                            </Button>
                           </div>
                         </>
                       )}
