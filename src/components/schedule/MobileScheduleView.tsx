@@ -113,19 +113,19 @@ export function MobileScheduleView({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Month Header */}
-      <div className="flex items-center justify-between p-4 border-b">
+      {/* Month Header - Condensed */}
+      <div className="flex items-center justify-between px-4 py-2 border-b">
         <Button variant="ghost" size="icon" onClick={handlePreviousWeek}>
           <ChevronLeft className="h-5 w-5" />
         </Button>
-        <h2 className="text-lg font-semibold">{format(currentWeekStart, 'MMMM yyyy')}</h2>
+        <h2 className="text-base font-semibold">{format(currentWeekStart, 'MMMM yyyy')}</h2>
         <Button variant="ghost" size="icon" onClick={handleNextWeek}>
           <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
 
       {/* Week Calendar */}
-      <div className="flex items-center justify-around p-4 border-b">
+      <div className="flex items-center justify-around p-3 border-b">
         {weekDays.map((day, index) => {
           const isSelected = isSameDay(day, selectedDate);
           const isToday = isSameDay(day, new Date());
@@ -149,15 +149,9 @@ export function MobileScheduleView({
         })}
       </div>
 
-      {/* Restaurant Name */}
-      <div className="flex items-center gap-2 p-4 border-b">
-        <MapPin className="h-5 w-5 text-primary" />
-        <span className="text-lg font-medium">Blaze Pizza</span>
-      </div>
-
       {/* Selected Date Header */}
-      <div className="flex items-center justify-between p-4 bg-muted/30">
-        <h3 className="text-lg font-semibold">{format(selectedDate, 'EEEE, MMM d')}</h3>
+      <div className="flex items-center justify-between p-3 bg-muted/30">
+        <h3 className="text-base font-semibold">{format(selectedDate, 'EEEE, MMM d')}</h3>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 text-muted-foreground">
             <Users className="h-4 w-4" />
@@ -179,8 +173,7 @@ export function MobileScheduleView({
                 setShiftDialogOpen(true);
               }}
             >
-              <Plus className="h-4 w-4 mr-1" />
-              Add Shift
+              <Plus className="h-4 w-4" />
             </Button>
           )}
         </div>
@@ -204,7 +197,39 @@ export function MobileScheduleView({
         </div>
       )}
 
-      {/* Shifts List */}
+      {/* My Shift - if user has a shift this day */}
+      {user && dayShifts.some(s => s.user_id === user.id) && (
+        <div className="px-4 pt-3">
+          {dayShifts.filter(s => s.user_id === user.id).map((myShift) => (
+            <Card 
+              key={myShift.id}
+              className="bg-primary/10 border-primary/30 cursor-pointer"
+              onClick={() => {
+                setSelectedShift(myShift);
+                setShiftDialogOpen(true);
+              }}
+            >
+              <div className="px-3 py-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-semibold text-primary">My Shift</p>
+                    <p className="text-sm font-medium">
+                      {formatTime12Hour(myShift.start_time)} – {formatTime12Hour(myShift.end_time)}
+                    </p>
+                  </div>
+                  {myShift.template?.position && (
+                    <Badge variant="secondary" className="text-xs">
+                      {myShift.template.position}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Shifts List - sorted by start time */}
       <div className="flex-1 overflow-auto p-4 space-y-3">
         {dayShifts.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
@@ -212,65 +237,67 @@ export function MobileScheduleView({
             <p>No shifts scheduled for this day</p>
           </div>
         ) : (
-          dayShifts.map((shift) => {
-            const profile = getProfileForShift(shift);
-            if (!profile) return null;
+          [...dayShifts]
+            .sort((a, b) => a.start_time.localeCompare(b.start_time))
+            .map((shift) => {
+              const profile = getProfileForShift(shift);
+              if (!profile) return null;
 
-            return (
-              <Card 
-                key={shift.id} 
-                className="hover:shadow-md transition-shadow cursor-pointer"
-                onClick={() => {
-                  setSelectedShift(shift);
-                  setShiftDialogOpen(true);
-                }}
-              >
-                <div className="flex items-center gap-3 p-4">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={profile.profile_photo_url || undefined} />
-                    <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  
-                  <div className="flex-1 text-left">
-                    <h4 className="font-semibold">{profile.full_name}</h4>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm text-muted-foreground">
-                        {formatTime12Hour(shift.start_time)} – {formatTime12Hour(shift.end_time)}
-                      </p>
-                      {shiftHasBreak(shift.start_time, shift.end_time) && (
-                        <BreakIndicator hasBreak={true} size="sm" />
+              return (
+                <Card 
+                  key={shift.id} 
+                  className="hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => {
+                    setSelectedShift(shift);
+                    setShiftDialogOpen(true);
+                  }}
+                >
+                  <div className="flex items-center gap-3 p-4">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={profile.profile_photo_url || undefined} />
+                      <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1 text-left">
+                      <h4 className="font-semibold">{profile.full_name}</h4>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-muted-foreground">
+                          {formatTime12Hour(shift.start_time)} – {formatTime12Hour(shift.end_time)}
+                        </p>
+                        {shiftHasBreak(shift.start_time, shift.end_time) && (
+                          <BreakIndicator hasBreak={true} size="sm" />
+                        )}
+                      </div>
+                      {shift.template?.position && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <div 
+                            className="w-2 h-2 rounded-full" 
+                            style={{ backgroundColor: shift.template.color || '#ef4444' }}
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            {shift.template.position}
+                          </span>
+                        </div>
                       )}
                     </div>
-                    {shift.template?.position && (
-                      <div className="flex items-center gap-2 mt-1">
-                        <div 
-                          className="w-2 h-2 rounded-full" 
-                          style={{ backgroundColor: shift.template.color || '#ef4444' }}
-                        />
-                        <span className="text-xs text-muted-foreground">
-                          {shift.template.position}
-                        </span>
-                      </div>
+                    
+                    {(isAdmin || shift.user_id === user?.id) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedShiftForOffer(shift);
+                          setOfferDialogOpen(true);
+                        }}
+                      >
+                        Offer Up
+                      </Button>
                     )}
                   </div>
-                  
-                  {(isAdmin || shift.user_id === user?.id) && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedShiftForOffer(shift);
-                        setOfferDialogOpen(true);
-                      }}
-                    >
-                      Offer Up
-                    </Button>
-                  )}
-                </div>
-              </Card>
-            );
-          })
+                </Card>
+              );
+            })
         )}
       </div>
 
