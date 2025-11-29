@@ -219,7 +219,7 @@ export function MobileScheduleView({
                   </div>
                   {myShift.template?.position && (
                     <Badge variant="secondary" className="text-xs">
-                      {myShift.template.position}
+                      {myShift.template.position.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM|am|pm)?/g, '').trim()}
                     </Badge>
                   )}
                 </div>
