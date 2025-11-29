@@ -89,6 +89,32 @@ export default function Dashboard() {
     refetchInterval: 15000, // Refresh every 15 seconds
   });
 
+  // Generate simulated sales data for 30 days
+  const generateSimulatedSalesData = () => {
+    const today = new Date();
+    const dailyData = [];
+    
+    // Generate 30 days of data
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dayOfWeek = date.getDay();
+      
+      // Weekend sales are typically higher
+      const baseAmount = dayOfWeek === 5 || dayOfWeek === 6 ? 2500 : 1800;
+      const variance = Math.random() * 600 - 300; // ±300 variance
+      
+      dailyData.push({
+        date: format(date, 'MMM d'),
+        sales: Math.max(1000, baseAmount + variance)
+      });
+    }
+    
+    return dailyData;
+  };
+
+  const simulatedMonthlyData = generateSimulatedSalesData();
+  
   const {
     data: rawSalesData,
     refetch: refetchSales
@@ -141,6 +167,13 @@ export default function Dashboard() {
         };
       })()
     : rawSalesData;
+  
+  // Calculate weekly data from simulated monthly data (last 7 days)
+  const weeklyData = simulatedMonthlyData.slice(-7);
+  const weeklyTotal = weeklyData.reduce((sum, day) => sum + day.sales, 0);
+  
+  // Calculate monthly totals
+  const monthlyTotal = simulatedMonthlyData.reduce((sum, day) => sum + day.sales, 0);
   useEffect(() => {
     fetchData();
     fetchCrooCashBalance();
@@ -421,35 +454,63 @@ export default function Dashboard() {
                 <div>
                   <p className="text-sm text-muted-foreground">Total Sales</p>
                   <p className="text-2xl font-bold">
-                    {salesData ? formatCurrency(salesData.weekly) : "--"}
+                    {formatCurrency(weeklyTotal)}
                   </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Daily Avg</p>
                   <p className="text-2xl font-bold">
-                    {salesData ? formatCurrency(salesData.weekly / 7) : "--"}
+                    {formatCurrency(weeklyTotal / 7)}
                   </p>
                 </div>
               </div>
-              <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground border-2 border-dashed border-border rounded-lg">
-                Weekly breakdown chart coming soon
-              </div>
+              <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
+                <BarChart data={weeklyData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="date" className="text-xs" tick={{
+                fill: 'hsl(var(--foreground))'
+              }} />
+                  <YAxis className="text-xs" tick={{
+                fill: 'hsl(var(--foreground))'
+              }} tickFormatter={value => `$${value}`} />
+                  <Tooltip formatter={value => formatCurrency(value as number)} contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '6px'
+              }} />
+                  <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </TabsContent>
             
             <TabsContent value="month" className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Sales</p>
-                  <p className="text-2xl font-bold">--</p>
+                  <p className="text-2xl font-bold">{formatCurrency(monthlyTotal)}</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Daily Avg</p>
-                  <p className="text-2xl font-bold">--</p>
+                  <p className="text-2xl font-bold">{formatCurrency(monthlyTotal / 30)}</p>
                 </div>
               </div>
-              <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground border-2 border-dashed border-border rounded-lg">
-                Monthly breakdown chart coming soon
-              </div>
+              <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
+                <BarChart data={simulatedMonthlyData}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="date" className="text-xs" tick={{
+                fill: 'hsl(var(--foreground))'
+              }} interval={4} />
+                  <YAxis className="text-xs" tick={{
+                fill: 'hsl(var(--foreground))'
+              }} tickFormatter={value => `$${value}`} />
+                  <Tooltip formatter={value => formatCurrency(value as number)} contentStyle={{
+                backgroundColor: 'hsl(var(--card))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '6px'
+              }} />
+                  <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </TabsContent>
           </Tabs>
         </CardContent>
