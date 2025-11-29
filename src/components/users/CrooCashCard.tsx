@@ -90,7 +90,7 @@ export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
               textShadow: '3px 3px 0px rgba(0,0,0,0.1)',
               fontFamily: 'Comic Sans MS, cursive'
             }}>
-              {balance}
+              ${(balance / 100).toFixed(2)}
               
               {/* Celebration Animation */}
               {animationAmount !== null && (
@@ -100,7 +100,7 @@ export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
                     fontFamily: 'Comic Sans MS, cursive',
                     animation: 'bounce 1s ease-in-out 3, fade-out 0.5s ease-out 2.5s forwards'
                   }}>
-                    +{animationAmount}
+                    +${(animationAmount / 100).toFixed(2)}
                     <Sparkles className="inline-block h-10 w-10 ml-2 animate-spin" style={{
                       filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.8))'
                     }} />
@@ -163,18 +163,29 @@ export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
                       {getTransactionIcon(transaction.transaction_type)}
                       <div>
                         <div className="text-sm font-medium">
-                          {transaction.transaction_type === "take_shift" ? "Claimed Shift" : "Offered Shift"}
+                          {transaction.transaction_type === "take_shift" 
+                            ? "Claimed Shift" 
+                            : transaction.transaction_type === "offer_shift"
+                            ? "Offered Shift"
+                            : transaction.transaction_type === "checklist_completion"
+                            ? "Completed Checklist"
+                            : "Incomplete Checklist"}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {new Date(transaction.shift_date).toLocaleDateString()}
                           {transaction.is_weekend && " 🎉 Weekend"}
+                          {transaction.notes && (
+                            <div className="text-xs mt-0.5 text-muted-foreground/80">
+                              {transaction.notes}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
                     <div className={`text-lg font-bold ${transaction.amount > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} style={{
                       fontFamily: 'Comic Sans MS, cursive'
                     }}>
-                      {transaction.amount > 0 ? '+' : ''}{transaction.amount}
+                      {transaction.amount > 0 ? '+' : ''}${Math.abs(transaction.amount / 100).toFixed(2)}
                     </div>
                   </div>
                 ))}
@@ -186,9 +197,11 @@ export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
         {/* Info Box */}
         <div className="bg-primary/10 p-3 rounded-lg text-xs space-y-1">
           <p className="font-semibold">💡 How it works:</p>
-          <p>• Offer up a shift: <strong>-1 Croo Cash</strong></p>
-          <p>• Take a shift: <strong>+1 Croo Cash</strong></p>
-          <p>• Friday/Saturday: <strong>2x points!</strong></p>
+          <p>• Offer up a shift: <strong>-$0.25 Croo Cash</strong></p>
+          <p>• Take a shift: <strong>+$0.25 Croo Cash</strong></p>
+          <p>• Complete checklist: <strong>+$0.25 Croo Cash</strong></p>
+          <p>• Incomplete checklist: <strong>-$0.25 Croo Cash</strong></p>
+          <p>• Friday/Saturday shifts: <strong>2x points!</strong></p>
         </div>
       </CardContent>
     </Card>
