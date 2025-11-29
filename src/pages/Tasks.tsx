@@ -18,11 +18,12 @@ import { format, addDays, subDays } from "date-fns";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableChecklistItem } from '@/components/tasks/SortableChecklistItem';
+import { ChecklistLeaderboard } from '@/components/tasks/ChecklistLeaderboard';
 
 export default function Tasks() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, isManager } = useUserRole();
   const queryClient = useQueryClient();
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [historyDate, setHistoryDate] = useState(new Date());
@@ -323,47 +324,8 @@ export default function Tasks() {
           </div>
 
           <TabsContent value="active" className="space-y-6">
-            {/* Completion Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Today</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="h-8 w-8 text-green-500" />
-                    <div className="text-2xl font-bold">{submissionStats?.today || 0}</div>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">Completed today</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">This Week</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-8 w-8 text-blue-500" />
-                    <div className="text-2xl font-bold">{submissionStats?.thisWeek || 0}</div>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">Completed this week</p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">This Month</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    <FileCheck className="h-8 w-8 text-purple-500" />
-                    <div className="text-2xl font-bold">{submissionStats?.thisMonth || 0}</div>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">Completed this month</p>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Manager/Admin Leaderboard */}
+            {(isAdmin || isManager) && <ChecklistLeaderboard />}
 
             {/* Available Checklists */}
             <Card>
