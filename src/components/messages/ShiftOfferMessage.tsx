@@ -183,7 +183,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
       const shiftDate = new Date(offer.shift.shift_date);
       const dayOfWeek = shiftDate.getDay();
       const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
-      const amount = isWeekend ? 2 : 1;
+      const amount = isWeekend ? 50 : 25; // 2x for weekend
 
       // Create claim record
       const { error: claimError } = await supabase
@@ -256,7 +256,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
       const shiftDate = new Date(offer.shift.shift_date);
       const dayOfWeek = shiftDate.getDay();
       const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
-      const amount = isWeekend ? 2 : 1;
+      const amount = isWeekend ? 50 : 25; // 2x for weekend
 
       // Update shift_offers status to approved
       const { error: offerError } = await supabase
@@ -276,6 +276,33 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
         .eq("id", offer.shift.id);
 
       if (shiftError) throw shiftError;
+
+      // NOW deduct Croo Cash from the offerer (they lose points when claim is approved)
+      const { error: offererTransactionError } = await supabase
+        .from("croo_cash_transactions")
+        .insert({
+          user_id: offer.offered_by.id,
+          amount: -amount,
+          transaction_type: "offer_shift",
+          shift_offer_id: offerId,
+          shift_date: offer.shift.shift_date,
+          is_weekend: isWeekend,
+          notes: `Offered shift on ${shiftDate.toLocaleDateString()} - claim approved`
+        });
+
+      if (offererTransactionError) throw offererTransactionError;
+
+      // Update offerer's Croo Cash balance
+      const { data: offererProfile } = await supabase
+        .from("profiles")
+        .select("croo_cash_balance")
+        .eq("id", offer.offered_by.id)
+        .single();
+      
+      await supabase
+        .from("profiles")
+        .update({ croo_cash_balance: (offererProfile?.croo_cash_balance || 0) - amount })
+        .eq("id", offer.offered_by.id);
 
       // Trigger animation if the current user is the one who got approved
       if (currentUserId === selectedClaimerId) {
@@ -298,7 +325,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
       const shiftDate = new Date(offer.shift.shift_date);
       const dayOfWeek = shiftDate.getDay();
       const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
-      const amount = isWeekend ? 2 : 1;
+      const amount = isWeekend ? 50 : 25; // 2x for weekend
 
       // Reverse Croo Cash for all claimers
       for (const claim of claims) {

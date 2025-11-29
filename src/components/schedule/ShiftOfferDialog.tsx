@@ -65,13 +65,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
         return;
       }
 
-      // Determine if this is a weekend (Friday = 5, Saturday = 6)
-      const shiftDate = new Date(shift.shift_date);
-      const dayOfWeek = shiftDate.getDay();
-      const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
-      const amount = isWeekend ? -2 : -1;
-
-      // Create shift offer
+      // Create shift offer (no Croo Cash deduction yet - only when approved or no-show)
       const { data: newOffer, error: offerError } = await supabase
         .from("shift_offers")
         .insert({
@@ -83,35 +77,6 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
         .single();
 
       if (offerError) throw offerError;
-
-      // Create Croo Cash transaction for offering up shift
-      const { error: transactionError } = await supabase
-        .from("croo_cash_transactions")
-        .insert({
-          user_id: user.id,
-          amount: amount,
-          transaction_type: "offer_shift",
-          shift_offer_id: newOffer.id,
-          shift_date: shift.shift_date,
-          is_weekend: isWeekend,
-          notes: `Offered shift on ${shiftDate.toLocaleDateString()}`
-        });
-
-      if (transactionError) throw transactionError;
-
-      // Update user's Croo Cash balance
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("croo_cash_balance")
-        .eq("id", user.id)
-        .single();
-      
-      const { error: balanceError } = await supabase
-        .from("profiles")
-        .update({ croo_cash_balance: (profile?.croo_cash_balance || 0) + amount })
-        .eq("id", user.id);
-      
-      if (balanceError) throw balanceError;
 
       // Get or create shift marketplace chat
       let { data: marketplaceChat } = await supabase
