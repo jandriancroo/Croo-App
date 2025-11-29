@@ -596,7 +596,7 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold">Dash</h1>
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 relative">
               <Banknote className="h-4 w-4" style={{ transform: 'rotate(90deg) rotate(-10deg)' }} />
-              <span className="text-sm font-bold">{crooCashBalance}</span>
+              <span className="text-sm font-bold">${(crooCashBalance / 100).toFixed(2)}</span>
               
               {/* Celebration Animation */}
               {animationAmount !== null && (
@@ -606,7 +606,7 @@ export default function Dashboard() {
                     fontFamily: 'Comic Sans MS, cursive',
                     animation: 'bounce 0.8s ease-in-out 3, fade-out 0.5s ease-out 2.5s forwards'
                   }}>
-                    +{animationAmount}
+                    +${(animationAmount / 100).toFixed(2)}
                     <Sparkles className="h-6 w-6 animate-spin" style={{
                       filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.8))'
                     }} />
