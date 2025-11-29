@@ -10,7 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
-import { Award, Upload, ExternalLink, Trash2, MapPin, ExternalLink as ExternalLinkIcon } from 'lucide-react';
+import { Award, Upload, ExternalLink, Trash2, MapPin, ExternalLink as ExternalLinkIcon, Thermometer } from 'lucide-react';
 import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
 import { PositionManagementSection } from '@/components/settings/PositionManagementSection';
 import { Badge } from '@/components/ui/badge';
@@ -415,46 +415,70 @@ export default function Settings() {
           </Card>
 
           {isAdmin && (
-            <Card>
-              <CardHeader>
-                <CardTitle>System Maintenance</CardTitle>
-                <CardDescription>
-                  One-time system tools and data fixes
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="border rounded-lg p-4">
-                  <h4 className="font-semibold mb-2">Backfill Alle Photo Completions</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Sets Alle Rowe as the completer for legacy photo responses on the Morning Line Check checklist.
-                  </p>
-                  <Button 
+            <>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Thermometer className="h-5 w-5" />
+                    Temperature Validation
+                  </CardTitle>
+                  <CardDescription>
+                    Review and correct AI-extracted temperature readings from checklist photos
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button
                     variant="outline"
-                    onClick={async () => {
-                      try {
-                        sonnerToast.info('Starting Alle backfill...');
-                        const { data, error } = await supabase.functions.invoke('backfill-alle-photo-completions', {
-                          body: { checklist_id: '9eaed930-e88a-4874-9045-b4c7fb91e6bd' },
-                        });
-                        
-                        if (error) throw error;
-                        
-                        if (data.success) {
-                          sonnerToast.success(`Backfill complete: ${data.updated} photo responses updated`);
-                        } else {
-                          sonnerToast.error(data.error || 'Backfill failed');
-                        }
-                      } catch (error: any) {
-                        console.error('Alle backfill error:', error);
-                        sonnerToast.error('Failed to run Alle backfill');
-                      }
-                    }}
+                    className="w-full"
+                    onClick={() => navigate('/temperature-validation')}
                   >
-                    Run Alle Backfill
+                    <Thermometer className="w-4 h-4 mr-2" />
+                    Review Temperature Readings
                   </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>System Maintenance</CardTitle>
+                  <CardDescription>
+                    One-time system tools and data fixes
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="border rounded-lg p-4">
+                    <h4 className="font-semibold mb-2">Backfill Alle Photo Completions</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Sets Alle Rowe as the completer for legacy photo responses on the Morning Line Check checklist.
+                    </p>
+                    <Button 
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          sonnerToast.info('Starting Alle backfill...');
+                          const { data, error } = await supabase.functions.invoke('backfill-alle-photo-completions', {
+                            body: { checklist_id: '9eaed930-e88a-4874-9045-b4c7fb91e6bd' },
+                          });
+                          
+                          if (error) throw error;
+                          
+                          if (data.success) {
+                            sonnerToast.success(`Backfill complete: ${data.updated} photo responses updated`);
+                          } else {
+                            sonnerToast.error(data.error || 'Backfill failed');
+                          }
+                        } catch (error: any) {
+                          console.error('Alle backfill error:', error);
+                          sonnerToast.error('Failed to run Alle backfill');
+                        }
+                      }}
+                    >
+                      Run Alle Backfill
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
           )}
         </div>
       </div>

@@ -31,6 +31,7 @@ import Certifications from "./pages/Certifications";
 import Alerts from "./pages/Alerts";
 import LocationProfile from "./pages/LocationProfile";
 import FontPreviewPage from "./pages/FontPreviewPage";
+import TemperatureValidation from "./pages/TemperatureValidation";
 import Index from "./pages/Index";
 import WelcomeProfile from "./pages/WelcomeProfile";
 
@@ -68,6 +69,7 @@ const AppContent = () => {
       <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
       <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
       <Route path="/font-preview" element={<ProtectedRoute><FontPreviewPage /></ProtectedRoute>} />
+      <Route path="/temperature-validation" element={<ProtectedRoute><TemperatureValidation /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
