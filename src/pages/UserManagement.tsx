@@ -1262,8 +1262,7 @@ export default function UserManagement() {
                     <TableHead className="hidden md:table-cell">Role</TableHead>
                     <TableHead className="hidden md:table-cell">Croo Cash</TableHead>
                     <TableHead className="hidden md:table-cell">Cert</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="hidden md:table-cell">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1298,13 +1297,16 @@ export default function UserManagement() {
                               <div className="font-medium">{user.full_name || 'No name'}</div>
                               <div className="text-sm text-muted-foreground">{user.email}</div>
                             </div>
-                            {/* Mobile view - name on top, role and croo cash below */}
+                            {/* Mobile view - name on top, status + role + croo cash below */}
                             <div className="md:hidden">
                               <div className="font-medium">{user.full_name || 'No name'}</div>
-                              <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
-                                <span>{user.role?.replace('_', ' ')}</span>
-                                <span>•</span>
-                                <span>${(user.croo_cash_balance || 0) / 100}</span>
+                              <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                <Badge variant={user.is_active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
+                                  {user.is_active ? "Active" : "Inactive"}
+                                </Badge>
+                                <span className="text-muted-foreground">{user.role?.replace('_', ' ')}</span>
+                                <span className="text-muted-foreground">•</span>
+                                <span className="text-muted-foreground">${(user.croo_cash_balance || 0) / 100}</span>
                               </div>
                             </div>
                           </div>
@@ -1330,25 +1332,10 @@ export default function UserManagement() {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <Badge variant={user.is_active ? "default" : "secondary"}>
                           {user.is_active ? "Active" : "Inactive"}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setViewingUser(user);
-                            setIsProfileDialogOpen(true);
-                          }}
-                          className="text-xs md:text-sm"
-                        >
-                          <span className="hidden md:inline">View Profile</span>
-                          <span className="md:hidden">View</span>
-                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
