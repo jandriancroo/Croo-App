@@ -23,7 +23,7 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Call Lovable AI to extract temperature from image
+    // Call Lovable AI to extract temperature from image with rotation instruction
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -35,14 +35,14 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a temperature extraction assistant. Extract the exact numeric temperature value from thermometer images. Return ONLY the numeric value with decimal if present, nothing else. If you cannot read a temperature, return 'NONE'."
+            content: "You are a temperature extraction assistant. Extract the exact numeric temperature value from thermometer images. If the thermometer appears tilted or at an angle, mentally rotate it to horizontal/upright position before reading. Return ONLY the numeric value with decimal if present, nothing else. If you cannot read a temperature, return 'NONE'."
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "What is the temperature reading on this thermometer? Return only the numeric value (e.g., 41.7 or 165 or 143)."
+                text: "What is the temperature reading on this thermometer? If the thermometer is tilted at an angle, imagine rotating it to be horizontal before reading. Return only the numeric value (e.g., 41.7 or 165 or 143)."
               },
               {
                 type: "image_url",
