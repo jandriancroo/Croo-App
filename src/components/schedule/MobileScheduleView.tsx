@@ -114,13 +114,13 @@ export function MobileScheduleView({
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Month Header - Condensed */}
-      <div className="flex items-center justify-between px-4 py-2 border-b">
+      <div className="flex items-center justify-between px-4 py-1 border-b">
         <Button variant="ghost" size="icon" onClick={handlePreviousWeek}>
-          <ChevronLeft className="h-5 w-5" />
+          <ChevronLeft className="h-4 w-4" />
         </Button>
-        <h2 className="text-base font-semibold">{format(currentWeekStart, 'MMMM yyyy')}</h2>
+        <h2 className="text-sm font-semibold">{format(currentWeekStart, 'MMMM yyyy')}</h2>
         <Button variant="ghost" size="icon" onClick={handleNextWeek}>
-          <ChevronRight className="h-5 w-5" />
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
 
