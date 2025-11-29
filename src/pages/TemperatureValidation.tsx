@@ -230,7 +230,7 @@ export default function TemperatureValidation() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-full md:max-w-4xl">
         <div>
           <h1 className="text-3xl font-bold">Temperature Validation</h1>
           <p className="text-muted-foreground">
@@ -250,14 +250,13 @@ export default function TemperatureValidation() {
               <Card key={reading.id}>
                 <CardContent className="pt-6">
                   <div className="flex flex-col gap-4">
-                    <div className="flex-shrink-0 py-4 flex justify-center items-center overflow-hidden" style={{ minHeight: '250px' }}>
+                     <div className="flex-shrink-0 py-4 flex justify-center items-center overflow-hidden" style={{ minHeight: '250px' }}>
                       <img
                         src={reading.response_image_url}
                         alt="Thermometer reading"
-                        className="h-auto object-contain rounded-lg cursor-pointer border"
+                        className="h-auto w-full max-w-full object-contain rounded-lg cursor-pointer border"
                         style={{ 
-                          maxHeight: '300px',
-                          maxWidth: '90vw'
+                          maxHeight: '300px'
                         }}
                         onClick={() => setPreviewImage(reading.response_image_url)}
                       />
