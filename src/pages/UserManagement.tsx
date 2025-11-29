@@ -53,6 +53,7 @@ interface UserProfile {
   unpaid_hours?: number;
   hourly_wage?: number;
   croo_cash_balance?: number;
+  has_certification?: boolean;
 }
 
 export default function UserManagement() {
@@ -213,13 +214,27 @@ export default function UserManagement() {
 
       const currentWages = await Promise.all(wagePromises);
 
-      // Merge profiles with their roles, hours, and current wages
+      // Fetch certifications for all users
+      const { data: certifications } = await supabase
+        .from('certifications')
+        .select('user_id, status, expiration_date')
+        .in('user_id', profiles.map(p => p.id))
+        .eq('status', 'approved')
+        .gte('expiration_date', new Date().toISOString().split('T')[0]);
+
+      // Create map of user certifications
+      const certificationMap = new Map(
+        certifications?.map(cert => [cert.user_id, true]) || []
+      );
+
+      // Merge profiles with their roles, hours, current wages, and certification status
       const usersWithRoles = profiles.map((profile, index) => ({
         ...profile,
         role: roles.find((r) => r.user_id === profile.id)?.role as AppRole || 'team_member',
         paid_hours: hoursByUser[profile.id]?.paid || 0,
         unpaid_hours: hoursByUser[profile.id]?.unpaid || 0,
         hourly_wage: currentWages[index],
+        has_certification: certificationMap.has(profile.id),
       }));
 
       setUsers(usersWithRoles);
@@ -1245,6 +1260,8 @@ export default function UserManagement() {
                     </TableHead>
                     <TableHead>User</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Croo Cash</TableHead>
+                    <TableHead>Cert</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -1286,6 +1303,20 @@ export default function UserManagement() {
                           {getRoleIcon(user.role!)}
                           {user.role?.replace('_', ' ')}
                         </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">
+                          ${(user.croo_cash_balance || 0) / 100}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-center">
+                          {user.has_certification ? (
+                            <Check className="h-5 w-5 text-green-500" />
+                          ) : (
+                            <span className="text-red-500 text-lg">×</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant={user.is_active ? "default" : "secondary"}>
