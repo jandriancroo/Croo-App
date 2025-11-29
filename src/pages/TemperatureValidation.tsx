@@ -300,7 +300,7 @@ export default function TemperatureValidation() {
                           </p>
                         </div>
                       ) : (
-                        <>
+                          <>
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-3xl font-bold">
                               {reading.extracted_temperature}°F
@@ -308,23 +308,36 @@ export default function TemperatureValidation() {
                             {getStatusBadge(reading.temperature_valid, reading.extracted_temperature)}
                           </div>
                           <div className="flex gap-2 flex-wrap">
-                            <Button
-                              size="sm"
-                              onClick={() => handleConfirm(reading.id)}
-                              className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none"
-                            >
-                              <CheckCircle2 className="w-4 h-4 mr-1" />
-                              Confirm Correct
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEdit(reading)}
-                              className="flex-1 sm:flex-none"
-                            >
-                              <Edit2 className="w-4 h-4 mr-1" />
-                              Edit
-                            </Button>
+                            {reading.temperature_validated_at ? (
+                              <Button
+                                size="sm"
+                                disabled
+                                className="bg-green-700 hover:bg-green-700 opacity-80 flex-1 sm:flex-none"
+                              >
+                                <CheckCircle2 className="w-4 h-4 mr-1" />
+                                Corrected
+                              </Button>
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleConfirm(reading.id)}
+                                  className="bg-green-600 hover:bg-green-700 flex-1 sm:flex-none"
+                                >
+                                  <CheckCircle2 className="w-4 h-4 mr-1" />
+                                  Confirm Correct
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleEdit(reading)}
+                                  className="flex-1 sm:flex-none"
+                                >
+                                  <Edit2 className="w-4 h-4 mr-1" />
+                                  Edit
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </>
                       )}
