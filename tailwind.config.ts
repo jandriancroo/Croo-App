@@ -97,21 +97,22 @@ export default {
             height: "0",
           },
         },
-        "radar-pulse": {
-          "0%": { 
-            transform: "scale(1)",
-            opacity: "0.8"
+        "wifi-bar": {
+          "0%, 100%": { 
+            opacity: "0.3",
           },
-          "100%": { 
-            transform: "scale(2.5)",
-            opacity: "0"
+          "50%": { 
+            opacity: "1",
           }
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        "radar-pulse": "radar-pulse 2s cubic-bezier(0, 0, 0.2, 1) infinite",
+        "wifi-bar-1": "wifi-bar 1.5s ease-in-out infinite",
+        "wifi-bar-2": "wifi-bar 1.5s ease-in-out 0.2s infinite",
+        "wifi-bar-3": "wifi-bar 1.5s ease-in-out 0.4s infinite",
+        "wifi-bar-4": "wifi-bar 1.5s ease-in-out 0.6s infinite",
       },
     },
   },
