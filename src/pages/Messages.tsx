@@ -8,6 +8,7 @@ import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
 import { AnnouncementDialog } from '@/components/messages/AnnouncementDialog';
+import { MarketplaceIconSelector } from '@/components/messages/MarketplaceIconSelector';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
@@ -39,6 +40,8 @@ export default function Messages() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(false);
+  const [isMarketplaceIconOpen, setIsMarketplaceIconOpen] = useState(false);
+  const [marketplaceChatId, setMarketplaceChatId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showChatList, setShowChatList] = useState(true);
 
@@ -48,20 +51,39 @@ export default function Messages() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Ensure shift marketplace chat exists
-      let { data: marketplaceChat } = await supabase
+      // Ensure shift marketplace chat exists (single instance)
+      let { data: marketplaceChats } = await supabase
         .from("chats")
-        .select("id")
-        .eq("title", "🔄 Shift Marketplace")
-        .single();
+        .select("id, title")
+        .ilike("title", "%Shift Marketplace%");
 
+      // Remove duplicates if any exist
+      if (marketplaceChats && marketplaceChats.length > 1) {
+        const [keepChat, ...deleteChats] = marketplaceChats;
+        for (const chat of deleteChats) {
+          await supabase.from("chats").delete().eq("id", chat.id);
+        }
+        marketplaceChats = [keepChat];
+      }
+
+      let marketplaceChat = marketplaceChats?.[0] || null;
+
+      // Update existing chat to remove rotating icon if present
+      if (marketplaceChat && marketplaceChat.title !== "Shift Marketplace") {
+        await supabase
+          .from("chats")
+          .update({ title: "Shift Marketplace" })
+          .eq("id", marketplaceChat.id);
+      }
+
+      // Create if doesn't exist
       if (!marketplaceChat) {
         const { data: newChat } = await supabase
           .from("chats")
           .insert({
             created_by: user.id,
             is_group: true,
-            title: "🔄 Shift Marketplace"
+            title: "Shift Marketplace"
           })
           .select()
           .single();
@@ -147,8 +169,15 @@ export default function Messages() {
 
       // Sort chats: Shift Marketplace first, then unread chats, then by updated_at
       const sortedChats = chatsWithUnread.sort((a, b) => {
-        if (a.title === "🔄 Shift Marketplace") return -1;
-        if (b.title === "🔄 Shift Marketplace") return 1;
+        if (a.title === "Shift Marketplace") {
+          // Store marketplace chat ID for icon selector
+          setMarketplaceChatId(a.id);
+          return -1;
+        }
+        if (b.title === "Shift Marketplace") {
+          setMarketplaceChatId(b.id);
+          return 1;
+        }
         
         // Sort by unread status
         if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
@@ -201,15 +230,26 @@ export default function Messages() {
               <h1 className="text-3xl font-bold">Chat</h1>
               <div className="flex gap-2">
                 {isAdmin && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsAnnouncementOpen(true)}
-                    className="gap-2"
-                  >
-                    <Megaphone className="h-4 w-4" />
-                    Announce
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsMarketplaceIconOpen(true)}
+                      className="gap-2"
+                      disabled={!marketplaceChatId}
+                    >
+                      🏪 Icon
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsAnnouncementOpen(true)}
+                      className="gap-2"
+                    >
+                      <Megaphone className="h-4 w-4" />
+                      Announce
+                    </Button>
+                  </>
                 )}
                 <Button
                   size="sm"
@@ -262,14 +302,24 @@ export default function Messages() {
                 <h2 className="text-lg font-semibold">Chat</h2>
                 <div className="flex gap-2">
                   {isAdmin && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setIsAnnouncementOpen(true)}
-                      className="gap-2"
-                    >
-                      <Megaphone className="h-4 w-4" />
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsMarketplaceIconOpen(true)}
+                        disabled={!marketplaceChatId}
+                      >
+                        🏪
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsAnnouncementOpen(true)}
+                        className="gap-2"
+                      >
+                        <Megaphone className="h-4 w-4" />
+                      </Button>
+                    </>
                   )}
                   <Button
                     size="sm"
@@ -354,6 +404,17 @@ export default function Messages() {
           setIsAnnouncementOpen(false);
         }}
       />
+
+      {marketplaceChatId && (
+        <MarketplaceIconSelector
+          open={isMarketplaceIconOpen}
+          onOpenChange={setIsMarketplaceIconOpen}
+          chatId={marketplaceChatId}
+          onIconSelected={() => {
+            fetchChats();
+          }}
+        />
+      )}
     </Layout>
   );
 }
