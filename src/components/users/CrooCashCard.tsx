@@ -37,8 +37,8 @@ export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
         .from("croo_cash_transactions")
         .select("*")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(10);
+        .order("shift_date", { ascending: false })
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setTransactions(data || []);
@@ -140,10 +140,10 @@ export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
         <div>
           <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
             <Calendar className="h-4 w-4" />
-            Recent Activity
+            Complete History
           </h4>
           
-          <ScrollArea className="h-[200px]">
+          <ScrollArea className="h-[300px]">
             {loading ? (
               <div className="text-center text-sm text-muted-foreground py-4">
                 Loading transactions...
