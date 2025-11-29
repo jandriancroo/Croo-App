@@ -311,7 +311,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               </div>
             </div>
             <div className="flex gap-2">
-              {chatDetails.is_group && isAdmin && (
+              {chatDetails.is_group && isAdmin && chatDetails.title !== "Shift Marketplace" && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -320,7 +320,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                   <Settings className="h-4 w-4" />
                 </Button>
               )}
-              {isAdmin && (
+              {isAdmin && chatDetails.title !== "Shift Marketplace" && (
                 <Button
                   variant="ghost"
                   size="sm"
