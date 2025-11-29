@@ -369,40 +369,40 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
   const statusBadge = () => {
     switch (offer.status) {
       case "available":
-        return <Badge variant="default">Available</Badge>;
+        return <Badge className="bg-white text-[hsl(var(--croo-orange))] hover:bg-white/90 font-semibold">Available</Badge>;
       case "claimed":
-        return <Badge variant="secondary">{claims.length} {claims.length === 1 ? 'Person' : 'People'} Interested</Badge>;
+        return <Badge className="bg-yellow-400 text-yellow-900 hover:bg-yellow-400/90 font-semibold">{claims.length} {claims.length === 1 ? 'Person' : 'People'} Interested</Badge>;
       case "approved":
-        return <Badge className="bg-green-500">Approved</Badge>;
+        return <Badge className="bg-green-500 text-white hover:bg-green-500/90 font-semibold">Approved</Badge>;
       case "denied":
-        return <Badge variant="destructive">Denied</Badge>;
+        return <Badge className="bg-red-500 text-white hover:bg-red-500/90 font-semibold">Denied</Badge>;
       case "cancelled":
-        return <Badge variant="outline">Cancelled</Badge>;
+        return <Badge className="bg-gray-500 text-white hover:bg-gray-500/90 font-semibold">Cancelled</Badge>;
       default:
         return null;
     }
   };
 
   return (
-    <Card className="p-4 bg-[hsl(var(--croo-beige))]/30 border-[hsl(var(--croo-orange))] border-2">
+    <Card className="p-4 bg-[hsl(var(--croo-orange))] border-[hsl(var(--croo-orange))] border-2 shadow-lg">
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h4 className="font-semibold text-lg text-[hsl(var(--croo-orange))]">{offer.shift.template?.position || "Shift"}</h4>
-            <p className="text-sm text-foreground/70">
+            <h4 className="font-semibold text-lg text-white">{offer.shift.template?.position || "Shift"}</h4>
+            <p className="text-sm text-white/80">
               Offered by {offer.offered_by.full_name}
             </p>
           </div>
           {statusBadge()}
         </div>
 
-        <div className="space-y-2 text-sm">
+        <div className="space-y-2 text-sm text-white">
           <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="h-4 w-4 text-white/90" />
             <span>{new Date(offer.shift.shift_date).toLocaleDateString()}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Clock className="h-4 w-4 text-white/90" />
             <span>
               {formatTime(offer.shift.start_time)} - {formatTime(offer.shift.end_time)}
             </span>
@@ -410,22 +410,22 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
         </div>
 
         {claims.length > 0 && offer.status === "claimed" && (
-          <div className="space-y-2 border-t pt-3">
-            <p className="text-sm font-medium">Interested Team Members:</p>
+          <div className="space-y-2 border-t border-white/20 pt-3">
+            <p className="text-sm font-medium text-white">Interested Team Members:</p>
             <div className="space-y-2">
               {claims.map((claim) => (
-                <div key={claim.id} className="flex items-center gap-2 text-sm">
+                <div key={claim.id} className="flex items-center gap-2 text-sm text-white">
                   {claim.profile.profile_photo_url ? (
                     <img 
                       src={claim.profile.profile_photo_url} 
                       alt={claim.profile.full_name}
-                      className="w-6 h-6 rounded-full"
+                      className="w-6 h-6 rounded-full border-2 border-white/30"
                     />
                   ) : (
-                    <User className="w-6 h-6 text-muted-foreground" />
+                    <User className="w-6 h-6 text-white/80" />
                   )}
                   <span>{claim.profile.full_name}</span>
-                  <span className="text-xs text-muted-foreground ml-auto">
+                  <span className="text-xs text-white/70 ml-auto">
                     {new Date(claim.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -436,7 +436,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
 
         {offer.status === "available" && (
           <Button 
-            className="w-full" 
+            className="w-full bg-white text-[hsl(var(--croo-orange))] hover:bg-white/90 font-semibold" 
             onClick={handleClaim}
             disabled={claiming}
           >
@@ -445,14 +445,14 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
         )}
 
         {offer.status === "claimed" && isAdmin && claims.length > 0 && (
-          <div className="space-y-3 border-t pt-3">
+          <div className="space-y-3 border-t border-white/20 pt-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Select who gets the shift:</label>
+              <label className="text-sm font-medium text-white">Select who gets the shift:</label>
               <Select value={selectedClaimerId} onValueChange={setSelectedClaimerId}>
-                <SelectTrigger className="w-full bg-background">
+                <SelectTrigger className="w-full bg-white text-[hsl(var(--croo-orange))] border-white/30">
                   <SelectValue placeholder="Choose team member" />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-50">
+                <SelectContent className="bg-white z-50">
                   {claims.map((claim) => (
                     <SelectItem key={claim.id} value={claim.user_id}>
                       {claim.profile.full_name}
@@ -463,7 +463,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
             </div>
             <div className="flex gap-2">
               <Button 
-                className="flex-1 bg-green-600 hover:bg-green-700" 
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white" 
                 onClick={handleApprove}
                 disabled={processing || !selectedClaimerId}
               >
@@ -471,8 +471,7 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
                 {processing ? "Approving..." : "Approve"}
               </Button>
               <Button 
-                variant="destructive"
-                className="flex-1" 
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
                 onClick={handleDeny}
                 disabled={processing}
               >
