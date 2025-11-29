@@ -5,6 +5,7 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown, Banknote, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -363,55 +364,94 @@ export default function Dashboard() {
         <CertificationAlerts />
       </div>,
     'sales-overview': <Card>
-        <CardHeader className="pb-3 md:pb-6">
+        <CardHeader className="pb-3 md:pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl md:text-2xl">Sales Overview</CardTitle>
             <Button onClick={() => refetchSales()} size="sm" variant="outline">
               Refresh
             </Button>
           </div>
-          <CardDescription className="mt-1 md:mt-2">Today's performance and hourly breakdown</CardDescription>
-          <div className="grid grid-cols-3 gap-2 md:gap-4 mt-3 md:mt-4">
-            <div>
-              <p className="text-xs md:text-sm text-muted-foreground">Today</p>
-              <p className="text-lg md:text-2xl font-bold">
-                {salesData ? formatCurrency(salesData.daily) : "--"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs md:text-sm text-muted-foreground">This Week</p>
-              <p className="text-lg md:text-2xl font-bold">
-                {salesData ? formatCurrency(salesData.weekly) : "--"}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs md:text-sm text-muted-foreground">Avg/Hour</p>
-              <p className="text-lg md:text-2xl font-bold">
-                {salesData ? formatCurrency(salesData.hourly.reduce((sum, h) => sum + h.sales, 0) / salesData.hourly.length) : "--"}
-              </p>
-            </div>
-          </div>
         </CardHeader>
         <CardContent className="pt-0">
-          {salesData?.hourly ? <ResponsiveContainer width="100%" height={200} className="md:h-[300px]">
-              <BarChart data={salesData.hourly}>
-                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                <XAxis dataKey="hour" className="text-xs" tick={{
-              fill: 'hsl(var(--foreground))'
-            }} />
-                <YAxis className="text-xs" tick={{
-              fill: 'hsl(var(--foreground))'
-            }} tickFormatter={value => `$${value}`} />
-                <Tooltip formatter={value => formatCurrency(value as number)} contentStyle={{
-              backgroundColor: 'hsl(var(--card))',
-              border: '1px solid hsl(var(--border))',
-              borderRadius: '6px'
-            }} />
-                <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer> : <div className="h-[200px] md:h-[300px] flex items-center justify-center text-muted-foreground">
-              No sales data available
-            </div>}
+          <Tabs defaultValue="today" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
+              <TabsTrigger value="today">Today</TabsTrigger>
+              <TabsTrigger value="week">This Week</TabsTrigger>
+              <TabsTrigger value="month">This Month</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="today" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Sales</p>
+                  <p className="text-2xl font-bold">
+                    {salesData ? formatCurrency(salesData.daily) : "--"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Avg/Hour</p>
+                  <p className="text-2xl font-bold">
+                    {salesData ? formatCurrency(salesData.hourly.reduce((sum, h) => sum + h.sales, 0) / salesData.hourly.length) : "--"}
+                  </p>
+                </div>
+              </div>
+              {salesData?.hourly ? <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
+                  <BarChart data={salesData.hourly}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="hour" className="text-xs" tick={{
+                  fill: 'hsl(var(--foreground))'
+                }} />
+                    <YAxis className="text-xs" tick={{
+                  fill: 'hsl(var(--foreground))'
+                }} tickFormatter={value => `$${value}`} />
+                    <Tooltip formatter={value => formatCurrency(value as number)} contentStyle={{
+                  backgroundColor: 'hsl(var(--card))',
+                  border: '1px solid hsl(var(--border))',
+                  borderRadius: '6px'
+                }} />
+                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer> : <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
+                  No sales data available
+                </div>}
+            </TabsContent>
+            
+            <TabsContent value="week" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Sales</p>
+                  <p className="text-2xl font-bold">
+                    {salesData ? formatCurrency(salesData.weekly) : "--"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Daily Avg</p>
+                  <p className="text-2xl font-bold">
+                    {salesData ? formatCurrency(salesData.weekly / 7) : "--"}
+                  </p>
+                </div>
+              </div>
+              <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground border-2 border-dashed border-border rounded-lg">
+                Weekly breakdown chart coming soon
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="month" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Total Sales</p>
+                  <p className="text-2xl font-bold">--</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Daily Avg</p>
+                  <p className="text-2xl font-bold">--</p>
+                </div>
+              </div>
+              <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground border-2 border-dashed border-border rounded-lg">
+                Monthly breakdown chart coming soon
+              </div>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>,
     'checklists-grid': <div>
