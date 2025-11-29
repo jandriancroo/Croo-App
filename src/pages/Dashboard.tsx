@@ -20,6 +20,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
 import { format, addDays } from 'date-fns';
 import { useLocation } from '@/hooks/useLocation';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { formatTime12Hour } from '@/lib/utils';
 import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
 interface Checklist {
@@ -68,6 +69,7 @@ export default function Dashboard() {
   } = useUserRole();
   const { currentLocation } = useLocation();
   const { animationAmount } = useCrooCashAnimation();
+  const isMobile = useIsMobile();
   
   // Fetch location settings for business hours
   const { data: locationSettings } = useQuery({
@@ -106,6 +108,7 @@ export default function Dashboard() {
       
       dailyData.push({
         date: format(date, 'MMM d'),
+        fullDate: date,
         sales: Math.max(1000, baseAmount + variance)
       });
     }
@@ -113,7 +116,40 @@ export default function Dashboard() {
     return dailyData;
   };
 
+  // Aggregate daily data into weekly buckets for mobile view
+  const aggregateIntoWeeks = (dailyData: Array<{ date: string; fullDate: Date; sales: number }>) => {
+    const weeks: Array<{ week: string; sales: number }> = [];
+    let currentWeek: { week: string; sales: number } | null = null;
+    let weekStart: Date | null = null;
+    
+    dailyData.forEach((day, index) => {
+      const dayOfWeek = day.fullDate.getDay();
+      
+      // Start a new week on Sunday (0) or if it's the first day
+      if (dayOfWeek === 0 || index === 0) {
+        if (currentWeek) {
+          weeks.push(currentWeek);
+        }
+        weekStart = day.fullDate;
+        currentWeek = {
+          week: `Week ${weeks.length + 1}`,
+          sales: day.sales
+        };
+      } else if (currentWeek) {
+        currentWeek.sales += day.sales;
+      }
+    });
+    
+    // Push the last week
+    if (currentWeek) {
+      weeks.push(currentWeek);
+    }
+    
+    return weeks;
+  };
+
   const simulatedMonthlyData = generateSimulatedSalesData();
+  const weeklyAggregatedData = aggregateIntoWeeks(simulatedMonthlyData);
   
   const {
     data: rawSalesData,
@@ -495,11 +531,11 @@ export default function Dashboard() {
                 </div>
               </div>
               <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                <BarChart data={simulatedMonthlyData}>
+                <BarChart data={isMobile ? weeklyAggregatedData : simulatedMonthlyData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" className="text-xs" tick={{
+                  <XAxis dataKey={isMobile ? "week" : "date"} className="text-xs" tick={{
                 fill: 'hsl(var(--foreground))'
-              }} interval={4} />
+              }} interval={isMobile ? 0 : 4} />
                   <YAxis className="text-xs" tick={{
                 fill: 'hsl(var(--foreground))'
               }} tickFormatter={value => `$${value}`} />
