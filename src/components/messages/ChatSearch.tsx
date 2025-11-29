@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 
 interface ChatSearchProps {
   onSearch: (query: string) => void;
-  onClear: () => void;
+  placeholder?: string;
 }
 
-export function ChatSearch({ onSearch, onClear }: ChatSearchProps) {
+export function ChatSearch({ onSearch, placeholder = "Search all chats..." }: ChatSearchProps) {
   const [query, setQuery] = useState('');
 
   const handleSearch = (value: string) => {
@@ -18,7 +18,7 @@ export function ChatSearch({ onSearch, onClear }: ChatSearchProps) {
 
   const handleClear = () => {
     setQuery('');
-    onClear();
+    onSearch('');
   };
 
   return (
@@ -27,7 +27,7 @@ export function ChatSearch({ onSearch, onClear }: ChatSearchProps) {
       <Input
         value={query}
         onChange={(e) => handleSearch(e.target.value)}
-        placeholder="Search messages..."
+        placeholder={placeholder}
         className="pl-9 pr-9"
       />
       {query && (
