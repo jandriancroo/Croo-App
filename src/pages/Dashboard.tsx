@@ -450,16 +450,16 @@ export default function Dashboard() {
             </TabsList>
             
             <TabsContent value="today" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Sales</p>
-                  <p className="text-2xl font-bold">
+              <div className="grid grid-cols-2 gap-6 mb-4">
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Total Sales</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
                     {salesData ? formatCurrency(salesData.daily) : "--"}
                   </p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Avg/Hour</p>
-                  <p className="text-2xl font-bold">
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Avg/Hour</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
                     {salesData ? formatCurrency(salesData.hourly.reduce((sum, h) => sum + h.sales, 0) / salesData.hourly.length) : "--"}
                   </p>
                 </div>
@@ -486,16 +486,16 @@ export default function Dashboard() {
             </TabsContent>
             
             <TabsContent value="week" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Sales</p>
-                  <p className="text-2xl font-bold">
+              <div className="grid grid-cols-2 gap-6 mb-4">
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Total Sales</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
                     {formatCurrency(weeklyTotal)}
                   </p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Daily Avg</p>
-                  <p className="text-2xl font-bold">
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Daily Avg</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
                     {formatCurrency(weeklyTotal / 7)}
                   </p>
                 </div>
