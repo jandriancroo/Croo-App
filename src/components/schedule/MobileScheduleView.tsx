@@ -268,6 +268,11 @@ export function MobileScheduleView({
                           <BreakIndicator hasBreak={true} size="sm" />
                         )}
                       </div>
+                      {shift.template?.position && (
+                        <Badge variant="outline" className="text-xs mt-1 w-fit">
+                          {shift.template.position.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM|am|pm)?/g, '').trim()}
+                        </Badge>
+                      )}
                     </div>
                     
                     {(isAdmin || shift.user_id === user?.id) && (
