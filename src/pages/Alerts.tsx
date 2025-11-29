@@ -134,6 +134,7 @@ export default function Alerts() {
           title,
           frequency,
           template_type,
+          due_by_time,
           checklist_items(id, days_of_week)
         `)
         .eq('is_active', true);
@@ -155,14 +156,29 @@ export default function Alerts() {
       const dailyChecklists = checklists.filter(c => 
         c.frequency === 'daily' || c.template_type === 'dynamic'
       );
+      const now = new Date();
 
       for (let i = 0; i < 7; i++) {
         const date = new Date();
         date.setDate(date.getDate() - i);
         date.setHours(0, 0, 0, 0);
         const dayOfWeek = date.getDay();
+        const isToday = i === 0;
 
         for (const checklist of dailyChecklists) {
+          // Check if checklist is due based on due_by_time
+          if (checklist.due_by_time) {
+            const [hours, minutes] = checklist.due_by_time.split(':').map(Number);
+            const dueTime = new Date(date);
+            dueTime.setHours(hours, minutes, 0, 0);
+            
+            // For today: only show alert if current time is past due time
+            // For past days: show alert (they're overdue)
+            if (isToday && now < dueTime) {
+              continue; // Skip - not due yet
+            }
+          }
+
           let totalItems = checklist.checklist_items?.length || 0;
           if (checklist.template_type === 'dynamic') {
             totalItems = checklist.checklist_items?.filter((item: any) => 
@@ -186,11 +202,19 @@ export default function Alerts() {
           const completionRate = totalItems > 0 ? (totalResponses / totalItems) : 0;
           
           if (completionRate < 1) {
+            // Set alert time to the due time if available
+            let alertTime = date;
+            if (checklist.due_by_time) {
+              const [hours, minutes] = checklist.due_by_time.split(':').map(Number);
+              alertTime = new Date(date);
+              alertTime.setHours(hours, minutes, 0, 0);
+            }
+            
             alerts.push({
               id: `${checklist.id}-${date.toISOString()}`,
               checklist_id: checklist.id,
               title: checklist.title,
-              date: date.toISOString(),
+              date: alertTime.toISOString(),
               status: completionRate === 0 ? 'incomplete' : 'partial',
               completionRate: Math.round(completionRate * 100),
               type: 'checklist',
@@ -477,7 +501,7 @@ export default function Alerts() {
                             {alert.title}
                           </CardTitle>
                           <CardDescription className="text-xs mt-1">
-                            {format(new Date(alert.date), 'MMM d, yyyy')}
+                            {format(new Date(alert.date), 'MMM d, yyyy • h:mm a')}
                           </CardDescription>
                         </div>
                       </div>
