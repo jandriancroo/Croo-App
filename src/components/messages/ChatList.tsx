@@ -1,11 +1,12 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users } from 'lucide-react';
+import { Users, Megaphone } from 'lucide-react';
 
 interface Chat {
   id: string;
   title: string | null;
   is_group: boolean;
+  is_announcement?: boolean;
   created_at: string;
   updated_at: string;
   group_image_url: string | null;
@@ -82,7 +83,11 @@ export function ChatList({ chats, selectedChatId, onSelectChat, loading, searchQ
           }`}
         >
           <Avatar className="h-10 w-10">
-            {chat.is_group ? (
+            {chat.is_announcement ? (
+              <AvatarFallback className="bg-primary/10">
+                <Megaphone className="h-5 w-5 text-primary" />
+              </AvatarFallback>
+            ) : chat.is_group ? (
               <>
                 <AvatarImage src={chat.group_image_url || undefined} />
                 <AvatarFallback>
