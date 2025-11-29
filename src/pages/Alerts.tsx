@@ -407,13 +407,20 @@ export default function Alerts() {
                   )}
                   {alert.type === 'checklist' && (
                     <CardContent className="pt-0">
-                      <div className="flex items-center gap-2">
-                        {alert.status === 'incomplete' ? (
-                          <Badge variant="destructive" className="text-xs">Not Started</Badge>
-                        ) : (
-                          <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-700">
-                            {alert.completionRate}% Complete
-                          </Badge>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-2">
+                          {alert.status === 'incomplete' ? (
+                            <Badge variant="destructive" className="text-xs">Not Started</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-700">
+                              {alert.completionRate}% Complete
+                            </Badge>
+                          )}
+                        </div>
+                        {alert.managerNames && alert.managerNames.length > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Managers on duty: {alert.managerNames.join(', ')}
+                          </p>
                         )}
                       </div>
                     </CardContent>
