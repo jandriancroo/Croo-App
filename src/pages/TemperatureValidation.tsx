@@ -233,14 +233,13 @@ export default function TemperatureValidation() {
               <Card key={reading.id}>
                 <CardContent className="pt-6">
                   <div className="flex flex-col gap-4">
-                    <div className="flex-shrink-0 overflow-hidden py-8">
+                    <div className="flex-shrink-0 py-4">
                       <img
                         src={reading.response_image_url}
                         alt="Thermometer reading"
                         className="w-full max-w-2xl h-auto object-contain rounded-lg cursor-pointer border mx-auto"
                         style={{ 
-                          transform: 'rotate(90deg) scale(1.8)',
-                          maxHeight: '300px'
+                          maxHeight: '400px'
                         }}
                         onClick={() => setPreviewImage(reading.response_image_url)}
                       />
