@@ -38,40 +38,80 @@ export default function TemperatureValidation() {
 
   const fetchReadings = async () => {
     try {
-      const { data, error } = await supabase
+      // First get responses with temperature data
+      const { data: responses, error: responsesError } = await supabase
         .from('checklist_responses')
-        .select(`
-          id,
-          item_id,
-          submission_id,
-          response_image_url,
-          extracted_temperature,
-          temperature_valid,
-          temperature_validated_at,
-          created_at,
-          checklist_items!inner(question, checklists!inner(title)),
-          profiles!checklist_responses_completed_by_fkey(full_name)
-        `)
+        .select('id, item_id, submission_id, response_image_url, extracted_temperature, temperature_valid, temperature_validated_at, created_at, completed_by')
         .not('response_image_url', 'is', null)
         .not('extracted_temperature', 'is', null)
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(200);
 
-      if (error) throw error;
+      if (responsesError) throw responsesError;
 
-      const formatted = (data || []).map((r: any) => ({
-        id: r.id,
-        item_id: r.item_id,
-        submission_id: r.submission_id,
-        response_image_url: r.response_image_url,
-        extracted_temperature: r.extracted_temperature,
-        temperature_valid: r.temperature_valid,
-        temperature_validated_at: r.temperature_validated_at,
-        created_at: r.created_at,
-        checklist_title: r.checklist_items?.checklists?.title || 'Unknown',
-        item_question: r.checklist_items?.question || 'Unknown',
-        completer_name: r.profiles?.full_name || 'Unknown',
-      }));
+      if (!responses || responses.length === 0) {
+        setReadings([]);
+        setLoading(false);
+        return;
+      }
+
+      // Get unique item IDs and submission IDs
+      const itemIds = [...new Set(responses.map(r => r.item_id))];
+      const submissionIds = [...new Set(responses.map(r => r.submission_id))];
+      const completerIds = [...new Set(responses.map(r => r.completed_by).filter(Boolean))];
+
+      // Fetch checklist items
+      const { data: items, error: itemsError } = await supabase
+        .from('checklist_items')
+        .select('id, question, checklist_id')
+        .in('id', itemIds);
+
+      if (itemsError) throw itemsError;
+
+      // Get unique checklist IDs
+      const checklistIds = [...new Set((items || []).map((i: any) => i.checklist_id))];
+
+      // Fetch checklists
+      const { data: checklists, error: checklistsError } = await supabase
+        .from('checklists')
+        .select('id, title')
+        .in('id', checklistIds);
+
+      if (checklistsError) throw checklistsError;
+
+      // Fetch profiles
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', completerIds);
+
+      if (profilesError) throw profilesError;
+
+      // Create lookup maps
+      const itemsMap = new Map((items || []).map((i: any) => [i.id, i]));
+      const checklistsMap = new Map((checklists || []).map((c: any) => [c.id, c]));
+      const profilesMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+
+      // Format data
+      const formatted = responses.map((r: any) => {
+        const item = itemsMap.get(r.item_id);
+        const checklist = item ? checklistsMap.get(item.checklist_id) : null;
+        const profile = r.completed_by ? profilesMap.get(r.completed_by) : null;
+
+        return {
+          id: r.id,
+          item_id: r.item_id,
+          submission_id: r.submission_id,
+          response_image_url: r.response_image_url,
+          extracted_temperature: r.extracted_temperature,
+          temperature_valid: r.temperature_valid,
+          temperature_validated_at: r.temperature_validated_at,
+          created_at: r.created_at,
+          checklist_title: checklist?.title || 'Unknown',
+          item_question: item?.question || 'Unknown',
+          completer_name: profile?.full_name || 'Unknown',
+        };
+      });
 
       setReadings(formatted);
     } catch (error) {
@@ -79,6 +119,25 @@ export default function TemperatureValidation() {
       toast.error('Failed to load temperature readings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConfirm = async (readingId: string) => {
+    try {
+      const { error } = await supabase
+        .from('checklist_responses')
+        .update({
+          temperature_validated_at: new Date().toISOString(),
+        })
+        .eq('id', readingId);
+
+      if (error) throw error;
+
+      toast.success('Temperature confirmed');
+      fetchReadings();
+    } catch (error) {
+      console.error('Error confirming temperature:', error);
+      toast.error('Failed to confirm temperature');
     }
   };
 
@@ -172,31 +231,23 @@ export default function TemperatureValidation() {
           <div className="grid gap-4">
             {readings.map((reading) => (
               <Card key={reading.id}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg">{reading.checklist_title}</CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {reading.item_question}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        By {reading.completer_name} • {format(new Date(reading.created_at), 'MMM d, yyyy h:mm a')}
-                      </p>
-                    </div>
-                    {getStatusBadge(reading.temperature_valid, reading.extracted_temperature)}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-4 items-start">
+                <CardContent className="pt-6">
+                  <div className="flex gap-4 items-center">
                     <div className="flex-shrink-0">
                       <img
                         src={reading.response_image_url}
                         alt="Thermometer reading"
-                        className="w-32 h-32 object-cover rounded-lg cursor-pointer border"
+                        className="w-48 h-48 object-cover rounded-lg cursor-pointer border"
                         onClick={() => setPreviewImage(reading.response_image_url)}
                       />
                     </div>
-                    <div className="flex-1 space-y-3">
+                    <div className="flex-1 space-y-2">
+                      <div>
+                        <p className="text-sm text-muted-foreground">{reading.checklist_title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(reading.created_at), 'MMM d, yyyy h:mm a')}
+                        </p>
+                      </div>
                       {editingId === reading.id ? (
                         <div className="space-y-2">
                           <Label>Correct Temperature (°F)</Label>
@@ -214,8 +265,7 @@ export default function TemperatureValidation() {
                               onClick={() => handleSave(reading.id)}
                               className="bg-green-600 hover:bg-green-700"
                             >
-                              <Save className="w-4 h-4 mr-1" />
-                              Save
+                              Apply
                             </Button>
                             <Button
                               size="sm"
@@ -225,28 +275,38 @@ export default function TemperatureValidation() {
                               <X className="w-4 h-4" />
                             </Button>
                           </div>
+                          <p className="text-xs text-muted-foreground">
+                            Safe zones: ≤41.9°F (cold) or ≥165°F (hot)
+                          </p>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <Label className="text-muted-foreground">AI Reading</Label>
-                            <p className="text-2xl font-bold">
+                        <>
+                          <div className="flex items-center gap-2">
+                            <p className="text-3xl font-bold">
                               {reading.extracted_temperature}°F
                             </p>
+                            {getStatusBadge(reading.temperature_valid, reading.extracted_temperature)}
                           </div>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleEdit(reading)}
-                          >
-                            <Edit2 className="w-4 h-4 mr-1" />
-                            Correct
-                          </Button>
-                        </div>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => handleConfirm(reading.id)}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              <CheckCircle2 className="w-4 h-4 mr-1" />
+                              Confirm Correct
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleEdit(reading)}
+                            >
+                              <Edit2 className="w-4 h-4 mr-1" />
+                              Edit
+                            </Button>
+                          </div>
+                        </>
                       )}
-                      <p className="text-xs text-muted-foreground">
-                        Safe temperature zones: ≤41.9°F (cold) or ≥165°F (hot)
-                      </p>
                     </div>
                   </div>
                 </CardContent>
