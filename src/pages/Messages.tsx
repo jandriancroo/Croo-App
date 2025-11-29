@@ -10,6 +10,7 @@ import { NewChatDialog } from '@/components/messages/NewChatDialog';
 import { AnnouncementDialog } from '@/components/messages/AnnouncementDialog';
 import { MarketplaceIconSelector } from '@/components/messages/MarketplaceIconSelector';
 import { ChatSearch } from '@/components/messages/ChatSearch';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
@@ -48,6 +49,7 @@ export default function Messages() {
   const [showChatList, setShowChatList] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
+  const [viewMode, setViewMode] = useState<'chats' | 'announcements'>('chats');
 
   const fetchChats = async () => {
     setLoading(true);
@@ -193,6 +195,7 @@ export default function Messages() {
 
       setChats(sortedChats);
       setFilteredChats(sortedChats);
+      applyViewFilter(sortedChats, viewMode);
     } catch (error: any) {
       console.error('Error fetching chats:', error);
       toast.error('Failed to load chats');
@@ -201,11 +204,18 @@ export default function Messages() {
     }
   };
 
+  const applyViewFilter = (chatList: Chat[], mode: 'chats' | 'announcements') => {
+    const filtered = mode === 'announcements' 
+      ? chatList.filter(chat => chat.is_announcement)
+      : chatList.filter(chat => !chat.is_announcement);
+    setFilteredChats(filtered);
+  };
+
   const handleSearch = async (query: string) => {
     setSearchQuery(query);
     
     if (!query.trim()) {
-      setFilteredChats(chats);
+      applyViewFilter(chats, viewMode);
       return;
     }
 
@@ -235,8 +245,13 @@ export default function Messages() {
 
       const matchingChatIds = Array.from(chatMessageMap.keys());
 
-      // Filter chats to only those with matching messages or matching titles
-      const filtered = chats
+      // Filter chats based on view mode first, then apply search
+      const modeFilteredChats = viewMode === 'announcements'
+        ? chats.filter(chat => chat.is_announcement)
+        : chats.filter(chat => !chat.is_announcement);
+
+      // Then filter by search criteria
+      const filtered = modeFilteredChats
         .filter(chat => 
           matchingChatIds.includes(chat.id) || 
           chat.title?.toLowerCase().includes(query.toLowerCase())
@@ -251,6 +266,12 @@ export default function Messages() {
       console.error('Error searching chats:', error);
       toast.error('Failed to search messages');
     }
+  };
+
+  const handleViewModeChange = (mode: 'chats' | 'announcements') => {
+    setViewMode(mode);
+    setSearchQuery('');
+    applyViewFilter(chats, mode);
   };
 
   useEffect(() => {
@@ -307,6 +328,14 @@ export default function Messages() {
                 </Button>
               </div>
             </div>
+            
+            <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements')} className="mb-4">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="chats">Chats</TabsTrigger>
+                <TabsTrigger value="announcements">Announcements</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            
             <div className="mb-4">
               <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
             </div>
@@ -370,6 +399,14 @@ export default function Messages() {
                   </Button>
                 </div>
               </div>
+              
+              <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements')} className="mb-4">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="chats">Chats</TabsTrigger>
+                  <TabsTrigger value="announcements">Announcements</TabsTrigger>
+                </TabsList>
+              </Tabs>
+              
               <div className="mb-4">
                 <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
               </div>
