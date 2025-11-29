@@ -221,36 +221,41 @@ export default function Alerts() {
               // Query shifts active during the due time
               const { data: shifts } = await supabase
                 .from('scheduled_shifts')
-                .select(`
-                  user_id,
-                  start_time,
-                  end_time,
-                  profiles!inner(full_name)
-                `)
+                .select('user_id, start_time, end_time')
                 .eq('shift_date', format(date, 'yyyy-MM-dd'))
                 .lte('start_time', dueTimeStr)
                 .gte('end_time', dueTimeStr);
 
               if (shifts && shifts.length > 0) {
-                // Get user roles for these users
-                const userIds = shifts.map(s => s.user_id);
-                const { data: userRoles } = await supabase
-                  .from('user_roles')
-                  .select('user_id, role')
-                  .in('user_id', userIds)
-                  .in('role', ['admin', 'manager']);
+                const userIds = shifts.map(s => s.user_id).filter(Boolean);
+                
+                if (userIds.length > 0) {
+                  // Get user roles for these users
+                  const { data: userRoles } = await supabase
+                    .from('user_roles')
+                    .select('user_id, role')
+                    .in('user_id', userIds)
+                    .in('role', ['admin', 'manager']);
 
-                const managerUserIds = new Set(userRoles?.map(ur => ur.user_id) || []);
+                  const managerUserIds = new Set(userRoles?.map(ur => ur.user_id) || []);
 
-                // Extract first names of managers/admins
-                shifts.forEach((shift: any) => {
-                  if (managerUserIds.has(shift.user_id) && shift.profiles?.full_name) {
-                    const firstName = shift.profiles.full_name.split(' ')[0];
-                    if (!managerNames.includes(firstName)) {
-                      managerNames.push(firstName);
-                    }
+                  // Get profile names for managers
+                  if (managerUserIds.size > 0) {
+                    const { data: profiles } = await supabase
+                      .from('profiles')
+                      .select('id, full_name')
+                      .in('id', Array.from(managerUserIds));
+
+                    profiles?.forEach(profile => {
+                      if (profile.full_name) {
+                        const firstName = profile.full_name.split(' ')[0];
+                        if (!managerNames.includes(firstName)) {
+                          managerNames.push(firstName);
+                        }
+                      }
+                    });
                   }
-                });
+                }
               }
             }
             
