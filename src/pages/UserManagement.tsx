@@ -1124,19 +1124,20 @@ export default function UserManagement() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-6 space-y-6">
+      <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-full md:max-w-7xl">
         <h1 className="text-3xl font-bold">User Management</h1>
         <InviteLinkCard />
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <CardDescription>Manage user roles and permissions</CardDescription>
               <div className="flex items-center gap-2">
                 <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="gap-2">
+                    <Button className="gap-2 flex-1 md:flex-none">
                       <UserPlus className="h-4 w-4" />
-                      Invite User
+                      <span className="hidden sm:inline">Invite User</span>
+                      <span className="sm:hidden">Invite</span>
                     </Button>
                   </DialogTrigger>
                 <DialogContent>
@@ -1236,9 +1237,10 @@ export default function UserManagement() {
                   </div>
                 </DialogContent>
               </Dialog>
-              <Button variant="outline" onClick={handleCreateTestUsers} className="gap-2">
+              <Button variant="outline" onClick={handleCreateTestUsers} className="gap-2 flex-1 md:flex-none">
                 <Users className="h-4 w-4" />
-                Create Test Users
+                <span className="hidden sm:inline">Create Test Users</span>
+                <span className="sm:hidden">Test Users</span>
               </Button>
             </div>
           </div>
