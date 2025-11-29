@@ -24,6 +24,7 @@ interface Chat {
   updated_at: string;
   group_image_url: string | null;
   unreadCount?: number;
+  messagePreview?: string;
   chat_members: Array<{
     user_id: string;
     profiles: {
@@ -215,22 +216,35 @@ export default function Messages() {
       // Search for messages containing the query
       const { data: matchingMessages } = await supabase
         .from('messages')
-        .select('chat_id')
-        .ilike('content', `%${query}%`);
+        .select('chat_id, content')
+        .ilike('content', `%${query}%`)
+        .order('created_at', { ascending: false });
 
       if (!matchingMessages) {
         setFilteredChats([]);
         return;
       }
 
-      // Get unique chat IDs from matching messages
-      const matchingChatIds = [...new Set(matchingMessages.map(m => m.chat_id))];
+      // Get unique chat IDs and create a map of chat_id to first matching message
+      const chatMessageMap = new Map<string, string>();
+      matchingMessages.forEach(msg => {
+        if (!chatMessageMap.has(msg.chat_id) && msg.content) {
+          chatMessageMap.set(msg.chat_id, msg.content);
+        }
+      });
+
+      const matchingChatIds = Array.from(chatMessageMap.keys());
 
       // Filter chats to only those with matching messages or matching titles
-      const filtered = chats.filter(chat => 
-        matchingChatIds.includes(chat.id) || 
-        chat.title?.toLowerCase().includes(query.toLowerCase())
-      );
+      const filtered = chats
+        .filter(chat => 
+          matchingChatIds.includes(chat.id) || 
+          chat.title?.toLowerCase().includes(query.toLowerCase())
+        )
+        .map(chat => ({
+          ...chat,
+          messagePreview: chatMessageMap.get(chat.id) || undefined
+        }));
 
       setFilteredChats(filtered);
     } catch (error) {
@@ -301,6 +315,7 @@ export default function Messages() {
               selectedChatId={selectedChatId}
               onSelectChat={setSelectedChatId}
               loading={loading}
+              searchQuery={searchQuery}
             />
           </div>
         )}
@@ -363,6 +378,7 @@ export default function Messages() {
                 selectedChatId={selectedChatId}
                 onSelectChat={setSelectedChatId}
                 loading={loading}
+                searchQuery={searchQuery}
               />
             </div>
             

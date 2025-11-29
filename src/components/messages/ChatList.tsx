@@ -10,6 +10,7 @@ interface Chat {
   updated_at: string;
   group_image_url: string | null;
   unreadCount?: number;
+  messagePreview?: string;
   chat_members?: Array<{
     profiles: {
       profile_photo_url: string | null;
@@ -22,9 +23,25 @@ interface ChatListProps {
   selectedChatId: string | null;
   onSelectChat: (chatId: string) => void;
   loading: boolean;
+  searchQuery?: string;
 }
 
-export function ChatList({ chats, selectedChatId, onSelectChat, loading }: ChatListProps) {
+const highlightSearchTerm = (text: string, searchQuery: string) => {
+  if (!searchQuery) return text;
+  
+  const parts = text.split(new RegExp(`(${searchQuery})`, 'gi'));
+  return parts.map((part, index) =>
+    part.toLowerCase() === searchQuery.toLowerCase() ? (
+      <mark key={index} className="bg-yellow-300 text-foreground font-semibold">
+        {part}
+      </mark>
+    ) : (
+      part
+    )
+  );
+};
+
+export function ChatList({ chats, selectedChatId, onSelectChat, loading, searchQuery }: ChatListProps) {
   if (loading) {
     return (
       <div className="space-y-2">
@@ -94,9 +111,15 @@ export function ChatList({ chats, selectedChatId, onSelectChat, loading }: ChatL
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground truncate">
-              {new Date(chat.updated_at).toLocaleDateString()}
-            </p>
+            {chat.messagePreview && searchQuery ? (
+              <p className="text-xs text-muted-foreground truncate mt-1">
+                {highlightSearchTerm(chat.messagePreview, searchQuery)}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground truncate">
+                {new Date(chat.updated_at).toLocaleDateString()}
+              </p>
+            )}
           </div>
         </button>
       ))}
