@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Shield, User } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -26,42 +27,24 @@ type UserRole = {
   };
 };
 
-const rolePermissions = {
-  admin: [
-    'Full system access',
-    'Manage all users and roles',
-    'Create and manage locations',
-    'Publish schedules',
-    'Manage checklists and templates',
-    'View all reports and analytics',
-    'Manage certifications',
-    'Access payroll and labor data',
-  ],
-  manager: [
-    'View and edit schedules',
-    'Manage availability requests',
-    'View team timecards',
-    'Create and assign tasks',
-    'View labor reports',
-    'Manage shift templates',
-  ],
-  team_member: [
-    'View own schedule',
-    'Submit availability requests',
-    'Clock in/out',
-    'Complete assigned checklists',
-    'View own timecard',
-    'Participate in shift marketplace',
-  ],
+type RolePermission = {
+  id: string;
+  role: 'admin' | 'manager' | 'team_member';
+  permission_key: string;
+  permission_label: string;
+  enabled: boolean;
 };
 
 export function RoleManagementSection() {
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
+  const [permissions, setPermissions] = useState<RolePermission[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState<'admin' | 'manager' | 'team_member' | null>(null);
+  const [savingPermission, setSavingPermission] = useState<string | null>(null);
 
   useEffect(() => {
     fetchUserRoles();
+    fetchPermissions();
   }, []);
 
   const fetchUserRoles = async () => {
@@ -89,6 +72,22 @@ export function RoleManagementSection() {
     }
   };
 
+  const fetchPermissions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('role_permissions')
+        .select('*')
+        .order('role', { ascending: true })
+        .order('permission_label', { ascending: true });
+
+      if (error) throw error;
+      setPermissions(data || []);
+    } catch (error: any) {
+      console.error('Error fetching permissions:', error);
+      toast.error('Failed to load permissions');
+    }
+  };
+
   const handleRoleChange = async (userId: string, newRole: 'admin' | 'manager' | 'team_member') => {
     try {
       const { error } = await supabase
@@ -103,6 +102,26 @@ export function RoleManagementSection() {
     } catch (error: any) {
       console.error('Error updating role:', error);
       toast.error('Failed to update role');
+    }
+  };
+
+  const handlePermissionToggle = async (permissionId: string, currentEnabled: boolean) => {
+    setSavingPermission(permissionId);
+    try {
+      const { error } = await supabase
+        .from('role_permissions')
+        .update({ enabled: !currentEnabled })
+        .eq('id', permissionId);
+
+      if (error) throw error;
+
+      toast.success('Permission updated');
+      fetchPermissions();
+    } catch (error: any) {
+      console.error('Error updating permission:', error);
+      toast.error('Failed to update permission');
+    } finally {
+      setSavingPermission(null);
     }
   };
 
@@ -218,7 +237,7 @@ export function RoleManagementSection() {
         <CardHeader>
           <CardTitle>Role Permissions</CardTitle>
           <CardDescription>
-            View what each role can access and manage
+            Click to enable or disable permissions for each role
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -255,14 +274,30 @@ export function RoleManagementSection() {
                   <User className="h-4 w-4" />
                   {getRoleLabel(selectedRole)} Permissions
                 </h4>
-                <ul className="space-y-2">
-                  {rolePermissions[selectedRole].map((permission, index) => (
-                    <li key={index} className="flex items-start gap-2 text-sm">
-                      <span className="text-green-500 mt-0.5">✓</span>
-                      <span>{permission}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="space-y-3">
+                  {permissions
+                    .filter((p) => p.role === selectedRole)
+                    .map((permission) => (
+                      <div key={permission.id} className="flex items-center gap-3">
+                        <Checkbox
+                          id={permission.id}
+                          checked={permission.enabled}
+                          disabled={savingPermission === permission.id}
+                          onCheckedChange={() =>
+                            handlePermissionToggle(permission.id, permission.enabled)
+                          }
+                        />
+                        <label
+                          htmlFor={permission.id}
+                          className={`text-sm cursor-pointer ${
+                            permission.enabled ? 'text-foreground' : 'text-muted-foreground'
+                          }`}
+                        >
+                          {permission.permission_label}
+                        </label>
+                      </div>
+                    ))}
+                </div>
               </div>
             )}
           </div>
