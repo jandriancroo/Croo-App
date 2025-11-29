@@ -132,7 +132,7 @@ export default function Dashboard() {
         }
         weekStart = day.fullDate;
         currentWeek = {
-          week: `Week ${weeks.length + 1}`,
+          week: `Wk ${weeks.length + 1}`,
           sales: day.sales
         };
       } else if (currentWeek) {
@@ -520,14 +520,14 @@ export default function Dashboard() {
             </TabsContent>
             
             <TabsContent value="month" className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Sales</p>
-                  <p className="text-2xl font-bold">{formatCurrency(monthlyTotal)}</p>
+              <div className="grid grid-cols-2 gap-6 mb-4">
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Total Sales</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">{formatCurrency(monthlyTotal)}</p>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Daily Avg</p>
-                  <p className="text-2xl font-bold">{formatCurrency(monthlyTotal / 30)}</p>
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Daily Avg</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">{formatCurrency(monthlyTotal / 30)}</p>
                 </div>
               </div>
               <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
