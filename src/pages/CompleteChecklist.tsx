@@ -535,7 +535,20 @@ export default function CompleteChecklist() {
           const completerInfo = responsesWithCompleters[item.id]?.completedBy;
           const hasResponse = responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
           
-          return <Card key={item.id} className="overflow-hidden relative">
+          return <div key={item.id} className="space-y-2">
+              {/* Title above divider - never blurred */}
+              <div className="px-1">
+                <h3 className="text-base font-medium">
+                  {item.question}
+                  {item.is_required && <span className="text-destructive ml-1">*</span>}
+                </h3>
+              </div>
+              
+              {/* Horizontal divider */}
+              <div className="border-t border-border" />
+              
+              {/* Card with content - this gets blurred when completed */}
+              <Card className="overflow-hidden relative">
               {hasResponse && <div 
                   className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 gap-3" 
                   style={{ pointerEvents: 'auto' }}
@@ -609,65 +622,61 @@ export default function CompleteChecklist() {
                   </div>}
                 
                 <CardHeader className={`pb-3 ${hasResponse ? 'pointer-events-none' : ''}`}>
-                  <CardTitle className="text-base font-medium">
-                    {item.question}
-                    {item.is_required && <span className="text-destructive ml-1">*</span>}
-                  </CardTitle>
-                
-                {/* Reference Material Display */}
-                {(item.reference_image_url || item.reference_link || item.reference_video_url) && <div className="mt-2 space-y-2 bg-muted/30 p-2 rounded text-xs">
-                    <div className="font-medium text-muted-foreground">Reference:</div>
-                    
-                    {item.reference_image_url && <div className="space-y-1">
-                        <Badge variant="secondary" className="text-[10px] h-4">Photo</Badge>
-                        <img src={item.reference_image_url} alt="Reference" className="rounded max-h-32 object-cover border" />
-                      </div>}
-                    
-                    {item.reference_link && <div className="space-y-0.5">
-                        <Badge variant="secondary" className="text-[10px] h-4">Link</Badge>
-                        <a href={item.reference_link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline block break-all">
-                          {item.reference_link}
-                        </a>
-                      </div>}
-                    
-                    {item.reference_video_url && <div className="space-y-0.5">
-                        <Badge variant="secondary" className="text-[10px] h-4">Video</Badge>
-                        <a href={item.reference_video_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline block break-all">
-                          {item.reference_video_url}
-                        </a>
-                      </div>}
-                  </div>}
-              </CardHeader>
-              <CardContent className={`pt-0 ${hasResponse ? 'pointer-events-none' : ''}`}>
-                {item.item_type === 'text' && <Textarea value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter your response" required={item.is_required} className="min-h-[60px] text-sm" />}
-                {item.item_type === 'multiple_choice' && item.options && <RadioGroup value={responses[item.id] || ''} onValueChange={value => handleResponseChange(item.id, value)} required={item.is_required} className="space-y-1.5">
-                    {item.options.map(option => <div key={option} className="flex items-center space-x-2">
-                        <RadioGroupItem value={option} id={`${item.id}-${option}`} className="h-4 w-4" />
-                        <Label htmlFor={`${item.id}-${option}`} className="text-sm font-normal cursor-pointer">{option}</Label>
-                      </div>)}
-                  </RadioGroup>}
-                {(item.item_type === 'image' || item.item_type === 'PHOTO') && <div className="space-y-2">
-                    <Label htmlFor={`image-${item.id}`} className="cursor-pointer">
-                      <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-border rounded hover:border-primary transition-colors">
-                        <Upload className="h-4 w-4" />
-                        <span className="text-sm">Tap to take photo</span>
-                      </div>
-                    </Label>
-                    <Input id={`image-${item.id}`} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file) handleImageUpload(item.id, file);
-                  e.target.value = '';
-                }} required={item.is_required && !responses[item.id]} />
-                    {responses[item.id] && <img src={responses[item.id]} alt="Uploaded" className="rounded max-h-48 object-cover border" />}
-                  </div>}
-                {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK') && <div className="flex items-center space-x-2 py-2">
-                    <Checkbox id={`confirm-${item.id}`} checked={responses[item.id] || false} onCheckedChange={checked => handleResponseChange(item.id, checked)} required={item.is_required} />
-                    <Label htmlFor={`confirm-${item.id}`} className="text-sm font-normal cursor-pointer leading-relaxed">
-                      {item.question}
-                    </Label>
-                  </div>}
-              </CardContent>
-            </Card>;
+                  {/* Reference Material Display */}
+                  {(item.reference_image_url || item.reference_link || item.reference_video_url) && <div className="space-y-2 bg-muted/30 p-2 rounded text-xs">
+                      <div className="font-medium text-muted-foreground">Reference:</div>
+                      
+                      {item.reference_image_url && <div className="space-y-1">
+                          <Badge variant="secondary" className="text-[10px] h-4">Photo</Badge>
+                          <img src={item.reference_image_url} alt="Reference" className="rounded max-h-32 object-cover border" />
+                        </div>}
+                      
+                      {item.reference_link && <div className="space-y-0.5">
+                          <Badge variant="secondary" className="text-[10px] h-4">Link</Badge>
+                          <a href={item.reference_link} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline block break-all">
+                            {item.reference_link}
+                          </a>
+                        </div>}
+                      
+                      {item.reference_video_url && <div className="space-y-0.5">
+                          <Badge variant="secondary" className="text-[10px] h-4">Video</Badge>
+                          <a href={item.reference_video_url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline block break-all">
+                            {item.reference_video_url}
+                          </a>
+                        </div>}
+                    </div>}
+                </CardHeader>
+                <CardContent className={`pt-0 ${hasResponse ? 'pointer-events-none' : ''}`}>
+                  {item.item_type === 'text' && <Textarea value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter your response" required={item.is_required} className="min-h-[60px] text-sm" />}
+                  {item.item_type === 'multiple_choice' && item.options && <RadioGroup value={responses[item.id] || ''} onValueChange={value => handleResponseChange(item.id, value)} required={item.is_required} className="space-y-1.5">
+                      {item.options.map(option => <div key={option} className="flex items-center space-x-2">
+                          <RadioGroupItem value={option} id={`${item.id}-${option}`} className="h-4 w-4" />
+                          <Label htmlFor={`${item.id}-${option}`} className="text-sm font-normal cursor-pointer">{option}</Label>
+                        </div>)}
+                    </RadioGroup>}
+                  {(item.item_type === 'image' || item.item_type === 'PHOTO') && <div className="space-y-2">
+                      <Label htmlFor={`image-${item.id}`} className="cursor-pointer">
+                        <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-border rounded hover:border-primary transition-colors">
+                          <Upload className="h-4 w-4" />
+                          <span className="text-sm">Tap to take photo</span>
+                        </div>
+                      </Label>
+                      <Input id={`image-${item.id}`} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handleImageUpload(item.id, file);
+                    e.target.value = '';
+                  }} required={item.is_required && !responses[item.id]} />
+                      {responses[item.id] && <img src={responses[item.id]} alt="Uploaded" className="rounded max-h-48 object-cover border" />}
+                    </div>}
+                  {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK') && <div className="flex items-center space-x-2 py-2">
+                      <Checkbox id={`confirm-${item.id}`} checked={responses[item.id] || false} onCheckedChange={checked => handleResponseChange(item.id, checked)} required={item.is_required} />
+                      <Label htmlFor={`confirm-${item.id}`} className="text-sm font-normal cursor-pointer leading-relaxed">
+                        {item.question}
+                      </Label>
+                    </div>}
+                </CardContent>
+              </Card>
+            </div>;
           })}
 
           {showNotes && (
