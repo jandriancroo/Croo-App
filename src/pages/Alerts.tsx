@@ -228,17 +228,17 @@ export default function Alerts() {
         </div>
 
         <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="all">
+          <TabsList className="w-full flex flex-wrap gap-2 h-auto md:grid md:grid-cols-4 p-1">
+            <TabsTrigger value="all" className="flex-1 min-w-[100px]">
               All ({allAlerts.length})
             </TabsTrigger>
-            <TabsTrigger value="punch">
+            <TabsTrigger value="punch" className="flex-1 min-w-[100px]">
               Punch Clock ({punchClockAlerts.length})
             </TabsTrigger>
-            <TabsTrigger value="logbook">
+            <TabsTrigger value="logbook" className="flex-1 min-w-[100px]">
               Log ({logbookAlerts.length})
             </TabsTrigger>
-            <TabsTrigger value="checklists">
+            <TabsTrigger value="checklists" className="flex-1 min-w-[100px]">
               Checklists ({checklistAlerts.length})
             </TabsTrigger>
           </TabsList>
