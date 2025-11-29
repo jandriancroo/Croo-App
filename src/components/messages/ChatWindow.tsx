@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Paperclip, File, Settings, MessageSquare, Trash2 } from 'lucide-react';
+import { Send, Paperclip, File, Settings, MessageSquare, Trash2, Megaphone, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ReactionPicker } from './ReactionPicker';
@@ -282,10 +282,25 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Avatar className="h-10 w-10">
-                <AvatarImage src={chatDetails.group_image_url || undefined} />
-                <AvatarFallback>
-                  {chatDetails.title?.charAt(0) || 'C'}
-                </AvatarFallback>
+                {chatDetails.is_announcement ? (
+                  <AvatarFallback className="bg-primary/10">
+                    <Megaphone className="h-5 w-5 text-primary" />
+                  </AvatarFallback>
+                ) : chatDetails.is_group ? (
+                  <>
+                    <AvatarImage src={chatDetails.group_image_url || undefined} />
+                    <AvatarFallback>
+                      <Users className="h-5 w-5" />
+                    </AvatarFallback>
+                  </>
+                ) : (
+                  <>
+                    <AvatarImage src={chatDetails.group_image_url || undefined} />
+                    <AvatarFallback>
+                      {chatDetails.title?.charAt(0) || 'C'}
+                    </AvatarFallback>
+                  </>
+                )}
               </Avatar>
               <div>
                 <h3 className="font-semibold">{chatDetails.title || 'Chat'}</h3>
