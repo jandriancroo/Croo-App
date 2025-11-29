@@ -363,37 +363,37 @@ export default function Dashboard() {
         <CertificationAlerts />
       </div>,
     'sales-overview': <Card>
-        <CardHeader>
+        <CardHeader className="pb-3 md:pb-6">
           <div className="flex items-center justify-between">
-            <CardTitle>Sales Overview</CardTitle>
+            <CardTitle className="text-xl md:text-2xl">Sales Overview</CardTitle>
             <Button onClick={() => refetchSales()} size="sm" variant="outline">
               Refresh
             </Button>
           </div>
-          <CardDescription className="mt-2">Today's performance and hourly breakdown</CardDescription>
-          <div className="grid grid-cols-3 gap-4 mt-4">
+          <CardDescription className="mt-1 md:mt-2">Today's performance and hourly breakdown</CardDescription>
+          <div className="grid grid-cols-3 gap-2 md:gap-4 mt-3 md:mt-4">
             <div>
-              <p className="text-sm text-muted-foreground">Today</p>
-              <p className="text-2xl font-bold">
+              <p className="text-xs md:text-sm text-muted-foreground">Today</p>
+              <p className="text-lg md:text-2xl font-bold">
                 {salesData ? formatCurrency(salesData.daily) : "--"}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">This Week</p>
-              <p className="text-2xl font-bold">
+              <p className="text-xs md:text-sm text-muted-foreground">This Week</p>
+              <p className="text-lg md:text-2xl font-bold">
                 {salesData ? formatCurrency(salesData.weekly) : "--"}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Avg/Hour</p>
-              <p className="text-2xl font-bold">
+              <p className="text-xs md:text-sm text-muted-foreground">Avg/Hour</p>
+              <p className="text-lg md:text-2xl font-bold">
                 {salesData ? formatCurrency(salesData.hourly.reduce((sum, h) => sum + h.sales, 0) / salesData.hourly.length) : "--"}
               </p>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          {salesData?.hourly ? <ResponsiveContainer width="100%" height={300}>
+        <CardContent className="pt-0">
+          {salesData?.hourly ? <ResponsiveContainer width="100%" height={200} className="md:h-[300px]">
               <BarChart data={salesData.hourly}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="hour" className="text-xs" tick={{
@@ -409,7 +409,7 @@ export default function Dashboard() {
             }} />
                 <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
               </BarChart>
-            </ResponsiveContainer> : <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+            </ResponsiveContainer> : <div className="h-[200px] md:h-[300px] flex items-center justify-center text-muted-foreground">
               No sales data available
             </div>}
         </CardContent>
