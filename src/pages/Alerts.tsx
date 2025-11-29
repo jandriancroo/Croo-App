@@ -210,6 +210,50 @@ export default function Alerts() {
               alertTime.setHours(hours, minutes, 0, 0);
             }
             
+            // Find managers/admins scheduled during this checklist's due time
+            const managerNames: string[] = [];
+            if (checklist.due_by_time) {
+              const [hours, minutes] = checklist.due_by_time.split(':').map(Number);
+              const dueTime = new Date(date);
+              dueTime.setHours(hours, minutes, 0, 0);
+              const dueTimeStr = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+
+              // Query shifts active during the due time
+              const { data: shifts } = await supabase
+                .from('scheduled_shifts')
+                .select(`
+                  user_id,
+                  start_time,
+                  end_time,
+                  profiles!inner(full_name)
+                `)
+                .eq('shift_date', format(date, 'yyyy-MM-dd'))
+                .lte('start_time', dueTimeStr)
+                .gte('end_time', dueTimeStr);
+
+              if (shifts && shifts.length > 0) {
+                // Get user roles for these users
+                const userIds = shifts.map(s => s.user_id);
+                const { data: userRoles } = await supabase
+                  .from('user_roles')
+                  .select('user_id, role')
+                  .in('user_id', userIds)
+                  .in('role', ['admin', 'manager']);
+
+                const managerUserIds = new Set(userRoles?.map(ur => ur.user_id) || []);
+
+                // Extract first names of managers/admins
+                shifts.forEach((shift: any) => {
+                  if (managerUserIds.has(shift.user_id) && shift.profiles?.full_name) {
+                    const firstName = shift.profiles.full_name.split(' ')[0];
+                    if (!managerNames.includes(firstName)) {
+                      managerNames.push(firstName);
+                    }
+                  }
+                });
+              }
+            }
+            
             alerts.push({
               id: `${checklist.id}-${date.toISOString()}`,
               checklist_id: checklist.id,
@@ -218,6 +262,7 @@ export default function Alerts() {
               status: completionRate === 0 ? 'incomplete' : 'partial',
               completionRate: Math.round(completionRate * 100),
               type: 'checklist',
+              managerNames: managerNames.length > 0 ? managerNames : undefined,
             });
           }
         }
@@ -509,13 +554,21 @@ export default function Alerts() {
                     </div>
                   </CardHeader>
                   <CardContent className="pt-0">
-                    <div className="flex items-center gap-2">
-                      {alert.status === 'incomplete' ? (
-                        <Badge variant="destructive" className="text-xs">Not Started</Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-700">
-                          {alert.completionRate}% Complete
-                        </Badge>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        {alert.status === 'incomplete' ? (
+                          <Badge variant="destructive" className="text-xs">Not Started</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-xs border-yellow-500 text-yellow-700">
+                            {alert.completionRate}% Complete
+                          </Badge>
+                        )}
+                      </div>
+                      {alert.managerNames && alert.managerNames.length > 0 && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="font-medium">Managers on duty:</span>
+                          <span>{alert.managerNames.join(', ')}</span>
+                        </div>
                       )}
                     </div>
                   </CardContent>

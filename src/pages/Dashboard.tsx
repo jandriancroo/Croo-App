@@ -561,17 +561,17 @@ export default function Dashboard() {
           } = getCompletionData(checklist.id);
           const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
           return <Card key={checklist.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="py-3 md:py-6">
+                <CardHeader className="py-2 md:py-3">
                   <div className="flex items-start justify-between">
-                    <ClipboardCheck className="h-6 w-6 md:h-8 md:w-8 text-primary" />
+                    <ClipboardCheck className="h-5 w-5 md:h-6 md:w-6 text-primary" />
                     <Badge className={getFrequencyColor(checklist.frequency)}>
                       {checklist.frequency}
                     </Badge>
                   </div>
-                  <CardTitle className="mt-2 md:mt-4 text-base md:text-lg">{checklist.title}</CardTitle>
+                  <CardTitle className="mt-1 md:mt-2 text-base md:text-lg">{checklist.title}</CardTitle>
                   {checklist.description && <CardDescription className="text-sm">{checklist.description}</CardDescription>}
                 </CardHeader>
-                <CardContent className="space-y-2 md:space-y-4 py-3 md:py-6">
+                <CardContent className="space-y-2 py-2 md:py-3">
                   <div className="flex items-center justify-between">
                     <div className="text-base md:text-lg font-semibold text-muted-foreground">
                       {completed} out of {expected}
