@@ -320,13 +320,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         </div>
       )}
 
-      {/* Announcement Stats */}
-      {chatDetails?.is_announcement && isAdmin && (
-        <div className="px-4 pt-4">
-          <AnnouncementStats chatId={chatId} />
-        </div>
-      )}
-
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => {
@@ -415,8 +408,17 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input - Hide for announcements unless you're admin */}
-      {(!chatDetails?.is_announcement || isAdmin) && (
+      {/* Announcement Stats - at bottom, discreet */}
+      {chatDetails?.is_announcement && isAdmin && (
+        <div className="px-4 pb-2 opacity-60">
+          <div className="scale-90 origin-bottom">
+            <AnnouncementStats chatId={chatId} />
+          </div>
+        </div>
+      )}
+
+      {/* Input - Hide for announcements */}
+      {!chatDetails?.is_announcement && (
         <div className="border-t border-border p-4">
         {replyToMessage && (
           <div className="mb-2 p-2 bg-muted rounded flex items-center justify-between">
