@@ -60,16 +60,33 @@ export default function TemperatureValidation() {
       const submissionIds = [...new Set(responses.map(r => r.submission_id))];
       const completerIds = [...new Set(responses.map(r => r.completed_by).filter(Boolean))];
 
-      // Fetch checklist items
+      // Fetch checklist items - filter for temperature-related questions only
       const { data: items, error: itemsError } = await supabase
         .from('checklist_items')
         .select('id, question, checklist_id')
         .in('id', itemIds);
 
       if (itemsError) throw itemsError;
+      
+      // Filter to only temperature-related items (exclude dough scales, etc.)
+      const temperatureItems = (items || []).filter((item: any) => 
+        item.question.toLowerCase().includes('temp') || 
+        item.question.toLowerCase().includes('thermometer')
+      );
+      
+      // Filter responses to only include temperature items
+      const filteredResponses = responses.filter(r => 
+        temperatureItems.some((item: any) => item.id === r.item_id)
+      );
+
+      if (filteredResponses.length === 0) {
+        setReadings([]);
+        setLoading(false);
+        return;
+      }
 
       // Get unique checklist IDs
-      const checklistIds = [...new Set((items || []).map((i: any) => i.checklist_id))];
+      const checklistIds = [...new Set(temperatureItems.map((i: any) => i.checklist_id))];
 
       // Fetch checklists
       const { data: checklists, error: checklistsError } = await supabase
@@ -88,12 +105,12 @@ export default function TemperatureValidation() {
       if (profilesError) throw profilesError;
 
       // Create lookup maps
-      const itemsMap = new Map((items || []).map((i: any) => [i.id, i]));
+      const itemsMap = new Map(temperatureItems.map((i: any) => [i.id, i]));
       const checklistsMap = new Map((checklists || []).map((c: any) => [c.id, c]));
       const profilesMap = new Map((profiles || []).map((p: any) => [p.id, p]));
 
       // Format data
-      const formatted = responses.map((r: any) => {
+      const formatted = filteredResponses.map((r: any) => {
         const item = itemsMap.get(r.item_id);
         const checklist = item ? checklistsMap.get(item.checklist_id) : null;
         const profile = r.completed_by ? profilesMap.get(r.completed_by) : null;
