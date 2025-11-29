@@ -12,7 +12,6 @@ import { GroupSettingsDialog } from './GroupSettingsDialog';
 import { MessageContent } from './MessageContent';
 import { ReadReceipts } from './ReadReceipts';
 import { AnnouncementStats } from './AnnouncementStats';
-import { ChatSearch } from './ChatSearch';
 import { useUserRole } from '@/hooks/useUserRole';
 import {
   AlertDialog,
@@ -64,8 +63,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filteredMessages, setFilteredMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -99,17 +96,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       markAsOpened();
     }
   }, [chatId, chatDetails, currentUserId]);
-
-  useEffect(() => {
-    if (searchQuery.trim()) {
-      const filtered = messages.filter(m =>
-        m.content?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredMessages(filtered);
-    } else {
-      setFilteredMessages(messages);
-    }
-  }, [searchQuery, messages]);
 
   const fetchMessages = async () => {
     try {
@@ -331,10 +317,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               )}
             </div>
           </div>
-          <ChatSearch
-            onSearch={setSearchQuery}
-            onClear={() => setSearchQuery('')}
-          />
         </div>
       )}
 
@@ -347,12 +329,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {filteredMessages.length === 0 && searchQuery && (
-          <div className="text-center text-muted-foreground py-8">
-            No messages found matching "{searchQuery}"
-          </div>
-        )}
-        {filteredMessages.map((message) => {
+        {messages.map((message) => {
           const isOwnMessage = currentUserId && message.sender_id === currentUserId;
           
           return (

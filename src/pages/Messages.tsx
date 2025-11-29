@@ -9,6 +9,7 @@ import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
 import { AnnouncementDialog } from '@/components/messages/AnnouncementDialog';
 import { MarketplaceIconSelector } from '@/components/messages/MarketplaceIconSelector';
+import { ChatSearch } from '@/components/messages/ChatSearch';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
@@ -44,6 +45,8 @@ export default function Messages() {
   const [marketplaceChatId, setMarketplaceChatId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showChatList, setShowChatList] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
 
   const fetchChats = async () => {
     setLoading(true);
@@ -188,11 +191,51 @@ export default function Messages() {
       });
 
       setChats(sortedChats);
+      setFilteredChats(sortedChats);
     } catch (error: any) {
       console.error('Error fetching chats:', error);
       toast.error('Failed to load chats');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSearch = async (query: string) => {
+    setSearchQuery(query);
+    
+    if (!query.trim()) {
+      setFilteredChats(chats);
+      return;
+    }
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Search for messages containing the query
+      const { data: matchingMessages } = await supabase
+        .from('messages')
+        .select('chat_id')
+        .ilike('content', `%${query}%`);
+
+      if (!matchingMessages) {
+        setFilteredChats([]);
+        return;
+      }
+
+      // Get unique chat IDs from matching messages
+      const matchingChatIds = [...new Set(matchingMessages.map(m => m.chat_id))];
+
+      // Filter chats to only those with matching messages or matching titles
+      const filtered = chats.filter(chat => 
+        matchingChatIds.includes(chat.id) || 
+        chat.title?.toLowerCase().includes(query.toLowerCase())
+      );
+
+      setFilteredChats(filtered);
+    } catch (error) {
+      console.error('Error searching chats:', error);
+      toast.error('Failed to search messages');
     }
   };
 
@@ -250,8 +293,11 @@ export default function Messages() {
                 </Button>
               </div>
             </div>
+            <div className="mb-4">
+              <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
+            </div>
             <ChatList
-              chats={chats}
+              chats={filteredChats}
               selectedChatId={selectedChatId}
               onSelectChat={setSelectedChatId}
               loading={loading}
@@ -309,8 +355,11 @@ export default function Messages() {
                   </Button>
                 </div>
               </div>
+              <div className="mb-4">
+                <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
+              </div>
               <ChatList
-                chats={chats}
+                chats={filteredChats}
                 selectedChatId={selectedChatId}
                 onSelectChat={setSelectedChatId}
                 loading={loading}
