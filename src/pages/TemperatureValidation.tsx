@@ -31,6 +31,7 @@ export default function TemperatureValidation() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>('');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [rescanning, setRescanning] = useState(false);
 
   useEffect(() => {
     fetchReadings();
@@ -198,6 +199,27 @@ export default function TemperatureValidation() {
     setEditValue('');
   };
 
+  const handleRescanAll = async () => {
+    setRescanning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('rescan-temperatures', {
+        body: { targetDate: new Date().toISOString().split('T')[0] }
+      });
+
+      if (error) throw error;
+
+      toast.success(`Rescanned ${data.summary.successful} of ${data.summary.total} readings. ${data.summary.changed} changed.`);
+      
+      // Refresh the readings
+      await fetchReadings();
+    } catch (error) {
+      console.error('Error rescanning temperatures:', error);
+      toast.error('Failed to rescan temperatures');
+    } finally {
+      setRescanning(false);
+    }
+  };
+
   const getStatusBadge = (valid: boolean | null, temp: number | null) => {
     if (temp === null) return null;
     
@@ -231,11 +253,20 @@ export default function TemperatureValidation() {
   return (
     <Layout>
       <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-full md:max-w-4xl">
-        <div>
-          <h1 className="text-3xl font-bold">Temperature Validation</h1>
-          <p className="text-muted-foreground">
-            Review and correct AI-extracted temperature readings
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Temperature Validation</h1>
+            <p className="text-muted-foreground">
+              Review and correct AI-extracted temperature readings
+            </p>
+          </div>
+          <Button
+            onClick={handleRescanAll}
+            disabled={rescanning || loading}
+            variant="outline"
+          >
+            {rescanning ? "Rescanning..." : "Rescan All Today"}
+          </Button>
         </div>
 
         {readings.length === 0 ? (

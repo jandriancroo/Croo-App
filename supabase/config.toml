@@ -3,5 +3,8 @@ project_id = "lmodeiyrpwvgyqcvjkjr"
 [functions.extract-temperature]
 verify_jwt = false
 
+[functions.rescan-temperatures]
+verify_jwt = false
+
 [functions.backfill-croo-cash-transactions]
 verify_jwt = false
