@@ -226,33 +226,53 @@ export default function EditChecklist() {
 
       if (checklistError) throw checklistError;
 
-      // Delete existing items
-      const { error: deleteError } = await supabase
-        .from('checklist_items')
-        .delete()
-        .eq('checklist_id', id);
+      // Get existing item IDs to determine which to delete
+      const existingItemIds = items.filter(item => item.id).map(item => item.id);
+      
+      // Delete items that were removed (not in current items list)
+      if (existingItemIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('checklist_items')
+          .delete()
+          .eq('checklist_id', id)
+          .not('id', 'in', `(${existingItemIds.map(id => `'${id}'`).join(',')})`);
 
-      if (deleteError) throw deleteError;
+        if (deleteError) throw deleteError;
+      }
 
-      // Insert updated items
-      const itemsToInsert = items.map((item, index) => ({
-        checklist_id: id,
-        question: item.question,
-        item_type: item.item_type,
-        is_required: item.is_required,
-        options: item.item_type === 'multiple_choice' ? item.options : null,
-        reference_image_url: item.reference_image_url || null,
-        reference_link: item.reference_link || null,
-        reference_video_url: item.reference_video_url || null,
-        reference_notes: item.reference_notes || null,
-        order_index: index,
-      }));
+      // Update existing items and insert new ones
+      for (let index = 0; index < items.length; index++) {
+        const item = items[index];
+        const itemData = {
+          checklist_id: id,
+          question: item.question,
+          item_type: item.item_type,
+          is_required: item.is_required,
+          options: item.item_type === 'multiple_choice' ? item.options : null,
+          reference_image_url: item.reference_image_url || null,
+          reference_link: item.reference_link || null,
+          reference_video_url: item.reference_video_url || null,
+          reference_notes: item.reference_notes || null,
+          order_index: index,
+        };
 
-      const { error: itemsError } = await supabase
-        .from('checklist_items')
-        .insert(itemsToInsert);
+        if (item.id) {
+          // Update existing item
+          const { error: updateError } = await supabase
+            .from('checklist_items')
+            .update(itemData)
+            .eq('id', item.id);
 
-      if (itemsError) throw itemsError;
+          if (updateError) throw updateError;
+        } else {
+          // Insert new item
+          const { error: insertError } = await supabase
+            .from('checklist_items')
+            .insert(itemData);
+
+          if (insertError) throw insertError;
+        }
+      }
 
       // Delete existing role tags
       const { error: deleteRoleTagsError } = await supabase
