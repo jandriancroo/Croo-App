@@ -167,7 +167,8 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      if (user.id === offer.offered_by.id) {
+      // Only non-admins cannot claim their own shifts
+      if (user.id === offer.offered_by.id && !isAdmin) {
         toast.error("You cannot claim your own shift");
         return;
       }
