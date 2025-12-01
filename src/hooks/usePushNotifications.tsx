@@ -30,19 +30,17 @@ export const usePushNotifications = () => {
         console.log('[Push] Requesting permissions...');
         const permStatus = await PushNotifications.requestPermissions();
         console.log('[Push] Permission status:', permStatus);
-        
-        if (permStatus.receive === 'granted') {
-          // Register with Apple / Google to receive push via APNS/FCM
-          console.log('[Push] Registering device...');
-          await PushNotifications.register();
-        } else {
+
+        if (permStatus.receive !== 'granted') {
           console.log('[Push] Permission not granted:', permStatus.receive);
+          return;
         }
 
-        // Setup listeners
+        console.log('[Push] Setting up listeners before registration...');
+
         const registrationListener = await PushNotifications.addListener('registration', async (token) => {
           console.log('[Push] Registration success! Token: ' + token.value);
-          
+
           if (!user) {
             console.log('[Push] No user during token save');
             return;
@@ -116,6 +114,10 @@ export const usePushNotifications = () => {
             window.location.href = '/alerts';
           }
         });
+
+        console.log('[Push] Listeners registered, now registering device...');
+        await PushNotifications.register();
+        console.log('[Push] Device registration requested');
 
         console.log('[Push] All listeners registered successfully');
 
