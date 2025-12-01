@@ -33,6 +33,13 @@ export const usePushNotifications = () => {
         return;
       }
 
+      // Check if VAPID keys are configured
+      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+      if (!vapidPublicKey) {
+        console.log('[Push Web] VAPID keys not configured, skipping web push setup');
+        return;
+      }
+
       if (hasRegisteredRef.current) {
         console.log('[Push Web] ⚠️ Already registered, skipping duplicate setup');
         return;
@@ -72,10 +79,6 @@ export const usePushNotifications = () => {
 
         // Subscribe to push notifications
         console.log('[Push Web] Creating push subscription...');
-        
-        // VAPID public key (you'll need to generate this)
-        // For now using a placeholder - we'll generate real keys in the edge function
-        const vapidPublicKey = 'BEl62iUYgUivxIkv69yViEuiBIa-Ib37J8x1K9l4YvKm-j_o_TjEBWIwxb5mBpEqhc_tRHWmvVRlMhJ8QHgjEKg';
         
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
