@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.backfill-croo-cash-transactions]
 verify_jwt = false
+
+[functions.check-alerts]
+verify_jwt = false

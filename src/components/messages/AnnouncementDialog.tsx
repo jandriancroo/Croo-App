@@ -159,6 +159,33 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated }
 
       if (messageError) throw messageError;
 
+      // Send push notifications for announcement
+      try {
+        const { data: senderProfile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+
+        console.log('Sending announcement push notification to', selectedUsers.length, 'users');
+
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            user_ids: selectedUsers,
+            title: `📢 ${title.trim()}`,
+            body: message.trim().substring(0, 100),
+            notification_type: 'announcements',
+            data: {
+              chat_id: chat.id,
+              type: 'announcement'
+            }
+          }
+        });
+      } catch (notifError) {
+        console.error('Error sending announcement push notification:', notifError);
+        // Don't fail the announcement if notifications fail
+      }
+
       toast.success('Announcement sent');
       onAnnouncementCreated(chat.id);
       
