@@ -29,26 +29,34 @@ export const usePushNotifications = () => {
         // Request permission to use push notifications
         console.log('[Push] Requesting permissions...');
         const permStatus = await PushNotifications.requestPermissions();
-        console.log('[Push] Permission status:', permStatus);
+        console.log('[Push] Permission status:', JSON.stringify(permStatus));
 
         if (permStatus.receive !== 'granted') {
           console.log('[Push] Permission not granted:', permStatus.receive);
+          console.log('[Push] Stopping setup - permission denied');
           return;
         }
 
-        console.log('[Push] Setting up listeners before registration...');
+        console.log('[Push] ✅ Permission granted! Setting up listeners...');
 
         const registrationListener = await PushNotifications.addListener('registration', async (token) => {
-          console.log('[Push] Registration success! Token: ' + token.value);
+          console.log('[Push] 🎉 REGISTRATION CALLBACK FIRED!');
+          console.log('[Push] Token object:', JSON.stringify(token));
+          console.log('[Push] Token value:', token?.value);
+
+          if (!token || !token.value) {
+            console.error('[Push] ❌ Token is undefined or missing value');
+            return;
+          }
 
           if (!user) {
-            console.log('[Push] No user during token save');
+            console.log('[Push] ❌ No user during token save');
             return;
           }
 
           try {
             // Save token to database
-            console.log('[Push] Saving token to database...');
+            console.log('[Push] Saving token to database for user:', user.id);
             const { error } = await supabase
               .from('push_notification_tokens')
               .upsert({
@@ -60,9 +68,9 @@ export const usePushNotifications = () => {
               });
 
             if (error) {
-              console.error('[Push] Failed to save push token:', error);
+              console.error('[Push] ❌ Failed to save push token:', error);
             } else {
-              console.log('[Push] Token saved successfully!');
+              console.log('[Push] ✅ Token saved successfully!');
             }
 
             // Create default notification preferences if they don't exist
@@ -80,10 +88,10 @@ export const usePushNotifications = () => {
                 ignoreDuplicates: true
               });
 
-            if (prefsError && prefsError.code !== '23505') { // Ignore duplicate key errors
+            if (prefsError && prefsError.code !== '23505') {
               console.error('[Push] Failed to create notification preferences:', prefsError);
             } else {
-              console.log('[Push] Notification preferences set up successfully');
+              console.log('[Push] ✅ Notification preferences set up successfully');
             }
           } catch (error) {
             console.error('[Push] Error handling push token:', error);
@@ -91,7 +99,9 @@ export const usePushNotifications = () => {
         });
 
         const errorListener = await PushNotifications.addListener('registrationError', (error) => {
-          console.error('[Push] Registration error:', JSON.stringify(error));
+          console.error('[Push] ❌ REGISTRATION ERROR CALLBACK FIRED!');
+          console.error('[Push] Error object:', JSON.stringify(error));
+          console.error('[Push] Error message:', error?.error);
         });
 
         const receivedListener = await PushNotifications.addListener('pushNotificationReceived', (notification) => {
@@ -104,7 +114,6 @@ export const usePushNotifications = () => {
 
         const actionListener = await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
           console.log('[Push] Notification tapped:', notification);
-          // Handle notification tap - navigate to relevant screen based on notification data
           const data = notification.notification.data;
           if (data?.type === 'chat' && data?.chatId) {
             window.location.href = `/messages?chat=${data.chatId}`;
@@ -115,21 +124,25 @@ export const usePushNotifications = () => {
           }
         });
 
-        console.log('[Push] Listeners registered, now registering device...');
+        console.log('[Push] ✅ All 4 listeners attached successfully');
+        console.log('[Push] 📱 Now calling PushNotifications.register()...');
+        
         await PushNotifications.register();
-        console.log('[Push] Device registration requested');
-
-        console.log('[Push] All listeners registered successfully');
+        
+        console.log('[Push] ✅ register() call completed');
+        console.log('[Push] ⏳ Waiting for registration callback from iOS...');
 
         // Cleanup
         return () => {
+          console.log('[Push] Cleaning up listeners');
           registrationListener.remove();
           errorListener.remove();
           receivedListener.remove();
           actionListener.remove();
         };
       } catch (error) {
-        console.error('[Push] Failed to setup push notifications:', error);
+        console.error('[Push] ❌ FATAL ERROR in setup:', error);
+        console.error('[Push] Error stack:', error instanceof Error ? error.stack : 'No stack');
       }
     };
 
