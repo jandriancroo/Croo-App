@@ -106,7 +106,7 @@ export const Layout = ({
     label: 'Settings',
     icon: SettingsIcon
   }];
-  return <div className="flex min-h-screen flex-col bg-background" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+  return <div className="flex min-h-screen flex-col bg-background">
       <header className="sticky top-0 z-50 border-b border-border/40 bg-background backdrop-blur supports-[backdrop-filter]:bg-background" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className={`container flex items-center ${isMobile ? 'h-16' : 'h-24'}`}>
           <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-8 flex-shrink-0 min-w-[120px]">
@@ -191,8 +191,8 @@ export const Layout = ({
 
         </div>
       </header>
-      <main className="container flex-1 py-3 md:py-8">{children}</main>
-      <nav className="sticky bottom-0 z-50 border-t border-border/40 bg-background backdrop-blur md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <main className="container flex-1 py-3 md:py-8 pb-24 md:pb-8">{children}</main>
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/40 bg-background backdrop-blur md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-center justify-around py-3 px-2">
           {mobileMainNavItems.map(item => {
           const Icon = item.icon;
