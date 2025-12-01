@@ -13,6 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Award, Upload, ExternalLink, Trash2, MapPin, ExternalLink as ExternalLinkIcon, Thermometer } from 'lucide-react';
 import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
 import { PositionManagementSection } from '@/components/settings/PositionManagementSection';
+import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { format } from 'date-fns';
@@ -260,6 +261,8 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+
+          <NotificationSettings />
 
           {isAdmin && locations.length > 0 && (
             <Card>

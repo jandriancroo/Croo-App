@@ -1063,6 +1063,39 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          announcements: boolean
+          chat_messages: boolean
+          created_at: string
+          id: string
+          late_arrivals: boolean
+          overdue_checklists: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          announcements?: boolean
+          chat_messages?: boolean
+          created_at?: string
+          id?: string
+          late_arrivals?: boolean
+          overdue_checklists?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          announcements?: boolean
+          chat_messages?: boolean
+          created_at?: string
+          id?: string
+          late_arrivals?: boolean
+          overdue_checklists?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       pay_periods: {
         Row: {
           closed_at: string | null
@@ -1149,6 +1182,33 @@ export type Database = {
           profile_photo_url?: string | null
           role?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      push_notification_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          platform: string
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          platform: string
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          platform?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
