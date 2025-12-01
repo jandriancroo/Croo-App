@@ -9,31 +9,48 @@ export const usePushNotifications = () => {
   const { user } = useAuth();
 
   useEffect(() => {
+    console.log('[Push] Effect triggered, platform:', Capacitor.getPlatform(), 'isNative:', Capacitor.isNativePlatform(), 'user:', !!user);
+    
     // Only initialize on native platforms
     if (!Capacitor.isNativePlatform()) {
+      console.log('[Push] Not a native platform, skipping setup');
       return;
     }
 
     const setupPushNotifications = async () => {
-      if (!user) return;
+      if (!user) {
+        console.log('[Push] No user logged in, skipping setup');
+        return;
+      }
+
+      console.log('[Push] Starting push notification setup for user:', user.id);
 
       try {
         // Request permission to use push notifications
+        console.log('[Push] Requesting permissions...');
         const permStatus = await PushNotifications.requestPermissions();
+        console.log('[Push] Permission status:', permStatus);
         
         if (permStatus.receive === 'granted') {
           // Register with Apple / Google to receive push via APNS/FCM
+          console.log('[Push] Registering device...');
           await PushNotifications.register();
+        } else {
+          console.log('[Push] Permission not granted:', permStatus.receive);
         }
 
         // Setup listeners
         const registrationListener = await PushNotifications.addListener('registration', async (token) => {
-          console.log('Push registration success, token: ' + token.value);
+          console.log('[Push] Registration success! Token: ' + token.value);
           
-          if (!user) return;
+          if (!user) {
+            console.log('[Push] No user during token save');
+            return;
+          }
 
           try {
             // Save token to database
+            console.log('[Push] Saving token to database...');
             const { error } = await supabase
               .from('push_notification_tokens')
               .upsert({
@@ -45,12 +62,13 @@ export const usePushNotifications = () => {
               });
 
             if (error) {
-              console.error('Failed to save push token:', error);
+              console.error('[Push] Failed to save push token:', error);
             } else {
-              console.log('Push token saved successfully');
+              console.log('[Push] Token saved successfully!');
             }
 
             // Create default notification preferences if they don't exist
+            console.log('[Push] Setting up notification preferences...');
             const { error: prefsError } = await supabase
               .from('notification_preferences')
               .upsert({
@@ -65,19 +83,21 @@ export const usePushNotifications = () => {
               });
 
             if (prefsError && prefsError.code !== '23505') { // Ignore duplicate key errors
-              console.error('Failed to create notification preferences:', prefsError);
+              console.error('[Push] Failed to create notification preferences:', prefsError);
+            } else {
+              console.log('[Push] Notification preferences set up successfully');
             }
           } catch (error) {
-            console.error('Error handling push token:', error);
+            console.error('[Push] Error handling push token:', error);
           }
         });
 
         const errorListener = await PushNotifications.addListener('registrationError', (error) => {
-          console.error('Error on registration: ' + JSON.stringify(error));
+          console.error('[Push] Registration error:', JSON.stringify(error));
         });
 
         const receivedListener = await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-          console.log('Push notification received: ', notification);
+          console.log('[Push] Notification received:', notification);
           toast({
             title: notification.title || 'New notification',
             description: notification.body,
@@ -85,7 +105,7 @@ export const usePushNotifications = () => {
         });
 
         const actionListener = await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-          console.log('Push notification action performed', notification);
+          console.log('[Push] Notification tapped:', notification);
           // Handle notification tap - navigate to relevant screen based on notification data
           const data = notification.notification.data;
           if (data?.type === 'chat' && data?.chatId) {
@@ -97,6 +117,8 @@ export const usePushNotifications = () => {
           }
         });
 
+        console.log('[Push] All listeners registered successfully');
+
         // Cleanup
         return () => {
           registrationListener.remove();
@@ -105,7 +127,7 @@ export const usePushNotifications = () => {
           actionListener.remove();
         };
       } catch (error) {
-        console.error('Failed to setup push notifications:', error);
+        console.error('[Push] Failed to setup push notifications:', error);
       }
     };
 
