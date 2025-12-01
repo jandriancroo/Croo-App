@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import webpush from "https://esm.sh/web-push@3.6.7";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,6 +65,49 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
     bytes[i] = binaryString.charCodeAt(i);
   }
   return bytes.buffer;
+}
+
+// Web Push utilities
+async function sendWebPush(
+  subscriptionJson: string,
+  title: string,
+  body: string,
+  data?: Record<string, any>
+): Promise<any> {
+  const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+  const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+  
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    console.error('VAPID keys not configured');
+    throw new Error('VAPID keys not configured');
+  }
+
+  // Configure web-push with VAPID keys
+  webpush.setVapidDetails(
+    'mailto:support@croohq.com',
+    vapidPublicKey,
+    vapidPrivateKey
+  );
+
+  const subscription = JSON.parse(subscriptionJson);
+  
+  // Create notification payload
+  const payload = JSON.stringify({
+    title,
+    body,
+    data: data || {},
+    icon: '/favicon.png',
+    badge: '/favicon.png',
+  });
+
+  try {
+    const result = await webpush.sendNotification(subscription, payload);
+    console.log('Web push sent successfully');
+    return { success: true, result };
+  } catch (error: any) {
+    console.error('Web push error:', error);
+    throw error;
+  }
 }
 
 interface PushNotificationRequest {
@@ -131,10 +175,10 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get push tokens for enabled users
+    // Get push tokens for enabled users (include platform)
     const { data: tokens, error: tokensError } = await supabaseClient
       .from('push_notification_tokens')
-      .select('token')
+      .select('token, platform')
       .in('user_id', enabledUserIds);
 
     console.log('Push tokens found:', tokens?.length || 0);
@@ -155,77 +199,96 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    const serviceAccount = JSON.parse(Deno.env.get("FIREBASE_SERVICE_ACCOUNT") || "{}");
-    if (!serviceAccount.project_id) {
-      console.error('FIREBASE_SERVICE_ACCOUNT not configured');
-      return new Response(
-        JSON.stringify({ error: "Push notifications not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    // Separate web and native tokens
+    const webTokens = tokens.filter(t => t.platform === 'web');
+    const nativeTokens = tokens.filter(t => t.platform !== 'web');
+
+    console.log(`Sending to ${webTokens.length} web subscriptions and ${nativeTokens.length} native devices`);
+
+    const results = [];
+
+    // Send web push notifications
+    if (webTokens.length > 0) {
+      const webResults = await Promise.allSettled(
+        webTokens.map(({ token }) => sendWebPush(token, title, body, data))
       );
+      results.push(...webResults);
     }
 
-    // Get OAuth2 access token
-    console.log('Getting Firebase access token...');
-    const accessToken = await getAccessToken();
-    console.log('Access token obtained');
+    // Send native FCM notifications
+    if (nativeTokens.length > 0) {
+      const serviceAccount = JSON.parse(Deno.env.get("FIREBASE_SERVICE_ACCOUNT") || "{}");
+      if (!serviceAccount.project_id) {
+        console.error('FIREBASE_SERVICE_ACCOUNT not configured');
+      } else {
+        // Get OAuth2 access token
+        console.log('Getting Firebase access token...');
+        const accessToken = await getAccessToken();
+        console.log('Access token obtained');
 
-    // Send notifications via FCM v1 API
-    const results = await Promise.allSettled(
-      tokens.map(async ({ token }) => {
-        const fcmResponse = await fetch(
-          `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              message: {
-                token,
-                notification: {
-                  title,
-                  body,
+        const fcmResults = await Promise.allSettled(
+          nativeTokens.map(async ({ token }) => {
+            const fcmResponse = await fetch(
+              `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json',
                 },
-                data: Object.keys(data || {}).reduce((acc, key) => {
-                  acc[key] = String((data || {})[key]);
-                  return acc;
-                }, {} as Record<string, string>),
-                apns: {
-                  payload: {
-                    aps: {
-                      sound: 'default',
+                body: JSON.stringify({
+                  message: {
+                    token,
+                    notification: {
+                      title,
+                      body,
+                    },
+                    data: Object.keys(data || {}).reduce((acc, key) => {
+                      acc[key] = String((data || {})[key]);
+                      return acc;
+                    }, {} as Record<string, string>),
+                    apns: {
+                      payload: {
+                        aps: {
+                          sound: 'default',
+                        },
+                      },
+                    },
+                    android: {
+                      notification: {
+                        sound: 'default',
+                      },
                     },
                   },
-                },
-                android: {
-                  notification: {
-                    sound: 'default',
-                  },
-                },
-              },
-            }),
-          }
+                }),
+              }
+            );
+
+            if (!fcmResponse.ok) {
+              const error = await fcmResponse.text();
+              console.error('FCM error:', error);
+              throw new Error(`FCM request failed: ${error}`);
+            }
+
+            return await fcmResponse.json();
+          })
         );
-
-        if (!fcmResponse.ok) {
-          const error = await fcmResponse.text();
-          console.error('FCM error:', error);
-          throw new Error(`FCM request failed: ${error}`);
-        }
-
-        return await fcmResponse.json();
-      })
-    );
+        results.push(...fcmResults);
+      }
+    }
 
     const successful = results.filter(r => r.status === 'fulfilled').length;
     const failed = results.filter(r => r.status === 'rejected').length;
+
+    console.log(`Push notification results: ${successful} successful, ${failed} failed`);
 
     return new Response(
       JSON.stringify({ 
         message: `Sent ${successful} notifications, ${failed} failed`,
         successful,
         failed,
+        web: webTokens.length,
+        native: nativeTokens.length,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
