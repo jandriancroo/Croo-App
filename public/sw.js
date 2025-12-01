@@ -1,4 +1,8 @@
 // Service Worker for Push Notifications
+
+// Workbox manifest injection point
+self.__WB_MANIFEST;
+
 self.addEventListener('push', (event) => {
   console.log('[SW] Push notification received:', event);
   
