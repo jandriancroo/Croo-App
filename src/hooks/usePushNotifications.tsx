@@ -133,13 +133,10 @@ export const usePushNotifications = () => {
         console.log('[Push Web] ✅ Web push setup complete!');
 
       } catch (error) {
-        console.error('[Push Web] ❌ FATAL ERROR in setup:', error);
+        console.error('[Push Web] ❌ Error in web push setup:', error);
         hasRegisteredRef.current = false;
-        toast({
-          title: "Notification Setup Failed",
-          description: "Unable to enable notifications. Please try again.",
-          variant: "destructive",
-        });
+        // Don't show error toast for expected failures (missing keys, denied permission, etc.)
+        // Those are already handled with early returns above
       }
     };
 
