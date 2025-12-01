@@ -87,6 +87,13 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { user_ids, title, body, data, notification_type }: PushNotificationRequest = await req.json();
 
+    console.log('Push notification request:', { 
+      user_ids_count: user_ids?.length, 
+      title, 
+      body: body?.substring(0, 50),
+      notification_type 
+    });
+
     if (!user_ids || user_ids.length === 0) {
       return new Response(
         JSON.stringify({ error: "user_ids is required" }),
@@ -130,6 +137,8 @@ const handler = async (req: Request): Promise<Response> => {
       .select('token')
       .in('user_id', enabledUserIds);
 
+    console.log('Push tokens found:', tokens?.length || 0);
+
     if (tokensError) {
       console.error('Error fetching tokens:', tokensError);
       return new Response(
@@ -139,6 +148,7 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     if (!tokens || tokens.length === 0) {
+      console.log('No push tokens found for users:', enabledUserIds);
       return new Response(
         JSON.stringify({ message: "No push tokens found for users" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -155,7 +165,9 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get OAuth2 access token
+    console.log('Getting Firebase access token...');
     const accessToken = await getAccessToken();
+    console.log('Access token obtained');
 
     // Send notifications via FCM v1 API
     const results = await Promise.allSettled(
@@ -175,7 +187,10 @@ const handler = async (req: Request): Promise<Response> => {
                   title,
                   body,
                 },
-                data: data || {},
+                data: Object.keys(data || {}).reduce((acc, key) => {
+                  acc[key] = String((data || {})[key]);
+                  return acc;
+                }, {} as Record<string, string>),
                 apns: {
                   payload: {
                     aps: {
