@@ -154,15 +154,3 @@ All colors MUST be HSL.
     @apply bg-background text-foreground font-lexend;
   }
 }
-
-/* Mobile safe area support for iOS notch and bottom bar */
-@supports (padding: env(safe-area-inset-top)) {
-  body {
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  
-  #root {
-    min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  }
-}

@@ -106,8 +106,8 @@ export const Layout = ({
     label: 'Settings',
     icon: SettingsIcon
   }];
-  return <div className="flex min-h-screen flex-col bg-background">
-      <header className="sticky top-0 z-50 border-b border-border/40 bg-background backdrop-blur supports-[backdrop-filter]:bg-background">
+  return <div className="flex min-h-screen flex-col bg-background" style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <header className="sticky top-0 z-50 border-b border-border/40 bg-background backdrop-blur supports-[backdrop-filter]:bg-background" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className={`container flex items-center ${isMobile ? 'h-16' : 'h-24'}`}>
           <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-8 flex-shrink-0 min-w-[120px]">
             <img src={crooLogo} alt="Croo" className={`${isMobile ? 'h-16' : 'h-20'} w-auto`} />
@@ -192,17 +192,17 @@ export const Layout = ({
         </div>
       </header>
       <main className="container flex-1 py-3 md:py-8">{children}</main>
-      <nav className="sticky bottom-0 z-50 border-t border-border/40 bg-background backdrop-blur md:hidden">
-        <div className="flex items-center justify-around py-1.5 px-1">
+      <nav className="sticky bottom-0 z-50 border-t border-border/40 bg-background backdrop-blur md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="flex items-center justify-around py-3 px-2">
           {mobileMainNavItems.map(item => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
           const showBadge = item.path === '/messages' && unreadCount > 0;
-          return <Button key={item.path} variant={isActive ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate(item.path)} className="flex-col gap-0.5 h-auto py-1.5 px-2 min-w-0 relative">
-                <Icon className="h-4 w-4 flex-shrink-0" />
-                <span className="text-[10px] truncate max-w-[60px]">{item.label}</span>
+          return <Button key={item.path} variant={isActive ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate(item.path)} className="flex-col gap-1 h-auto py-2 px-3 min-w-0 relative">
+                <Icon className="h-6 w-6 flex-shrink-0" />
+                <span className="text-xs truncate max-w-[70px]">{item.label}</span>
                 {showBadge && (
-                  <Badge variant="destructive" className="absolute -top-0.5 -right-0.5 h-4 min-w-4 flex items-center justify-center p-0 text-[8px] rounded-full">
+                  <Badge variant="destructive" className="absolute -top-0.5 -right-0.5 h-5 min-w-5 flex items-center justify-center p-0 text-[9px] rounded-full">
                     {unreadCount > 99 ? '99+' : unreadCount}
                   </Badge>
                 )}
@@ -212,9 +212,9 @@ export const Layout = ({
           {/* Hamburger Menu for Additional Items */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="flex-col gap-0.5 h-auto py-1.5 px-2 min-w-0">
-                <Menu className="h-4 w-4 flex-shrink-0" />
-                <span className="text-[10px] truncate max-w-[60px]">More</span>
+              <Button variant="ghost" size="sm" className="flex-col gap-1 h-auto py-2 px-3 min-w-0">
+                <Menu className="h-6 w-6 flex-shrink-0" />
+                <span className="text-xs truncate max-w-[70px]">More</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-auto">
