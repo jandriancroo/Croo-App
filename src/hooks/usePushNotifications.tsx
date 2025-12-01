@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { toast } from '@/hooks/use-toast';
@@ -7,9 +7,11 @@ import { useAuth } from '@/lib/auth';
 
 export const usePushNotifications = () => {
   const { user } = useAuth();
+  const hasRegisteredRef = useRef(false);
 
   useEffect(() => {
-    console.log('[Push] Effect triggered, platform:', Capacitor.getPlatform(), 'isNative:', Capacitor.isNativePlatform(), 'user:', !!user);
+    const userId = user?.id;
+    console.log('[Push] Effect triggered, platform:', Capacitor.getPlatform(), 'isNative:', Capacitor.isNativePlatform(), 'userId:', userId);
     
     // Only initialize on native platforms
     if (!Capacitor.isNativePlatform()) {
@@ -18,10 +20,19 @@ export const usePushNotifications = () => {
     }
 
     const setupPushNotifications = async () => {
-      if (!user) {
+      if (!userId) {
         console.log('[Push] No user logged in, skipping setup');
         return;
       }
+
+      // Prevent multiple simultaneous registrations
+      if (hasRegisteredRef.current) {
+        console.log('[Push] ⚠️ Already registered, skipping duplicate setup');
+        return;
+      }
+
+      hasRegisteredRef.current = true;
+      console.log('[Push] ✅ First time setup, proceeding...');
 
       console.log('[Push] Starting push notification setup for user:', user.id);
 
@@ -49,18 +60,18 @@ export const usePushNotifications = () => {
             return;
           }
 
-          if (!user) {
+          if (!userId) {
             console.log('[Push] ❌ No user during token save');
             return;
           }
 
           try {
             // Save token to database
-            console.log('[Push] Saving token to database for user:', user.id);
+            console.log('[Push] Saving token to database for user:', userId);
             const { error } = await supabase
               .from('push_notification_tokens')
               .upsert({
-                user_id: user.id,
+                user_id: userId,
                 token: token.value,
                 platform: Capacitor.getPlatform(),
               }, {
@@ -78,7 +89,7 @@ export const usePushNotifications = () => {
             const { error: prefsError } = await supabase
               .from('notification_preferences')
               .upsert({
-                user_id: user.id,
+                user_id: userId,
                 overdue_checklists: true,
                 late_arrivals: true,
                 announcements: true,
@@ -132,24 +143,15 @@ export const usePushNotifications = () => {
         console.log('[Push] ✅ register() call completed');
         console.log('[Push] ⏳ Waiting for registration callback from iOS...');
 
-        // Cleanup
-        return () => {
-          console.log('[Push] Cleaning up listeners');
-          registrationListener.remove();
-          errorListener.remove();
-          receivedListener.remove();
-          actionListener.remove();
-        };
+        // Don't cleanup - let listeners persist
+        console.log('[Push] ✅ Setup complete, listeners will remain active');
       } catch (error) {
         console.error('[Push] ❌ FATAL ERROR in setup:', error);
         console.error('[Push] Error stack:', error instanceof Error ? error.stack : 'No stack');
+        hasRegisteredRef.current = false; // Reset on error
       }
     };
 
-    const cleanup = setupPushNotifications();
-
-    return () => {
-      cleanup.then(fn => fn?.());
-    };
-  }, [user]);
+    setupPushNotifications();
+  }, [user?.id]);
 };
