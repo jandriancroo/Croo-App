@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.9db37c9a728f428da26f854a0e9b29a2',
+  appId: 'com.croo.app',
   appName: 'CrooApp',
   webDir: 'dist',
   server: {
