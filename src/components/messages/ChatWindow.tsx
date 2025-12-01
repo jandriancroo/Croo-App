@@ -182,6 +182,41 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
 
       if (error) throw error;
 
+      // Send push notifications to chat members
+      try {
+        const { data: members } = await supabase
+          .from('chat_members')
+          .select('user_id')
+          .eq('chat_id', chatId)
+          .neq('user_id', user.id);
+
+        if (members && members.length > 0) {
+          const { data: senderProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+
+          console.log('Sending push notification to', members.length, 'users');
+
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              user_ids: members.map(m => m.user_id),
+              title: senderProfile?.full_name || 'New Message',
+              body: newMessage.trim().substring(0, 100),
+              notification_type: 'chat_messages',
+              data: {
+                chat_id: chatId,
+                type: 'message'
+              }
+            }
+          });
+        }
+      } catch (notifError) {
+        console.error('Error sending push notification:', notifError);
+        // Don't fail the message send if notifications fail
+      }
+
       setNewMessage('');
       setReplyToMessage(null);
       scrollToBottom();
@@ -263,6 +298,38 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         });
 
       if (insertError) throw insertError;
+
+      // Send push notifications for file attachment
+      try {
+        const { data: members } = await supabase
+          .from('chat_members')
+          .select('user_id')
+          .eq('chat_id', chatId)
+          .neq('user_id', user.id);
+
+        if (members && members.length > 0) {
+          const { data: senderProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              user_ids: members.map(m => m.user_id),
+              title: senderProfile?.full_name || 'New Message',
+              body: `Sent ${file.type.startsWith('image/') ? 'an image' : 'a file'}`,
+              notification_type: 'chat_messages',
+              data: {
+                chat_id: chatId,
+                type: 'message'
+              }
+            }
+          });
+        }
+      } catch (notifError) {
+        console.error('Error sending push notification:', notifError);
+      }
 
       toast.success('File uploaded');
       if (fileInputRef.current) fileInputRef.current.value = '';
