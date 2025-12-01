@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.croo.app',
+  appId: 'com.croohq.kitchenmate',
   appName: 'CrooApp',
   webDir: 'dist',
   server: {
