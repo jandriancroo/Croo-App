@@ -184,11 +184,17 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
 
       // Send push notifications to chat members
       try {
-        const { data: members } = await supabase
+        const { data: members, error: membersError } = await supabase
           .from('chat_members')
           .select('user_id')
           .eq('chat_id', chatId)
           .neq('user_id', user.id);
+
+        console.log('Chat members query result:', { members, membersError, chatId });
+
+        if (membersError) {
+          console.error('Error fetching chat members:', membersError);
+        }
 
         if (members && members.length > 0) {
           const { data: senderProfile } = await supabase
@@ -199,7 +205,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
 
           console.log('Sending push notification to', members.length, 'users');
 
-          await supabase.functions.invoke('send-push-notification', {
+          const response = await supabase.functions.invoke('send-push-notification', {
             body: {
               user_ids: members.map(m => m.user_id),
               title: senderProfile?.full_name || 'New Message',
@@ -211,6 +217,10 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               }
             }
           });
+
+          console.log('Push notification response:', response);
+        } else {
+          console.log('No chat members found to notify');
         }
       } catch (notifError) {
         console.error('Error sending push notification:', notifError);
