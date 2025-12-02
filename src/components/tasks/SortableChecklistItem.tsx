@@ -1,7 +1,7 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from "@/components/ui/button";
-import { FileCheck, GripVertical, Pencil, MoreVertical, EyeOff, Trash2 } from "lucide-react";
+import { FileCheck, GripVertical, MoreVertical, EyeOff, Trash2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 interface SortableChecklistItemProps {
@@ -14,6 +14,7 @@ interface SortableChecklistItemProps {
   onNavigate: (path: string) => void;
   onDeactivate: (id: string) => void;
   onDelete: (id: string) => void;
+  editMode?: boolean;
 }
 
 export function SortableChecklistItem({
@@ -26,6 +27,7 @@ export function SortableChecklistItem({
   onNavigate,
   onDeactivate,
   onDelete,
+  editMode = false,
 }: SortableChecklistItemProps) {
   const {
     attributes,
@@ -40,6 +42,20 @@ export function SortableChecklistItem({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+  };
+
+  const handleClick = () => {
+    if (editMode) {
+      // In edit mode, always navigate to edit
+      if (isDynamic) {
+        onNavigate(`/dynamic-checklist/${checklist.id}`);
+      } else {
+        onNavigate(`/edit-checklist/${checklist.id}`);
+      }
+    } else {
+      // In complete mode, navigate to complete
+      onNavigate(`/complete-checklist/${checklist.id}`);
+    }
   };
 
   return (
@@ -62,7 +78,7 @@ export function SortableChecklistItem({
       <Button
         variant="outline"
         className="flex-1 justify-start"
-        onClick={() => onNavigate(`/complete-checklist/${checklist.id}`)}
+        onClick={handleClick}
         disabled={isReordering}
       >
         <FileCheck className="h-4 w-4 mr-2" />
@@ -81,42 +97,26 @@ export function SortableChecklistItem({
         </div>
       </Button>
       {isAdmin && !isReordering && (
-        <>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              if (isDynamic) {
-                onNavigate(`/dynamic-checklist/${checklist.id}`);
-              } else {
-                onNavigate(`/edit-checklist/${checklist.id}`);
-              }
-            }}
-            title="Edit checklist"
-          >
-            <Pencil className="h-4 w-4" />
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onDeactivate(checklist.id)}>
-                <EyeOff className="h-4 w-4 mr-2" />
-                Make Inactive
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => onDelete(checklist.id)}
-                className="text-destructive"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onDeactivate(checklist.id)}>
+              <EyeOff className="h-4 w-4 mr-2" />
+              Make Inactive
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => onDelete(checklist.id)}
+              className="text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
     </div>
   );
