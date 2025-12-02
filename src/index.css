@@ -150,13 +150,53 @@ All colors MUST be HSL.
     @apply border-border;
   }
 
+  html {
+    font-size: 16px;
+  }
+
+  /* Increase base font size on mobile for better readability */
+  @media (max-width: 768px) {
+    html {
+      font-size: 18px;
+    }
+  }
+
   body {
     @apply bg-background text-foreground font-lexend;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* Ensure buttons and interactive elements have good touch targets */
+  @media (max-width: 768px) {
+    button, 
+    [role="button"],
+    input,
+    textarea,
+    select {
+      min-height: 44px;
+      font-size: 1rem;
+    }
+
+    /* Make icons in buttons larger on mobile */
+    button svg,
+    [role="button"] svg {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
   }
 }
 
 @layer utilities {
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom, 1rem);
+  }
+
+  /* Mobile-friendly text sizing utilities */
+  .text-mobile-lg {
+    @apply text-base sm:text-sm;
+  }
+
+  .text-mobile-base {
+    @apply text-sm sm:text-xs;
   }
 }
