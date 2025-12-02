@@ -332,7 +332,7 @@ export default function CreateChecklist() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="due_by_time">Due By Time (Optional)</Label>
+                <Label htmlFor="due_by_time">Alert Time</Label>
                 <Input
                   id="due_by_time"
                   type="time"
@@ -340,7 +340,9 @@ export default function CreateChecklist() {
                   onChange={(e) => setDueByTime(e.target.value)}
                   placeholder="e.g., 14:00"
                 />
-                <p className="text-xs text-muted-foreground">Suggested completion time for this checklist</p>
+                <p className="text-xs text-muted-foreground">
+                  Push notification alerts will be sent if this checklist is incomplete after this time
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="template_type">Template Type</Label>
