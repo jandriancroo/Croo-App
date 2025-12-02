@@ -85,11 +85,10 @@ export const usePushNotifications = () => {
           return;
         }
 
-        // Register service worker
-        console.log('[Push Web] Registering service worker...');
-        const registration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-        await navigator.serviceWorker.ready;
-        console.log('[Push Web] ✅ Service worker registered');
+        // Wait for service worker to be ready (PWA already registers it)
+        console.log('[Push Web] Waiting for service worker...');
+        const registration = await navigator.serviceWorker.ready;
+        console.log('[Push Web] ✅ Service worker ready');
 
         // Subscribe to push notifications
         console.log('[Push Web] Creating push subscription...');
