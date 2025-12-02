@@ -263,8 +263,15 @@ export function MobileScheduleView({
               const profile = getProfileForShift(shift);
               if (!profile) return null;
 
-              // A shift is a draft if schedule is unpublished AND shift wasn't in the published snapshot
-              const isShiftDraft = !isPublished && (!publishedSnapshot || !publishedSnapshot.some((s: any) => s.id === shift.id));
+              // A shift is a draft if schedule is unpublished AND (shift is new OR shift has been modified)
+              const snapshotShift = publishedSnapshot?.find((s: any) => s.id === shift.id);
+              const isShiftModified = snapshotShift && (
+                snapshotShift.user_id !== shift.user_id ||
+                snapshotShift.start_time !== shift.start_time ||
+                snapshotShift.end_time !== shift.end_time ||
+                snapshotShift.template_id !== shift.template_id
+              );
+              const isShiftDraft = !isPublished && (!snapshotShift || isShiftModified);
 
               return (
               <Card 
