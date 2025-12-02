@@ -145,6 +145,8 @@ export function MobileShiftDialog({
 
     setSaving(true);
     try {
+      const isApprovingClaim = !!selectedOfferId;
+      
       // If an offered shift was selected, approve it
       if (selectedOfferId) {
         const { error: offerError } = await supabase
@@ -189,7 +191,26 @@ export function MobileShiftDialog({
         if (shiftError) throw shiftError;
       }
 
-      // Mark schedule as unpublished (draft) - Go Live will publish
+      // Auto-notify when a shift claim is approved
+      if (isApprovingClaim && selectedUserId && selectedUserId !== 'unassigned') {
+        const shiftDate = shift?.shift_date ? new Date(shift.shift_date).toLocaleDateString('en-US', { 
+          weekday: 'short', 
+          month: 'short', 
+          day: 'numeric' 
+        }) : '';
+        
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            user_ids: [selectedUserId],
+            title: 'Shift Claim Approved!',
+            body: `Your shift claim for ${shiftDate} has been approved`,
+            notification_type: 'shift_approvals',
+            data: { type: 'shift_approval', schedule_id: scheduleId }
+          }
+        });
+      }
+
+      // Mark schedule as unpublished (draft) - Go Live will publish for other changes
       if (scheduleId) {
         await supabase
           .from('schedules')
@@ -197,7 +218,7 @@ export function MobileShiftDialog({
           .eq('id', scheduleId);
       }
 
-      toast.success(isCreating ? 'Shift created (draft)' : 'Shift updated (draft)');
+      toast.success(isApprovingClaim ? 'Shift claim approved!' : (isCreating ? 'Shift created (draft)' : 'Shift updated (draft)'));
       onShiftUpdated?.();
       onOpenChange(false);
     } catch (error) {
