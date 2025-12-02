@@ -262,9 +262,11 @@ export function MobileScheduleView({
               if (!profile) return null;
 
               return (
-                <Card 
+              <Card 
                   key={shift.id} 
-                  className="hover:shadow-md transition-shadow cursor-pointer"
+                  className={`hover:shadow-md transition-shadow cursor-pointer ${
+                    !isPublished ? 'opacity-60 border-2 border-dashed border-muted-foreground/50' : ''
+                  }`}
                   onClick={() => {
                     setSelectedShift(shift);
                     setShiftDialogOpen(true);
@@ -284,6 +286,9 @@ export function MobileScheduleView({
                         </p>
                         {shiftHasBreak(shift.start_time, shift.end_time) && (
                           <BreakIndicator hasBreak={true} size="sm" />
+                        )}
+                        {!isPublished && (
+                          <Badge variant="outline" className="text-[10px] px-1 py-0 border-dashed opacity-70">DRAFT</Badge>
                         )}
                       </div>
                       {shift.template?.position && (
