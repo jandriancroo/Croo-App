@@ -416,24 +416,24 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
         {messages.map((message) => {
           const isOwnMessage = currentUserId && message.sender_id === currentUserId;
           
           return (
             <div
               key={message.id}
-              className={`flex gap-3 ${isOwnMessage ? 'flex-row-reverse' : ''}`}
+              className={`flex gap-2 sm:gap-3 ${isOwnMessage ? 'flex-row-reverse' : ''}`}
             >
-              <Avatar className="h-8 w-8">
+              <Avatar className="h-8 w-8 flex-shrink-0">
                 <AvatarImage src={message.profiles?.profile_photo_url || undefined} />
                 <AvatarFallback>
                   {message.profiles?.full_name?.charAt(0) || 'U'}
                 </AvatarFallback>
               </Avatar>
-              <div className={`flex flex-col ${isOwnMessage ? 'items-end' : ''}`}>
-                  <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-medium">
+              <div className={`flex flex-col min-w-0 max-w-[75%] ${isOwnMessage ? 'items-end' : ''}`}>
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="text-sm font-medium truncate">
                     {message.profiles?.full_name || 'Unknown'}
                   </span>
                   <span className="text-xs text-muted-foreground">
@@ -448,7 +448,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                 </div>
                 <div>
                   <div
-                    className={`rounded-lg p-3 max-w-md ${
+                    className={`rounded-lg p-3 ${
                       isOwnMessage
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted'
