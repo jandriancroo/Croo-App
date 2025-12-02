@@ -514,7 +514,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
 
       {/* Input - Hide for announcements */}
       {!chatDetails?.is_announcement && (
-        <div className="border-t border-border p-4 pb-6 sm:pb-4">
+        <div className="border-t border-border p-4 pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] sm:pb-4 flex-shrink-0">
         {replyToMessage && (
           <div className="mb-2 p-2 bg-muted rounded flex items-center justify-between">
             <div className="text-sm">
