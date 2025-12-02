@@ -43,16 +43,18 @@ export const NotificationSettings = () => {
   const isNative = Capacitor.isNativePlatform();
   const isPWA = isInstalledPWA();
   const isIOSDevice = isIOS();
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   // Debug logging
   console.log('[NotificationSettings] isNative:', isNative);
   console.log('[NotificationSettings] isPWA:', isPWA);
   console.log('[NotificationSettings] isIOSDevice:', isIOSDevice);
+  console.log('[NotificationSettings] isMobile:', isMobile);
   console.log('[NotificationSettings] display-mode standalone:', window.matchMedia('(display-mode: standalone)').matches);
   console.log('[NotificationSettings] navigator.standalone:', (window.navigator as any).standalone);
 
-  // Show for native iOS OR for PWA on any platform
-  const shouldShow = (isNative && Capacitor.getPlatform() === 'ios') || isPWA;
+  // Show for native iOS, PWA, or any mobile device
+  const shouldShow = (isNative && Capacitor.getPlatform() === 'ios') || isPWA || isMobile;
   console.log('[NotificationSettings] shouldShow:', shouldShow);
 
   useEffect(() => {
