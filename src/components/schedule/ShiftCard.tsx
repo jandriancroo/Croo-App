@@ -82,9 +82,10 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
     }
   };
 
-  // Draft styling: reduced opacity and dashed border for unpublished shifts
-  const draftStyles = !isPublished && !shift.isTemplate
-    ? "opacity-60 border-2 border-dashed border-white/50"
+  // Draft styling: reduced opacity, dashed border, and grayscale filter for unpublished shifts
+  const isDraft = !isPublished && !shift.isTemplate;
+  const draftStyles = isDraft
+    ? "opacity-70 border-2 border-dashed border-white/60 grayscale-[30%]"
     : "";
 
   return (

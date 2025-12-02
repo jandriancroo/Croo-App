@@ -338,10 +338,10 @@ export function EditShiftDialog({
                 }
               }}
             >
-              <SelectTrigger id="position" className="bg-background">
-                <SelectValue placeholder="Select quick fill option" />
-              </SelectTrigger>
-              <SelectContent className="bg-background z-50">
+            <SelectTrigger id="position">
+              <SelectValue placeholder="Select quick fill option" />
+            </SelectTrigger>
+            <SelectContent>
                 <SelectItem value="none">None</SelectItem>
                 
                 {/* Offered Shifts Section */}
