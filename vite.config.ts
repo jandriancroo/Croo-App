@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.png'],
+      includeAssets: ['favicon.png', 'sw-push.js'],
       manifest: {
         name: 'CrooHQ - Food Service Made Smart',
         short_name: 'CrooHQ',
@@ -37,6 +37,7 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,jpeg}'],
+        importScripts: ['/sw-push.js'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
