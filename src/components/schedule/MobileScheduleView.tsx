@@ -51,6 +51,7 @@ interface MobileScheduleViewProps {
   onWeekChange?: (weekStart: Date) => void;
   onUpdate?: () => void;
   isPublished?: boolean;
+  publishedSnapshot?: any[];
   scheduleId?: string | null;
   templates?: Array<{
     id: string;
@@ -72,6 +73,7 @@ export function MobileScheduleView({
   onWeekChange,
   onUpdate,
   isPublished = false,
+  publishedSnapshot,
   scheduleId,
   templates = [],
   onGoLive,
@@ -261,11 +263,14 @@ export function MobileScheduleView({
               const profile = getProfileForShift(shift);
               if (!profile) return null;
 
+              // A shift is a draft if schedule is unpublished AND shift wasn't in the published snapshot
+              const isShiftDraft = !isPublished && (!publishedSnapshot || !publishedSnapshot.some((s: any) => s.id === shift.id));
+
               return (
               <Card 
                   key={shift.id} 
                   className={`hover:shadow-md transition-shadow cursor-pointer ${
-                    !isPublished ? 'opacity-60 border-2 border-dashed border-muted-foreground/50' : ''
+                    isShiftDraft ? 'opacity-60 border-2 border-dashed border-muted-foreground/50' : ''
                   }`}
                   onClick={() => {
                     setSelectedShift(shift);
@@ -287,7 +292,7 @@ export function MobileScheduleView({
                         {shiftHasBreak(shift.start_time, shift.end_time) && (
                           <BreakIndicator hasBreak={true} size="sm" />
                         )}
-                        {!isPublished && (
+                        {isShiftDraft && (
                           <Badge variant="outline" className="text-[10px] px-1 py-0 border-dashed opacity-70">DRAFT</Badge>
                         )}
                       </div>

@@ -140,7 +140,7 @@ export const Layout = ({
                   <ChevronDown className="h-3 w-3 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="center" className="bg-background">
+              <DropdownMenuContent align="center">
                 {timeMenuItems.map(item => {
                 const Icon = item.icon;
                 return <DropdownMenuItem key={item.path} onClick={() => navigate(item.path)} className="gap-2 cursor-pointer">
@@ -176,7 +176,7 @@ export const Layout = ({
                     <SettingsIcon className="h-4 w-4 flex-shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-background">
+                <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
                     <SettingsIcon className="h-4 w-4" />
                     Preferences
