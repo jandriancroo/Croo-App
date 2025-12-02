@@ -50,12 +50,14 @@ export default function Messages() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
   const [viewMode, setViewMode] = useState<'chats' | 'announcements'>('chats');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const fetchChats = async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      setCurrentUserId(user.id);
 
       // Ensure shift marketplace chat exists (single instance)
       let { data: marketplaceChats } = await supabase
@@ -345,6 +347,7 @@ export default function Messages() {
               onSelectChat={setSelectedChatId}
               loading={loading}
               searchQuery={searchQuery}
+              currentUserId={currentUserId}
             />
           </div>
         )}
@@ -416,6 +419,7 @@ export default function Messages() {
                 onSelectChat={setSelectedChatId}
                 loading={loading}
                 searchQuery={searchQuery}
+                currentUserId={currentUserId}
               />
             </div>
             
