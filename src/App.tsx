@@ -34,6 +34,7 @@ import FontPreviewPage from "./pages/FontPreviewPage";
 import TemperatureValidation from "./pages/TemperatureValidation";
 import Index from "./pages/Index";
 import WelcomeProfile from "./pages/WelcomeProfile";
+import InstallGuide from "./pages/InstallGuide";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const AppContent = () => {
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/landing" element={<Index />} />
+          <Route path="/install" element={<InstallGuide />} />
           <Route path="/" element={<Navigate to="/auth" replace />} />
           <Route path="/welcome" element={<ProtectedRoute><WelcomeProfile /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
