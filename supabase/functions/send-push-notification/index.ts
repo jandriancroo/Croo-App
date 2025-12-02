@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import webpush from "https://esm.sh/web-push@3.6.7";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,48 +66,6 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
   return bytes.buffer;
 }
 
-// Web Push utilities
-async function sendWebPush(
-  subscriptionJson: string,
-  title: string,
-  body: string,
-  data?: Record<string, any>
-): Promise<any> {
-  const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
-  const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
-  
-  if (!vapidPublicKey || !vapidPrivateKey) {
-    console.error('VAPID keys not configured');
-    throw new Error('VAPID keys not configured');
-  }
-
-  // Configure web-push with VAPID keys
-  webpush.setVapidDetails(
-    'mailto:support@croohq.com',
-    vapidPublicKey,
-    vapidPrivateKey
-  );
-
-  const subscription = JSON.parse(subscriptionJson);
-  
-  // Create notification payload
-  const payload = JSON.stringify({
-    title,
-    body,
-    data: data || {},
-    icon: '/favicon.png',
-    badge: '/favicon.png',
-  });
-
-  try {
-    const result = await webpush.sendNotification(subscription, payload);
-    console.log('Web push sent successfully');
-    return { success: true, result };
-  } catch (error: any) {
-    console.error('Web push error:', error);
-    throw error;
-  }
-}
 
 interface PushNotificationRequest {
   user_ids: string[];
@@ -199,21 +156,12 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Separate web and native tokens
-    const webTokens = tokens.filter(t => t.platform === 'web');
-    const nativeTokens = tokens.filter(t => t.platform !== 'web');
+    // Only process native iOS tokens (FCM)
+    const nativeTokens = tokens.filter(t => t.platform === 'ios');
 
-    console.log(`Sending to ${webTokens.length} web subscriptions and ${nativeTokens.length} native devices`);
+    console.log(`Sending to ${nativeTokens.length} native iOS devices`);
 
     const results = [];
-
-    // Send web push notifications
-    if (webTokens.length > 0) {
-      const webResults = await Promise.allSettled(
-        webTokens.map(({ token }) => sendWebPush(token, title, body, data))
-      );
-      results.push(...webResults);
-    }
 
     // Send native FCM notifications
     if (nativeTokens.length > 0) {
@@ -287,7 +235,6 @@ const handler = async (req: Request): Promise<Response> => {
         message: `Sent ${successful} notifications, ${failed} failed`,
         successful,
         failed,
-        web: webTokens.length,
         native: nativeTokens.length,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
