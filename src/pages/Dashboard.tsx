@@ -63,6 +63,7 @@ export default function Dashboard() {
     return saved ? JSON.parse(saved) : DEFAULT_SECTION_ORDER;
   });
   const [crooCashBalance, setCrooCashBalance] = useState<number>(0);
+  const [userName, setUserName] = useState<string>('');
   const navigate = useNavigate();
   const {
     isAdmin
@@ -213,7 +214,27 @@ export default function Dashboard() {
   useEffect(() => {
     fetchData();
     fetchCrooCashBalance();
+    fetchUserName();
   }, []);
+
+  const fetchUserName = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", user.id)
+        .single();
+
+      if (error) throw error;
+      const firstName = data?.full_name?.split(' ')[0] || '';
+      setUserName(firstName);
+    } catch (error) {
+      console.error("Error fetching user name:", error);
+    }
+  };
   
   useEffect(() => {
     if (checklists.length > 0) {
@@ -590,10 +611,15 @@ export default function Dashboard() {
       </div>
   };
   return <Layout>
-      <div className={`space-y-6 ${isEditMode ? 'pl-12' : ''}`}>
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col">
             <h1 className="text-3xl font-bold">Dash</h1>
+            {userName && (
+              <p className="text-sm text-muted-foreground">Welcome to work, {userName}</p>
+            )}
+          </div>
+          <div className="flex gap-2 items-center">
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 relative">
               <Banknote className="h-4 w-4" style={{ transform: 'rotate(90deg) rotate(-10deg)' }} />
               <span className="text-sm font-bold">${(crooCashBalance / 100).toFixed(2)}</span>
@@ -614,16 +640,19 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-          </div>
-          <div className="flex gap-2 items-center">
             <LocationSelector />
-            {isEditMode && <Button onClick={resetLayout} variant="outline" size="sm">
-                Reset Layout
-              </Button>}
-            <Button onClick={toggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="icon" title={isEditMode ? "Save Layout" : "Edit Layout"}>
-              <ArrowUpDown className="h-4 w-4" />
-            </Button>
           </div>
+        </div>
+        
+        {/* Edit mode controls - sticky at bottom */}
+        <div className="flex gap-2 items-center justify-end">
+          {isEditMode && <Button onClick={resetLayout} variant="outline" size="sm">
+              Reset Layout
+            </Button>}
+          <Button onClick={toggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="sm" className="gap-2">
+            <ArrowUpDown className="h-4 w-4" />
+            {isEditMode ? 'Save Layout' : 'Edit Layout'}
+          </Button>
         </div>
 
         {loading ? <div className="text-center text-muted-foreground">Loading checklists...</div> : checklists.length === 0 ? <Card className="text-center py-12">

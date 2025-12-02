@@ -434,7 +434,7 @@ export default function Messages() {
               modal={true}
               dismissible={true}
             >
-              <DrawerContent className="h-[95vh] pb-safe">
+              <DrawerContent className="h-[95vh] pt-[env(safe-area-inset-top)] pb-safe">
                 <div className="flex flex-col h-full">
                   <div className="flex items-center gap-2 p-4 border-b border-border">
                     <Button
