@@ -64,6 +64,7 @@ export function MobileShiftDialog({
   const [endTime, setEndTime] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [shiftDate, setShiftDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [offeredShifts, setOfferedShifts] = useState<any[]>([]);
@@ -75,12 +76,14 @@ export function MobileShiftDialog({
       setEndTime(shift.end_time);
       setSelectedUserId(shift.user_id || 'unassigned');
       setSelectedTemplateId(shift.template_id || '');
+      setShiftDate(shift.shift_date);
     } else if (isCreating && templates.length > 0) {
       // Set defaults for new shift
       setStartTime('09:00');
       setEndTime('17:00');
       setSelectedUserId('unassigned');
       setSelectedTemplateId('');
+      setShiftDate(shift?.shift_date || new Date().toISOString().split('T')[0]);
     }
   }, [shift, isCreating, templates]);
 
@@ -163,6 +166,10 @@ export function MobileShiftDialog({
           throw new Error('Schedule ID is required to create a shift');
         }
         
+        // Calculate day_of_week from the selected date
+        const selectedDate = new Date(shiftDate);
+        const dayOfWeek = selectedDate.getDay();
+        
         const { error: shiftError } = await supabase
           .from('scheduled_shifts')
           .insert({
@@ -171,13 +178,16 @@ export function MobileShiftDialog({
             end_time: endTime,
             user_id: selectedUserId === 'unassigned' ? null : selectedUserId,
             template_id: selectedTemplateId || null,
-            day_of_week: shift?.day_of_week || 0,
-            shift_date: shift?.shift_date || new Date().toISOString(),
+            day_of_week: dayOfWeek,
+            shift_date: shiftDate,
           });
 
         if (shiftError) throw shiftError;
       } else {
-        // Update existing shift
+        // Update existing shift (including date if changed)
+        const selectedDate = new Date(shiftDate);
+        const dayOfWeek = selectedDate.getDay();
+        
         const { error: shiftError } = await supabase
           .from('scheduled_shifts')
           .update({
@@ -185,6 +195,8 @@ export function MobileShiftDialog({
             end_time: endTime,
             user_id: selectedUserId === 'unassigned' ? null : selectedUserId,
             template_id: selectedTemplateId || null,
+            shift_date: shiftDate,
+            day_of_week: dayOfWeek,
           })
           .eq('id', shift!.id);
 
@@ -193,7 +205,7 @@ export function MobileShiftDialog({
 
       // Auto-notify when a shift claim is approved
       if (isApprovingClaim && selectedUserId && selectedUserId !== 'unassigned') {
-        const shiftDate = shift?.shift_date ? new Date(shift.shift_date).toLocaleDateString('en-US', { 
+        const formattedDate = shiftDate ? new Date(shiftDate).toLocaleDateString('en-US', { 
           weekday: 'short', 
           month: 'short', 
           day: 'numeric' 
@@ -203,7 +215,7 @@ export function MobileShiftDialog({
           body: {
             user_ids: [selectedUserId],
             title: 'Shift Claim Approved!',
-            body: `Your shift claim for ${shiftDate} has been approved`,
+            body: `Your shift claim for ${formattedDate} has been approved`,
             notification_type: 'shift_approvals',
             data: { type: 'shift_approval', schedule_id: scheduleId }
           }
@@ -275,10 +287,21 @@ export function MobileShiftDialog({
           )}
 
           {/* Date */}
-          <div>
-            <Label className="text-muted-foreground">Date</Label>
-            <p className="font-medium">{new Date(shift.shift_date).toLocaleDateString()}</p>
-          </div>
+          {isAdmin ? (
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input
+                type="date"
+                value={shiftDate}
+                onChange={(e) => setShiftDate(e.target.value)}
+              />
+            </div>
+          ) : (
+            <div>
+              <Label className="text-muted-foreground">Date</Label>
+              <p className="font-medium">{new Date(shift.shift_date).toLocaleDateString()}</p>
+            </div>
+          )}
 
           {/* Time Range */}
           {isAdmin ? (
