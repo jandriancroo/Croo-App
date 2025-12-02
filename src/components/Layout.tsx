@@ -12,6 +12,7 @@ import crooLogo from '@/assets/croo-logo.png';
 import { LocationSelector } from '@/components/LocationSelector';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { Badge } from '@/components/ui/badge';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 interface LayoutProps {
   children: ReactNode;
@@ -19,6 +20,9 @@ interface LayoutProps {
 export const Layout = ({
   children
 }: LayoutProps) => {
+  // Setup push notifications only in Layout (after auth)
+  usePushNotifications();
+  
   const {
     signOut
   } = useAuth();
