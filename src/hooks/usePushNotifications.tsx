@@ -275,11 +275,15 @@ export const usePushNotifications = () => {
         const actionListener = await PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
           console.log('[Push] Notification tapped:', notification);
           const data = notification.notification.data;
-          if (data?.type === 'chat' && data?.chatId) {
-            window.location.href = `/messages?chat=${data.chatId}`;
-          } else if (data?.type === 'checklist' && data?.checklistId) {
-            window.location.href = `/complete/${data.checklistId}`;
-          } else if (data?.type === 'alert') {
+          // Handle chat_id or chatId (different sources use different formats)
+          const chatId = data?.chat_id || data?.chatId;
+          const checklistId = data?.checklist_id || data?.checklistId;
+          
+          if ((data?.type === 'chat' || data?.type === 'announcement' || data?.type === 'chat_message') && chatId) {
+            window.location.href = `/messages?chat=${chatId}`;
+          } else if (data?.type === 'checklist' && checklistId) {
+            window.location.href = `/complete/${checklistId}`;
+          } else if (data?.type === 'alert' || data?.type === 'overdue_checklist' || data?.type === 'late_arrival') {
             window.location.href = '/alerts';
           }
         });
