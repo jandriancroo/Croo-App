@@ -238,13 +238,8 @@ export const NotificationSettings = () => {
     }
   };
 
-  if (!shouldShow) {
-    return null;
-  }
-
-  if (loading) {
-    return null;
-  }
+  // Always render for debugging
+  console.log('[NotificationSettings] Rendering, loading:', loading, 'shouldShow:', shouldShow);
 
   const allDisabled = Object.values(preferences).every(v => !v);
   const needsPermission = !isNative && notificationPermission !== 'granted';
