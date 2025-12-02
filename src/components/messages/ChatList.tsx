@@ -13,6 +13,7 @@ interface Chat {
   unreadCount?: number;
   messagePreview?: string;
   chat_members?: Array<{
+    user_id: string;
     profiles: {
       profile_photo_url: string | null;
     };
@@ -25,6 +26,7 @@ interface ChatListProps {
   onSelectChat: (chatId: string) => void;
   loading: boolean;
   searchQuery?: string;
+  currentUserId?: string | null;
 }
 
 const highlightSearchTerm = (text: string, searchQuery: string) => {
@@ -42,7 +44,7 @@ const highlightSearchTerm = (text: string, searchQuery: string) => {
   );
 };
 
-export function ChatList({ chats, selectedChatId, onSelectChat, loading, searchQuery }: ChatListProps) {
+export function ChatList({ chats, selectedChatId, onSelectChat, loading, searchQuery, currentUserId }: ChatListProps) {
   if (loading) {
     return (
       <div className="space-y-2">
@@ -96,7 +98,12 @@ export function ChatList({ chats, selectedChatId, onSelectChat, loading, searchQ
               </>
             ) : (
               <>
-                <AvatarImage src={chat.chat_members?.[0]?.profiles?.profile_photo_url || undefined} />
+                <AvatarImage src={
+                  // For DM chats, show the OTHER person's photo (not the logged-in user)
+                  chat.chat_members?.find(m => m.user_id !== currentUserId)?.profiles?.profile_photo_url || 
+                  chat.chat_members?.[0]?.profiles?.profile_photo_url || 
+                  undefined
+                } />
                 <AvatarFallback>
                   {chat.title?.charAt(0) || 'C'}
                 </AvatarFallback>
