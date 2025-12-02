@@ -44,8 +44,16 @@ export const NotificationSettings = () => {
   const isPWA = isInstalledPWA();
   const isIOSDevice = isIOS();
 
+  // Debug logging
+  console.log('[NotificationSettings] isNative:', isNative);
+  console.log('[NotificationSettings] isPWA:', isPWA);
+  console.log('[NotificationSettings] isIOSDevice:', isIOSDevice);
+  console.log('[NotificationSettings] display-mode standalone:', window.matchMedia('(display-mode: standalone)').matches);
+  console.log('[NotificationSettings] navigator.standalone:', (window.navigator as any).standalone);
+
   // Show for native iOS OR for PWA on any platform
   const shouldShow = (isNative && Capacitor.getPlatform() === 'ios') || isPWA;
+  console.log('[NotificationSettings] shouldShow:', shouldShow);
 
   useEffect(() => {
     // Check notification permission status
