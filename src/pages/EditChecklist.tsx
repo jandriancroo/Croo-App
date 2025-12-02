@@ -445,14 +445,16 @@ export default function EditChecklist() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="due_by_time">Due By Time (Optional)</Label>
+              <Label htmlFor="due_by_time">Alert Time</Label>
               <Input
                 id="due_by_time"
                 type="time"
                 value={dueByTime}
                 onChange={(e) => setDueByTime(e.target.value)}
               />
-              <p className="text-sm text-muted-foreground">Suggested completion time</p>
+              <p className="text-xs text-muted-foreground">
+                Push notification alerts will be sent if this checklist is incomplete after this time
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="template_type">Template Type</Label>
