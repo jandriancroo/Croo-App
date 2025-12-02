@@ -410,27 +410,48 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get user preferences
-    const { data: preferences, error: prefsError } = await supabaseClient
-      .from('notification_preferences')
-      .select('user_id, overdue_checklists, late_arrivals, announcements, chat_messages, schedule_updates, shift_approvals, certification_expiring')
+    // Get user roles for all requested users
+    const { data: userRoles, error: rolesError } = await supabaseClient
+      .from('user_roles')
+      .select('user_id, role')
       .in('user_id', user_ids);
 
-    if (prefsError) {
-      console.error('Error fetching preferences:', prefsError);
+    if (rolesError) {
+      console.error('Error fetching user roles:', rolesError);
     }
 
-    // Filter users based on preferences
+    // Get role notification settings
+    const { data: roleSettings, error: roleSettingsError } = await supabaseClient
+      .from('role_notification_settings')
+      .select('role, notification_type, enabled');
+
+    if (roleSettingsError) {
+      console.error('Error fetching role notification settings:', roleSettingsError);
+    }
+
+    // Filter users based on their role's notification permissions
     const enabledUserIds = user_ids.filter(userId => {
-      const userPref = preferences?.find(p => p.user_id === userId);
-      if (!userPref) return true;
-      if (notification_type && userPref[notification_type] === false) return false;
+      const userRole = userRoles?.find(r => r.user_id === userId);
+      if (!userRole) return true; // Default to enabled if no role found
+      
+      // Check if this notification type is enabled for this role
+      if (notification_type && roleSettings) {
+        const roleSetting = roleSettings.find(
+          rs => rs.role === userRole.role && rs.notification_type === notification_type
+        );
+        if (roleSetting && !roleSetting.enabled) {
+          console.log(`Filtering out user ${userId} - ${notification_type} disabled for ${userRole.role}`);
+          return false;
+        }
+      }
       return true;
     });
 
+    console.log(`Filtered to ${enabledUserIds.length} users based on role permissions`);
+
     if (enabledUserIds.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No users have this notification type enabled" }),
+        JSON.stringify({ message: "No users have this notification type enabled for their role" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }

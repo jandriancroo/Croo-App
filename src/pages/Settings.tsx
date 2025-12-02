@@ -14,6 +14,7 @@ import { Award, Upload, ExternalLink, Trash2, MapPin, ExternalLink as ExternalLi
 import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
 import { PositionManagementSection } from '@/components/settings/PositionManagementSection';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
+import { NotificationsDashboard } from '@/components/settings/NotificationsDashboard';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { format } from 'date-fns';
@@ -263,6 +264,8 @@ export default function Settings() {
           </Card>
 
           <NotificationSettings />
+
+          {isAdmin && <NotificationsDashboard />}
 
           {isAdmin && locations.length > 0 && (
             <Card>
