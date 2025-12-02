@@ -1221,6 +1221,36 @@ export type Database = {
         }
         Relationships: []
       }
+      role_notification_settings: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          notification_label: string
+          notification_type: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          notification_label: string
+          notification_type: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          notification_label?: string
+          notification_type?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       role_permissions: {
         Row: {
           created_at: string
