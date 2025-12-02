@@ -28,8 +28,14 @@ export const usePushNotifications = () => {
     console.log('[Push] Effect triggered, platform:', Capacitor.getPlatform(), 'isNative:', isNative, 'userId:', userId);
 
     const setupWebPush = async () => {
+      // Wait for auth to load - undefined means still loading, null means no user
+      if (userId === undefined) {
+        console.log('[Push Web] Auth still loading, waiting...');
+        return;
+      }
+      
       if (!userId) {
-        console.log('[Push Web] No user logged in, skipping setup');
+        console.log('[Push Web] No user logged in after auth loaded, skipping setup');
         return;
       }
 
@@ -141,8 +147,14 @@ export const usePushNotifications = () => {
     };
 
     const setupNativePush = async () => {
+      // Wait for auth to load - undefined means still loading, null means no user
+      if (userId === undefined) {
+        console.log('[Push Native] Auth still loading, waiting...');
+        return;
+      }
+      
       if (!userId) {
-        console.log('[Push Native] No user logged in, skipping setup');
+        console.log('[Push Native] No user logged in after auth loaded, skipping setup');
         return;
       }
 
