@@ -73,6 +73,51 @@ interface PushNotificationRequest {
   body: string;
   data?: Record<string, any>;
   notification_type?: 'overdue_checklists' | 'late_arrivals' | 'announcements' | 'chat_messages';
+  badge_count?: number;
+}
+
+// Get notification sound based on type
+function getNotificationSound(type?: string): string {
+  switch (type) {
+    case 'announcements':
+      return 'default'; // Can change to custom sound
+    case 'chat_messages':
+      return 'default';
+    case 'overdue_checklists':
+      return 'default';
+    case 'late_arrivals':
+      return 'default';
+    default:
+      return 'default';
+  }
+}
+
+// Format notification content based on type
+function formatNotificationContent(type: string | undefined, title: string, body: string): { title: string; body: string } {
+  switch (type) {
+    case 'announcements':
+      return {
+        title: `📢 ${title}`,
+        body: body
+      };
+    case 'chat_messages':
+      return {
+        title: `💬 ${title}`,
+        body: body
+      };
+    case 'overdue_checklists':
+      return {
+        title: `⚠️ ${title}`,
+        body: body
+      };
+    case 'late_arrivals':
+      return {
+        title: `🚨 ${title}`,
+        body: body
+      };
+    default:
+      return { title, body };
+  }
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -86,13 +131,19 @@ const handler = async (req: Request): Promise<Response> => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { user_ids, title, body, data, notification_type }: PushNotificationRequest = await req.json();
+    const { user_ids, title, body, data, notification_type, badge_count }: PushNotificationRequest = await req.json();
+
+    // Format content based on notification type
+    const formattedContent = formatNotificationContent(notification_type, title, body);
+    const notificationSound = getNotificationSound(notification_type);
 
     console.log('Push notification request:', { 
       user_ids_count: user_ids?.length, 
-      title, 
-      body: body?.substring(0, 50),
-      notification_type 
+      title: formattedContent.title, 
+      body: formattedContent.body?.substring(0, 50),
+      notification_type,
+      badge_count,
+      sound: notificationSound
     });
 
     if (!user_ids || user_ids.length === 0) {
@@ -188,8 +239,8 @@ const handler = async (req: Request): Promise<Response> => {
                   message: {
                     token,
                     notification: {
-                      title,
-                      body,
+                      title: formattedContent.title,
+                      body: formattedContent.body,
                     },
                     data: Object.keys(data || {}).reduce((acc, key) => {
                       acc[key] = String((data || {})[key]);
@@ -198,13 +249,16 @@ const handler = async (req: Request): Promise<Response> => {
                     apns: {
                       payload: {
                         aps: {
-                          sound: 'default',
+                          sound: notificationSound,
+                          badge: badge_count ?? 1,
+                          'mutable-content': 1,
                         },
                       },
                     },
                     android: {
                       notification: {
-                        sound: 'default',
+                        sound: notificationSound,
+                        notification_count: badge_count ?? 1,
                       },
                     },
                   },
