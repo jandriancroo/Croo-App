@@ -157,7 +157,7 @@ All colors MUST be HSL.
   /* Increase base font size on mobile for better readability */
   @media (max-width: 768px) {
     html {
-      font-size: 18px;
+      font-size: 15px;
     }
   }
 
