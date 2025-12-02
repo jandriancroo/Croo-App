@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown, Banknote, Sparkles } from 'lucide-react';
+import { ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown, Banknote, Sparkles, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -47,7 +47,7 @@ type SalesData = {
   daily: number;
   weekly: number;
 };
-const DEFAULT_SECTION_ORDER = ['alerts', 'sales-overview', 'checklists-grid'];
+const DEFAULT_SECTION_ORDER = ['alerts', 'checklists-grid', 'sales-overview'];
 const STORAGE_KEY = 'dashboard-section-order';
 export default function Dashboard() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
@@ -60,7 +60,17 @@ export default function Dashboard() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : DEFAULT_SECTION_ORDER;
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // Filter to only include valid sections
+      const validSections = parsed.filter((id: string) => DEFAULT_SECTION_ORDER.includes(id));
+      // Add any missing sections
+      DEFAULT_SECTION_ORDER.forEach(id => {
+        if (!validSections.includes(id)) validSections.push(id);
+      });
+      return validSections;
+    }
+    return DEFAULT_SECTION_ORDER;
   });
   const [crooCashBalance, setCrooCashBalance] = useState<number>(0);
   const [userName, setUserName] = useState<string>('');
@@ -643,7 +653,7 @@ export default function Dashboard() {
                 <ArrowUpDown className="h-4 w-4" />
               </Button>}
             <Button onClick={toggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="icon" className="h-10 w-10" title={isEditMode ? "Save Layout" : "Edit Layout"}>
-              {isEditMode ? <ClipboardCheck className="h-4 w-4" /> : <ArrowUpDown className="h-4 w-4" />}
+              {isEditMode ? <Check className="h-4 w-4" /> : <ArrowUpDown className="h-4 w-4" />}
             </Button>
           </div>
         </div>
@@ -656,8 +666,10 @@ export default function Dashboard() {
               <Button onClick={() => navigate('/tasks')}>Go to Tasks</Button>
             </CardContent>
           </Card> : <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={sectionOrder} strategy={verticalListSortingStrategy}>
-              {sectionOrder.map(sectionId => <DashboardSection key={sectionId} id={sectionId} isEditMode={isEditMode}>
+            <SortableContext items={sectionOrder.filter(id => sections[id as keyof typeof sections])} strategy={verticalListSortingStrategy}>
+              {sectionOrder
+                .filter(sectionId => sections[sectionId as keyof typeof sections])
+                .map(sectionId => <DashboardSection key={sectionId} id={sectionId} isEditMode={isEditMode}>
                   {sections[sectionId as keyof typeof sections]}
                 </DashboardSection>)}
             </SortableContext>
