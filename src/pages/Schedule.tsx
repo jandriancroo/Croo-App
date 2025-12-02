@@ -708,7 +708,7 @@ export default function Schedule() {
         await supabase.functions.invoke('send-push-notification', {
           body: {
             user_ids: usersWithShifts,
-            title: '📅 Weekly Schedule Updated',
+            title: 'Weekly Schedule Updated',
             body: `Schedule for ${dateRange} has been updated`,
             notification_type: 'schedule_updates',
             data: { type: 'schedule_update', schedule_id: scheduleId }
