@@ -1066,31 +1066,40 @@ export type Database = {
       notification_preferences: {
         Row: {
           announcements: boolean
+          certification_expiring: boolean
           chat_messages: boolean
           created_at: string
           id: string
           late_arrivals: boolean
           overdue_checklists: boolean
+          schedule_updates: boolean
+          shift_approvals: boolean
           updated_at: string
           user_id: string
         }
         Insert: {
           announcements?: boolean
+          certification_expiring?: boolean
           chat_messages?: boolean
           created_at?: string
           id?: string
           late_arrivals?: boolean
           overdue_checklists?: boolean
+          schedule_updates?: boolean
+          shift_approvals?: boolean
           updated_at?: string
           user_id: string
         }
         Update: {
           announcements?: boolean
+          certification_expiring?: boolean
           chat_messages?: boolean
           created_at?: string
           id?: string
           late_arrivals?: boolean
           overdue_checklists?: boolean
+          schedule_updates?: boolean
+          shift_approvals?: boolean
           updated_at?: string
           user_id?: string
         }

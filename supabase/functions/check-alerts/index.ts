@@ -25,6 +25,9 @@ const handler = async (req: Request): Promise<Response> => {
     // Check for late arrivals
     await checkLateArrivals(supabaseClient);
 
+    // Check for expiring certifications
+    await checkExpiringCertifications(supabaseClient);
+
     return new Response(
       JSON.stringify({ message: "Alert checks completed" }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -238,6 +241,103 @@ async function checkLateArrivals(supabaseClient: any) {
     }
   } catch (error) {
     console.error('Error checking late arrivals:', error);
+  }
+}
+
+async function checkExpiringCertifications(supabaseClient: any) {
+  try {
+    const now = new Date();
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    
+    const fourteenDaysFromNow = new Date();
+    fourteenDaysFromNow.setDate(fourteenDaysFromNow.getDate() + 14);
+    
+    const sevenDaysFromNow = new Date();
+    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+
+    // Get certifications expiring in the next 30 days
+    const { data: expiringCerts, error: certsError } = await supabaseClient
+      .from('certifications')
+      .select(`
+        id,
+        user_id,
+        certification_type,
+        expiration_date,
+        profiles!certifications_user_id_fkey(full_name)
+      `)
+      .eq('status', 'approved')
+      .gte('expiration_date', now.toISOString().split('T')[0])
+      .lte('expiration_date', thirtyDaysFromNow.toISOString().split('T')[0]);
+
+    if (certsError) throw certsError;
+    if (!expiringCerts || expiringCerts.length === 0) {
+      console.log('No expiring certifications found');
+      return;
+    }
+
+    console.log(`Found ${expiringCerts.length} certifications expiring within 30 days`);
+
+    // Group by urgency and notify
+    for (const cert of expiringCerts) {
+      const expirationDate = new Date(cert.expiration_date);
+      const daysUntilExpiry = Math.ceil((expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Only notify at specific intervals: 30, 14, 7, 3, 1 days
+      const notifyDays = [30, 14, 7, 3, 1];
+      if (!notifyDays.includes(daysUntilExpiry)) continue;
+
+      let urgency = '';
+      if (daysUntilExpiry <= 3) {
+        urgency = '⚠️ URGENT: ';
+      } else if (daysUntilExpiry <= 7) {
+        urgency = '⚠️ ';
+      }
+
+      const formattedDate = expirationDate.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      });
+
+      // Notify the user whose certification is expiring
+      await supabaseClient.functions.invoke('send-push-notification', {
+        body: {
+          user_ids: [cert.user_id],
+          title: `${urgency}Certification Expiring`,
+          body: `Your ${cert.certification_type} expires ${formattedDate} (${daysUntilExpiry} day${daysUntilExpiry === 1 ? '' : 's'})`,
+          notification_type: 'certification_expiring',
+          data: {
+            certification_id: cert.id,
+            type: 'certification_expiring'
+          }
+        }
+      });
+
+      // Also notify admins
+      const { data: adminUsers } = await supabaseClient
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'admin');
+
+      if (adminUsers && adminUsers.length > 0) {
+        await supabaseClient.functions.invoke('send-push-notification', {
+          body: {
+            user_ids: adminUsers.map((u: any) => u.user_id),
+            title: `${urgency}Staff Certification Expiring`,
+            body: `${cert.profiles?.full_name}'s ${cert.certification_type} expires ${formattedDate}`,
+            notification_type: 'certification_expiring',
+            data: {
+              certification_id: cert.id,
+              user_id: cert.user_id,
+              type: 'certification_expiring'
+            }
+          }
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error checking expiring certifications:', error);
   }
 }
 
