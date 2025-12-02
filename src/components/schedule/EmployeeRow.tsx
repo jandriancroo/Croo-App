@@ -25,6 +25,7 @@ interface EmployeeRowProps {
   currentUserId?: string;
   onEditShift?: (shift: any) => void;
   isDraggable?: boolean;
+  isPublished?: boolean;
 }
 export function EmployeeRow({
   profile,
@@ -37,7 +38,8 @@ export function EmployeeRow({
   canTakeShifts,
   currentUserId,
   onEditShift,
-  isDraggable = false
+  isDraggable = false,
+  isPublished = true
 }: EmployeeRowProps) {
   const navigate = useNavigate();
   const weekDays = Array.from({
@@ -124,7 +126,7 @@ export function EmployeeRow({
         }
         return reqDate.toDateString() === cellDate.toDateString();
       });
-      return <DayCell key={dayIndex} userId={profile.id} dayIndex={dayIndex} shifts={dayShifts} availabilityRequests={dayAvailability} onUpdate={onUpdate} canTakeShifts={canTakeShifts} currentUserId={currentUserId} onEditShift={onEditShift} />;
+      return <DayCell key={dayIndex} userId={profile.id} dayIndex={dayIndex} shifts={dayShifts} availabilityRequests={dayAvailability} onUpdate={onUpdate} canTakeShifts={canTakeShifts} currentUserId={currentUserId} onEditShift={onEditShift} isPublished={isPublished} />;
     })}
     </div>;
 }
@@ -136,7 +138,8 @@ function DayCell({
   onUpdate,
   canTakeShifts,
   currentUserId,
-  onEditShift
+  onEditShift,
+  isPublished
 }: {
   userId: string;
   dayIndex: number;
@@ -146,6 +149,7 @@ function DayCell({
   canTakeShifts?: boolean;
   currentUserId?: string;
   onEditShift?: (shift: any) => void;
+  isPublished?: boolean;
 }) {
   const dropId = `drop-${userId}-${dayIndex}`;
   const {
@@ -158,7 +162,7 @@ function DayCell({
     touchAction: 'none'
   }} className={`min-h-[70px] p-2 border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
       <div className="space-y-1">
-        {shifts.map(shift => <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} canTakeShift={canTakeShifts} currentUserId={currentUserId} onTakeShift={onUpdate} onEdit={() => onEditShift?.(shift)} />)}
+        {shifts.map(shift => <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} canTakeShift={canTakeShifts} currentUserId={currentUserId} onTakeShift={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={isPublished} />)}
         {availabilityRequests.map(request => <div key={request.id} className="p-1 bg-muted/30 border-dashed border rounded relative text-[10px]" style={{
         background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
       }}>

@@ -16,9 +16,10 @@ interface ShiftCardProps {
   currentUserId?: string;
   onTakeShift?: () => void;
   onEdit?: () => void;
+  isPublished?: boolean;
 }
 
-export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUserId, onTakeShift, onEdit }: ShiftCardProps) {
+export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUserId, onTakeShift, onEdit, isPublished = true }: ShiftCardProps) {
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: shift.isTemplate ? `template-${shift.template.id}` : `shift-${shift.id}`,
     data: shift,
@@ -81,11 +82,16 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
     }
   };
 
+  // Draft styling: reduced opacity and dashed border for unpublished shifts
+  const draftStyles = !isPublished && !shift.isTemplate
+    ? "opacity-60 border-2 border-dashed border-white/50"
+    : "";
+
   return (
     <Card
       ref={setNodeRef}
       style={{ ...style, backgroundColor: bgColor }}
-      className={`p-2 min-h-[60px] flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""}`}
+      className={`p-2 min-h-[60px] flex flex-col justify-center ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles}`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
@@ -100,6 +106,9 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
         <div className="text-white text-xs opacity-90 mt-0.5">{position}</div>
       )}
       {shift.is_time_off && <div className="text-white text-sm font-medium">TIME OFF</div>}
+      {!shift.isTemplate && !isPublished && (
+        <div className="text-white/70 text-[10px] font-medium mt-0.5">DRAFT</div>
+      )}
       {!shift.isTemplate && onDelete && (
         <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100">
           <Button

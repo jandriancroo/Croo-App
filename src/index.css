@@ -60,6 +60,12 @@ All colors MUST be HSL.
     
     --croo-orange: 28 95% 48%;
     --croo-beige: 40 33% 94%;
+    
+    /* Liquid Glass UI */
+    --glass-background: 0 0% 100% / 0.6;
+    --glass-border: 0 0% 100% / 0.3;
+    --glass-shadow: 220 25% 10% / 0.08;
+    --glass-blur: 20px;
   }
 
   .dark {
@@ -105,6 +111,12 @@ All colors MUST be HSL.
     
     --croo-orange: 28 98% 55%;
     --croo-beige: 40 25% 85%;
+    
+    /* Liquid Glass UI - Dark */
+    --glass-background: 220 25% 12% / 0.7;
+    --glass-border: 0 0% 100% / 0.1;
+    --glass-shadow: 0 0% 0% / 0.3;
+    --glass-blur: 20px;
   }
 }
 
@@ -193,5 +205,53 @@ All colors MUST be HSL.
 
   .text-mobile-base {
     @apply text-sm sm:text-xs;
+  }
+  
+  /* Liquid Glass UI Utilities */
+  .glass {
+    background: hsl(var(--glass-background));
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: 
+      0 8px 32px hsl(var(--glass-shadow)),
+      inset 0 1px 0 hsl(0 0% 100% / 0.1);
+  }
+  
+  .glass-subtle {
+    background: hsl(var(--glass-background));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--glass-border));
+  }
+  
+  .glass-card {
+    background: hsl(var(--glass-background));
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: 
+      0 4px 24px hsl(var(--glass-shadow)),
+      0 1px 2px hsl(var(--glass-shadow)),
+      inset 0 1px 0 hsl(0 0% 100% / 0.08);
+    border-radius: var(--radius);
+  }
+  
+  .glass-button {
+    background: hsl(var(--glass-background));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 2px 8px hsl(var(--glass-shadow));
+    transition: all 0.2s ease;
+  }
+  
+  .glass-button:hover {
+    background: hsl(0 0% 100% / 0.75);
+    box-shadow: 0 4px 16px hsl(var(--glass-shadow));
+  }
+  
+  .dark .glass-button:hover {
+    background: hsl(220 25% 16% / 0.8);
   }
 }
