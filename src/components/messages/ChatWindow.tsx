@@ -112,24 +112,27 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       setMessages(data || []);
       setTimeout(scrollToBottom, 100);
 
-      // Mark messages as read
+      // Mark ALL unread messages as read
       if (currentUserId && data && data.length > 0) {
-        const lastMessage = data[data.length - 1];
+        // Get all messages not sent by current user
+        const messagesToMark = data.filter(msg => msg.sender_id !== currentUserId);
         
-        // Only mark as read if the last message wasn't sent by current user
-        if (lastMessage.sender_id !== currentUserId) {
+        if (messagesToMark.length > 0) {
           try {
+            // Upsert read receipts for all messages in this chat
+            const receipts = messagesToMark.map(msg => ({
+              message_id: msg.id,
+              user_id: currentUserId
+            }));
+            
             await supabase
               .from('message_read_receipts')
-              .insert({
-                message_id: lastMessage.id,
-                user_id: currentUserId
+              .upsert(receipts, { 
+                onConflict: 'message_id,user_id',
+                ignoreDuplicates: true 
               });
           } catch (err: any) {
-            // Ignore duplicate key errors (already marked as read)
-            if (!err.message?.includes('duplicate')) {
-              console.error('Error marking message as read:', err);
-            }
+            console.error('Error marking messages as read:', err);
           }
         }
       }
