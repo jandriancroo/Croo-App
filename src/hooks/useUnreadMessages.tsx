@@ -1,64 +1,71 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useUnreadMessages = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const fetchUnreadCount = async () => {
+  const fetchUnreadCount = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setUnreadCount(0);
+        setLoading(false);
         return;
       }
 
-      // Get all chats the user is a member of
+      // Get all chats the user is a member of (excluding announcements)
       const { data: memberChats } = await supabase
         .from('chat_members')
-        .select('chat_id')
-        .eq('user_id', user.id);
+        .select('chat_id, chats!inner(id, is_announcement)')
+        .eq('user_id', user.id)
+        .eq('chats.is_announcement', false);
 
       if (!memberChats || memberChats.length === 0) {
         setUnreadCount(0);
+        setLoading(false);
         return;
       }
 
       const chatIds = memberChats.map(cm => cm.chat_id);
 
-      // Get all messages in these chats
-      const { data: messages } = await supabase
-        .from('messages')
-        .select('id, sender_id')
-        .in('chat_id', chatIds)
-        .neq('sender_id', user.id); // Exclude messages sent by current user
+      // Count unread chats (chats with at least one unread message)
+      let unreadChats = 0;
 
-      if (!messages || messages.length === 0) {
-        setUnreadCount(0);
-        return;
+      for (const chatId of chatIds) {
+        // Get the latest message in this chat not sent by the user
+        const { data: latestMessage } = await supabase
+          .from('messages')
+          .select('id, created_at')
+          .eq('chat_id', chatId)
+          .neq('sender_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!latestMessage) continue;
+
+        // Check if user has read this message
+        const { data: readReceipt } = await supabase
+          .from('message_read_receipts')
+          .select('id')
+          .eq('message_id', latestMessage.id)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (!readReceipt) {
+          unreadChats++;
+        }
       }
 
-      const messageIds = messages.map(m => m.id);
-
-      // Get read receipts for these messages by current user
-      const { data: readReceipts } = await supabase
-        .from('message_read_receipts')
-        .select('message_id')
-        .in('message_id', messageIds)
-        .eq('user_id', user.id);
-
-      const readMessageIds = new Set(readReceipts?.map(r => r.message_id) || []);
-      
-      // Count unread messages
-      const unread = messages.filter(m => !readMessageIds.has(m.id)).length;
-      setUnreadCount(unread);
+      setUnreadCount(unreadChats);
     } catch (error) {
       console.error('Error fetching unread count:', error);
       setUnreadCount(0);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchUnreadCount();
@@ -93,7 +100,7 @@ export const useUnreadMessages = () => {
     return () => {
       supabase.removeChannel(messageChannel);
     };
-  }, []);
+  }, [fetchUnreadCount]);
 
-  return { unreadCount, loading };
+  return { unreadCount, loading, refetch: fetchUnreadCount };
 };

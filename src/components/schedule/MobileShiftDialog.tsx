@@ -380,10 +380,10 @@ export function MobileShiftDialog({
                   }
                 }}
               >
-                <SelectTrigger className="bg-background">
+              <SelectTrigger>
                   <SelectValue placeholder="Select quick fill option" />
                 </SelectTrigger>
-                <SelectContent className="bg-background z-50">
+                <SelectContent>
                   <SelectItem value="none">None</SelectItem>
                   
                   {/* Offered Shifts Section */}
