@@ -1002,6 +1002,7 @@ export default function Schedule() {
                           currentUserId={currentUserId || undefined}
                           onEditShift={setEditingShift}
                           isDraggable={isAdmin || isManager}
+                          isPublished={isPublished}
                         />
                       ))}
                     </SortableContext>
@@ -1021,6 +1022,7 @@ export default function Schedule() {
                 canTakeShifts={isAdmin || isManager}
                 currentUserId={currentUserId || undefined}
                 onEditShift={setEditingShift}
+                isPublished={isPublished}
               />
             </div>
           </Card>
