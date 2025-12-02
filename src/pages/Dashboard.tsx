@@ -613,16 +613,14 @@ export default function Dashboard() {
   return <Layout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <h1 className="text-3xl font-bold">Dash</h1>
-            {userName && (
-              <p className="text-sm text-muted-foreground">Welcome to work, {userName}</p>
-            )}
-          </div>
+          <h1 className="text-3xl font-bold">Dash</h1>
           <div className="flex gap-2 items-center">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20 relative">
-              <Banknote className="h-4 w-4" style={{ transform: 'rotate(90deg) rotate(-10deg)' }} />
-              <span className="text-sm font-bold">${(crooCashBalance / 100).toFixed(2)}</span>
+            <div className="flex flex-col items-center justify-center px-3 py-1 h-10 rounded-full bg-primary/10 text-primary border border-primary/20 relative">
+              {userName && <span className="text-[10px] font-medium leading-none">{userName}</span>}
+              <div className="flex items-center gap-1">
+                <Banknote className="h-3 w-3" style={{ transform: 'rotate(90deg) rotate(-10deg)' }} />
+                <span className="text-xs font-bold leading-none">${(crooCashBalance / 100).toFixed(2)}</span>
+              </div>
               
               {/* Celebration Animation */}
               {animationAmount !== null && (
@@ -641,18 +639,13 @@ export default function Dashboard() {
               )}
             </div>
             <LocationSelector />
+            {isEditMode && <Button onClick={resetLayout} variant="outline" size="icon" className="h-10 w-10">
+                <ArrowUpDown className="h-4 w-4" />
+              </Button>}
+            <Button onClick={toggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="icon" className="h-10 w-10" title={isEditMode ? "Save Layout" : "Edit Layout"}>
+              {isEditMode ? <ClipboardCheck className="h-4 w-4" /> : <ArrowUpDown className="h-4 w-4" />}
+            </Button>
           </div>
-        </div>
-        
-        {/* Edit mode controls - sticky at bottom */}
-        <div className="flex gap-2 items-center justify-end">
-          {isEditMode && <Button onClick={resetLayout} variant="outline" size="sm">
-              Reset Layout
-            </Button>}
-          <Button onClick={toggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="sm" className="gap-2">
-            <ArrowUpDown className="h-4 w-4" />
-            {isEditMode ? 'Save Layout' : 'Edit Layout'}
-          </Button>
         </div>
 
         {loading ? <div className="text-center text-muted-foreground">Loading checklists...</div> : checklists.length === 0 ? <Card className="text-center py-12">
