@@ -19,25 +19,28 @@ const urlBase64ToUint8Array = (base64String: string) => {
 };
 
 export const usePushNotifications = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const hasRegisteredRef = useRef(false);
 
   useEffect(() => {
     const userId = user?.id;
     const isNative = Capacitor.isNativePlatform();
-    console.log('[Push] Effect triggered, platform:', Capacitor.getPlatform(), 'isNative:', isNative, 'userId:', userId);
+    console.log('[Push] Effect triggered, platform:', Capacitor.getPlatform(), 'isNative:', isNative, 'userId:', userId, 'loading:', loading);
+    
+    // Wait for auth to finish loading before attempting push setup
+    if (loading) {
+      console.log('[Push] Auth still loading, waiting...');
+      return;
+    }
+    
+    if (!userId) {
+      console.log('[Push] No user logged in after auth loaded, skipping setup');
+      return;
+    }
 
     const setupWebPush = async () => {
-      // Wait for auth to load - undefined means still loading, null means no user
-      if (userId === undefined) {
-        console.log('[Push Web] Auth still loading, waiting...');
-        return;
-      }
-      
-      if (!userId) {
-        console.log('[Push Web] No user logged in after auth loaded, skipping setup');
-        return;
-      }
+      // Auth check already done at top of effect
+      if (!userId) return;
 
       // Check if VAPID keys are configured
       const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
@@ -147,16 +150,8 @@ export const usePushNotifications = () => {
     };
 
     const setupNativePush = async () => {
-      // Wait for auth to load - undefined means still loading, null means no user
-      if (userId === undefined) {
-        console.log('[Push Native] Auth still loading, waiting...');
-        return;
-      }
-      
-      if (!userId) {
-        console.log('[Push Native] No user logged in after auth loaded, skipping setup');
-        return;
-      }
+      // Auth check already done at top of effect
+      if (!userId) return;
 
       if (hasRegisteredRef.current) {
         console.log('[Push Native] ⚠️ Already registered, skipping duplicate setup');
@@ -288,5 +283,5 @@ export const usePushNotifications = () => {
     } else {
       setupWebPush();
     }
-  }, [user?.id]);
+  }, [user?.id, loading]);
 };
