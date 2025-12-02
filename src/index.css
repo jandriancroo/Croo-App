@@ -154,3 +154,9 @@ All colors MUST be HSL.
     @apply bg-background text-foreground font-lexend;
   }
 }
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 1rem);
+  }
+}

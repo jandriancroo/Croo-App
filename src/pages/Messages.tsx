@@ -434,7 +434,7 @@ export default function Messages() {
               modal={true}
               dismissible={true}
             >
-              <DrawerContent className="h-[95vh]">
+              <DrawerContent className="h-[95vh] pb-safe">
                 <div className="flex flex-col h-full">
                   <div className="flex items-center gap-2 p-4 border-b border-border">
                     <Button
@@ -449,7 +449,7 @@ export default function Messages() {
                     </Button>
                     <h2 className="text-lg font-semibold">Chat</h2>
                   </div>
-                  <div className="flex-1 overflow-hidden">
+                  <div className="flex-1 overflow-hidden pb-4">
                     {selectedChatId && (
                       <ChatWindow
                         chatId={selectedChatId}
