@@ -683,56 +683,44 @@ export default function Schedule() {
       const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
       const dateRange = `${format(currentWeekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`;
 
-      // If republishing, detect and notify changes
-      if (publishedSnapshot) {
-        const changes = detectScheduleChanges(publishedSnapshot, currentShifts || []);
+      // Always notify all users with shifts when going live
+      // This ensures no one is missed due to snapshot timing issues
+      if (usersWithShifts.length > 0) {
+        // Detect changes for the toast message
+        const changes = publishedSnapshot 
+          ? detectScheduleChanges(publishedSnapshot, currentShifts || [])
+          : [];
         
-        if (changes.length > 0) {
-          // Log changes and prepare notifications
-          for (const change of changes) {
-            await supabase
-              .from('schedule_change_log')
-              .insert({
-                schedule_id: scheduleId,
-                user_id: change.user_id,
-                change_type: change.type,
-                old_shift_data: change.oldShift,
-                new_shift_data: change.newShift
-              });
-          }
-          
-          // Notify affected users of changes
-          const affectedUserIds = [...new Set(changes.map(c => c.user_id))];
-          if (affectedUserIds.length > 0) {
-            await supabase.functions.invoke('send-push-notification', {
-              body: {
-                user_ids: affectedUserIds,
-                title: 'Weekly Schedule Updated',
-                body: `Schedule for ${dateRange} has been updated`,
-                notification_type: 'schedule_updates',
-                data: { type: 'schedule_update', schedule_id: scheduleId }
-              }
+        // Log changes if any
+        for (const change of changes) {
+          await supabase
+            .from('schedule_change_log')
+            .insert({
+              schedule_id: scheduleId,
+              user_id: change.user_id,
+              change_type: change.type,
+              old_shift_data: change.oldShift,
+              new_shift_data: change.newShift
             });
+        }
+        
+        // Notify ALL users with shifts
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            user_ids: usersWithShifts,
+            title: '📅 Weekly Schedule Updated',
+            body: `Schedule for ${dateRange} has been updated`,
+            notification_type: 'schedule_updates',
+            data: { type: 'schedule_update', schedule_id: scheduleId }
           }
-          
-          toast.success(`Schedule published! ${changes.length} change(s) notified to affected employees.`);
-        } else {
-          toast.success("Schedule published!");
-        }
+        });
+        
+        const changeText = changes.length > 0 
+          ? `${changes.length} change(s) logged.` 
+          : '';
+        toast.success(`Schedule published! ${usersWithShifts.length} team member(s) notified. ${changeText}`);
       } else {
-        // First publish - notify all users with shifts
-        if (usersWithShifts.length > 0) {
-          await supabase.functions.invoke('send-push-notification', {
-            body: {
-              user_ids: usersWithShifts,
-              title: 'Weekly Schedule Posted',
-              body: `New schedule for ${dateRange}`,
-              notification_type: 'schedule_updates',
-              data: { type: 'schedule_update', schedule_id: scheduleId }
-            }
-          });
-        }
-        toast.success("Schedule published! Team members have been notified.");
+        toast.success("Schedule published!");
       }
 
       // Update schedule with new snapshot
