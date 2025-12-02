@@ -43,9 +43,17 @@ const handler = async (req: Request): Promise<Response> => {
 
 async function checkOverdueChecklists(supabaseClient: any) {
   try {
-    const now = new Date();
+    // Get current time in Pacific timezone
+    const pacificTime = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+    const now = new Date(pacificTime);
     const currentDay = now.getDay();
-    const startOfToday = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    
+    console.log(`Pacific time: ${now.toLocaleString()}, Day: ${currentDay}, Time: ${currentHours}:${currentMinutes}`);
+    
+    // Start of today in Pacific time
+    const startOfToday = new Date(pacificTime);
     startOfToday.setHours(0, 0, 0, 0);
 
     // Get all active checklists with due times
@@ -78,12 +86,17 @@ async function checkOverdueChecklists(supabaseClient: any) {
 
       if (!isRelevant) continue;
 
-      // Check if overdue
-      const [hours, minutes] = checklist.due_by_time.split(':').map(Number);
-      const dueTime = new Date(startOfToday);
-      dueTime.setHours(hours, minutes, 0, 0);
-
-      if (now < dueTime) continue; // Not due yet
+      // Check if overdue - compare Pacific time with due_by_time
+      const [dueHours, dueMinutes] = checklist.due_by_time.split(':').map(Number);
+      const currentTotalMinutes = currentHours * 60 + currentMinutes;
+      const dueTotalMinutes = dueHours * 60 + dueMinutes;
+      
+      console.log(`Checklist "${checklist.title}": due at ${dueHours}:${dueMinutes}, current Pacific: ${currentHours}:${currentMinutes}`);
+      
+      if (currentTotalMinutes < dueTotalMinutes) {
+        console.log(`Skipping "${checklist.title}" - not due yet`);
+        continue; // Not due yet
+      }
 
       // Check if incomplete
       const endOfToday = new Date(startOfToday);
@@ -162,8 +175,16 @@ async function checkOverdueChecklists(supabaseClient: any) {
 
 async function checkLateArrivals(supabaseClient: any) {
   try {
-    const now = new Date();
-    const today = now.toISOString().split('T')[0];
+    // Get current time in Pacific timezone
+    const pacificTime = new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+    const now = new Date(pacificTime);
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    
+    // Get today's date in Pacific timezone (YYYY-MM-DD format)
+    const today = now.toLocaleDateString('en-CA'); // en-CA gives YYYY-MM-DD format
+    
+    console.log(`Late arrivals check - Pacific time: ${now.toLocaleString()}, today: ${today}`);
     
     // Get today's shifts that should have started
     const { data: shifts, error: shiftsError } = await supabaseClient
@@ -184,13 +205,13 @@ async function checkLateArrivals(supabaseClient: any) {
     const lateEmployees = [];
 
     for (const shift of shifts) {
-      const [hours, minutes] = shift.start_time.split(':').map(Number);
-      const shiftStart = new Date();
-      shiftStart.setHours(hours, minutes, 0, 0);
-      const lateThreshold = new Date(shiftStart.getTime() + 10 * 60000); // 10 minutes late
+      const [shiftHours, shiftMinutes] = shift.start_time.split(':').map(Number);
+      // Add 10 minute grace period
+      const lateThresholdMinutes = (shiftHours * 60 + shiftMinutes) + 10;
+      const currentTotalMinutes = currentHours * 60 + currentMinutes;
 
       // Check if shift should have started and if we're past the late threshold
-      if (now < lateThreshold) continue;
+      if (currentTotalMinutes < lateThresholdMinutes) continue;
 
       // Check if employee has punched in
       const { data: punches } = await supabaseClient
@@ -204,10 +225,11 @@ async function checkLateArrivals(supabaseClient: any) {
         .limit(1);
 
       if (!punches || punches.length === 0) {
+        const minutesLate = currentTotalMinutes - lateThresholdMinutes;
         lateEmployees.push({
           user_id: shift.user_id,
           name: shift.profiles?.full_name || 'Unknown',
-          minutes_late: Math.floor((now.getTime() - lateThreshold.getTime()) / 60000)
+          minutes_late: minutesLate
         });
       }
     }
