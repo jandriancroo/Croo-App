@@ -3,10 +3,11 @@ import { Capacitor } from '@capacitor/core';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from '@/hooks/use-toast';
-import { Bell, BellOff } from 'lucide-react';
+import { Bell, BellOff, Smartphone } from 'lucide-react';
 
 interface NotificationPreferences {
   overdue_checklists: boolean;
@@ -14,6 +15,18 @@ interface NotificationPreferences {
   announcements: boolean;
   chat_messages: boolean;
 }
+
+// Helper to detect if running as installed PWA
+const isInstalledPWA = () => {
+  return window.matchMedia('(display-mode: standalone)').matches || 
+         (window.navigator as any).standalone === true;
+};
+
+// Helper to detect iOS
+const isIOS = () => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+         (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+};
 
 export const NotificationSettings = () => {
   const { user } = useAuth();
@@ -24,14 +37,28 @@ export const NotificationSettings = () => {
     chat_messages: true,
   });
   const [loading, setLoading] = useState(true);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
+  const [isEnabling, setIsEnabling] = useState(false);
 
-  // Only show on native iOS platform
-  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'ios') {
-    return null;
-  }
+  const isNative = Capacitor.isNativePlatform();
+  const isPWA = isInstalledPWA();
+  const isIOSDevice = isIOS();
+
+  // Show for native iOS OR for PWA on any platform
+  const shouldShow = (isNative && Capacitor.getPlatform() === 'ios') || isPWA;
 
   useEffect(() => {
-    if (!user) return;
+    // Check notification permission status
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user || !shouldShow) {
+      setLoading(false);
+      return;
+    }
 
     const fetchPreferences = async () => {
       try {
@@ -41,7 +68,7 @@ export const NotificationSettings = () => {
           .eq('user_id', user.id)
           .single();
 
-        if (error && error.code !== 'PGRST116') { // Ignore "not found" error
+        if (error && error.code !== 'PGRST116') {
           console.error('Failed to fetch notification preferences:', error);
           return;
         }
@@ -62,7 +89,112 @@ export const NotificationSettings = () => {
     };
 
     fetchPreferences();
-  }, [user]);
+  }, [user, shouldShow]);
+
+  const enableNotifications = async () => {
+    if (!user) return;
+    
+    setIsEnabling(true);
+    console.log('[Push Settings] User tapped Enable Notifications');
+
+    try {
+      // Check if service worker and push are supported
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        toast({
+          title: "Not Supported",
+          description: "Push notifications are not supported on this device.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Request permission (must be triggered by user gesture on iOS)
+      console.log('[Push Settings] Requesting permission...');
+      const permission = await Notification.requestPermission();
+      console.log('[Push Settings] Permission result:', permission);
+      setNotificationPermission(permission);
+
+      if (permission !== 'granted') {
+        toast({
+          title: "Permission Denied",
+          description: "Please enable notifications in your device settings.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Wait for service worker
+      console.log('[Push Settings] Getting service worker...');
+      const registration = await navigator.serviceWorker.ready;
+      console.log('[Push Settings] Service worker ready');
+
+      // Subscribe to push
+      const vapidPublicKey = 'BA4iHtMMThy4LwpxYB7cIokOK9dVRTLZbSqySIlYNuXpVRZn9zNBSg3OJOZ4m_ruFWzzjRGZiwtIGHn9B7a35_M';
+      
+      const urlBase64ToUint8Array = (base64String: string) => {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+      };
+
+      console.log('[Push Settings] Creating push subscription...');
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+      });
+
+      console.log('[Push Settings] Subscription created:', subscription.endpoint);
+
+      // Save to database
+      const { error } = await supabase
+        .from('push_notification_tokens')
+        .upsert({
+          user_id: user.id,
+          token: JSON.stringify(subscription),
+          platform: 'web',
+        }, {
+          onConflict: 'user_id,platform'
+        });
+
+      if (error) {
+        console.error('[Push Settings] Failed to save subscription:', error);
+        throw error;
+      }
+
+      // Create default preferences
+      await supabase
+        .from('notification_preferences')
+        .upsert({
+          user_id: user.id,
+          overdue_checklists: true,
+          late_arrivals: true,
+          announcements: true,
+          chat_messages: true,
+        }, {
+          onConflict: 'user_id'
+        });
+
+      toast({
+        title: "Notifications Enabled!",
+        description: "You'll receive push notifications for important updates.",
+      });
+
+    } catch (error) {
+      console.error('[Push Settings] Error enabling notifications:', error);
+      toast({
+        title: "Error",
+        description: "Failed to enable notifications. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEnabling(false);
+    }
+  };
 
   const updatePreference = async (key: keyof NotificationPreferences, value: boolean) => {
     if (!user) return;
@@ -86,7 +218,6 @@ export const NotificationSettings = () => {
           description: 'Failed to update notification preference',
           variant: 'destructive',
         });
-        // Revert on error
         setPreferences(prev => ({ ...prev, [key]: !value }));
       } else {
         toast({
@@ -100,12 +231,16 @@ export const NotificationSettings = () => {
     }
   };
 
+  if (!shouldShow) {
+    return null;
+  }
+
   if (loading) {
     return null;
   }
 
-  const allEnabled = Object.values(preferences).every(v => v);
   const allDisabled = Object.values(preferences).every(v => !v);
+  const needsPermission = !isNative && notificationPermission !== 'granted';
 
   return (
     <Card>
@@ -115,65 +250,101 @@ export const NotificationSettings = () => {
           <CardTitle>Push Notifications</CardTitle>
         </div>
         <CardDescription>
-          Manage which notifications you receive on this device
+          {isPWA && !isNative 
+            ? "Enable notifications to stay updated on important events"
+            : "Manage which notifications you receive on this device"
+          }
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label htmlFor="overdue-checklists">Overdue Checklists</Label>
+        {/* Show enable button for PWA users who haven't granted permission */}
+        {needsPermission && (
+          <div className="p-4 bg-muted rounded-lg space-y-3">
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-primary" />
+              <span className="font-medium">Enable Push Notifications</span>
+            </div>
             <p className="text-sm text-muted-foreground">
-              Get notified when checklists pass their due time
+              {isIOSDevice 
+                ? "Tap the button below to enable notifications. You'll need to allow notifications when prompted."
+                : "Click to enable push notifications for this app."
+              }
             </p>
+            <Button 
+              onClick={enableNotifications} 
+              disabled={isEnabling}
+              className="w-full"
+            >
+              {isEnabling ? "Enabling..." : "Enable Notifications"}
+            </Button>
+            {notificationPermission === 'denied' && (
+              <p className="text-xs text-destructive">
+                Notifications are blocked. Please enable them in your device settings.
+              </p>
+            )}
           </div>
-          <Switch
-            id="overdue-checklists"
-            checked={preferences.overdue_checklists}
-            onCheckedChange={(checked) => updatePreference('overdue_checklists', checked)}
-          />
-        </div>
+        )}
 
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label htmlFor="late-arrivals">Late Arrivals</Label>
-            <p className="text-sm text-muted-foreground">
-              Get notified when employees are late to shifts
-            </p>
-          </div>
-          <Switch
-            id="late-arrivals"
-            checked={preferences.late_arrivals}
-            onCheckedChange={(checked) => updatePreference('late_arrivals', checked)}
-          />
-        </div>
+        {/* Show preferences if permission granted or on native */}
+        {(!needsPermission || isNative) && (
+          <>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="overdue-checklists">Overdue Checklists</Label>
+                <p className="text-sm text-muted-foreground">
+                  Get notified when checklists pass their due time
+                </p>
+              </div>
+              <Switch
+                id="overdue-checklists"
+                checked={preferences.overdue_checklists}
+                onCheckedChange={(checked) => updatePreference('overdue_checklists', checked)}
+              />
+            </div>
 
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label htmlFor="announcements">Announcements</Label>
-            <p className="text-sm text-muted-foreground">
-              Get notified when new announcements are posted
-            </p>
-          </div>
-          <Switch
-            id="announcements"
-            checked={preferences.announcements}
-            onCheckedChange={(checked) => updatePreference('announcements', checked)}
-          />
-        </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="late-arrivals">Late Arrivals</Label>
+                <p className="text-sm text-muted-foreground">
+                  Get notified when employees are late to shifts
+                </p>
+              </div>
+              <Switch
+                id="late-arrivals"
+                checked={preferences.late_arrivals}
+                onCheckedChange={(checked) => updatePreference('late_arrivals', checked)}
+              />
+            </div>
 
-        <div className="flex items-center justify-between">
-          <div className="space-y-0.5">
-            <Label htmlFor="chat-messages">Chat Messages</Label>
-            <p className="text-sm text-muted-foreground">
-              Get notified when you receive new messages
-            </p>
-          </div>
-          <Switch
-            id="chat-messages"
-            checked={preferences.chat_messages}
-            onCheckedChange={(checked) => updatePreference('chat_messages', checked)}
-          />
-        </div>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="announcements">Announcements</Label>
+                <p className="text-sm text-muted-foreground">
+                  Get notified when new announcements are posted
+                </p>
+              </div>
+              <Switch
+                id="announcements"
+                checked={preferences.announcements}
+                onCheckedChange={(checked) => updatePreference('announcements', checked)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="chat-messages">Chat Messages</Label>
+                <p className="text-sm text-muted-foreground">
+                  Get notified when you receive new messages
+                </p>
+              </div>
+              <Switch
+                id="chat-messages"
+                checked={preferences.chat_messages}
+                onCheckedChange={(checked) => updatePreference('chat_messages', checked)}
+              />
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
