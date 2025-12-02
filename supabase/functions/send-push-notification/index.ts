@@ -6,7 +6,286 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Firebase Admin SDK utilities
+// ============ Web Push Implementation ============
+
+function base64UrlEncode(data: Uint8Array | ArrayBuffer): string {
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function base64UrlDecode(str: string): Uint8Array {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  const binary = atob(str);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function createVapidAuthHeader(
+  audience: string,
+  subject: string,
+  publicKey: string,
+  privateKey: string
+): Promise<{ authorization: string; cryptoKey: string }> {
+  const header = { typ: 'JWT', alg: 'ES256' };
+  const now = Math.floor(Date.now() / 1000);
+  const payload = {
+    aud: audience,
+    exp: now + 12 * 60 * 60,
+    sub: subject,
+  };
+
+  const headerB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
+  const payloadB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(payload)));
+  const unsignedToken = `${headerB64}.${payloadB64}`;
+
+  // Import private key for signing (VAPID private key is raw 32 bytes)
+  const privateKeyBytes = base64UrlDecode(privateKey);
+  
+  // For ECDSA P-256, we need to import as PKCS8 or use JWK format
+  // The VAPID private key is just the raw 32-byte D value, so we need to construct a JWK
+  const jwk = {
+    kty: 'EC',
+    crv: 'P-256',
+    d: privateKey,
+    x: publicKey.slice(0, 43), // First 32 bytes of uncompressed public key (base64url)
+    y: publicKey.slice(43), // Last 32 bytes
+  };
+
+  // Actually, let's decode the public key properly
+  const pubKeyBytes = base64UrlDecode(publicKey);
+  // Public key is 65 bytes: 0x04 || x (32) || y (32)
+  const xBytes = pubKeyBytes.slice(1, 33);
+  const yBytes = pubKeyBytes.slice(33, 65);
+
+  const properJwk = {
+    kty: 'EC',
+    crv: 'P-256',
+    d: privateKey,
+    x: base64UrlEncode(xBytes),
+    y: base64UrlEncode(yBytes),
+  };
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'jwk',
+    properJwk,
+    { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['sign']
+  );
+
+  const signature = await crypto.subtle.sign(
+    { name: 'ECDSA', hash: 'SHA-256' },
+    cryptoKey,
+    new TextEncoder().encode(unsignedToken)
+  );
+
+  const jwt = `${unsignedToken}.${base64UrlEncode(new Uint8Array(signature))}`;
+
+  return {
+    authorization: `vapid t=${jwt}, k=${publicKey}`,
+    cryptoKey: publicKey,
+  };
+}
+
+async function encryptPayload(
+  payload: string,
+  p256dhKey: string,
+  authSecret: string
+): Promise<{ ciphertext: Uint8Array; salt: Uint8Array; localPublicKey: Uint8Array }> {
+  // Generate local key pair
+  const localKeyPair = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    ['deriveBits']
+  );
+
+  // Export local public key
+  const localPublicKeyBuffer = await crypto.subtle.exportKey('raw', localKeyPair.publicKey);
+  const localPublicKey = new Uint8Array(localPublicKeyBuffer);
+
+  // Import subscriber's public key
+  const subscriberPublicKeyBytes = base64UrlDecode(p256dhKey);
+  const subscriberPublicKey = await crypto.subtle.importKey(
+    'raw',
+    subscriberPublicKeyBytes.buffer as ArrayBuffer,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false,
+    []
+  );
+
+  // Derive shared secret
+  const sharedSecretBits = await crypto.subtle.deriveBits(
+    { name: 'ECDH', public: subscriberPublicKey },
+    localKeyPair.privateKey,
+    256
+  );
+  const sharedSecret = new Uint8Array(sharedSecretBits);
+
+  // Auth secret
+  const authSecretBytes = base64UrlDecode(authSecret);
+
+  // Generate salt
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  // Create info for IKM derivation
+  const keyInfo = new Uint8Array(
+    'WebPush: info\0'.length + subscriberPublicKeyBytes.length + localPublicKey.length
+  );
+  const encoder = new TextEncoder();
+  let offset = 0;
+  keyInfo.set(encoder.encode('WebPush: info\0'), offset);
+  offset += 'WebPush: info\0'.length;
+  keyInfo.set(subscriberPublicKeyBytes, offset);
+  offset += subscriberPublicKeyBytes.length;
+  keyInfo.set(localPublicKey, offset);
+
+  // Import shared secret for HKDF
+  const hkdfKey = await crypto.subtle.importKey(
+    'raw',
+    sharedSecret.buffer as ArrayBuffer,
+    'HKDF',
+    false,
+    ['deriveBits']
+  );
+
+  // Derive IKM using auth secret as salt
+  const ikmBits = await crypto.subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: authSecretBytes.buffer as ArrayBuffer,
+      info: keyInfo,
+    },
+    hkdfKey,
+    256
+  );
+  const ikm = new Uint8Array(ikmBits);
+
+  // Import IKM for CEK and nonce derivation
+  const ikmKey = await crypto.subtle.importKey(
+    'raw',
+    ikm.buffer as ArrayBuffer,
+    'HKDF',
+    false,
+    ['deriveBits']
+  );
+
+  // Derive CEK
+  const cekBits = await crypto.subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: salt.buffer as ArrayBuffer,
+      info: encoder.encode('Content-Encoding: aes128gcm\0'),
+    },
+    ikmKey,
+    128
+  );
+  const cek = new Uint8Array(cekBits);
+
+  // Derive nonce
+  const nonceBits = await crypto.subtle.deriveBits(
+    {
+      name: 'HKDF',
+      hash: 'SHA-256',
+      salt: salt.buffer as ArrayBuffer,
+      info: encoder.encode('Content-Encoding: nonce\0'),
+    },
+    ikmKey,
+    96
+  );
+  const nonce = new Uint8Array(nonceBits);
+
+  // Import CEK for AES-GCM
+  const aesKey = await crypto.subtle.importKey(
+    'raw',
+    cek.buffer as ArrayBuffer,
+    'AES-GCM',
+    false,
+    ['encrypt']
+  );
+
+  // Add padding delimiter (0x02)
+  const payloadBytes = encoder.encode(payload);
+  const paddedPayload = new Uint8Array(payloadBytes.length + 1);
+  paddedPayload.set(payloadBytes);
+  paddedPayload[payloadBytes.length] = 2; // Delimiter
+
+  // Encrypt
+  const ciphertextBuffer = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: nonce },
+    aesKey,
+    paddedPayload
+  );
+
+  return {
+    ciphertext: new Uint8Array(ciphertextBuffer),
+    salt,
+    localPublicKey,
+  };
+}
+
+async function sendWebPushNotification(
+  subscription: { endpoint: string; keys: { p256dh: string; auth: string } },
+  payload: string,
+  vapidPublicKey: string,
+  vapidPrivateKey: string
+): Promise<Response> {
+  const url = new URL(subscription.endpoint);
+  const audience = `${url.protocol}//${url.host}`;
+
+  // Create VAPID header
+  const vapidHeaders = await createVapidAuthHeader(
+    audience,
+    'mailto:support@croohq.com',
+    vapidPublicKey,
+    vapidPrivateKey
+  );
+
+  // Encrypt payload
+  const { ciphertext, salt, localPublicKey } = await encryptPayload(
+    payload,
+    subscription.keys.p256dh,
+    subscription.keys.auth
+  );
+
+  // Build the body with aes128gcm header
+  // Header: salt (16) + rs (4) + idlen (1) + keyid (65)
+  const recordSize = 4096;
+  const header = new Uint8Array(16 + 4 + 1 + 65);
+  header.set(salt, 0);
+  new DataView(header.buffer).setUint32(16, recordSize, false);
+  header[20] = 65;
+  header.set(localPublicKey, 21);
+
+  const body = new Uint8Array(header.length + ciphertext.length);
+  body.set(header);
+  body.set(ciphertext, header.length);
+
+  const response = await fetch(subscription.endpoint, {
+    method: 'POST',
+    headers: {
+      'Authorization': vapidHeaders.authorization,
+      'Content-Type': 'application/octet-stream',
+      'Content-Encoding': 'aes128gcm',
+      'TTL': '86400',
+    },
+    body,
+  });
+
+  return response;
+}
+
+// ============ Firebase FCM Implementation ============
+
 async function getAccessToken() {
   const serviceAccount = JSON.parse(Deno.env.get("FIREBASE_SERVICE_ACCOUNT") || "{}");
   
@@ -24,7 +303,6 @@ async function getAccessToken() {
   
   const signatureInput = `${jwtHeader}.${jwtClaimSetEncoded}`;
   
-  // Import the private key
   const privateKey = await crypto.subtle.importKey(
     "pkcs8",
     pemToArrayBuffer(serviceAccount.private_key),
@@ -33,7 +311,6 @@ async function getAccessToken() {
     ["sign"]
   );
   
-  // Sign the JWT
   const signature = await crypto.subtle.sign(
     "RSASSA-PKCS1-v1_5",
     privateKey,
@@ -42,7 +319,6 @@ async function getAccessToken() {
   
   const jwt = `${signatureInput}.${btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_")}`;
   
-  // Exchange JWT for access token
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -63,9 +339,10 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
   for (let i = 0; i < binaryString.length; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
-  return bytes.buffer;
+  return bytes.buffer as ArrayBuffer;
 }
 
+// ============ Notification Formatting ============
 
 interface PushNotificationRequest {
   user_ids: string[];
@@ -76,49 +353,26 @@ interface PushNotificationRequest {
   badge_count?: number;
 }
 
-// Get notification sound based on type
-function getNotificationSound(type?: string): string {
-  switch (type) {
-    case 'announcements':
-      return 'default';
-    case 'chat_messages':
-      return 'default';
-    case 'overdue_checklists':
-      return 'default';
-    case 'late_arrivals':
-      return 'default';
-    default:
-      return 'default';
-  }
+function getNotificationSound(_type?: string): string {
+  return 'default';
 }
 
-// Format notification content based on type
 function formatNotificationContent(type: string | undefined, title: string, body: string): { title: string; body: string } {
   switch (type) {
     case 'announcements':
-      return {
-        title: `📢 ${title}`,
-        body: body
-      };
+      return { title: `📢 ${title}`, body };
     case 'chat_messages':
-      return {
-        title: `💬 ${title}`,
-        body: body
-      };
+      return { title: `💬 ${title}`, body };
     case 'overdue_checklists':
-      return {
-        title: `⚠️ ${title}`,
-        body: body
-      };
+      return { title: `⚠️ ${title}`, body };
     case 'late_arrivals':
-      return {
-        title: `🚨 ${title}`,
-        body: body
-      };
+      return { title: `🚨 ${title}`, body };
     default:
       return { title, body };
   }
 }
+
+// ============ Main Handler ============
 
 const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
@@ -133,7 +387,6 @@ const handler = async (req: Request): Promise<Response> => {
 
     const { user_ids, title, body, data, notification_type, badge_count }: PushNotificationRequest = await req.json();
 
-    // Format content based on notification type
     const formattedContent = formatNotificationContent(notification_type, title, body);
     const notificationSound = getNotificationSound(notification_type);
 
@@ -142,8 +395,6 @@ const handler = async (req: Request): Promise<Response> => {
       title: formattedContent.title, 
       body: formattedContent.body?.substring(0, 50),
       notification_type,
-      badge_count,
-      sound: notificationSound
     });
 
     if (!user_ids || user_ids.length === 0) {
@@ -153,7 +404,7 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get user preferences and tokens
+    // Get user preferences
     const { data: preferences, error: prefsError } = await supabaseClient
       .from('notification_preferences')
       .select('user_id, overdue_checklists, late_arrivals, announcements, chat_messages')
@@ -163,16 +414,11 @@ const handler = async (req: Request): Promise<Response> => {
       console.error('Error fetching preferences:', prefsError);
     }
 
-    // Filter users based on their notification preferences
+    // Filter users based on preferences
     const enabledUserIds = user_ids.filter(userId => {
       const userPref = preferences?.find(p => p.user_id === userId);
-      if (!userPref) return true; // Send if no preferences set (default enabled)
-      
-      // Check if notification type is enabled for this user
-      if (notification_type && userPref[notification_type] === false) {
-        return false;
-      }
-      
+      if (!userPref) return true;
+      if (notification_type && userPref[notification_type] === false) return false;
       return true;
     });
 
@@ -183,12 +429,11 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get push tokens for enabled users (only native iOS for now)
+    // Get push tokens
     const { data: tokens, error: tokensError } = await supabaseClient
       .from('push_notification_tokens')
       .select('token, platform')
-      .in('user_id', enabledUserIds)
-      .eq('platform', 'ios');
+      .in('user_id', enabledUserIds);
 
     console.log('Push tokens found:', tokens?.length || 0);
 
@@ -201,83 +446,119 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     if (!tokens || tokens.length === 0) {
-      console.log('No push tokens found for users:', enabledUserIds);
       return new Response(
         JSON.stringify({ message: "No push tokens found for users" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Sending to ${tokens.length} native iOS devices`);
+    // Separate web and native tokens
+    const webTokens = tokens.filter(t => t.platform === 'web');
+    const nativeTokens = tokens.filter(t => t.platform === 'ios');
 
-    const results = [];
+    console.log(`Sending to ${webTokens.length} web and ${nativeTokens.length} native iOS devices`);
 
-    // Send native FCM notifications
-    const serviceAccount = JSON.parse(Deno.env.get("FIREBASE_SERVICE_ACCOUNT") || "{}");
-    if (!serviceAccount.project_id) {
-      console.error('FIREBASE_SERVICE_ACCOUNT not configured');
-      return new Response(
-        JSON.stringify({ error: "Firebase not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    const results: PromiseSettledResult<unknown>[] = [];
+
+    // Send Web Push notifications
+    if (webTokens.length > 0) {
+      const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY');
+      const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY');
+
+      if (vapidPublicKey && vapidPrivateKey) {
+        const webPayload = JSON.stringify({
+          title: formattedContent.title,
+          body: formattedContent.body,
+          data: data || {},
+          icon: '/favicon.png',
+        });
+
+        const webResults = await Promise.allSettled(
+          webTokens.map(async ({ token }) => {
+            try {
+              const subscription = JSON.parse(token);
+              const response = await sendWebPushNotification(
+                subscription,
+                webPayload,
+                vapidPublicKey,
+                vapidPrivateKey
+              );
+              if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Web push error:', response.status, errorText);
+                throw new Error(`Web push failed: ${response.status}`);
+              }
+              console.log('Web push sent successfully');
+              return { success: true };
+            } catch (err) {
+              console.error('Web push error:', err);
+              throw err;
+            }
+          })
+        );
+        results.push(...webResults);
+      } else {
+        console.log('VAPID keys not configured, skipping web push');
+      }
     }
 
-    // Get OAuth2 access token
-    console.log('Getting Firebase access token...');
-    const accessToken = await getAccessToken();
-    console.log('Access token obtained');
+    // Send native FCM notifications
+    if (nativeTokens.length > 0) {
+      const serviceAccount = JSON.parse(Deno.env.get("FIREBASE_SERVICE_ACCOUNT") || "{}");
+      if (!serviceAccount.project_id) {
+        console.error('FIREBASE_SERVICE_ACCOUNT not configured');
+      } else {
+        console.log('Getting Firebase access token...');
+        const accessToken = await getAccessToken();
+        console.log('Access token obtained');
 
-    const fcmResults = await Promise.allSettled(
-      tokens.map(async ({ token }) => {
-        const fcmResponse = await fetch(
-          `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              message: {
-                token,
-                notification: {
-                  title: formattedContent.title,
-                  body: formattedContent.body,
+        const fcmResults = await Promise.allSettled(
+          nativeTokens.map(async ({ token }) => {
+            const fcmResponse = await fetch(
+              `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${accessToken}`,
+                  'Content-Type': 'application/json',
                 },
-                data: Object.keys(data || {}).reduce((acc, key) => {
-                  acc[key] = String((data || {})[key]);
-                  return acc;
-                }, {} as Record<string, string>),
-                apns: {
-                  payload: {
-                    aps: {
-                      sound: notificationSound,
-                      badge: badge_count ?? 1,
-                      'mutable-content': 1,
+                body: JSON.stringify({
+                  message: {
+                    token,
+                    notification: {
+                      title: formattedContent.title,
+                      body: formattedContent.body,
+                    },
+                    data: Object.keys(data || {}).reduce((acc, key) => {
+                      acc[key] = String((data || {})[key]);
+                      return acc;
+                    }, {} as Record<string, string>),
+                    apns: {
+                      payload: {
+                        aps: {
+                          sound: notificationSound,
+                          badge: badge_count ?? 1,
+                          'mutable-content': 1,
+                        },
+                      },
                     },
                   },
-                },
-                android: {
-                  notification: {
-                    sound: notificationSound,
-                    notification_count: badge_count ?? 1,
-                  },
-                },
-              },
-            }),
-          }
+                }),
+              }
+            );
+
+            if (!fcmResponse.ok) {
+              const error = await fcmResponse.text();
+              console.error('FCM error:', error);
+              throw new Error(`FCM request failed: ${error}`);
+            }
+
+            return await fcmResponse.json();
+          })
         );
-
-        if (!fcmResponse.ok) {
-          const error = await fcmResponse.text();
-          console.error('FCM error:', error);
-          throw new Error(`FCM request failed: ${error}`);
-        }
-
-        return await fcmResponse.json();
-      })
-    );
-    results.push(...fcmResults);
+        results.push(...fcmResults);
+      }
+    }
 
     const successful = results.filter(r => r.status === 'fulfilled').length;
     const failed = results.filter(r => r.status === 'rejected').length;
@@ -289,14 +570,16 @@ const handler = async (req: Request): Promise<Response> => {
         message: `Sent ${successful} notifications, ${failed} failed`,
         successful,
         failed,
-        native: tokens.length,
+        web: webTokens.length,
+        native: nativeTokens.length,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error("Error in send-push-notification:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
