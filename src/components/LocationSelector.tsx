@@ -6,7 +6,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLocation } from "@/hooks/useLocation";
-import { MapPin, ChevronDown } from "lucide-react";
+import { MapPin } from "lucide-react";
 
 export const LocationSelector = () => {
   const { currentLocation, locations, setCurrentLocation } = useLocation();
@@ -18,10 +18,9 @@ export const LocationSelector = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="gap-2">
+        <Button variant="outline" className="gap-2 h-10">
           <MapPin className="h-4 w-4" />
           <span className="hidden sm:inline">{currentLocation.name}</span>
-          <ChevronDown className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
