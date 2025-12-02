@@ -52,11 +52,18 @@ async function checkOverdueChecklists(supabaseClient: any) {
     
     console.log(`Pacific time: ${now.toLocaleString()}, Day: ${currentDay}, Time: ${currentHours}:${currentMinutes}`);
     
+    // Only send notifications at the top of the hour (within first 10 minutes)
+    // This creates hourly reminders instead of every 5 minutes
+    if (currentMinutes > 10) {
+      console.log('Skipping overdue checklist notifications - not at top of hour');
+      return;
+    }
+    
     // Start of today in Pacific time
     const startOfToday = new Date(pacificTime);
     startOfToday.setHours(0, 0, 0, 0);
 
-    // Get all active checklists with due times
+    // Get all active checklists with due times, ordered by due time
     const { data: checklists, error: checklistsError } = await supabaseClient
       .from('checklists')
       .select(`
@@ -68,13 +75,14 @@ async function checkOverdueChecklists(supabaseClient: any) {
         checklist_items(id, days_of_week)
       `)
       .eq('is_active', true)
-      .not('due_by_time', 'is', null);
+      .not('due_by_time', 'is', null)
+      .order('due_by_time', { ascending: true });
 
     if (checklistsError) throw checklistsError;
     if (!checklists || checklists.length === 0) return;
 
-    // Filter to only checklists relevant for today and overdue
-    const overdueChecklists = [];
+    // Build list of all relevant checklists for today with their due times
+    const relevantChecklists = [];
     
     for (const checklist of checklists) {
       // Check if checklist is relevant for today
@@ -86,64 +94,81 @@ async function checkOverdueChecklists(supabaseClient: any) {
 
       if (!isRelevant) continue;
 
-      // Check if overdue - compare Pacific time with due_by_time
       const [dueHours, dueMinutes] = checklist.due_by_time.split(':').map(Number);
-      const currentTotalMinutes = currentHours * 60 + currentMinutes;
       const dueTotalMinutes = dueHours * 60 + dueMinutes;
       
-      console.log(`Checklist "${checklist.title}": due at ${dueHours}:${dueMinutes}, current Pacific: ${currentHours}:${currentMinutes}`);
-      
-      if (currentTotalMinutes < dueTotalMinutes) {
-        console.log(`Skipping "${checklist.title}" - not due yet`);
-        continue; // Not due yet
-      }
-
-      // Check if incomplete
-      const endOfToday = new Date(startOfToday);
-      endOfToday.setHours(23, 59, 59, 999);
-
-      const { data: submissions } = await supabaseClient
-        .from('checklist_submissions')
-        .select(`
-          id,
-          checklist_id,
-          checklist_responses(id, item_id)
-        `)
-        .eq('checklist_id', checklist.id)
-        .gte('submitted_at', startOfToday.toISOString())
-        .lte('submitted_at', endOfToday.toISOString());
-
-      let totalItems = checklist.checklist_items?.length || 0;
-      if (checklist.template_type === 'dynamic') {
-        totalItems = checklist.checklist_items?.filter((item: any) => 
-          item.days_of_week && item.days_of_week.includes(currentDay)
-        ).length || 0;
-      }
-
-      const uniqueItemIds = new Set();
-      submissions?.forEach((sub: any) => {
-        sub.checklist_responses?.forEach((response: any) => {
-          if (response.item_id) {
-            uniqueItemIds.add(response.item_id);
-          }
-        });
+      relevantChecklists.push({
+        ...checklist,
+        dueTotalMinutes
       });
-      const totalResponses = uniqueItemIds.size;
+    }
 
-      const completionRate = totalItems > 0 ? (totalResponses / totalItems) : 0;
+    // Sort by due time
+    relevantChecklists.sort((a, b) => a.dueTotalMinutes - b.dueTotalMinutes);
+    
+    const currentTotalMinutes = currentHours * 60 + currentMinutes;
+    
+    // Find the "active" overdue checklist - the most recently due one
+    // that hasn't been superseded by a newer due checklist
+    let activeOverdueChecklist = null;
+    
+    for (let i = relevantChecklists.length - 1; i >= 0; i--) {
+      const checklist = relevantChecklists[i];
+      
+      // If this checklist is overdue (current time past due time)
+      if (currentTotalMinutes >= checklist.dueTotalMinutes) {
+        // This is the most recently due checklist - check if it's incomplete
+        const endOfToday = new Date(startOfToday);
+        endOfToday.setHours(23, 59, 59, 999);
 
-      if (completionRate < 1) {
-        overdueChecklists.push({
-          id: checklist.id,
-          title: checklist.title,
-          completionRate: Math.round(completionRate * 100)
+        const { data: submissions } = await supabaseClient
+          .from('checklist_submissions')
+          .select(`
+            id,
+            checklist_id,
+            checklist_responses(id, item_id)
+          `)
+          .eq('checklist_id', checklist.id)
+          .gte('submitted_at', startOfToday.toISOString())
+          .lte('submitted_at', endOfToday.toISOString());
+
+        let totalItems = checklist.checklist_items?.length || 0;
+        if (checklist.template_type === 'dynamic') {
+          totalItems = checklist.checklist_items?.filter((item: any) => 
+            item.days_of_week && item.days_of_week.includes(currentDay)
+          ).length || 0;
+        }
+
+        const uniqueItemIds = new Set();
+        submissions?.forEach((sub: any) => {
+          sub.checklist_responses?.forEach((response: any) => {
+            if (response.item_id) {
+              uniqueItemIds.add(response.item_id);
+            }
+          });
         });
+        const totalResponses = uniqueItemIds.size;
+
+        const completionRate = totalItems > 0 ? (totalResponses / totalItems) : 0;
+
+        if (completionRate < 1) {
+          activeOverdueChecklist = {
+            id: checklist.id,
+            title: checklist.title,
+            completionRate: Math.round(completionRate * 100),
+            dueTime: checklist.due_by_time
+          };
+        }
+        
+        // Only consider the most recently due checklist
+        // Previous checklists stop getting reminders once a new one becomes due
+        break;
       }
     }
 
-    // Send notifications for overdue checklists
-    if (overdueChecklists.length > 0) {
-      console.log(`Found ${overdueChecklists.length} overdue checklists`);
+    // Send notification for the single active overdue checklist
+    if (activeOverdueChecklist) {
+      console.log(`Active overdue checklist: "${activeOverdueChecklist.title}" (due ${activeOverdueChecklist.dueTime})`);
 
       // Get all active managers and admins
       const { data: adminUsers } = await supabaseClient
@@ -152,21 +177,21 @@ async function checkOverdueChecklists(supabaseClient: any) {
         .in('role', ['admin', 'manager']);
 
       if (adminUsers && adminUsers.length > 0) {
-        for (const checklist of overdueChecklists) {
-          await supabaseClient.functions.invoke('send-push-notification', {
-            body: {
-              user_ids: adminUsers.map((u: any) => u.user_id),
-              title: 'Overdue Checklist',
-              body: `${checklist.title} is ${checklist.completionRate === 0 ? 'not started' : `${checklist.completionRate}% complete`}`,
-              notification_type: 'overdue_checklists',
-              data: {
-                checklist_id: checklist.id,
-                type: 'overdue_checklist'
-              }
+        await supabaseClient.functions.invoke('send-push-notification', {
+          body: {
+            user_ids: adminUsers.map((u: any) => u.user_id),
+            title: 'Overdue Checklist',
+            body: `${activeOverdueChecklist.title} is ${activeOverdueChecklist.completionRate === 0 ? 'not started' : `${activeOverdueChecklist.completionRate}% complete`}`,
+            notification_type: 'overdue_checklists',
+            data: {
+              checklist_id: activeOverdueChecklist.id,
+              type: 'overdue_checklist'
             }
-          });
-        }
+          }
+        });
       }
+    } else {
+      console.log('No active overdue checklists found');
     }
   } catch (error) {
     console.error('Error checking overdue checklists:', error);
