@@ -18,6 +18,15 @@ const urlBase64ToUint8Array = (base64String: string) => {
   return outputArray;
 };
 
+// Decode hex string to UTF-8 string (for FCM token from native)
+const hexToString = (hex: string): string => {
+  let str = '';
+  for (let i = 0; i < hex.length; i += 2) {
+    str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
+  }
+  return str;
+};
+
 export const usePushNotifications = () => {
   const { user, loading } = useAuth();
   const hasRegisteredRef = useRef(false);
@@ -178,7 +187,7 @@ export const usePushNotifications = () => {
         const registrationListener = await PushNotifications.addListener('registration', async (token) => {
           console.log('[Push] 🎉 REGISTRATION CALLBACK FIRED!');
           console.log('[Push] Token object:', JSON.stringify(token));
-          console.log('[Push] Token value:', token?.value);
+          console.log('[Push] Raw token value:', token?.value);
 
           if (!token || !token.value) {
             console.error('[Push] ❌ Token is undefined or missing value');
@@ -191,16 +200,31 @@ export const usePushNotifications = () => {
           }
 
           try {
+            // Decode hex-encoded FCM token from native bridge
+            let fcmToken = token.value;
+            
+            // Check if this looks like a hex-encoded string (all hex chars, even length)
+            if (/^[0-9A-Fa-f]+$/.test(fcmToken) && fcmToken.length % 2 === 0 && fcmToken.length > 100) {
+              console.log('[Push] Detected hex-encoded token, decoding...');
+              fcmToken = hexToString(fcmToken);
+              console.log('[Push] Decoded FCM token:', fcmToken);
+            }
+            
+            // Verify it looks like an FCM token (contains :APA91b)
+            if (!fcmToken.includes(':APA91b')) {
+              console.warn('[Push] ⚠️ Token does not look like FCM format, might be APNs token');
+            }
+
             // Save token to database
-            console.log('[Push] Saving token to database for user:', userId);
+            console.log('[Push] Saving FCM token to database for user:', userId);
             const { error } = await supabase
               .from('push_notification_tokens')
               .upsert({
                 user_id: userId,
-                token: token.value,
+                token: fcmToken,
                 platform: Capacitor.getPlatform(),
               }, {
-                onConflict: 'user_id,token'
+                onConflict: 'user_id,platform'
               });
 
             if (error) {
