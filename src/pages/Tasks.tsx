@@ -306,13 +306,13 @@ export default function Tasks() {
   return (
     <Layout>
       <div className="space-y-6">
-        <Tabs defaultValue="active" className="w-full">
+        <Tabs defaultValue="history" className="w-full">
           <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4">
             <div>
               <h1 className="text-3xl font-bold">Tasks</h1>
               <TabsList>
-                <TabsTrigger value="active">Active Tasks</TabsTrigger>
-                <TabsTrigger value="history">Completion History</TabsTrigger>
+                <TabsTrigger value="history">History</TabsTrigger>
+                <TabsTrigger value="edit">Edit</TabsTrigger>
               </TabsList>
             </div>
             {isAdmin && (
@@ -323,69 +323,11 @@ export default function Tasks() {
             )}
           </div>
 
-          <TabsContent value="active" className="space-y-6">
-            {/* Manager/Admin Leaderboard */}
-            {(isAdmin || isManager) && <ChecklistLeaderboard />}
+          <TabsContent value="history" className="space-y-6">
+            {/* Leaderboard */}
+            <ChecklistLeaderboard />
 
-            {/* Available Checklists */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Available Checklists</CardTitle>
-                    <CardDescription>Select a checklist to complete</CardDescription>
-                  </div>
-                  {isAdmin && checklists.length > 1 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsReordering(!isReordering)}
-                    >
-                      {isReordering ? "Done" : "Reorder"}
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {checklists.length === 0 ? (
-                  <p className="text-center text-muted-foreground py-8">No checklists available for today</p>
-                ) : (
-                  <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <SortableContext
-                      items={checklists.map((c: any) => c.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      <div className="space-y-2">
-                        {checklists.map((checklist: any) => {
-                          const isDynamic = checklist.template_type === 'dynamic';
-                          return (
-                            <SortableChecklistItem
-                              key={checklist.id}
-                              checklist={checklist}
-                              isDynamic={isDynamic}
-                              isReordering={isReordering}
-                              isAdmin={isAdmin}
-                              currentDay={currentDay}
-                              dayNames={dayNames}
-                              onNavigate={navigate}
-                              onDeactivate={handleDeactivate}
-                              onDelete={handleDelete}
-                            />
-                          );
-                        })}
-                      </div>
-                    </SortableContext>
-                  </DndContext>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="history" className="space-y-4">
+            {/* Completion History */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -488,6 +430,63 @@ export default function Tasks() {
                       No checklists available for this date.
                     </AlertDescription>
                   </Alert>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="edit" className="space-y-6">
+            {/* Checklist Templates */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Checklist Templates</CardTitle>
+                  {isAdmin && checklists.length > 1 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsReordering(!isReordering)}
+                    >
+                      {isReordering ? "Done" : "Reorder"}
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                {checklists.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-8">No checklist templates available</p>
+                ) : (
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={checklists.map((c: any) => c.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      <div className="space-y-2">
+                        {checklists.map((checklist: any) => {
+                          const isDynamic = checklist.template_type === 'dynamic';
+                          return (
+                            <SortableChecklistItem
+                              key={checklist.id}
+                              checklist={checklist}
+                              isDynamic={isDynamic}
+                              isReordering={isReordering}
+                              isAdmin={isAdmin}
+                              currentDay={currentDay}
+                              dayNames={dayNames}
+                              onNavigate={navigate}
+                              onDeactivate={handleDeactivate}
+                              onDelete={handleDelete}
+                              editMode={true}
+                            />
+                          );
+                        })}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
                 )}
               </CardContent>
             </Card>
