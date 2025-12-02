@@ -862,6 +862,8 @@ export default function Schedule() {
           isPublished={isPublished}
           scheduleId={scheduleId}
           templates={templates}
+          onGoLive={handleGoLive}
+          isPublishing={isPublishing}
         />
       ) : (
         <div className="space-y-6 pb-20">

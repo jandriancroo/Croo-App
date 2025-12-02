@@ -59,6 +59,8 @@ interface MobileScheduleViewProps {
     end_time: string;
     color: string | null;
   }>;
+  onGoLive?: () => void;
+  isPublishing?: boolean;
 }
 
 export function MobileScheduleView({
@@ -71,7 +73,9 @@ export function MobileScheduleView({
   onUpdate,
   isPublished = false,
   scheduleId,
-  templates = []
+  templates = [],
+  onGoLive,
+  isPublishing = false
 }: MobileScheduleViewProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
@@ -157,24 +161,38 @@ export function MobileScheduleView({
             <Users className="h-4 w-4" />
             <span className="text-sm font-medium">{totalPeopleScheduled}</span>
           </div>
-          {isAdmin && (
-            <Button 
-              size="sm" 
-              onClick={() => {
-                setSelectedShift({
-                  id: '',
-                  user_id: null,
-                  day_of_week: selectedDayOfWeek,
-                  start_time: '09:00',
-                  end_time: '17:00',
-                  shift_date: format(selectedDate, 'yyyy-MM-dd'),
-                });
-                setIsCreatingShift(true);
-                setShiftDialogOpen(true);
-              }}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+          {(isAdmin || isManager) && (
+            <>
+              <Button 
+                size="sm" 
+                variant="ghost"
+                onClick={() => {
+                  setSelectedShift({
+                    id: '',
+                    user_id: null,
+                    day_of_week: selectedDayOfWeek,
+                    start_time: '09:00',
+                    end_time: '17:00',
+                    shift_date: format(selectedDate, 'yyyy-MM-dd'),
+                  });
+                  setIsCreatingShift(true);
+                  setShiftDialogOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                onClick={onGoLive}
+                disabled={isPublishing}
+                className={isPublished 
+                  ? "bg-red-600 hover:bg-red-700 text-white animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]" 
+                  : "bg-primary hover:bg-primary/90"
+                }
+              >
+                {isPublishing ? "Publishing..." : isPublished ? "LIVE" : "GO LIVE"}
+              </Button>
+            </>
           )}
         </div>
       </div>
