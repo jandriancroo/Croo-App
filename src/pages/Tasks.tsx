@@ -315,12 +315,6 @@ export default function Tasks() {
                 <TabsTrigger value="edit">Edit</TabsTrigger>
               </TabsList>
             </div>
-            {isAdmin && (
-              <Button onClick={() => setShowTemplateDialog(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                New Checklist
-              </Button>
-            )}
           </div>
 
           <TabsContent value="history" className="space-y-6">
@@ -441,15 +435,26 @@ export default function Tasks() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Checklist Templates</CardTitle>
-                  {isAdmin && checklists.length > 1 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsReordering(!isReordering)}
-                    >
-                      {isReordering ? "Done" : "Reorder"}
-                    </Button>
-                  )}
+                  <div className="flex gap-2">
+                    {isAdmin && checklists.length > 1 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsReordering(!isReordering)}
+                      >
+                        {isReordering ? "Done" : "Reorder"}
+                      </Button>
+                    )}
+                    {isAdmin && (
+                      <Button
+                        size="icon"
+                        onClick={() => setShowTemplateDialog(true)}
+                        title="New Checklist"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
