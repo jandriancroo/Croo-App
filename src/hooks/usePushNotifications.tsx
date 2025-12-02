@@ -51,12 +51,8 @@ export const usePushNotifications = () => {
       // Auth check already done at top of effect
       if (!userId) return;
 
-      // Check if VAPID keys are configured
-      const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
-      if (!vapidPublicKey) {
-        console.log('[Push Web] VAPID keys not configured, skipping web push setup');
-        return;
-      }
+      // VAPID public key for web push
+      const vapidPublicKey = 'BA4iHtMMThy4LwpxYB7cIokOK9dVRTLZbSqySIlYNuXpVRZn9zNBSg3OJOZ4m_ruFWzzjRGZiwtIGHn9B7a35_M';
 
       if (hasRegisteredRef.current) {
         console.log('[Push Web] ⚠️ Already registered, skipping duplicate setup');
