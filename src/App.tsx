@@ -38,7 +38,8 @@ import WelcomeProfile from "./pages/WelcomeProfile";
 const queryClient = new QueryClient();
 
 const AppContent = () => {
-  usePushNotifications();
+  // Don't setup push notifications until user navigates to protected routes
+  // This prevents blocking the auth page
   return (
         <Routes>
           <Route path="/auth" element={<Auth />} />
