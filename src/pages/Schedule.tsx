@@ -673,6 +673,16 @@ export default function Schedule() {
 
       if (shiftsError) throw shiftsError;
 
+      // Get unique user IDs with shifts in this schedule
+      const usersWithShifts = [...new Set((currentShifts || [])
+        .filter(s => s.user_id)
+        .map(s => s.user_id)
+      )];
+
+      // Format date range for notification
+      const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
+      const dateRange = `${format(currentWeekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`;
+
       // If republishing, detect and notify changes
       if (publishedSnapshot) {
         const changes = detectScheduleChanges(publishedSnapshot, currentShifts || []);
@@ -691,11 +701,37 @@ export default function Schedule() {
               });
           }
           
+          // Notify affected users of changes
+          const affectedUserIds = [...new Set(changes.map(c => c.user_id))];
+          if (affectedUserIds.length > 0) {
+            await supabase.functions.invoke('send-push-notification', {
+              body: {
+                user_ids: affectedUserIds,
+                title: 'Weekly Schedule Updated',
+                body: `Schedule for ${dateRange} has been updated`,
+                notification_type: 'schedule_updates',
+                data: { type: 'schedule_update', schedule_id: scheduleId }
+              }
+            });
+          }
+          
           toast.success(`Schedule published! ${changes.length} change(s) notified to affected employees.`);
         } else {
           toast.success("Schedule published!");
         }
       } else {
+        // First publish - notify all users with shifts
+        if (usersWithShifts.length > 0) {
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              user_ids: usersWithShifts,
+              title: 'Weekly Schedule Posted',
+              body: `New schedule for ${dateRange}`,
+              notification_type: 'schedule_updates',
+              data: { type: 'schedule_update', schedule_id: scheduleId }
+            }
+          });
+        }
         toast.success("Schedule published! Team members have been notified.");
       }
 

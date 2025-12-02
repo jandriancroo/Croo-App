@@ -14,6 +14,9 @@ interface NotificationPreferences {
   late_arrivals: boolean;
   announcements: boolean;
   chat_messages: boolean;
+  schedule_updates: boolean;
+  shift_approvals: boolean;
+  certification_expiring: boolean;
 }
 
 // Helper to detect if running as installed PWA
@@ -35,6 +38,9 @@ export const NotificationSettings = () => {
     late_arrivals: true,
     announcements: true,
     chat_messages: true,
+    schedule_updates: true,
+    shift_approvals: true,
+    certification_expiring: true,
   });
   const [loading, setLoading] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
@@ -86,6 +92,9 @@ export const NotificationSettings = () => {
             late_arrivals: data.late_arrivals,
             announcements: data.announcements,
             chat_messages: data.chat_messages,
+            schedule_updates: data.schedule_updates ?? true,
+            shift_approvals: data.shift_approvals ?? true,
+            certification_expiring: data.certification_expiring ?? true,
           });
         }
       } catch (error) {
@@ -343,6 +352,48 @@ export const NotificationSettings = () => {
                 id="chat-messages"
                 checked={preferences.chat_messages}
                 onCheckedChange={(checked) => updatePreference('chat_messages', checked)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="schedule-updates">Schedule Updates</Label>
+                <p className="text-sm text-muted-foreground">
+                  Get notified when your schedule is posted or updated
+                </p>
+              </div>
+              <Switch
+                id="schedule-updates"
+                checked={preferences.schedule_updates}
+                onCheckedChange={(checked) => updatePreference('schedule_updates', checked)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="shift-approvals">Shift Approvals</Label>
+                <p className="text-sm text-muted-foreground">
+                  Get notified when your shift claim is approved
+                </p>
+              </div>
+              <Switch
+                id="shift-approvals"
+                checked={preferences.shift_approvals}
+                onCheckedChange={(checked) => updatePreference('shift_approvals', checked)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="certification-expiring">Certification Expiring</Label>
+                <p className="text-sm text-muted-foreground">
+                  Get notified when your certifications are about to expire
+                </p>
+              </div>
+              <Switch
+                id="certification-expiring"
+                checked={preferences.certification_expiring}
+                onCheckedChange={(checked) => updatePreference('certification_expiring', checked)}
               />
             </div>
           </>

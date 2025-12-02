@@ -349,7 +349,7 @@ interface PushNotificationRequest {
   title: string;
   body: string;
   data?: Record<string, any>;
-  notification_type?: 'overdue_checklists' | 'late_arrivals' | 'announcements' | 'chat_messages';
+  notification_type?: 'overdue_checklists' | 'late_arrivals' | 'announcements' | 'chat_messages' | 'schedule_updates' | 'shift_approvals' | 'certification_expiring';
   badge_count?: number;
 }
 
@@ -367,6 +367,12 @@ function formatNotificationContent(type: string | undefined, title: string, body
       return { title: `⚠️ ${title}`, body };
     case 'late_arrivals':
       return { title: `🚨 ${title}`, body };
+    case 'schedule_updates':
+      return { title: `📅 ${title}`, body };
+    case 'shift_approvals':
+      return { title: `✅ ${title}`, body };
+    case 'certification_expiring':
+      return { title, body }; // Already includes emoji in check-alerts
     default:
       return { title, body };
   }
@@ -407,7 +413,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Get user preferences
     const { data: preferences, error: prefsError } = await supabaseClient
       .from('notification_preferences')
-      .select('user_id, overdue_checklists, late_arrivals, announcements, chat_messages')
+      .select('user_id, overdue_checklists, late_arrivals, announcements, chat_messages, schedule_updates, shift_approvals, certification_expiring')
       .in('user_id', user_ids);
 
     if (prefsError) {
