@@ -848,6 +848,7 @@ export default function Schedule() {
           onWeekChange={setCurrentWeekStart}
           onUpdate={fetchScheduleData}
           isPublished={isPublished}
+          publishedSnapshot={publishedSnapshot}
           scheduleId={scheduleId}
           templates={templates}
           onGoLive={handleGoLive}
@@ -1003,6 +1004,7 @@ export default function Schedule() {
                           onEditShift={setEditingShift}
                           isDraggable={isAdmin || isManager}
                           isPublished={isPublished}
+                          publishedSnapshot={publishedSnapshot}
                         />
                       ))}
                     </SortableContext>
@@ -1023,6 +1025,7 @@ export default function Schedule() {
                 currentUserId={currentUserId || undefined}
                 onEditShift={setEditingShift}
                 isPublished={isPublished}
+                publishedSnapshot={publishedSnapshot}
               />
             </div>
           </Card>

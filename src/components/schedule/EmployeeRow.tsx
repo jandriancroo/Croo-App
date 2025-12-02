@@ -26,6 +26,7 @@ interface EmployeeRowProps {
   onEditShift?: (shift: any) => void;
   isDraggable?: boolean;
   isPublished?: boolean;
+  publishedSnapshot?: any[];
 }
 export function EmployeeRow({
   profile,
@@ -39,7 +40,8 @@ export function EmployeeRow({
   currentUserId,
   onEditShift,
   isDraggable = false,
-  isPublished = true
+  isPublished = true,
+  publishedSnapshot
 }: EmployeeRowProps) {
   const navigate = useNavigate();
   const weekDays = Array.from({
@@ -126,7 +128,7 @@ export function EmployeeRow({
         }
         return reqDate.toDateString() === cellDate.toDateString();
       });
-      return <DayCell key={dayIndex} userId={profile.id} dayIndex={dayIndex} shifts={dayShifts} availabilityRequests={dayAvailability} onUpdate={onUpdate} canTakeShifts={canTakeShifts} currentUserId={currentUserId} onEditShift={onEditShift} isPublished={isPublished} />;
+      return <DayCell key={dayIndex} userId={profile.id} dayIndex={dayIndex} shifts={dayShifts} availabilityRequests={dayAvailability} onUpdate={onUpdate} canTakeShifts={canTakeShifts} currentUserId={currentUserId} onEditShift={onEditShift} isPublished={isPublished} publishedSnapshot={publishedSnapshot} />;
     })}
     </div>;
 }
@@ -139,7 +141,8 @@ function DayCell({
   canTakeShifts,
   currentUserId,
   onEditShift,
-  isPublished
+  isPublished,
+  publishedSnapshot
 }: {
   userId: string;
   dayIndex: number;
@@ -150,6 +153,7 @@ function DayCell({
   currentUserId?: string;
   onEditShift?: (shift: any) => void;
   isPublished?: boolean;
+  publishedSnapshot?: any[];
 }) {
   const dropId = `drop-${userId}-${dayIndex}`;
   const {
@@ -162,7 +166,11 @@ function DayCell({
     touchAction: 'none'
   }} className={`min-h-[70px] p-2 border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
       <div className="space-y-1">
-        {shifts.map(shift => <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} canTakeShift={canTakeShifts} currentUserId={currentUserId} onTakeShift={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={isPublished} />)}
+        {shifts.map(shift => {
+          // A shift is a draft if schedule is unpublished AND shift wasn't in the published snapshot
+          const isShiftDraft = !isPublished && (!publishedSnapshot || !publishedSnapshot.some((s: any) => s.id === shift.id));
+          return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} canTakeShift={canTakeShifts} currentUserId={currentUserId} onTakeShift={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} />;
+        })}
         {availabilityRequests.map(request => <div key={request.id} className="p-1 bg-muted/30 border-dashed border rounded relative text-[10px]" style={{
         background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
       }}>
