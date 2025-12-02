@@ -65,7 +65,6 @@ export function MobileShiftDialog({
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
   const [saving, setSaving] = useState(false);
-  const [publishing, setPublishing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [offeredShifts, setOfferedShifts] = useState<any[]>([]);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
@@ -141,7 +140,7 @@ export function MobileShiftDialog({
     return `${displayHour}:${minutes} ${ampm}`;
   };
 
-  const handleSave = async (publish = false) => {
+  const handleSave = async () => {
     if (!isAdmin) return;
 
     setSaving(true);
@@ -190,30 +189,15 @@ export function MobileShiftDialog({
         if (shiftError) throw shiftError;
       }
 
-      // Handle publish status
-      const shiftDate = shift?.shift_date || new Date().toISOString();
-      const { data: scheduleData } = await supabase
-        .from('schedules')
-        .select('id')
-        .eq('week_start_date', shiftDate.split('T')[0])
-        .single();
-
-      if (scheduleData) {
-        if (publish) {
-          await supabase
-            .from('schedules')
-            .update({ is_published: true })
-            .eq('id', scheduleData.id);
-        } else {
-          // Mark as unpublished if just saving
-          await supabase
-            .from('schedules')
-            .update({ is_published: false })
-            .eq('id', scheduleData.id);
-        }
+      // Mark schedule as unpublished (draft) - Go Live will publish
+      if (scheduleId) {
+        await supabase
+          .from('schedules')
+          .update({ is_published: false })
+          .eq('id', scheduleId);
       }
 
-      toast.success(isCreating ? 'Shift created' : 'Shift updated');
+      toast.success(isCreating ? 'Shift created (draft)' : 'Shift updated (draft)');
       onShiftUpdated?.();
       onOpenChange(false);
     } catch (error) {
@@ -222,12 +206,6 @@ export function MobileShiftDialog({
     } finally {
       setSaving(false);
     }
-  };
-
-  const handlePublish = async () => {
-    setPublishing(true);
-    await handleSave(true);
-    setPublishing(false);
   };
 
   const handleDelete = async () => {
@@ -452,14 +430,9 @@ export function MobileShiftDialog({
               {isAdmin ? 'Cancel' : 'Close'}
             </Button>
             {isAdmin && (
-              <>
-                <Button onClick={() => handleSave(false)} disabled={saving} className="flex-1 sm:flex-none">
-                  {saving ? 'Saving...' : isCreating ? 'Create' : 'Save'}
-                </Button>
-                <Button onClick={handlePublish} disabled={publishing} variant="default" className="flex-1 sm:flex-none">
-                  {publishing ? 'Publishing...' : 'Publish'}
-                </Button>
-              </>
+              <Button onClick={handleSave} disabled={saving} className="flex-1 sm:flex-none">
+                {saving ? 'Saving...' : isCreating ? 'Create' : 'Save'}
+              </Button>
             )}
           </div>
         </DialogFooter>
