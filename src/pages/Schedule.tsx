@@ -176,6 +176,12 @@ export default function Schedule() {
       }
 
       if (!scheduleData) {
+        // Clear state when no schedule exists
+        setScheduleId(null);
+        setIsPublished(false);
+        setPublishedSnapshot(null);
+        setShifts([]);
+        setEvents([]);
         setLoading(false);
         return;
       }
