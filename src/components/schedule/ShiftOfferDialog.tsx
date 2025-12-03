@@ -178,12 +178,13 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
         </div>
         <div className="text-sm text-muted-foreground space-y-1">
           <p>💰 <strong>Croo Cash:</strong></p>
-          <p>• You'll lose 1 Croo Cash for offering this shift</p>
+          <p>• You'll lose $1.00 Croo Cash for offering this shift</p>
           {(() => {
             const offerDate = new Date(shift?.shift_date);
             const dayOfWeek = offerDate.getDay();
-            return (dayOfWeek === 5 || dayOfWeek === 6) && (
-              <p className="text-primary font-semibold">🎉 Weekend Bonus! You'll lose 2 Croo Cash (doubled)</p>
+            // Weekend = Friday (5), Saturday (6), Sunday (0)
+            return (dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6) && (
+              <p className="text-primary font-semibold">🎉 Weekend Bonus! You'll lose $2.00 Croo Cash (doubled)</p>
             );
           })()}
         </div>

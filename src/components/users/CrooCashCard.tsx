@@ -50,13 +50,14 @@ export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
   };
 
   const getBalanceColor = () => {
-    if (balance > 5) return "text-green-600 dark:text-green-400";
+    if (balance > 500) return "text-green-600 dark:text-green-400"; // > $5
     if (balance < 0) return "text-red-600 dark:text-red-400";
     return "text-yellow-600 dark:text-yellow-400";
   };
 
   const getTransactionIcon = (type: string) => {
-    return type === "take_shift" ? (
+    const isPositive = type === "take_shift" || type === "checklist_completion";
+    return isPositive ? (
       <TrendingUp className="h-4 w-4 text-green-500" />
     ) : (
       <TrendingDown className="h-4 w-4 text-red-500" />
@@ -114,7 +115,7 @@ export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
           </div>
           
           {/* Fun badges based on balance */}
-          {balance > 10 && (
+          {balance > 1000 && ( /* > $10 */
             <div className="absolute -top-2 -right-2">
               <Badge className="bg-yellow-500 text-white animate-bounce shadow-lg" style={{
                 transform: 'rotate(15deg)',
@@ -124,7 +125,7 @@ export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
               </Badge>
             </div>
           )}
-          {balance < -5 && (
+          {balance < -500 && ( /* < -$5 */
             <div className="absolute -top-2 -right-2">
               <Badge variant="destructive" className="animate-pulse shadow-lg" style={{
                 transform: 'rotate(-15deg)',
@@ -197,11 +198,11 @@ export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
         {/* Info Box */}
         <div className="bg-primary/10 p-3 rounded-lg text-xs space-y-1">
           <p className="font-semibold">💡 How it works:</p>
-          <p>• Offer up a shift: <strong>-$0.25 Croo Cash</strong></p>
-          <p>• Take a shift: <strong>+$0.25 Croo Cash</strong></p>
+          <p>• Offer up a shift: <strong>-$1.00 Croo Cash</strong></p>
+          <p>• Take a shift: <strong>+$1.00 Croo Cash</strong></p>
           <p>• Complete checklist: <strong>+$0.25 Croo Cash</strong></p>
           <p>• Incomplete checklist: <strong>-$0.25 Croo Cash</strong></p>
-          <p>• Friday/Saturday shifts: <strong>2x points!</strong></p>
+          <p>• Fri/Sat/Sun shifts: <strong>2x points ($2)!</strong></p>
         </div>
       </CardContent>
     </Card>

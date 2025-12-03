@@ -109,8 +109,9 @@ export function ChecklistLeaderboard() {
       });
       
       // Create lookup maps
+      // Use simpler key: user + date + checklist title (extracted from notes)
       const existingTransactionKeys = new Set(
-        existingTransactions.map(t => `${t.user_id}-${t.shift_date}-${t.transaction_type}-${t.notes}`)
+        existingTransactions.map(t => `${t.user_id}-${t.shift_date}-${t.notes?.split(': ')[1] || ''}`)
       );
       
       // Group submissions by date and checklist
@@ -151,7 +152,8 @@ export function ChecklistLeaderboard() {
       for (const day of daysToProcess) {
         const dayFormatted = format(day, 'yyyy-MM-dd');
         const dayShifts = shiftsByDate.get(dayFormatted) || [];
-        const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+        // Weekend = Friday (5), Saturday (6), Sunday (0) - but checklist amounts don't change
+        const isWeekend = day.getDay() === 0 || day.getDay() === 5 || day.getDay() === 6;
         
         // Process each checklist
         for (const checklist of checklists) {
@@ -199,9 +201,10 @@ export function ChecklistLeaderboard() {
             stats.totalApplicable++;
             
             const transactionType = isComplete ? 'checklist_completion' : 'incomplete_checklist';
-            const amount = isComplete ? 25 : -25;
+            const amount = isComplete ? 25 : -25; // $0.25 for checklists (stored in cents)
             const notes = isComplete ? `Completed: ${checklist.title}` : `Incomplete: ${checklist.title}`;
-            const transactionKey = `${shift.user_id}-${dayFormatted}-${transactionType}-${notes}`;
+            // Simple key: user + date + checklist title
+            const transactionKey = `${shift.user_id}-${dayFormatted}-${checklist.title}`;
             
             if (isComplete) {
               stats.completedCount++;
