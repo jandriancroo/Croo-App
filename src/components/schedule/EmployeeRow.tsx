@@ -103,14 +103,14 @@ export function EmployeeRow({
         state: {
           viewUserId: profile.id
         }
-      })} className="flex items-center gap-3 cursor-pointer hover:bg-accent/50 rounded p-2 transition-colors flex-1 min-w-0 px-0 py-[6px]">
-            <Avatar className="h-12 w-12 flex-shrink-0">
+      })} className="flex items-center gap-2 lg:gap-3 cursor-pointer hover:bg-accent/50 rounded p-2 transition-colors flex-1 min-w-0 px-0 py-[6px]">
+            <Avatar className="h-12 w-12 flex-shrink-0 hidden lg:flex">
               <AvatarImage src={profile.profile_photo_url || undefined} />
               <AvatarFallback className="text-base">{profile.full_name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-base font-semibold leading-tight mb-1">{profile.full_name}</p>
-              <p className="text-sm text-muted-foreground leading-tight">
+              <p className="text-sm lg:text-base font-semibold leading-tight mb-1 truncate">{profile.full_name}</p>
+              <p className="text-xs lg:text-sm text-muted-foreground leading-tight whitespace-nowrap">
                 {calculateTotalHours()} hrs • ${calculateTotalWages()}
               </p>
             </div>
