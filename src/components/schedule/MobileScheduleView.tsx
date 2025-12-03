@@ -115,7 +115,8 @@ export function MobileScheduleView({
   };
 
 
-  const totalPeopleScheduled = dayShifts.length;
+  // Count unique employees scheduled (not total shifts)
+  const uniqueEmployeesScheduled = new Set(dayShifts.map(s => s.user_id)).size;
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -161,7 +162,7 @@ export function MobileScheduleView({
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 text-muted-foreground">
             <Users className="h-4 w-4" />
-            <span className="text-sm font-medium">{totalPeopleScheduled}</span>
+            <span className="text-sm font-medium">{uniqueEmployeesScheduled}</span>
           </div>
           {(isAdmin || isManager) && (
             <>
