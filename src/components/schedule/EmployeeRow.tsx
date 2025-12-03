@@ -6,6 +6,7 @@ import { ShiftCard } from "./ShiftCard";
 import { addDays } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { GripVertical } from "lucide-react";
+import { useUserRole } from "@/hooks/useUserRole";
 interface Profile {
   id: string;
   full_name: string;
@@ -44,6 +45,7 @@ export function EmployeeRow({
   publishedSnapshot
 }: EmployeeRowProps) {
   const navigate = useNavigate();
+  const { isAdmin } = useUserRole();
   const weekDays = Array.from({
     length: 7
   }, (_, i) => addDays(currentWeekStart, i));
@@ -113,9 +115,11 @@ export function EmployeeRow({
               <p className="text-xs 2xl:text-sm text-muted-foreground leading-tight">
                 {calculateTotalHours()} hrs
               </p>
-              <p className="text-xs 2xl:text-sm text-muted-foreground leading-tight">
-                ${calculateTotalWages()}
-              </p>
+              {isAdmin && (
+                <p className="text-xs 2xl:text-sm text-muted-foreground leading-tight">
+                  ${calculateTotalWages()}
+                </p>
+              )}
             </div>
           </div> : <span className="text-sm font-medium text-muted-foreground">Unassigned</span>}
       </div>

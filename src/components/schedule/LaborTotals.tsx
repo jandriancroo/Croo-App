@@ -3,6 +3,7 @@ import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { useUserRole } from '@/hooks/useUserRole';
 interface Profile {
   id: string;
   full_name: string;
@@ -30,6 +31,7 @@ export function LaborTotals({
   scheduleId,
   isEditable = false
 }: LaborTotalsProps) {
+  const { isAdmin } = useUserRole();
   const weekDays = Array.from({
     length: 7
   }, (_, i) => addDays(currentWeekStart, i));
@@ -192,6 +194,11 @@ export function LaborTotals({
       laborPercent: avgLaborPercent
     };
   }, [dailyTotals, projectedSales]);
+  // Only show labor totals to admins
+  if (!isAdmin) {
+    return null;
+  }
+
   return <div className="border-t border-border bg-muted/30 text-xs">
       {/* Daily Labor Totals */}
       <div className="grid grid-cols-8 gap-0 border-b border-border">

@@ -1418,6 +1418,7 @@ export default function UserManagement() {
                       <p className="text-lg font-mono">{viewingUser.employee_pin || '----'}</p>
                     )}
                   </div>
+                  {(isAdmin || user?.id === viewingUser.id) && (
                   <div className="space-y-2 p-3 border rounded-lg">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs text-muted-foreground">Hourly Wage</Label>
@@ -1451,6 +1452,7 @@ export default function UserManagement() {
                     </div>
                     <p className="text-lg font-bold">${viewingUser.hourly_wage?.toFixed(2) || '15.00'}/hr</p>
                   </div>
+                  )}
                 </div>
 
                 {/* Quick Actions Grid - Admin only */}
