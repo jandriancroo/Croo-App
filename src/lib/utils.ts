@@ -10,7 +10,8 @@ export function cn(...inputs: ClassValue[]) {
  * @param time24 - Time in 24-hour format (e.g., "14:30")
  * @returns Time in 12-hour format (e.g., "2:30 PM")
  */
-export function formatTime12Hour(time24: string): string {
+export function formatTime12Hour(time24: string | undefined | null): string {
+  if (!time24) return '--:--';
   const [hours, minutes] = time24.split(':').map(Number);
   const period = hours >= 12 ? 'PM' : 'AM';
   const hours12 = hours % 12 || 12;
