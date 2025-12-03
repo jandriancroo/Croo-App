@@ -117,6 +117,12 @@ export default function Schedule() {
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
   const [isCreatingShift, setIsCreatingShift] = useState(false);
+  const [roleChangeDialogOpen, setRoleChangeDialogOpen] = useState(false);
+  const [pendingRoleChange, setPendingRoleChange] = useState<{
+    userId: string;
+    userName: string;
+    newRole: string;
+  } | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -433,41 +439,53 @@ export default function Schedule() {
       const activeProfile = profiles.find(p => p.id === active.id);
       const overProfile = profiles.find(p => p.id === over.id);
       
-      // Only allow reordering within the same role
-      if (activeProfile && overProfile && activeProfile.role === overProfile.role) {
-        const roleProfiles = profiles.filter(p => p.role === activeProfile.role);
-        const oldIndex = roleProfiles.findIndex(p => p.id === active.id);
-        const newIndex = roleProfiles.findIndex(p => p.id === over.id);
+      if (!activeProfile || !overProfile) return;
+      
+      // Check if moving to a different role
+      if (activeProfile.role !== overProfile.role) {
+        // Show role change confirmation dialog
+        setPendingRoleChange({
+          userId: activeProfile.id,
+          userName: activeProfile.full_name,
+          newRole: overProfile.role || 'team_member'
+        });
+        setRoleChangeDialogOpen(true);
+        return;
+      }
+      
+      // Same role - handle reordering
+      const roleProfiles = profiles.filter(p => p.role === activeProfile.role);
+      const oldIndex = roleProfiles.findIndex(p => p.id === active.id);
+      const newIndex = roleProfiles.findIndex(p => p.id === over.id);
+      
+      const reorderedRoleProfiles = arrayMove(roleProfiles, oldIndex, newIndex);
+      
+      // Update display_order for all profiles in this role
+      try {
+        await Promise.all(
+          reorderedRoleProfiles.map((profile, index) =>
+            supabase
+              .from('profiles')
+              .update({ display_order: index })
+              .eq('id', profile.id)
+          )
+        );
         
-        const reorderedRoleProfiles = arrayMove(roleProfiles, oldIndex, newIndex);
+        // Update local state
+        const newProfiles = profiles.map(p => {
+          const reordered = reorderedRoleProfiles.find(rp => rp.id === p.id);
+          if (reordered) {
+            const newOrder = reorderedRoleProfiles.findIndex(rp => rp.id === p.id);
+            return { ...p, display_order: newOrder };
+          }
+          return p;
+        });
         
-        // Update display_order for all profiles in this role
-        try {
-          await Promise.all(
-            reorderedRoleProfiles.map((profile, index) =>
-              supabase
-                .from('profiles')
-                .update({ display_order: index })
-                .eq('id', profile.id)
-            )
-          );
-          
-          // Update local state
-          const newProfiles = profiles.map(p => {
-            const reordered = reorderedRoleProfiles.find(rp => rp.id === p.id);
-            if (reordered) {
-              const newOrder = reorderedRoleProfiles.findIndex(rp => rp.id === p.id);
-              return { ...p, display_order: newOrder };
-            }
-            return p;
-          });
-          
-          setProfiles(newProfiles);
-          toast.success("Employee order updated");
-        } catch (error) {
-          console.error("Error updating employee order:", error);
-          toast.error("Failed to update employee order");
-        }
+        setProfiles(newProfiles);
+        toast.success("Employee order updated");
+      } catch (error) {
+        console.error("Error updating employee order:", error);
+        toast.error("Failed to update employee order");
       }
       return;
     }
@@ -824,6 +842,35 @@ export default function Schedule() {
     });
 
     return changes;
+  };
+
+  const handleRoleChange = async () => {
+    if (!pendingRoleChange) return;
+    
+    try {
+      // Update user_roles table
+      const { error } = await supabase
+        .from('user_roles')
+        .update({ role: pendingRoleChange.newRole as 'admin' | 'manager' | 'team_member' })
+        .eq('user_id', pendingRoleChange.userId);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setProfiles(profiles.map(p => 
+        p.id === pendingRoleChange.userId 
+          ? { ...p, role: pendingRoleChange.newRole }
+          : p
+      ));
+      
+      toast.success(`${pendingRoleChange.userName}'s role changed to ${pendingRoleChange.newRole === 'team_member' ? 'Team Member' : pendingRoleChange.newRole}`);
+    } catch (error) {
+      console.error('Error changing role:', error);
+      toast.error('Failed to change user role');
+    } finally {
+      setPendingRoleChange(null);
+      setRoleChangeDialogOpen(false);
+    }
   };
 
   if (loading) {
@@ -1254,6 +1301,24 @@ export default function Schedule() {
             </DialogContent>
           </Dialog>
         )}
+
+        {/* Role Change Confirmation Dialog */}
+        <AlertDialog open={roleChangeDialogOpen} onOpenChange={setRoleChangeDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Change User Role?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Would you like to change {pendingRoleChange?.userName}'s role to {pendingRoleChange?.newRole === 'team_member' ? 'Team Member' : pendingRoleChange?.newRole}?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setPendingRoleChange(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleRoleChange}>
+                Change Role
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
       )}
     </Layout>
