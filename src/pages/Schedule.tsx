@@ -471,7 +471,7 @@ export default function Schedule() {
           )
         );
         
-        // Update local state
+        // Update local state with new display_order values
         const newProfiles = profiles.map(p => {
           const reordered = reorderedRoleProfiles.find(rp => rp.id === p.id);
           if (reordered) {
@@ -479,6 +479,17 @@ export default function Schedule() {
             return { ...p, display_order: newOrder };
           }
           return p;
+        });
+        
+        // Re-sort profiles by role first, then by display_order within each role
+        const roleOrder = { admin: 0, manager: 1, team_member: 2 };
+        newProfiles.sort((a, b) => {
+          const aRoleOrder = roleOrder[a.role as keyof typeof roleOrder] ?? 3;
+          const bRoleOrder = roleOrder[b.role as keyof typeof roleOrder] ?? 3;
+          if (aRoleOrder === bRoleOrder) {
+            return (a.display_order ?? 0) - (b.display_order ?? 0);
+          }
+          return aRoleOrder - bRoleOrder;
         });
         
         setProfiles(newProfiles);

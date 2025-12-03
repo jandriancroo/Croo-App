@@ -461,19 +461,10 @@ export default function CompleteChecklist() {
       if (!tempError && tempData) {
         extractedTemp = tempData.temperature;
         tempValid = tempData.isValid;
-        
-        // Store temperature data in responsesWithCompleters for immediate UI update
-        setResponsesWithCompleters(prev => ({
-          ...prev,
-          [itemId]: {
-            ...prev[itemId],
-            extractedTemperature: extractedTemp,
-            temperatureValid: tempValid
-          }
-        }));
       }
 
       // Save the response with temperature data
+      let responseId: string | undefined;
       if (submissionId && user?.id) {
         const { data: existing } = await supabase
           .from('checklist_responses')
@@ -493,8 +484,9 @@ export default function CompleteChecklist() {
               temperature_validated_at: new Date().toISOString()
             })
             .eq('id', existing.id);
+          responseId = existing.id;
         } else {
-          await supabase
+          const { data: newResponse } = await supabase
             .from('checklist_responses')
             .insert({
               submission_id: submissionId,
@@ -504,11 +496,39 @@ export default function CompleteChecklist() {
               extracted_temperature: extractedTemp,
               temperature_valid: tempValid,
               temperature_validated_at: new Date().toISOString()
-            });
+            })
+            .select('id')
+            .single();
+          responseId = newResponse?.id;
         }
+
+        // Fetch user profile for completer info
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, profile_photo_url')
+          .eq('id', user.id)
+          .single();
+
+        // Update both responses and responsesWithCompleters with ALL data including temperature
+        setResponses(prev => ({ ...prev, [itemId]: data.publicUrl }));
+        setResponsesWithCompleters(prev => ({
+          ...prev,
+          [itemId]: {
+            responseId: responseId || '',
+            value: data.publicUrl,
+            isImage: true,
+            extractedTemperature: extractedTemp,
+            temperatureValid: tempValid,
+            completedBy: profile ? {
+              userId: user.id,
+              fullName: profile.full_name || 'Unknown',
+              profilePhoto: profile.profile_photo_url,
+              completedAt: new Date().toISOString()
+            } : undefined
+          }
+        }));
       }
 
-      handleResponseChange(itemId, data.publicUrl, true);
       toast.success('Image uploaded successfully');
     } catch (error: any) {
       toast.error('Failed to upload image');
