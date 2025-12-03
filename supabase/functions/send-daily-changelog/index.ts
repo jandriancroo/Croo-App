@@ -6,8 +6,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Hardcoded recipient - Aubrey's user ID
-const CHANGELOG_RECIPIENT_ID = "4e500636-3449-4c81-adc0-20a3d0b2fe13";
+// Hardcoded recipient - Jordan's user ID
+const CHANGELOG_RECIPIENT_ID = "a2e81a39-0e0b-47b1-a1aa-0e53f3869d37";
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
