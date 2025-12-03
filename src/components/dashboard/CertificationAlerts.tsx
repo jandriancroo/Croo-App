@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 import { differenceInDays, format } from "date-fns";
 
@@ -53,9 +53,8 @@ export function CertificationAlerts() {
   return (
     <Alert variant="destructive">
       <AlertTriangle className="h-4 w-4" />
-      <AlertTitle className="text-sm">Certifications Expiring Soon ({expiringCerts.length})</AlertTitle>
       <AlertDescription>
-        <div className="mt-1 space-y-0.5">
+        <div className="space-y-0.5">
           {expiringCerts.map((cert) => {
             const daysUntilExpiry = differenceInDays(
               new Date(cert.expiration_date),

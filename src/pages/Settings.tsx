@@ -20,9 +20,6 @@ import { CSS } from '@dnd-kit/utilities';
 const themes = [
   { value: 'default', label: 'Default' },
   { value: 'oled', label: 'OLED Black' },
-  { value: 'blue', label: 'Ocean Blue' },
-  { value: 'forest', label: 'Forest Green' },
-  { value: 'sunset', label: 'Sunset Orange' },
 ];
 
 const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'locations', 'roles', 'positions', 'maintenance'];
@@ -256,56 +253,6 @@ export default function Settings() {
               >
                 <Thermometer className="w-4 h-4 mr-2" />
                 Temperature Validation
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full justify-start"
-                onClick={async () => {
-                  try {
-                    sonnerToast.info('Starting photo completions backfill...');
-                    const { data, error } = await supabase.functions.invoke('backfill-photo-completions');
-                    
-                    if (error) throw error;
-                    
-                    if (data.success) {
-                      sonnerToast.success(`Backfill complete: ${data.updated} photo responses updated`);
-                    } else {
-                      sonnerToast.error(data.error || 'Backfill failed');
-                    }
-                  } catch (error: any) {
-                    console.error('Backfill error:', error);
-                    sonnerToast.error('Failed to run backfill');
-                  }
-                }}
-              >
-                Backfill Photo Completions
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full justify-start"
-                onClick={async () => {
-                  try {
-                    sonnerToast.info('Starting Croo Cash backfill...');
-                    const { data, error } = await supabase.functions.invoke('backfill-croo-cash-transactions');
-                    
-                    if (error) throw error;
-                    
-                    if (data.success) {
-                      sonnerToast.success(`Backfill complete: ${data.updated} transactions corrected`);
-                    } else {
-                      sonnerToast.error(data.error || 'Backfill failed');
-                    }
-                  } catch (error: any) {
-                    console.error('Backfill error:', error);
-                    sonnerToast.error('Failed to run backfill');
-                  }
-                }}
-              >
-                Backfill Croo Cash
               </Button>
               
               <Button
