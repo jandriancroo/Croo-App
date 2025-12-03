@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera } from 'lucide-react';
 import { toast } from 'sonner';
+import { compressImage } from '@/utils/imageCompression';
 
 const WelcomeProfile = () => {
   const { user } = useAuth();
@@ -59,12 +60,13 @@ const WelcomeProfile = () => {
       let publicUrl: string | null = null;
 
       if (profilePhotoFile) {
-        const fileExt = profilePhotoFile.name.split('.').pop();
-        const filePath = `${user.id}/${Date.now()}.${fileExt}`;
+        // Compress image to reduce memory usage
+        const compressedFile = await compressImage(profilePhotoFile, 800, 800, 0.8);
+        const filePath = `${user.id}/${Date.now()}.jpg`;
 
         const { error: uploadError } = await supabase.storage
           .from('profile-photos')
-          .upload(filePath, profilePhotoFile, { upsert: true });
+          .upload(filePath, compressedFile, { upsert: true });
 
         if (uploadError) throw uploadError;
 

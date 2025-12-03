@@ -20,6 +20,7 @@ import { ManageCategoriesDialog } from "@/components/logbook/ManageCategoriesDia
 import { useSearchParams } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { compressImage } from "@/utils/imageCompression";
 
 export default function LogBook() {
   const { user } = useAuth();
@@ -129,12 +130,18 @@ export default function LogBook() {
     try {
       setUploadingFiles({ ...uploadingFiles, [fieldId]: true });
       
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user!.id}/${Date.now()}.${fileExt}`;
+      // Compress images to reduce memory usage on mobile
+      let fileToUpload: File | Blob = file;
+      let fileName = `${user!.id}/${Date.now()}.${file.name.split('.').pop()}`;
+      
+      if (file.type.startsWith('image/')) {
+        fileToUpload = await compressImage(file, 1200, 1200, 0.8);
+        fileName = `${user!.id}/${Date.now()}.jpg`;
+      }
       
       const { error: uploadError } = await supabase.storage
         .from('logbook-attachments')
-        .upload(fileName, file);
+        .upload(fileName, fileToUpload);
 
       if (uploadError) throw uploadError;
 

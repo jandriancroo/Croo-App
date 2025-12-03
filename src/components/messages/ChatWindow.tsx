@@ -13,6 +13,7 @@ import { MessageContent } from './MessageContent';
 import { ReadReceipts } from './ReadReceipts';
 import { AnnouncementStats } from './AnnouncementStats';
 import { useUserRole } from '@/hooks/useUserRole';
+import { compressImage } from '@/utils/imageCompression';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -286,13 +287,19 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      const bucketName = file.type.startsWith('image/') ? 'checklist-images' : 'checklist-images';
+      // Compress images to reduce memory usage on mobile
+      let fileToUpload: File | Blob = file;
+      let fileName = `${user.id}/${Date.now()}.${file.name.split('.').pop()}`;
+      const bucketName = 'checklist-images';
+
+      if (file.type.startsWith('image/')) {
+        fileToUpload = await compressImage(file, 1200, 1200, 0.8);
+        fileName = `${user.id}/${Date.now()}.jpg`;
+      }
 
       const { error: uploadError } = await supabase.storage
         .from(bucketName)
-        .upload(fileName, file);
+        .upload(fileName, fileToUpload);
 
       if (uploadError) throw uploadError;
 

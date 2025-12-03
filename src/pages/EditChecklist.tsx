@@ -15,6 +15,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { compressImage } from '@/utils/imageCompression';
 
 interface ChecklistItem {
   id?: string;
@@ -325,12 +326,13 @@ export default function EditChecklist() {
 
   const handleReferenceImageUpload = async (index: number, file: File) => {
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `references/${Date.now()}.${fileExt}`;
+      // Compress image to reduce memory usage on mobile
+      const compressedFile = await compressImage(file, 1200, 1200, 0.8);
+      const fileName = `references/${Date.now()}.jpg`;
       
       const { error: uploadError } = await supabase.storage
         .from('checklist-images')
-        .upload(fileName, file);
+        .upload(fileName, compressedFile);
 
       if (uploadError) throw uploadError;
 

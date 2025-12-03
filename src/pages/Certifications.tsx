@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { Upload, CheckCircle, XCircle, Clock, ExternalLink, Trash2, Edit } from "lucide-react";
 import { format } from "date-fns";
 import { EditCertificationDialog } from "@/components/users/EditCertificationDialog";
+import { compressImage } from "@/utils/imageCompression";
 
 type CertificationType = "food_handlers" | "servsafe";
 
@@ -119,13 +120,18 @@ export default function Certifications() {
     try {
       setUploading(true);
 
-      // Upload file to storage
-      const fileExt = selectedFile.name.split(".").pop();
-      const fileName = `${targetUserId}/${Date.now()}.${fileExt}`;
+      // Compress images to reduce memory usage on mobile
+      let fileToUpload: File | Blob = selectedFile;
+      let fileName = `${targetUserId}/${Date.now()}.${selectedFile.name.split(".").pop()}`;
+      
+      if (selectedFile.type.startsWith('image/')) {
+        fileToUpload = await compressImage(selectedFile, 1200, 1200, 0.8);
+        fileName = `${targetUserId}/${Date.now()}.jpg`;
+      }
 
       const { error: uploadError } = await supabase.storage
         .from("certificates")
-        .upload(fileName, selectedFile);
+        .upload(fileName, fileToUpload);
 
       if (uploadError) throw uploadError;
 

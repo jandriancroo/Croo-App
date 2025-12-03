@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ImageIcon, X } from 'lucide-react';
+import { compressImage } from '@/utils/imageCompression';
 
 interface Profile {
   id: string;
@@ -100,12 +101,13 @@ export function GroupSettingsDialog({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `chat-images/${chatId}/${Date.now()}.${fileExt}`;
+      // Compress image to reduce memory usage on mobile
+      const compressedFile = await compressImage(file, 800, 800, 0.8);
+      const fileName = `chat-images/${chatId}/${Date.now()}.jpg`;
 
       const { error: uploadError } = await supabase.storage
         .from('checklist-images')
-        .upload(fileName, file);
+        .upload(fileName, compressedFile);
 
       if (uploadError) throw uploadError;
 
