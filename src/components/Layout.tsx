@@ -29,11 +29,13 @@ export const Layout = ({
   const navigate = useNavigate();
   const location = useLocation();
   const {
-    isAdmin
+    isAdmin,
+    isManager
   } = useUserRole();
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const { unreadCount } = useUnreadMessages();
+  const canAccessLogs = isAdmin || isManager;
   const mainNavItems = [{
     path: '/dashboard',
     label: 'Dash',
@@ -42,11 +44,11 @@ export const Layout = ({
     path: '/tasks',
     label: 'Tasks',
     icon: ClipboardCheck
-  }, {
+  }, ...(canAccessLogs ? [{
     path: '/logbook',
     label: 'Logs',
     icon: Scroll
-  }, {
+  }] : []), {
     path: '/schedule',
     label: 'Schedule',
     icon: Calendar
@@ -85,11 +87,11 @@ export const Layout = ({
     label: 'Chat',
     icon: MessageSquare
   }];
-  const mobileMenuItems = [{
+  const mobileMenuItems = [...(canAccessLogs ? [{
     path: '/logbook',
     label: 'Logs',
     icon: Scroll
-  }, {
+  }] : []), {
     path: '/availability',
     label: 'Availability',
     icon: CalendarCheck
