@@ -312,7 +312,9 @@ export default function Tasks() {
               <h1 className="text-3xl font-bold">Tasks</h1>
               <TabsList>
                 <TabsTrigger value="history">History</TabsTrigger>
-                <TabsTrigger value="edit">Edit</TabsTrigger>
+                {(isAdmin || isManager) && (
+                  <TabsTrigger value="edit">Edit</TabsTrigger>
+                )}
               </TabsList>
             </div>
           </div>

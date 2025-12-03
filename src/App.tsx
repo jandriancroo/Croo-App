@@ -35,6 +35,7 @@ import TemperatureValidation from "./pages/TemperatureValidation";
 import Index from "./pages/Index";
 import WelcomeProfile from "./pages/WelcomeProfile";
 import InstallGuide from "./pages/InstallGuide";
+import ResetPassword from "./pages/ResetPassword";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const AppContent = () => {
   return (
         <Routes>
           <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/landing" element={<Index />} />
           <Route path="/install" element={<InstallGuide />} />
           <Route path="/" element={<Navigate to="/auth" replace />} />

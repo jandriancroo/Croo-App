@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ export default function Auth() {
   const [showSplash, setShowSplash] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<string>('signin');
 
@@ -28,6 +29,19 @@ export default function Auth() {
     const cleaned = value.replace(/[^a-zA-Z-]/g, '').toLowerCase();
     setLocationCode(cleaned);
   };
+
+  // Check for password recovery token in URL hash and redirect
+  useEffect(() => {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const type = hashParams.get('type');
+    const accessToken = hashParams.get('access_token');
+    
+    if (type === 'recovery' && accessToken) {
+      // This is a password reset link - redirect to reset password page
+      navigate('/reset-password' + window.location.hash);
+      return;
+    }
+  }, [navigate]);
 
   useEffect(() => {
     // Check if signup parameter is in URL
