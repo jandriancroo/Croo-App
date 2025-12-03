@@ -126,38 +126,36 @@ export function ChecklistCompletionAlerts() {
   if (alerts.length === 0) return null;
 
   return (
-    <Alert className="border-destructive bg-red-50 dark:bg-red-950">
-      <AlertTriangle className="h-4 w-4 text-destructive" />
-      <AlertDescription className="space-y-1">
-        <div className="text-xs text-red-800 dark:text-red-200 space-y-0.5">
-          {alerts.slice(0, 5).map((alert: any) => (
-            <button
-              key={alert.id}
-              onClick={() => navigate(`/complete-checklist/${alert.id}`)}
-              className="block w-full text-left py-0.5 px-1 -mx-1 rounded hover:bg-red-100 dark:hover:bg-red-900 transition-colors"
-            >
-              <span className="font-semibold">{alert.title}</span>
-              {' • '}
-              {alert.status === 'incomplete' ? (
-                <span className="text-red-600 dark:text-red-400 font-medium">Not Started</span>
-              ) : (
-                <span className="text-yellow-600 dark:text-yellow-400 font-medium">
-                  Not Completed, {alert.remainingTasks} task{alert.remainingTasks === 1 ? '' : 's'} remaining
-                </span>
-              )}
-            </button>
-          ))}
-          {alerts.length > 5 && (
-            <Button
-              variant="link"
-              size="sm"
-              onClick={() => navigate('/tasks')}
-              className="h-auto p-0 text-xs text-red-600 dark:text-red-400 font-medium"
-            >
-              + {alerts.length - 5} more
-            </Button>
-          )}
-        </div>
+    <Alert className="border-destructive/50 bg-red-50/80 dark:bg-red-950/50 py-2">
+      <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+      <AlertDescription className="text-xs text-red-800 dark:text-red-200 space-y-0.5">
+        {alerts.slice(0, 5).map((alert: any) => (
+          <button
+            key={alert.id}
+            onClick={() => navigate(`/complete-checklist/${alert.id}`)}
+            className="block w-full text-left py-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+          >
+            <span className="font-medium">{alert.title}</span>
+            {' • '}
+            {alert.status === 'incomplete' ? (
+              <span className="text-red-600 dark:text-red-400">Not Started</span>
+            ) : (
+              <span className="text-yellow-600 dark:text-yellow-400">
+                {alert.remainingTasks} task{alert.remainingTasks === 1 ? '' : 's'} left
+              </span>
+            )}
+          </button>
+        ))}
+        {alerts.length > 5 && (
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() => navigate('/tasks')}
+            className="h-auto p-0 text-xs text-red-600 dark:text-red-400"
+          >
+            + {alerts.length - 5} more
+          </Button>
+        )}
       </AlertDescription>
     </Alert>
   );

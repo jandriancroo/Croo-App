@@ -19,7 +19,11 @@ import { CSS } from '@dnd-kit/utilities';
 
 const themes = [
   { value: 'default', label: 'Default' },
-  { value: 'oled', label: 'OLED Black' },
+  { value: 'oled', label: 'OLED Dark' },
+  { value: 'earth', label: 'Warm Earth' },
+  { value: 'ocean', label: 'Ocean Breeze' },
+  { value: 'sage', label: 'Sage' },
+  { value: 'lavender', label: 'Lavender' },
 ];
 
 const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'locations', 'roles', 'positions', 'maintenance'];
