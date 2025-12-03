@@ -115,8 +115,9 @@ export function MobileScheduleView({
   };
 
 
-  // Count unique employees scheduled (not total shifts)
-  const uniqueEmployeesScheduled = new Set(dayShifts.map(s => s.user_id)).size;
+  // Count unique employees scheduled (only those with valid profiles)
+  const shiftsWithProfiles = dayShifts.filter(s => profiles.some(p => p.id === s.user_id));
+  const uniqueEmployeesScheduled = new Set(shiftsWithProfiles.map(s => s.user_id)).size;
 
   return (
     <div className="flex flex-col h-full bg-background">
