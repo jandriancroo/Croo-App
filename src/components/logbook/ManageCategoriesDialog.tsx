@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,10 +11,137 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Trash2, GripVertical, Edit2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { DndContext, DragEndEvent, closestCenter, useSensor, useSensors, PointerSensor, TouchSensor } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface ManageCategoriesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+interface SortableCategoryItemProps {
+  category: any;
+  onDelete: (id: string) => void;
+  onToggleAlert: (id: string, currentValue: boolean) => void;
+  onToggleActive: (id: string, currentValue: boolean) => void;
+  onEditFields: (categoryId: string, fields: any[]) => void;
+}
+
+function SortableCategoryItem({ category, onDelete, onToggleAlert, onToggleActive, onEditFields }: SortableCategoryItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: category.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <AccordionItem 
+      ref={setNodeRef} 
+      style={style} 
+      value={category.id} 
+      className="border rounded-lg px-3"
+    >
+      <div className="flex items-center gap-3">
+        <div
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing touch-none"
+        >
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
+        </div>
+        
+        <AccordionTrigger className="flex-1 hover:no-underline py-3">
+          <div className="flex items-center justify-between w-full pr-4">
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{category.name}</span>
+              <Badge variant="secondary" className="text-xs">
+                {category.logbook_fields?.length || 0} fields
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2">
+              {!category.is_active && (
+                <Badge variant="outline">Inactive</Badge>
+              )}
+              {category.alert_enabled && (
+                <Badge variant="outline" className="text-xs">Alert</Badge>
+              )}
+            </div>
+          </div>
+        </AccordionTrigger>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (confirm(`Delete "${category.name}"? This will also delete all associated entries.`)) {
+              onDelete(category.id);
+            }
+          }}
+        >
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      </div>
+
+      <AccordionContent className="pb-3">
+        <div className="space-y-3 pt-2">
+          {/* Category Settings */}
+          <div className="flex items-center justify-between p-2 bg-muted rounded">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={category.alert_enabled}
+                  onCheckedChange={() => onToggleAlert(category.id, category.alert_enabled)}
+                />
+                <Label className="text-xs">Dashboard Alert</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={category.is_active}
+                  onCheckedChange={() => onToggleActive(category.id, category.is_active)}
+                />
+                <Label className="text-xs">Active</Label>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onEditFields(category.id, category.logbook_fields || [])}
+            >
+              <Edit2 className="h-4 w-4 mr-2" />
+              Configure Fields
+            </Button>
+          </div>
+
+          {/* Show current fields */}
+          {category.logbook_fields && category.logbook_fields.length > 0 && (
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">Current Fields:</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {category.logbook_fields.map((field: any) => (
+                  <div key={field.id} className="text-xs p-2 bg-muted/50 rounded">
+                    <span className="font-medium">{field.field_name}</span>
+                    <span className="text-muted-foreground"> • {field.field_type}</span>
+                    {field.is_required && <Badge variant="secondary" className="ml-1 text-[10px]">Required</Badge>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </AccordionContent>
+    </AccordionItem>
+  );
 }
 
 export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesDialogProps) {
@@ -23,6 +150,21 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
   const [newCategoryName, setNewCategoryName] = useState("");
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingFields, setEditingFields] = useState<any[]>([]);
+  const [localCategories, setLocalCategories] = useState<any[]>([]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 200,
+        tolerance: 8,
+      },
+    })
+  );
 
   const { data: categories = [] } = useQuery({
     queryKey: ['logbook-categories-manage'],
@@ -35,14 +177,18 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
         `)
         .order('display_order');
       if (error) throw error;
+      setLocalCategories(data || []);
       return data;
     },
     enabled: open,
   });
 
+  // Sync local categories with fetched data when categories change
+  const displayCategories = localCategories.length > 0 ? localCategories : categories;
+
   const createCategoryMutation = useMutation({
     mutationFn: async (name: string) => {
-      const maxOrder = Math.max(...categories.map(c => c.display_order), 0);
+      const maxOrder = Math.max(...displayCategories.map(c => c.display_order), 0);
       const { error } = await supabase
         .from('logbook_categories')
         .insert({
@@ -110,6 +256,44 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
       });
     },
   });
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = displayCategories.findIndex(c => c.id === active.id);
+    const newIndex = displayCategories.findIndex(c => c.id === over.id);
+
+    const reorderedCategories = arrayMove(displayCategories, oldIndex, newIndex);
+    
+    // Update local state immediately for real-time feedback
+    setLocalCategories(reorderedCategories);
+
+    // Update display_order in database
+    try {
+      await Promise.all(
+        reorderedCategories.map((category, index) =>
+          supabase
+            .from('logbook_categories')
+            .update({ display_order: index })
+            .eq('id', category.id)
+        )
+      );
+      
+      queryClient.invalidateQueries({ queryKey: ['logbook-categories-manage'] });
+      queryClient.invalidateQueries({ queryKey: ['logbook-categories'] });
+      toast({ title: "Category order updated" });
+    } catch (error) {
+      console.error("Error updating category order:", error);
+      toast({
+        title: "Error updating order",
+        variant: "destructive",
+      });
+      // Revert on error
+      setLocalCategories(categories);
+    }
+  };
 
   const handleToggleAlert = (id: string, currentValue: boolean) => {
     updateCategoryMutation.mutate({
@@ -207,6 +391,12 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
           <DialogTitle>
             {editingCategoryId ? 'Edit Category Fields' : 'Manage Logs Categories'}
           </DialogTitle>
+          <DialogDescription>
+            {editingCategoryId 
+              ? 'Configure the fields for this category' 
+              : 'Drag to reorder categories, configure fields, and manage settings'
+            }
+          </DialogDescription>
         </DialogHeader>
 
         {editingCategoryId ? (
@@ -214,7 +404,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-semibold">
-                Configure Fields for {categories.find(c => c.id === editingCategoryId)?.name}
+                Configure Fields for {displayCategories.find(c => c.id === editingCategoryId)?.name}
               </h3>
               <Button variant="ghost" size="sm" onClick={() => {
                 setEditingCategoryId(null);
@@ -304,96 +494,30 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
               </Button>
             </div>
 
-            {/* Categories List */}
-            <Accordion type="single" collapsible className="space-y-2">
-              {categories.map((category: any) => (
-                <AccordionItem key={category.id} value={category.id} className="border rounded-lg px-3">
-                  <div className="flex items-center gap-3">
-                    <GripVertical className="h-4 w-4 text-muted-foreground cursor-move" />
-                    
-                    <AccordionTrigger className="flex-1 hover:no-underline py-3">
-                      <div className="flex items-center justify-between w-full pr-4">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{category.name}</span>
-                          <Badge variant="secondary" className="text-xs">
-                            {category.logbook_fields?.length || 0} fields
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {!category.is_active && (
-                            <Badge variant="outline">Inactive</Badge>
-                          )}
-                          {category.alert_enabled && (
-                            <Badge variant="outline" className="text-xs">Alert</Badge>
-                          )}
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm(`Delete "${category.name}"? This will also delete all associated entries.`)) {
-                          deleteCategoryMutation.mutate(category.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-
-                  <AccordionContent className="pb-3">
-                    <div className="space-y-3 pt-2">
-                      {/* Category Settings */}
-                      <div className="flex items-center justify-between p-2 bg-muted rounded">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={category.alert_enabled}
-                              onCheckedChange={() => handleToggleAlert(category.id, category.alert_enabled)}
-                            />
-                            <Label className="text-xs">Dashboard Alert</Label>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Switch
-                              checked={category.is_active}
-                              onCheckedChange={() => handleToggleActive(category.id, category.is_active)}
-                            />
-                            <Label className="text-xs">Active</Label>
-                          </div>
-                        </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEditFields(category.id, category.logbook_fields || [])}
-                        >
-                          <Edit2 className="h-4 w-4 mr-2" />
-                          Configure Fields
-                        </Button>
-                      </div>
-
-                      {/* Show current fields */}
-                      {category.logbook_fields && category.logbook_fields.length > 0 && (
-                        <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Current Fields:</Label>
-                          <div className="grid grid-cols-2 gap-2">
-                            {category.logbook_fields.map((field: any) => (
-                              <div key={field.id} className="text-xs p-2 bg-muted/50 rounded">
-                                <span className="font-medium">{field.field_name}</span>
-                                <span className="text-muted-foreground"> • {field.field_type}</span>
-                                {field.is_required && <Badge variant="secondary" className="ml-1 text-[10px]">Required</Badge>}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
+            {/* Categories List with Drag & Drop */}
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext
+                items={displayCategories.map(c => c.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <Accordion type="single" collapsible className="space-y-2">
+                  {displayCategories.map((category: any) => (
+                    <SortableCategoryItem
+                      key={category.id}
+                      category={category}
+                      onDelete={(id) => deleteCategoryMutation.mutate(id)}
+                      onToggleAlert={handleToggleAlert}
+                      onToggleActive={handleToggleActive}
+                      onEditFields={handleEditFields}
+                    />
+                  ))}
+                </Accordion>
+              </SortableContext>
+            </DndContext>
           </div>
         )}
       </DialogContent>
