@@ -3,21 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
-import { Award, Upload, ExternalLink, Trash2, MapPin, ExternalLink as ExternalLinkIcon, Thermometer } from 'lucide-react';
-import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
-import { PositionManagementSection } from '@/components/settings/PositionManagementSection';
+import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical } from 'lucide-react';
+import { PositionManagementCompact } from '@/components/settings/PositionManagementCompact';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
-import { NotificationsDashboard } from '@/components/settings/NotificationsDashboard';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { format } from 'date-fns';
 import { toast as sonnerToast } from 'sonner';
 
 const themes = [
@@ -28,16 +22,8 @@ const themes = [
   { value: 'sunset', label: 'Sunset Orange' },
 ];
 
-const timezones = [
-  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-  { value: 'America/Denver', label: 'Mountain Time (MT)' },
-  { value: 'America/Chicago', label: 'Central Time (CT)' },
-  { value: 'America/New_York', label: 'Eastern Time (ET)' },
-  { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
-  { value: 'Pacific/Honolulu', label: 'Hawaii Time (HST)' },
-];
-
-type CertificationType = 'food_handlers' | 'servsafe';
+// Section order stored in localStorage
+const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'locations', 'roles', 'positions', 'maintenance'];
 
 export default function Settings() {
   const { toast } = useToast();
@@ -45,28 +31,22 @@ export default function Settings() {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
-  const [timezone, setTimezone] = useState(localStorage.getItem('app-timezone') || 'America/Los_Angeles');
-  const [myCertifications, setMyCertifications] = useState<any[]>([]);
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedType, setSelectedType] = useState<CertificationType>('food_handlers');
-  const [expirationDate, setExpirationDate] = useState('');
-  const [uploading, setUploading] = useState(false);
   const [locations, setLocations] = useState<any[]>([]);
+  const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
+    const saved = localStorage.getItem('settings-section-order');
+    return saved ? JSON.parse(saved) : DEFAULT_SECTION_ORDER;
+  });
+  const [draggedSection, setDraggedSection] = useState<string | null>(null);
 
   useEffect(() => {
-    // Apply theme to document
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
   useEffect(() => {
-    if (user) {
-      fetchMyCertifications();
-    }
     if (isAdmin) {
       fetchLocations();
     }
-  }, [user, isAdmin]);
+  }, [isAdmin]);
 
   const fetchLocations = async () => {
     try {
@@ -82,107 +62,6 @@ export default function Settings() {
     }
   };
 
-  const fetchMyCertifications = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('certifications')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setMyCertifications(data || []);
-    } catch (error: any) {
-      console.error('Error fetching certifications:', error);
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!user || !selectedFile || !expirationDate) {
-      sonnerToast.error('Please fill in all fields');
-      return;
-    }
-
-    try {
-      setUploading(true);
-
-      // Upload file to storage
-      const fileExt = selectedFile.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('certificates')
-        .upload(fileName, selectedFile);
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('certificates')
-        .getPublicUrl(fileName);
-
-      // Create certification record
-      const { error: insertError } = await supabase
-        .from('certifications')
-        .insert({
-          user_id: user.id,
-          certification_type: selectedType,
-          certificate_url: publicUrl,
-          expiration_date: expirationDate,
-          status: 'pending',
-        });
-
-      if (insertError) throw insertError;
-
-      sonnerToast.success('Certificate uploaded successfully! Awaiting admin approval.');
-      setUploadDialogOpen(false);
-      setSelectedFile(null);
-      setExpirationDate('');
-      fetchMyCertifications();
-    } catch (error: any) {
-      console.error('Error uploading certificate:', error);
-      sonnerToast.error('Failed to upload certificate');
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleDelete = async (certId: string) => {
-    if (!confirm('Are you sure you want to delete this certificate?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('certifications')
-        .delete()
-        .eq('id', certId);
-
-      if (error) throw error;
-
-      sonnerToast.success('Certificate deleted');
-      fetchMyCertifications();
-    } catch (error: any) {
-      console.error('Error deleting certificate:', error);
-      sonnerToast.error('Failed to delete certificate');
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return <Badge className="bg-green-500">Approved</Badge>;
-      case 'rejected':
-        return <Badge variant="destructive">Rejected</Badge>;
-      default:
-        return <Badge variant="secondary">Pending</Badge>;
-    }
-  };
-
-  const getCertTypeName = (type: CertificationType) => {
-    return type === 'food_handlers' ? 'Food Handlers Card' : 'ServSafe Certification';
-  };
-
   const handleThemeChange = (value: string) => {
     setTheme(value);
     localStorage.setItem('app-theme', value);
@@ -193,13 +72,277 @@ export default function Settings() {
     });
   };
 
-  const handleTimezoneChange = (value: string) => {
-    setTimezone(value);
-    localStorage.setItem('app-timezone', value);
-    toast({
-      title: 'Timezone Updated',
-      description: 'Your timezone preference has been saved.',
-    });
+  const handleDragStart = (sectionId: string) => {
+    setDraggedSection(sectionId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedSection || draggedSection === targetId) return;
+
+    const newOrder = [...sectionOrder];
+    const draggedIndex = newOrder.indexOf(draggedSection);
+    const targetIndex = newOrder.indexOf(targetId);
+
+    newOrder.splice(draggedIndex, 1);
+    newOrder.splice(targetIndex, 0, draggedSection);
+
+    setSectionOrder(newOrder);
+    localStorage.setItem('settings-section-order', JSON.stringify(newOrder));
+  };
+
+  const handleDragEnd = () => {
+    setDraggedSection(null);
+  };
+
+  const renderSection = (sectionId: string) => {
+    const dragProps = isAdmin ? {
+      draggable: true,
+      onDragStart: () => handleDragStart(sectionId),
+      onDragOver: (e: React.DragEvent) => handleDragOver(e, sectionId),
+      onDragEnd: handleDragEnd,
+    } : {};
+
+    switch (sectionId) {
+      case 'theme':
+        return (
+          <div key="theme" {...dragProps} className={draggedSection === 'theme' ? 'opacity-50' : ''}>
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  {isAdmin && <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />}
+                  <CardTitle className="text-base">Theme</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Label htmlFor="theme">Color Theme</Label>
+                  <Select value={theme} onValueChange={handleThemeChange}>
+                    <SelectTrigger id="theme">
+                      <SelectValue placeholder="Select a theme" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {themes.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'notifications':
+        return (
+          <div key="notifications" {...dragProps} className={`relative ${draggedSection === 'notifications' ? 'opacity-50' : ''}`}>
+            {isAdmin && (
+              <div className="absolute left-3 top-4 z-10">
+                <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+              </div>
+            )}
+            <NotificationSettings />
+          </div>
+        );
+
+      case 'locations':
+        if (!isAdmin || locations.length === 0) return null;
+        return (
+          <div key="locations" {...dragProps} className={draggedSection === 'locations' ? 'opacity-50' : ''}>
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                  <MapPin className="h-4 w-4" />
+                  <CardTitle className="text-base">Locations</CardTitle>
+                </div>
+                <CardDescription className="text-xs">
+                  Manage locations, hours, and timezone settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {locations.map((location) => (
+                  <Button
+                    key={location.id}
+                    variant="outline"
+                    className="w-full justify-between h-auto py-2"
+                    onClick={() => navigate(`/location/${location.id}`)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-3 w-3" />
+                      <span className="text-sm">{location.name}</span>
+                    </div>
+                    <ExternalLinkIcon className="h-3 w-3" />
+                  </Button>
+                ))}
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => navigate('/location/new')}
+                >
+                  <MapPin className="h-3 w-3 mr-1" />
+                  Add Location
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'roles':
+        if (!isAdmin) return null;
+        return (
+          <div key="roles" {...dragProps} className={draggedSection === 'roles' ? 'opacity-50' : ''}>
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                  <Shield className="h-4 w-4" />
+                  <CardTitle className="text-base">Role Management</CardTitle>
+                </div>
+                <CardDescription className="text-xs">
+                  Configure permissions and notifications for each role
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => navigate('/role-management')}
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Manage Roles & Permissions
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      case 'positions':
+        if (!isAdmin) return null;
+        return (
+          <div key="positions" {...dragProps} className={draggedSection === 'positions' ? 'opacity-50' : ''}>
+            <div className="relative">
+              {isAdmin && (
+                <div className="absolute left-3 top-4 z-10">
+                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                </div>
+              )}
+              <PositionManagementCompact />
+            </div>
+          </div>
+        );
+
+      case 'maintenance':
+        if (!isAdmin) return null;
+        return (
+          <div key="maintenance" {...dragProps} className={draggedSection === 'maintenance' ? 'opacity-50' : ''}>
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
+                  <Wrench className="h-4 w-4" />
+                  <CardTitle className="text-base">System Maintenance</CardTitle>
+                </div>
+                <CardDescription className="text-xs">
+                  Admin tools and data management
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => navigate('/temperature-validation')}
+                >
+                  <Thermometer className="w-4 h-4 mr-2" />
+                  Temperature Validation
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={async () => {
+                    try {
+                      sonnerToast.info('Starting photo completions backfill...');
+                      const { data, error } = await supabase.functions.invoke('backfill-photo-completions');
+                      
+                      if (error) throw error;
+                      
+                      if (data.success) {
+                        sonnerToast.success(`Backfill complete: ${data.updated} photo responses updated`);
+                      } else {
+                        sonnerToast.error(data.error || 'Backfill failed');
+                      }
+                    } catch (error: any) {
+                      console.error('Backfill error:', error);
+                      sonnerToast.error('Failed to run backfill');
+                    }
+                  }}
+                >
+                  Backfill Photo Completions
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={async () => {
+                    try {
+                      sonnerToast.info('Starting Croo Cash backfill...');
+                      const { data, error } = await supabase.functions.invoke('backfill-croo-cash-transactions');
+                      
+                      if (error) throw error;
+                      
+                      if (data.success) {
+                        sonnerToast.success(`Backfill complete: ${data.updated} transactions corrected`);
+                      } else {
+                        sonnerToast.error(data.error || 'Backfill failed');
+                      }
+                    } catch (error: any) {
+                      console.error('Backfill error:', error);
+                      sonnerToast.error('Failed to run backfill');
+                    }
+                  }}
+                >
+                  Backfill Croo Cash
+                </Button>
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={async () => {
+                    try {
+                      sonnerToast.info('Rescanning temperatures...');
+                      const { data, error } = await supabase.functions.invoke('rescan-temperatures');
+                      
+                      if (error) throw error;
+                      
+                      if (data.success) {
+                        sonnerToast.success(`Rescan complete: ${data.updated} temperatures extracted`);
+                      } else {
+                        sonnerToast.error(data.error || 'Rescan failed');
+                      }
+                    } catch (error: any) {
+                      console.error('Rescan error:', error);
+                      sonnerToast.error('Failed to rescan');
+                    }
+                  }}
+                >
+                  Rescan Temperatures
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        );
+
+      default:
+        return null;
+    }
   };
 
   return (
@@ -207,285 +350,14 @@ export default function Settings() {
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="text-muted-foreground">Manage your application preferences</p>
+          <p className="text-muted-foreground">
+            Manage your preferences
+            {isAdmin && <span className="text-xs ml-2">(drag sections to reorder)</span>}
+          </p>
         </div>
 
-        <div className="grid gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Theme</CardTitle>
-              <CardDescription>
-                Customize the appearance of the application
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="theme">Color Theme</Label>
-                <Select value={theme} onValueChange={handleThemeChange}>
-                  <SelectTrigger id="theme">
-                    <SelectValue placeholder="Select a theme" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {themes.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Region</CardTitle>
-              <CardDescription>
-                Set your timezone and regional preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="timezone">Timezone</Label>
-                <Select value={timezone} onValueChange={handleTimezoneChange}>
-                  <SelectTrigger id="timezone">
-                    <SelectValue placeholder="Select a timezone" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {timezones.map((tz) => (
-                      <SelectItem key={tz.value} value={tz.value}>
-                        {tz.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-
-          <NotificationSettings />
-
-          {isAdmin && <NotificationsDashboard />}
-
-          {isAdmin && locations.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
-                  Locations
-                </CardTitle>
-                <CardDescription>
-                  Manage your company locations and location-specific settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {locations.map((location) => (
-                  <Button
-                    key={location.id}
-                    variant="outline"
-                    className="w-full justify-between h-auto py-3"
-                    onClick={() => navigate(`/location/${location.id}`)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      <span className="font-medium">{location.name}</span>
-                    </div>
-                    <ExternalLinkIcon className="h-4 w-4" />
-                  </Button>
-                ))}
-                <Button
-                  variant="secondary"
-                  className="w-full"
-                  onClick={() => navigate('/location/new')}
-                >
-                  <MapPin className="h-4 w-4 mr-2" />
-                  Add New Location
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {isAdmin && (
-            <>
-              <RoleManagementSection />
-              <PositionManagementSection />
-            </>
-          )}
-
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>My Certifications</CardTitle>
-                  <CardDescription>
-                    Upload and manage your certifications
-                  </CardDescription>
-                </div>
-                <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm">
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Upload Certificate</DialogTitle>
-                      <DialogDescription>
-                        Upload your certification document. It will be reviewed by an admin.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div>
-                        <Label>Certification Type</Label>
-                        <Select value={selectedType} onValueChange={(value: CertificationType) => setSelectedType(value)}>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="food_handlers">Food Handlers Card</SelectItem>
-                            <SelectItem value="servsafe">ServSafe Certification</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label>Certificate File</Label>
-                        <Input
-                          type="file"
-                          accept="image/*,.pdf"
-                          onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                        />
-                      </div>
-                      <div>
-                        <Label>Expiration Date</Label>
-                        <Input
-                          type="date"
-                          value={expirationDate}
-                          onChange={(e) => setExpirationDate(e.target.value)}
-                        />
-                      </div>
-                      <Button onClick={handleUpload} disabled={uploading} className="w-full">
-                        {uploading ? 'Uploading...' : 'Upload'}
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {myCertifications.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No certifications uploaded yet
-                </p>
-              ) : (
-                myCertifications.map((cert) => (
-                  <div key={cert.id} className="border rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <h4 className="font-semibold">{getCertTypeName(cert.certification_type as CertificationType)}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          Expires: {format(new Date(cert.expiration_date), 'MMM d, yyyy')}
-                        </p>
-                      </div>
-                      {getStatusBadge(cert.status)}
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => window.open(cert.certificate_url, '_blank')}
-                      >
-                        <ExternalLink className="w-3 h-3 mr-1" />
-                        View
-                      </Button>
-                      {cert.status === 'pending' && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDelete(cert.id)}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
-              {isAdmin && (
-                <Button onClick={() => navigate('/certifications')} variant="outline" className="w-full mt-4">
-                  <Award className="w-4 h-4 mr-2" />
-                  Manage All Certifications (Admin)
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          {isAdmin && (
-            <>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Thermometer className="h-5 w-5" />
-                    Temperature Validation
-                  </CardTitle>
-                  <CardDescription>
-                    Review and correct AI-extracted temperature readings from checklist photos
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => navigate('/temperature-validation')}
-                  >
-                    <Thermometer className="w-4 h-4 mr-2" />
-                    Review Temperature Readings
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>System Maintenance</CardTitle>
-                  <CardDescription>
-                    One-time system tools and data fixes
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="border rounded-lg p-4">
-                    <h4 className="font-semibold mb-2">Backfill Alle Photo Completions</h4>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      Sets Alle Rowe as the completer for legacy photo responses on the Morning Line Check checklist.
-                    </p>
-                    <Button 
-                      variant="outline"
-                      onClick={async () => {
-                        try {
-                          sonnerToast.info('Starting Alle backfill...');
-                          const { data, error } = await supabase.functions.invoke('backfill-alle-photo-completions', {
-                            body: { checklist_id: '9eaed930-e88a-4874-9045-b4c7fb91e6bd' },
-                          });
-                          
-                          if (error) throw error;
-                          
-                          if (data.success) {
-                            sonnerToast.success(`Backfill complete: ${data.updated} photo responses updated`);
-                          } else {
-                            sonnerToast.error(data.error || 'Backfill failed');
-                          }
-                        } catch (error: any) {
-                          console.error('Alle backfill error:', error);
-                          sonnerToast.error('Failed to run Alle backfill');
-                        }
-                      }}
-                    >
-                      Run Alle Backfill
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </>
-          )}
+        <div className="grid gap-4">
+          {sectionOrder.map((sectionId) => renderSection(sectionId))}
         </div>
       </div>
     </Layout>
