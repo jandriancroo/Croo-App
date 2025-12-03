@@ -1287,8 +1287,8 @@ export default function UserManagement() {
             {viewingUser && (
               <div className="space-y-4">
                 {/* Header Section */}
-                <div className="flex items-center gap-3 pb-3 border-b">
-                  <Avatar className="h-16 w-16">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 pb-3 border-b">
+                  <Avatar className="h-16 w-16 flex-shrink-0">
                     <AvatarImage src={viewingUser.profile_photo_url || undefined} />
                     <AvatarFallback className="text-xl">
                       {viewingUser.full_name?.charAt(0) || viewingUser.email.charAt(0).toUpperCase()}
@@ -1297,7 +1297,7 @@ export default function UserManagement() {
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold truncate">{viewingUser.full_name || 'No name'}</h3>
                     <p className="text-sm text-muted-foreground truncate">{viewingUser.email}</p>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <Badge variant={getRoleBadgeVariant(viewingUser.role!)} className="gap-1">
                         {getRoleIcon(viewingUser.role!)}
                         {viewingUser.role?.replace('_', ' ')}
@@ -1310,6 +1310,7 @@ export default function UserManagement() {
                   <Button
                     variant="outline"
                     size="sm"
+                    className="w-full sm:w-auto"
                     onClick={() => {
                       setIsProfileDialogOpen(false);
                       handleEditUser(viewingUser);
@@ -1320,8 +1321,8 @@ export default function UserManagement() {
                   </Button>
                 </div>
 
-                {/* Info Grid - Compact */}
-                <div className="grid grid-cols-3 gap-3">
+                {/* Info Grid - Responsive */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1 p-3 border rounded-lg">
                     <Label className="text-xs text-muted-foreground">Member Since</Label>
                     <p className="text-sm font-medium">
@@ -1339,7 +1340,7 @@ export default function UserManagement() {
                 </div>
 
                 {/* PIN and Wage Section */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2 p-3 border rounded-lg">
                     <Label className="text-xs text-muted-foreground">Punch Clock PIN</Label>
                     <div className="flex items-center gap-2">
@@ -1427,7 +1428,7 @@ export default function UserManagement() {
                 </div>
 
                 {/* Quick Actions Grid */}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Select
                     value={viewingUser.role}
                     onValueChange={(value: AppRole) => {

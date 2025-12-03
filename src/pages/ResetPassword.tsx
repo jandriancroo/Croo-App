@@ -18,19 +18,47 @@ export default function ResetPassword() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user came from a password reset link
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
       // Check URL hash for recovery token
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const type = hashParams.get('type');
+      const accessToken = hashParams.get('access_token');
+      const refreshToken = hashParams.get('refresh_token');
       
-      if (type === 'recovery' || session) {
-        setIsValidSession(true);
+      if (type === 'recovery' && accessToken) {
+        // Set the session using the tokens from the URL
+        try {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || '',
+          });
+          
+          if (error) {
+            console.error('Session error:', error);
+            toast.error('Invalid or expired reset link');
+            navigate('/auth');
+            return;
+          }
+          
+          if (data.session) {
+            setIsValidSession(true);
+            // Clear the hash from URL for cleaner appearance
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        } catch (err) {
+          console.error('Error setting session:', err);
+          toast.error('Failed to process reset link');
+          navigate('/auth');
+        }
       } else {
-        toast.error('Invalid or expired reset link');
-        navigate('/auth');
+        // No recovery token - check if there's an existing session from PASSWORD_RECOVERY event
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setIsValidSession(true);
+        } else {
+          toast.error('Invalid or expired reset link');
+          navigate('/auth');
+        }
       }
       setChecking(false);
     };
