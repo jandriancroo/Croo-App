@@ -95,6 +95,7 @@ export function ChecklistCompletionAlerts() {
           });
         });
         const totalResponses = uniqueItemIds.size;
+        const remainingTasks = totalItems - totalResponses;
 
         const completionRate = totalItems > 0 ? (totalResponses / totalItems) : 0;
         
@@ -104,6 +105,7 @@ export function ChecklistCompletionAlerts() {
             title: checklist.title,
             status: 'incomplete',
             completionRate: 0,
+            remainingTasks: totalItems,
           });
         } else if (completionRate < 1) {
           incompleteAlerts.push({
@@ -111,6 +113,7 @@ export function ChecklistCompletionAlerts() {
             title: checklist.title,
             status: 'partial',
             completionRate: Math.round(completionRate * 100),
+            remainingTasks,
           });
         }
       }
@@ -145,7 +148,7 @@ export function ChecklistCompletionAlerts() {
                 <span className="text-red-600 dark:text-red-400 font-medium">Not Started</span>
               ) : (
                 <span className="text-yellow-600 dark:text-yellow-400 font-medium">
-                  {alert.completionRate}% Complete
+                  Not Completed, {alert.remainingTasks} task{alert.remainingTasks === 1 ? '' : 's'} remaining
                 </span>
               )}
             </button>
