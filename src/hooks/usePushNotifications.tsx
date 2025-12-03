@@ -138,10 +138,14 @@ export const usePushNotifications = () => {
           console.error('[Push Web] ⚠️ Failed to save notification preferences:', prefsError);
         }
 
-        toast({
-          title: "Notifications Enabled",
-          description: "You'll receive push notifications for important updates.",
-        });
+        // Only show toast once per session
+        if (!sessionStorage.getItem('push_notifications_toast_shown')) {
+          sessionStorage.setItem('push_notifications_toast_shown', 'true');
+          toast({
+            title: "Notifications Enabled",
+            description: "You'll receive push notifications for important updates.",
+          });
+        }
 
         console.log('[Push Web] ✅ Web push setup complete!');
 
