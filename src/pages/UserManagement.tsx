@@ -37,7 +37,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { CrooCashCard } from '@/components/users/CrooCashCard';
-
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 interface UserProfile {
   id: string;
   email: string;
@@ -82,8 +82,6 @@ export default function UserManagement() {
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [resetPasswordLink, setResetPasswordLink] = useState<string>('');
   const [resetPasswordUserName, setResetPasswordUserName] = useState<string>('');
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [deletingUser, setDeletingUser] = useState<UserProfile | null>(null);
   const [viewingUser, setViewingUser] = useState<UserProfile | null>(null);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [isWageDialogOpen, setIsWageDialogOpen] = useState(false);
@@ -99,8 +97,8 @@ export default function UserManagement() {
   const [addingNote, setAddingNote] = useState(false);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [isBulkDeactivateOpen, setIsBulkDeactivateOpen] = useState(false);
-  const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
   const [isBulkWageOpen, setIsBulkWageOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [editBirthday, setEditBirthday] = useState<Date | undefined>();
@@ -596,44 +594,6 @@ export default function UserManagement() {
     }
   };
 
-  const handleDeleteUser = async () => {
-    if (!deletingUser) return;
-
-    try {
-      // First deactivate the user
-      const { error: deactivateError } = await supabase.functions.invoke('toggle-user-status', {
-        body: { userId: deletingUser.id, isActive: false },
-      });
-
-      if (deactivateError) throw deactivateError;
-
-      // Then delete the user
-      const { error } = await supabase.functions.invoke('delete-user', {
-        body: {
-          userId: deletingUser.id,
-        },
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: 'Success',
-        description: 'User permanently deleted',
-      });
-
-      setIsDeleteDialogOpen(false);
-      setDeletingUser(null);
-      fetchUsers();
-    } catch (error: any) {
-      console.error('Error deleting user:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to delete user',
-        variant: 'destructive',
-      });
-    }
-  };
-
   const handleUpdateWage = async () => {
     if (!editingWageUser) return;
 
@@ -895,42 +855,6 @@ export default function UserManagement() {
     }
   };
 
-  const handleBulkDelete = async () => {
-    try {
-      setBulkUpdating(true);
-      
-      for (const userId of selectedUsers) {
-        // First deactivate the user
-        await supabase.functions.invoke('toggle-user-status', {
-          body: { userId, isActive: false },
-        });
-        
-        // Then delete the user
-        await supabase.functions.invoke('delete-user', {
-          body: { userId },
-        });
-      }
-
-      toast({
-        title: 'Success',
-        description: `${selectedUsers.size} user(s) deleted`,
-      });
-
-      setSelectedUsers(new Set());
-      setIsBulkDeleteOpen(false);
-      fetchUsers();
-    } catch (error: any) {
-      console.error('Error bulk deleting:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete users',
-        variant: 'destructive',
-      });
-    } finally {
-      setBulkUpdating(false);
-    }
-  };
-
   const handleBulkWageUpdate = async (wage: number, effectiveDate: Date, notes: string) => {
     try {
       setBulkUpdating(true);
@@ -1000,10 +924,11 @@ export default function UserManagement() {
   };
 
   const toggleSelectAll = () => {
-    if (selectedUsers.size === users.length) {
+    const filteredUsers = users.filter(u => u.is_active === (activeTab === 'active'));
+    if (selectedUsers.size === filteredUsers.length) {
       setSelectedUsers(new Set());
     } else {
-      setSelectedUsers(new Set(users.map(u => u.id)));
+      setSelectedUsers(new Set(filteredUsers.map(u => u.id)));
     }
   };
 
@@ -1246,6 +1171,21 @@ export default function UserManagement() {
           </div>
           </CardHeader>
           <CardContent>
+            {/* Active/Inactive Tabs */}
+            <Tabs value={activeTab} onValueChange={(v) => {
+              setActiveTab(v as 'active' | 'inactive');
+              setSelectedUsers(new Set());
+            }} className="mb-4">
+              <TabsList>
+                <TabsTrigger value="active">
+                  Active ({users.filter(u => u.is_active).length})
+                </TabsTrigger>
+                <TabsTrigger value="inactive">
+                  Inactive ({users.filter(u => !u.is_active).length})
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1256,7 +1196,7 @@ export default function UserManagement() {
                   <TableRow>
                     <TableHead className="w-12">
                       <Checkbox
-                        checked={selectedUsers.size === users.length && users.length > 0}
+                        checked={selectedUsers.size === users.filter(u => u.is_active === (activeTab === 'active')).length && users.filter(u => u.is_active === (activeTab === 'active')).length > 0}
                         onCheckedChange={toggleSelectAll}
                       />
                     </TableHead>
@@ -1264,11 +1204,10 @@ export default function UserManagement() {
                     <TableHead className="hidden md:table-cell">Role</TableHead>
                     <TableHead className="hidden md:table-cell">Croo Cash</TableHead>
                     <TableHead className="hidden md:table-cell">Cert</TableHead>
-                    <TableHead className="hidden md:table-cell">Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {users.map((user) => (
+                  {users.filter(u => u.is_active === (activeTab === 'active')).map((user) => (
                     <TableRow 
                       key={user.id}
                       className="hover:bg-muted/50"
@@ -1299,13 +1238,10 @@ export default function UserManagement() {
                               <div className="font-medium">{user.full_name || 'No name'}</div>
                               <div className="text-sm text-muted-foreground">{user.email}</div>
                             </div>
-                            {/* Mobile view - name on top, status + role + croo cash below */}
+                            {/* Mobile view - name on top, role + croo cash below */}
                             <div className="md:hidden">
                               <div className="font-medium">{user.full_name || 'No name'}</div>
                               <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
-                                <Badge variant={user.is_active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-                                  {user.is_active ? "Active" : "Inactive"}
-                                </Badge>
                                 <span className="text-muted-foreground">{user.role?.replace('_', ' ')}</span>
                                 <span className="text-muted-foreground">•</span>
                                 <span className="text-muted-foreground">${(user.croo_cash_balance || 0) / 100}</span>
@@ -1333,11 +1269,6 @@ export default function UserManagement() {
                             <span className="text-red-500 text-lg">×</span>
                           )}
                         </div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <Badge variant={user.is_active ? "default" : "secondary"}>
-                          {user.is_active ? "Active" : "Inactive"}
-                        </Badge>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -1544,20 +1475,6 @@ export default function UserManagement() {
                     <Key className="h-4 w-4 mr-2" />
                     Reset Password
                   </Button>
-                  {!viewingUser.is_active && (
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="col-span-2"
-                      onClick={() => {
-                        setIsProfileDialogOpen(false);
-                        setDeletingUser(viewingUser);
-                        setIsDeleteDialogOpen(true);
-                      }}
-                    >
-                      Delete Permanently
-                    </Button>
-                  )}
                 </div>
 
                  {/* Employee Notes Section - Compact */}
@@ -1863,37 +1780,6 @@ export default function UserManagement() {
           </DialogContent>
         </Dialog>
 
-
-        {/* Delete User Confirmation Dialog */}
-        <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Delete User Permanently</DialogTitle>
-              <DialogDescription>
-                Are you sure you want to permanently delete {deletingUser?.full_name || deletingUser?.email}? 
-                This action cannot be undone and will remove all user data.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setIsDeleteDialogOpen(false);
-                  setDeletingUser(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={handleDeleteUser}
-              >
-                Delete Permanently
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
         {/* Edit Wage Dialog */}
         <Dialog open={isWageDialogOpen} onOpenChange={setIsWageDialogOpen}>
           <DialogContent>
@@ -2030,7 +1916,6 @@ export default function UserManagement() {
         <BulkActionsBar
           selectedCount={selectedUsers.size}
           onDeactivate={() => setIsBulkDeactivateOpen(true)}
-          onDelete={() => setIsBulkDeleteOpen(true)}
           onWageUpdate={() => setIsBulkWageOpen(true)}
           onClearSelection={() => setSelectedUsers(new Set())}
         />
@@ -2048,28 +1933,6 @@ export default function UserManagement() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleBulkDeactivate} disabled={bulkUpdating}>
                 {bulkUpdating ? 'Deactivating...' : 'Deactivate'}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* Bulk Delete Confirmation */}
-        <AlertDialog open={isBulkDeleteOpen} onOpenChange={setIsBulkDeleteOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Bulk Delete Users</AlertDialogTitle>
-              <AlertDialogDescription>
-                Are you sure you want to permanently delete {selectedUsers.size} user(s)? This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleBulkDelete}
-                disabled={bulkUpdating}
-                className="bg-destructive text-destructive-foreground"
-              >
-                {bulkUpdating ? 'Deleting...' : 'Delete Permanently'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

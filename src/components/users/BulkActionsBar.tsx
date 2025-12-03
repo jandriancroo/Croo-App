@@ -1,10 +1,9 @@
 import { Button } from '@/components/ui/button';
-import { X, UserX, Trash2, DollarSign } from 'lucide-react';
+import { X, UserX, DollarSign } from 'lucide-react';
 
 interface BulkActionsBarProps {
   selectedCount: number;
   onDeactivate: () => void;
-  onDelete: () => void;
   onWageUpdate: () => void;
   onClearSelection: () => void;
 }
@@ -12,7 +11,6 @@ interface BulkActionsBarProps {
 export function BulkActionsBar({
   selectedCount,
   onDeactivate,
-  onDelete,
   onWageUpdate,
   onClearSelection
 }: BulkActionsBarProps) {
@@ -32,15 +30,6 @@ export function BulkActionsBar({
           >
             <UserX className="h-4 w-4" />
             Deactivate
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={onDelete}
-            className="gap-2"
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete
           </Button>
           <Button
             size="sm"
