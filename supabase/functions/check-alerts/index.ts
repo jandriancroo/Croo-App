@@ -266,6 +266,7 @@ async function checkLateArrivals(supabaseClient: any, timezone: string) {
     const { startOfDayUTC, endOfDayUTC, localNow, currentDay } = getTimezoneDayBoundariesInUTC(timezone);
     const currentHours = localNow.getHours();
     const currentMinutes = localNow.getMinutes();
+    const currentTotalMinutes = currentHours * 60 + currentMinutes;
     
     // Get today's date in local timezone (YYYY-MM-DD format)
     const localYear = localNow.getFullYear();
@@ -303,10 +304,16 @@ async function checkLateArrivals(supabaseClient: any, timezone: string) {
 
     for (const shift of shifts) {
       const [shiftHours, shiftMinutes] = shift.start_time.split(':').map(Number);
-      const lateThresholdMinutes = (shiftHours * 60 + shiftMinutes) + 10;
-      const currentTotalMinutes = currentHours * 60 + currentMinutes;
-
-      if (currentTotalMinutes < lateThresholdMinutes) continue;
+      const shiftStartMinutes = shiftHours * 60 + shiftMinutes;
+      
+      // Only alert if we're exactly in the 15-20 minute window after shift start
+      // This ensures one-time notification (function runs every ~5 min)
+      const minutesSinceShiftStart = currentTotalMinutes - shiftStartMinutes;
+      
+      // Skip if shift hasn't started yet or we're outside the 15-20 min window
+      if (minutesSinceShiftStart < 15 || minutesSinceShiftStart >= 20) continue;
+      
+      console.log(`Checking shift for ${profileMap.get(shift.user_id)}: ${minutesSinceShiftStart} minutes since start`);
 
       // Check for punch-ins using UTC boundaries
       const { data: punches } = await supabaseClient
@@ -320,17 +327,16 @@ async function checkLateArrivals(supabaseClient: any, timezone: string) {
         .limit(1);
 
       if (!punches || punches.length === 0) {
-        const minutesLate = currentTotalMinutes - lateThresholdMinutes;
         lateEmployees.push({
           user_id: shift.user_id,
           name: profileMap.get(shift.user_id) || 'Unknown',
-          minutes_late: minutesLate
+          shift_start: shift.start_time
         });
       }
     }
 
     if (lateEmployees.length > 0) {
-      console.log(`Found ${lateEmployees.length} late employees`);
+      console.log(`Found ${lateEmployees.length} late employees (15+ min)`);
 
       const { data: adminUsers } = await supabaseClient
         .from('user_roles')
@@ -342,8 +348,8 @@ async function checkLateArrivals(supabaseClient: any, timezone: string) {
           await supabaseClient.functions.invoke('send-push-notification', {
             body: {
               user_ids: adminUsers.map((u: any) => u.user_id),
-              title: 'Late Arrival',
-              body: `${employee.name} is ${employee.minutes_late}+ minutes late`,
+              title: '🚨 Late Arrival',
+              body: `${employee.name} has not clocked in (shift started ${employee.shift_start})`,
               notification_type: 'late_arrivals',
               data: {
                 user_id: employee.user_id,
@@ -353,6 +359,8 @@ async function checkLateArrivals(supabaseClient: any, timezone: string) {
           });
         }
       }
+    } else {
+      console.log('No late arrivals in the 15-20 min window');
     }
   } catch (error) {
     console.error('Error checking late arrivals:', error);
