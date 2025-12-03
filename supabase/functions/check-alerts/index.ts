@@ -19,11 +19,21 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Starting alert checks...');
 
+    // Get location timezone (use first location's timezone as default)
+    const { data: locationSettings } = await supabaseClient
+      .from('location_settings')
+      .select('timezone')
+      .limit(1)
+      .single();
+    
+    const timezone = locationSettings?.timezone || 'America/Los_Angeles';
+    console.log(`Using timezone: ${timezone}`);
+
     // Check for overdue checklists
-    await checkOverdueChecklists(supabaseClient);
+    await checkOverdueChecklists(supabaseClient, timezone);
 
     // Check for late arrivals
-    await checkLateArrivals(supabaseClient);
+    await checkLateArrivals(supabaseClient, timezone);
 
     // Check for expiring certifications
     await checkExpiringCertifications(supabaseClient);
@@ -41,55 +51,78 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
-// Helper to get Pacific time boundaries in UTC
-function getPacificDayBoundariesInUTC(): { startOfDayUTC: Date; endOfDayUTC: Date; pacificNow: Date; currentDay: number } {
-  // Get current UTC time
+// Helper to get timezone-adjusted day boundaries in UTC
+function getTimezoneDayBoundariesInUTC(timezone: string): { startOfDayUTC: Date; endOfDayUTC: Date; localNow: Date; currentDay: number } {
   const utcNow = new Date();
   
-  // Get Pacific time string
-  const pacificTimeStr = utcNow.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+  // Get local time string in the specified timezone
+  const localTimeStr = utcNow.toLocaleString('en-US', { timeZone: timezone });
+  const localNow = new Date(localTimeStr);
   
-  // Parse Pacific time components
-  const pacificDate = new Date(pacificTimeStr);
-  const pacificYear = pacificDate.getFullYear();
-  const pacificMonth = pacificDate.getMonth();
-  const pacificDay = pacificDate.getDate();
-  const currentDay = pacificDate.getDay(); // Day of week
+  // Extract date components from local time
+  const localYear = localNow.getFullYear();
+  const localMonth = localNow.getMonth();
+  const localDay = localNow.getDate();
+  const currentDay = localNow.getDay(); // Day of week (0-6)
   
-  // Calculate offset: Pacific is UTC-8 (PST) or UTC-7 (PDT)
-  // Create a date at midnight Pacific time and find its UTC equivalent
-  const pacificMidnightStr = `${pacificYear}-${String(pacificMonth + 1).padStart(2, '0')}-${String(pacificDay).padStart(2, '0')}T00:00:00`;
+  // Format the local date as ISO string for database queries
+  const localDateStr = `${localYear}-${String(localMonth + 1).padStart(2, '0')}-${String(localDay).padStart(2, '0')}`;
   
-  // Get the UTC offset for Pacific timezone
-  const testDate = new Date(utcNow.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-  const utcTestDate = utcNow;
-  const offsetMs = utcTestDate.getTime() - testDate.getTime();
+  // Create start of day (midnight) in local timezone, then convert to UTC
+  // We use Intl.DateTimeFormat to get the exact offset
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  });
   
-  // Start of Pacific day in UTC (midnight Pacific = 8 AM UTC in PST / 7 AM UTC in PDT)
-  const startOfDayUTC = new Date(pacificYear, pacificMonth, pacificDay, 0, 0, 0, 0);
-  startOfDayUTC.setTime(startOfDayUTC.getTime() + offsetMs);
+  // Calculate the offset between UTC and local timezone
+  const utcParts = formatter.formatToParts(utcNow);
+  const localHour = parseInt(utcParts.find(p => p.type === 'hour')?.value || '0');
+  const localMinute = parseInt(utcParts.find(p => p.type === 'minute')?.value || '0');
   
-  // End of Pacific day in UTC
-  const endOfDayUTC = new Date(pacificYear, pacificMonth, pacificDay, 23, 59, 59, 999);
-  endOfDayUTC.setTime(endOfDayUTC.getTime() + offsetMs);
+  // Get UTC hour/minute for comparison
+  const utcHour = utcNow.getUTCHours();
+  const utcMinute = utcNow.getUTCMinutes();
   
-  console.log(`Pacific date: ${pacificMonth + 1}/${pacificDay}/${pacificYear}, Day of week: ${currentDay}`);
-  console.log(`Start of Pacific day in UTC: ${startOfDayUTC.toISOString()}`);
-  console.log(`End of Pacific day in UTC: ${endOfDayUTC.toISOString()}`);
+  // Calculate offset in milliseconds (this is approximate but works for our use case)
+  // A more robust solution would use a proper timezone library
+  let offsetHours = localHour - utcHour;
+  if (offsetHours > 12) offsetHours -= 24;
+  if (offsetHours < -12) offsetHours += 24;
+  const offsetMs = offsetHours * 60 * 60 * 1000 + (localMinute - utcMinute) * 60 * 1000;
   
-  return { startOfDayUTC, endOfDayUTC, pacificNow: pacificDate, currentDay };
+  // Start of local day in UTC
+  const startOfLocalDay = new Date(localYear, localMonth, localDay, 0, 0, 0, 0);
+  const startOfDayUTC = new Date(startOfLocalDay.getTime() - offsetMs);
+  
+  // End of local day in UTC
+  const endOfLocalDay = new Date(localYear, localMonth, localDay, 23, 59, 59, 999);
+  const endOfDayUTC = new Date(endOfLocalDay.getTime() - offsetMs);
+  
+  console.log(`Timezone: ${timezone}`);
+  console.log(`Local date: ${localMonth + 1}/${localDay}/${localYear}, Day of week: ${currentDay}`);
+  console.log(`Local time: ${localNow.toLocaleTimeString()}`);
+  console.log(`Start of local day in UTC: ${startOfDayUTC.toISOString()}`);
+  console.log(`End of local day in UTC: ${endOfDayUTC.toISOString()}`);
+  
+  return { startOfDayUTC, endOfDayUTC, localNow, currentDay };
 }
 
-async function checkOverdueChecklists(supabaseClient: any) {
+async function checkOverdueChecklists(supabaseClient: any, timezone: string) {
   try {
-    const { startOfDayUTC, endOfDayUTC, pacificNow, currentDay } = getPacificDayBoundariesInUTC();
-    const currentHours = pacificNow.getHours();
-    const currentMinutes = pacificNow.getMinutes();
+    const { startOfDayUTC, endOfDayUTC, localNow, currentDay } = getTimezoneDayBoundariesInUTC(timezone);
+    const currentHours = localNow.getHours();
+    const currentMinutes = localNow.getMinutes();
     
-    console.log(`Pacific time: ${pacificNow.toLocaleString()}, Day: ${currentDay}, Time: ${currentHours}:${currentMinutes}`);
+    console.log(`Checklist check - Local time: ${localNow.toLocaleString()}, Day: ${currentDay}, Time: ${currentHours}:${currentMinutes}`);
     
     // Only send notifications at the top of the hour (within first 10 minutes)
-    // This creates hourly reminders instead of every 5 minutes
     if (currentMinutes > 10) {
       console.log('Skipping overdue checklist notifications - not at top of hour');
       return;
@@ -140,16 +173,13 @@ async function checkOverdueChecklists(supabaseClient: any) {
     
     const currentTotalMinutes = currentHours * 60 + currentMinutes;
     
-    // Find the "active" overdue checklist - the most recently due one
-    // that hasn't been superseded by a newer due checklist
+    // Find the "active" overdue checklist
     let activeOverdueChecklist = null;
     
     for (let i = relevantChecklists.length - 1; i >= 0; i--) {
       const checklist = relevantChecklists[i];
       
-      // If this checklist is overdue (current time past due time)
       if (currentTotalMinutes >= checklist.dueTotalMinutes) {
-        // This is the most recently due checklist - check if it's incomplete
         const { data: submissions } = await supabaseClient
           .from('checklist_submissions')
           .select(`
@@ -193,17 +223,13 @@ async function checkOverdueChecklists(supabaseClient: any) {
           };
         }
         
-        // Only consider the most recently due checklist
-        // Previous checklists stop getting reminders once a new one becomes due
         break;
       }
     }
 
-    // Send notification for the single active overdue checklist
     if (activeOverdueChecklist) {
       console.log(`Active overdue checklist: "${activeOverdueChecklist.title}" (due ${activeOverdueChecklist.dueTime})`);
 
-      // Get all active managers and admins
       const { data: adminUsers } = await supabaseClient
         .from('user_roles')
         .select('user_id')
@@ -235,21 +261,21 @@ async function checkOverdueChecklists(supabaseClient: any) {
   }
 }
 
-async function checkLateArrivals(supabaseClient: any) {
+async function checkLateArrivals(supabaseClient: any, timezone: string) {
   try {
-    const { startOfDayUTC, endOfDayUTC, pacificNow, currentDay } = getPacificDayBoundariesInUTC();
-    const currentHours = pacificNow.getHours();
-    const currentMinutes = pacificNow.getMinutes();
+    const { startOfDayUTC, endOfDayUTC, localNow, currentDay } = getTimezoneDayBoundariesInUTC(timezone);
+    const currentHours = localNow.getHours();
+    const currentMinutes = localNow.getMinutes();
     
-    // Get today's date in Pacific timezone (YYYY-MM-DD format)
-    const pacificYear = pacificNow.getFullYear();
-    const pacificMonth = pacificNow.getMonth();
-    const pacificDay = pacificNow.getDate();
-    const today = `${pacificYear}-${String(pacificMonth + 1).padStart(2, '0')}-${String(pacificDay).padStart(2, '0')}`;
+    // Get today's date in local timezone (YYYY-MM-DD format)
+    const localYear = localNow.getFullYear();
+    const localMonth = localNow.getMonth();
+    const localDay = localNow.getDate();
+    const today = `${localYear}-${String(localMonth + 1).padStart(2, '0')}-${String(localDay).padStart(2, '0')}`;
     
-    console.log(`Late arrivals check - Pacific time: ${pacificNow.toLocaleString()}, today: ${today}`);
+    console.log(`Late arrivals check - Local time: ${localNow.toLocaleString()}, today: ${today}`);
     
-    // Get today's shifts that should have started
+    // Get today's shifts
     const { data: shifts, error: shiftsError } = await supabaseClient
       .from('scheduled_shifts')
       .select(`
@@ -277,14 +303,12 @@ async function checkLateArrivals(supabaseClient: any) {
 
     for (const shift of shifts) {
       const [shiftHours, shiftMinutes] = shift.start_time.split(':').map(Number);
-      // Add 10 minute grace period
       const lateThresholdMinutes = (shiftHours * 60 + shiftMinutes) + 10;
       const currentTotalMinutes = currentHours * 60 + currentMinutes;
 
-      // Check if shift should have started and if we're past the late threshold
       if (currentTotalMinutes < lateThresholdMinutes) continue;
 
-      // Check if employee has punched in - use UTC boundaries for Pacific day
+      // Check for punch-ins using UTC boundaries
       const { data: punches } = await supabaseClient
         .from('time_punches')
         .select('id, punch_time')
@@ -305,11 +329,9 @@ async function checkLateArrivals(supabaseClient: any) {
       }
     }
 
-    // Send notifications for late arrivals
     if (lateEmployees.length > 0) {
       console.log(`Found ${lateEmployees.length} late employees`);
 
-      // Get all active managers and admins
       const { data: adminUsers } = await supabaseClient
         .from('user_roles')
         .select('user_id')
@@ -342,14 +364,7 @@ async function checkExpiringCertifications(supabaseClient: any) {
     const now = new Date();
     const thirtyDaysFromNow = new Date();
     thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-    
-    const fourteenDaysFromNow = new Date();
-    fourteenDaysFromNow.setDate(fourteenDaysFromNow.getDate() + 14);
-    
-    const sevenDaysFromNow = new Date();
-    sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
 
-    // Get certifications expiring in the next 30 days
     const { data: expiringCerts, error: certsError } = await supabaseClient
       .from('certifications')
       .select(`
@@ -368,7 +383,6 @@ async function checkExpiringCertifications(supabaseClient: any) {
       return;
     }
 
-    // Get profiles separately
     const userIds = [...new Set(expiringCerts.map((c: any) => c.user_id))];
     const { data: profiles } = await supabaseClient
       .from('profiles')
@@ -379,12 +393,10 @@ async function checkExpiringCertifications(supabaseClient: any) {
 
     console.log(`Found ${expiringCerts.length} certifications expiring within 30 days`);
 
-    // Group by urgency and notify
     for (const cert of expiringCerts) {
       const expirationDate = new Date(cert.expiration_date);
       const daysUntilExpiry = Math.ceil((expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       
-      // Only notify at specific intervals: 30, 14, 7, 3, 1 days
       const notifyDays = [30, 14, 7, 3, 1];
       if (!notifyDays.includes(daysUntilExpiry)) continue;
 
@@ -401,7 +413,6 @@ async function checkExpiringCertifications(supabaseClient: any) {
         year: 'numeric'
       });
 
-      // Notify the user whose certification is expiring
       await supabaseClient.functions.invoke('send-push-notification', {
         body: {
           user_ids: [cert.user_id],
@@ -415,7 +426,6 @@ async function checkExpiringCertifications(supabaseClient: any) {
         }
       });
 
-      // Also notify admins
       const { data: adminUsers } = await supabaseClient
         .from('user_roles')
         .select('user_id')
