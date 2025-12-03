@@ -122,8 +122,9 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string) {
     
     console.log(`Checklist check - Local time: ${localNow.toLocaleString()}, Day: ${currentDay}, Time: ${currentHours}:${currentMinutes}`);
     
-    // Only send notifications at the top of the hour (within first 10 minutes)
-    if (currentMinutes > 10) {
+    // Only send notifications at the top of the hour (within first 15 minutes)
+    // Widened from 10 to 15 minutes to account for potential cron timing delays
+    if (currentMinutes > 15) {
       console.log('Skipping overdue checklist notifications - not at top of hour');
       return;
     }
