@@ -150,11 +150,23 @@ export default function MyWallet() {
   };
 
   const getTransactionIcon = (type: string) => {
-    return type === "earned" ? (
+    const isPositive = type === "take_shift" || type === "checklist_completion";
+    return isPositive ? (
       <TrendingUp className="h-4 w-4 text-green-500" />
     ) : (
       <TrendingDown className="h-4 w-4 text-red-500" />
     );
+  };
+
+  const getTransactionLabel = (type: string) => {
+    switch (type) {
+      case "take_shift": return "Picked up shift";
+      case "offer_shift": return "Offered shift";
+      case "checklist_completion": return "Completed checklist";
+      case "incomplete_checklist": return "Incomplete checklist";
+      case "denied_claim": return "Claim denied";
+      default: return type.replace(/_/g, ' ');
+    }
   };
 
   if (loading) {
@@ -219,9 +231,9 @@ export default function MyWallet() {
             </CardHeader>
             <CardContent>
               <p className={`text-3xl font-bold ${getBalanceColor()}`}>
-                {crooCashBalance}
+                ${(crooCashBalance / 100).toFixed(2)}
               </p>
-              <p className="text-sm text-muted-foreground">points</p>
+              <p className="text-sm text-muted-foreground">balance</p>
             </CardContent>
           </Card>
         </div>
@@ -248,8 +260,8 @@ export default function MyWallet() {
                       <div className="flex items-center gap-3">
                         {getTransactionIcon(txn.transaction_type)}
                         <div>
-                          <p className="font-medium capitalize">
-                            {txn.transaction_type === "earned" ? "Picked up shift" : "Offered shift"}
+                          <p className="font-medium">
+                            {getTransactionLabel(txn.transaction_type)}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {format(parseISO(txn.shift_date), "MMM d, yyyy")}
@@ -257,7 +269,7 @@ export default function MyWallet() {
                         </div>
                       </div>
                       <span className={`font-bold ${txn.amount > 0 ? "text-green-500" : "text-red-500"}`}>
-                        {txn.amount > 0 ? "+" : ""}{txn.amount}
+                        {txn.amount > 0 ? "+" : ""}${(Math.abs(txn.amount) / 100).toFixed(2)}
                       </span>
                     </div>
                   ))}

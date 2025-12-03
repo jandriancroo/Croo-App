@@ -180,11 +180,11 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
         return;
       }
 
-      // Determine if this is a weekend (Friday = 5, Saturday = 6)
+      // Determine if this is a weekend (Friday = 5, Saturday = 6, Sunday = 0)
       const shiftDate = new Date(offer.shift.shift_date);
       const dayOfWeek = shiftDate.getDay();
-      const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
-      const amount = isWeekend ? 50 : 25; // 2x for weekend
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
+      const amount = isWeekend ? 200 : 100; // $1 base, $2 for weekend (stored in cents)
 
       // Create claim record
       const { error: claimError } = await supabase
@@ -253,11 +253,11 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
 
     setProcessing(true);
     try {
-      // Determine if this is a weekend shift for Croo Cash amount
+      // Determine if this is a weekend shift for Croo Cash amount (Fri, Sat, Sun)
       const shiftDate = new Date(offer.shift.shift_date);
       const dayOfWeek = shiftDate.getDay();
-      const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
-      const amount = isWeekend ? 50 : 25; // 2x for weekend
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
+      const amount = isWeekend ? 200 : 100; // $1 base, $2 for weekend (stored in cents)
 
       // Update shift_offers status to approved
       const { error: offerError } = await supabase
@@ -338,11 +338,11 @@ export function ShiftOfferMessage({ offerId, messageId }: ShiftOfferMessageProps
   const handleDeny = async () => {
     setProcessing(true);
     try {
-      // Get all claimers for this shift
+      // Get all claimers for this shift (Fri, Sat, Sun = weekend)
       const shiftDate = new Date(offer.shift.shift_date);
       const dayOfWeek = shiftDate.getDay();
-      const isWeekend = dayOfWeek === 5 || dayOfWeek === 6;
-      const amount = isWeekend ? 50 : 25; // 2x for weekend
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
+      const amount = isWeekend ? 200 : 100; // $1 base, $2 for weekend (stored in cents)
 
       // Reverse Croo Cash for all claimers
       for (const claim of claims) {
