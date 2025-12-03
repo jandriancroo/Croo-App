@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Bell, Shield, Users, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
-type AppRole = 'admin' | 'manager' | 'team_member';
+type AppRole = 'admin' | 'general_manager' | 'shift_manager' | 'manager' | 'team_member';
 
 interface NotificationSetting {
   id: string;
@@ -19,7 +19,8 @@ interface NotificationSetting {
 
 const roleConfig: { role: AppRole; label: string; icon: React.ReactNode; description: string }[] = [
   { role: 'admin', label: 'Admin', icon: <Shield className="h-4 w-4" />, description: 'Full access to all notifications' },
-  { role: 'manager', label: 'Manager', icon: <UserCheck className="h-4 w-4" />, description: 'Supervisory notifications' },
+  { role: 'general_manager', label: 'General Manager', icon: <UserCheck className="h-4 w-4" />, description: 'Management notifications' },
+  { role: 'shift_manager', label: 'Shift Manager', icon: <UserCheck className="h-4 w-4" />, description: 'Shift supervisory notifications' },
   { role: 'team_member', label: 'Team Member', icon: <Users className="h-4 w-4" />, description: 'Basic notifications' },
 ];
 

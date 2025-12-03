@@ -382,6 +382,8 @@ export default function UserManagement() {
     switch (role) {
       case 'admin':
         return <Shield className="h-4 w-4" />;
+      case 'general_manager':
+      case 'shift_manager':
       case 'manager':
         return <UserCog className="h-4 w-4" />;
       default:
@@ -393,10 +395,30 @@ export default function UserManagement() {
     switch (role) {
       case 'admin':
         return 'default';
+      case 'general_manager':
+        return 'secondary';
+      case 'shift_manager':
       case 'manager':
         return 'secondary';
       default:
         return 'outline';
+    }
+  };
+
+  const getRoleDisplayName = (role: AppRole) => {
+    switch (role) {
+      case 'admin':
+        return 'Admin';
+      case 'general_manager':
+        return 'General Manager';
+      case 'shift_manager':
+        return 'Shift Manager';
+      case 'manager':
+        return 'Shift Manager';
+      case 'team_member':
+        return 'Team Member';
+      default:
+        return String(role).replace('_', ' ');
     }
   };
 
@@ -1175,11 +1197,6 @@ export default function UserManagement() {
                   </div>
                 </DialogContent>
               </Dialog>
-              <Button variant="outline" onClick={handleCreateTestUsers} className="gap-2 flex-1 md:flex-none">
-                <Users className="h-4 w-4" />
-                <span className="hidden sm:inline">Create Test Users</span>
-                <span className="sm:hidden">Test Users</span>
-              </Button>
             </div>
               )}
           </div>
@@ -1260,7 +1277,7 @@ export default function UserManagement() {
                             <div className="md:hidden">
                               <div className="font-medium">{user.full_name || 'No name'}</div>
                               <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
-                                <span className="text-muted-foreground">{user.role?.replace('_', ' ')}</span>
+                                <span className="text-muted-foreground">{getRoleDisplayName(user.role!)}</span>
                                 <span className="text-muted-foreground">•</span>
                                 <span className="text-muted-foreground">${(user.croo_cash_balance || 0) / 100}</span>
                               </div>
@@ -1271,7 +1288,7 @@ export default function UserManagement() {
                       <TableCell className="hidden md:table-cell">
                         <Badge variant={getRoleBadgeVariant(user.role!)} className="gap-1">
                           {getRoleIcon(user.role!)}
-                          {user.role?.replace('_', ' ')}
+                          {getRoleDisplayName(user.role!)}
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
@@ -1318,7 +1335,7 @@ export default function UserManagement() {
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <Badge variant={getRoleBadgeVariant(viewingUser.role!)} className="gap-1">
                         {getRoleIcon(viewingUser.role!)}
-                        {viewingUser.role?.replace('_', ' ')}
+                        {getRoleDisplayName(viewingUser.role!)}
                       </Badge>
                       <Badge variant={viewingUser.is_active ? "default" : "secondary"}>
                         {viewingUser.is_active ? "Active" : "Inactive"}
@@ -1470,7 +1487,8 @@ export default function UserManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="team_member">Team Member</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="shift_manager">Shift Manager</SelectItem>
+                      <SelectItem value="general_manager">General Manager</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>

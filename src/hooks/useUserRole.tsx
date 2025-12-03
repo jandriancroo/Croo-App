@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
-export type AppRole = 'admin' | 'manager' | 'team_member';
+export type AppRole = 'admin' | 'general_manager' | 'shift_manager' | 'manager' | 'team_member';
 
 export const useUserRole = () => {
   const { user } = useAuth();
@@ -34,5 +34,26 @@ export const useUserRole = () => {
     fetchRole();
   }, [user]);
 
-  return { role, loading, isAdmin: role === 'admin', isManager: role === 'manager' };
+  // Helper checks - general_manager has similar permissions to admin for most things
+  const isAdmin = role === 'admin';
+  const isGeneralManager = role === 'general_manager';
+  const isShiftManager = role === 'shift_manager' || role === 'manager';
+  const isManager = isGeneralManager || isShiftManager; // Any manager level
+  const canManageSchedule = isAdmin || isGeneralManager;
+  const canViewAllWages = isAdmin || isGeneralManager;
+  const canApproveRequests = isAdmin || isGeneralManager;
+  const canEditChecklists = isAdmin || isGeneralManager;
+
+  return { 
+    role, 
+    loading, 
+    isAdmin, 
+    isGeneralManager,
+    isShiftManager,
+    isManager,
+    canManageSchedule,
+    canViewAllWages,
+    canApproveRequests,
+    canEditChecklists
+  };
 };

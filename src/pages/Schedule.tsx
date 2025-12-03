@@ -862,7 +862,7 @@ export default function Schedule() {
       // Update user_roles table
       const { error } = await supabase
         .from('user_roles')
-        .update({ role: pendingRoleChange.newRole as 'admin' | 'manager' | 'team_member' })
+        .update({ role: pendingRoleChange.newRole as 'admin' | 'general_manager' | 'shift_manager' | 'team_member' })
         .eq('user_id', pendingRoleChange.userId);
       
       if (error) throw error;
@@ -874,7 +874,11 @@ export default function Schedule() {
           : p
       ));
       
-      toast.success(`${pendingRoleChange.userName}'s role changed to ${pendingRoleChange.newRole === 'team_member' ? 'Team Member' : pendingRoleChange.newRole}`);
+      const roleDisplayName = pendingRoleChange.newRole === 'team_member' ? 'Team Member' 
+        : pendingRoleChange.newRole === 'shift_manager' ? 'Shift Manager'
+        : pendingRoleChange.newRole === 'general_manager' ? 'General Manager'
+        : pendingRoleChange.newRole;
+      toast.success(`${pendingRoleChange.userName}'s role changed to ${roleDisplayName}`);
     } catch (error) {
       console.error('Error changing role:', error);
       toast.error('Failed to change user role');
@@ -1082,22 +1086,29 @@ export default function Schedule() {
                   </div>
                 )
               ) : (
-                // Admin/Manager view: show all employees grouped by role
+              // Admin/Manager view: show all employees grouped by role
                 <>
-                  {['admin', 'manager', 'team_member'].map((roleFilter) => {
+                  {['admin', 'general_manager', 'shift_manager', 'team_member'].map((roleFilter) => {
                     const roleProfiles = profiles.filter(p => p.role === roleFilter);
                     if (roleProfiles.length === 0) return null;
 
                     const roleColorClass = roleFilter === 'admin' 
                       ? 'bg-role-admin/5 border-l-4 border-role-admin' 
-                      : roleFilter === 'manager'
+                      : roleFilter === 'general_manager'
+                      ? 'bg-role-manager/5 border-l-4 border-role-manager'
+                      : roleFilter === 'shift_manager'
                       ? 'bg-role-manager/5 border-l-4 border-role-manager'
                       : 'bg-role-team-member/5 border-l-4 border-role-team-member';
+
+                    const roleLabel = roleFilter === 'admin' ? 'Admins' 
+                      : roleFilter === 'general_manager' ? 'General Managers'
+                      : roleFilter === 'shift_manager' ? 'Shift Managers'
+                      : 'Team Members';
 
                     return (
                       <div key={roleFilter} className={`${roleColorClass}`}>
                         <div className="px-3 py-1 font-semibold text-sm uppercase tracking-wide">
-                          {roleFilter === 'team_member' ? 'Team Members' : `${roleFilter}s`}
+                          {roleLabel}
                         </div>
                         <SortableContext
                           items={roleProfiles.map(p => p.id)}
@@ -1319,7 +1330,12 @@ export default function Schedule() {
             <AlertDialogHeader>
               <AlertDialogTitle>Change User Role?</AlertDialogTitle>
               <AlertDialogDescription>
-                Would you like to change {pendingRoleChange?.userName}'s role to {pendingRoleChange?.newRole === 'team_member' ? 'Team Member' : pendingRoleChange?.newRole}?
+                Would you like to change {pendingRoleChange?.userName}'s role to {
+                  pendingRoleChange?.newRole === 'team_member' ? 'Team Member' 
+                  : pendingRoleChange?.newRole === 'shift_manager' ? 'Shift Manager'
+                  : pendingRoleChange?.newRole === 'general_manager' ? 'General Manager'
+                  : pendingRoleChange?.newRole
+                }?
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

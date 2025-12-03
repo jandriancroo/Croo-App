@@ -6,9 +6,11 @@ import { toast } from 'sonner';
 import { Shield, User } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
+type AppRole = 'admin' | 'general_manager' | 'shift_manager' | 'manager' | 'team_member';
+
 type RolePermission = {
   id: string;
-  role: 'admin' | 'manager' | 'team_member';
+  role: AppRole;
   permission_key: string;
   permission_label: string;
   enabled: boolean;
@@ -17,7 +19,7 @@ type RolePermission = {
 export function RoleManagementSection() {
   const [permissions, setPermissions] = useState<RolePermission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRole, setSelectedRole] = useState<'admin' | 'manager' | 'team_member'>('admin');
+  const [selectedRole, setSelectedRole] = useState<AppRole>('admin');
   const [savingPermission, setSavingPermission] = useState<string | null>(null);
 
   useEffect(() => {
@@ -66,8 +68,12 @@ export function RoleManagementSection() {
     switch (role) {
       case 'admin':
         return 'Admin';
+      case 'general_manager':
+        return 'General Manager';
+      case 'shift_manager':
+        return 'Shift Manager';
       case 'manager':
-        return 'Manager';
+        return 'Shift Manager';
       default:
         return 'Team Member';
     }
@@ -112,12 +118,20 @@ export function RoleManagementSection() {
               Admin
             </Button>
             <Button
-              variant={selectedRole === 'manager' ? 'default' : 'outline'}
+              variant={selectedRole === 'general_manager' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setSelectedRole('manager')}
+              onClick={() => setSelectedRole('general_manager')}
               className="mr-2"
             >
-              Manager
+              General Manager
+            </Button>
+            <Button
+              variant={selectedRole === 'shift_manager' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSelectedRole('shift_manager')}
+              className="mr-2"
+            >
+              Shift Manager
             </Button>
             <Button
               variant={selectedRole === 'team_member' ? 'default' : 'outline'}
