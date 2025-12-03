@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/lib/auth';
 import React from 'react';
 import { ImageCropDialog } from '@/components/ImageCropDialog';
 import { InviteLinkCard } from '@/components/InviteLinkCard';
@@ -106,27 +107,38 @@ export default function UserManagement() {
   const [availableLocations, setAvailableLocations] = useState<any[]>([]);
   const [editUserLocations, setEditUserLocations] = useState<string[]>([]);
   const { toast } = useToast();
-  const { isAdmin, loading: roleLoading } = useUserRole();
+  const { isAdmin, isManager, loading: roleLoading } = useUserRole();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Managers and admins can access this page
+  const canAccessPage = isAdmin || isManager;
 
   useEffect(() => {
-    if (!roleLoading && !isAdmin) {
+    if (!roleLoading && !canAccessPage) {
       navigate('/dashboard');
       toast({
         title: 'Access Denied',
-        description: 'You need admin privileges to access this page.',
+        description: 'You need manager or admin privileges to access this page.',
         variant: 'destructive',
       });
     }
-  }, [isAdmin, roleLoading, navigate, toast]);
+  }, [canAccessPage, roleLoading, navigate, toast]);
  
   useEffect(() => {
-    if (isAdmin) {
+    if (canAccessPage) {
       fetchUsers();
       fetchLocations();
     }
-  }, [isAdmin]);
+  }, [canAccessPage]);
+  
+  // Helper to check if current user can edit a specific user's profile
+  const canEditUser = (userId: string) => {
+    if (isAdmin) return true;
+    // Managers can only edit their own profile
+    return user?.id === userId;
+  };
 
   useEffect(() => {
     if (viewingWageHistory) {
@@ -1037,7 +1049,7 @@ export default function UserManagement() {
     }
   };
 
-  if (roleLoading || !isAdmin) {
+  if (roleLoading || !canAccessPage) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -1051,11 +1063,12 @@ export default function UserManagement() {
     <Layout>
       <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-full md:max-w-7xl">
         <h1 className="text-3xl font-bold">User Management</h1>
-        <InviteLinkCard />
+        {isAdmin && <InviteLinkCard />}
         <Card>
           <CardHeader>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <CardDescription>Manage user roles and permissions</CardDescription>
+              {isAdmin && (
               <div className="flex items-center gap-2">
                 <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
                   <DialogTrigger asChild>
@@ -1168,6 +1181,7 @@ export default function UserManagement() {
                 <span className="sm:hidden">Test Users</span>
               </Button>
             </div>
+              )}
           </div>
           </CardHeader>
           <CardContent>
@@ -1194,12 +1208,14 @@ export default function UserManagement() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {isAdmin && (
                     <TableHead className="w-12">
                       <Checkbox
                         checked={selectedUsers.size === users.filter(u => u.is_active === (activeTab === 'active')).length && users.filter(u => u.is_active === (activeTab === 'active')).length > 0}
                         onCheckedChange={toggleSelectAll}
                       />
                     </TableHead>
+                    )}
                     <TableHead>User</TableHead>
                     <TableHead className="hidden md:table-cell">Role</TableHead>
                     <TableHead className="hidden md:table-cell">Croo Cash</TableHead>
@@ -1212,12 +1228,14 @@ export default function UserManagement() {
                       key={user.id}
                       className="hover:bg-muted/50"
                     >
+                      {isAdmin && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox
                           checked={selectedUsers.has(user.id)}
                           onCheckedChange={() => toggleUserSelection(user.id)}
                         />
                       </TableCell>
+                      )}
                       <TableCell
                         className="cursor-pointer"
                         onClick={() => {
@@ -1307,6 +1325,7 @@ export default function UserManagement() {
                       </Badge>
                     </div>
                   </div>
+                  {canEditUser(viewingUser.id) && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -1319,6 +1338,7 @@ export default function UserManagement() {
                     <Camera className="h-4 w-4 mr-2" />
                     Edit
                   </Button>
+                  )}
                 </div>
 
                 {/* Info Grid - Responsive */}
@@ -1343,6 +1363,7 @@ export default function UserManagement() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2 p-3 border rounded-lg">
                     <Label className="text-xs text-muted-foreground">Punch Clock PIN</Label>
+                    {canEditUser(viewingUser.id) ? (
                     <div className="flex items-center gap-2">
                       <Input
                         type="text"
@@ -1393,10 +1414,14 @@ export default function UserManagement() {
                         <Check className="h-4 w-4" />
                       </Button>
                     </div>
+                    ) : (
+                      <p className="text-lg font-mono">{viewingUser.employee_pin || '----'}</p>
+                    )}
                   </div>
                   <div className="space-y-2 p-3 border rounded-lg">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs text-muted-foreground">Hourly Wage</Label>
+                      {isAdmin && (
                       <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
@@ -1422,12 +1447,14 @@ export default function UserManagement() {
                           History
                         </Button>
                       </div>
+                      )}
                     </div>
                     <p className="text-lg font-bold">${viewingUser.hourly_wage?.toFixed(2) || '15.00'}/hr</p>
                   </div>
                 </div>
 
-                {/* Quick Actions Grid */}
+                {/* Quick Actions Grid - Admin only */}
+                {isAdmin && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Select
                     value={viewingUser.role}
@@ -1477,6 +1504,7 @@ export default function UserManagement() {
                     Reset Password
                   </Button>
                 </div>
+                )}
 
                  {/* Employee Notes Section - Compact */}
                 <div className="space-y-2 border-t pt-3">
@@ -1913,13 +1941,15 @@ export default function UserManagement() {
           onCropComplete={handleCropComplete}
         />
 
-        {/* Bulk Actions Bar */}
+        {/* Bulk Actions Bar - Admin only */}
+        {isAdmin && (
         <BulkActionsBar
           selectedCount={selectedUsers.size}
           onDeactivate={() => setIsBulkDeactivateOpen(true)}
           onWageUpdate={() => setIsBulkWageOpen(true)}
           onClearSelection={() => setSelectedUsers(new Set())}
         />
+        )}
 
         {/* Bulk Deactivate Confirmation */}
         <AlertDialog open={isBulkDeactivateOpen} onOpenChange={setIsBulkDeactivateOpen}>
