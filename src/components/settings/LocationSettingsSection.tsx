@@ -5,11 +5,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
 import { CalendarIcon, X } from "lucide-react";
 import { format } from "date-fns";
+
+const TIMEZONES = [
+  { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+  { value: "America/Denver", label: "Mountain Time (MT)" },
+  { value: "America/Chicago", label: "Central Time (CT)" },
+  { value: "America/New_York", label: "Eastern Time (ET)" },
+  { value: "America/Anchorage", label: "Alaska Time (AKT)" },
+  { value: "Pacific/Honolulu", label: "Hawaii Time (HT)" },
+  { value: "America/Phoenix", label: "Arizona (no DST)" },
+];
 
 interface LocationSettingsSectionProps {
   locationId?: string;
@@ -21,6 +32,7 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
   const { toast } = useToast();
   const [hoursOpen, setHoursOpen] = useState("");
   const [hoursClose, setHoursClose] = useState("");
+  const [timezone, setTimezone] = useState("America/Los_Angeles");
   const [blackoutDates, setBlackoutDates] = useState<Date[]>([]);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -45,6 +57,7 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
         setSettingsId(data.id);
         setHoursOpen(data.hours_open || "");
         setHoursClose(data.hours_close || "");
+        setTimezone(data.timezone || "America/Los_Angeles");
         setBlackoutDates(
           data.blackout_dates ? data.blackout_dates.map((d: string) => new Date(d)) : []
         );
@@ -52,6 +65,7 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
         setSettingsId(null);
         setHoursOpen("");
         setHoursClose("");
+        setTimezone("America/Los_Angeles");
         setBlackoutDates([]);
       }
     } catch (error) {
@@ -75,6 +89,7 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
       const settingsData = {
         hours_open: hoursOpen || null,
         hours_close: hoursClose || null,
+        timezone: timezone,
         blackout_dates: blackoutDates.map(d => format(d, "yyyy-MM-dd")),
       };
 
@@ -151,6 +166,25 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="space-y-2">
+          <Label htmlFor="timezone">Timezone</Label>
+          <Select value={timezone} onValueChange={setTimezone}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select timezone" />
+            </SelectTrigger>
+            <SelectContent>
+              {TIMEZONES.map((tz) => (
+                <SelectItem key={tz.value} value={tz.value}>
+                  {tz.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Used for all time-based alerts and notifications
+          </p>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="hours-open">Opening Time</Label>

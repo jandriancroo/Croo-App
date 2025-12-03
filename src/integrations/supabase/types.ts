@@ -695,6 +695,7 @@ export type Database = {
           hours_open: string | null
           id: string
           location_id: string
+          timezone: string
           updated_at: string
         }
         Insert: {
@@ -704,6 +705,7 @@ export type Database = {
           hours_open?: string | null
           id?: string
           location_id: string
+          timezone?: string
           updated_at?: string
         }
         Update: {
@@ -713,6 +715,7 @@ export type Database = {
           hours_open?: string | null
           id?: string
           location_id?: string
+          timezone?: string
           updated_at?: string
         }
         Relationships: [
