@@ -1,7 +1,15 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Users, Megaphone } from 'lucide-react';
+import { format, isToday } from 'date-fns';
 
+const formatLastMessageTime = (dateString: string) => {
+  const date = new Date(dateString);
+  if (isToday(date)) {
+    return format(date, 'h:mm a');
+  }
+  return format(date, 'MMM d');
+};
 interface Chat {
   id: string;
   title: string | null;
@@ -117,19 +125,13 @@ export function ChatList({ chats, selectedChatId, onSelectChat, loading, searchQ
               }`}>
                 {chat.title || (chat.is_group ? 'Group Chat' : 'Direct Message')}
               </p>
-              {chat.unreadCount && chat.unreadCount > 0 && (
-                <span className="flex-shrink-0 bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                  {chat.unreadCount}
-                </span>
-              )}
+              <span className="flex-shrink-0 text-xs text-muted-foreground">
+                {formatLastMessageTime(chat.updated_at)}
+              </span>
             </div>
-            {chat.messagePreview && searchQuery ? (
+            {chat.messagePreview && searchQuery && (
               <p className="text-xs text-muted-foreground truncate mt-1">
                 {highlightSearchTerm(chat.messagePreview, searchQuery)}
-              </p>
-            ) : (
-              <p className="text-xs text-muted-foreground truncate">
-                {new Date(chat.updated_at).toLocaleDateString()}
               </p>
             )}
           </div>
