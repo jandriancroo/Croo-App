@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -125,16 +125,10 @@ export function ChecklistCompletionAlerts() {
 
   if (alerts.length === 0) return null;
 
-  const incompleteCount = alerts.filter(a => a.status === 'incomplete').length;
-  const partialCount = alerts.filter(a => a.status === 'partial').length;
-
   return (
     <Alert className="border-destructive bg-red-50 dark:bg-red-950">
       <AlertTriangle className="h-4 w-4 text-destructive" />
-      <AlertTitle className="text-red-900 dark:text-red-100 text-sm font-semibold">
-        Checklist Completion Issues ({alerts.length})
-      </AlertTitle>
-      <AlertDescription className="space-y-1 mt-1">
+      <AlertDescription className="space-y-1">
         <div className="text-xs text-red-800 dark:text-red-200 space-y-0.5">
           {alerts.slice(0, 5).map((alert: any) => (
             <button
@@ -163,11 +157,6 @@ export function ChecklistCompletionAlerts() {
               + {alerts.length - 5} more
             </Button>
           )}
-        </div>
-        <div className="text-[10px] text-red-700 dark:text-red-300 mt-1 pt-1 border-t border-red-300 dark:border-red-700">
-          {incompleteCount > 0 && <span>{incompleteCount} incomplete</span>}
-          {incompleteCount > 0 && partialCount > 0 && <span> • </span>}
-          {partialCount > 0 && <span>{partialCount} partial</span>}
         </div>
       </AlertDescription>
     </Alert>
