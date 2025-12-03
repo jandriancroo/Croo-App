@@ -176,6 +176,33 @@ export type Database = {
           },
         ]
       }
+      changelog_entries: {
+        Row: {
+          created_at: string
+          description: string | null
+          entry_date: string
+          entry_type: string
+          id: string
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          entry_date?: string
+          entry_type: string
+          id?: string
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          entry_date?: string
+          entry_type?: string
+          id?: string
+          title?: string
+        }
+        Relationships: []
+      }
       chat_members: {
         Row: {
           chat_id: string
