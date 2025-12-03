@@ -120,41 +120,134 @@ All colors MUST be HSL.
   }
 }
 
+/* OLED Theme - Optimized for eye comfort */
 [data-theme="oled"] {
-  --background: 0 0% 0%;
-  --foreground: 0 0% 95%;
-  --card: 0 0% 3%;
-  --card-foreground: 0 0% 95%;
-  --popover: 0 0% 3%;
-  --popover-foreground: 0 0% 95%;
-  --primary: 142 76% 36%;
-  --primary-foreground: 144 61% 90%;
-  --secondary: 0 0% 10%;
-  --secondary-foreground: 0 0% 95%;
-  --muted: 0 0% 10%;
-  --muted-foreground: 0 0% 60%;
-  --accent: 0 0% 10%;
-  --accent-foreground: 0 0% 95%;
-  --destructive: 0 84% 37%;
-  --destructive-foreground: 0 0% 95%;
-  --border: 0 0% 15%;
+  --background: 0 0% 2%;
+  --foreground: 45 10% 90%;
+  --card: 0 0% 5%;
+  --card-foreground: 45 10% 90%;
+  --popover: 0 0% 5%;
+  --popover-foreground: 45 10% 90%;
+  --primary: 165 60% 45%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 45 10% 85%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 45 5% 55%;
+  --accent: 35 70% 50%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 65% 45%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 18%;
   --input: 0 0% 15%;
-  --ring: 142 76% 36%;
+  --ring: 165 60% 45%;
+  --glass-background: 0 0% 8% / 0.85;
+  --glass-border: 0 0% 100% / 0.06;
+  --glass-shadow: 0 0% 0% / 0.4;
 }
 
-[data-theme="blue"] {
-  --primary: 221 83% 53%;
-  --primary-foreground: 210 40% 98%;
+/* Warm Earth Theme - Brown/Beige tones */
+[data-theme="earth"] {
+  --background: 35 25% 92%;
+  --foreground: 25 30% 15%;
+  --card: 35 30% 97%;
+  --card-foreground: 25 30% 15%;
+  --popover: 35 30% 97%;
+  --popover-foreground: 25 30% 15%;
+  --primary: 25 55% 42%;
+  --primary-foreground: 35 30% 98%;
+  --secondary: 35 35% 85%;
+  --secondary-foreground: 25 45% 30%;
+  --muted: 35 20% 88%;
+  --muted-foreground: 25 20% 40%;
+  --accent: 15 65% 50%;
+  --accent-foreground: 35 30% 98%;
+  --destructive: 5 55% 48%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 30 20% 78%;
+  --input: 30 20% 85%;
+  --ring: 25 55% 42%;
+  --glass-background: 35 30% 100% / 0.65;
+  --glass-border: 30 20% 70% / 0.3;
+  --glass-shadow: 25 30% 15% / 0.08;
 }
 
-[data-theme="forest"] {
-  --primary: 142 71% 45%;
-  --primary-foreground: 144 61% 90%;
+/* Ocean Theme - Soft teal/aqua colors */
+[data-theme="ocean"] {
+  --background: 195 30% 94%;
+  --foreground: 200 35% 12%;
+  --card: 195 40% 98%;
+  --card-foreground: 200 35% 12%;
+  --popover: 195 40% 98%;
+  --popover-foreground: 200 35% 12%;
+  --primary: 185 55% 38%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 190 40% 88%;
+  --secondary-foreground: 190 50% 25%;
+  --muted: 195 25% 90%;
+  --muted-foreground: 200 20% 40%;
+  --accent: 170 50% 42%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 355 55% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 195 25% 80%;
+  --input: 195 25% 86%;
+  --ring: 185 55% 38%;
+  --glass-background: 195 40% 100% / 0.6;
+  --glass-border: 195 30% 80% / 0.35;
+  --glass-shadow: 200 35% 12% / 0.08;
 }
 
-[data-theme="sunset"] {
-  --primary: 24 95% 53%;
-  --primary-foreground: 60 9% 98%;
+/* Sage Theme - Soft green/gray tones */
+[data-theme="sage"] {
+  --background: 140 15% 93%;
+  --foreground: 150 20% 12%;
+  --card: 140 20% 98%;
+  --card-foreground: 150 20% 12%;
+  --popover: 140 20% 98%;
+  --popover-foreground: 150 20% 12%;
+  --primary: 155 35% 40%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 145 25% 87%;
+  --secondary-foreground: 155 30% 28%;
+  --muted: 140 15% 89%;
+  --muted-foreground: 150 15% 40%;
+  --accent: 130 40% 45%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 50% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 145 15% 80%;
+  --input: 145 15% 85%;
+  --ring: 155 35% 40%;
+  --glass-background: 140 20% 100% / 0.6;
+  --glass-border: 145 15% 75% / 0.3;
+  --glass-shadow: 150 20% 12% / 0.08;
+}
+
+/* Lavender Theme - Soft purple/violet tones */
+[data-theme="lavender"] {
+  --background: 270 20% 95%;
+  --foreground: 265 25% 15%;
+  --card: 270 25% 99%;
+  --card-foreground: 265 25% 15%;
+  --popover: 270 25% 99%;
+  --popover-foreground: 265 25% 15%;
+  --primary: 265 40% 52%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 270 30% 90%;
+  --secondary-foreground: 265 35% 35%;
+  --muted: 270 18% 91%;
+  --muted-foreground: 265 15% 42%;
+  --accent: 280 45% 55%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 350 55% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 270 20% 82%;
+  --input: 270 20% 88%;
+  --ring: 265 40% 52%;
+  --glass-background: 270 25% 100% / 0.6;
+  --glass-border: 270 20% 80% / 0.3;
+  --glass-shadow: 265 25% 15% / 0.08;
 }
 
 @layer base {
