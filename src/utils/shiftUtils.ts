@@ -1,4 +1,6 @@
-export function shiftHasBreak(startTime: string, endTime: string): boolean {
+export function shiftHasBreak(startTime: string | undefined | null, endTime: string | undefined | null): boolean {
+  if (!startTime || !endTime) return false;
+  
   const [startHour, startMin] = startTime.split(':').map(Number);
   const [endHour, endMin] = endTime.split(':').map(Number);
   
@@ -14,7 +16,9 @@ export function shiftHasBreak(startTime: string, endTime: string): boolean {
   return totalHours > 5;
 }
 
-export function calculateShiftHours(startTime: string, endTime: string): number {
+export function calculateShiftHours(startTime: string | undefined | null, endTime: string | undefined | null): number {
+  if (!startTime || !endTime) return 0;
+  
   const [startHour, startMin] = startTime.split(':').map(Number);
   const [endHour, endMin] = endTime.split(':').map(Number);
   
