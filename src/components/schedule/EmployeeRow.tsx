@@ -108,10 +108,13 @@ export function EmployeeRow({
               <AvatarImage src={profile.profile_photo_url || undefined} />
               <AvatarFallback className="text-base">{profile.full_name.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 overflow-hidden">
               <p className="text-sm lg:text-base font-semibold leading-tight mb-1 truncate">{profile.full_name}</p>
-              <p className="text-xs lg:text-sm text-muted-foreground leading-tight whitespace-nowrap">
-                {calculateTotalHours()} hrs • ${calculateTotalWages()}
+              <p className="text-xs lg:text-sm text-muted-foreground leading-tight">
+                {calculateTotalHours()} hrs
+              </p>
+              <p className="text-xs lg:text-sm text-muted-foreground leading-tight">
+                ${calculateTotalWages()}
               </p>
             </div>
           </div> : <span className="text-sm font-medium text-muted-foreground">Unassigned</span>}
