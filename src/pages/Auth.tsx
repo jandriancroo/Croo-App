@@ -8,10 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Camera } from 'lucide-react';
-import { FcGoogle } from 'react-icons/fc';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import crooLogo from '@/assets/croo-logo.png';
+import { LoginSplashScreen } from '@/components/LoginSplashScreen';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -19,6 +17,7 @@ export default function Auth() {
   const [fullName, setFullName] = useState('');
   const [locationCode, setLocationCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showSplash, setShowSplash] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -51,29 +50,15 @@ export default function Auth() {
     
     if (error) {
       toast.error(error.message);
+      setLoading(false);
     } else {
-      toast.success('Signed in successfully');
-      navigate('/dashboard');
+      setShowSplash(true);
     }
-    
-    setLoading(false);
   };
 
-  const handleOAuthSignIn = async (provider: 'google' | 'apple') => {
-    setLoading(true);
-    
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-      },
-    });
-    
-    if (error) {
-      toast.error(error.message);
-      setLoading(false);
-    }
-    // Don't set loading to false on success - page will redirect
+  const handleSplashComplete = () => {
+    toast.success('Signed in successfully');
+    navigate('/dashboard');
   };
 
 
@@ -130,6 +115,10 @@ export default function Auth() {
     }
   };
 
+  if (showSplash) {
+    return <LoginSplashScreen onComplete={handleSplashComplete} />;
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
       <Card className="w-full max-w-md shadow-2xl border-2 hover:shadow-3xl transition-all duration-300 hover:scale-[1.02]">
@@ -172,26 +161,6 @@ export default function Auth() {
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Signing in...' : 'Sign In'}
-                </Button>
-                
-                <div className="relative my-4">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-                  </div>
-                </div>
-                
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleOAuthSignIn('google')}
-                  disabled={loading}
-                  className="w-full"
-                >
-                  <FcGoogle className="mr-2 h-5 w-5" />
-                  Google
                 </Button>
               </form>
             </TabsContent>
