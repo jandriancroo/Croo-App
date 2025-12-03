@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -73,6 +74,7 @@ export default function CompleteChecklist() {
   const {
     user
   } = useAuth();
+  const { isAdmin, isManager } = useUserRole();
   const navigate = useNavigate();
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
   useEffect(() => {
@@ -558,8 +560,9 @@ export default function CompleteChecklist() {
                 >
                     <div className="flex items-center gap-3">
                       <div 
-                        className="bg-green-600/80 rounded-full p-4 shadow-lg cursor-pointer hover:bg-green-600/90 transition-colors"
-                        onClick={() => handleUndoCompletion(item.id)}
+                        className={`bg-green-600/80 rounded-full p-4 shadow-lg ${(isAdmin || isManager) ? 'cursor-pointer hover:bg-green-600/90 transition-colors' : ''}`}
+                        onClick={() => (isAdmin || isManager) && handleUndoCompletion(item.id)}
+                        title={(isAdmin || isManager) ? 'Click to undo' : undefined}
                       >
                         <CheckCircle2 className="h-10 w-10 text-white" />
                       </div>

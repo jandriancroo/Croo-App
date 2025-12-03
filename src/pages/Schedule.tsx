@@ -27,6 +27,7 @@ import { MobileShiftDialog } from "@/components/schedule/MobileShiftDialog";
 import { LaborTotals } from "@/components/schedule/LaborTotals";
 import { LiveStatusBadge } from "@/components/schedule/LiveStatusBadge";
 import { DayBreakdownDialog } from "@/components/schedule/DayBreakdownDialog";
+import { PortraitOnlyMessage } from "@/components/schedule/PortraitOnlyMessage";
 
 interface Profile {
   id: string;
@@ -831,7 +832,10 @@ export default function Schedule() {
 
   return (
     <Layout>
-      {isMobile ? (
+      {/* Team members can only view schedule in mobile/portrait mode */}
+      {!isMobile && !isAdmin && !isManager ? (
+        <PortraitOnlyMessage />
+      ) : isMobile ? (
         <MobileScheduleView
           currentWeekStart={currentWeekStart}
           shifts={shifts.map(s => ({

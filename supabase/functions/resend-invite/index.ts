@@ -106,7 +106,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Get the origin from the request to use as redirect URL
     const origin = req.headers.get('origin') || req.headers.get('referer')?.split('/').slice(0, 3).join('/') || supabaseUrl;
-    const redirectTo = `${origin}/auth`;
+    const redirectTo = `${origin}/reset-password`;
 
     // Generate password reset link
     const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({

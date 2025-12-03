@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { useUserRole } from "@/hooks/useUserRole";
 import { ManageCategoriesDialog } from "@/components/logbook/ManageCategoriesDialog";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { compressImage } from "@/utils/imageCompression";
@@ -26,7 +26,7 @@ export default function LogBook() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, isManager, loading: roleLoading } = useUserRole();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -35,6 +35,15 @@ export default function LogBook() {
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<string>("entry");
+  const navigate = useNavigate();
+
+  // Redirect team members away from logs page
+  useEffect(() => {
+    if (!roleLoading && !isAdmin && !isManager) {
+      toast({ title: "Access denied", description: "You don't have permission to view logs", variant: "destructive" });
+      navigate('/dashboard');
+    }
+  }, [roleLoading, isAdmin, isManager, navigate, toast]);
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
@@ -247,6 +256,17 @@ export default function LogBook() {
   }, {});
 
   const sortedDays = Object.keys(entriesByDay).sort((a, b) => b.localeCompare(a));
+
+  // Don't render if role is still loading or user doesn't have access
+  if (roleLoading || (!isAdmin && !isManager)) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-64">
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>
