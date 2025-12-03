@@ -45,7 +45,7 @@ export function EmployeeRow({
   publishedSnapshot
 }: EmployeeRowProps) {
   const navigate = useNavigate();
-  const { isAdmin } = useUserRole();
+  const { canViewAllWages } = useUserRole();
   const weekDays = Array.from({
     length: 7
   }, (_, i) => addDays(currentWeekStart, i));
@@ -115,7 +115,7 @@ export function EmployeeRow({
               <p className="text-xs 2xl:text-sm text-muted-foreground leading-tight">
                 {calculateTotalHours()} hrs
               </p>
-              {isAdmin && (
+              {canViewAllWages && (
                 <p className="text-xs 2xl:text-sm text-muted-foreground leading-tight">
                   ${calculateTotalWages()}
                 </p>

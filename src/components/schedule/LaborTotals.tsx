@@ -31,7 +31,7 @@ export function LaborTotals({
   scheduleId,
   isEditable = false
 }: LaborTotalsProps) {
-  const { isAdmin } = useUserRole();
+  const { canViewAllWages } = useUserRole();
   const weekDays = Array.from({
     length: 7
   }, (_, i) => addDays(currentWeekStart, i));
@@ -194,8 +194,8 @@ export function LaborTotals({
       laborPercent: avgLaborPercent
     };
   }, [dailyTotals, projectedSales]);
-  // Only show labor totals to admins
-  if (!isAdmin) {
+  // Only show labor totals to users who can view wages
+  if (!canViewAllWages) {
     return null;
   }
 
