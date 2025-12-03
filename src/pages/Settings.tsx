@@ -9,10 +9,13 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
-import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical } from 'lucide-react';
+import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical, ArrowUpDown } from 'lucide-react';
 import { PositionManagementCompact } from '@/components/settings/PositionManagementCompact';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { toast as sonnerToast } from 'sonner';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const themes = [
   { value: 'default', label: 'Default' },
@@ -22,8 +25,39 @@ const themes = [
   { value: 'sunset', label: 'Sunset Orange' },
 ];
 
-// Section order stored in localStorage
 const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'locations', 'roles', 'positions', 'maintenance'];
+const STORAGE_KEY = 'settings-section-order';
+
+interface SortableSectionProps {
+  id: string;
+  isEditMode: boolean;
+  children: React.ReactNode;
+}
+
+function SortableSection({ id, isEditMode, children }: SortableSectionProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative">
+      {isEditMode && (
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 cursor-grab active:cursor-grabbing"
+        >
+          <GripVertical className="h-5 w-5 text-muted-foreground" />
+        </div>
+      )}
+      <div className={isEditMode ? 'pl-10' : ''}>{children}</div>
+    </div>
+  );
+}
 
 export default function Settings() {
   const { toast } = useToast();
@@ -32,11 +66,24 @@ export default function Settings() {
   const { isAdmin } = useUserRole();
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [locations, setLocations] = useState<any[]>([]);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
-    const saved = localStorage.getItem('settings-section-order');
-    return saved ? JSON.parse(saved) : DEFAULT_SECTION_ORDER;
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const validSections = parsed.filter((id: string) => DEFAULT_SECTION_ORDER.includes(id));
+      DEFAULT_SECTION_ORDER.forEach(id => {
+        if (!validSections.includes(id)) validSections.push(id);
+      });
+      return validSections;
+    }
+    return DEFAULT_SECTION_ORDER;
   });
-  const [draggedSection, setDraggedSection] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -72,272 +119,221 @@ export default function Settings() {
     });
   };
 
-  const handleDragStart = (sectionId: string) => {
-    setDraggedSection(sectionId);
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setSectionOrder((items) => {
+        const oldIndex = items.indexOf(active.id as string);
+        const newIndex = items.indexOf(over.id as string);
+        const newOrder = arrayMove(items, oldIndex, newIndex);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newOrder));
+        return newOrder;
+      });
+    }
   };
 
-  const handleDragOver = (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    if (!draggedSection || draggedSection === targetId) return;
-
-    const newOrder = [...sectionOrder];
-    const draggedIndex = newOrder.indexOf(draggedSection);
-    const targetIndex = newOrder.indexOf(targetId);
-
-    newOrder.splice(draggedIndex, 1);
-    newOrder.splice(targetIndex, 0, draggedSection);
-
-    setSectionOrder(newOrder);
-    localStorage.setItem('settings-section-order', JSON.stringify(newOrder));
-  };
-
-  const handleDragEnd = () => {
-    setDraggedSection(null);
-  };
-
-  const renderSection = (sectionId: string) => {
-    const dragProps = isAdmin ? {
-      draggable: true,
-      onDragStart: () => handleDragStart(sectionId),
-      onDragOver: (e: React.DragEvent) => handleDragOver(e, sectionId),
-      onDragEnd: handleDragEnd,
-    } : {};
-
+  const renderSectionContent = (sectionId: string) => {
     switch (sectionId) {
       case 'theme':
         return (
-          <div key="theme" {...dragProps} className={draggedSection === 'theme' ? 'opacity-50' : ''}>
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  {isAdmin && <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />}
-                  <CardTitle className="text-base">Theme</CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <Label htmlFor="theme">Color Theme</Label>
-                  <Select value={theme} onValueChange={handleThemeChange}>
-                    <SelectTrigger id="theme">
-                      <SelectValue placeholder="Select a theme" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {themes.map((t) => (
-                        <SelectItem key={t.value} value={t.value}>
-                          {t.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Theme</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="theme">Color Theme</Label>
+                <Select value={theme} onValueChange={handleThemeChange}>
+                  <SelectTrigger id="theme">
+                    <SelectValue placeholder="Select a theme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {themes.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>
+                        {t.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
         );
 
       case 'notifications':
-        return (
-          <div key="notifications" {...dragProps} className={`relative ${draggedSection === 'notifications' ? 'opacity-50' : ''}`}>
-            {isAdmin && (
-              <div className="absolute left-3 top-4 z-10">
-                <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-              </div>
-            )}
-            <NotificationSettings />
-          </div>
-        );
+        return <NotificationSettings />;
 
       case 'locations':
         if (!isAdmin || locations.length === 0) return null;
         return (
-          <div key="locations" {...dragProps} className={draggedSection === 'locations' ? 'opacity-50' : ''}>
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                  <MapPin className="h-4 w-4" />
-                  <CardTitle className="text-base">Locations</CardTitle>
-                </div>
-                <CardDescription className="text-xs">
-                  Manage locations, hours, and timezone settings
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {locations.map((location) => (
-                  <Button
-                    key={location.id}
-                    variant="outline"
-                    className="w-full justify-between h-auto py-2"
-                    onClick={() => navigate(`/location/${location.id}`)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-3 w-3" />
-                      <span className="text-sm">{location.name}</span>
-                    </div>
-                    <ExternalLinkIcon className="h-3 w-3" />
-                  </Button>
-                ))}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                <CardTitle className="text-base">Locations</CardTitle>
+              </div>
+              <CardDescription className="text-xs">
+                Manage locations, hours, and timezone settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {locations.map((location) => (
                 <Button
-                  variant="secondary"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => navigate('/location/new')}
+                  key={location.id}
+                  variant="outline"
+                  className="w-full justify-between h-auto py-2"
+                  onClick={() => navigate(`/location/${location.id}`)}
                 >
-                  <MapPin className="h-3 w-3 mr-1" />
-                  Add Location
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3 w-3" />
+                    <span className="text-sm">{location.name}</span>
+                  </div>
+                  <ExternalLinkIcon className="h-3 w-3" />
                 </Button>
-              </CardContent>
-            </Card>
-          </div>
+              ))}
+              <Button
+                variant="secondary"
+                size="sm"
+                className="w-full"
+                onClick={() => navigate('/location/new')}
+              >
+                <MapPin className="h-3 w-3 mr-1" />
+                Add Location
+              </Button>
+            </CardContent>
+          </Card>
         );
 
       case 'roles':
         if (!isAdmin) return null;
         return (
-          <div key="roles" {...dragProps} className={draggedSection === 'roles' ? 'opacity-50' : ''}>
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                  <Shield className="h-4 w-4" />
-                  <CardTitle className="text-base">Role Management</CardTitle>
-                </div>
-                <CardDescription className="text-xs">
-                  Configure permissions and notifications for each role
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => navigate('/role-management')}
-                >
-                  <Shield className="h-4 w-4 mr-2" />
-                  Manage Roles & Permissions
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4" />
+                <CardTitle className="text-base">Role Management</CardTitle>
+              </div>
+              <CardDescription className="text-xs">
+                Configure permissions and notifications for each role
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => navigate('/role-management')}
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                Manage Roles & Permissions
+              </Button>
+            </CardContent>
+          </Card>
         );
 
       case 'positions':
         if (!isAdmin) return null;
-        return (
-          <div key="positions" {...dragProps} className={draggedSection === 'positions' ? 'opacity-50' : ''}>
-            <div className="relative">
-              {isAdmin && (
-                <div className="absolute left-3 top-4 z-10">
-                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                </div>
-              )}
-              <PositionManagementCompact />
-            </div>
-          </div>
-        );
+        return <PositionManagementCompact />;
 
       case 'maintenance':
         if (!isAdmin) return null;
         return (
-          <div key="maintenance" {...dragProps} className={draggedSection === 'maintenance' ? 'opacity-50' : ''}>
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
-                  <Wrench className="h-4 w-4" />
-                  <CardTitle className="text-base">System Maintenance</CardTitle>
-                </div>
-                <CardDescription className="text-xs">
-                  Admin tools and data management
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => navigate('/temperature-validation')}
-                >
-                  <Thermometer className="w-4 h-4 mr-2" />
-                  Temperature Validation
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={async () => {
-                    try {
-                      sonnerToast.info('Starting photo completions backfill...');
-                      const { data, error } = await supabase.functions.invoke('backfill-photo-completions');
-                      
-                      if (error) throw error;
-                      
-                      if (data.success) {
-                        sonnerToast.success(`Backfill complete: ${data.updated} photo responses updated`);
-                      } else {
-                        sonnerToast.error(data.error || 'Backfill failed');
-                      }
-                    } catch (error: any) {
-                      console.error('Backfill error:', error);
-                      sonnerToast.error('Failed to run backfill');
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Wrench className="h-4 w-4" />
+                <CardTitle className="text-base">System Maintenance</CardTitle>
+              </div>
+              <CardDescription className="text-xs">
+                Admin tools and data management
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => navigate('/temperature-validation')}
+              >
+                <Thermometer className="w-4 h-4 mr-2" />
+                Temperature Validation
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+                onClick={async () => {
+                  try {
+                    sonnerToast.info('Starting photo completions backfill...');
+                    const { data, error } = await supabase.functions.invoke('backfill-photo-completions');
+                    
+                    if (error) throw error;
+                    
+                    if (data.success) {
+                      sonnerToast.success(`Backfill complete: ${data.updated} photo responses updated`);
+                    } else {
+                      sonnerToast.error(data.error || 'Backfill failed');
                     }
-                  }}
-                >
-                  Backfill Photo Completions
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={async () => {
-                    try {
-                      sonnerToast.info('Starting Croo Cash backfill...');
-                      const { data, error } = await supabase.functions.invoke('backfill-croo-cash-transactions');
-                      
-                      if (error) throw error;
-                      
-                      if (data.success) {
-                        sonnerToast.success(`Backfill complete: ${data.updated} transactions corrected`);
-                      } else {
-                        sonnerToast.error(data.error || 'Backfill failed');
-                      }
-                    } catch (error: any) {
-                      console.error('Backfill error:', error);
-                      sonnerToast.error('Failed to run backfill');
+                  } catch (error: any) {
+                    console.error('Backfill error:', error);
+                    sonnerToast.error('Failed to run backfill');
+                  }
+                }}
+              >
+                Backfill Photo Completions
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+                onClick={async () => {
+                  try {
+                    sonnerToast.info('Starting Croo Cash backfill...');
+                    const { data, error } = await supabase.functions.invoke('backfill-croo-cash-transactions');
+                    
+                    if (error) throw error;
+                    
+                    if (data.success) {
+                      sonnerToast.success(`Backfill complete: ${data.updated} transactions corrected`);
+                    } else {
+                      sonnerToast.error(data.error || 'Backfill failed');
                     }
-                  }}
-                >
-                  Backfill Croo Cash
-                </Button>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={async () => {
-                    try {
-                      sonnerToast.info('Rescanning temperatures...');
-                      const { data, error } = await supabase.functions.invoke('rescan-temperatures');
-                      
-                      if (error) throw error;
-                      
-                      if (data.success) {
-                        sonnerToast.success(`Rescan complete: ${data.updated} temperatures extracted`);
-                      } else {
-                        sonnerToast.error(data.error || 'Rescan failed');
-                      }
-                    } catch (error: any) {
-                      console.error('Rescan error:', error);
-                      sonnerToast.error('Failed to rescan');
+                  } catch (error: any) {
+                    console.error('Backfill error:', error);
+                    sonnerToast.error('Failed to run backfill');
+                  }
+                }}
+              >
+                Backfill Croo Cash
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+                onClick={async () => {
+                  try {
+                    sonnerToast.info('Rescanning temperatures...');
+                    const { data, error } = await supabase.functions.invoke('rescan-temperatures');
+                    
+                    if (error) throw error;
+                    
+                    if (data.success) {
+                      sonnerToast.success(`Rescan complete: ${data.updated} temperatures extracted`);
+                    } else {
+                      sonnerToast.error(data.error || 'Rescan failed');
                     }
-                  }}
-                >
-                  Rescan Temperatures
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+                  } catch (error: any) {
+                    console.error('Rescan error:', error);
+                    sonnerToast.error('Failed to rescan');
+                  }
+                }}
+              >
+                Rescan Temperatures
+              </Button>
+            </CardContent>
+          </Card>
         );
 
       default:
@@ -345,20 +341,52 @@ export default function Settings() {
     }
   };
 
+  // Filter visible sections based on role
+  const visibleSections = sectionOrder.filter(id => {
+    if (['locations', 'roles', 'positions', 'maintenance'].includes(id)) {
+      return isAdmin;
+    }
+    if (id === 'locations') {
+      return isAdmin && locations.length > 0;
+    }
+    return true;
+  });
+
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="text-muted-foreground">
-            Manage your preferences
-            {isAdmin && <span className="text-xs ml-2">(drag sections to reorder)</span>}
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Settings</h1>
+            <p className="text-muted-foreground">Manage your preferences</p>
+          </div>
+          {isAdmin && (
+            <Button
+              variant={isEditMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setIsEditMode(!isEditMode)}
+            >
+              <ArrowUpDown className="h-4 w-4 mr-2" />
+              {isEditMode ? 'Done' : 'Reorder'}
+            </Button>
+          )}
         </div>
 
-        <div className="grid gap-4">
-          {sectionOrder.map((sectionId) => renderSection(sectionId))}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={visibleSections} strategy={verticalListSortingStrategy}>
+            <div className="grid gap-4">
+              {visibleSections.map((sectionId) => {
+                const content = renderSectionContent(sectionId);
+                if (!content) return null;
+                return (
+                  <SortableSection key={sectionId} id={sectionId} isEditMode={isEditMode}>
+                    {content}
+                  </SortableSection>
+                );
+              })}
+            </div>
+          </SortableContext>
+        </DndContext>
       </div>
     </Layout>
   );
