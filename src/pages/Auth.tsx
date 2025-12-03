@@ -37,10 +37,11 @@ export default function Auth() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (user) {
+    // Don't auto-redirect if we're showing the splash screen
+    if (user && !showSplash) {
       navigate('/dashboard');
     }
-  }, [user, navigate]);
+  }, [user, navigate, showSplash]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
