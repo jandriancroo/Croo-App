@@ -830,12 +830,18 @@ export default function Schedule() {
     );
   }
 
+  // For team members on tablet/desktop: filter to show only their shifts
+  const isTeamMemberDesktopView = !isMobile && !isAdmin && !isManager;
+  const filteredProfiles = isTeamMemberDesktopView && currentUserId
+    ? profiles.filter(p => p.id === currentUserId)
+    : profiles;
+  const filteredShifts = isTeamMemberDesktopView && currentUserId
+    ? shifts.filter(s => s.user_id === currentUserId)
+    : shifts;
+
   return (
     <Layout>
-      {/* Team members can only view schedule in mobile/portrait mode */}
-      {!isMobile && !isAdmin && !isManager ? (
-        <PortraitOnlyMessage />
-      ) : isMobile ? (
+      {isMobile ? (
         <MobileScheduleView
           currentWeekStart={currentWeekStart}
           shifts={shifts.map(s => ({
@@ -922,10 +928,19 @@ export default function Schedule() {
           </div>
         </div>
 
+        {/* Team member view-only badge */}
+        {isTeamMemberDesktopView && (
+          <div className="bg-muted/50 border border-border rounded-lg px-4 py-2 text-center">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium">View Only</span> — Showing your shifts for this week
+            </p>
+          </div>
+        )}
+
         <DndContext 
-          sensors={sensors} 
-          onDragStart={handleDragStart} 
-          onDragEnd={handleDragEnd}
+          sensors={isTeamMemberDesktopView ? [] : sensors} 
+          onDragStart={isTeamMemberDesktopView ? undefined : handleDragStart} 
+          onDragEnd={isTeamMemberDesktopView ? undefined : handleDragEnd}
           collisionDetection={closestCenter}
         >
           <Card className="p-6 overflow-x-auto">
@@ -940,10 +955,12 @@ export default function Schedule() {
                 return (
                   <div 
                     key={index} 
-                    className="text-center p-2 border-r last:border-r-0 border-border bg-muted/50 cursor-pointer hover:bg-muted transition-colors"
+                    className={`text-center p-2 border-r last:border-r-0 border-border bg-muted/50 ${(isAdmin || isManager) ? 'cursor-pointer hover:bg-muted transition-colors' : ''}`}
                     onClick={() => {
-                      setSelectedDayForBreakdown(day);
-                      setDayBreakdownOpen(true);
+                      if (isAdmin || isManager) {
+                        setSelectedDayForBreakdown(day);
+                        setDayBreakdownOpen(true);
+                      }
                     }}
                   >
                     <div className="font-semibold text-sm">{format(day, "EEE")}</div>
@@ -967,74 +984,105 @@ export default function Schedule() {
               })}
             </div>
 
-            {/* Events Section */}
+            {/* Events Section - show for all users */}
             <div className="border-b border-border">
               <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} />
             </div>
 
-            {/* Shifts by User - Grouped by Role */}
+            {/* Shifts by User - Grouped by Role (filtered for team members) */}
             <div className="divide-y divide-border">
-              {['admin', 'manager', 'team_member'].map((roleFilter) => {
-                const roleProfiles = profiles.filter(p => p.role === roleFilter);
-                if (roleProfiles.length === 0) return null;
-
-                const roleColorClass = roleFilter === 'admin' 
-                  ? 'bg-role-admin/5 border-l-4 border-role-admin' 
-                  : roleFilter === 'manager'
-                  ? 'bg-role-manager/5 border-l-4 border-role-manager'
-                  : 'bg-role-team-member/5 border-l-4 border-role-team-member';
-
-                return (
-                  <div key={roleFilter} className={`${roleColorClass}`}>
-                    <div className="px-3 py-1 font-semibold text-sm uppercase tracking-wide">
-                      {roleFilter === 'team_member' ? 'Team Members' : `${roleFilter}s`}
-                    </div>
-                    <SortableContext
-                      items={roleProfiles.map(p => p.id)}
-                      strategy={verticalListSortingStrategy}
-                    >
-                      {roleProfiles.map((profile) => (
-                        <EmployeeRow
-                          key={profile.id}
-                          profile={profile}
-                          shifts={shifts.filter((s) => s.user_id === profile.id)}
-                          templates={templates}
-                          availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
-                          currentWeekStart={currentWeekStart}
-                          isEditable={isAdmin || isManager}
-                          onUpdate={fetchScheduleData}
-                          canTakeShifts={isAdmin || isManager}
-                          currentUserId={currentUserId || undefined}
-                          onEditShift={setEditingShift}
-                          isDraggable={isAdmin || isManager}
-                          isPublished={isPublished}
-                          publishedSnapshot={publishedSnapshot}
-                        />
-                      ))}
-                    </SortableContext>
+              {isTeamMemberDesktopView ? (
+                // Team member view: only show their own row
+                filteredProfiles.length > 0 ? (
+                  filteredProfiles.map((profile) => (
+                    <EmployeeRow
+                      key={profile.id}
+                      profile={profile}
+                      shifts={filteredShifts.filter((s) => s.user_id === profile.id)}
+                      templates={templates}
+                      availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
+                      currentWeekStart={currentWeekStart}
+                      isEditable={false}
+                      onUpdate={fetchScheduleData}
+                      canTakeShifts={false}
+                      currentUserId={currentUserId || undefined}
+                      onEditShift={() => {}} // No editing for team members
+                      isDraggable={false}
+                      isPublished={isPublished}
+                      publishedSnapshot={publishedSnapshot}
+                    />
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-muted-foreground">
+                    No shifts scheduled for you this week
                   </div>
-                );
-              })}
+                )
+              ) : (
+                // Admin/Manager view: show all employees grouped by role
+                <>
+                  {['admin', 'manager', 'team_member'].map((roleFilter) => {
+                    const roleProfiles = profiles.filter(p => p.role === roleFilter);
+                    if (roleProfiles.length === 0) return null;
 
-              {/* Unassigned Shifts */}
-              <EmployeeRow
-                profile={{ id: "unassigned", full_name: "Unassigned", profile_photo_url: null }}
-                shifts={shifts.filter((s) => s.user_id === null)}
-                templates={templates}
-                availabilityRequests={[]}
-                currentWeekStart={currentWeekStart}
-                isEditable={isAdmin || isManager}
-                onUpdate={fetchScheduleData}
-                canTakeShifts={isAdmin || isManager}
-                currentUserId={currentUserId || undefined}
-                onEditShift={setEditingShift}
-                isPublished={isPublished}
-                publishedSnapshot={publishedSnapshot}
-              />
+                    const roleColorClass = roleFilter === 'admin' 
+                      ? 'bg-role-admin/5 border-l-4 border-role-admin' 
+                      : roleFilter === 'manager'
+                      ? 'bg-role-manager/5 border-l-4 border-role-manager'
+                      : 'bg-role-team-member/5 border-l-4 border-role-team-member';
+
+                    return (
+                      <div key={roleFilter} className={`${roleColorClass}`}>
+                        <div className="px-3 py-1 font-semibold text-sm uppercase tracking-wide">
+                          {roleFilter === 'team_member' ? 'Team Members' : `${roleFilter}s`}
+                        </div>
+                        <SortableContext
+                          items={roleProfiles.map(p => p.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {roleProfiles.map((profile) => (
+                            <EmployeeRow
+                              key={profile.id}
+                              profile={profile}
+                              shifts={shifts.filter((s) => s.user_id === profile.id)}
+                              templates={templates}
+                              availabilityRequests={availabilityRequests.filter((r) => r.user_id === profile.id)}
+                              currentWeekStart={currentWeekStart}
+                              isEditable={isAdmin || isManager}
+                              onUpdate={fetchScheduleData}
+                              canTakeShifts={isAdmin || isManager}
+                              currentUserId={currentUserId || undefined}
+                              onEditShift={setEditingShift}
+                              isDraggable={isAdmin || isManager}
+                              isPublished={isPublished}
+                              publishedSnapshot={publishedSnapshot}
+                            />
+                          ))}
+                        </SortableContext>
+                      </div>
+                    );
+                  })}
+
+                  {/* Unassigned Shifts */}
+                  <EmployeeRow
+                    profile={{ id: "unassigned", full_name: "Unassigned", profile_photo_url: null }}
+                    shifts={shifts.filter((s) => s.user_id === null)}
+                    templates={templates}
+                    availabilityRequests={[]}
+                    currentWeekStart={currentWeekStart}
+                    isEditable={isAdmin || isManager}
+                    onUpdate={fetchScheduleData}
+                    canTakeShifts={isAdmin || isManager}
+                    currentUserId={currentUserId || undefined}
+                    onEditShift={setEditingShift}
+                    isPublished={isPublished}
+                    publishedSnapshot={publishedSnapshot}
+                  />
+                </>
+              )}
             </div>
           </Card>
 
-          {/* Floating Templates Bar - Bottom */}
+          {/* Floating Templates Bar - Bottom (Admin/Manager only) */}
           {(isAdmin || isManager) && (
             <div className="fixed bottom-0 left-0 right-0 bg-card border-t-2 border-border shadow-lg z-50">
               <div className="max-w-screen-2xl mx-auto px-4 py-2">
@@ -1084,10 +1132,12 @@ export default function Schedule() {
             </div>
           )}
 
-          <DragOverlay>{activeShift ? <ShiftCard shift={activeShift} isDragging /> : null}</DragOverlay>
+          {!isTeamMemberDesktopView && (
+            <DragOverlay>{activeShift ? <ShiftCard shift={activeShift} isDragging /> : null}</DragOverlay>
+          )}
         </DndContext>
 
-        {editingShift && (
+        {(isAdmin || isManager) && editingShift && (
           <EditShiftDialog
             open={!!editingShift}
             onOpenChange={(open) => !open && setEditingShift(null)}
@@ -1103,14 +1153,16 @@ export default function Schedule() {
           />
         )}
 
-        <ConflictWarningDialog
-          open={conflictDialogOpen}
-          onOpenChange={setConflictDialogOpen}
-          onConfirm={handleConflictConfirm}
-          conflicts={conflicts}
-        />
+        {(isAdmin || isManager) && (
+          <ConflictWarningDialog
+            open={conflictDialogOpen}
+            onOpenChange={setConflictDialogOpen}
+            onConfirm={handleConflictConfirm}
+            conflicts={conflicts}
+          />
+        )}
 
-        {selectedDayForBreakdown && scheduleId && (
+        {(isAdmin || isManager) && selectedDayForBreakdown && scheduleId && (
           <DayBreakdownDialog
             open={dayBreakdownOpen}
             onOpenChange={setDayBreakdownOpen}
@@ -1121,75 +1173,81 @@ export default function Schedule() {
           />
         )}
 
-        <MobileShiftDialog
-          open={isCreatingShift}
-          onOpenChange={setIsCreatingShift}
-          shift={{
-            id: '',
-            user_id: null,
-            day_of_week: 0,
-            start_time: '09:00',
-            end_time: '17:00',
-            shift_date: format(currentWeekStart, 'yyyy-MM-dd'),
-          }}
-          profiles={profiles}
-          isAdmin={isAdmin || isManager}
-          onShiftUpdated={fetchScheduleData}
-          isCreating={true}
-          scheduleId={scheduleId}
-          templates={templates}
-        />
+        {(isAdmin || isManager) && (
+          <MobileShiftDialog
+            open={isCreatingShift}
+            onOpenChange={setIsCreatingShift}
+            shift={{
+              id: '',
+              user_id: null,
+              day_of_week: 0,
+              start_time: '09:00',
+              end_time: '17:00',
+              shift_date: format(currentWeekStart, 'yyyy-MM-dd'),
+            }}
+            profiles={profiles}
+            isAdmin={isAdmin || isManager}
+            onShiftUpdated={fetchScheduleData}
+            isCreating={true}
+            scheduleId={scheduleId}
+            templates={templates}
+          />
+        )}
 
-        <AlertDialog open={clearScheduleDialogOpen} onOpenChange={setClearScheduleDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Clear Schedule</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will remove all shifts from the current week's schedule. This action cannot be undone.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                Clear Schedule
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        {(isAdmin || isManager) && (
+          <AlertDialog open={clearScheduleDialogOpen} onOpenChange={setClearScheduleDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Clear Schedule</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will remove all shifts from the current week's schedule. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Clear Schedule
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
 
-        <Dialog open={copyScheduleDialogOpen} onOpenChange={setCopyScheduleDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Copy Schedule to Future Week</DialogTitle>
-              <DialogDescription>
-                Copy all shifts from this week to a future week. The schedule will remain unpublished.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="weeks">Weeks from now</Label>
-                <Input
-                  id="weeks"
-                  type="number"
-                  min="1"
-                  value={weeksToAdd}
-                  onChange={(e) => setWeeksToAdd(parseInt(e.target.value) || 1)}
-                />
-                <p className="text-sm text-muted-foreground">
-                  Target week: {format(addWeeks(currentWeekStart, weeksToAdd), "MMM d, yyyy")} - {format(endOfWeek(addWeeks(currentWeekStart, weeksToAdd), { weekStartsOn: 1 }), "MMM d, yyyy")}
-                </p>
+        {(isAdmin || isManager) && (
+          <Dialog open={copyScheduleDialogOpen} onOpenChange={setCopyScheduleDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Copy Schedule to Future Week</DialogTitle>
+                <DialogDescription>
+                  Copy all shifts from this week to a future week. The schedule will remain unpublished.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="weeks">Weeks from now</Label>
+                  <Input
+                    id="weeks"
+                    type="number"
+                    min="1"
+                    value={weeksToAdd}
+                    onChange={(e) => setWeeksToAdd(parseInt(e.target.value) || 1)}
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    Target week: {format(addWeeks(currentWeekStart, weeksToAdd), "MMM d, yyyy")} - {format(endOfWeek(addWeeks(currentWeekStart, weeksToAdd), { weekStartsOn: 1 }), "MMM d, yyyy")}
+                  </p>
+                </div>
               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCopyScheduleDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button onClick={handleCopySchedule}>
-                Copy Schedule
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setCopyScheduleDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCopySchedule}>
+                  Copy Schedule
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
       )}
     </Layout>
