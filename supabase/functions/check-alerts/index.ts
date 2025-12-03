@@ -148,6 +148,7 @@ async function checkOverdueChecklists(supabaseClient: any) {
           });
         });
         const totalResponses = uniqueItemIds.size;
+        const remainingTasks = totalItems - totalResponses;
 
         const completionRate = totalItems > 0 ? (totalResponses / totalItems) : 0;
 
@@ -156,6 +157,7 @@ async function checkOverdueChecklists(supabaseClient: any) {
             id: checklist.id,
             title: checklist.title,
             completionRate: Math.round(completionRate * 100),
+            remainingTasks,
             dueTime: checklist.due_by_time
           };
         }
@@ -177,11 +179,15 @@ async function checkOverdueChecklists(supabaseClient: any) {
         .in('role', ['admin', 'manager']);
 
       if (adminUsers && adminUsers.length > 0) {
+        const notificationBody = activeOverdueChecklist.completionRate === 0 
+          ? `${activeOverdueChecklist.title} is not started` 
+          : `${activeOverdueChecklist.title} not completed, ${activeOverdueChecklist.remainingTasks} task${activeOverdueChecklist.remainingTasks === 1 ? '' : 's'} remaining`;
+        
         await supabaseClient.functions.invoke('send-push-notification', {
           body: {
             user_ids: adminUsers.map((u: any) => u.user_id),
             title: 'Overdue Checklist',
-            body: `${activeOverdueChecklist.title} is ${activeOverdueChecklist.completionRate === 0 ? 'not started' : `${activeOverdueChecklist.completionRate}% complete`}`,
+            body: notificationBody,
             notification_type: 'overdue_checklists',
             data: {
               checklist_id: activeOverdueChecklist.id,
