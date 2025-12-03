@@ -4,7 +4,6 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -21,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { Check, X, Calendar, Clock, Plus } from "lucide-react";
@@ -57,9 +57,11 @@ interface EmployeeHours {
 }
 
 export default function Availability() {
+  const { user } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const [requests, setRequests] = useState<AvailabilityRequest[]>([]);
   const [employeeHours, setEmployeeHours] = useState<EmployeeHours[]>([]);
+  const [myPtoBalance, setMyPtoBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [denyDialogOpen, setDenyDialogOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<string | null>(null);
@@ -69,28 +71,33 @@ export default function Availability() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
 
+  // Default PTO balance (can be configured per company/location later)
+  const DEFAULT_PTO_HOURS = 40;
+
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [user, isAdmin]);
 
   const fetchData = async () => {
+    if (!user) return;
+    
     try {
       setLoading(true);
 
-      // Fetch all requests
-      const { data: requestsData, error: requestsError } = await supabase
-        .from("availability_requests")
-        .select(`
-          *,
-          profiles!availability_requests_user_id_fkey(full_name, profile_photo_url)
-        `)
-        .order("created_at", { ascending: false });
-
-      if (requestsError) throw requestsError;
-      setRequests(requestsData || []);
-
-      // Fetch employee hours
       if (isAdmin) {
+        // Admin view - fetch all requests
+        const { data: requestsData, error: requestsError } = await supabase
+          .from("availability_requests")
+          .select(`
+            *,
+            profiles!availability_requests_user_id_fkey(full_name, profile_photo_url)
+          `)
+          .order("created_at", { ascending: false });
+
+        if (requestsError) throw requestsError;
+        setRequests(requestsData || []);
+
+        // Fetch employee hours for admin
         const currentYear = new Date().getFullYear();
         
         const { data: profiles, error: profilesError } = await supabase
@@ -130,6 +137,33 @@ export default function Availability() {
         }));
 
         setEmployeeHours(employeeHoursData);
+      } else {
+        // Non-admin view - fetch only user's own requests
+        const { data: requestsData, error: requestsError } = await supabase
+          .from("availability_requests")
+          .select(`
+            *,
+            profiles!availability_requests_user_id_fkey(full_name, profile_photo_url)
+          `)
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (requestsError) throw requestsError;
+        setRequests(requestsData || []);
+
+        // Calculate user's remaining PTO balance
+        const currentYear = new Date().getFullYear();
+        const { data: ptoData } = await supabase
+          .from("availability_requests")
+          .select("hours_requested")
+          .eq("user_id", user.id)
+          .eq("request_type", "paid")
+          .eq("status", "approved")
+          .gte("start_date", `${currentYear}-01-01`)
+          .lte("start_date", `${currentYear}-12-31`);
+
+        const usedPto = (ptoData || []).reduce((sum, req) => sum + (req.hours_requested || 0), 0);
+        setMyPtoBalance(DEFAULT_PTO_HOURS - usedPto);
       }
     } catch (error: any) {
       console.error("Error fetching data:", error);
@@ -231,10 +265,14 @@ export default function Availability() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Availability Requests</h1>
-            <p className="text-muted-foreground">Manage time off requests and employee accruals</p>
+            <h1 className="text-3xl font-bold">
+              {isAdmin ? "Availability Requests" : "Availability"}
+            </h1>
+            {isAdmin && (
+              <p className="text-muted-foreground">Manage time off requests and employee accruals</p>
+            )}
           </div>
           <Button onClick={() => setRequestDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -242,7 +280,22 @@ export default function Availability() {
           </Button>
         </div>
 
-        {/* Shift Pool - Admin and Manager Only */}
+        {/* PTO Balance - Non-Admin Only */}
+        {!isAdmin && (
+          <Card className="p-6 bg-primary/5 border-primary/20">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Clock className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Paid Time Off Balance</p>
+                <p className="text-3xl font-bold">{myPtoBalance} hours</p>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Shift Pool - Admin Only */}
         {isAdmin && <ShiftPoolSection />}
 
         {/* Employee Accruals - Admin Only */}
@@ -311,7 +364,9 @@ export default function Availability() {
 
         {/* Requests List */}
         <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">All Requests ({filteredRequests.length})</h2>
+          <h2 className="text-xl font-semibold mb-4">
+            {isAdmin ? "All Requests" : "My Requests"} ({filteredRequests.length})
+          </h2>
 
           {filteredRequests.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No requests found</p>

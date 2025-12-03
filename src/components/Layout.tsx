@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -58,6 +58,10 @@ export const Layout = ({
     icon: MessageSquare
   }];
   const timeMenuItems = [{
+    path: '/my-wallet',
+    label: 'My Wallet',
+    icon: Wallet
+  }, {
     path: '/availability',
     label: 'Availability',
     icon: CalendarCheck
@@ -92,6 +96,10 @@ export const Layout = ({
     label: 'Logs',
     icon: Scroll
   }] : []), {
+    path: '/my-wallet',
+    label: 'My Wallet',
+    icon: Wallet
+  }, {
     path: '/availability',
     label: 'Availability',
     icon: CalendarCheck
@@ -136,7 +144,7 @@ export const Layout = ({
             
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant={['/availability', '/punch-clock', '/payroll-review'].includes(location.pathname) ? 'secondary' : 'ghost'} className="gap-2">
+                <Button variant={['/my-wallet', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname) ? 'secondary' : 'ghost'} className="gap-2">
                   <Clock className="h-4 w-4 flex-shrink-0" />
                   <span className="hidden lg:inline">Time</span>
                   <ChevronDown className="h-3 w-3 flex-shrink-0" />
