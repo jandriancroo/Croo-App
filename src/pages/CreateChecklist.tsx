@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Plus, Trash2, Upload, Link as LinkIcon, Video, FileText, Loader2, FileInput } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
+import { compressImage } from '@/utils/imageCompression';
 
 interface ChecklistItem {
   question: string;
@@ -77,12 +78,13 @@ export default function CreateChecklist() {
   const handleReferenceImageUpload = async (index: number, file: File) => {
     setUploadingImage(`${index}`);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `references/${user?.id}/${Date.now()}.${fileExt}`;
+      // Compress image to reduce memory usage on mobile
+      const compressedFile = await compressImage(file, 1200, 1200, 0.8);
+      const fileName = `references/${user?.id}/${Date.now()}.jpg`;
       
       const { error: uploadError } = await supabase.storage
         .from('checklist-images')
-        .upload(fileName, file);
+        .upload(fileName, compressedFile);
 
       if (uploadError) throw uploadError;
 

@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Paperclip, X } from 'lucide-react';
+import { compressImage } from '@/utils/imageCompression';
 
 interface Profile {
   id: string;
@@ -71,12 +72,18 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated }
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      // Compress images to reduce memory usage on mobile
+      let fileToUpload: File | Blob = file;
+      let fileName = `${user.id}/${Date.now()}.${file.name.split('.').pop()}`;
+      
+      if (file.type.startsWith('image/')) {
+        fileToUpload = await compressImage(file, 1200, 1200, 0.8);
+        fileName = `${user.id}/${Date.now()}.jpg`;
+      }
 
       const { error: uploadError } = await supabase.storage
         .from('message-attachments')
-        .upload(fileName, file);
+        .upload(fileName, fileToUpload);
 
       if (uploadError) throw uploadError;
 

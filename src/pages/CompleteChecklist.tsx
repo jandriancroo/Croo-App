@@ -16,6 +16,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { formatTime12Hour } from '@/lib/utils';
+import { compressImage } from '@/utils/imageCompression';
 interface ChecklistItem {
   id: string;
   question: string;
@@ -434,11 +435,13 @@ export default function CompleteChecklist() {
   };
   const handleImageUpload = async (itemId: string, file: File) => {
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user?.id}/${Date.now()}.${fileExt}`;
+      // Compress image to reduce memory usage on mobile devices
+      const compressedFile = await compressImage(file, 1200, 1200, 0.8);
+      
+      const fileName = `${user?.id}/${Date.now()}.jpg`;
       const {
         error: uploadError
-      } = await supabase.storage.from('checklist-images').upload(fileName, file);
+      } = await supabase.storage.from('checklist-images').upload(fileName, compressedFile);
       if (uploadError) throw uploadError;
       const {
         data
