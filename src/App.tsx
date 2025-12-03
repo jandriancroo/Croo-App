@@ -36,6 +36,7 @@ import Index from "./pages/Index";
 import WelcomeProfile from "./pages/WelcomeProfile";
 import InstallGuide from "./pages/InstallGuide";
 import ResetPassword from "./pages/ResetPassword";
+import MyWallet from "./pages/MyWallet";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,7 @@ const AppContent = () => {
       <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
       <Route path="/font-preview" element={<ProtectedRoute><FontPreviewPage /></ProtectedRoute>} />
       <Route path="/temperature-validation" element={<ProtectedRoute><TemperatureValidation /></ProtectedRoute>} />
+      <Route path="/my-wallet" element={<ProtectedRoute><MyWallet /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
