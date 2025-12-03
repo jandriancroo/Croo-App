@@ -218,39 +218,7 @@ export function MobileScheduleView({
         </div>
       )}
 
-      {/* My Shift - if user has a shift this day */}
-      {user && dayShifts.some(s => s.user_id === user.id) && (
-        <div className="px-4 pt-3">
-          {dayShifts.filter(s => s.user_id === user.id).map((myShift) => (
-            <Card 
-              key={myShift.id}
-              className="bg-primary/10 border-primary/30 cursor-pointer"
-              onClick={() => {
-                setSelectedShift(myShift);
-                setShiftDialogOpen(true);
-              }}
-            >
-              <div className="px-3 py-2">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs font-semibold text-primary">My Shift</p>
-                    <p className="text-sm font-medium">
-                      {formatTime12Hour(myShift.start_time)} – {formatTime12Hour(myShift.end_time)}
-                    </p>
-                  </div>
-                  {myShift.template?.position && (
-                    <Badge variant="secondary" className="text-xs">
-                      {myShift.template.position.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM|am|pm)?/g, '').trim()}
-                    </Badge>
-                  )}
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Shifts List - sorted by start time */}
+      {/* Shifts List - sorted with user's shifts first, then by start time */}
       <div className="flex-1 overflow-auto p-4 space-y-3">
         {dayShifts.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
@@ -259,10 +227,20 @@ export function MobileScheduleView({
           </div>
         ) : (
           [...dayShifts]
-            .sort((a, b) => a.start_time.localeCompare(b.start_time))
+            .sort((a, b) => {
+              // User's shifts first
+              const aIsMyShift = a.user_id === user?.id;
+              const bIsMyShift = b.user_id === user?.id;
+              if (aIsMyShift && !bIsMyShift) return -1;
+              if (!aIsMyShift && bIsMyShift) return 1;
+              // Then sort by start time
+              return a.start_time.localeCompare(b.start_time);
+            })
             .map((shift) => {
               const profile = getProfileForShift(shift);
               if (!profile) return null;
+
+              const isMyShift = shift.user_id === user?.id;
 
               // A shift is a draft if schedule is unpublished AND (shift is new OR shift has been modified)
               const snapshotShift = publishedSnapshot?.find((s: any) => s.id === shift.id);
@@ -278,6 +256,10 @@ export function MobileScheduleView({
               <Card 
                   key={shift.id} 
                   className={`hover:shadow-md transition-shadow cursor-pointer ${
+                    isMyShift 
+                      ? 'border-2 border-accent ring-1 ring-accent/30' 
+                      : ''
+                  } ${
                     isShiftDraft ? 'opacity-60 border-2 border-dashed border-muted-foreground/50' : ''
                   }`}
                   onClick={() => {
@@ -286,10 +268,17 @@ export function MobileScheduleView({
                   }}
                 >
                   <div className="flex items-center gap-3 p-4">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={profile.profile_photo_url || undefined} />
-                      <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
-                    </Avatar>
+                    <div className="flex flex-col items-center gap-1">
+                      {isMyShift && (
+                        <div className="bg-accent text-accent-foreground text-[10px] font-semibold px-2 py-0.5 rounded mb-1">
+                          My Shift
+                        </div>
+                      )}
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={profile.profile_photo_url || undefined} />
+                        <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
+                      </Avatar>
+                    </div>
                     
                     <div className="flex-1 text-left">
                       <h4 className="font-semibold">{profile.full_name}</h4>
