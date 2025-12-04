@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key, Trash2, FileText, Check, CalendarIcon } from 'lucide-react';
+import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key, Trash2, FileText, Check, CalendarIcon, Pencil } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
@@ -1387,7 +1387,7 @@ export default function UserManagement() {
                       handleEditUser(viewingUser);
                     }}
                   >
-                    <Camera className="h-4 w-4 mr-2" />
+                    <Pencil className="h-4 w-4 mr-2" />
                     Edit
                   </Button>
                   )}
@@ -1630,13 +1630,14 @@ export default function UserManagement() {
 
         {/* Edit User Dialog */}
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
+          <DialogContent className="max-h-[90vh] flex flex-col overflow-hidden">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>Edit User Profile</DialogTitle>
               <DialogDescription>
                 Update user information and profile photo
               </DialogDescription>
             </DialogHeader>
+            <div className="flex-1 overflow-y-auto overscroll-contain -mx-6 px-6">
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Profile Photo</Label>
@@ -1769,7 +1770,8 @@ export default function UserManagement() {
                 <Input value={editingUser?.email || ''} disabled />
               </div>
             </div>
-            <div className="flex gap-3">
+            </div>
+            <div className="flex gap-3 flex-shrink-0 pt-4 border-t">
               <Button
                 variant="outline"
                 className="flex-1"
