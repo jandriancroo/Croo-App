@@ -506,18 +506,21 @@ export default function CompleteChecklist() {
         data
       } = supabase.storage.from('checklist-images').getPublicUrl(fileName);
       
-      // Extract temperature from image using AI
-      const { data: tempData, error: tempError } = await supabase.functions.invoke(
-        'extract-temperature',
-        { body: { imageUrl: data.publicUrl } }
-      );
-
+      // Only extract temperature for temperature-type items
+      const item = items.find(i => i.id === itemId);
       let extractedTemp = null;
       let tempValid = null;
 
-      if (!tempError && tempData) {
-        extractedTemp = tempData.temperature;
-        tempValid = tempData.isValid;
+      if (item?.item_type === 'temperature') {
+        const { data: tempData, error: tempError } = await supabase.functions.invoke(
+          'extract-temperature',
+          { body: { imageUrl: data.publicUrl } }
+        );
+
+        if (!tempError && tempData) {
+          extractedTemp = tempData.temperature;
+          tempValid = tempData.isValid;
+        }
       }
 
       // Handle multi-photo vs single photo

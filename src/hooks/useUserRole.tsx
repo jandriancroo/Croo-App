@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
-export type AppRole = 'super_admin' | 'admin' | 'general_manager' | 'shift_manager' | 'manager' | 'team_member';
+export type AppRole = 'super_admin' | 'org_admin' | 'admin' | 'general_manager' | 'shift_manager' | 'manager' | 'team_member';
 
 export const useUserRole = () => {
   const { user } = useAuth();
@@ -36,7 +36,8 @@ export const useUserRole = () => {
 
   // Helper checks
   const isSuperAdmin = role === 'super_admin';
-  const isAdmin = role === 'admin' || isSuperAdmin;
+  const isOrgAdmin = role === 'org_admin' || isSuperAdmin;
+  const isAdmin = role === 'admin' || isOrgAdmin;
   const isGeneralManager = role === 'general_manager';
   const isShiftManager = role === 'shift_manager' || role === 'manager';
   const isManager = isGeneralManager || isShiftManager;
@@ -49,6 +50,7 @@ export const useUserRole = () => {
     role, 
     loading, 
     isSuperAdmin,
+    isOrgAdmin,
     isAdmin, 
     isGeneralManager,
     isShiftManager,
