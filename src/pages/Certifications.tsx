@@ -633,90 +633,6 @@ export default function Certifications() {
           </DialogContent>
         </Dialog>
 
-        {/* Food Safety Audits Section */}
-        {isAdmin && (
-          <Card>
-            <CardHeader className="py-3 px-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <ClipboardCheck className="h-5 w-5 text-primary" />
-                  <div>
-                    <CardTitle className="text-base">Food Safety Audits</CardTitle>
-                    <CardDescription className="text-xs">Location-level audit documents for {currentLocation?.name}</CardDescription>
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={() => setAuditUploadDialogOpen(true)}
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Audit
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0 px-4 pb-3">
-              {audits.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No audits uploaded yet
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {audits.map((audit) => {
-                    const isPdf = audit.audit_url?.toLowerCase().endsWith('.pdf');
-                    return (
-                      <div key={audit.id} className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
-                        <div 
-                          className="w-12 h-12 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80 flex items-center justify-center"
-                          onClick={() => window.open(audit.audit_url, "_blank")}
-                        >
-                          {isPdf ? (
-                            <FileText className="w-6 h-6 text-muted-foreground" />
-                          ) : (
-                            <img 
-                              src={audit.audit_url} 
-                              alt="Food Safety Audit"
-                              className="w-full h-full object-cover"
-                            />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">
-                              Audit - {format(new Date(audit.audit_date), "MMM d, yyyy")}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Uploaded by {audit.profiles?.full_name || "Unknown"}
-                            {audit.notes && ` • ${audit.notes}`}
-                          </p>
-                        </div>
-                        <div className="flex gap-1 flex-shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            onClick={() => window.open(audit.audit_url, "_blank")}
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-destructive"
-                            onClick={() => handleAuditDelete(audit.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {profiles.map((profile) => {
             const employeeCerts = getCertsByEmployee(profile.id);
@@ -849,6 +765,92 @@ export default function Certifications() {
             );
           })}
         </div>
+
+        {/* Food Safety Audits Section - at bottom */}
+        {isAdmin && (
+          <Card>
+            <CardHeader className="py-3 px-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ClipboardCheck className="h-5 w-5 text-primary" />
+                  <div>
+                    <CardTitle className="text-base">Food Safety Audits</CardTitle>
+                    <CardDescription className="text-xs">Location-level audit documents for {currentLocation?.name}</CardDescription>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setAuditUploadDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Audit
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 px-4 pb-3">
+              {audits.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No audits uploaded yet
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {audits.map((audit) => {
+                    const isPdf = audit.audit_url?.toLowerCase().endsWith('.pdf');
+                    // Parse date without timezone shift by appending time
+                    const auditDateDisplay = audit.audit_date ? format(new Date(audit.audit_date + 'T12:00:00'), "MMM d, yyyy") : 'Unknown';
+                    return (
+                      <div key={audit.id} className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
+                        <div 
+                          className="w-12 h-12 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80 flex items-center justify-center"
+                          onClick={() => window.open(audit.audit_url, "_blank")}
+                        >
+                          {isPdf ? (
+                            <FileText className="w-6 h-6 text-muted-foreground" />
+                          ) : (
+                            <img 
+                              src={audit.audit_url} 
+                              alt="Food Safety Audit"
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">
+                              Audit - {auditDateDisplay}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Uploaded by {audit.profiles?.full_name || "Unknown"}
+                            {audit.notes && ` • ${audit.notes}`}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => window.open(audit.audit_url, "_blank")}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => handleAuditDelete(audit.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <EditCertificationDialog
