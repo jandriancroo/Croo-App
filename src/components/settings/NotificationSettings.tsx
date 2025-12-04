@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from '@/hooks/use-toast';
-import { Bell, BellOff, Smartphone } from 'lucide-react';
+import { Bell, BellOff, Smartphone, MapPin } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 interface NotificationPreferences {
   overdue_checklists: boolean;
@@ -17,6 +18,12 @@ interface NotificationPreferences {
   schedule_updates: boolean;
   shift_approvals: boolean;
   certification_expiring: boolean;
+}
+
+interface LocationNotificationPref {
+  location_id: string;
+  location_name: string;
+  notifications_enabled: boolean;
 }
 
 // Helper to detect if running as installed PWA
@@ -42,6 +49,7 @@ export const NotificationSettings = () => {
     shift_approvals: true,
     certification_expiring: true,
   });
+  const [locationPrefs, setLocationPrefs] = useState<LocationNotificationPref[]>([]);
   const [loading, setLoading] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const [isEnabling, setIsEnabling] = useState(false);
@@ -75,6 +83,7 @@ export const NotificationSettings = () => {
 
     const fetchPreferences = async () => {
       try {
+        // Fetch notification preferences
         const { data, error } = await supabase
           .from('notification_preferences')
           .select('*')
@@ -83,7 +92,6 @@ export const NotificationSettings = () => {
 
         if (error && error.code !== 'PGRST116') {
           console.error('Failed to fetch notification preferences:', error);
-          return;
         }
 
         if (data) {
@@ -96,6 +104,34 @@ export const NotificationSettings = () => {
             shift_approvals: data.shift_approvals ?? true,
             certification_expiring: data.certification_expiring ?? true,
           });
+        }
+
+        // Fetch user's assigned locations
+        const { data: userLocations } = await supabase
+          .from('user_locations')
+          .select('location_id, locations(id, name)')
+          .eq('user_id', user.id);
+
+        if (userLocations && userLocations.length > 0) {
+          // Fetch existing location notification preferences
+          const { data: existingPrefs } = await supabase
+            .from('user_location_notifications')
+            .select('*')
+            .eq('user_id', user.id);
+
+          const existingPrefsMap = new Map(
+            existingPrefs?.map((p: any) => [p.location_id, p.notifications_enabled]) || []
+          );
+
+          const locPrefs: LocationNotificationPref[] = userLocations.map((ul: any) => ({
+            location_id: ul.location_id,
+            location_name: ul.locations?.name || 'Unknown',
+            notifications_enabled: existingPrefsMap.has(ul.location_id) 
+              ? existingPrefsMap.get(ul.location_id) 
+              : true, // Default to enabled
+          }));
+
+          setLocationPrefs(locPrefs);
         }
       } catch (error) {
         console.error('Error fetching preferences:', error);
@@ -247,6 +283,51 @@ export const NotificationSettings = () => {
     }
   };
 
+  const updateLocationPreference = async (locationId: string, enabled: boolean) => {
+    if (!user) return;
+
+    // Optimistic update
+    setLocationPrefs(prev => 
+      prev.map(lp => lp.location_id === locationId ? { ...lp, notifications_enabled: enabled } : lp)
+    );
+
+    try {
+      const { error } = await supabase
+        .from('user_location_notifications')
+        .upsert({
+          user_id: user.id,
+          location_id: locationId,
+          notifications_enabled: enabled,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id,location_id'
+        });
+
+      if (error) {
+        console.error('Failed to update location preference:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to update location notification setting',
+          variant: 'destructive',
+        });
+        // Revert on error
+        setLocationPrefs(prev => 
+          prev.map(lp => lp.location_id === locationId ? { ...lp, notifications_enabled: !enabled } : lp)
+        );
+      } else {
+        toast({
+          title: 'Updated',
+          description: `Notifications ${enabled ? 'enabled' : 'disabled'} for this location`,
+        });
+      }
+    } catch (error) {
+      console.error('Error updating location preference:', error);
+      setLocationPrefs(prev => 
+        prev.map(lp => lp.location_id === locationId ? { ...lp, notifications_enabled: !enabled } : lp)
+      );
+    }
+  };
+
   // Always render for debugging
   console.log('[NotificationSettings] Rendering, loading:', loading, 'shouldShow:', shouldShow);
 
@@ -287,70 +368,99 @@ export const NotificationSettings = () => {
 
         {/* Show preferences if permission granted or on native */}
         {(!needsPermission || isNative) && (
-          <div className="grid grid-cols-1 gap-1">
-            <div className="flex items-center justify-between py-1.5">
-              <Label htmlFor="overdue-checklists" className="text-sm font-normal">Overdue Checklists</Label>
-              <Switch
-                id="overdue-checklists"
-                checked={preferences.overdue_checklists}
-                onCheckedChange={(checked) => updatePreference('overdue_checklists', checked)}
-              />
+          <>
+            <div className="grid grid-cols-1 gap-1">
+              <div className="flex items-center justify-between py-1.5">
+                <Label htmlFor="overdue-checklists" className="text-sm font-normal">Overdue Checklists</Label>
+                <Switch
+                  id="overdue-checklists"
+                  checked={preferences.overdue_checklists}
+                  onCheckedChange={(checked) => updatePreference('overdue_checklists', checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between py-1.5">
+                <Label htmlFor="late-arrivals" className="text-sm font-normal">Late Arrivals</Label>
+                <Switch
+                  id="late-arrivals"
+                  checked={preferences.late_arrivals}
+                  onCheckedChange={(checked) => updatePreference('late_arrivals', checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between py-1.5">
+                <Label htmlFor="announcements" className="text-sm font-normal">Announcements</Label>
+                <Switch
+                  id="announcements"
+                  checked={preferences.announcements}
+                  onCheckedChange={(checked) => updatePreference('announcements', checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between py-1.5">
+                <Label htmlFor="chat-messages" className="text-sm font-normal">Chat Messages</Label>
+                <Switch
+                  id="chat-messages"
+                  checked={preferences.chat_messages}
+                  onCheckedChange={(checked) => updatePreference('chat_messages', checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between py-1.5">
+                <Label htmlFor="schedule-updates" className="text-sm font-normal">Schedule Updates</Label>
+                <Switch
+                  id="schedule-updates"
+                  checked={preferences.schedule_updates}
+                  onCheckedChange={(checked) => updatePreference('schedule_updates', checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between py-1.5">
+                <Label htmlFor="shift-approvals" className="text-sm font-normal">Shift Approvals</Label>
+                <Switch
+                  id="shift-approvals"
+                  checked={preferences.shift_approvals}
+                  onCheckedChange={(checked) => updatePreference('shift_approvals', checked)}
+                />
+              </div>
+
+              <div className="flex items-center justify-between py-1.5">
+                <Label htmlFor="certification-expiring" className="text-sm font-normal">Cert Expiring</Label>
+                <Switch
+                  id="certification-expiring"
+                  checked={preferences.certification_expiring}
+                  onCheckedChange={(checked) => updatePreference('certification_expiring', checked)}
+                />
+              </div>
             </div>
 
-            <div className="flex items-center justify-between py-1.5">
-              <Label htmlFor="late-arrivals" className="text-sm font-normal">Late Arrivals</Label>
-              <Switch
-                id="late-arrivals"
-                checked={preferences.late_arrivals}
-                onCheckedChange={(checked) => updatePreference('late_arrivals', checked)}
-              />
-            </div>
-
-            <div className="flex items-center justify-between py-1.5">
-              <Label htmlFor="announcements" className="text-sm font-normal">Announcements</Label>
-              <Switch
-                id="announcements"
-                checked={preferences.announcements}
-                onCheckedChange={(checked) => updatePreference('announcements', checked)}
-              />
-            </div>
-
-            <div className="flex items-center justify-between py-1.5">
-              <Label htmlFor="chat-messages" className="text-sm font-normal">Chat Messages</Label>
-              <Switch
-                id="chat-messages"
-                checked={preferences.chat_messages}
-                onCheckedChange={(checked) => updatePreference('chat_messages', checked)}
-              />
-            </div>
-
-            <div className="flex items-center justify-between py-1.5">
-              <Label htmlFor="schedule-updates" className="text-sm font-normal">Schedule Updates</Label>
-              <Switch
-                id="schedule-updates"
-                checked={preferences.schedule_updates}
-                onCheckedChange={(checked) => updatePreference('schedule_updates', checked)}
-              />
-            </div>
-
-            <div className="flex items-center justify-between py-1.5">
-              <Label htmlFor="shift-approvals" className="text-sm font-normal">Shift Approvals</Label>
-              <Switch
-                id="shift-approvals"
-                checked={preferences.shift_approvals}
-                onCheckedChange={(checked) => updatePreference('shift_approvals', checked)}
-              />
-            </div>
-
-            <div className="flex items-center justify-between py-1.5">
-              <Label htmlFor="certification-expiring" className="text-sm font-normal">Cert Expiring</Label>
-              <Switch
-                id="certification-expiring"
-                checked={preferences.certification_expiring}
-                onCheckedChange={(checked) => updatePreference('certification_expiring', checked)}
-              />
-            </div>
-          </div>
+            {/* Location-specific notification toggles */}
+            {locationPrefs.length > 1 && (
+              <>
+                <Separator className="my-3" />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5" />
+                    <span>Notifications by Location</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-1">
+                    {locationPrefs.map((lp) => (
+                      <div key={lp.location_id} className="flex items-center justify-between py-1.5">
+                        <Label htmlFor={`loc-${lp.location_id}`} className="text-sm font-normal">
+                          {lp.location_name}
+                        </Label>
+                        <Switch
+                          id={`loc-${lp.location_id}`}
+                          checked={lp.notifications_enabled}
+                          onCheckedChange={(checked) => updateLocationPreference(lp.location_id, checked)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </>
         )}
       </CardContent>
     </Card>

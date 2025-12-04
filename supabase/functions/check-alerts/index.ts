@@ -128,6 +128,7 @@ function getTimezoneDayBoundariesInUTC(timezone: string): { startOfDayUTC: Date;
 // Get users at a specific location with admin/manager roles
 // Only includes users explicitly assigned to the location via user_locations
 // Super admins must assign themselves to specific locations to receive alerts
+// Also filters out users who have disabled notifications for this specific location
 async function getLocationAdminsAndManagers(supabaseClient: any, locationId: string) {
   // Get users EXPLICITLY assigned to this location (not based on role access)
   const { data: locationUsers } = await supabaseClient
@@ -146,7 +147,25 @@ async function getLocationAdminsAndManagers(supabaseClient: any, locationId: str
     .in('user_id', userIds)
     .in('role', ['super_admin', 'org_admin', 'admin', 'manager', 'general_manager', 'shift_manager']);
 
-  return adminUsers || [];
+  if (!adminUsers || adminUsers.length === 0) return [];
+
+  // Check for users who have disabled notifications for this location
+  const adminUserIds = adminUsers.map((u: any) => u.user_id);
+  const { data: disabledPrefs } = await supabaseClient
+    .from('user_location_notifications')
+    .select('user_id')
+    .eq('location_id', locationId)
+    .eq('notifications_enabled', false)
+    .in('user_id', adminUserIds);
+
+  const disabledUserIds = new Set(disabledPrefs?.map((p: any) => p.user_id) || []);
+
+  // Filter out users who have disabled notifications for this location
+  const filteredUsers = adminUsers.filter((u: any) => !disabledUserIds.has(u.user_id));
+  
+  console.log(`[getLocationAdminsAndManagers] Location ${locationId}: ${adminUsers.length} admins, ${disabledUserIds.size} disabled, ${filteredUsers.length} will receive notifications`);
+
+  return filteredUsers;
 }
 
 async function checkOverdueChecklists(supabaseClient: any, timezone: string, locationId: string, locationName: string) {
