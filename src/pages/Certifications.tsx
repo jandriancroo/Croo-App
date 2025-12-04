@@ -349,9 +349,6 @@ export default function Certifications() {
                     </Avatar>
                     <div className="min-w-0 flex-1">
                       <CardTitle className="text-sm truncate">{profile.full_name}</CardTitle>
-                      <CardDescription className="text-xs">
-                        {employeeCerts.length} cert{employeeCerts.length !== 1 ? 's' : ''}
-                      </CardDescription>
                     </div>
                     {(isAdmin || profile.id === user?.id) && (
                       <Button
