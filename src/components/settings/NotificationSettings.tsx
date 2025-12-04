@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -255,42 +255,31 @@ export const NotificationSettings = () => {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
-          {allDisabled ? <BellOff className="h-5 w-5" /> : <Bell className="h-5 w-5" />}
-          <CardTitle>Push Notifications</CardTitle>
+          {allDisabled ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+          <CardTitle className="text-base">Push Notifications</CardTitle>
         </div>
-        <CardDescription>
-          {isPWA && !isNative 
-            ? "Enable notifications to stay updated on important events"
-            : "Manage which notifications you receive on this device"
-          }
-        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-2">
         {/* Show enable button for PWA users who haven't granted permission */}
         {needsPermission && (
-          <div className="p-4 bg-muted rounded-lg space-y-3">
+          <div className="p-3 bg-muted rounded-lg space-y-2">
             <div className="flex items-center gap-2">
-              <Smartphone className="h-5 w-5 text-primary" />
-              <span className="font-medium">Enable Push Notifications</span>
+              <Smartphone className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">Enable Push Notifications</span>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {isIOSDevice 
-                ? "Tap the button below to enable notifications. You'll need to allow notifications when prompted."
-                : "Click to enable push notifications for this app."
-              }
-            </p>
             <Button 
               onClick={enableNotifications} 
               disabled={isEnabling}
+              size="sm"
               className="w-full"
             >
               {isEnabling ? "Enabling..." : "Enable Notifications"}
             </Button>
             {notificationPermission === 'denied' && (
               <p className="text-xs text-destructive">
-                Notifications are blocked. Please enable them in your device settings.
+                Notifications are blocked. Enable in device settings.
               </p>
             )}
           </div>
@@ -298,14 +287,9 @@ export const NotificationSettings = () => {
 
         {/* Show preferences if permission granted or on native */}
         {(!needsPermission || isNative) && (
-          <>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="overdue-checklists">Overdue Checklists</Label>
-                <p className="text-sm text-muted-foreground">
-                  Get notified when checklists pass their due time
-                </p>
-              </div>
+          <div className="grid grid-cols-1 gap-1">
+            <div className="flex items-center justify-between py-1.5">
+              <Label htmlFor="overdue-checklists" className="text-sm font-normal">Overdue Checklists</Label>
               <Switch
                 id="overdue-checklists"
                 checked={preferences.overdue_checklists}
@@ -313,13 +297,8 @@ export const NotificationSettings = () => {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="late-arrivals">Late Arrivals</Label>
-                <p className="text-sm text-muted-foreground">
-                  Get notified when employees are late to shifts
-                </p>
-              </div>
+            <div className="flex items-center justify-between py-1.5">
+              <Label htmlFor="late-arrivals" className="text-sm font-normal">Late Arrivals</Label>
               <Switch
                 id="late-arrivals"
                 checked={preferences.late_arrivals}
@@ -327,13 +306,8 @@ export const NotificationSettings = () => {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="announcements">Announcements</Label>
-                <p className="text-sm text-muted-foreground">
-                  Get notified when new announcements are posted
-                </p>
-              </div>
+            <div className="flex items-center justify-between py-1.5">
+              <Label htmlFor="announcements" className="text-sm font-normal">Announcements</Label>
               <Switch
                 id="announcements"
                 checked={preferences.announcements}
@@ -341,13 +315,8 @@ export const NotificationSettings = () => {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="chat-messages">Chat Messages</Label>
-                <p className="text-sm text-muted-foreground">
-                  Get notified when you receive new messages
-                </p>
-              </div>
+            <div className="flex items-center justify-between py-1.5">
+              <Label htmlFor="chat-messages" className="text-sm font-normal">Chat Messages</Label>
               <Switch
                 id="chat-messages"
                 checked={preferences.chat_messages}
@@ -355,13 +324,8 @@ export const NotificationSettings = () => {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="schedule-updates">Schedule Updates</Label>
-                <p className="text-sm text-muted-foreground">
-                  Get notified when your schedule is posted or updated
-                </p>
-              </div>
+            <div className="flex items-center justify-between py-1.5">
+              <Label htmlFor="schedule-updates" className="text-sm font-normal">Schedule Updates</Label>
               <Switch
                 id="schedule-updates"
                 checked={preferences.schedule_updates}
@@ -369,13 +333,8 @@ export const NotificationSettings = () => {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="shift-approvals">Shift Approvals</Label>
-                <p className="text-sm text-muted-foreground">
-                  Get notified when your shift claim is approved
-                </p>
-              </div>
+            <div className="flex items-center justify-between py-1.5">
+              <Label htmlFor="shift-approvals" className="text-sm font-normal">Shift Approvals</Label>
               <Switch
                 id="shift-approvals"
                 checked={preferences.shift_approvals}
@@ -383,20 +342,15 @@ export const NotificationSettings = () => {
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="certification-expiring">Certification Expiring</Label>
-                <p className="text-sm text-muted-foreground">
-                  Get notified when your certifications are about to expire
-                </p>
-              </div>
+            <div className="flex items-center justify-between py-1.5">
+              <Label htmlFor="certification-expiring" className="text-sm font-normal">Cert Expiring</Label>
               <Switch
                 id="certification-expiring"
                 checked={preferences.certification_expiring}
                 onCheckedChange={(checked) => updatePreference('certification_expiring', checked)}
               />
             </div>
-          </>
+          </div>
         )}
       </CardContent>
     </Card>
