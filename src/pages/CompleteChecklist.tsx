@@ -81,6 +81,23 @@ export default function CompleteChecklist() {
     fetchChecklistData();
   }, [id, viewDate]);
 
+  // Helper to check if a multi-photo item is complete
+  const isMultiPhotoComplete = useCallback((item: ChecklistItem, response: any): boolean => {
+    if (item.item_type !== 'image' && item.item_type !== 'PHOTO') return true;
+    const minPhotos = item.options?.minPhotos || 1;
+    if (minPhotos <= 1) return !!response;
+    
+    let photos: string[] = [];
+    if (Array.isArray(response)) {
+      photos = response;
+    } else if (typeof response === 'string' && response.startsWith('[')) {
+      try { photos = JSON.parse(response); } catch { photos = [response]; }
+    } else if (response) {
+      photos = [response];
+    }
+    return photos.length >= minPhotos;
+  }, []);
+
   // Calculate completion percentage
   useEffect(() => {
     if (items.length === 0) return;
@@ -89,10 +106,13 @@ export default function CompleteChecklist() {
       if (item.item_type === 'confirmation' || item.item_type === 'CHECKMARK') {
         return response === true;
       }
+      if (item.item_type === 'image' || item.item_type === 'PHOTO') {
+        return isMultiPhotoComplete(item, response);
+      }
       return response !== undefined && response !== '' && response !== null;
     }).length;
     setCompletionPercentage(Math.round(completedCount / items.length * 100));
-  }, [responses, items]);
+  }, [responses, items, isMultiPhotoComplete]);
 
   // Create or get shared daily submission (one per checklist per day, not per user)
   useEffect(() => {
@@ -194,6 +214,14 @@ export default function CompleteChecklist() {
           } else if (resp.response_text !== null) {
             if (resp.response_text === 'true' || resp.response_text === 'false') {
               value = resp.response_text === 'true';
+            } else if (resp.response_text.startsWith('[')) {
+              // Multi-photo JSON array
+              try {
+                value = JSON.parse(resp.response_text);
+                isImage = true;
+              } catch {
+                value = resp.response_text;
+              }
             } else {
               value = resp.response_text;
             }
@@ -437,7 +465,34 @@ export default function CompleteChecklist() {
       toast.error('Failed to undo completion');
     }
   };
-  const handleImageUpload = async (itemId: string, file: File) => {
+  // Helper to get minPhotos from item options
+  const getMinPhotos = (item: ChecklistItem): number => {
+    if (item.options && typeof item.options === 'object' && !Array.isArray(item.options)) {
+      return item.options.minPhotos || 1;
+    }
+    return 1;
+  };
+
+  // Get current photos array for an item
+  const getPhotosForItem = (itemId: string): string[] => {
+    const response = responses[itemId];
+    if (!response) return [];
+    if (Array.isArray(response)) return response;
+    if (typeof response === 'string' && response.startsWith('[')) {
+      try {
+        return JSON.parse(response);
+      } catch {
+        return [response];
+      }
+    }
+    return response ? [response] : [];
+  };
+
+  const handleImageUpload = async (itemId: string, file: File, photoIndex?: number) => {
+    const item = items.find(i => i.id === itemId);
+    const minPhotos = item ? getMinPhotos(item) : 1;
+    const isMultiPhoto = minPhotos > 1;
+
     try {
       // Compress image to reduce memory usage on mobile devices
       const compressedFile = await compressImage(file, 1200, 1200, 0.8);
@@ -465,6 +520,22 @@ export default function CompleteChecklist() {
         tempValid = tempData.isValid;
       }
 
+      // Handle multi-photo vs single photo
+      let newValue: string | string[];
+      if (isMultiPhoto) {
+        const currentPhotos = getPhotosForItem(itemId);
+        if (photoIndex !== undefined && photoIndex < currentPhotos.length) {
+          // Replace existing photo at index
+          currentPhotos[photoIndex] = data.publicUrl;
+          newValue = [...currentPhotos];
+        } else {
+          // Add new photo
+          newValue = [...currentPhotos, data.publicUrl];
+        }
+      } else {
+        newValue = data.publicUrl;
+      }
+
       // Save the response with temperature data
       let responseId: string | undefined;
       if (submissionId && user?.id) {
@@ -475,16 +546,19 @@ export default function CompleteChecklist() {
           .eq('item_id', itemId)
           .single();
 
+        const responseData = {
+          response_image_url: isMultiPhoto ? null : data.publicUrl,
+          response_text: isMultiPhoto ? JSON.stringify(newValue) : null,
+          completed_by: user.id,
+          extracted_temperature: extractedTemp,
+          temperature_valid: tempValid,
+          temperature_validated_at: new Date().toISOString()
+        };
+
         if (existing) {
           await supabase
             .from('checklist_responses')
-            .update({
-              response_image_url: data.publicUrl,
-              completed_by: user.id,
-              extracted_temperature: extractedTemp,
-              temperature_valid: tempValid,
-              temperature_validated_at: new Date().toISOString()
-            })
+            .update(responseData)
             .eq('id', existing.id);
           responseId = existing.id;
         } else {
@@ -493,11 +567,7 @@ export default function CompleteChecklist() {
             .insert({
               submission_id: submissionId,
               item_id: itemId,
-              response_image_url: data.publicUrl,
-              completed_by: user.id,
-              extracted_temperature: extractedTemp,
-              temperature_valid: tempValid,
-              temperature_validated_at: new Date().toISOString()
+              ...responseData
             })
             .select('id')
             .single();
@@ -512,12 +582,12 @@ export default function CompleteChecklist() {
           .single();
 
         // Update both responses and responsesWithCompleters with ALL data including temperature
-        setResponses(prev => ({ ...prev, [itemId]: data.publicUrl }));
+        setResponses(prev => ({ ...prev, [itemId]: newValue }));
         setResponsesWithCompleters(prev => ({
           ...prev,
           [itemId]: {
             responseId: responseId || '',
-            value: data.publicUrl,
+            value: newValue,
             isImage: true,
             extractedTemperature: extractedTemp,
             temperatureValid: tempValid,
@@ -560,7 +630,11 @@ export default function CompleteChecklist() {
           {items.map(item => {
           const isCompleted = responsesWithCompleters[item.id]?.completedBy;
           const completerInfo = responsesWithCompleters[item.id]?.completedBy;
-          const hasResponse = responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
+          const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO';
+          const hasResponse = isImageItem 
+            ? isMultiPhotoComplete(item, responses[item.id])
+            : responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
+          const currentPhotos = isImageItem ? getPhotosForItem(item.id) : [];
           
           return <div key={item.id} className="space-y-2">
               {/* Title above divider - never blurred */}
@@ -636,12 +710,13 @@ export default function CompleteChecklist() {
                     )}
 
                     
-                    {(responsesWithCompleters[item.id]?.isImage || item.item_type === 'image' || item.item_type === 'PHOTO') && responses[item.id] && <button
+                    {(responsesWithCompleters[item.id]?.isImage || isImageItem) && currentPhotos.length > 0 && <button
                         type="button"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          setPreviewImage(responses[item.id]);
+                          // For multi-photo, show first image (could enhance to show gallery)
+                          setPreviewImage(currentPhotos[0]);
                         }}
                         className="absolute bottom-3 right-3 z-20 bg-background/80 backdrop-blur-sm rounded-full p-2 hover:bg-background transition-colors shadow-lg"
                       >
@@ -682,20 +757,74 @@ export default function CompleteChecklist() {
                           <Label htmlFor={`${item.id}-${option}`} className="text-sm font-normal cursor-pointer">{option}</Label>
                         </div>)}
                     </RadioGroup>}
-                  {(item.item_type === 'image' || item.item_type === 'PHOTO') && <div className="space-y-2">
-                      <Label htmlFor={`image-${item.id}`} className="cursor-pointer">
-                        <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-border rounded hover:border-primary transition-colors">
-                          <Upload className="h-4 w-4" />
-                          <span className="text-sm">Tap to take photo</span>
-                        </div>
-                      </Label>
-                      <Input id={`image-${item.id}`} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (file) handleImageUpload(item.id, file);
-                    e.target.value = '';
-                  }} required={item.is_required && !responses[item.id]} />
-                      {responses[item.id] && <img src={responses[item.id]} alt="Uploaded" className="rounded max-h-48 object-cover border" />}
-                    </div>}
+                  {(item.item_type === 'image' || item.item_type === 'PHOTO') && (() => {
+                    const minPhotos = getMinPhotos(item);
+                    const isMultiPhoto = minPhotos > 1;
+                    const currentPhotos = getPhotosForItem(item.id);
+                    const photosNeeded = Math.max(minPhotos - currentPhotos.length, 0);
+                    const isComplete = currentPhotos.length >= minPhotos;
+
+                    return (
+                      <div className="space-y-3">
+                        {isMultiPhoto && (
+                          <div className="text-sm text-muted-foreground">
+                            {currentPhotos.length} / {minPhotos} photos uploaded
+                          </div>
+                        )}
+
+                        {/* Display existing photos */}
+                        {currentPhotos.length > 0 && (
+                          <div className={`grid gap-2 ${isMultiPhoto ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1'}`}>
+                            {currentPhotos.map((photoUrl, idx) => (
+                              <div key={idx} className="relative">
+                                <img 
+                                  src={photoUrl} 
+                                  alt={`Photo ${idx + 1}`} 
+                                  className="rounded max-h-32 object-cover border w-full" 
+                                />
+                                <div className="absolute top-1 left-1 bg-background/80 text-xs px-1.5 py-0.5 rounded">
+                                  {idx + 1}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Upload buttons for remaining photos needed */}
+                        {!isComplete && (
+                          <div className={`grid gap-2 ${isMultiPhoto && photosNeeded > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                            {Array.from({ length: isMultiPhoto ? photosNeeded : 1 }).map((_, idx) => (
+                              <div key={idx}>
+                                <Label htmlFor={`image-${item.id}-${currentPhotos.length + idx}`} className="cursor-pointer">
+                                  <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-border rounded hover:border-primary transition-colors">
+                                    <Upload className="h-4 w-4" />
+                                    <span className="text-sm">
+                                      {isMultiPhoto 
+                                        ? `Photo ${currentPhotos.length + idx + 1}` 
+                                        : 'Tap to take photo'}
+                                    </span>
+                                  </div>
+                                </Label>
+                                <Input 
+                                  id={`image-${item.id}-${currentPhotos.length + idx}`} 
+                                  type="file" 
+                                  accept="image/*" 
+                                  capture="environment" 
+                                  className="hidden" 
+                                  onChange={e => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleImageUpload(item.id, file);
+                                    e.target.value = '';
+                                  }} 
+                                  required={item.is_required && !isComplete} 
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK') && <div className="flex items-center space-x-2 py-2">
                       <Checkbox id={`confirm-${item.id}`} checked={responses[item.id] || false} onCheckedChange={checked => handleResponseChange(item.id, checked)} required={item.is_required} />
                       <Label htmlFor={`confirm-${item.id}`} className="text-sm font-normal cursor-pointer leading-relaxed">
