@@ -11,6 +11,7 @@ import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { compressImage } from '@/utils/imageCompression';
 import { removeBackground, loadImageFromUrl } from '@/utils/backgroundRemoval';
+import { OrganizationMembersSection } from '@/components/settings/OrganizationMembersSection';
 
 export default function OrganizationProfile() {
   const { id } = useParams<{ id: string }>();
@@ -330,6 +331,11 @@ export default function OrganizationProfile() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Organization Members */}
+        {!isNew && id && (
+          <OrganizationMembersSection organizationId={id} />
+        )}
 
         {/* Locations */}
         {!isNew && (
