@@ -155,6 +155,13 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string, loc
     
     console.log(`[${locationName}] Checklist check - Local time: ${localNow.toLocaleString()}, Day: ${currentDay}`);
 
+    // Only send overdue notifications within the first 10 minutes of each hour
+    // This prevents spamming notifications every 5 minutes
+    if (currentMinutes > 10) {
+      console.log(`[${locationName}] Skipping overdue check - outside notification window (minute ${currentMinutes})`);
+      return;
+    }
+
     // Get active checklists for this location with due times
     const { data: checklists, error: checklistsError } = await supabaseClient
       .from('checklists')
