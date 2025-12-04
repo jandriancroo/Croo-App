@@ -34,6 +34,7 @@ export default function CreateChecklist() {
   const [dueByTime, setDueByTime] = useState('');
   const [templateType, setTemplateType] = useState<'standard' | 'dynamic'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
   const [items, setItems] = useState<ChecklistItem[]>([
     { question: '', item_type: 'text', is_required: true }
   ]);
@@ -188,6 +189,7 @@ export default function CreateChecklist() {
         due_by_time: dueByTime || null,
         template_type: 'standard',
         created_by: user?.id,
+        visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
       })
       .select()
       .single();
@@ -333,6 +335,29 @@ export default function CreateChecklist() {
                   </SelectContent>
                 </Select>
               </div>
+              {frequency === 'monthly' && (
+                <div className="space-y-2">
+                  <Label htmlFor="visible_days">Show During Last X Days of Month</Label>
+                  <Select 
+                    value={visibleDaysBeforeMonthEnd?.toString() || '7'} 
+                    onValueChange={(value) => setVisibleDaysBeforeMonthEnd(parseInt(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="3">Last 3 days</SelectItem>
+                      <SelectItem value="5">Last 5 days</SelectItem>
+                      <SelectItem value="7">Last 7 days (1 week)</SelectItem>
+                      <SelectItem value="10">Last 10 days</SelectItem>
+                      <SelectItem value="14">Last 14 days (2 weeks)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    This checklist will only appear during the selected window at the end of each month
+                  </p>
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="due_by_time">Alert Time</Label>
                 <Input
