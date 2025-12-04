@@ -712,14 +712,20 @@ export default function Certifications() {
                             </p>
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
-                            <a
-                              href={cert.certificate_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
+                              asChild
                             >
-                              <ExternalLink className="w-3 h-3" />
-                            </a>
+                              <a
+                                href={cert.certificate_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            </Button>
                             {isAdmin && (
                               <>
                                 <Button
@@ -830,14 +836,20 @@ export default function Certifications() {
                           </p>
                         </div>
                         <div className="flex gap-1 flex-shrink-0">
-                          <a
-                            href={audit.audit_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            asChild
                           >
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
+                            <a
+                              href={audit.audit_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </a>
+                          </Button>
                           <Button
                             size="icon"
                             variant="ghost"
