@@ -3,23 +3,26 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Building2, MapPin, Plus, Palette, Save, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Plus, Palette, Save, ExternalLink, Upload, X } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+import { compressImage } from '@/utils/imageCompression';
 
 export default function OrganizationProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const isNew = id === 'new';
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   const { data: organization, isLoading } = useQuery({
     queryKey: ['organization', id],
@@ -65,6 +68,41 @@ export default function OrganizationProfile() {
       setSlug(name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
     }
   }, [name, isNew]);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const compressed = await compressImage(file, 800, 800);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${id || 'new'}-${Date.now()}.${fileExt}`;
+      const filePath = `logos/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('organization-branding')
+        .upload(filePath, compressed, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('organization-branding')
+        .getPublicUrl(filePath);
+
+      setLogoUrl(publicUrl);
+      toast.success('Logo uploaded');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to upload logo');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    setLogoUrl('');
+  };
 
   const handleSave = async () => {
     if (!name.trim() || !slug.trim()) {
@@ -182,28 +220,49 @@ export default function OrganizationProfile() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="logo">Logo URL</Label>
-              <Input
-                id="logo"
-                value={logoUrl}
-                onChange={(e) => setLogoUrl(e.target.value)}
-                placeholder="https://example.com/logo.png"
+              <Label>Organization Logo</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                className="hidden"
               />
+              
+              {logoUrl ? (
+                <div className="relative inline-block">
+                  <div className="p-4 border rounded-lg bg-muted/50">
+                    <img 
+                      src={logoUrl} 
+                      alt="Logo preview" 
+                      className="h-20 object-contain"
+                    />
+                  </div>
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="absolute -top-2 -right-2 h-6 w-6"
+                    onClick={handleRemoveLogo}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="w-full h-24 border-dashed"
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {isUploading ? 'Uploading...' : 'Click to upload logo'}
+                    </span>
+                  </div>
+                </Button>
+              )}
             </div>
-            
-            {logoUrl && (
-              <div className="p-4 border rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground mb-2">Preview:</p>
-                <img 
-                  src={logoUrl} 
-                  alt="Logo preview" 
-                  className="h-16 object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-              </div>
-            )}
           </CardContent>
         </Card>
 
