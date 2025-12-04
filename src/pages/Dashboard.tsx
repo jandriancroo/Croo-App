@@ -605,7 +605,7 @@ export default function Dashboard() {
                     </div>
                   </CardHeader>
                   <CardContent className="py-2 px-3 pt-0">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between">
                       <div className="text-sm text-muted-foreground">
                         {completed}/{expected}
                       </div>
@@ -613,10 +613,12 @@ export default function Dashboard() {
                         {completionRate}%
                       </div>
                     </div>
-                    <Button className="w-full h-8 text-xs" size="sm" onClick={() => navigate(`/complete/${checklist.id}`)}>
-                      {isComplete ? 'Review' : 'Complete'}
-                    </Button>
                   </CardContent>
+                </div>
+                <div className="px-3 pb-2">
+                  <Button className="w-full h-8 text-xs" size="sm" onClick={() => navigate(`/complete/${checklist.id}`)}>
+                    {isComplete ? 'Review' : 'Complete'}
+                  </Button>
                 </div>
               </Card>
                 {isComplete && (
