@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Upload, CheckCircle, XCircle, Clock, ExternalLink, Trash2, Edit } from "lucide-react";
+import { Upload, CheckCircle, XCircle, Clock, ExternalLink, Trash2, Edit, FileText } from "lucide-react";
 import { format } from "date-fns";
 import { EditCertificationDialog } from "@/components/users/EditCertificationDialog";
 import { compressImage } from "@/utils/imageCompression";
@@ -382,17 +382,27 @@ export default function Certifications() {
                     </p>
                   ) : (
                     <div className="space-y-2">
-                      {employeeCerts.map((cert) => (
+                      {employeeCerts.map((cert) => {
+                        const isPdf = cert.certificate_url?.toLowerCase().endsWith('.pdf');
+                        return (
                         <div key={cert.id} className="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
                           <div 
-                            className="w-10 h-10 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80"
+                            className="w-10 h-10 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80 flex items-center justify-center"
                             onClick={() => window.open(cert.certificate_url, "_blank")}
                           >
-                            <img 
-                              src={cert.certificate_url} 
-                              alt={getCertTypeName(cert.certification_type as CertificationType)}
-                              className="w-full h-full object-cover"
-                            />
+                            {isPdf ? (
+                              <FileText className="w-5 h-5 text-muted-foreground" />
+                            ) : (
+                              <img 
+                                src={cert.certificate_url} 
+                                alt={getCertTypeName(cert.certification_type as CertificationType)}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.parentElement?.classList.add('pdf-fallback');
+                                }}
+                              />
+                            )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
@@ -445,7 +455,7 @@ export default function Certifications() {
                             )}
                           </div>
                         </div>
-                      ))}
+                      )})}
                       {isAdmin && employeeCerts.some(c => c.status === "pending") && (
                         <div className="flex gap-1 pt-1">
                           {employeeCerts.filter(c => c.status === "pending").map(cert => (
