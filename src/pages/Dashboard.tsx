@@ -622,7 +622,7 @@ export default function Dashboard() {
                 </div>
               </Card>
                 {isComplete && (
-                  <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
+                  <div className="absolute inset-x-0 top-0 bottom-10 z-50 flex items-center justify-center pointer-events-none">
                     <div 
                       className="flex items-center justify-center rounded-full bg-green-500"
                       style={{
