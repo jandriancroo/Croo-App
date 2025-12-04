@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { Shield, User } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
-type AppRole = 'admin' | 'general_manager' | 'shift_manager' | 'manager' | 'team_member';
+type AppRole = 'super_admin' | 'org_admin' | 'admin' | 'general_manager' | 'shift_manager' | 'manager' | 'team_member';
 
 type RolePermission = {
   id: string;

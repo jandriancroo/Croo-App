@@ -769,6 +769,7 @@ export type Database = {
           location_type: string
           longitude: number | null
           name: string
+          organization_id: string | null
           updated_at: string
         }
         Insert: {
@@ -781,6 +782,7 @@ export type Database = {
           location_type?: string
           longitude?: number | null
           name: string
+          organization_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -793,9 +795,18 @@ export type Database = {
           location_type?: string
           longitude?: number | null
           name?: string
+          organization_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "locations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       logbook_categories: {
         Row: {
@@ -1138,6 +1149,75 @@ export type Database = {
           shift_approvals?: boolean
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      organization_members: {
+        Row: {
+          created_at: string
+          id: string
+          org_role: string
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          org_role?: string
+          organization_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          org_role?: string
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1874,6 +1954,15 @@ export type Database = {
         Args: { _chat_id: string; _user_id: string }
         Returns: boolean
       }
+      is_org_admin: {
+        Args: { _organization_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_org_member: {
+        Args: { _organization_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_super_admin: { Args: { _user_id: string }; Returns: boolean }
       validate_location_code: {
         Args: { p_code: string }
         Returns: {
@@ -1889,6 +1978,8 @@ export type Database = {
         | "team_member"
         | "general_manager"
         | "shift_manager"
+        | "super_admin"
+        | "org_admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2022,6 +2113,8 @@ export const Constants = {
         "team_member",
         "general_manager",
         "shift_manager",
+        "super_admin",
+        "org_admin",
       ],
     },
   },
