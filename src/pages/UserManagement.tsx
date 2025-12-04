@@ -38,8 +38,9 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { CrooCashCard } from '@/components/users/CrooCashCard';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { CertificationsSection } from '@/components/users/CertificationsSection';
 
 interface UserProfile {
   id: string;
@@ -101,7 +102,7 @@ export default function UserManagement() {
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [isBulkDeactivateOpen, setIsBulkDeactivateOpen] = useState(false);
   const [isBulkWageOpen, setIsBulkWageOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'inactive' | 'certifications'>('active');
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [editBirthday, setEditBirthday] = useState<Date | undefined>();
@@ -1223,9 +1224,9 @@ export default function UserManagement() {
           </div>
           </CardHeader>
           <CardContent>
-            {/* Active/Inactive Tabs */}
+            {/* Active/Inactive/Certifications Tabs */}
             <Tabs value={activeTab} onValueChange={(v) => {
-              setActiveTab(v as 'active' | 'inactive');
+              setActiveTab(v as 'active' | 'inactive' | 'certifications');
               setSelectedUsers(new Set());
             }} className="mb-4">
               <TabsList>
@@ -1235,10 +1236,15 @@ export default function UserManagement() {
                 <TabsTrigger value="inactive">
                   Inactive ({users.filter(u => !u.is_active).length})
                 </TabsTrigger>
+                <TabsTrigger value="certifications">
+                  Certifications
+                </TabsTrigger>
               </TabsList>
             </Tabs>
             
-            {loading ? (
+            {activeTab === 'certifications' ? (
+              <CertificationsSection />
+            ) : loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
