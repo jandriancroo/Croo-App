@@ -625,18 +625,16 @@ export default function Dashboard() {
                 {isComplete && (
                   <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ bottom: '50px' }}>
                     <div 
-                      className="px-5 py-2 text-white font-semibold text-base uppercase tracking-wider flex items-center gap-1.5"
+                      className="flex items-center justify-center rounded-full bg-green-500"
                       style={{
-                        background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-                        borderRadius: '4px',
-                        transform: 'rotate(-3deg)',
+                        width: '64px',
+                        height: '64px',
                         boxShadow: '0 4px 12px rgba(34, 197, 94, 0.4)',
                       }}
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                       </svg>
-                      Completed
                     </div>
                   </div>
                 )}
