@@ -593,41 +593,45 @@ export default function Dashboard() {
           const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
           const isComplete = completionRate === 100;
           return <div key={checklist.id} className="relative">
-                <Card className={`hover:shadow-lg transition-shadow ${isComplete ? 'blur-[2px]' : ''}`}>
-                <CardHeader className="py-2 md:py-3">
-                  <div className="flex items-start justify-between">
-                    <ClipboardCheck className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-                    <Badge className={getFrequencyColor(checklist.frequency)}>
-                      {checklist.frequency}
-                    </Badge>
-                  </div>
-                  <CardTitle className="mt-1 md:mt-2 text-base md:text-lg">{checklist.title}</CardTitle>
-                  {checklist.description && <CardDescription className="text-sm">{checklist.description}</CardDescription>}
-                </CardHeader>
-                <CardContent className="space-y-2 py-2 md:py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-base md:text-lg font-semibold text-muted-foreground">
-                      {completed} out of {expected}
+                <Card className="hover:shadow-lg transition-shadow overflow-hidden">
+                <div className={isComplete ? 'blur-[2px]' : ''}>
+                  <CardHeader className="py-2 md:py-3">
+                    <div className="flex items-start justify-between">
+                      <ClipboardCheck className="h-5 w-5 md:h-6 md:w-6 text-primary" />
+                      <Badge className={getFrequencyColor(checklist.frequency)}>
+                        {checklist.frequency}
+                      </Badge>
                     </div>
-                    <div className="text-xl md:text-2xl font-bold text-primary">
-                      {completionRate}%
+                    <CardTitle className="mt-1 md:mt-2 text-base md:text-lg">{checklist.title}</CardTitle>
+                    {checklist.description && <CardDescription className="text-sm">{checklist.description}</CardDescription>}
+                  </CardHeader>
+                  <CardContent className="space-y-2 py-2 md:py-3 pb-14">
+                    <div className="flex items-center justify-between">
+                      <div className="text-base md:text-lg font-semibold text-muted-foreground">
+                        {completed} out of {expected}
+                      </div>
+                      <div className="text-xl md:text-2xl font-bold text-primary">
+                        {completionRate}%
+                      </div>
                     </div>
-                  </div>
+                  </CardContent>
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-3 pt-0">
                   <Button className="w-full" size="sm" onClick={() => navigate(`/complete/${checklist.id}`)}>
                     {isComplete ? 'Review' : 'Complete Checklist'}
                   </Button>
-                </CardContent>
+                </div>
               </Card>
                 {isComplete && (
-                  <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
+                  <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ bottom: '50px' }}>
                     <div 
-                      className="font-stencil text-3xl md:text-4xl tracking-wider text-green-600 dark:text-green-500 uppercase"
+                      className="font-stencil text-2xl md:text-3xl tracking-wider text-green-600 dark:text-green-500 uppercase"
                       style={{
                         transform: 'rotate(-25deg)',
                         textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
                         border: '4px solid currentColor',
                         borderRadius: '8px',
-                        padding: '4px 16px',
+                        padding: '4px 12px',
                         backgroundColor: 'rgba(255,255,255,0.9)',
                       }}
                     >
