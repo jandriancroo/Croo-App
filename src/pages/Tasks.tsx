@@ -20,6 +20,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableChecklistItem } from '@/components/tasks/SortableChecklistItem';
 import { ChecklistLeaderboard } from '@/components/tasks/ChecklistLeaderboard';
+import { CopyChecklistDialog } from '@/components/tasks/CopyChecklistDialog';
 
 export default function Tasks() {
   const navigate = useNavigate();
@@ -30,6 +31,9 @@ export default function Tasks() {
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [historyDate, setHistoryDate] = useState(new Date());
   const [isReordering, setIsReordering] = useState(false);
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [copyChecklistIds, setCopyChecklistIds] = useState<string[]>([]);
+  const [copyChecklistTitles, setCopyChecklistTitles] = useState<string[]>([]);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -95,6 +99,12 @@ export default function Tasks() {
 
     toast.success("Checklist deleted");
     queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
+  };
+
+  const handleCopyTo = (checklistId: string, checklistTitle: string) => {
+    setCopyChecklistIds([checklistId]);
+    setCopyChecklistTitles([checklistTitle]);
+    setCopyDialogOpen(true);
   };
 
   // Fetch checklists for user's role (location-filtered)
@@ -516,6 +526,7 @@ export default function Tasks() {
                               onNavigate={navigate}
                               onDeactivate={handleDeactivate}
                               onDelete={handleDelete}
+                              onCopyTo={handleCopyTo}
                               editMode={true}
                             />
                           );
@@ -530,6 +541,12 @@ export default function Tasks() {
         </Tabs>
       </div>
       <TemplateTypeDialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog} />
+      <CopyChecklistDialog
+        open={copyDialogOpen}
+        onOpenChange={setCopyDialogOpen}
+        checklistIds={copyChecklistIds}
+        checklistTitles={copyChecklistTitles}
+      />
     </Layout>
   );
 }
