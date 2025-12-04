@@ -14,6 +14,8 @@ import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Badge } from '@/components/ui/badge';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface LayoutProps {
   children: ReactNode;
@@ -36,8 +38,36 @@ export const Layout = ({
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const { unreadCount } = useUnreadMessages();
-  const { isChecklistOnlyLocation } = useAppLocation();
+  const { isChecklistOnlyLocation, currentLocation } = useAppLocation();
   const canAccessLogs = isAdmin || isManager;
+
+  // Fetch organization logo based on current location
+  const { data: orgLogo } = useQuery({
+    queryKey: ['org-logo', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation?.id) return null;
+      
+      const { data: locationData } = await supabase
+        .from('locations')
+        .select('organization_id')
+        .eq('id', currentLocation.id)
+        .single();
+      
+      if (!locationData?.organization_id) return null;
+      
+      const { data: orgData } = await supabase
+        .from('organizations')
+        .select('logo_url, name')
+        .eq('id', locationData.organization_id)
+        .single();
+      
+      return orgData;
+    },
+    enabled: !!currentLocation?.id,
+  });
+
+  const headerLogo = orgLogo?.logo_url || crooLogo;
+  const headerLogoAlt = orgLogo?.logo_url ? (orgLogo.name || 'Organization') : 'Croo';
 
   // Checklist-only location navigation (Tasks, Chat, Settings only)
   const checklistOnlyNavItems = [{
@@ -157,7 +187,7 @@ export const Layout = ({
       <header className="sticky top-0 z-50 glass border-b border-border/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className={`container flex items-center ${isMobile ? 'h-16' : 'h-24'}`}>
           <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-8 flex-shrink-0 min-w-[120px]">
-            <img src={crooLogo} alt="Croo" className={`${isMobile ? 'h-16' : 'h-20'} w-auto`} />
+            <img src={headerLogo} alt={headerLogoAlt} className={`${isMobile ? 'h-12' : 'h-16'} w-auto max-w-[140px] object-contain`} />
           </button>
           <nav className="hidden items-center gap-1 md:flex flex-1">
             {mainNavItems.map(item => {
@@ -250,6 +280,12 @@ export const Layout = ({
         </div>
       </header>
       <main className="container flex-1 py-3 md:py-8 pb-24 md:pb-8 overflow-x-hidden">{children}</main>
+      
+      {/* Footer - desktop only */}
+      <footer className="hidden md:flex items-center justify-center py-4 border-t border-border/20 text-muted-foreground text-sm gap-2">
+        <span>Powered by</span>
+        <img src={crooLogo} alt="Croo" className="h-6 w-auto" />
+      </footer>
       <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border/20 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-center justify-around py-3 px-2">
           {mobileMainNavItems.map(item => {
