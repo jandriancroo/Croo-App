@@ -592,24 +592,8 @@ export default function Dashboard() {
           } = getCompletionData(checklist.id);
           const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
           const isComplete = completionRate === 100;
-          return <Card key={checklist.id} className={`hover:shadow-lg transition-shadow relative overflow-hidden ${isComplete ? 'blur-[1px]' : ''}`}>
-                {isComplete && (
-                  <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-                    <div 
-                      className="font-stencil text-3xl md:text-4xl tracking-wider text-green-600 dark:text-green-500 uppercase"
-                      style={{
-                        transform: 'rotate(-25deg)',
-                        textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
-                        border: '4px solid currentColor',
-                        borderRadius: '8px',
-                        padding: '4px 16px',
-                        backgroundColor: 'rgba(255,255,255,0.85)',
-                      }}
-                    >
-                      COMPLETED
-                    </div>
-                  </div>
-                )}
+          return <div key={checklist.id} className="relative">
+                <Card className={`hover:shadow-lg transition-shadow ${isComplete ? 'blur-[2px]' : ''}`}>
                 <CardHeader className="py-2 md:py-3">
                   <div className="flex items-start justify-between">
                     <ClipboardCheck className="h-5 w-5 md:h-6 md:w-6 text-primary" />
@@ -629,11 +613,29 @@ export default function Dashboard() {
                       {completionRate}%
                     </div>
                   </div>
-                  <Button className={`w-full ${isComplete ? 'pointer-events-auto relative z-20' : ''}`} size="sm" onClick={() => navigate(`/complete/${checklist.id}`)}>
+                  <Button className="w-full" size="sm" onClick={() => navigate(`/complete/${checklist.id}`)}>
                     {isComplete ? 'Review' : 'Complete Checklist'}
                   </Button>
                 </CardContent>
-              </Card>;
+              </Card>
+                {isComplete && (
+                  <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
+                    <div 
+                      className="font-stencil text-3xl md:text-4xl tracking-wider text-green-600 dark:text-green-500 uppercase"
+                      style={{
+                        transform: 'rotate(-25deg)',
+                        textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+                        border: '4px solid currentColor',
+                        borderRadius: '8px',
+                        padding: '4px 16px',
+                        backgroundColor: 'rgba(255,255,255,0.9)',
+                      }}
+                    >
+                      COMPLETED
+                    </div>
+                  </div>
+                )}
+              </div>;
         })}
         </div>
       </div>
