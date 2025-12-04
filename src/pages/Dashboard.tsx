@@ -476,16 +476,10 @@ export default function Dashboard() {
         <LogBookAlerts />
         <CertificationAlerts />
       </div>,
-    'sales-overview': <Card>
-        <CardHeader className="pb-3 md:pb-4">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-xl md:text-2xl">Sales Overview</CardTitle>
-            <Button onClick={() => refetchSales()} size="sm" variant="outline">
-              Refresh
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="pt-0">
+    'sales-overview': <div>
+        <h3 className="text-xl font-semibold mb-4">Sales Overview</h3>
+        <Card>
+        <CardContent className="pt-4">
           <Tabs defaultValue="today" className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-4">
               <TabsTrigger value="today">Today</TabsTrigger>
@@ -594,7 +588,8 @@ export default function Dashboard() {
             </TabsContent>
           </Tabs>
         </CardContent>
-      </Card>,
+      </Card>
+    </div>,
     'checklists-grid': <div>
         <h3 className="text-xl font-semibold mb-4">Tasks</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
