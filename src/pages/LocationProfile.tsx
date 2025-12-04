@@ -255,7 +255,7 @@ export default function LocationProfile() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-6 max-w-3xl mx-auto overflow-x-hidden">
         {/* Header */}
         <div className="flex items-start gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} className="mt-1 flex-shrink-0">
