@@ -138,17 +138,16 @@ export default function Tasks() {
       const today = new Date();
       
       return data.filter(checklist => {
+        // Admins (including super_admin) see all checklists
+        if (isAdmin) return true;
+        
         const roleTags = checklist.checklist_role_tags;
         const roleMatch = roleTags.length === 0 || roleTags.some((tag: any) => tag.role === userRole);
         
         if (!roleMatch) return false;
         
-        // For dynamic checklists
+        // For dynamic checklists - non-admins only see if there are items for today
         if (checklist.template_type === 'dynamic') {
-          // Admins always see dynamic checklists (for editing)
-          if (isAdmin) return true;
-          
-          // Non-admins only see if there are items for today
           const todayItems = checklist.checklist_items?.filter((item: any) => 
             item.days_of_week && item.days_of_week.includes(currentDay)
           );
@@ -157,9 +156,6 @@ export default function Tasks() {
         
         // For monthly checklists with visibility window
         if (checklist.frequency === 'monthly' && checklist.visible_days_before_month_end) {
-          // Admins always see monthly checklists (for editing)
-          if (isAdmin) return true;
-          
           const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
           const daysUntilMonthEnd = lastDayOfMonth.getDate() - today.getDate();
           // Show if we're within the visibility window
