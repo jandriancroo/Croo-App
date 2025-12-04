@@ -875,24 +875,38 @@ export default function Certifications() {
 
       {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-4xl h-[80vh] p-0">
-          <DialogHeader className="p-4 pb-2">
-            <DialogTitle>Document Preview</DialogTitle>
+        <DialogContent className="max-w-4xl h-[80vh] p-0 flex flex-col">
+          <DialogHeader className="p-4 pb-2 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <DialogTitle>Document Preview</DialogTitle>
+              {previewUrl && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="mr-8"
+                >
+                  <a
+                    href={previewUrl}
+                    download
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Open in New Tab
+                  </a>
+                </Button>
+              )}
+            </div>
           </DialogHeader>
           {previewUrl && (
-            <div className="flex-1 w-full h-full min-h-0 px-4 pb-4">
+            <div className="flex-1 w-full min-h-0 px-4 pb-4">
               {previewUrl.toLowerCase().endsWith('.pdf') ? (
-                <object
-                  data={previewUrl}
-                  type="application/pdf"
-                  className="w-full h-full rounded-md"
-                >
-                  <iframe
-                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`}
-                    className="w-full h-full rounded-md"
-                    title="PDF Preview"
-                  />
-                </object>
+                <iframe
+                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`}
+                  className="w-full h-full rounded-md border"
+                  title="PDF Preview"
+                />
               ) : (
                 <img
                   src={previewUrl}
