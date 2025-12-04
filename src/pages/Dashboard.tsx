@@ -606,59 +606,67 @@ export default function Dashboard() {
           const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
           const isComplete = completionRate === 100;
           return <div key={checklist.id} className="relative">
-                <Card className="hover:shadow-lg transition-shadow">
-                <div className={isComplete ? 'blur-[2px]' : ''}>
-                  <CardHeader className="py-2 px-3">
+                <Card className="hover:shadow-lg transition-shadow overflow-hidden p-0">
+                  {/* Header Section - Colored, unblurred */}
+                  <div className="bg-primary px-3 py-2 rounded-t-lg">
                     <div className="flex items-center gap-2">
-                      <ClipboardCheck className="h-4 w-4 text-primary flex-shrink-0" />
-                      <CardTitle className="text-sm font-semibold flex-1 truncate">{checklist.title}</CardTitle>
+                      <ClipboardCheck className="h-4 w-4 text-primary-foreground flex-shrink-0" />
+                      <span className="text-sm font-semibold flex-1 truncate text-primary-foreground">{checklist.title}</span>
                       <Badge className={`text-[10px] px-1.5 py-0 flex-shrink-0 ${getFrequencyColor(checklist.frequency)}`}>
                         {checklist.frequency}
                       </Badge>
                     </div>
-                  </CardHeader>
-                  <CardContent className="py-2 px-3 pt-0">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">
-                        {completed}/{expected}
-                      </div>
-                      <div className="text-lg font-bold text-primary">
-                        {completionRate}%
+                  </div>
+
+                  {/* Middle Section - Blurrable content area */}
+                  <div className="relative">
+                    <div className={`px-3 py-3 ${isComplete ? 'blur-[2px]' : ''}`}>
+                      <div className="flex items-center justify-between">
+                        <div className="text-sm text-muted-foreground">
+                          {completed}/{expected}
+                        </div>
+                        <div className="text-lg font-bold text-primary">
+                          {completionRate}%
+                        </div>
                       </div>
                     </div>
-                  </CardContent>
-                </div>
-                <div className="px-3 pb-2">
-                  <Button className="w-full h-8 text-xs" size="sm" onClick={() => navigate(`/complete/${checklist.id}`)}>
+
+                    {/* Completion overlay for middle section */}
+                    {isComplete && (
+                      <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                        <div 
+                          className="flex items-center justify-center rounded-full bg-green-500"
+                          style={{
+                            width: '48px',
+                            height: '48px',
+                            boxShadow: '0 3px 8px rgba(34, 197, 94, 0.4)',
+                          }}
+                        >
+                          <div 
+                            className="flex items-center justify-center rounded-full"
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              border: '2px solid rgba(255,255,255,0.5)',
+                            }}
+                          >
+                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bottom Button - Contoured to card shape */}
+                  <Button 
+                    className="w-full h-9 text-xs rounded-none rounded-b-lg" 
+                    onClick={() => navigate(`/complete/${checklist.id}`)}
+                  >
                     {isComplete ? 'Review' : 'Complete'}
                   </Button>
-                </div>
-              </Card>
-                {isComplete && (
-                  <div className="absolute inset-x-0 top-0 bottom-10 z-50 flex items-center justify-center pointer-events-none">
-                    <div 
-                      className="flex items-center justify-center rounded-full bg-green-500"
-                      style={{
-                        width: '48px',
-                        height: '48px',
-                        boxShadow: '0 3px 8px rgba(34, 197, 94, 0.4)',
-                      }}
-                    >
-                      <div 
-                        className="flex items-center justify-center rounded-full"
-                        style={{
-                          width: '40px',
-                          height: '40px',
-                          border: '2px solid rgba(255,255,255,0.5)',
-                        }}
-                      >
-                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                </Card>
               </div>;
         })}
         </div>
