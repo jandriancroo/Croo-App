@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Trophy } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfDay, endOfDay } from "date-fns";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
 
 interface ManagerStats {
   userId: string;
@@ -16,17 +17,30 @@ interface ManagerStats {
 }
 
 export function ChecklistLeaderboard() {
+  const { currentLocation } = useAppLocation();
   const { data: leaderboardStats, isLoading } = useQuery({
-    queryKey: ['checklist-leaderboard'],
+    queryKey: ['checklist-leaderboard', currentLocation?.id],
     queryFn: async () => {
+      if (!currentLocation?.id) return [];
+      
       const today = new Date();
       const monthStart = startOfMonth(today);
       
-      // Get all managers and admins
+      // Get users assigned to this location
+      const { data: locationUsers } = await supabase
+        .from('user_locations')
+        .select('user_id')
+        .eq('location_id', currentLocation.id);
+      
+      if (!locationUsers || locationUsers.length === 0) return [];
+      const locationUserIds = locationUsers.map(u => u.user_id);
+      
+      // Get all managers and admins at this location
       const { data: managerRoles } = await supabase
         .from('user_roles')
         .select('user_id, role')
-        .in('role', ['admin', 'manager']);
+        .in('role', ['admin', 'manager'])
+        .in('user_id', locationUserIds);
       
       if (!managerRoles || managerRoles.length === 0) return [];
       
@@ -48,16 +62,18 @@ export function ChecklistLeaderboard() {
           .select('id, full_name, profile_photo_url')
           .in('id', managerIds),
         
-        // Get all checklists once
+        // Get all checklists for this location
         supabase
           .from('checklists')
           .select('id, title, due_by_time, checklist_items(id)')
-          .eq('is_active', true),
+          .eq('is_active', true)
+          .eq('location_id', currentLocation.id),
         
-        // Get all submissions for the month
+        // Get all submissions for the month at this location
         supabase
           .from('checklist_submissions')
           .select('id, checklist_id, submitted_at')
+          .eq('location_id', currentLocation.id)
           .gte('submitted_at', startOfDay(monthStart).toISOString())
           .lte('submitted_at', endOfDay(today).toISOString()),
         
@@ -251,7 +267,8 @@ export function ChecklistLeaderboard() {
       
       return finalStats;
     },
-    refetchInterval: 60000, // Refresh every 60 seconds (reduced from 30)
+    refetchInterval: 60000,
+    enabled: !!currentLocation?.id,
   });
   
   if (isLoading) {

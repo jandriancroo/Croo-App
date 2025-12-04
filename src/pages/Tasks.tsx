@@ -346,8 +346,10 @@ export default function Tasks() {
           </div>
 
           <TabsContent value="history" className="space-y-6">
-            {/* Leaderboard */}
-            <ChecklistLeaderboard />
+            {/* Leaderboard - only show for standard locations */}
+            {currentLocation?.location_type !== 'checklist_only' && (
+              <ChecklistLeaderboard />
+            )}
 
             {/* Completion History */}
             <Card>
