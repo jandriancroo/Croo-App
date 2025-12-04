@@ -619,8 +619,8 @@ export default function Dashboard() {
                         {completed}/{expected}
                       </div>
                       {isComplete ? (
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-500/15">
-                          <Check className="h-5 w-5 text-green-500" />
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/15">
+                          <Check className="h-5 w-5 text-primary" />
                         </div>
                       ) : (
                         <div className="text-lg font-bold text-primary">

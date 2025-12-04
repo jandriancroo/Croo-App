@@ -10,44 +10,44 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.png';
 
-const ALL_QUOTES = [
-  { quote: "Whatever you do, work heartily, as for the Lord and not for men, knowing that from the Lord you will receive the inheritance as your reward", verse: "Colossians 3:23-24", image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80" },
-  { quote: "Trust in the Lord with all your heart, and do not lean on your own understanding. In all your ways acknowledge him, and he will make straight your paths", verse: "Proverbs 3:5-6", image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&q=80" },
-  { quote: "I can do all things through Christ who strengthens me", verse: "Philippians 4:13", image: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80" },
-  { quote: "Have I not commanded you? Be strong and courageous. Do not be frightened, and do not be dismayed, for the Lord your God is with you wherever you go", verse: "Joshua 1:9", image: "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800&q=80" },
-  { quote: "This is the day that the Lord has made; let us rejoice and be glad in it", verse: "Psalm 118:24", image: "https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?w=800&q=80" },
-  { quote: "For I know the plans I have for you, declares the Lord, plans for welfare and not for evil, to give you a future and a hope", verse: "Jeremiah 29:11", image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80" },
-  { quote: "The Lord is my shepherd; I shall not want. He makes me lie down in green pastures. He leads me beside still waters", verse: "Psalm 23:1-2", image: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80" },
-  { quote: "Come to me, all who labor and are heavy laden, and I will give you rest. Take my yoke upon you, and learn from me", verse: "Matthew 11:28-29", image: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80" },
-  { quote: "But they who wait for the Lord shall renew their strength; they shall mount up with wings like eagles; they shall run and not be weary", verse: "Isaiah 40:31", image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80" },
-  { quote: "The Lord bless you and keep you; the Lord make his face to shine upon you and be gracious to you", verse: "Numbers 6:24-25", image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&q=80" },
-  { quote: "Commit your work to the Lord, and your plans will be established", verse: "Proverbs 16:3", image: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80" },
-  { quote: "Do not be anxious about anything, but in everything by prayer and supplication with thanksgiving let your requests be made known to God", verse: "Philippians 4:6", image: "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800&q=80" },
-  { quote: "And we know that for those who love God all things work together for good, for those who are called according to his purpose", verse: "Romans 8:28", image: "https://images.unsplash.com/photo-1475924156734-496f6cac6ec1?w=800&q=80" },
-  { quote: "The steadfast love of the Lord never ceases; his mercies never come to an end; they are new every morning; great is your faithfulness", verse: "Lamentations 3:22-23", image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80" },
-  { quote: "Be still, and know that I am God. I will be exalted among the nations, I will be exalted in the earth", verse: "Psalm 46:10", image: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80" },
-  { quote: "The name of the Lord is a strong tower; the righteous man runs into it and is safe", verse: "Proverbs 18:10", image: "https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800&q=80" },
-  { quote: "Cast all your anxieties on him, because he cares for you", verse: "1 Peter 5:7", image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80" },
-  { quote: "Let all that you do be done in love", verse: "1 Corinthians 16:14", image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=800&q=80" },
-  { quote: "May the God of hope fill you with all joy and peace in believing, so that by the power of the Holy Spirit you may abound in hope", verse: "Romans 15:13", image: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80" },
-  { quote: "Let your light shine before others, so that they may see your good works and give glory to your Father who is in heaven", verse: "Matthew 5:16", image: "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=800&q=80" },
+const ALL_FACTS = [
+  { fact: "Honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still perfectly edible.", category: "Nature", image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&q=80" },
+  { fact: "Octopuses have three hearts, blue blood, and can taste with their arms.", category: "Animals", image: "https://images.unsplash.com/photo-1545671913-b89ac1b4ac10?w=800&q=80" },
+  { fact: "A day on Venus is longer than a year on Venus. It takes 243 Earth days to rotate once but only 225 Earth days to orbit the Sun.", category: "Space", image: "https://images.unsplash.com/photo-1614732414444-096e5f1122d5?w=800&q=80" },
+  { fact: "Bananas are berries, but strawberries are not. Botanically speaking, a berry has seeds inside the flesh.", category: "Science", image: "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=800&q=80" },
+  { fact: "The shortest war in history lasted 38 to 45 minutes between Britain and Zanzibar on August 27, 1896.", category: "History", image: "https://images.unsplash.com/photo-1461360370896-922624d12a74?w=800&q=80" },
+  { fact: "A group of flamingos is called a 'flamboyance'.", category: "Animals", image: "https://images.unsplash.com/photo-1497206365907-f5e630693df0?w=800&q=80" },
+  { fact: "The Eiffel Tower can grow more than 6 inches during summer due to thermal expansion of the iron.", category: "Engineering", image: "https://images.unsplash.com/photo-1511739001486-6bfe10ce65f4?w=800&q=80" },
+  { fact: "Cows have best friends and get stressed when they are separated from them.", category: "Animals", image: "https://images.unsplash.com/photo-1527153857715-3908f2bae5e8?w=800&q=80" },
+  { fact: "There are more possible iterations of a game of chess than there are atoms in the known universe.", category: "Math", image: "https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=800&q=80" },
+  { fact: "The inventor of the Pringles can is buried in one. Fredric Baur requested his ashes be stored in a Pringles can.", category: "Quirky", image: "https://images.unsplash.com/photo-1621447504864-d8686e12698c?w=800&q=80" },
+  { fact: "Scotland's national animal is the unicorn. It has been a Scottish heraldic symbol since the 12th century.", category: "Culture", image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&q=80" },
+  { fact: "The heart of a blue whale is so big that a small child could swim through its arteries.", category: "Animals", image: "https://images.unsplash.com/photo-1568430462989-44163eb1752f?w=800&q=80" },
+  { fact: "There's a species of jellyfish that is biologically immortal. Turritopsis dohrnii can revert to its juvenile form.", category: "Nature", image: "https://images.unsplash.com/photo-1545671913-b89ac1b4ac10?w=800&q=80" },
+  { fact: "The moon is slowly drifting away from Earth at about 1.5 inches per year.", category: "Space", image: "https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=800&q=80" },
+  { fact: "A single strand of spaghetti is called a 'spaghetto'.", category: "Language", image: "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=800&q=80" },
+  { fact: "Hot water freezes faster than cold water in certain conditions. This is called the Mpemba effect.", category: "Science", image: "https://images.unsplash.com/photo-1489549132488-d00b7eee80f1?w=800&q=80" },
+  { fact: "Nintendo was founded in 1889 as a playing card company, over 100 years before video games.", category: "History", image: "https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=800&q=80" },
+  { fact: "A cloud can weigh more than a million pounds. They float because the droplets are spread over a huge area.", category: "Nature", image: "https://images.unsplash.com/photo-1517483000871-1dbf64a6e1c6?w=800&q=80" },
+  { fact: "Cleopatra lived closer in time to the Moon landing than to the construction of the Great Pyramid.", category: "History", image: "https://images.unsplash.com/photo-1539768942893-daf53e448371?w=800&q=80" },
+  { fact: "Your brain uses about 20% of your total energy and oxygen intake, despite being only 2% of your body weight.", category: "Science", image: "https://images.unsplash.com/photo-1559757175-5700dde675bc?w=800&q=80" },
 ];
 
-// Select 5 quotes for today based on the day of year
-const getDailyQuotes = () => {
+// Select 5 facts for today based on the day of year
+const getDailyFacts = () => {
   const today = new Date();
   const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
-  const startIndex = (dayOfYear * 5) % ALL_QUOTES.length;
-  const selectedQuotes = [];
+  const startIndex = (dayOfYear * 5) % ALL_FACTS.length;
+  const selectedFacts = [];
   
   for (let i = 0; i < 5; i++) {
-    selectedQuotes.push(ALL_QUOTES[(startIndex + i) % ALL_QUOTES.length]);
+    selectedFacts.push(ALL_FACTS[(startIndex + i) % ALL_FACTS.length]);
   }
   
-  return selectedQuotes;
+  return selectedFacts;
 };
 
-const DAILY_QUOTES = getDailyQuotes();
+const DAILY_FACTS = getDailyFacts();
 
 export default function PunchClock() {
   const [pin, setPin] = useState('');
@@ -58,10 +58,10 @@ export default function PunchClock() {
   const [exitPin, setExitPin] = useState('');
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [expiringCerts, setExpiringCerts] = useState<any[]>([]);
-  const [currentQuoteIndex, setCurrentQuoteIndex] = useState(0);
+  const [currentFactIndex, setCurrentFactIndex] = useState(0);
   const [birthdayEmployees, setBirthdayEmployees] = useState<any[]>([]);
 
-  const currentQuote = DAILY_QUOTES[currentQuoteIndex];
+  const currentFact = DAILY_FACTS[currentFactIndex];
 
   const handleExit = () => {
     setShowExitDialog(true);
@@ -94,12 +94,12 @@ export default function PunchClock() {
     return () => clearInterval(timer);
   }, []);
 
-  // Rotate quotes every 30 seconds
+  // Rotate facts every 30 seconds
   useEffect(() => {
-    const quoteTimer = setInterval(() => {
-      setCurrentQuoteIndex((prev) => (prev + 1) % DAILY_QUOTES.length);
+    const factTimer = setInterval(() => {
+      setCurrentFactIndex((prev) => (prev + 1) % DAILY_FACTS.length);
     }, 30000);
-    return () => clearInterval(quoteTimer);
+    return () => clearInterval(factTimer);
   }, []);
 
   // Check for birthdays on mount
@@ -482,16 +482,16 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                   </div>
                 </div>
               ) : (
-                <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentQuote.image})` }}>
+                <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentFact.image})` }}>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                   <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
                     <div className="text-5xl font-bold mb-4">
                       {format(currentTime, 'h:mm:ss a')}
                     </div>
-                    <h2 className="text-3xl font-bold mb-4">Welcome to Work!</h2>
+                    <h2 className="text-3xl font-bold mb-4">Did You Know?</h2>
                     <div className="space-y-2">
-                      <p className="text-xl font-medium italic">"{currentQuote.quote}"</p>
-                      <p className="text-sm opacity-90">- {currentQuote.verse}</p>
+                      <p className="text-xl font-medium">{currentFact.fact}</p>
+                      <p className="text-sm opacity-90">📚 {currentFact.category}</p>
                     </div>
                   </div>
                 </div>
