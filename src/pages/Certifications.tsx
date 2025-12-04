@@ -79,6 +79,8 @@ export default function Certifications() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedCertification, setSelectedCertification] = useState<Certification | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -716,15 +718,12 @@ export default function Certifications() {
                               size="icon"
                               variant="ghost"
                               className="h-6 w-6"
-                              asChild
+                              onClick={() => {
+                                setPreviewUrl(cert.certificate_url);
+                                setPreviewOpen(true);
+                              }}
                             >
-                              <a
-                                href={cert.certificate_url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                              </a>
+                              <ExternalLink className="w-3 h-3" />
                             </Button>
                             {isAdmin && (
                               <>
@@ -808,10 +807,11 @@ export default function Certifications() {
                     const auditDateDisplay = audit.audit_date ? format(new Date(audit.audit_date + 'T12:00:00'), "MMM d, yyyy") : 'Unknown';
                     return (
                       <div key={audit.id} className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
-                        <a 
-                          href={audit.audit_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button 
+                          onClick={() => {
+                            setPreviewUrl(audit.audit_url);
+                            setPreviewOpen(true);
+                          }}
                           className="w-12 h-12 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80 flex items-center justify-center"
                         >
                           {isPdf ? (
@@ -823,7 +823,7 @@ export default function Certifications() {
                               className="w-full h-full object-cover"
                             />
                           )}
-                        </a>
+                        </button>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">
@@ -840,15 +840,12 @@ export default function Certifications() {
                             size="icon"
                             variant="ghost"
                             className="h-7 w-7"
-                            asChild
+                            onClick={() => {
+                              setPreviewUrl(audit.audit_url);
+                              setPreviewOpen(true);
+                            }}
                           >
-                            <a
-                              href={audit.audit_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </a>
+                            <ExternalLink className="w-4 h-4" />
                           </Button>
                           <Button
                             size="icon"
@@ -875,6 +872,38 @@ export default function Certifications() {
         certification={selectedCertification}
         onSuccess={fetchData}
       />
+
+      {/* Preview Dialog */}
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="max-w-4xl h-[80vh] p-0">
+          <DialogHeader className="p-4 pb-2">
+            <DialogTitle>Document Preview</DialogTitle>
+          </DialogHeader>
+          {previewUrl && (
+            <div className="flex-1 w-full h-full min-h-0 px-4 pb-4">
+              {previewUrl.toLowerCase().endsWith('.pdf') ? (
+                <object
+                  data={previewUrl}
+                  type="application/pdf"
+                  className="w-full h-full rounded-md"
+                >
+                  <iframe
+                    src={`https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`}
+                    className="w-full h-full rounded-md"
+                    title="PDF Preview"
+                  />
+                </object>
+              ) : (
+                <img
+                  src={previewUrl}
+                  alt="Document Preview"
+                  className="w-full h-full object-contain rounded-md"
+                />
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
