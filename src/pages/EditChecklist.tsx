@@ -22,7 +22,7 @@ interface ChecklistItem {
   question: string;
   item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature';
   is_required: boolean;
-  options?: string[];
+  options?: string[] | { minPhotos?: number };
   reference_image_url?: string;
   reference_link?: string;
   reference_video_url?: string;
@@ -86,13 +86,32 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem }: Sort
 
         {item.item_type === 'multiple_choice' && (
           <Input
-            value={item.options?.join(', ') || ''}
+            value={Array.isArray(item.options) ? item.options.join(', ') : ''}
             onChange={(e) =>
               updateItem(index, 'options', e.target.value.split(',').map((opt) => opt.trim()))
             }
             placeholder="Options (comma-separated)"
             className="text-sm"
           />
+        )}
+
+        {item.item_type === 'image' && (
+          <div className="flex items-center gap-2">
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">Min Photos:</Label>
+            <Select
+              value={String((item.options && typeof item.options === 'object' && !Array.isArray(item.options)) ? item.options.minPhotos || 1 : 1)}
+              onValueChange={(value) => updateItem(index, 'options', { minPhotos: parseInt(value) })}
+            >
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[1, 2, 3, 4, 5, 6].map(n => (
+                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
 
         {item.item_type === 'confirmation' && (

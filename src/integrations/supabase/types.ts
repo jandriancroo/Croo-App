@@ -364,6 +364,7 @@ export type Database = {
           id: string
           item_id: string
           response_image_url: string | null
+          response_image_urls: Json | null
           response_text: string | null
           submission_id: string
           temperature_valid: boolean | null
@@ -376,6 +377,7 @@ export type Database = {
           id?: string
           item_id: string
           response_image_url?: string | null
+          response_image_urls?: Json | null
           response_text?: string | null
           submission_id: string
           temperature_valid?: boolean | null
@@ -388,6 +390,7 @@ export type Database = {
           id?: string
           item_id?: string
           response_image_url?: string | null
+          response_image_urls?: Json | null
           response_text?: string | null
           submission_id?: string
           temperature_valid?: boolean | null
