@@ -137,12 +137,12 @@ async function getLocationAdminsAndManagers(supabaseClient: any, locationId: str
 
   const userIds = locationUsers.map((u: any) => u.user_id);
 
-  // Filter to only admin/manager roles
+  // Filter to only admin/manager roles (including super_admin and org_admin)
   const { data: adminUsers } = await supabaseClient
     .from('user_roles')
     .select('user_id')
     .in('user_id', userIds)
-    .in('role', ['admin', 'manager', 'general_manager', 'shift_manager']);
+    .in('role', ['super_admin', 'org_admin', 'admin', 'manager', 'general_manager', 'shift_manager']);
 
   return adminUsers || [];
 }
