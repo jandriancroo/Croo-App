@@ -19,26 +19,43 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log('Starting alert checks...');
 
-    // Get location timezone (use first location's timezone as default)
-    const { data: locationSettings } = await supabaseClient
-      .from('location_settings')
-      .select('timezone')
-      .limit(1)
-      .single();
+    // Get all locations with their settings
+    const { data: locations, error: locationsError } = await supabaseClient
+      .from('locations')
+      .select(`
+        id,
+        name,
+        location_settings(timezone)
+      `);
+
+    if (locationsError) throw locationsError;
     
-    const timezone = locationSettings?.timezone || 'America/Los_Angeles';
-    console.log(`Using timezone: ${timezone}`);
+    if (!locations || locations.length === 0) {
+      console.log('No locations found');
+      return new Response(
+        JSON.stringify({ message: "No locations to check" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-    // Check for overdue checklists
-    await checkOverdueChecklists(supabaseClient, timezone);
+    console.log(`Processing ${locations.length} locations`);
 
-    // Check for monthly checklist reminders
-    await checkMonthlyChecklists(supabaseClient, timezone);
+    // Process each location separately
+    for (const location of locations) {
+      const timezone = location.location_settings?.[0]?.timezone || 'America/Los_Angeles';
+      console.log(`\n=== Processing location: ${location.name} (${timezone}) ===`);
 
-    // Check for late arrivals
-    await checkLateArrivals(supabaseClient, timezone);
+      // Check for overdue checklists at this location
+      await checkOverdueChecklists(supabaseClient, timezone, location.id, location.name);
 
-    // Check for expiring certifications
+      // Check for monthly checklist reminders at this location
+      await checkMonthlyChecklists(supabaseClient, timezone, location.id, location.name);
+
+      // Check for late arrivals at this location
+      await checkLateArrivals(supabaseClient, timezone, location.id, location.name);
+    }
+
+    // Certifications are user-based, not location-based
     await checkExpiringCertifications(supabaseClient);
 
     return new Response(
@@ -68,11 +85,7 @@ function getTimezoneDayBoundariesInUTC(timezone: string): { startOfDayUTC: Date;
   const localDay = localNow.getDate();
   const currentDay = localNow.getDay(); // Day of week (0-6)
   
-  // Format the local date as ISO string for database queries
-  const localDateStr = `${localYear}-${String(localMonth + 1).padStart(2, '0')}-${String(localDay).padStart(2, '0')}`;
-  
   // Create start of day (midnight) in local timezone, then convert to UTC
-  // We use Intl.DateTimeFormat to get the exact offset
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     year: 'numeric',
@@ -93,8 +106,7 @@ function getTimezoneDayBoundariesInUTC(timezone: string): { startOfDayUTC: Date;
   const utcHour = utcNow.getUTCHours();
   const utcMinute = utcNow.getUTCMinutes();
   
-  // Calculate offset in milliseconds (this is approximate but works for our use case)
-  // A more robust solution would use a proper timezone library
+  // Calculate offset in milliseconds
   let offsetHours = localHour - utcHour;
   if (offsetHours > 12) offsetHours -= 24;
   if (offsetHours < -12) offsetHours += 24;
@@ -108,31 +120,48 @@ function getTimezoneDayBoundariesInUTC(timezone: string): { startOfDayUTC: Date;
   const endOfLocalDay = new Date(localYear, localMonth, localDay, 23, 59, 59, 999);
   const endOfDayUTC = new Date(endOfLocalDay.getTime() - offsetMs);
   
-  console.log(`Timezone: ${timezone}`);
-  console.log(`Local date: ${localMonth + 1}/${localDay}/${localYear}, Day of week: ${currentDay}`);
-  console.log(`Local time: ${localNow.toLocaleTimeString()}`);
-  console.log(`Start of local day in UTC: ${startOfDayUTC.toISOString()}`);
-  console.log(`End of local day in UTC: ${endOfDayUTC.toISOString()}`);
+  console.log(`Timezone: ${timezone}, Local time: ${localNow.toLocaleTimeString()}`);
   
   return { startOfDayUTC, endOfDayUTC, localNow, currentDay };
 }
 
-async function checkOverdueChecklists(supabaseClient: any, timezone: string) {
+// Get users at a specific location with admin/manager roles
+async function getLocationAdminsAndManagers(supabaseClient: any, locationId: string) {
+  // Get users assigned to this location
+  const { data: locationUsers } = await supabaseClient
+    .from('user_locations')
+    .select('user_id')
+    .eq('location_id', locationId);
+
+  if (!locationUsers || locationUsers.length === 0) return [];
+
+  const userIds = locationUsers.map((u: any) => u.user_id);
+
+  // Filter to only admin/manager roles
+  const { data: adminUsers } = await supabaseClient
+    .from('user_roles')
+    .select('user_id')
+    .in('user_id', userIds)
+    .in('role', ['admin', 'manager', 'general_manager', 'shift_manager']);
+
+  return adminUsers || [];
+}
+
+async function checkOverdueChecklists(supabaseClient: any, timezone: string, locationId: string, locationName: string) {
   try {
     const { startOfDayUTC, endOfDayUTC, localNow, currentDay } = getTimezoneDayBoundariesInUTC(timezone);
     const currentHours = localNow.getHours();
     const currentMinutes = localNow.getMinutes();
     
-    console.log(`Checklist check - Local time: ${localNow.toLocaleString()}, Day: ${currentDay}, Time: ${currentHours}:${currentMinutes}`);
+    console.log(`[${locationName}] Checklist check - Local time: ${localNow.toLocaleString()}, Day: ${currentDay}`);
     
     // Only send notifications at the top of the hour (within first 15 minutes)
-    // Widened from 10 to 15 minutes to account for potential cron timing delays
     if (currentMinutes > 15) {
-      console.log('Skipping overdue checklist notifications - not at top of hour');
+      console.log(`[${locationName}] Skipping - not at top of hour`);
       return;
     }
 
-    // Get all active checklists with due times, ordered by due time
+    // Get active checklists for this location with due times
     const { data: checklists, error: checklistsError } = await supabaseClient
       .from('checklists')
       .select(`
@@ -144,17 +173,20 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string) {
         checklist_items(id, days_of_week)
       `)
       .eq('is_active', true)
+      .eq('location_id', locationId)
       .not('due_by_time', 'is', null)
       .order('due_by_time', { ascending: true });
 
     if (checklistsError) throw checklistsError;
-    if (!checklists || checklists.length === 0) return;
+    if (!checklists || checklists.length === 0) {
+      console.log(`[${locationName}] No checklists with due times`);
+      return;
+    }
 
-    // Build list of all relevant checklists for today with their due times
+    // Build list of relevant checklists for today
     const relevantChecklists = [];
     
     for (const checklist of checklists) {
-      // Check if checklist is relevant for today
       const isRelevant = checklist.template_type === 'dynamic' 
         ? checklist.checklist_items?.some((item: any) => 
             item.days_of_week && item.days_of_week.includes(currentDay)
@@ -172,7 +204,6 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string) {
       });
     }
 
-    // Sort by due time
     relevantChecklists.sort((a, b) => a.dueTotalMinutes - b.dueTotalMinutes);
     
     const currentTotalMinutes = currentHours * 60 + currentMinutes;
@@ -192,6 +223,7 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string) {
             checklist_responses(id, item_id)
           `)
           .eq('checklist_id', checklist.id)
+          .eq('location_id', locationId)
           .gte('submitted_at', startOfDayUTC.toISOString())
           .lte('submitted_at', endOfDayUTC.toISOString());
 
@@ -212,10 +244,9 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string) {
         });
         const totalResponses = uniqueItemIds.size;
         const remainingTasks = totalItems - totalResponses;
-
         const completionRate = totalItems > 0 ? (totalResponses / totalItems) : 0;
         
-        console.log(`Checklist "${checklist.title}": ${totalResponses}/${totalItems} items completed (${Math.round(completionRate * 100)}%)`);
+        console.log(`[${locationName}] "${checklist.title}": ${totalResponses}/${totalItems} (${Math.round(completionRate * 100)}%)`);
 
         if (completionRate < 1) {
           activeOverdueChecklist = {
@@ -232,14 +263,11 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string) {
     }
 
     if (activeOverdueChecklist) {
-      console.log(`Active overdue checklist: "${activeOverdueChecklist.title}" (due ${activeOverdueChecklist.dueTime})`);
+      console.log(`[${locationName}] Active overdue: "${activeOverdueChecklist.title}" (due ${activeOverdueChecklist.dueTime})`);
 
-      const { data: adminUsers } = await supabaseClient
-        .from('user_roles')
-        .select('user_id')
-        .in('role', ['admin', 'manager']);
+      const adminUsers = await getLocationAdminsAndManagers(supabaseClient, locationId);
 
-      if (adminUsers && adminUsers.length > 0) {
+      if (adminUsers.length > 0) {
         const notificationBody = activeOverdueChecklist.completionRate === 0 
           ? `${activeOverdueChecklist.title} is not started` 
           : `${activeOverdueChecklist.title} not completed, ${activeOverdueChecklist.remainingTasks} task${activeOverdueChecklist.remainingTasks === 1 ? '' : 's'} remaining`;
@@ -256,37 +284,35 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string) {
             }
           }
         });
+        console.log(`[${locationName}] Notification sent to ${adminUsers.length} users`);
       }
     } else {
-      console.log('No active overdue checklists found');
+      console.log(`[${locationName}] No active overdue checklists`);
     }
   } catch (error) {
-    console.error('Error checking overdue checklists:', error);
+    console.error(`[${locationName}] Error checking overdue checklists:`, error);
   }
 }
 
-async function checkMonthlyChecklists(supabaseClient: any, timezone: string) {
+async function checkMonthlyChecklists(supabaseClient: any, timezone: string, locationId: string, locationName: string) {
   try {
     const { startOfDayUTC, endOfDayUTC, localNow } = getTimezoneDayBoundariesInUTC(timezone);
     const currentHours = localNow.getHours();
     const currentMinutes = localNow.getMinutes();
     
-    // Only send reminders once per day - at 9 AM (within first 15 minutes of the hour)
+    // Only send reminders at 9 AM
     if (currentHours !== 9 || currentMinutes > 15) {
-      console.log('Skipping monthly checklist reminders - not at 9 AM');
       return;
     }
 
-    // Calculate days until end of month
     const localYear = localNow.getFullYear();
     const localMonth = localNow.getMonth();
     const localDay = localNow.getDate();
     const lastDayOfMonth = new Date(localYear, localMonth + 1, 0);
     const daysUntilMonthEnd = lastDayOfMonth.getDate() - localDay;
     
-    console.log(`Monthly checklist check - ${daysUntilMonthEnd} days until end of month`);
+    console.log(`[${locationName}] Monthly check - ${daysUntilMonthEnd} days until month end`);
 
-    // Get monthly checklists with visibility windows
     const { data: monthlyChecklists, error: checklistsError } = await supabaseClient
       .from('checklists')
       .select(`
@@ -297,29 +323,29 @@ async function checkMonthlyChecklists(supabaseClient: any, timezone: string) {
       `)
       .eq('is_active', true)
       .eq('frequency', 'monthly')
+      .eq('location_id', locationId)
       .not('visible_days_before_month_end', 'is', null);
 
     if (checklistsError) throw checklistsError;
-    if (!monthlyChecklists || monthlyChecklists.length === 0) {
-      console.log('No monthly checklists with visibility windows found');
-      return;
-    }
+    if (!monthlyChecklists || monthlyChecklists.length === 0) return;
 
-    // Get submissions for this month
     const startOfMonth = new Date(localYear, localMonth, 1);
     const startOfMonthStr = startOfMonth.toISOString();
 
+    // Get users at this location
+    const { data: locationUsers } = await supabaseClient
+      .from('user_locations')
+      .select('user_id')
+      .eq('location_id', locationId);
+
+    if (!locationUsers || locationUsers.length === 0) return;
+
     for (const checklist of monthlyChecklists) {
-      // Check if checklist is now visible (we're within the visibility window)
-      if (daysUntilMonthEnd >= checklist.visible_days_before_month_end) {
-        console.log(`Checklist "${checklist.title}" not yet visible (${daysUntilMonthEnd} days left, shows at ${checklist.visible_days_before_month_end} days)`);
-        continue;
-      }
+      if (daysUntilMonthEnd >= checklist.visible_days_before_month_end) continue;
 
       const totalItems = checklist.checklist_items?.length || 0;
       if (totalItems === 0) continue;
 
-      // Check completion status for this month
       const { data: submissions } = await supabaseClient
         .from('checklist_submissions')
         .select(`
@@ -327,6 +353,7 @@ async function checkMonthlyChecklists(supabaseClient: any, timezone: string) {
           checklist_responses(id, item_id)
         `)
         .eq('checklist_id', checklist.id)
+        .eq('location_id', locationId)
         .gte('submitted_at', startOfMonthStr);
 
       const uniqueItemIds = new Set();
@@ -340,70 +367,66 @@ async function checkMonthlyChecklists(supabaseClient: any, timezone: string) {
       const completedItems = uniqueItemIds.size;
       const remainingTasks = totalItems - completedItems;
 
-      // Skip if already complete
-      if (remainingTasks === 0) {
-        console.log(`Monthly checklist "${checklist.title}" already complete`);
-        continue;
+      if (remainingTasks === 0) continue;
+
+      console.log(`[${locationName}] Monthly "${checklist.title}": ${completedItems}/${totalItems}, ${daysUntilMonthEnd} days left`);
+
+      let urgencyPrefix = '';
+      if (daysUntilMonthEnd <= 1) {
+        urgencyPrefix = '⚠️ FINAL DAY: ';
+      } else if (daysUntilMonthEnd <= 3) {
+        urgencyPrefix = '⚠️ ';
       }
 
-      console.log(`Monthly checklist "${checklist.title}": ${completedItems}/${totalItems} complete, ${daysUntilMonthEnd} days remaining`);
+      const daysText = daysUntilMonthEnd === 0 
+        ? 'Due TODAY' 
+        : daysUntilMonthEnd === 1 
+          ? '1 day left' 
+          : `${daysUntilMonthEnd} days left`;
 
-      // Send reminder to all users (or you could filter by role)
-      const { data: allUsers } = await supabaseClient
-        .from('profiles')
-        .select('id')
-        .eq('is_active', true);
-
-      if (allUsers && allUsers.length > 0) {
-        // Determine urgency based on days left
-        let urgencyPrefix = '';
-        if (daysUntilMonthEnd <= 1) {
-          urgencyPrefix = '⚠️ FINAL DAY: ';
-        } else if (daysUntilMonthEnd <= 3) {
-          urgencyPrefix = '⚠️ ';
-        }
-
-        const daysText = daysUntilMonthEnd === 0 
-          ? 'Due TODAY' 
-          : daysUntilMonthEnd === 1 
-            ? '1 day left' 
-            : `${daysUntilMonthEnd} days left`;
-
-        await supabaseClient.functions.invoke('send-push-notification', {
-          body: {
-            user_ids: allUsers.map((u: any) => u.id),
-            title: `${urgencyPrefix}Monthly Checklist Reminder`,
-            body: `${checklist.title} - ${remainingTasks} task${remainingTasks === 1 ? '' : 's'} remaining (${daysText})`,
-            notification_type: 'overdue_checklists',
-            data: {
-              checklist_id: checklist.id,
-              type: 'monthly_checklist_reminder'
-            }
+      await supabaseClient.functions.invoke('send-push-notification', {
+        body: {
+          user_ids: locationUsers.map((u: any) => u.user_id),
+          title: `${urgencyPrefix}Monthly Checklist Reminder`,
+          body: `${checklist.title} - ${remainingTasks} task${remainingTasks === 1 ? '' : 's'} remaining (${daysText})`,
+          notification_type: 'overdue_checklists',
+          data: {
+            checklist_id: checklist.id,
+            type: 'monthly_checklist_reminder'
           }
-        });
-      }
+        }
+      });
     }
   } catch (error) {
-    console.error('Error checking monthly checklists:', error);
+    console.error(`[${locationName}] Error checking monthly checklists:`, error);
   }
 }
 
-async function checkLateArrivals(supabaseClient: any, timezone: string) {
+async function checkLateArrivals(supabaseClient: any, timezone: string, locationId: string, locationName: string) {
   try {
     const { startOfDayUTC, endOfDayUTC, localNow, currentDay } = getTimezoneDayBoundariesInUTC(timezone);
     const currentHours = localNow.getHours();
     const currentMinutes = localNow.getMinutes();
     const currentTotalMinutes = currentHours * 60 + currentMinutes;
     
-    // Get today's date in local timezone (YYYY-MM-DD format)
     const localYear = localNow.getFullYear();
     const localMonth = localNow.getMonth();
     const localDay = localNow.getDate();
     const today = `${localYear}-${String(localMonth + 1).padStart(2, '0')}-${String(localDay).padStart(2, '0')}`;
     
-    console.log(`Late arrivals check - Local time: ${localNow.toLocaleString()}, today: ${today}`);
-    
-    // Get today's shifts
+    // Get schedules for this location
+    const { data: schedules } = await supabaseClient
+      .from('schedules')
+      .select('id')
+      .eq('location_id', locationId)
+      .lte('week_start_date', today)
+      .gte('week_end_date', today);
+
+    if (!schedules || schedules.length === 0) return;
+
+    const scheduleIds = schedules.map((s: any) => s.id);
+
+    // Get today's shifts for this location
     const { data: shifts, error: shiftsError } = await supabaseClient
       .from('scheduled_shifts')
       .select(`
@@ -412,13 +435,13 @@ async function checkLateArrivals(supabaseClient: any, timezone: string) {
         start_time,
         shift_date
       `)
+      .in('schedule_id', scheduleIds)
       .eq('shift_date', today)
       .not('user_id', 'is', null);
 
     if (shiftsError) throw shiftsError;
     if (!shifts || shifts.length === 0) return;
 
-    // Get profiles separately
     const userIds = [...new Set(shifts.map((s: any) => s.user_id))];
     const { data: profiles } = await supabaseClient
       .from('profiles')
@@ -432,22 +455,16 @@ async function checkLateArrivals(supabaseClient: any, timezone: string) {
     for (const shift of shifts) {
       const [shiftHours, shiftMinutes] = shift.start_time.split(':').map(Number);
       const shiftStartMinutes = shiftHours * 60 + shiftMinutes;
-      
-      // Only alert if we're exactly in the 15-20 minute window after shift start
-      // This ensures one-time notification (function runs every ~5 min)
       const minutesSinceShiftStart = currentTotalMinutes - shiftStartMinutes;
       
-      // Skip if shift hasn't started yet or we're outside the 15-20 min window
       if (minutesSinceShiftStart < 15 || minutesSinceShiftStart >= 20) continue;
-      
-      console.log(`Checking shift for ${profileMap.get(shift.user_id)}: ${minutesSinceShiftStart} minutes since start`);
 
-      // Check for punch-ins using UTC boundaries
       const { data: punches } = await supabaseClient
         .from('time_punches')
         .select('id, punch_time')
         .eq('user_id', shift.user_id)
         .eq('punch_type', 'in')
+        .eq('location_id', locationId)
         .gte('punch_time', startOfDayUTC.toISOString())
         .lte('punch_time', endOfDayUTC.toISOString())
         .order('punch_time', { ascending: true })
@@ -463,14 +480,11 @@ async function checkLateArrivals(supabaseClient: any, timezone: string) {
     }
 
     if (lateEmployees.length > 0) {
-      console.log(`Found ${lateEmployees.length} late employees (15+ min)`);
+      console.log(`[${locationName}] Found ${lateEmployees.length} late employees`);
 
-      const { data: adminUsers } = await supabaseClient
-        .from('user_roles')
-        .select('user_id')
-        .in('role', ['admin', 'manager']);
+      const adminUsers = await getLocationAdminsAndManagers(supabaseClient, locationId);
 
-      if (adminUsers && adminUsers.length > 0) {
+      if (adminUsers.length > 0) {
         for (const employee of lateEmployees) {
           await supabaseClient.functions.invoke('send-push-notification', {
             body: {
@@ -486,11 +500,9 @@ async function checkLateArrivals(supabaseClient: any, timezone: string) {
           });
         }
       }
-    } else {
-      console.log('No late arrivals in the 15-20 min window');
     }
   } catch (error) {
-    console.error('Error checking late arrivals:', error);
+    console.error(`[${locationName}] Error checking late arrivals:`, error);
   }
 }
 
@@ -548,6 +560,7 @@ async function checkExpiringCertifications(supabaseClient: any) {
         year: 'numeric'
       });
 
+      // Notify the certificate owner
       await supabaseClient.functions.invoke('send-push-notification', {
         body: {
           user_ids: [cert.user_id],
@@ -561,25 +574,32 @@ async function checkExpiringCertifications(supabaseClient: any) {
         }
       });
 
-      const { data: adminUsers } = await supabaseClient
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'admin');
+      // Notify admins at the user's location(s)
+      const { data: userLocations } = await supabaseClient
+        .from('user_locations')
+        .select('location_id')
+        .eq('user_id', cert.user_id);
 
-      if (adminUsers && adminUsers.length > 0) {
-        await supabaseClient.functions.invoke('send-push-notification', {
-          body: {
-            user_ids: adminUsers.map((u: any) => u.user_id),
-            title: `${urgency}Staff Certification Expiring`,
-            body: `${profileMap.get(cert.user_id) || 'Employee'}'s ${cert.certification_type} expires ${formattedDate}`,
-            notification_type: 'certification_expiring',
-            data: {
-              certification_id: cert.id,
-              user_id: cert.user_id,
-              type: 'certification_expiring'
-            }
+      if (userLocations && userLocations.length > 0) {
+        for (const ul of userLocations) {
+          const adminUsers = await getLocationAdminsAndManagers(supabaseClient, ul.location_id);
+          
+          if (adminUsers.length > 0) {
+            await supabaseClient.functions.invoke('send-push-notification', {
+              body: {
+                user_ids: adminUsers.map((u: any) => u.user_id),
+                title: `${urgency}Staff Certification Expiring`,
+                body: `${profileMap.get(cert.user_id) || 'Employee'}'s ${cert.certification_type} expires ${formattedDate}`,
+                notification_type: 'certification_expiring',
+                data: {
+                  certification_id: cert.id,
+                  user_id: cert.user_id,
+                  type: 'certification_expiring'
+                }
+              }
+            });
           }
-        });
+        }
       }
     }
   } catch (error) {
