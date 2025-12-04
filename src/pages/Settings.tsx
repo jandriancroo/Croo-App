@@ -11,7 +11,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical, ArrowUpDown, Building2 } from 'lucide-react';
-import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
+
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { toast as sonnerToast } from 'sonner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -269,7 +269,7 @@ export default function Settings() {
                 Configure permissions, notifications, and positions
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
+            <CardContent>
               <Button
                 variant="outline"
                 className="w-full"
@@ -278,7 +278,6 @@ export default function Settings() {
                 <Shield className="h-4 w-4 mr-2" />
                 Manage Roles & Permissions
               </Button>
-              <PositionManagementInline />
             </CardContent>
           </Card>
         );

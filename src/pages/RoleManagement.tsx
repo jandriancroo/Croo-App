@@ -4,6 +4,9 @@ import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
 import { NotificationsDashboard } from '@/components/settings/NotificationsDashboard';
+import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Briefcase } from 'lucide-react';
 
 export default function RoleManagement() {
   const navigate = useNavigate();
@@ -24,6 +27,17 @@ export default function RoleManagement() {
         <div className="grid gap-6">
           <RoleManagementSection />
           <NotificationsDashboard />
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                <CardTitle className="text-base">Positions</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <PositionManagementInline />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </Layout>
