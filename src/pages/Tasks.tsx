@@ -120,6 +120,8 @@ export default function Tasks() {
 
       // Filter checklists based on role tags and current day
       const currentDay = new Date().getDay();
+      const today = new Date();
+      
       return data.filter(checklist => {
         const roleTags = checklist.checklist_role_tags;
         const roleMatch = roleTags.length === 0 || roleTags.some((tag: any) => tag.role === userRole);
@@ -136,6 +138,17 @@ export default function Tasks() {
             item.days_of_week && item.days_of_week.includes(currentDay)
           );
           return todayItems && todayItems.length > 0;
+        }
+        
+        // For monthly checklists with visibility window
+        if (checklist.frequency === 'monthly' && checklist.visible_days_before_month_end) {
+          // Admins always see monthly checklists (for editing)
+          if (isAdmin) return true;
+          
+          const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          const daysUntilMonthEnd = lastDayOfMonth.getDate() - today.getDate();
+          // Show if we're within the visibility window
+          return daysUntilMonthEnd < checklist.visible_days_before_month_end;
         }
         
         return true;

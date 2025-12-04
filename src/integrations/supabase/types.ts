@@ -472,6 +472,7 @@ export type Database = {
           template_type: string | null
           title: string
           updated_at: string | null
+          visible_days_before_month_end: number | null
         }
         Insert: {
           assigned_day_of_week?: number | null
@@ -486,6 +487,7 @@ export type Database = {
           template_type?: string | null
           title: string
           updated_at?: string | null
+          visible_days_before_month_end?: number | null
         }
         Update: {
           assigned_day_of_week?: number | null
@@ -500,6 +502,7 @@ export type Database = {
           template_type?: string | null
           title?: string
           updated_at?: string | null
+          visible_days_before_month_end?: number | null
         }
         Relationships: [
           {

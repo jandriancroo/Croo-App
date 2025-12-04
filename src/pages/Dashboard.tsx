@@ -30,6 +30,7 @@ interface Checklist {
   frequency: string;
   created_at: string;
   template_type: string | null;
+  visible_days_before_month_end: number | null;
 }
 interface ChecklistStats {
   checklist_id: string;
@@ -358,11 +359,23 @@ export default function Dashboard() {
       if (checklistsError) throw checklistsError;
 
       // Filter checklists - exclude dynamic templates with no items for today
+      // and monthly checklists that shouldn't be visible yet
       const filteredChecklists = (checklistsData || []).filter(checklist => {
+        // Filter dynamic templates by day
         if (checklist.template_type === 'dynamic') {
           const todayItems = checklist.checklist_items?.filter((item: any) => item.days_of_week && item.days_of_week.includes(currentDay));
           return todayItems && todayItems.length > 0;
         }
+        
+        // Filter monthly checklists by visibility window
+        if (checklist.frequency === 'monthly' && checklist.visible_days_before_month_end) {
+          const today = new Date();
+          const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          const daysUntilMonthEnd = lastDayOfMonth.getDate() - today.getDate();
+          // Show if we're within the visibility window (e.g., last 7 days)
+          return daysUntilMonthEnd < checklist.visible_days_before_month_end;
+        }
+        
         return true;
       });
       setChecklists(filteredChecklists);
