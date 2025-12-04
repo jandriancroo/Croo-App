@@ -3,13 +3,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Building2, MapPin, Plus, Palette, Save, ExternalLink, Upload, X } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Plus, Palette, Save, ExternalLink, Upload, X, Wand2, Loader2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
 import { compressImage } from '@/utils/imageCompression';
+import { removeBackground, loadImageFromUrl } from '@/utils/backgroundRemoval';
 
 export default function OrganizationProfile() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +24,7 @@ export default function OrganizationProfile() {
   const [logoUrl, setLogoUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isRemovingBg, setIsRemovingBg] = useState(false);
 
   const { data: organization, isLoading } = useQuery({
     queryKey: ['organization', id],
@@ -102,6 +104,40 @@ export default function OrganizationProfile() {
 
   const handleRemoveLogo = () => {
     setLogoUrl('');
+  };
+
+  const handleRemoveBackground = async () => {
+    if (!logoUrl) return;
+    
+    setIsRemovingBg(true);
+    try {
+      toast.info('Loading AI model... This may take a moment the first time.');
+      
+      const img = await loadImageFromUrl(logoUrl);
+      const resultBlob = await removeBackground(img);
+      
+      // Upload the processed image
+      const fileName = `${id || 'new'}-${Date.now()}-nobg.png`;
+      const filePath = `logos/${fileName}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('organization-branding')
+        .upload(filePath, resultBlob, { upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('organization-branding')
+        .getPublicUrl(filePath);
+
+      setLogoUrl(publicUrl);
+      toast.success('Background removed successfully!');
+    } catch (error: any) {
+      console.error('Background removal error:', error);
+      toast.error(error.message || 'Failed to remove background');
+    } finally {
+      setIsRemovingBg(false);
+    }
   };
 
   const handleSave = async () => {
@@ -230,22 +266,51 @@ export default function OrganizationProfile() {
               />
               
               {logoUrl ? (
-                <div className="relative inline-block">
-                  <div className="p-4 border rounded-lg bg-muted/50">
-                    <img 
-                      src={logoUrl} 
-                      alt="Logo preview" 
-                      className="h-20 object-contain"
-                    />
+                <div className="space-y-3">
+                  <div className="relative inline-block">
+                    <div className="p-4 border rounded-lg bg-[repeating-conic-gradient(#e5e5e5_0%_25%,#fff_0%_50%)] bg-[length:16px_16px]">
+                      <img 
+                        src={logoUrl} 
+                        alt="Logo preview" 
+                        className="h-20 object-contain"
+                      />
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6"
+                      onClick={handleRemoveLogo}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute -top-2 -right-2 h-6 w-6"
-                    onClick={handleRemoveLogo}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Replace
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleRemoveBackground}
+                      disabled={isRemovingBg}
+                    >
+                      {isRemovingBg ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Wand2 className="h-4 w-4 mr-2" />
+                      )}
+                      {isRemovingBg ? 'Processing...' : 'Remove Background'}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Use "Remove Background" to make your logo transparent
+                  </p>
                 </div>
               ) : (
                 <Button

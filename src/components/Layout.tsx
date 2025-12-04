@@ -185,12 +185,12 @@ export const Layout = ({
   }];
   return <div className="flex min-h-screen flex-col bg-background overflow-x-hidden">
       <header className="sticky top-0 z-50 glass border-b border-border/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className={`container flex items-center ${isMobile ? 'h-16' : 'h-24'}`}>
-          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-8 flex-shrink-0">
+        <div className={`container flex items-center ${isMobile ? 'h-14' : 'h-16'}`}>
+          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-4 flex-shrink-0">
             <img 
               src={headerLogo} 
               alt={headerLogoAlt} 
-              className={`${isMobile ? 'h-14' : 'h-20'} w-auto max-w-[180px] object-contain`}
+              className={`${isMobile ? 'h-10' : 'h-12'} w-auto max-w-[120px] object-contain`}
               style={{ background: 'transparent' }}
             />
           </button>
