@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { format, addDays, addWeeks } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { toast } from 'sonner';
 import { ChevronLeft, AlertTriangle, Camera, Edit, Trash2, Clock, Calendar, CheckCircle2, Lock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 
 export default function PayrollReview() {
   const { isAdmin, isManager } = useUserRole();
+  const { currentLocation } = useAppLocation();
   const [payPeriods, setPayPeriods] = useState<any[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
   const [timeCards, setTimeCards] = useState<any[]>([]);
@@ -79,12 +81,21 @@ export default function PayrollReview() {
   };
 
   const fetchTimeCards = async () => {
-    if (!selectedPeriod) return;
+    if (!selectedPeriod || !currentLocation) return;
+
+    // Get users at current location
+    const { data: userLocations } = await supabase
+      .from('user_locations')
+      .select('user_id')
+      .eq('location_id', currentLocation.id);
+
+    const userIds = userLocations?.map(ul => ul.user_id) || [];
 
     const { data: profiles } = await supabase
       .from('profiles')
       .select('*')
       .eq('is_active', true)
+      .in('id', userIds)
       .order('full_name');
 
     if (!profiles) return;
@@ -95,6 +106,7 @@ export default function PayrollReview() {
           .from('time_punches')
           .select('*')
           .eq('user_id', profile.id)
+          .eq('location_id', currentLocation.id)
           .gte('punch_time', selectedPeriod.start.toISOString())
           .lte('punch_time', selectedPeriod.end.toISOString())
           .order('punch_time');

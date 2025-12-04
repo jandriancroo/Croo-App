@@ -21,12 +21,14 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { compressImage } from "@/utils/imageCompression";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
 
 export default function LogBook() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { isAdmin, isManager, loading: roleLoading } = useUserRole();
+  const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -47,16 +49,19 @@ export default function LogBook() {
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
-    queryKey: ['logbook-categories'],
+    queryKey: ['logbook-categories', currentLocation?.id],
     queryFn: async () => {
+      if (!currentLocation) return [];
       const { data, error } = await supabase
         .from('logbook_categories')
         .select('*')
         .eq('is_active', true)
+        .eq('location_id', currentLocation.id)
         .order('display_order');
       if (error) throw error;
       return data;
     },
+    enabled: !!currentLocation,
   });
 
   // Set initial category
@@ -113,8 +118,9 @@ export default function LogBook() {
 
   // Fetch all entries for search
   const { data: allEntries = [] } = useQuery({
-    queryKey: ['logbook-all-entries', searchQuery],
+    queryKey: ['logbook-all-entries', searchQuery, currentLocation?.id],
     queryFn: async () => {
+      if (!currentLocation) return [];
       let query = supabase
         .from('logbook_entries')
         .select(`
@@ -123,6 +129,7 @@ export default function LogBook() {
           profiles(full_name, profile_photo_url),
           logbook_categories(name)
         `)
+        .eq('location_id', currentLocation.id)
         .order('entry_date', { ascending: false })
         .limit(50);
 
@@ -130,6 +137,7 @@ export default function LogBook() {
       if (error) throw error;
       return data;
     },
+    enabled: !!currentLocation,
   });
 
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -183,6 +191,7 @@ export default function LogBook() {
           category_id: selectedCategory,
           entry_date: dateStr,
           created_by: user!.id,
+          location_id: currentLocation?.id,
         }, {
           onConflict: 'category_id,entry_date'
         })
