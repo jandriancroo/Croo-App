@@ -32,6 +32,9 @@ const handler = async (req: Request): Promise<Response> => {
     // Check for overdue checklists
     await checkOverdueChecklists(supabaseClient, timezone);
 
+    // Check for monthly checklist reminders
+    await checkMonthlyChecklists(supabaseClient, timezone);
+
     // Check for late arrivals
     await checkLateArrivals(supabaseClient, timezone);
 
@@ -259,6 +262,129 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string) {
     }
   } catch (error) {
     console.error('Error checking overdue checklists:', error);
+  }
+}
+
+async function checkMonthlyChecklists(supabaseClient: any, timezone: string) {
+  try {
+    const { startOfDayUTC, endOfDayUTC, localNow } = getTimezoneDayBoundariesInUTC(timezone);
+    const currentHours = localNow.getHours();
+    const currentMinutes = localNow.getMinutes();
+    
+    // Only send reminders once per day - at 9 AM (within first 15 minutes of the hour)
+    if (currentHours !== 9 || currentMinutes > 15) {
+      console.log('Skipping monthly checklist reminders - not at 9 AM');
+      return;
+    }
+
+    // Calculate days until end of month
+    const localYear = localNow.getFullYear();
+    const localMonth = localNow.getMonth();
+    const localDay = localNow.getDate();
+    const lastDayOfMonth = new Date(localYear, localMonth + 1, 0);
+    const daysUntilMonthEnd = lastDayOfMonth.getDate() - localDay;
+    
+    console.log(`Monthly checklist check - ${daysUntilMonthEnd} days until end of month`);
+
+    // Get monthly checklists with visibility windows
+    const { data: monthlyChecklists, error: checklistsError } = await supabaseClient
+      .from('checklists')
+      .select(`
+        id,
+        title,
+        visible_days_before_month_end,
+        checklist_items(id)
+      `)
+      .eq('is_active', true)
+      .eq('frequency', 'monthly')
+      .not('visible_days_before_month_end', 'is', null);
+
+    if (checklistsError) throw checklistsError;
+    if (!monthlyChecklists || monthlyChecklists.length === 0) {
+      console.log('No monthly checklists with visibility windows found');
+      return;
+    }
+
+    // Get submissions for this month
+    const startOfMonth = new Date(localYear, localMonth, 1);
+    const startOfMonthStr = startOfMonth.toISOString();
+
+    for (const checklist of monthlyChecklists) {
+      // Check if checklist is now visible (we're within the visibility window)
+      if (daysUntilMonthEnd >= checklist.visible_days_before_month_end) {
+        console.log(`Checklist "${checklist.title}" not yet visible (${daysUntilMonthEnd} days left, shows at ${checklist.visible_days_before_month_end} days)`);
+        continue;
+      }
+
+      const totalItems = checklist.checklist_items?.length || 0;
+      if (totalItems === 0) continue;
+
+      // Check completion status for this month
+      const { data: submissions } = await supabaseClient
+        .from('checklist_submissions')
+        .select(`
+          id,
+          checklist_responses(id, item_id)
+        `)
+        .eq('checklist_id', checklist.id)
+        .gte('submitted_at', startOfMonthStr);
+
+      const uniqueItemIds = new Set();
+      submissions?.forEach((sub: any) => {
+        sub.checklist_responses?.forEach((response: any) => {
+          if (response.item_id) {
+            uniqueItemIds.add(response.item_id);
+          }
+        });
+      });
+      const completedItems = uniqueItemIds.size;
+      const remainingTasks = totalItems - completedItems;
+
+      // Skip if already complete
+      if (remainingTasks === 0) {
+        console.log(`Monthly checklist "${checklist.title}" already complete`);
+        continue;
+      }
+
+      console.log(`Monthly checklist "${checklist.title}": ${completedItems}/${totalItems} complete, ${daysUntilMonthEnd} days remaining`);
+
+      // Send reminder to all users (or you could filter by role)
+      const { data: allUsers } = await supabaseClient
+        .from('profiles')
+        .select('id')
+        .eq('is_active', true);
+
+      if (allUsers && allUsers.length > 0) {
+        // Determine urgency based on days left
+        let urgencyPrefix = '';
+        if (daysUntilMonthEnd <= 1) {
+          urgencyPrefix = '⚠️ FINAL DAY: ';
+        } else if (daysUntilMonthEnd <= 3) {
+          urgencyPrefix = '⚠️ ';
+        }
+
+        const daysText = daysUntilMonthEnd === 0 
+          ? 'Due TODAY' 
+          : daysUntilMonthEnd === 1 
+            ? '1 day left' 
+            : `${daysUntilMonthEnd} days left`;
+
+        await supabaseClient.functions.invoke('send-push-notification', {
+          body: {
+            user_ids: allUsers.map((u: any) => u.id),
+            title: `${urgencyPrefix}Monthly Checklist Reminder`,
+            body: `${checklist.title} - ${remainingTasks} task${remainingTasks === 1 ? '' : 's'} remaining (${daysText})`,
+            notification_type: 'overdue_checklists',
+            data: {
+              checklist_id: checklist.id,
+              type: 'monthly_checklist_reminder'
+            }
+          }
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error checking monthly checklists:', error);
   }
 }
 
