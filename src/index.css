@@ -128,7 +128,7 @@ All colors MUST be HSL.
   --card-foreground: 45 10% 90%;
   --popover: 0 0% 10%;
   --popover-foreground: 45 10% 90%;
-  --primary: 165 60% 45%;
+  --primary: 0 0% 55%;
   --primary-foreground: 0 0% 98%;
   --secondary: 0 0% 14%;
   --secondary-foreground: 45 10% 85%;
@@ -140,7 +140,7 @@ All colors MUST be HSL.
   --destructive-foreground: 0 0% 98%;
   --border: 0 0% 20%;
   --input: 0 0% 15%;
-  --ring: 165 60% 45%;
+  --ring: 0 0% 55%;
   --glass-background: 0 0% 10% / 0.85;
   --glass-border: 0 0% 100% / 0.08;
   --glass-shadow: 0 0% 0% / 0.4;
