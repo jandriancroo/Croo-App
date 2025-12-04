@@ -38,6 +38,7 @@ import InstallGuide from "./pages/InstallGuide";
 import ResetPassword from "./pages/ResetPassword";
 import MyWallet from "./pages/MyWallet";
 import RoleManagement from "./pages/RoleManagement";
+import CompletedStampPreview from "./pages/CompletedStampPreview";
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ const AppContent = () => {
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/landing" element={<Index />} />
+          <Route path="/stamp-preview" element={<CompletedStampPreview />} />
           <Route path="/install" element={<InstallGuide />} />
           <Route path="/" element={<Navigate to="/auth" replace />} />
           <Route path="/welcome" element={<ProtectedRoute><WelcomeProfile /></ProtectedRoute>} />
