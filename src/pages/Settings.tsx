@@ -24,6 +24,7 @@ const themes = [
   { value: 'ocean', label: 'Ocean Breeze' },
   { value: 'sage', label: 'Sage' },
   { value: 'lavender', label: 'Lavender' },
+  { value: 'vibrant', label: 'Vibrant' },
 ];
 
 const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'locations', 'roles', 'positions', 'maintenance'];
