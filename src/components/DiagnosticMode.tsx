@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { Check, X, Loader2, Bell, Database, Wifi, User, MapPin } from 'lucide-react';
 
-const SECRET_PASSPHRASE = 'crootest';
+const SECRET_PASSPHRASE = 'ellie';
 
 interface TestResult {
   name: string;
