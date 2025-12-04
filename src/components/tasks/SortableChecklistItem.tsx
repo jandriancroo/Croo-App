@@ -79,13 +79,13 @@ export function SortableChecklistItem({
       )}
       <Button
         variant="outline"
-        className="flex-1 justify-start"
+        className="flex-1 justify-start min-w-0 overflow-hidden"
         onClick={handleClick}
         disabled={isReordering}
       >
-        <FileCheck className="h-4 w-4 mr-2" />
-        <div className="flex-1 text-left">
-          <div className="font-medium">
+        <FileCheck className="h-4 w-4 mr-2 flex-shrink-0" />
+        <div className="flex-1 text-left min-w-0 overflow-hidden">
+          <div className="font-medium truncate">
             {checklist.title}
             {isDynamic && (
               <span className="ml-2 text-xs font-normal text-muted-foreground">
@@ -94,7 +94,7 @@ export function SortableChecklistItem({
             )}
           </div>
           {checklist.description && (
-            <div className="text-xs text-muted-foreground">{checklist.description}</div>
+            <div className="text-xs text-muted-foreground truncate">{checklist.description}</div>
           )}
         </div>
       </Button>
