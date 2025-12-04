@@ -1342,10 +1342,11 @@ export default function UserManagement() {
 
         {/* User Profile Details Dialog */}
         <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>User Profile</DialogTitle>
             </DialogHeader>
+            <div className="flex-1 overflow-y-auto overscroll-contain -mx-6 px-6">
             {viewingUser && (
               <div className="space-y-4">
                 {/* Header Section */}
@@ -1616,6 +1617,7 @@ export default function UserManagement() {
                 </div>
               </div>
             )}
+            </div>
           </DialogContent>
         </Dialog>
 
