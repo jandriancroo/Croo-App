@@ -70,8 +70,11 @@ export default function Certifications() {
   };
 
   const handleScanCertificate = async (file: File) => {
-    // Only scan images, not PDFs
-    if (!file.type.startsWith('image/')) {
+    // Support images and PDFs
+    const isImage = file.type.startsWith('image/');
+    const isPdf = file.type === 'application/pdf';
+    
+    if (!isImage && !isPdf) {
       return;
     }
 
@@ -115,8 +118,8 @@ export default function Certifications() {
     const file = e.target.files?.[0] || null;
     setSelectedFile(file);
     
-    // Auto-scan if it's an image
-    if (file && file.type.startsWith('image/')) {
+    // Auto-scan if it's an image or PDF
+    if (file && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
       handleScanCertificate(file);
     }
   };
