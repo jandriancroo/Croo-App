@@ -1,8 +1,8 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from "@/components/ui/button";
-import { FileCheck, GripVertical, MoreVertical, EyeOff, Trash2 } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { FileCheck, GripVertical, MoreVertical, EyeOff, Trash2, Copy } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 interface SortableChecklistItemProps {
   checklist: any;
@@ -14,6 +14,7 @@ interface SortableChecklistItemProps {
   onNavigate: (path: string) => void;
   onDeactivate: (id: string) => void;
   onDelete: (id: string) => void;
+  onCopyTo?: (id: string, title: string) => void;
   editMode?: boolean;
 }
 
@@ -27,6 +28,7 @@ export function SortableChecklistItem({
   onNavigate,
   onDeactivate,
   onDelete,
+  onCopyTo,
   editMode = false,
 }: SortableChecklistItemProps) {
   const {
@@ -104,6 +106,15 @@ export function SortableChecklistItem({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            {onCopyTo && (
+              <>
+                <DropdownMenuItem onClick={() => onCopyTo(checklist.id, checklist.title)}>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy To...
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem onClick={() => onDeactivate(checklist.id)}>
               <EyeOff className="h-4 w-4 mr-2" />
               Make Inactive
