@@ -278,12 +278,13 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string, loc
         await supabaseClient.functions.invoke('send-push-notification', {
           body: {
             user_ids: adminUsers.map((u: any) => u.user_id),
-            title: 'Overdue Checklist',
+            title: `Overdue Checklist - ${locationName}`,
             body: notificationBody,
             notification_type: 'overdue_checklists',
             data: {
               checklist_id: activeOverdueChecklist.id,
-              type: 'overdue_checklist'
+              type: 'overdue_checklist',
+              location_id: locationId
             }
           }
         });
@@ -390,12 +391,13 @@ async function checkMonthlyChecklists(supabaseClient: any, timezone: string, loc
       await supabaseClient.functions.invoke('send-push-notification', {
         body: {
           user_ids: locationUsers.map((u: any) => u.user_id),
-          title: `${urgencyPrefix}Monthly Checklist Reminder`,
+          title: `${urgencyPrefix}Monthly Checklist - ${locationName}`,
           body: `${checklist.title} - ${remainingTasks} task${remainingTasks === 1 ? '' : 's'} remaining (${daysText})`,
           notification_type: 'overdue_checklists',
           data: {
             checklist_id: checklist.id,
-            type: 'monthly_checklist_reminder'
+            type: 'monthly_checklist_reminder',
+            location_id: locationId
           }
         }
       });
@@ -492,12 +494,13 @@ async function checkLateArrivals(supabaseClient: any, timezone: string, location
           await supabaseClient.functions.invoke('send-push-notification', {
             body: {
               user_ids: adminUsers.map((u: any) => u.user_id),
-              title: '🚨 Late Arrival',
+              title: `🚨 Late Arrival - ${locationName}`,
               body: `${employee.name} has not clocked in (shift started ${employee.shift_start})`,
               notification_type: 'late_arrivals',
               data: {
                 user_id: employee.user_id,
-                type: 'late_arrival'
+                type: 'late_arrival',
+                location_id: locationId
               }
             }
           });
@@ -584,20 +587,30 @@ async function checkExpiringCertifications(supabaseClient: any) {
         .eq('user_id', cert.user_id);
 
       if (userLocations && userLocations.length > 0) {
+        // Get location names for notifications
+        const locationIds = userLocations.map((ul: any) => ul.location_id);
+        const { data: locations } = await supabaseClient
+          .from('locations')
+          .select('id, name')
+          .in('id', locationIds);
+        const locationMap = new Map(locations?.map((l: any) => [l.id, l.name]) || []);
+
         for (const ul of userLocations) {
           const adminUsers = await getLocationAdminsAndManagers(supabaseClient, ul.location_id);
+          const locName = locationMap.get(ul.location_id) || 'Unknown';
           
           if (adminUsers.length > 0) {
             await supabaseClient.functions.invoke('send-push-notification', {
               body: {
                 user_ids: adminUsers.map((u: any) => u.user_id),
-                title: `${urgency}Staff Certification Expiring`,
+                title: `${urgency}Certification Expiring - ${locName}`,
                 body: `${profileMap.get(cert.user_id) || 'Employee'}'s ${cert.certification_type} expires ${formattedDate}`,
                 notification_type: 'certification_expiring',
                 data: {
                   certification_id: cert.id,
                   user_id: cert.user_id,
-                  type: 'certification_expiring'
+                  type: 'certification_expiring',
+                  location_id: ul.location_id
                 }
               }
             });
