@@ -39,6 +39,7 @@ import ResetPassword from "./pages/ResetPassword";
 import MyWallet from "./pages/MyWallet";
 import RoleManagement from "./pages/RoleManagement";
 import CompletedStampPreview from "./pages/CompletedStampPreview";
+import OrganizationProfile from "./pages/OrganizationProfile";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,7 @@ const AppContent = () => {
       <Route path="/payroll-review" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/location/:locationId" element={<ProtectedRoute><LocationProfile /></ProtectedRoute>} />
+      <Route path="/organization/:id" element={<ProtectedRoute><OrganizationProfile /></ProtectedRoute>} />
       <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
       <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
       <Route path="/font-preview" element={<ProtectedRoute><FontPreviewPage /></ProtectedRoute>} />

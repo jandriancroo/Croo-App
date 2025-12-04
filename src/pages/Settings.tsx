@@ -28,7 +28,7 @@ const themes = [
   { value: 'vibrant', label: 'Vibrant' },
 ];
 
-const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'organizations', 'locations', 'roles', 'positions', 'maintenance'];
+const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'organizations', 'roles', 'positions', 'maintenance'];
 const STORAGE_KEY = 'settings-section-order';
 
 interface SortableSectionProps {
@@ -185,91 +185,73 @@ export default function Settings() {
         return <NotificationSettings />;
 
       case 'organizations':
-        if (!isAdmin || organizations.length === 0) return null;
+        if (!isAdmin) return null;
         return (
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4" />
-                <CardTitle className="text-base">Organizations</CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  <CardTitle className="text-base">Organizations</CardTitle>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/organization/new')}
+                >
+                  <Building2 className="h-3 w-3 mr-1" />
+                  Add Org
+                </Button>
               </div>
               <CardDescription className="text-xs">
                 Manage organizations and their locations
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {organizations.map((org) => {
-                const orgLocations = locations.filter(l => l.organization_id === org.id);
-                return (
-                  <div key={org.id} className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      <Building2 className="h-3 w-3" />
-                      {org.name}
+            <CardContent className="space-y-3">
+              {organizations.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-2">
+                  No organizations yet
+                </p>
+              ) : (
+                organizations.map((org) => {
+                  const orgLocations = locations.filter(l => l.organization_id === org.id);
+                  return (
+                    <div key={org.id} className="space-y-2 p-3 border rounded-lg">
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-between h-auto py-1 px-2 -mx-2"
+                        onClick={() => navigate(`/organization/${org.id}`)}
+                      >
+                        <div className="flex items-center gap-2 font-medium">
+                          <Building2 className="h-4 w-4" />
+                          {org.name}
+                        </div>
+                        <ExternalLinkIcon className="h-3 w-3" />
+                      </Button>
+                      <div className="space-y-1">
+                        {orgLocations.map((location) => (
+                          <Button
+                            key={location.id}
+                            variant="outline"
+                            size="sm"
+                            className="w-full justify-between h-auto py-2"
+                            onClick={() => navigate(`/location/${location.id}`)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-3 w-3" />
+                              <span className="text-xs">{location.name}</span>
+                            </div>
+                            <ExternalLinkIcon className="h-3 w-3" />
+                          </Button>
+                        ))}
+                        {orgLocations.length === 0 && (
+                          <p className="text-xs text-muted-foreground pl-2">No locations</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="pl-5 space-y-1">
-                      {orgLocations.map((location) => (
-                        <Button
-                          key={location.id}
-                          variant="outline"
-                          size="sm"
-                          className="w-full justify-between h-auto py-2"
-                          onClick={() => navigate(`/location/${location.id}`)}
-                        >
-                          <div className="flex items-center gap-2">
-                            <MapPin className="h-3 w-3" />
-                            <span className="text-xs">{location.name}</span>
-                          </div>
-                          <ExternalLinkIcon className="h-3 w-3" />
-                        </Button>
-                      ))}
-                      {orgLocations.length === 0 && (
-                        <p className="text-xs text-muted-foreground pl-2">No locations</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-        );
-
-      case 'locations':
-        if (!isAdmin || locations.length === 0) return null;
-        return (
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4" />
-                <CardTitle className="text-base">Locations</CardTitle>
-              </div>
-              <CardDescription className="text-xs">
-                Manage locations, hours, and timezone settings
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {locations.map((location) => (
-                <Button
-                  key={location.id}
-                  variant="outline"
-                  className="w-full justify-between h-auto py-2"
-                  onClick={() => navigate(`/location/${location.id}`)}
-                >
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-3 w-3" />
-                    <span className="text-sm">{location.name}</span>
-                  </div>
-                  <ExternalLinkIcon className="h-3 w-3" />
-                </Button>
-              ))}
-              <Button
-                variant="secondary"
-                size="sm"
-                className="w-full"
-                onClick={() => navigate('/location/new')}
-              >
-                <MapPin className="h-3 w-3 mr-1" />
-                Add Location
-              </Button>
+                  );
+                })
+              )}
             </CardContent>
           </Card>
         );
@@ -373,14 +355,8 @@ export default function Settings() {
     }
     
     // Standard filtering for normal locations
-    if (['organizations', 'locations', 'roles', 'positions', 'maintenance'].includes(id)) {
+    if (['organizations', 'roles', 'positions', 'maintenance'].includes(id)) {
       return isAdmin;
-    }
-    if (id === 'organizations') {
-      return isAdmin && organizations.length > 0;
-    }
-    if (id === 'locations') {
-      return isAdmin && locations.length > 0;
     }
     return true;
   });
