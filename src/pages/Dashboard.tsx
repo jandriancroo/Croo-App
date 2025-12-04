@@ -596,13 +596,13 @@ export default function Dashboard() {
                 <Card className="hover:shadow-lg transition-shadow">
                 <div className={isComplete ? 'blur-[2px]' : ''}>
                   <CardHeader className="py-2 px-3">
-                    <div className="flex items-center justify-between">
-                      <ClipboardCheck className="h-4 w-4 text-primary" />
-                      <Badge className={`text-[10px] px-1.5 py-0 ${getFrequencyColor(checklist.frequency)}`}>
+                    <div className="flex items-center gap-2">
+                      <ClipboardCheck className="h-4 w-4 text-primary flex-shrink-0" />
+                      <CardTitle className="text-sm font-semibold flex-1 truncate">{checklist.title}</CardTitle>
+                      <Badge className={`text-[10px] px-1.5 py-0 flex-shrink-0 ${getFrequencyColor(checklist.frequency)}`}>
                         {checklist.frequency}
                       </Badge>
                     </div>
-                    <CardTitle className="text-sm font-semibold">{checklist.title}</CardTitle>
                   </CardHeader>
                   <CardContent className="py-2 px-3 pt-0">
                     <div className="flex items-center justify-between mb-2">
