@@ -606,19 +606,19 @@ export default function Dashboard() {
           const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
           const isComplete = completionRate === 100;
           return <Card key={checklist.id} className="hover:shadow-lg transition-shadow overflow-hidden p-0">
-                  {/* Header Section - Colored */}
-                  <div className="bg-primary px-3 py-2 rounded-t-lg">
+                  {/* Header Section - Original style */}
+                  <CardHeader className="py-2 px-3">
                     <div className="flex items-center gap-2">
-                      <ClipboardCheck className="h-4 w-4 text-primary-foreground flex-shrink-0" />
-                      <span className="text-sm font-semibold flex-1 truncate text-primary-foreground">{checklist.title}</span>
+                      <ClipboardCheck className="h-4 w-4 text-primary flex-shrink-0" />
+                      <CardTitle className="text-sm font-semibold flex-1 truncate">{checklist.title}</CardTitle>
                       <Badge className={`text-[10px] px-1.5 py-0 flex-shrink-0 ${getFrequencyColor(checklist.frequency)}`}>
                         {checklist.frequency}
                       </Badge>
                     </div>
-                  </div>
+                  </CardHeader>
 
                   {/* Middle Section - Stats */}
-                  <div className="px-3 py-3">
+                  <CardContent className="py-2 px-3 pt-0">
                     <div className="flex items-center justify-between">
                       <div className="text-sm text-muted-foreground">
                         {completed}/{expected}
@@ -633,7 +633,7 @@ export default function Dashboard() {
                         </div>
                       )}
                     </div>
-                  </div>
+                  </CardContent>
 
                   {/* Bottom Button - Contoured to card shape */}
                   <Button 
