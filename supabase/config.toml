@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.send-daily-changelog]
 verify_jwt = false
+
+[functions.extract-certification-date]
+verify_jwt = false

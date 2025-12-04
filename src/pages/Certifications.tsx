@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Upload, CheckCircle, XCircle, Clock, ExternalLink, Trash2, Edit, FileText, Plus } from "lucide-react";
+import { Upload, CheckCircle, XCircle, Clock, ExternalLink, Trash2, Edit, FileText, Plus, Sparkles, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { EditCertificationDialog } from "@/components/users/EditCertificationDialog";
 import { compressImage } from "@/utils/imageCompression";
@@ -55,9 +55,67 @@ export default function Certifications() {
   const [selectedType, setSelectedType] = useState<CertificationType>("food_handlers");
   const [expirationDate, setExpirationDate] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedCertification, setSelectedCertification] = useState<Certification | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+    });
+  };
+
+  const handleScanCertificate = async () => {
+    if (!selectedFile) {
+      toast.error("Please select a file first");
+      return;
+    }
+
+    // Only scan images, not PDFs
+    if (!selectedFile.type.startsWith('image/')) {
+      toast.error("AI scanning only works with images, not PDFs");
+      return;
+    }
+
+    setScanning(true);
+    try {
+      const base64 = await fileToBase64(selectedFile);
+      
+      const { data, error } = await supabase.functions.invoke('extract-certification-date', {
+        body: { imageBase64: base64 }
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.expiration_date) {
+        setExpirationDate(data.expiration_date);
+        
+        // Also update cert type if detected
+        if (data.certificate_type === 'food_handlers' || data.certificate_type === 'servsafe') {
+          setSelectedType(data.certificate_type);
+        }
+        
+        toast.success(`Expiration date detected: ${data.expiration_date}`, {
+          description: `Confidence: ${data.confidence}`
+        });
+      } else {
+        toast.error("Could not detect expiration date", {
+          description: "Please enter it manually"
+        });
+      }
+    } catch (error: any) {
+      console.error("Scan error:", error);
+      toast.error("Failed to scan certificate", {
+        description: error.message || "Please enter date manually"
+      });
+    } finally {
+      setScanning(false);
+    }
+  };
 
   useEffect(() => {
     fetchData();
@@ -321,7 +379,26 @@ export default function Certifications() {
                 />
               </div>
               <div>
-                <Label>Expiration Date</Label>
+                <div className="flex items-center justify-between mb-1">
+                  <Label>Expiration Date</Label>
+                  {selectedFile && selectedFile.type.startsWith('image/') && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs gap-1"
+                      onClick={handleScanCertificate}
+                      disabled={scanning}
+                    >
+                      {scanning ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3 w-3" />
+                      )}
+                      {scanning ? "Scanning..." : "AI Scan"}
+                    </Button>
+                  )}
+                </div>
                 <Input
                   type="date"
                   value={expirationDate}
