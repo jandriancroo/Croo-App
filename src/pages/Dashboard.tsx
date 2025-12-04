@@ -223,10 +223,12 @@ export default function Dashboard() {
   // Calculate monthly totals
   const monthlyTotal = simulatedMonthlyData.reduce((sum, day) => sum + day.sales, 0);
   useEffect(() => {
-    fetchData();
+    if (currentLocation?.id) {
+      fetchData();
+    }
     fetchCrooCashBalance();
     fetchUserName();
-  }, []);
+  }, [currentLocation?.id]);
 
   const fetchUserName = async () => {
     try {
@@ -312,7 +314,7 @@ export default function Dashboard() {
         itemCount = checklistItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).length;
       }
 
-      // Get submissions and count unique completed items for today
+      // Get submissions and count unique completed items for today (location-filtered)
       const {
         data: submissions
       } = await supabase.from('checklist_submissions').select(`
@@ -320,6 +322,7 @@ export default function Dashboard() {
           checklist_responses(id, item_id)
         `)
         .eq('checklist_id', checklist.id)
+        .eq('location_id', currentLocation?.id)
         .gte('submitted_at', startOfToday.toISOString())
         .lte('submitted_at', endOfToday.toISOString());
       
@@ -341,21 +344,23 @@ export default function Dashboard() {
     setCompletionData(dataMap);
   };
   const fetchData = async () => {
+    if (!currentLocation?.id) return;
+    
     try {
       const currentDay = new Date().getDay();
 
-      // Fetch all active checklists
+      // Fetch all active checklists for this location
       const {
         data: checklistsData,
         error: checklistsError
       } = await supabase.from('checklists').select(`
           *,
           checklist_items(id, days_of_week)
-        `).eq('is_active', true).order('display_order', {
-        ascending: true
-      }).order('created_at', {
-        ascending: false
-      });
+        `)
+        .eq('is_active', true)
+        .eq('location_id', currentLocation.id)
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: false });
       if (checklistsError) throw checklistsError;
 
       // Filter checklists - exclude dynamic templates with no items for today
@@ -380,11 +385,13 @@ export default function Dashboard() {
       });
       setChecklists(filteredChecklists);
 
-      // Fetch submissions for stats
+      // Fetch submissions for stats (location-filtered)
       const {
         data: submissions,
         error: submissionsError
-      } = await supabase.from('checklist_submissions').select('checklist_id, submitted_at');
+      } = await supabase.from('checklist_submissions')
+        .select('checklist_id, submitted_at')
+        .eq('location_id', currentLocation.id);
       if (submissionsError) throw submissionsError;
 
       // Calculate stats
