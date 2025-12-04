@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -48,9 +47,9 @@ export function LogBookAlerts() {
   if (alerts.length === 0) return null;
 
   return (
-    <Alert className="border-orange-400/50 bg-orange-50/80 dark:bg-orange-950/50 py-2">
-      <AlertCircle className="h-3.5 w-3.5 text-orange-600" />
-      <AlertDescription className="text-xs text-orange-800 dark:text-orange-200 space-y-0.5">
+    <div className="flex items-start gap-2 border border-orange-400/50 bg-orange-50/80 dark:bg-orange-950/50 py-1.5 px-2.5 rounded-md">
+      <AlertCircle className="h-3.5 w-3.5 text-orange-600 flex-shrink-0 mt-0.5" />
+      <div className="text-xs text-orange-800 dark:text-orange-200 space-y-0.5">
         {alerts.slice(0, 5).map((alert: any) => (
           <button
             key={alert.id}
@@ -74,7 +73,7 @@ export function LogBookAlerts() {
             + {alerts.length - 5} more
           </Button>
         )}
-      </AlertDescription>
-    </Alert>
+      </div>
+    </div>
   );
 }

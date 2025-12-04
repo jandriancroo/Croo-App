@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -126,9 +125,9 @@ export function ChecklistCompletionAlerts() {
   if (alerts.length === 0) return null;
 
   return (
-    <Alert className="border-destructive/50 bg-red-50/80 dark:bg-red-950/50 py-2">
-      <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
-      <AlertDescription className="text-xs text-red-800 dark:text-red-200 space-y-0.5">
+    <div className="flex items-start gap-2 border border-destructive/50 bg-red-50/80 dark:bg-red-950/50 py-1.5 px-2.5 rounded-md">
+      <AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0 mt-0.5" />
+      <div className="text-xs text-red-800 dark:text-red-200 space-y-0.5">
         {alerts.slice(0, 5).map((alert: any) => (
           <button
             key={alert.id}
@@ -156,7 +155,7 @@ export function ChecklistCompletionAlerts() {
             + {alerts.length - 5} more
           </Button>
         )}
-      </AlertDescription>
-    </Alert>
+      </div>
+    </div>
   );
 }
