@@ -18,7 +18,7 @@ import { compressImage } from '@/utils/imageCompression';
 
 interface ChecklistItem {
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature';
   options?: string[];
   is_required: boolean;
   reference_image_url?: string;
@@ -490,7 +490,8 @@ export default function CreateChecklist() {
                             <SelectContent>
                               <SelectItem value="text">Text Input</SelectItem>
                               <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                              <SelectItem value="image">Image Upload</SelectItem>
+                              <SelectItem value="image">Photo</SelectItem>
+                              <SelectItem value="temperature">Temperature Photo</SelectItem>
                               <SelectItem value="confirmation">Confirmation Checkmark</SelectItem>
                             </SelectContent>
                           </Select>

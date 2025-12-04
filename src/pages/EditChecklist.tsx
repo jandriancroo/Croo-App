@@ -20,7 +20,7 @@ import { compressImage } from '@/utils/imageCompression';
 interface ChecklistItem {
   id?: string;
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature';
   is_required: boolean;
   options?: string[];
   reference_image_url?: string;
@@ -75,6 +75,7 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem }: Sort
               <SelectItem value="text">Text</SelectItem>
               <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
               <SelectItem value="image">Photo</SelectItem>
+              <SelectItem value="temperature">Temperature Photo</SelectItem>
               <SelectItem value="confirmation">Checkmark</SelectItem>
             </SelectContent>
           </Select>
@@ -179,7 +180,7 @@ export default function EditChecklist() {
       setItems(checklistItems.map(item => ({
         id: item.id,
         question: item.question,
-        item_type: item.item_type as 'text' | 'multiple_choice' | 'image' | 'confirmation',
+        item_type: item.item_type as 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature',
         is_required: item.is_required,
         options: item.options as string[] | undefined,
         reference_image_url: item.reference_image_url || undefined,
