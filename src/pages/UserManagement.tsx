@@ -38,9 +38,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { CrooCashCard } from '@/components/users/CrooCashCard';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { CertificationsSection } from '@/components/users/CertificationsSection';
 
 interface UserProfile {
   id: string;
@@ -102,7 +101,7 @@ export default function UserManagement() {
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [isBulkDeactivateOpen, setIsBulkDeactivateOpen] = useState(false);
   const [isBulkWageOpen, setIsBulkWageOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'active' | 'inactive' | 'certifications'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'inactive'>('active');
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [editBirthday, setEditBirthday] = useState<Date | undefined>();
@@ -1224,9 +1223,9 @@ export default function UserManagement() {
           </div>
           </CardHeader>
           <CardContent>
-            {/* Active/Inactive/Certifications Tabs */}
+            {/* Active/Inactive Tabs */}
             <Tabs value={activeTab} onValueChange={(v) => {
-              setActiveTab(v as 'active' | 'inactive' | 'certifications');
+              setActiveTab(v as 'active' | 'inactive');
               setSelectedUsers(new Set());
             }} className="mb-4">
               <TabsList>
@@ -1236,15 +1235,10 @@ export default function UserManagement() {
                 <TabsTrigger value="inactive">
                   Inactive ({users.filter(u => !u.is_active).length})
                 </TabsTrigger>
-                <TabsTrigger value="certifications">
-                  Certifications
-                </TabsTrigger>
               </TabsList>
             </Tabs>
             
-            {activeTab === 'certifications' ? (
-              <CertificationsSection />
-            ) : loading ? (
+            {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
@@ -1339,6 +1333,19 @@ export default function UserManagement() {
             )}
           </CardContent>
         </Card>
+
+        {/* Certifications Section */}
+        <div className="border-t pt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Certifications</h2>
+              <p className="text-sm text-muted-foreground">Track food handler cards and ServSafe certifications</p>
+            </div>
+            <Button onClick={() => navigate('/certifications')} variant="outline">
+              Manage Certifications
+            </Button>
+          </div>
+        </div>
 
         {/* User Profile Details Dialog */}
         <Dialog open={isProfileDialogOpen} onOpenChange={setIsProfileDialogOpen}>

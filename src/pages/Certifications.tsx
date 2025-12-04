@@ -341,111 +341,111 @@ export default function Certifications() {
           </Dialog>
         </div>
 
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {profiles.map((profile) => {
             const employeeCerts = getCertsByEmployee(profile.id);
 
             return (
-              <Card key={profile.id}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Avatar>
-                        <AvatarImage src={profile.profile_photo_url || ""} />
-                        <AvatarFallback>{profile.full_name?.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <CardTitle className="text-lg">{profile.full_name}</CardTitle>
-                        <CardDescription>
-                          {employeeCerts.length} certification{employeeCerts.length !== 1 ? 's' : ''}
-                        </CardDescription>
-                      </div>
+              <Card key={profile.id} className="overflow-hidden">
+                <CardHeader className="py-3 px-4">
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={profile.profile_photo_url || ""} />
+                      <AvatarFallback className="text-xs">{profile.full_name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-sm truncate">{profile.full_name}</CardTitle>
+                      <CardDescription className="text-xs">
+                        {employeeCerts.length} cert{employeeCerts.length !== 1 ? 's' : ''}
+                      </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0 px-4 pb-3">
                   {employeeCerts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      No certifications uploaded yet
+                    <p className="text-xs text-muted-foreground text-center py-2">
+                      No certifications
                     </p>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {employeeCerts.map((cert) => (
-                        <div key={cert.id} className="border rounded-lg p-4">
-                          <div className="flex gap-4 mb-3">
-                            <div 
-                              className="w-32 h-32 flex-shrink-0 border rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-80 transition-opacity"
+                        <div key={cert.id} className="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
+                          <div 
+                            className="w-10 h-10 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80"
+                            onClick={() => window.open(cert.certificate_url, "_blank")}
+                          >
+                            <img 
+                              src={cert.certificate_url} 
+                              alt={getCertTypeName(cert.certification_type as CertificationType)}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-medium truncate">
+                                {cert.certification_type === "food_handlers" ? "Food Handler" : "ServSafe"}
+                              </span>
+                              {cert.status === "approved" ? (
+                                <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
+                              ) : cert.status === "rejected" ? (
+                                <XCircle className="w-3 h-3 text-red-500 flex-shrink-0" />
+                              ) : (
+                                <Clock className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Exp: {format(new Date(cert.expiration_date), "MM/dd/yy")}
+                            </p>
+                          </div>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-6 w-6"
                               onClick={() => window.open(cert.certificate_url, "_blank")}
                             >
-                              <img 
-                                src={cert.certificate_url} 
-                                alt={getCertTypeName(cert.certification_type as CertificationType)}
-                                className="w-full h-full object-cover"
-                              />
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-start justify-between mb-2">
-                                <div>
-                                  <h4 className="font-semibold">{getCertTypeName(cert.certification_type as CertificationType)}</h4>
-                                  <p className="text-sm text-muted-foreground">
-                                    Expires: {format(new Date(cert.expiration_date), "MMM d, yyyy")}
-                                  </p>
-                                </div>
-                                {getStatusBadge(cert.status)}
-                              </div>
-                              <div className="flex gap-2">
+                              <ExternalLink className="w-3 h-3" />
+                            </Button>
+                            {isAdmin && (
+                              <>
                                 <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => window.open(cert.certificate_url, "_blank")}
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6"
+                                  onClick={() => {
+                                    setSelectedCertification(cert);
+                                    setEditDialogOpen(true);
+                                  }}
                                 >
-                                  <ExternalLink className="w-3 h-3 mr-1" />
-                                  View Full Size
+                                  <Edit className="w-3 h-3" />
                                 </Button>
-                                {isAdmin && (
-                                  <>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        setSelectedCertification(cert);
-                                        setEditDialogOpen(true);
-                                      }}
-                                    >
-                                      <Edit className="w-3 h-3 mr-1" />
-                                      Edit
-                                    </Button>
-                                    {cert.status === "pending" && (
-                                      <>
-                                        <Button
-                                          size="sm"
-                                          onClick={() => handleApprove(cert.id)}
-                                        >
-                                          Approve
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="destructive"
-                                          onClick={() => handleReject(cert.id)}
-                                        >
-                                          Reject
-                                        </Button>
-                                      </>
-                                    )}
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() => handleDelete(cert.id)}
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
-                            </div>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6 text-destructive"
+                                  onClick={() => handleDelete(cert.id)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </>
+                            )}
                           </div>
                         </div>
                       ))}
+                      {isAdmin && employeeCerts.some(c => c.status === "pending") && (
+                        <div className="flex gap-1 pt-1">
+                          {employeeCerts.filter(c => c.status === "pending").map(cert => (
+                            <div key={cert.id} className="flex gap-1">
+                              <Button size="sm" className="h-6 text-xs" onClick={() => handleApprove(cert.id)}>
+                                Approve
+                              </Button>
+                              <Button size="sm" variant="destructive" className="h-6 text-xs" onClick={() => handleReject(cert.id)}>
+                                Reject
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
