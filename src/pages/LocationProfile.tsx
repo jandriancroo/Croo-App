@@ -6,32 +6,38 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MapPin, ArrowLeft, Copy, RefreshCw, ClipboardCopy } from 'lucide-react';
+import { MapPin, ArrowLeft, Copy, RefreshCw, ClipboardCopy, Save } from 'lucide-react';
 import { LocationMap } from '@/components/settings/LocationMap';
 import { LocationSettingsSection } from '@/components/settings/LocationSettingsSection';
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { useAuth } from '@/lib/auth';
 
 export default function LocationProfile() {
   const { locationId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [location, setLocation] = useState<any>(null);
+  const { user } = useAuth();
+  const isNew = locationId === 'new';
+  const orgId = searchParams.get('org');
+  
+  const [location, setLocation] = useState<any>(isNew ? { name: '', address: '', location_type: 'standard' } : null);
   const [allLocations, setAllLocations] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [sourceLocationId, setSourceLocationId] = useState<string>('');
   const [copying, setCopying] = useState(false);
 
   useEffect(() => {
-    if (locationId) {
+    if (locationId && !isNew) {
       fetchLocation();
       fetchAllLocations();
     }
-  }, [locationId]);
+  }, [locationId, isNew]);
 
   const fetchLocation = async () => {
     try {
@@ -76,23 +82,63 @@ export default function LocationProfile() {
 
     try {
       setSaving(true);
-      const { error } = await supabase
-        .from('locations')
-        .update({
-          name: location.name.trim(),
-          address: location.address?.trim() || null,
-          latitude: location.latitude ? parseFloat(location.latitude) : null,
-          longitude: location.longitude ? parseFloat(location.longitude) : null
-        })
-        .eq('id', location.id);
+      
+      if (isNew) {
+        // Generate location code
+        const { data: locationCode, error: codeError } = await supabase.rpc('generate_location_code');
+        if (codeError) throw codeError;
 
-      if (error) throw error;
+        // Create new location
+        const { data: newLocation, error: createError } = await supabase
+          .from('locations')
+          .insert({
+            name: location.name.trim(),
+            address: location.address?.trim() || null,
+            location_type: location.location_type || 'standard',
+            organization_id: orgId || null,
+            location_code: locationCode,
+            created_by: user?.id,
+          })
+          .select()
+          .single();
 
-      toast.success('Location updated successfully');
-      fetchLocation();
+        if (createError) throw createError;
+
+        // Assign current user to the new location
+        if (user?.id && newLocation) {
+          await supabase.from('user_locations').insert({
+            user_id: user.id,
+            location_id: newLocation.id,
+          });
+
+          // Create default location settings
+          await supabase.from('location_settings').insert({
+            location_id: newLocation.id,
+            timezone: 'America/Los_Angeles',
+          });
+        }
+
+        toast.success('Location created successfully');
+        navigate(`/location/${newLocation.id}`);
+      } else {
+        const { error } = await supabase
+          .from('locations')
+          .update({
+            name: location.name.trim(),
+            address: location.address?.trim() || null,
+            latitude: location.latitude ? parseFloat(location.latitude) : null,
+            longitude: location.longitude ? parseFloat(location.longitude) : null
+          })
+          .eq('id', location.id);
+
+        if (error) throw error;
+
+        toast.success('Location updated successfully');
+        fetchLocation();
+      }
     } catch (error: any) {
-      console.error('Error updating location:', error);
-      toast.error('Failed to update location');
+      console.error('Error saving location:', error);
+      toast.error(error.message || 'Failed to save location');
     } finally {
       setSaving(false);
     }
@@ -243,7 +289,7 @@ export default function LocationProfile() {
     );
   }
 
-  if (!location) {
+  if (!location && !isNew) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -258,20 +304,27 @@ export default function LocationProfile() {
       <div className="space-y-6 max-w-3xl mx-auto overflow-x-hidden">
         {/* Header */}
         <div className="flex items-start gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} className="mt-1 flex-shrink-0">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => orgId ? navigate(`/organization/${orgId}`) : navigate('/settings')} 
+            className="mt-1 flex-shrink-0"
+          >
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
               <MapPin className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
-              <span className="truncate">{location.name}</span>
+              <span className="truncate">{isNew ? 'New Location' : location?.name}</span>
             </h1>
-            <p className="text-sm text-muted-foreground">Manage location details and settings</p>
+            <p className="text-sm text-muted-foreground">
+              {isNew ? 'Create a new location' : 'Manage location details and settings'}
+            </p>
           </div>
         </div>
 
-        {/* Map - full width on mobile */}
-        {location.latitude && location.longitude && (
+        {/* Map - full width on mobile (only for existing locations with coordinates) */}
+        {!isNew && location?.latitude && location?.longitude && (
           <div className="w-full h-40 sm:h-48 rounded-lg overflow-hidden border shadow-sm">
             <LocationMap 
               lat={parseFloat(location.latitude)} 
@@ -286,15 +339,18 @@ export default function LocationProfile() {
           <Card>
             <CardHeader>
               <CardTitle>Location Information</CardTitle>
-              <CardDescription>Basic details about this location</CardDescription>
+              <CardDescription>
+                {isNew ? 'Enter details for the new location' : 'Basic details about this location'}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="location-name">Location Name</Label>
                 <Input
                   id="location-name"
-                  value={location.name}
+                  value={location?.name || ''}
                   onChange={(e) => setLocation({...location, name: e.target.value})}
+                  placeholder="e.g., Downtown Store"
                 />
               </div>
               <div className="space-y-2">
@@ -302,11 +358,33 @@ export default function LocationProfile() {
                 <Textarea
                   id="location-address"
                   placeholder="123 Main St, City, State ZIP"
-                  value={location.address || ''}
+                  value={location?.address || ''}
                   onChange={(e) => setLocation({...location, address: e.target.value})}
                 />
               </div>
-              {location.location_code && (
+              
+              {isNew && (
+                <div className="space-y-2">
+                  <Label htmlFor="location-type">Location Type</Label>
+                  <Select 
+                    value={location?.location_type || 'standard'} 
+                    onValueChange={(value) => setLocation({...location, location_type: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">Standard (Full Features)</SelectItem>
+                      <SelectItem value="checklist_only">Checklist Only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Checklist Only locations have simplified navigation and features
+                  </p>
+                </div>
+              )}
+              
+              {!isNew && location?.location_code && (
                 <div className="pt-4 border-t space-y-3">
                   <Label>Location Code</Label>
                   <div className="flex flex-col sm:flex-row gap-2">
@@ -338,67 +416,70 @@ export default function LocationProfile() {
                 </div>
               )}
               <Button onClick={handleSave} disabled={saving}>
-                {saving ? 'Saving...' : 'Save Changes'}
+                <Save className="h-4 w-4 mr-2" />
+                {saving ? 'Saving...' : isNew ? 'Create Location' : 'Save Changes'}
               </Button>
             </CardContent>
           </Card>
 
-          {/* Location Settings (hours and blackout dates) */}
-          <LocationSettingsSection locationId={locationId} />
+          {/* Location Settings (hours and blackout dates) - only for existing locations */}
+          {!isNew && <LocationSettingsSection locationId={locationId} />}
 
-          {/* Copy Checklists */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Copy Checklists</CardTitle>
-              <CardDescription>Copy checklist templates from another location</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline">
-                    <ClipboardCopy className="h-4 w-4 mr-2" />
-                    Copy from Another Location
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Copy Checklist Templates</DialogTitle>
-                    <DialogDescription>
-                      Select a location to copy all checklist templates from. Existing checklists with the same name will be skipped.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4 py-4">
-                    <div className="space-y-2">
-                      <Label>Source Location</Label>
-                      <Select value={sourceLocationId} onValueChange={setSourceLocationId}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a location" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {allLocations.map((loc) => (
-                            <SelectItem key={loc.id} value={loc.id}>
-                              {loc.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+          {/* Copy Checklists - only for existing locations */}
+          {!isNew && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Copy Checklists</CardTitle>
+                <CardDescription>Copy checklist templates from another location</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <ClipboardCopy className="h-4 w-4 mr-2" />
+                      Copy from Another Location
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Copy Checklist Templates</DialogTitle>
+                      <DialogDescription>
+                        Select a location to copy all checklist templates from. Existing checklists with the same name will be skipped.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Source Location</Label>
+                        <Select value={sourceLocationId} onValueChange={setSourceLocationId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a location" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {allLocations.map((loc) => (
+                              <SelectItem key={loc.id} value={loc.id}>
+                                {loc.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
-                      Cancel
-                    </Button>
-                    <Button onClick={handleCopyChecklists} disabled={copying || !sourceLocationId}>
-                      {copying ? 'Copying...' : 'Copy Checklists'}
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            </CardContent>
-          </Card>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleCopyChecklists} disabled={copying || !sourceLocationId}>
+                        {copying ? 'Copying...' : 'Copy Checklists'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Labor Rules - only for standard locations */}
-          {location.location_type !== 'checklist_only' && (
+          {/* Labor Rules - only for existing standard locations */}
+          {!isNew && location?.location_type !== 'checklist_only' && (
             <LaborRulesSection locationId={locationId} />
           )}
         </div>
