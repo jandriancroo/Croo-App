@@ -3,20 +3,24 @@ import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useLocation } from "@/hooks/useLocation";
 
 export function ChecklistCompletionAlerts() {
   const navigate = useNavigate();
+  const { currentLocation } = useLocation();
   const today = new Date().toDateString(); // Gets current date as string
   
   const { data: alerts = [] } = useQuery({
-    queryKey: ['checklist-completion-alerts', today], // Include date in key to reset at midnight
+    queryKey: ['checklist-completion-alerts', today, currentLocation?.id], // Include date and location in key
     queryFn: async () => {
+      if (!currentLocation?.id) return [];
+      
       const currentDay = new Date().getDay();
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
       const now = new Date();
 
-      // Get all active checklists
+      // Get all active checklists for current location
       const { data: checklists, error: checklistsError } = await supabase
         .from('checklists')
         .select(`
@@ -27,7 +31,8 @@ export function ChecklistCompletionAlerts() {
           due_by_time,
           checklist_items(id, days_of_week)
         `)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('location_id', currentLocation.id);
 
       if (checklistsError) throw checklistsError;
       if (!checklists || checklists.length === 0) return [];
@@ -55,6 +60,7 @@ export function ChecklistCompletionAlerts() {
           submitted_at,
           checklist_responses(id, item_id)
         `)
+        .eq('location_id', currentLocation.id)
         .gte('submitted_at', startOfToday.toISOString())
         .lte('submitted_at', endOfToday.toISOString());
 
