@@ -47,15 +47,20 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an expert at reading food safety certificates and extracting expiration dates. 
-Analyze the certificate image and extract the expiration date.
+            content: `You are an expert at reading US food safety certificates and extracting expiration dates. 
+Analyze the certificate image/document and extract the expiration date.
 Common certificate types include:
 - Food Handler's Card / Food Handler Certificate
 - ServSafe Certification
 - Food Safety Manager Certification
 
 Look for text like "Expires:", "Expiration Date:", "Valid Until:", "Exp:", or similar.
-The date might be in various formats like MM/DD/YYYY, Month DD, YYYY, etc.
+
+CRITICAL DATE FORMAT RULES:
+- These are US certificates, so dates are in US format: MM/DD/YYYY (Month/Day/Year)
+- For example: 08/11/2027 means August 11, 2027 (NOT November 8)
+- 11/09/2027 means November 9, 2027 (NOT September 11)
+- Always interpret the FIRST number as the MONTH and the SECOND number as the DAY
 
 IMPORTANT: Return ONLY a JSON object with no other text. Format:
 {"expiration_date": "YYYY-MM-DD", "confidence": "high|medium|low", "certificate_type": "food_handlers|servsafe|other"}
