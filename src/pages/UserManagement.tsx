@@ -1187,9 +1187,7 @@ export default function UserManagement() {
                           <SelectItem value="team_member">Team Member</SelectItem>
                           <SelectItem value="shift_manager">Shift Manager</SelectItem>
                           <SelectItem value="general_manager">General Manager</SelectItem>
-                          <SelectItem value="manager">Manager</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="org_admin">Org Admin</SelectItem>
                           <SelectItem value="super_admin">Super Admin</SelectItem>
                         </SelectContent>
                       </Select>
@@ -1512,9 +1510,7 @@ export default function UserManagement() {
                       <SelectItem value="team_member">Team Member</SelectItem>
                       <SelectItem value="shift_manager">Shift Manager</SelectItem>
                       <SelectItem value="general_manager">General Manager</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="org_admin">Org Admin</SelectItem>
                       <SelectItem value="super_admin">Super Admin</SelectItem>
                     </SelectContent>
                   </Select>
