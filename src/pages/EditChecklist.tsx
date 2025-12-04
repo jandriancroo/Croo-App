@@ -61,28 +61,28 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem }: Sort
           <Input
             value={item.question}
             onChange={(e) => updateItem(index, 'question', e.target.value)}
-            placeholder="Question"
+            placeholder="Question/Task Name"
             className="flex-1"
           />
-          <Select
-            value={item.item_type}
-            onValueChange={(value) => updateItem(index, 'item_type', value)}
-          >
-            <SelectTrigger className="w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="text">Text</SelectItem>
-              <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-              <SelectItem value="image">Photo</SelectItem>
-              <SelectItem value="temperature">Temperature Photo</SelectItem>
-              <SelectItem value="confirmation">Checkmark</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="ghost" size="icon" onClick={() => removeItem(index)}>
+          <Button variant="ghost" size="icon" onClick={() => removeItem(index)} className="shrink-0">
             <X className="h-4 w-4" />
           </Button>
         </div>
+        <Select
+          value={item.item_type}
+          onValueChange={(value) => updateItem(index, 'item_type', value)}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="text">Text</SelectItem>
+            <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+            <SelectItem value="image">Photo</SelectItem>
+            <SelectItem value="temperature">Temperature Photo</SelectItem>
+            <SelectItem value="confirmation">Checkmark</SelectItem>
+          </SelectContent>
+        </Select>
 
         {item.item_type === 'multiple_choice' && (
           <Input
