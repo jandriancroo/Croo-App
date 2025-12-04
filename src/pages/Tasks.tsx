@@ -347,9 +347,10 @@ export default function Tasks() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <CardTitle className="text-base font-semibold text-center">
-                    {format(historyDate, 'EEEE, MMMM d, yyyy')}
-                  </CardTitle>
+                  <div className="text-center">
+                    <div className="text-base font-semibold">{format(historyDate, 'EEEE')}</div>
+                    <div className="text-sm text-muted-foreground">{format(historyDate, 'MMMM d, yyyy')}</div>
+                  </div>
                   <Button
                     variant="outline"
                     size="sm"
