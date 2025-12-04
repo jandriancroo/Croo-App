@@ -595,27 +595,26 @@ export default function Dashboard() {
           return <div key={checklist.id} className="relative">
                 <Card className="hover:shadow-lg transition-shadow">
                 <div className={isComplete ? 'blur-[2px]' : ''}>
-                  <CardHeader className="py-2 md:py-3">
-                    <div className="flex items-start justify-between">
-                      <ClipboardCheck className="h-5 w-5 md:h-6 md:w-6 text-primary" />
-                      <Badge className={getFrequencyColor(checklist.frequency)}>
+                  <CardHeader className="py-2 px-3">
+                    <div className="flex items-center justify-between">
+                      <ClipboardCheck className="h-4 w-4 text-primary" />
+                      <Badge className={`text-[10px] px-1.5 py-0 ${getFrequencyColor(checklist.frequency)}`}>
                         {checklist.frequency}
                       </Badge>
                     </div>
-                    <CardTitle className="mt-1 md:mt-2 text-base md:text-lg">{checklist.title}</CardTitle>
-                    {checklist.description && <CardDescription className="text-sm">{checklist.description}</CardDescription>}
+                    <CardTitle className="text-sm font-semibold">{checklist.title}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2 py-2 md:py-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-base md:text-lg font-semibold text-muted-foreground">
-                        {completed} out of {expected}
+                  <CardContent className="py-2 px-3 pt-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm text-muted-foreground">
+                        {completed}/{expected}
                       </div>
-                      <div className="text-xl md:text-2xl font-bold text-primary">
+                      <div className="text-lg font-bold text-primary">
                         {completionRate}%
                       </div>
                     </div>
-                    <Button className="w-full mt-2" size="sm" onClick={() => navigate(`/complete/${checklist.id}`)}>
-                      {isComplete ? 'Review' : 'Complete Checklist'}
+                    <Button className="w-full h-8 text-xs" size="sm" onClick={() => navigate(`/complete/${checklist.id}`)}>
+                      {isComplete ? 'Review' : 'Complete'}
                     </Button>
                   </CardContent>
                 </div>
@@ -625,20 +624,20 @@ export default function Dashboard() {
                     <div 
                       className="flex items-center justify-center rounded-full bg-green-500"
                       style={{
-                        width: '64px',
-                        height: '64px',
-                        boxShadow: '0 4px 12px rgba(34, 197, 94, 0.4)',
+                        width: '48px',
+                        height: '48px',
+                        boxShadow: '0 3px 8px rgba(34, 197, 94, 0.4)',
                       }}
                     >
                       <div 
                         className="flex items-center justify-center rounded-full"
                         style={{
-                          width: '54px',
-                          height: '54px',
+                          width: '40px',
+                          height: '40px',
                           border: '2px solid rgba(255,255,255,0.5)',
                         }}
                       >
-                        <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                       </div>
