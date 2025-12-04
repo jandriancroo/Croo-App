@@ -8,6 +8,7 @@ import { LocationProvider } from "@/hooks/useLocation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { CrooCashAnimationProvider } from "@/contexts/CrooCashAnimationContext";
+import { DiagnosticMode } from "@/components/DiagnosticMode";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import CreateChecklist from "./pages/CreateChecklist";
@@ -97,6 +98,7 @@ const App = () => (
         <AuthProvider>
           <LocationProvider>
             <CrooCashAnimationProvider>
+              <DiagnosticMode />
               <AppContent />
             </CrooCashAnimationProvider>
           </LocationProvider>
