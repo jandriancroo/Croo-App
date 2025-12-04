@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 interface Location {
   id: string;
   name: string;
+  location_type: string;
 }
 
 interface LocationContextType {
@@ -13,6 +14,7 @@ interface LocationContextType {
   setCurrentLocation: (location: Location) => void;
   loading: boolean;
   refetchLocations: () => Promise<void>;
+  isChecklistOnlyLocation: boolean;
 }
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
@@ -34,7 +36,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data, error } = await supabase
         .from('user_locations')
-        .select('location_id, locations(id, name)')
+        .select('location_id, locations(id, name, location_type)')
         .eq('user_id', user.id);
 
       if (error) throw error;
@@ -69,6 +71,8 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem('currentLocationId', location.id);
   };
 
+  const isChecklistOnlyLocation = currentLocation?.location_type === 'checklist_only';
+
   return (
     <LocationContext.Provider
       value={{
@@ -77,6 +81,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         setCurrentLocation,
         loading,
         refetchLocations: fetchLocations,
+        isChecklistOnlyLocation,
       }}
     >
       {children}

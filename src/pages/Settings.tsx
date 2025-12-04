@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical, ArrowUpDown } from 'lucide-react';
 import { PositionManagementCompact } from '@/components/settings/PositionManagementCompact';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
@@ -66,6 +67,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
+  const { isChecklistOnlyLocation } = useAppLocation();
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [locations, setLocations] = useState<any[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -293,8 +295,18 @@ export default function Settings() {
     }
   };
 
-  // Filter visible sections based on role
+  // Filter visible sections based on role and location type
   const visibleSections = sectionOrder.filter(id => {
+    // For checklist-only locations, show limited settings
+    if (isChecklistOnlyLocation) {
+      // Only show theme, locations (for admins), and maintenance (for temperature validation)
+      if (id === 'theme') return true;
+      if (id === 'locations' && isAdmin) return true;
+      if (id === 'maintenance' && isAdmin) return true;
+      return false;
+    }
+    
+    // Standard filtering for normal locations
     if (['locations', 'roles', 'positions', 'maintenance'].includes(id)) {
       return isAdmin;
     }
