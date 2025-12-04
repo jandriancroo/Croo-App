@@ -39,7 +39,7 @@ export function ChecklistLeaderboard() {
       const { data: managerRoles } = await supabase
         .from('user_roles')
         .select('user_id, role')
-        .in('role', ['admin', 'manager'])
+        .in('role', ['admin', 'manager', 'shift_manager', 'general_manager'])
         .in('user_id', locationUserIds);
       
       if (!managerRoles || managerRoles.length === 0) return [];
