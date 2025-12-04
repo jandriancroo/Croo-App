@@ -1,39 +1,40 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useLocation } from "@/hooks/useLocation";
 import { MapPin } from "lucide-react";
+import { LocationPickerDialog } from "./LocationPickerDialog";
 
 export const LocationSelector = () => {
-  const { currentLocation, locations, setCurrentLocation } = useLocation();
+  const { currentLocation, setCurrentLocation } = useLocation();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  if (!currentLocation || locations.length === 0) {
+  if (!currentLocation) {
     return null;
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="gap-2 h-10">
-          <MapPin className="h-4 w-4" />
-          <span className="hidden sm:inline">{currentLocation.name}</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        {locations.map((location) => (
-          <DropdownMenuItem
-            key={location.id}
-            onClick={() => setCurrentLocation(location)}
-            className={currentLocation.id === location.id ? "bg-accent" : ""}
-          >
-            {location.name}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <Button 
+        variant="outline" 
+        className="gap-2 h-10"
+        onClick={() => setDialogOpen(true)}
+      >
+        <MapPin className="h-4 w-4" />
+        <span className="hidden sm:inline">{currentLocation.name}</span>
+      </Button>
+
+      <LocationPickerDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        currentLocationId={currentLocation.id}
+        onSelectLocation={(loc) => {
+          setCurrentLocation({
+            id: loc.id,
+            name: loc.name,
+            location_type: loc.location_type,
+          });
+        }}
+      />
+    </>
   );
 };

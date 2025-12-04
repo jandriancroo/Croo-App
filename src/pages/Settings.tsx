@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical, ArrowUpDown } from 'lucide-react';
+import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical, ArrowUpDown, Building2 } from 'lucide-react';
 import { PositionManagementCompact } from '@/components/settings/PositionManagementCompact';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { toast as sonnerToast } from 'sonner';
@@ -28,7 +28,7 @@ const themes = [
   { value: 'vibrant', label: 'Vibrant' },
 ];
 
-const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'locations', 'roles', 'positions', 'maintenance'];
+const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'organizations', 'locations', 'roles', 'positions', 'maintenance'];
 const STORAGE_KEY = 'settings-section-order';
 
 interface SortableSectionProps {
@@ -70,6 +70,7 @@ export default function Settings() {
   const { isChecklistOnlyLocation } = useAppLocation();
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [locations, setLocations] = useState<any[]>([]);
+  const [organizations, setOrganizations] = useState<any[]>([]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -96,6 +97,7 @@ export default function Settings() {
   useEffect(() => {
     if (isAdmin) {
       fetchLocations();
+      fetchOrganizations();
     }
   }, [isAdmin]);
 
@@ -103,13 +105,28 @@ export default function Settings() {
     try {
       const { data, error } = await supabase
         .from('locations')
-        .select('id, name')
+        .select('id, name, organization_id')
         .order('created_at', { ascending: true });
 
       if (error) throw error;
       setLocations(data || []);
     } catch (error: any) {
       console.error('Error fetching locations:', error);
+    }
+  };
+
+  const fetchOrganizations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('is_active', true)
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+      setOrganizations(data || []);
+    } catch (error: any) {
+      console.error('Error fetching organizations:', error);
     }
   };
 
@@ -166,6 +183,55 @@ export default function Settings() {
 
       case 'notifications':
         return <NotificationSettings />;
+
+      case 'organizations':
+        if (!isAdmin || organizations.length === 0) return null;
+        return (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                <CardTitle className="text-base">Organizations</CardTitle>
+              </div>
+              <CardDescription className="text-xs">
+                Manage organizations and their locations
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {organizations.map((org) => {
+                const orgLocations = locations.filter(l => l.organization_id === org.id);
+                return (
+                  <div key={org.id} className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Building2 className="h-3 w-3" />
+                      {org.name}
+                    </div>
+                    <div className="pl-5 space-y-1">
+                      {orgLocations.map((location) => (
+                        <Button
+                          key={location.id}
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-between h-auto py-2"
+                          onClick={() => navigate(`/location/${location.id}`)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-3 w-3" />
+                            <span className="text-xs">{location.name}</span>
+                          </div>
+                          <ExternalLinkIcon className="h-3 w-3" />
+                        </Button>
+                      ))}
+                      {orgLocations.length === 0 && (
+                        <p className="text-xs text-muted-foreground pl-2">No locations</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        );
 
       case 'locations':
         if (!isAdmin || locations.length === 0) return null;
@@ -299,16 +365,19 @@ export default function Settings() {
   const visibleSections = sectionOrder.filter(id => {
     // For checklist-only locations, show limited settings
     if (isChecklistOnlyLocation) {
-      // Only show theme, locations (for admins), and maintenance (for temperature validation)
       if (id === 'theme') return true;
+      if (id === 'organizations' && isAdmin) return true;
       if (id === 'locations' && isAdmin) return true;
       if (id === 'maintenance' && isAdmin) return true;
       return false;
     }
     
     // Standard filtering for normal locations
-    if (['locations', 'roles', 'positions', 'maintenance'].includes(id)) {
+    if (['organizations', 'locations', 'roles', 'positions', 'maintenance'].includes(id)) {
       return isAdmin;
+    }
+    if (id === 'organizations') {
+      return isAdmin && organizations.length > 0;
     }
     if (id === 'locations') {
       return isAdmin && locations.length > 0;
