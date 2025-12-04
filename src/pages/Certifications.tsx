@@ -674,9 +674,11 @@ export default function Certifications() {
                         const isPdf = cert.certificate_url?.toLowerCase().endsWith('.pdf');
                         return (
                         <div key={cert.id} className="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
-                          <div 
+                          <a 
+                            href={cert.certificate_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
                             className="w-10 h-10 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80 flex items-center justify-center"
-                            onClick={() => window.open(cert.certificate_url, "_blank")}
                           >
                             {isPdf ? (
                               <FileText className="w-5 h-5 text-muted-foreground" />
@@ -691,7 +693,7 @@ export default function Certifications() {
                                 }}
                               />
                             )}
-                          </div>
+                          </a>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-1.5">
                               <span className="text-xs font-medium truncate">
@@ -710,14 +712,14 @@ export default function Certifications() {
                             </p>
                           </div>
                           <div className="flex gap-1 flex-shrink-0">
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              className="h-6 w-6"
-                              onClick={() => window.open(cert.certificate_url, "_blank")}
+                            <a
+                              href={cert.certificate_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="h-6 w-6 inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
                             >
                               <ExternalLink className="w-3 h-3" />
-                            </Button>
+                            </a>
                             {isAdmin && (
                               <>
                                 <Button
