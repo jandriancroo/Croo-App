@@ -625,12 +625,11 @@ export default function Dashboard() {
                 {isComplete && (
                   <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ bottom: '50px' }}>
                     <div 
-                      className="flex items-center justify-center rounded-full bg-green-500 animate-pulse"
+                      className="flex items-center justify-center rounded-full bg-green-500"
                       style={{
                         width: '64px',
                         height: '64px',
                         boxShadow: '0 4px 12px rgba(34, 197, 94, 0.4)',
-                        animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                       }}
                     >
                       <div 
