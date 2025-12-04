@@ -625,17 +625,21 @@ export default function Dashboard() {
                 {isComplete && (
                   <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ bottom: '50px' }}>
                     <div 
-                      className="font-stencil text-2xl md:text-3xl tracking-wider text-green-600 dark:text-green-500 uppercase"
+                      className="flex flex-col items-center justify-center text-green-600 dark:text-green-500"
                       style={{
-                        transform: 'rotate(-25deg)',
-                        textShadow: '2px 2px 4px rgba(0,0,0,0.3)',
+                        width: '90px',
+                        height: '90px',
                         border: '4px solid currentColor',
-                        borderRadius: '8px',
-                        padding: '4px 12px',
-                        backgroundColor: 'rgba(255,255,255,0.9)',
+                        borderRadius: '50%',
+                        backgroundColor: 'rgba(255,255,255,0.95)',
+                        transform: 'rotate(-8deg)',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                       }}
                     >
-                      COMPLETED
+                      <svg className="w-7 h-7 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-[10px] font-bold uppercase tracking-wide">Complete</span>
                     </div>
                   </div>
                 )}
