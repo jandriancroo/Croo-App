@@ -9,11 +9,10 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MapPin, ArrowLeft, Copy, RefreshCw, ClipboardCopy, Save } from 'lucide-react';
+import { MapPin, ArrowLeft, Copy, RefreshCw, Save } from 'lucide-react';
 import { LocationMap } from '@/components/settings/LocationMap';
 import { LocationSettingsSection } from '@/components/settings/LocationSettingsSection';
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/lib/auth';
 
 export default function LocationProfile() {
@@ -25,17 +24,12 @@ export default function LocationProfile() {
   const orgId = searchParams.get('org');
   
   const [location, setLocation] = useState<any>(isNew ? { name: '', address: '', location_type: 'standard' } : null);
-  const [allLocations, setAllLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
-  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
-  const [sourceLocationId, setSourceLocationId] = useState<string>('');
-  const [copying, setCopying] = useState(false);
 
   useEffect(() => {
     if (locationId && !isNew) {
       fetchLocation();
-      fetchAllLocations();
     }
   }, [locationId, isNew]);
 
@@ -59,20 +53,6 @@ export default function LocationProfile() {
     }
   };
 
-  const fetchAllLocations = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('locations')
-        .select('id, name')
-        .neq('id', locationId)
-        .order('name');
-
-      if (error) throw error;
-      setAllLocations(data || []);
-    } catch (error: any) {
-      console.error('Error fetching locations:', error);
-    }
-  };
 
   // Geocode address to get coordinates
   const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
@@ -188,115 +168,6 @@ export default function LocationProfile() {
       toast.error(error.message || 'Failed to save location');
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleCopyChecklists = async () => {
-    if (!sourceLocationId) {
-      toast.error('Please select a source location');
-      return;
-    }
-
-    try {
-      setCopying(true);
-
-      // Fetch checklists from source location
-      const { data: sourceChecklists, error: checklistError } = await supabase
-        .from('checklists')
-        .select(`
-          *,
-          checklist_items(*),
-          checklist_role_tags(*)
-        `)
-        .eq('location_id', sourceLocationId)
-        .eq('is_active', true);
-
-      if (checklistError) throw checklistError;
-
-      if (!sourceChecklists || sourceChecklists.length === 0) {
-        toast.error('No checklists found at source location');
-        return;
-      }
-
-      let copiedCount = 0;
-
-      for (const checklist of sourceChecklists) {
-        // Check if a checklist with same title already exists at this location
-        const { data: existing } = await supabase
-          .from('checklists')
-          .select('id')
-          .eq('location_id', locationId)
-          .eq('title', checklist.title)
-          .single();
-
-        // If exists, delete it first for a clean copy (items and role tags cascade delete)
-        if (existing) {
-          await supabase.from('checklists').delete().eq('id', existing.id);
-        }
-
-        // Create new checklist
-        const { data: newChecklist, error: createError } = await supabase
-          .from('checklists')
-          .insert({
-            title: checklist.title,
-            description: checklist.description,
-            frequency: checklist.frequency,
-            template_type: checklist.template_type,
-            due_by_time: checklist.due_by_time,
-            assigned_day_of_week: checklist.assigned_day_of_week,
-            visible_days_before_month_end: checklist.visible_days_before_month_end,
-            display_order: checklist.display_order,
-            location_id: locationId,
-            is_active: true,
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error('Error creating checklist:', createError);
-          continue;
-        }
-
-        // Copy checklist items
-        if (checklist.checklist_items?.length > 0) {
-          const items = checklist.checklist_items.map((item: any) => ({
-            checklist_id: newChecklist.id,
-            question: item.question,
-            item_type: item.item_type,
-            order_index: item.order_index,
-            is_required: item.is_required,
-            options: item.options,
-            days_of_week: item.days_of_week,
-            reference_image_url: item.reference_image_url,
-            reference_link: item.reference_link,
-            reference_notes: item.reference_notes,
-            reference_video_url: item.reference_video_url,
-          }));
-
-          await supabase.from('checklist_items').insert(items);
-        }
-
-        // Copy role tags
-        if (checklist.checklist_role_tags?.length > 0) {
-          const tags = checklist.checklist_role_tags.map((tag: any) => ({
-            checklist_id: newChecklist.id,
-            role: tag.role,
-          }));
-
-          await supabase.from('checklist_role_tags').insert(tags);
-        }
-
-        copiedCount++;
-      }
-
-      toast.success(`Copied ${copiedCount} checklist template(s)`);
-      setCopyDialogOpen(false);
-      setSourceLocationId('');
-    } catch (error: any) {
-      console.error('Error copying checklists:', error);
-      toast.error('Failed to copy checklists');
-    } finally {
-      setCopying(false);
     }
   };
 
@@ -475,58 +346,6 @@ export default function LocationProfile() {
           {/* Location Settings (hours and blackout dates) - only for existing locations */}
           {!isNew && <LocationSettingsSection locationId={locationId} />}
 
-          {/* Copy Checklists - only for existing locations */}
-          {!isNew && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Copy Checklists</CardTitle>
-                <CardDescription>Copy checklist templates from another location</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Dialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline">
-                      <ClipboardCopy className="h-4 w-4 mr-2" />
-                      Copy from Another Location
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Copy Checklist Templates</DialogTitle>
-                      <DialogDescription>
-                        Select a location to copy all checklist templates from. Existing checklists with the same name will be skipped.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <div className="space-y-2">
-                        <Label>Source Location</Label>
-                        <Select value={sourceLocationId} onValueChange={setSourceLocationId}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a location" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {allLocations.map((loc) => (
-                              <SelectItem key={loc.id} value={loc.id}>
-                                {loc.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline" onClick={() => setCopyDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button onClick={handleCopyChecklists} disabled={copying || !sourceLocationId}>
-                        {copying ? 'Copying...' : 'Copy Checklists'}
-                      </Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Labor Rules - only for existing standard locations */}
           {!isNew && location?.location_type !== 'checklist_only' && (
