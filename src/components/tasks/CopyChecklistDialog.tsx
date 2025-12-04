@@ -110,7 +110,7 @@ export function CopyChecklistDialog({
             .select('id')
             .eq('location_id', targetLocationId)
             .eq('title', checklist.title)
-            .single();
+            .maybeSingle();
 
           if (existing) {
             await supabase.from('checklists').delete().eq('id', existing.id);
