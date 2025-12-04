@@ -126,8 +126,10 @@ function getTimezoneDayBoundariesInUTC(timezone: string): { startOfDayUTC: Date;
 }
 
 // Get users at a specific location with admin/manager roles
+// Only includes users explicitly assigned to the location via user_locations
+// Super admins must assign themselves to specific locations to receive alerts
 async function getLocationAdminsAndManagers(supabaseClient: any, locationId: string) {
-  // Get users assigned to this location
+  // Get users EXPLICITLY assigned to this location (not based on role access)
   const { data: locationUsers } = await supabaseClient
     .from('user_locations')
     .select('user_id')
@@ -137,7 +139,7 @@ async function getLocationAdminsAndManagers(supabaseClient: any, locationId: str
 
   const userIds = locationUsers.map((u: any) => u.user_id);
 
-  // Filter to only admin/manager roles (including super_admin and org_admin)
+  // Filter to only admin/manager roles
   const { data: adminUsers } = await supabaseClient
     .from('user_roles')
     .select('user_id')
