@@ -79,11 +79,22 @@ export default function LocationProfile() {
     if (!address.trim()) return null;
     
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
+      // Try with full address first
+      let response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=us`,
         { headers: { 'User-Agent': 'CrooHQ/1.0' } }
       );
-      const data = await response.json();
+      let data = await response.json();
+      
+      // If no results, try simplifying the address (remove suite/unit numbers)
+      if (!data || data.length === 0) {
+        const simplified = address.replace(/\s*(suite|ste|unit|apt|#)\s*\d+\w*/gi, '').trim();
+        response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(simplified)}&limit=1&countrycodes=us`,
+          { headers: { 'User-Agent': 'CrooHQ/1.0' } }
+        );
+        data = await response.json();
+      }
       
       if (data && data.length > 0) {
         return {
