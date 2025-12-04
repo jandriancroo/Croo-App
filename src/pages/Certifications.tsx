@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useLocation } from "@/hooks/useLocation";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ interface Profile {
 export default function Certifications() {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
+  const { currentLocation } = useLocation();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [certifications, setCertifications] = useState<Certification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -59,31 +61,43 @@ export default function Certifications() {
 
   useEffect(() => {
     fetchData();
-  }, [user, isAdmin]);
+  }, [user, isAdmin, currentLocation?.id]);
 
   const fetchData = async () => {
-    if (!user) return;
+    if (!user || !currentLocation?.id) return;
 
     try {
       setLoading(true);
 
-      // Fetch active profiles
+      // Fetch user IDs for the current location
+      const { data: locationUsers, error: locationUsersError } = await supabase
+        .from("user_locations")
+        .select("user_id")
+        .eq("location_id", currentLocation.id);
+
+      if (locationUsersError) throw locationUsersError;
+
+      const locationUserIds = locationUsers?.map(lu => lu.user_id) || [];
+
+      // Fetch active profiles for this location
       const { data: profilesData, error: profilesError } = await supabase
         .from("profiles")
         .select("id, full_name, profile_photo_url, is_active")
         .eq("is_active", true)
+        .in("id", locationUserIds)
         .order("full_name");
 
       if (profilesError) throw profilesError;
       setProfiles(profilesData || []);
 
-      // Fetch certifications
+      // Fetch certifications for users at this location
       let query = supabase
         .from("certifications")
         .select(`
           *,
           profiles!certifications_user_id_fkey(full_name, profile_photo_url)
         `)
+        .in("user_id", locationUserIds)
         .order("created_at", { ascending: false });
 
       if (!isAdmin) {
