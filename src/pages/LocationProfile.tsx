@@ -218,8 +218,10 @@ export default function LocationProfile() {
           {/* Location Settings (hours and blackout dates) */}
           <LocationSettingsSection locationId={locationId} />
 
-          {/* Labor Rules */}
-          <LaborRulesSection locationId={locationId} />
+          {/* Labor Rules - only for standard locations */}
+          {location.location_type !== 'checklist_only' && (
+            <LaborRulesSection locationId={locationId} />
+          )}
         </div>
       </div>
     </Layout>
