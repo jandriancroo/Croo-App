@@ -118,7 +118,8 @@ export default function Messages() {
         }
       }
 
-      const { data, error } = await supabase
+      // Filter chats by current location
+      let query = supabase
         .from('chats')
         .select(`
           *,
@@ -128,6 +129,12 @@ export default function Messages() {
           )
         `)
         .order('updated_at', { ascending: false });
+
+      if (currentLocation) {
+        query = query.eq('location_id', currentLocation.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 

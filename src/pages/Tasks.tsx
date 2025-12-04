@@ -204,10 +204,12 @@ export default function Tasks() {
     enabled: !!user && !!currentLocation?.id,
   });
 
-  // Fetch completion history for selected date
+  // Fetch completion history for selected date (location-filtered)
   const { data: historyStats } = useQuery({
-    queryKey: ['completion-history', format(historyDate, 'yyyy-MM-dd'), user?.id],
+    queryKey: ['completion-history', format(historyDate, 'yyyy-MM-dd'), user?.id, currentLocation?.id],
     queryFn: async () => {
+      if (!currentLocation?.id) return [];
+      
       // Get start and end of day in user's local timezone
       const startOfDay = new Date(historyDate);
       startOfDay.setHours(0, 0, 0, 0);
@@ -217,7 +219,7 @@ export default function Tasks() {
       
       const currentDay = historyDate.getDay();
 
-      // Get all checklists
+      // Get all checklists for this location
       const { data: checklistsData } = await supabase
         .from('checklists')
         .select(`
@@ -227,6 +229,7 @@ export default function Tasks() {
           checklist_items(id, days_of_week)
         `)
         .eq('is_active', true)
+        .eq('location_id', currentLocation.id)
         .order('display_order', { ascending: true });
 
       if (!checklistsData) return [];
@@ -310,7 +313,7 @@ export default function Tasks() {
 
       return results.filter(r => r !== null);
     },
-    enabled: !!user,
+    enabled: !!user && !!currentLocation?.id,
   });
 
   const currentDay = new Date().getDay();
