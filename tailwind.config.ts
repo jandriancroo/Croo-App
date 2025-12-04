@@ -24,6 +24,7 @@ export default {
         'grotesk': ['Space Grotesk', 'sans-serif'],
         'lexend': ['Lexend', 'sans-serif'],
         'comfortaa': ['Comfortaa', 'sans-serif'],
+        'stencil': ['Black Ops One', 'cursive'],
       },
       colors: {
         border: "hsl(var(--border))",
