@@ -39,6 +39,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { CrooCashCard } from '@/components/users/CrooCashCard';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
+
 interface UserProfile {
   id: string;
   email: string;
@@ -108,6 +110,7 @@ export default function UserManagement() {
   const [editUserLocations, setEditUserLocations] = useState<string[]>([]);
   const { toast } = useToast();
   const { isAdmin, isManager, loading: roleLoading } = useUserRole();
+  const { currentLocation } = useAppLocation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -127,11 +130,11 @@ export default function UserManagement() {
   }, [canAccessPage, roleLoading, navigate, toast]);
  
   useEffect(() => {
-    if (canAccessPage) {
+    if (canAccessPage && currentLocation) {
       fetchUsers();
       fetchLocations();
     }
-  }, [canAccessPage]);
+  }, [canAccessPage, currentLocation]);
   
   // Helper to check if current user can edit a specific user's profile
   const canEditUser = (userId: string) => {
@@ -171,10 +174,21 @@ export default function UserManagement() {
     try {
       setLoading(true);
       
-      // Fetch all profiles
+      if (!currentLocation) return;
+
+      // Get users at current location
+      const { data: userLocations } = await supabase
+        .from('user_locations')
+        .select('user_id')
+        .eq('location_id', currentLocation.id);
+
+      const userIds = userLocations?.map(ul => ul.user_id) || [];
+
+      // Fetch profiles for users at current location
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
+        .in('id', userIds)
         .order('created_at', { ascending: false });
 
       if (profilesError) throw profilesError;

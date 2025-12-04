@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.png';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
 
 const ALL_FACTS = [
   { fact: "Honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still perfectly edible.", category: "Nature", image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&q=80" },
@@ -50,6 +51,7 @@ const getDailyFacts = () => {
 const DAILY_FACTS = getDailyFacts();
 
 export default function PunchClock() {
+  const { currentLocation } = useAppLocation();
   const [pin, setPin] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [todayShift, setTodayShift] = useState<any>(null);
@@ -320,7 +322,8 @@ export default function PunchClock() {
         user_id: currentUser.id,
         shift_id: todayShift?.id || null,
         punch_type: 'clock_in',
-        punch_time: new Date().toISOString()
+        punch_time: new Date().toISOString(),
+        location_id: currentLocation?.id
       });
 
     if (error) {
@@ -347,7 +350,8 @@ export default function PunchClock() {
         shift_id: todayShift?.id,
         punch_type: type,
         punch_time: new Date().toISOString(),
-        notes: `${duration} minute ${duration === 30 ? 'unpaid' : 'paid'} break`
+        notes: `${duration} minute ${duration === 30 ? 'unpaid' : 'paid'} break`,
+        location_id: currentLocation?.id
       });
 
     if (error) {
@@ -373,7 +377,8 @@ export default function PunchClock() {
         user_id: currentUser.id,
         shift_id: todayShift?.id,
         punch_type: 'clock_out',
-        punch_time: new Date().toISOString()
+        punch_time: new Date().toISOString(),
+        location_id: currentLocation?.id
       });
 
     if (error) {

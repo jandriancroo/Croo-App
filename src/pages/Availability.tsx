@@ -27,6 +27,7 @@ import { Check, X, Calendar, Clock, Plus } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
 import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
 
 interface AvailabilityRequest {
   id: string;
@@ -59,6 +60,7 @@ interface EmployeeHours {
 export default function Availability() {
   const { user } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
+  const { currentLocation } = useAppLocation();
   const [requests, setRequests] = useState<AvailabilityRequest[]>([]);
   const [employeeHours, setEmployeeHours] = useState<EmployeeHours[]>([]);
   const [myPtoBalance, setMyPtoBalance] = useState(0);
@@ -75,23 +77,26 @@ export default function Availability() {
   const DEFAULT_PTO_HOURS = 40;
 
   useEffect(() => {
-    fetchData();
-  }, [user, isAdmin]);
+    if (currentLocation) {
+      fetchData();
+    }
+  }, [user, isAdmin, currentLocation]);
 
   const fetchData = async () => {
-    if (!user) return;
+    if (!user || !currentLocation) return;
     
     try {
       setLoading(true);
 
       if (isAdmin) {
-        // Admin view - fetch all requests
+        // Admin view - fetch all requests for current location
         const { data: requestsData, error: requestsError } = await supabase
           .from("availability_requests")
           .select(`
             *,
             profiles!availability_requests_user_id_fkey(full_name, profile_photo_url)
           `)
+          .eq("location_id", currentLocation.id)
           .order("created_at", { ascending: false });
 
         if (requestsError) throw requestsError;
@@ -138,7 +143,7 @@ export default function Availability() {
 
         setEmployeeHours(employeeHoursData);
       } else {
-        // Non-admin view - fetch only user's own requests
+        // Non-admin view - fetch only user's own requests for current location
         const { data: requestsData, error: requestsError } = await supabase
           .from("availability_requests")
           .select(`
@@ -146,6 +151,7 @@ export default function Availability() {
             profiles!availability_requests_user_id_fkey(full_name, profile_photo_url)
           `)
           .eq("user_id", user.id)
+          .eq("location_id", currentLocation.id)
           .order("created_at", { ascending: false });
 
         if (requestsError) throw requestsError;

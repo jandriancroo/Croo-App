@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Layout } from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Button } from '@/components/ui/button';
 import { Plus, Users, ArrowLeft, Megaphone } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
@@ -38,6 +39,7 @@ interface Chat {
 
 export default function Messages() {
   const { isAdmin, isManager } = useUserRole();
+  const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
@@ -85,13 +87,14 @@ export default function Messages() {
       }
 
       // Create if doesn't exist
-      if (!marketplaceChat) {
+      if (!marketplaceChat && currentLocation) {
         const { data: newChat } = await supabase
           .from("chats")
           .insert({
             created_by: user.id,
             is_group: true,
-            title: "Shift Marketplace"
+            title: "Shift Marketplace",
+            location_id: currentLocation.id
           })
           .select()
           .single();
@@ -277,7 +280,9 @@ export default function Messages() {
   };
 
   useEffect(() => {
-    fetchChats();
+    if (currentLocation) {
+      fetchChats();
+    }
 
     // Subscribe to new messages for real-time updates
     const channel = supabase
@@ -298,7 +303,7 @@ export default function Messages() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [currentLocation]);
 
   return (
     <Layout>
