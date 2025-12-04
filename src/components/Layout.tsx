@@ -186,8 +186,13 @@ export const Layout = ({
   return <div className="flex min-h-screen flex-col bg-background overflow-x-hidden">
       <header className="sticky top-0 z-50 glass border-b border-border/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className={`container flex items-center ${isMobile ? 'h-16' : 'h-24'}`}>
-          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-8 flex-shrink-0 min-w-[120px]">
-            <img src={headerLogo} alt={headerLogoAlt} className={`${isMobile ? 'h-12' : 'h-16'} w-auto max-w-[140px] object-contain`} />
+          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-8 flex-shrink-0">
+            <img 
+              src={headerLogo} 
+              alt={headerLogoAlt} 
+              className={`${isMobile ? 'h-14' : 'h-20'} w-auto max-w-[180px] object-contain`}
+              style={{ background: 'transparent' }}
+            />
           </button>
           <nav className="hidden items-center gap-1 md:flex flex-1">
             {mainNavItems.map(item => {
@@ -282,9 +287,9 @@ export const Layout = ({
       <main className="container flex-1 py-3 md:py-8 pb-24 md:pb-8 overflow-x-hidden">{children}</main>
       
       {/* Footer - desktop only */}
-      <footer className="hidden md:flex items-center justify-center py-4 border-t border-border/20 text-muted-foreground text-sm gap-2">
-        <span>Powered by</span>
-        <img src={crooLogo} alt="Croo" className="h-6 w-auto" />
+      <footer className="hidden md:flex items-center justify-center py-6 border-t border-border/20 text-muted-foreground gap-3">
+        <span className="text-base">Powered by</span>
+        <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
       <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border/20 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-center justify-around py-3 px-2">
