@@ -625,16 +625,26 @@ export default function Dashboard() {
                 {isComplete && (
                   <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ bottom: '50px' }}>
                     <div 
-                      className="flex items-center justify-center rounded-full bg-green-500"
+                      className="flex items-center justify-center rounded-full bg-green-500 animate-pulse"
                       style={{
                         width: '64px',
                         height: '64px',
                         boxShadow: '0 4px 12px rgba(34, 197, 94, 0.4)',
+                        animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                       }}
                     >
-                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                      </svg>
+                      <div 
+                        className="flex items-center justify-center rounded-full"
+                        style={{
+                          width: '54px',
+                          height: '54px',
+                          border: '2px solid rgba(255,255,255,0.5)',
+                        }}
+                      >
+                        <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
                     </div>
                   </div>
                 )}
