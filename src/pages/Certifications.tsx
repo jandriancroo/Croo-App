@@ -800,9 +800,11 @@ export default function Certifications() {
                     const auditDateDisplay = audit.audit_date ? format(new Date(audit.audit_date + 'T12:00:00'), "MMM d, yyyy") : 'Unknown';
                     return (
                       <div key={audit.id} className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
-                        <div 
+                        <a 
+                          href={audit.audit_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
                           className="w-12 h-12 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80 flex items-center justify-center"
-                          onClick={() => window.open(audit.audit_url, "_blank")}
                         >
                           {isPdf ? (
                             <FileText className="w-6 h-6 text-muted-foreground" />
@@ -813,7 +815,7 @@ export default function Certifications() {
                               className="w-full h-full object-cover"
                             />
                           )}
-                        </div>
+                        </a>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium">
@@ -826,14 +828,14 @@ export default function Certifications() {
                           </p>
                         </div>
                         <div className="flex gap-1 flex-shrink-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            onClick={() => window.open(audit.audit_url, "_blank")}
+                          <a
+                            href={audit.audit_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
                           >
                             <ExternalLink className="w-4 h-4" />
-                          </Button>
+                          </a>
                           <Button
                             size="icon"
                             variant="ghost"
