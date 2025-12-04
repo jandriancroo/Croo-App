@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Upload, CheckCircle, XCircle, Clock, ExternalLink, Trash2, Edit, FileText, Plus, Loader2 } from "lucide-react";
+import { Upload, CheckCircle, XCircle, Clock, ExternalLink, Trash2, Edit, FileText, Plus, Loader2, ClipboardCheck } from "lucide-react";
 import { format } from "date-fns";
 import { EditCertificationDialog } from "@/components/users/EditCertificationDialog";
 import { compressImage } from "@/utils/imageCompression";
@@ -43,19 +43,39 @@ interface Profile {
   is_active: boolean;
 }
 
+interface FoodSafetyAudit {
+  id: string;
+  location_id: string;
+  audit_url: string;
+  audit_date: string;
+  uploaded_by: string;
+  notes: string | null;
+  created_at: string;
+  profiles?: {
+    full_name: string;
+  };
+}
+
 export default function Certifications() {
   const { user } = useAuth();
   const { isAdmin } = useUserRole();
   const { currentLocation } = useLocation();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [certifications, setCertifications] = useState<Certification[]>([]);
+  const [audits, setAudits] = useState<FoodSafetyAudit[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [auditUploadDialogOpen, setAuditUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [auditFile, setAuditFile] = useState<File | null>(null);
   const [selectedType, setSelectedType] = useState<CertificationType>("food_handlers");
   const [expirationDate, setExpirationDate] = useState("");
+  const [auditDate, setAuditDate] = useState("");
+  const [auditNotes, setAuditNotes] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [auditUploading, setAuditUploading] = useState(false);
   const [scanning, setScanning] = useState(false);
+  const [auditScanning, setAuditScanning] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedCertification, setSelectedCertification] = useState<Certification | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
@@ -114,6 +134,44 @@ export default function Certifications() {
     }
   };
 
+  const handleScanAudit = async (file: File) => {
+    const isImage = file.type.startsWith('image/');
+    const isPdf = file.type === 'application/pdf';
+    
+    if (!isImage && !isPdf) {
+      return;
+    }
+
+    setAuditScanning(true);
+    try {
+      const base64 = await fileToBase64(file);
+      
+      const { data, error } = await supabase.functions.invoke('extract-audit-date', {
+        body: { imageBase64: base64 }
+      });
+
+      if (error) throw error;
+
+      if (data?.success && data?.audit_date) {
+        setAuditDate(data.audit_date);
+        toast.success(`Audit date detected: ${data.audit_date}`, {
+          description: `Confidence: ${data.confidence}`
+        });
+      } else {
+        toast.info("Could not detect audit date", {
+          description: "Please enter it manually"
+        });
+      }
+    } catch (error: any) {
+      console.error("Audit scan error:", error);
+      toast.error("Failed to scan audit document", {
+        description: error.message || "Please enter date manually"
+      });
+    } finally {
+      setAuditScanning(false);
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     setSelectedFile(file);
@@ -121,6 +179,15 @@ export default function Certifications() {
     // Auto-scan if it's an image or PDF
     if (file && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
       handleScanCertificate(file);
+    }
+  };
+
+  const handleAuditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setAuditFile(file);
+    
+    if (file && (file.type.startsWith('image/') || file.type === 'application/pdf')) {
+      handleScanAudit(file);
     }
   };
 
@@ -173,6 +240,19 @@ export default function Certifications() {
 
       if (certsError) throw certsError;
       setCertifications((certsData as any) || []);
+
+      // Fetch food safety audits for this location
+      const { data: auditsData, error: auditsError } = await supabase
+        .from("food_safety_audits")
+        .select(`
+          *,
+          profiles!food_safety_audits_uploaded_by_fkey(full_name)
+        `)
+        .eq("location_id", currentLocation.id)
+        .order("audit_date", { ascending: false });
+
+      if (auditsError) throw auditsError;
+      setAudits((auditsData as any) || []);
     } catch (error: any) {
       console.error("Error fetching data:", error);
       toast.error("Failed to load certifications");
@@ -316,6 +396,86 @@ export default function Certifications() {
     }
   };
 
+  const handleAuditUpload = async () => {
+    if (!user || !auditFile || !auditDate || !currentLocation?.id) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    try {
+      setAuditUploading(true);
+
+      let fileToUpload: File | Blob = auditFile;
+      let fileName = `${currentLocation.id}/${Date.now()}.${auditFile.name.split(".").pop()}`;
+      
+      if (auditFile.type.startsWith('image/')) {
+        fileToUpload = await compressImage(auditFile, 1200, 1200, 0.8);
+        fileName = `${currentLocation.id}/${Date.now()}.jpg`;
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from("food-safety-audits")
+        .upload(fileName, fileToUpload);
+
+      if (uploadError) {
+        console.error("Storage upload error:", uploadError);
+        toast.error(`File upload failed: ${uploadError.message}`);
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("food-safety-audits")
+        .getPublicUrl(fileName);
+
+      const { error: insertError } = await supabase
+        .from("food_safety_audits")
+        .insert({
+          location_id: currentLocation.id,
+          audit_url: publicUrl,
+          audit_date: auditDate,
+          uploaded_by: user.id,
+          notes: auditNotes || null
+        });
+
+      if (insertError) {
+        console.error("Database insert error:", insertError);
+        toast.error(`Database error: ${insertError.message}`);
+        return;
+      }
+
+      toast.success("Food safety audit uploaded successfully!");
+      setAuditUploadDialogOpen(false);
+      setAuditFile(null);
+      setAuditDate("");
+      setAuditNotes("");
+      fetchData();
+    } catch (error: any) {
+      console.error("Error uploading audit:", error);
+      toast.error(`Upload failed: ${error.message || "Unknown error"}`);
+    } finally {
+      setAuditUploading(false);
+    }
+  };
+
+  const handleAuditDelete = async (auditId: string) => {
+    if (!confirm("Are you sure you want to delete this audit?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("food_safety_audits")
+        .delete()
+        .eq("id", auditId);
+
+      if (error) throw error;
+
+      toast.success("Audit deleted");
+      fetchData();
+    } catch (error: any) {
+      console.error("Error deleting audit:", error);
+      toast.error("Failed to delete audit");
+    }
+  };
+
   const getCertsByEmployee = (userId: string) => {
     return certifications.filter((cert) => cert.user_id === userId);
   };
@@ -415,6 +575,147 @@ export default function Certifications() {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Audit Upload Dialog */}
+        <Dialog open={auditUploadDialogOpen} onOpenChange={(open) => {
+          setAuditUploadDialogOpen(open);
+          if (!open) {
+            setAuditFile(null);
+            setAuditDate("");
+            setAuditNotes("");
+          }
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Upload Food Safety Audit</DialogTitle>
+              <DialogDescription>
+                Upload a food safety audit document for {currentLocation?.name}.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Audit File</Label>
+                <Input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={handleAuditFileChange}
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <Label>Audit Date (look for "Start" date)</Label>
+                  {auditScanning && (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Scanning...
+                    </span>
+                  )}
+                </div>
+                <Input
+                  type="date"
+                  value={auditDate}
+                  onChange={(e) => setAuditDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <Label>Notes (optional)</Label>
+                <Input
+                  type="text"
+                  value={auditNotes}
+                  onChange={(e) => setAuditNotes(e.target.value)}
+                  placeholder="e.g., Annual inspection"
+                />
+              </div>
+              <Button onClick={handleAuditUpload} disabled={auditUploading} className="w-full">
+                {auditUploading ? "Uploading..." : "Upload Audit"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Food Safety Audits Section */}
+        {isAdmin && (
+          <Card>
+            <CardHeader className="py-3 px-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ClipboardCheck className="h-5 w-5 text-primary" />
+                  <div>
+                    <CardTitle className="text-base">Food Safety Audits</CardTitle>
+                    <CardDescription className="text-xs">Location-level audit documents for {currentLocation?.name}</CardDescription>
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setAuditUploadDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Audit
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 px-4 pb-3">
+              {audits.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No audits uploaded yet
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {audits.map((audit) => {
+                    const isPdf = audit.audit_url?.toLowerCase().endsWith('.pdf');
+                    return (
+                      <div key={audit.id} className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
+                        <div 
+                          className="w-12 h-12 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80 flex items-center justify-center"
+                          onClick={() => window.open(audit.audit_url, "_blank")}
+                        >
+                          {isPdf ? (
+                            <FileText className="w-6 h-6 text-muted-foreground" />
+                          ) : (
+                            <img 
+                              src={audit.audit_url} 
+                              alt="Food Safety Audit"
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">
+                              Audit - {format(new Date(audit.audit_date), "MMM d, yyyy")}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Uploaded by {audit.profiles?.full_name || "Unknown"}
+                            {audit.notes && ` • ${audit.notes}`}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => window.open(audit.audit_url, "_blank")}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-destructive"
+                            onClick={() => handleAuditDelete(audit.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {profiles.map((profile) => {
