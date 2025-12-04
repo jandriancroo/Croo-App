@@ -593,7 +593,7 @@ export default function Dashboard() {
           const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
           const isComplete = completionRate === 100;
           return <div key={checklist.id} className="relative">
-                <Card className="hover:shadow-lg transition-shadow overflow-hidden">
+                <Card className="hover:shadow-lg transition-shadow">
                 <div className={isComplete ? 'blur-[2px]' : ''}>
                   <CardHeader className="py-2 md:py-3">
                     <div className="flex items-start justify-between">
@@ -605,7 +605,7 @@ export default function Dashboard() {
                     <CardTitle className="mt-1 md:mt-2 text-base md:text-lg">{checklist.title}</CardTitle>
                     {checklist.description && <CardDescription className="text-sm">{checklist.description}</CardDescription>}
                   </CardHeader>
-                  <CardContent className="space-y-2 py-2 md:py-3 pb-14">
+                  <CardContent className="space-y-2 py-2 md:py-3">
                     <div className="flex items-center justify-between">
                       <div className="text-base md:text-lg font-semibold text-muted-foreground">
                         {completed} out of {expected}
@@ -614,16 +614,14 @@ export default function Dashboard() {
                         {completionRate}%
                       </div>
                     </div>
+                    <Button className="w-full mt-2" size="sm" onClick={() => navigate(`/complete/${checklist.id}`)}>
+                      {isComplete ? 'Review' : 'Complete Checklist'}
+                    </Button>
                   </CardContent>
-                </div>
-                <div className="absolute bottom-0 left-0 right-0 p-3 pt-0">
-                  <Button className="w-full" size="sm" onClick={() => navigate(`/complete/${checklist.id}`)}>
-                    {isComplete ? 'Review' : 'Complete Checklist'}
-                  </Button>
                 </div>
               </Card>
                 {isComplete && (
-                  <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ bottom: '50px' }}>
+                  <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none">
                     <div 
                       className="flex items-center justify-center rounded-full bg-green-500"
                       style={{
