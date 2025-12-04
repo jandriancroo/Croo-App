@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Upload, CheckCircle, XCircle, Clock, ExternalLink, Trash2, Edit, FileText, Plus, Sparkles, Loader2 } from "lucide-react";
+import { Upload, CheckCircle, XCircle, Clock, ExternalLink, Trash2, Edit, FileText, Plus, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { EditCertificationDialog } from "@/components/users/EditCertificationDialog";
 import { compressImage } from "@/utils/imageCompression";
@@ -69,21 +69,15 @@ export default function Certifications() {
     });
   };
 
-  const handleScanCertificate = async () => {
-    if (!selectedFile) {
-      toast.error("Please select a file first");
-      return;
-    }
-
+  const handleScanCertificate = async (file: File) => {
     // Only scan images, not PDFs
-    if (!selectedFile.type.startsWith('image/')) {
-      toast.error("AI scanning only works with images, not PDFs");
+    if (!file.type.startsWith('image/')) {
       return;
     }
 
     setScanning(true);
     try {
-      const base64 = await fileToBase64(selectedFile);
+      const base64 = await fileToBase64(file);
       
       const { data, error } = await supabase.functions.invoke('extract-certification-date', {
         body: { imageBase64: base64 }
@@ -103,7 +97,7 @@ export default function Certifications() {
           description: `Confidence: ${data.confidence}`
         });
       } else {
-        toast.error("Could not detect expiration date", {
+        toast.info("Could not detect expiration date", {
           description: "Please enter it manually"
         });
       }
@@ -114,6 +108,16 @@ export default function Certifications() {
       });
     } finally {
       setScanning(false);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setSelectedFile(file);
+    
+    // Auto-scan if it's an image
+    if (file && file.type.startsWith('image/')) {
+      handleScanCertificate(file);
     }
   };
 
@@ -375,28 +379,17 @@ export default function Certifications() {
                 <Input
                   type="file"
                   accept="image/*,.pdf"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  onChange={handleFileChange}
                 />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <Label>Expiration Date</Label>
-                  {selectedFile && selectedFile.type.startsWith('image/') && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 text-xs gap-1"
-                      onClick={handleScanCertificate}
-                      disabled={scanning}
-                    >
-                      {scanning ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-3 w-3" />
-                      )}
-                      {scanning ? "Scanning..." : "AI Scan"}
-                    </Button>
+                  {scanning && (
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Scanning...
+                    </span>
                   )}
                 </div>
                 <Input
