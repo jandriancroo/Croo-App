@@ -136,6 +136,7 @@ export function CopyChecklistDialog({
 
           if (createError) {
             console.error('Error creating checklist:', createError);
+            toast.error(`Failed to create "${checklist.title}": ${createError.message}`);
             continue;
           }
 
@@ -155,7 +156,11 @@ export function CopyChecklistDialog({
               reference_video_url: item.reference_video_url,
             }));
 
-            await supabase.from('checklist_items').insert(items);
+            const { error: itemsError } = await supabase.from('checklist_items').insert(items);
+            if (itemsError) {
+              console.error('Error copying checklist items:', itemsError);
+              toast.error(`Failed to copy items for "${checklist.title}": ${itemsError.message}`);
+            }
           }
 
           // Copy role tags
@@ -165,7 +170,10 @@ export function CopyChecklistDialog({
               role: tag.role,
             }));
 
-            await supabase.from('checklist_role_tags').insert(tags);
+            const { error: tagsError } = await supabase.from('checklist_role_tags').insert(tags);
+            if (tagsError) {
+              console.error('Error copying role tags:', tagsError);
+            }
           }
 
           totalCopied++;
