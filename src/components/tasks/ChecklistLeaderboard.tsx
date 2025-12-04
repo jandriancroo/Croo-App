@@ -35,11 +35,11 @@ export function ChecklistLeaderboard() {
       if (!locationUsers || locationUsers.length === 0) return [];
       const locationUserIds = locationUsers.map(u => u.user_id);
       
-      // Get all managers and admins at this location
+      // Get all managers at this location (not admins)
       const { data: managerRoles } = await supabase
         .from('user_roles')
         .select('user_id, role')
-        .in('role', ['admin', 'manager', 'shift_manager', 'general_manager'])
+        .in('role', ['manager', 'shift_manager', 'general_manager'])
         .in('user_id', locationUserIds);
       
       if (!managerRoles || managerRoles.length === 0) return [];
