@@ -229,7 +229,10 @@ export default function LocationProfile() {
           .eq('title', checklist.title)
           .single();
 
-        if (existing) continue; // Skip if already exists
+        // If exists, delete it first for a clean copy (items and role tags cascade delete)
+        if (existing) {
+          await supabase.from('checklists').delete().eq('id', existing.id);
+        }
 
         // Create new checklist
         const { data: newChecklist, error: createError } = await supabase
