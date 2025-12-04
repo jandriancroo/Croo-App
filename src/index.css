@@ -250,38 +250,38 @@ All colors MUST be HSL.
   --glass-shadow: 265 25% 15% / 0.08;
 }
 
-/* Vibrant Theme - Colorful and cohesive with multi-color accents */
+/* Vibrant Theme - Harmonious pastels */
 [data-theme="vibrant"] {
-  --background: 240 15% 96%;
-  --foreground: 250 25% 18%;
+  --background: 40 30% 95%;
+  --foreground: 30 20% 20%;
   --card: 0 0% 100%;
-  --card-foreground: 250 25% 18%;
+  --card-foreground: 30 20% 20%;
   --popover: 0 0% 100%;
-  --popover-foreground: 250 25% 18%;
-  --primary: 340 70% 52%;
+  --popover-foreground: 30 20% 20%;
+  --primary: 145 35% 55%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 200 65% 92%;
-  --secondary-foreground: 200 70% 35%;
-  --muted: 240 12% 91%;
-  --muted-foreground: 250 15% 45%;
-  --accent: 45 85% 55%;
-  --accent-foreground: 250 25% 18%;
-  --destructive: 0 65% 52%;
+  --secondary: 200 45% 88%;
+  --secondary-foreground: 200 40% 35%;
+  --muted: 35 25% 90%;
+  --muted-foreground: 30 15% 45%;
+  --accent: 25 50% 65%;
+  --accent-foreground: 30 20% 18%;
+  --destructive: 5 45% 65%;
   --destructive-foreground: 0 0% 100%;
-  --border: 240 15% 82%;
-  --input: 240 15% 88%;
-  --ring: 340 70% 52%;
+  --border: 35 20% 82%;
+  --input: 35 20% 88%;
+  --ring: 145 35% 55%;
   --glass-background: 0 0% 100% / 0.65;
-  --glass-border: 240 15% 80% / 0.35;
-  --glass-shadow: 250 25% 18% / 0.1;
+  --glass-border: 35 20% 80% / 0.35;
+  --glass-shadow: 30 20% 20% / 0.1;
   
-  /* Multi-color chart variables */
-  --chart-1: 340 70% 52%;
-  --chart-2: 200 70% 50%;
-  --chart-3: 45 85% 55%;
-  --chart-4: 160 60% 45%;
-  --chart-5: 280 60% 55%;
-  --chart-6: 25 80% 55%;
+  /* Pastel chart variables */
+  --chart-1: 145 40% 65%;
+  --chart-2: 200 45% 70%;
+  --chart-3: 35 45% 75%;
+  --chart-4: 25 45% 68%;
+  --chart-5: 5 40% 72%;
+  --chart-6: 180 35% 65%;
 }
 
 @layer base {
