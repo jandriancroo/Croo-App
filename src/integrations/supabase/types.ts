@@ -647,6 +647,54 @@ export type Database = {
           },
         ]
       }
+      food_safety_audits: {
+        Row: {
+          audit_date: string
+          audit_url: string
+          created_at: string
+          id: string
+          location_id: string
+          notes: string | null
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          audit_date: string
+          audit_url: string
+          created_at?: string
+          id?: string
+          location_id: string
+          notes?: string | null
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          audit_date?: string
+          audit_url?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          notes?: string | null
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "food_safety_audits_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_safety_audits_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       holidays: {
         Row: {
           created_at: string
