@@ -7,8 +7,15 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from '@/hooks/use-toast';
-import { Bell, BellOff, Smartphone, MapPin } from 'lucide-react';
+import { Bell, BellOff, Smartphone, MapPin, ChevronDown } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface NotificationPreferences {
   overdue_checklists: boolean;
@@ -20,11 +27,20 @@ interface NotificationPreferences {
   certification_expiring: boolean;
 }
 
-interface LocationNotificationPref {
+interface UserLocation {
   location_id: string;
   location_name: string;
-  notifications_enabled: boolean;
 }
+
+interface LocationNotificationPrefs {
+  [notificationType: string]: boolean;
+}
+
+const LOCATION_NOTIFICATION_TYPES = [
+  { key: 'overdue_checklists', label: 'Overdue Checklists' },
+  { key: 'late_arrivals', label: 'Late Arrivals' },
+  { key: 'certification_expiring', label: 'Cert Expiring' },
+] as const;
 
 // Helper to detect if running as installed PWA
 const isInstalledPWA = () => {
@@ -49,7 +65,9 @@ export const NotificationSettings = () => {
     shift_approvals: true,
     certification_expiring: true,
   });
-  const [locationPrefs, setLocationPrefs] = useState<LocationNotificationPref[]>([]);
+  const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [locationNotifPrefs, setLocationNotifPrefs] = useState<Record<string, LocationNotificationPrefs>>({});
   const [loading, setLoading] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const [isEnabling, setIsEnabling] = useState(false);
@@ -107,31 +125,40 @@ export const NotificationSettings = () => {
         }
 
         // Fetch user's assigned locations
-        const { data: userLocations } = await supabase
+        const { data: locationsData } = await supabase
           .from('user_locations')
           .select('location_id, locations(id, name)')
           .eq('user_id', user.id);
 
-        if (userLocations && userLocations.length > 0) {
-          // Fetch existing location notification preferences
+        if (locationsData && locationsData.length > 0) {
+          const locs: UserLocation[] = locationsData.map((ul: any) => ({
+            location_id: ul.location_id,
+            location_name: ul.locations?.name || 'Unknown',
+          }));
+          setUserLocations(locs);
+
+          // Fetch existing location notification preferences (per type)
           const { data: existingPrefs } = await supabase
             .from('user_location_notifications')
             .select('*')
             .eq('user_id', user.id);
 
-          const existingPrefsMap = new Map(
-            existingPrefs?.map((p: any) => [p.location_id, p.notifications_enabled]) || []
-          );
+          // Build a nested map: locationId -> { notificationType -> enabled }
+          const prefsMap: Record<string, LocationNotificationPrefs> = {};
+          locs.forEach(loc => {
+            prefsMap[loc.location_id] = {};
+            LOCATION_NOTIFICATION_TYPES.forEach(nt => {
+              prefsMap[loc.location_id][nt.key] = true; // Default all to enabled
+            });
+          });
 
-          const locPrefs: LocationNotificationPref[] = userLocations.map((ul: any) => ({
-            location_id: ul.location_id,
-            location_name: ul.locations?.name || 'Unknown',
-            notifications_enabled: existingPrefsMap.has(ul.location_id) 
-              ? existingPrefsMap.get(ul.location_id) 
-              : true, // Default to enabled
-          }));
+          existingPrefs?.forEach((p: any) => {
+            if (prefsMap[p.location_id]) {
+              prefsMap[p.location_id][p.notification_type] = p.enabled;
+            }
+          });
 
-          setLocationPrefs(locPrefs);
+          setLocationNotifPrefs(prefsMap);
         }
       } catch (error) {
         console.error('Error fetching preferences:', error);
@@ -283,13 +310,17 @@ export const NotificationSettings = () => {
     }
   };
 
-  const updateLocationPreference = async (locationId: string, enabled: boolean) => {
+  const updateLocationNotifPreference = async (locationId: string, notificationType: string, enabled: boolean) => {
     if (!user) return;
 
     // Optimistic update
-    setLocationPrefs(prev => 
-      prev.map(lp => lp.location_id === locationId ? { ...lp, notifications_enabled: enabled } : lp)
-    );
+    setLocationNotifPrefs(prev => ({
+      ...prev,
+      [locationId]: {
+        ...prev[locationId],
+        [notificationType]: enabled,
+      }
+    }));
 
     try {
       const { error } = await supabase
@@ -297,36 +328,43 @@ export const NotificationSettings = () => {
         .upsert({
           user_id: user.id,
           location_id: locationId,
-          notifications_enabled: enabled,
+          notification_type: notificationType,
+          enabled: enabled,
           updated_at: new Date().toISOString(),
         }, {
-          onConflict: 'user_id,location_id'
+          onConflict: 'user_id,location_id,notification_type'
         });
 
       if (error) {
         console.error('Failed to update location preference:', error);
         toast({
           title: 'Error',
-          description: 'Failed to update location notification setting',
+          description: 'Failed to update setting',
           variant: 'destructive',
         });
         // Revert on error
-        setLocationPrefs(prev => 
-          prev.map(lp => lp.location_id === locationId ? { ...lp, notifications_enabled: !enabled } : lp)
-        );
-      } else {
-        toast({
-          title: 'Updated',
-          description: `Notifications ${enabled ? 'enabled' : 'disabled'} for this location`,
-        });
+        setLocationNotifPrefs(prev => ({
+          ...prev,
+          [locationId]: {
+            ...prev[locationId],
+            [notificationType]: !enabled,
+          }
+        }));
       }
     } catch (error) {
       console.error('Error updating location preference:', error);
-      setLocationPrefs(prev => 
-        prev.map(lp => lp.location_id === locationId ? { ...lp, notifications_enabled: !enabled } : lp)
-      );
+      setLocationNotifPrefs(prev => ({
+        ...prev,
+        [locationId]: {
+          ...prev[locationId],
+          [notificationType]: !enabled,
+        }
+      }));
     }
   };
+
+  const selectedLocation = userLocations.find(l => l.location_id === selectedLocationId);
+  const selectedLocationPrefs = selectedLocationId ? locationNotifPrefs[selectedLocationId] : null;
 
   // Always render for debugging
   console.log('[NotificationSettings] Rendering, loading:', loading, 'shouldShow:', shouldShow);
@@ -435,28 +473,47 @@ export const NotificationSettings = () => {
             </div>
 
             {/* Location-specific notification toggles */}
-            {locationPrefs.length > 1 && (
+            {userLocations.length > 1 && (
               <>
                 <Separator className="my-3" />
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <MapPin className="h-3.5 w-3.5" />
                     <span>Notifications by Location</span>
                   </div>
-                  <div className="grid grid-cols-1 gap-1">
-                    {locationPrefs.map((lp) => (
-                      <div key={lp.location_id} className="flex items-center justify-between py-1.5">
-                        <Label htmlFor={`loc-${lp.location_id}`} className="text-sm font-normal">
-                          {lp.location_name}
-                        </Label>
-                        <Switch
-                          id={`loc-${lp.location_id}`}
-                          checked={lp.notifications_enabled}
-                          onCheckedChange={(checked) => updateLocationPreference(lp.location_id, checked)}
-                        />
-                      </div>
-                    ))}
-                  </div>
+                  
+                  <Select
+                    value={selectedLocationId || ''}
+                    onValueChange={(value) => setSelectedLocationId(value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select a location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {userLocations.map((loc) => (
+                        <SelectItem key={loc.location_id} value={loc.location_id}>
+                          {loc.location_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {selectedLocationId && selectedLocationPrefs && (
+                    <div className="grid grid-cols-1 gap-1 pt-1">
+                      {LOCATION_NOTIFICATION_TYPES.map((nt) => (
+                        <div key={nt.key} className="flex items-center justify-between py-1.5">
+                          <Label htmlFor={`loc-${selectedLocationId}-${nt.key}`} className="text-sm font-normal">
+                            {nt.label}
+                          </Label>
+                          <Switch
+                            id={`loc-${selectedLocationId}-${nt.key}`}
+                            checked={selectedLocationPrefs[nt.key] ?? true}
+                            onCheckedChange={(checked) => updateLocationNotifPreference(selectedLocationId, nt.key, checked)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </>
             )}
