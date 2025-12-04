@@ -605,9 +605,8 @@ export default function Dashboard() {
           } = getCompletionData(checklist.id);
           const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
           const isComplete = completionRate === 100;
-          return <div key={checklist.id} className="relative">
-                <Card className="hover:shadow-lg transition-shadow overflow-hidden p-0">
-                  {/* Header Section - Colored, unblurred */}
+          return <Card key={checklist.id} className="hover:shadow-lg transition-shadow overflow-hidden p-0">
+                  {/* Header Section - Colored */}
                   <div className="bg-primary px-3 py-2 rounded-t-lg">
                     <div className="flex items-center gap-2">
                       <ClipboardCheck className="h-4 w-4 text-primary-foreground flex-shrink-0" />
@@ -618,45 +617,22 @@ export default function Dashboard() {
                     </div>
                   </div>
 
-                  {/* Middle Section - Blurrable content area */}
-                  <div className="relative">
-                    <div className={`px-3 py-3 ${isComplete ? 'blur-[2px]' : ''}`}>
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-muted-foreground">
-                          {completed}/{expected}
+                  {/* Middle Section - Stats */}
+                  <div className="px-3 py-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-muted-foreground">
+                        {completed}/{expected}
+                      </div>
+                      {isComplete ? (
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-500/15">
+                          <Check className="h-5 w-5 text-green-500" />
                         </div>
+                      ) : (
                         <div className="text-lg font-bold text-primary">
                           {completionRate}%
                         </div>
-                      </div>
+                      )}
                     </div>
-
-                    {/* Completion overlay for middle section */}
-                    {isComplete && (
-                      <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-                        <div 
-                          className="flex items-center justify-center rounded-full bg-green-500"
-                          style={{
-                            width: '48px',
-                            height: '48px',
-                            boxShadow: '0 3px 8px rgba(34, 197, 94, 0.4)',
-                          }}
-                        >
-                          <div 
-                            className="flex items-center justify-center rounded-full"
-                            style={{
-                              width: '40px',
-                              height: '40px',
-                              border: '2px solid rgba(255,255,255,0.5)',
-                            }}
-                          >
-                            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
                   {/* Bottom Button - Contoured to card shape */}
@@ -666,8 +642,7 @@ export default function Dashboard() {
                   >
                     {isComplete ? 'Review' : 'Complete'}
                   </Button>
-                </Card>
-              </div>;
+                </Card>;
         })}
         </div>
       </div>
