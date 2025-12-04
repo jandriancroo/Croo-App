@@ -182,16 +182,13 @@ export default function MyWallet() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <Wallet className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-3xl font-bold">My Wallet</h1>
-            <p className="text-muted-foreground">
-              {currentPayPeriod && (
-                <>Pay Period: {format(parseISO(currentPayPeriod.start_date), "MMM d")} - {format(parseISO(currentPayPeriod.end_date), "MMM d, yyyy")}</>
-              )}
-            </p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold">My Wallet</h1>
+          <p className="text-muted-foreground">
+            {currentPayPeriod && (
+              <>Pay Period: {format(parseISO(currentPayPeriod.start_date), "MMM d")} - {format(parseISO(currentPayPeriod.end_date), "MMM d, yyyy")}</>
+            )}
+          </p>
         </div>
 
         {/* Hours & Earnings Summary */}
