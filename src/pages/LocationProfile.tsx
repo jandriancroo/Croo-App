@@ -74,6 +74,30 @@ export default function LocationProfile() {
     }
   };
 
+  // Geocode address to get coordinates
+  const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
+    if (!address.trim()) return null;
+    
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
+        { headers: { 'User-Agent': 'CrooHQ/1.0' } }
+      );
+      const data = await response.json();
+      
+      if (data && data.length > 0) {
+        return {
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon),
+        };
+      }
+      return null;
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      return null;
+    }
+  };
+
   const handleSave = async () => {
     if (!location || !location.name.trim()) {
       toast.error('Please enter a location name');
@@ -82,6 +106,16 @@ export default function LocationProfile() {
 
     try {
       setSaving(true);
+      
+      // Geocode address if provided and coordinates not set
+      let coordinates = { lat: location.latitude, lng: location.longitude };
+      if (location.address?.trim() && (!location.latitude || !location.longitude)) {
+        toast.info('Looking up address coordinates...');
+        const geocoded = await geocodeAddress(location.address);
+        if (geocoded) {
+          coordinates = { lat: geocoded.lat, lng: geocoded.lng };
+        }
+      }
       
       if (isNew) {
         // Generate location code
@@ -94,6 +128,8 @@ export default function LocationProfile() {
           .insert({
             name: location.name.trim(),
             address: location.address?.trim() || null,
+            latitude: coordinates.lat || null,
+            longitude: coordinates.lng || null,
             location_type: location.location_type || 'standard',
             organization_id: orgId || null,
             location_code: locationCode,
@@ -126,8 +162,8 @@ export default function LocationProfile() {
           .update({
             name: location.name.trim(),
             address: location.address?.trim() || null,
-            latitude: location.latitude ? parseFloat(location.latitude) : null,
-            longitude: location.longitude ? parseFloat(location.longitude) : null
+            latitude: coordinates.lat ? parseFloat(String(coordinates.lat)) : null,
+            longitude: coordinates.lng ? parseFloat(String(coordinates.lng)) : null
           })
           .eq('id', location.id);
 
