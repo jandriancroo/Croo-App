@@ -209,7 +209,11 @@ export default function Certifications() {
         .from("certificates")
         .upload(fileName, fileToUpload);
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Storage upload error:", uploadError);
+        toast.error(`File upload failed: ${uploadError.message}`);
+        return;
+      }
 
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
@@ -228,7 +232,11 @@ export default function Certifications() {
           ...(isAdmin && { approved_by: user.id, approved_at: new Date().toISOString() })
         });
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        console.error("Database insert error:", insertError);
+        toast.error(`Database error: ${insertError.message}`);
+        return;
+      }
 
       toast.success(isAdmin ? "Certificate uploaded and approved!" : "Certificate uploaded successfully! Awaiting admin approval.");
       setUploadDialogOpen(false);
@@ -238,7 +246,7 @@ export default function Certifications() {
       fetchData();
     } catch (error: any) {
       console.error("Error uploading certificate:", error);
-      toast.error("Failed to upload certificate");
+      toast.error(`Upload failed: ${error.message || "Unknown error"}`);
     } finally {
       setUploading(false);
     }
