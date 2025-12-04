@@ -11,6 +11,7 @@ import { useState } from 'react';
 import crooLogo from '@/assets/croo-logo.png';
 import { LocationSelector } from '@/components/LocationSelector';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Badge } from '@/components/ui/badge';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 
@@ -35,8 +36,25 @@ export const Layout = ({
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const { unreadCount } = useUnreadMessages();
+  const { isChecklistOnlyLocation } = useAppLocation();
   const canAccessLogs = isAdmin || isManager;
-  const mainNavItems = [{
+
+  // Checklist-only location navigation (Tasks, Chat, Settings only)
+  const checklistOnlyNavItems = [{
+    path: '/dashboard',
+    label: 'Dash',
+    icon: Home
+  }, {
+    path: '/tasks',
+    label: 'Tasks',
+    icon: ClipboardCheck
+  }, {
+    path: '/messages',
+    label: 'Chat',
+    icon: MessageSquare
+  }];
+
+  const mainNavItems = isChecklistOnlyLocation ? checklistOnlyNavItems : [{
     path: '/dashboard',
     label: 'Dash',
     icon: Home
@@ -74,7 +92,7 @@ export const Layout = ({
     label: 'Payroll Review',
     icon: DollarSign
   }] : [])];
-  const mobileMainNavItems = [{
+  const mobileMainNavItems = isChecklistOnlyLocation ? checklistOnlyNavItems : [{
     path: '/dashboard',
     label: 'Dash',
     icon: Home
@@ -91,7 +109,22 @@ export const Layout = ({
     label: 'Chat',
     icon: MessageSquare
   }];
-  const mobileMenuItems = [...(canAccessLogs ? [{
+
+  // For checklist-only locations, only show Settings and Users in the mobile menu
+  const checklistOnlyMobileMenuItems = [
+    ...(isAdmin ? [{
+      path: '/users',
+      label: 'Users',
+      icon: Users
+    }] : []),
+    {
+      path: '/settings',
+      label: 'Settings',
+      icon: SettingsIcon
+    }
+  ];
+
+  const mobileMenuItems = isChecklistOnlyLocation ? checklistOnlyMobileMenuItems : [...(canAccessLogs ? [{
     path: '/logbook',
     label: 'Logs',
     icon: Scroll
@@ -142,45 +175,54 @@ export const Layout = ({
                 </Button>;
           })}
             
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant={['/my-wallet', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname) ? 'secondary' : 'ghost'} className="gap-2">
-                  <Clock className="h-4 w-4 flex-shrink-0" />
-                  <span className="hidden lg:inline">Time</span>
-                  <ChevronDown className="h-3 w-3 flex-shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="center">
-                {timeMenuItems.map(item => {
-                const Icon = item.icon;
-                return <DropdownMenuItem key={item.path} onClick={() => navigate(item.path)} className="gap-2 cursor-pointer">
-                      <Icon className="h-4 w-4" />
-                      {item.label}
-                    </DropdownMenuItem>;
-              })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* Time dropdown - hidden for checklist-only locations */}
+            {!isChecklistOnlyLocation && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant={['/my-wallet', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname) ? 'secondary' : 'ghost'} className="gap-2">
+                    <Clock className="h-4 w-4 flex-shrink-0" />
+                    <span className="hidden lg:inline">Time</span>
+                    <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="center">
+                  {timeMenuItems.map(item => {
+                  const Icon = item.icon;
+                  return <DropdownMenuItem key={item.path} onClick={() => navigate(item.path)} className="gap-2 cursor-pointer">
+                        <Icon className="h-4 w-4" />
+                        {item.label}
+                      </DropdownMenuItem>;
+                })}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             
-            <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="relative hover:bg-muted ml-1 rounded-none font-extrabold">
+            {/* Alerts button - hidden for checklist-only locations */}
+            {!isChecklistOnlyLocation && (
+              <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="relative hover:bg-muted ml-1 rounded-none font-extrabold">
+                <div className="relative flex items-center justify-center h-5 w-5">
+                  <div className="absolute h-5 w-5 bg-destructive rounded-full opacity-75"></div>
+                  <div className="absolute h-5 w-5 bg-destructive rounded-full animate-ping"></div>
+                  <div className="absolute h-3 w-3 bg-destructive rounded-full"></div>
+                </div>
+              </Button>
+            )}
+          </nav>
+          
+          {/* Mobile Alerts Button - hidden for checklist-only locations */}
+          {!isChecklistOnlyLocation && (
+            <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative hover:bg-muted rounded-none font-extrabold ml-auto">
               <div className="relative flex items-center justify-center h-5 w-5">
                 <div className="absolute h-5 w-5 bg-destructive rounded-full opacity-75"></div>
                 <div className="absolute h-5 w-5 bg-destructive rounded-full animate-ping"></div>
                 <div className="absolute h-3 w-3 bg-destructive rounded-full"></div>
               </div>
             </Button>
-          </nav>
-          
-          {/* Mobile Alerts Button */}
-          <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative hover:bg-muted rounded-none font-extrabold ml-auto">
-            <div className="relative flex items-center justify-center h-5 w-5">
-              <div className="absolute h-5 w-5 bg-destructive rounded-full opacity-75"></div>
-              <div className="absolute h-5 w-5 bg-destructive rounded-full animate-ping"></div>
-              <div className="absolute h-3 w-3 bg-destructive rounded-full"></div>
-            </div>
-          </Button>
+          )}
           
           <div className="hidden md:flex items-center gap-2">
-            {isAdmin && <DropdownMenu>
+            {/* Settings dropdown - show for admins normally, or for all users in checklist-only locations */}
+            {(isAdmin || isChecklistOnlyLocation) && <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant={['/settings', '/users'].includes(location.pathname) ? 'secondary' : 'ghost'} size="icon" title="Settings">
                     <SettingsIcon className="h-4 w-4 flex-shrink-0" />
@@ -191,10 +233,12 @@ export const Layout = ({
                     <SettingsIcon className="h-4 w-4" />
                     Preferences
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
-                    <Users className="h-4 w-4" />
-                    User Management
-                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
+                      <Users className="h-4 w-4" />
+                      User Management
+                    </DropdownMenuItem>
+                  )}
                 </DropdownMenuContent>
               </DropdownMenu>}
             

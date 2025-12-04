@@ -19,7 +19,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
 import { format, addDays } from 'date-fns';
-import { useLocation } from '@/hooks/useLocation';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatTime12Hour } from '@/lib/utils';
 import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
@@ -79,7 +79,7 @@ export default function Dashboard() {
   const {
     isAdmin
   } = useUserRole();
-  const { currentLocation } = useLocation();
+  const { currentLocation, isChecklistOnlyLocation } = useAppLocation();
   const { animationAmount } = useCrooCashAnimation();
   const isMobile = useIsMobile();
   
@@ -470,7 +470,12 @@ export default function Dashboard() {
   };
 
   // Define all dashboard sections as components
-  const sections = {
+  // For checklist-only locations, only show checklists-grid
+  const checklistOnlySections = {
+    'checklists-grid': null // Will be defined below
+  };
+
+  const standardSections = {
     'alerts': <div className="space-y-6">
         <ChecklistCompletionAlerts />
         <LogBookAlerts />
@@ -642,41 +647,49 @@ export default function Dashboard() {
         </div>
       </div>
   };
+
+  // Use appropriate sections based on location type
+  const sections = isChecklistOnlyLocation 
+    ? { 'checklists-grid': standardSections['checklists-grid'] }
+    : standardSections;
   return <Layout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Dash</h1>
+          <h1 className="text-3xl font-bold">{isChecklistOnlyLocation ? 'Checklists' : 'Dash'}</h1>
           <div className="flex gap-2 items-center">
-            <div className="flex flex-col items-center justify-center px-3 py-1 h-10 rounded-full bg-primary/10 text-primary border border-primary/20 relative">
-              {userName && <span className="text-[10px] font-medium leading-none">{userName}</span>}
-              <div className="flex items-center gap-1">
-                <Banknote className="h-3 w-3" style={{ transform: 'rotate(90deg) rotate(-10deg)' }} />
-                <span className="text-xs font-bold leading-none">${(crooCashBalance / 100).toFixed(2)}</span>
-              </div>
-              
-              {/* Celebration Animation */}
-              {animationAmount !== null && (
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none animate-bounce z-50">
-                  <div className="flex items-center gap-1 text-2xl font-black text-green-500 whitespace-nowrap" style={{
-                    textShadow: '0 0 20px rgba(34, 197, 94, 0.8)',
-                    fontFamily: 'Comic Sans MS, cursive',
-                    animation: 'bounce 0.8s ease-in-out 3, fade-out 0.5s ease-out 2.5s forwards'
-                  }}>
-                    +${(animationAmount / 100).toFixed(2)}
-                    <Sparkles className="h-6 w-6 animate-spin" style={{
-                      filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.8))'
-                    }} />
-                  </div>
+            {/* Hide Croo Cash for checklist-only locations */}
+            {!isChecklistOnlyLocation && (
+              <div className="flex flex-col items-center justify-center px-3 py-1 h-10 rounded-full bg-primary/10 text-primary border border-primary/20 relative">
+                {userName && <span className="text-[10px] font-medium leading-none">{userName}</span>}
+                <div className="flex items-center gap-1">
+                  <Banknote className="h-3 w-3" style={{ transform: 'rotate(90deg) rotate(-10deg)' }} />
+                  <span className="text-xs font-bold leading-none">${(crooCashBalance / 100).toFixed(2)}</span>
                 </div>
-              )}
-            </div>
+                
+                {/* Celebration Animation */}
+                {animationAmount !== null && (
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none animate-bounce z-50">
+                    <div className="flex items-center gap-1 text-2xl font-black text-green-500 whitespace-nowrap" style={{
+                      textShadow: '0 0 20px rgba(34, 197, 94, 0.8)',
+                      fontFamily: 'Comic Sans MS, cursive',
+                      animation: 'bounce 0.8s ease-in-out 3, fade-out 0.5s ease-out 2.5s forwards'
+                    }}>
+                      +${(animationAmount / 100).toFixed(2)}
+                      <Sparkles className="h-6 w-6 animate-spin" style={{
+                        filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.8))'
+                      }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <LocationSelector />
-            {isEditMode && <Button onClick={resetLayout} variant="outline" size="icon" className="h-10 w-10">
+            {!isChecklistOnlyLocation && isEditMode && <Button onClick={resetLayout} variant="outline" size="icon" className="h-10 w-10">
                 <ArrowUpDown className="h-4 w-4" />
               </Button>}
-            <Button onClick={toggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="icon" className="h-10 w-10" title={isEditMode ? "Save Layout" : "Edit Layout"}>
+            {!isChecklistOnlyLocation && <Button onClick={toggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="icon" className="h-10 w-10" title={isEditMode ? "Save Layout" : "Edit Layout"}>
               {isEditMode ? <Check className="h-4 w-4" /> : <ArrowUpDown className="h-4 w-4" />}
-            </Button>
+            </Button>}
           </div>
         </div>
 
