@@ -320,8 +320,8 @@ export default function Tasks() {
     <Layout>
       <div className="space-y-6">
         <Tabs defaultValue="history" className="w-full">
-          <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4">
-            <div>
+          <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4 mb-6">
+            <div className="space-y-3">
               <h1 className="text-3xl font-bold">Tasks</h1>
               <TabsList>
                 <TabsTrigger value="history">History</TabsTrigger>
@@ -338,7 +338,7 @@ export default function Tasks() {
 
             {/* Completion History */}
             <Card>
-              <CardHeader>
+              <CardHeader className="py-3">
                 <div className="flex items-center justify-between">
                   <Button
                     variant="outline"
@@ -347,7 +347,7 @@ export default function Tasks() {
                   >
                     <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <CardTitle className="text-center">
+                  <CardTitle className="text-base font-semibold text-center">
                     {format(historyDate, 'EEEE, MMMM d, yyyy')}
                   </CardTitle>
                   <Button
@@ -447,9 +447,9 @@ export default function Tasks() {
           <TabsContent value="edit" className="space-y-6">
             {/* Checklist Templates */}
             <Card>
-              <CardHeader>
+              <CardHeader className="py-3">
                 <div className="flex items-center justify-between">
-                  <CardTitle>Checklist Templates</CardTitle>
+                  <CardTitle className="text-base font-semibold">Checklist Templates</CardTitle>
                   <div className="flex gap-2">
                     {isAdmin && checklists.length > 1 && (
                       <Button
