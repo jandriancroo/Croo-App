@@ -394,6 +394,7 @@ export default function UserManagement() {
 
   const getRoleIcon = (role: AppRole) => {
     switch (role) {
+      case 'super_admin':
       case 'admin':
         return <Shield className="h-4 w-4" />;
       case 'general_manager':
@@ -407,6 +408,8 @@ export default function UserManagement() {
 
   const getRoleBadgeVariant = (role: AppRole) => {
     switch (role) {
+      case 'super_admin':
+        return 'destructive';
       case 'admin':
         return 'default';
       case 'general_manager':
@@ -421,6 +424,8 @@ export default function UserManagement() {
 
   const getRoleDisplayName = (role: AppRole) => {
     switch (role) {
+      case 'super_admin':
+        return 'Super Admin';
       case 'admin':
         return 'Admin';
       case 'general_manager':
