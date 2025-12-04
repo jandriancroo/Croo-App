@@ -122,15 +122,15 @@ All colors MUST be HSL.
 
 /* OLED Theme - Optimized for eye comfort */
 [data-theme="oled"] {
-  --background: 0 0% 2%;
+  --background: 0 0% 0%;
   --foreground: 45 10% 90%;
-  --card: 0 0% 5%;
+  --card: 0 0% 8%;
   --card-foreground: 45 10% 90%;
-  --popover: 0 0% 5%;
+  --popover: 0 0% 10%;
   --popover-foreground: 45 10% 90%;
   --primary: 165 60% 45%;
   --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 12%;
+  --secondary: 0 0% 14%;
   --secondary-foreground: 45 10% 85%;
   --muted: 0 0% 12%;
   --muted-foreground: 45 5% 55%;
@@ -138,11 +138,11 @@ All colors MUST be HSL.
   --accent-foreground: 0 0% 98%;
   --destructive: 0 65% 45%;
   --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 18%;
+  --border: 0 0% 20%;
   --input: 0 0% 15%;
   --ring: 165 60% 45%;
-  --glass-background: 0 0% 8% / 0.85;
-  --glass-border: 0 0% 100% / 0.06;
+  --glass-background: 0 0% 10% / 0.85;
+  --glass-border: 0 0% 100% / 0.08;
   --glass-shadow: 0 0% 0% / 0.4;
 }
 
@@ -248,6 +248,40 @@ All colors MUST be HSL.
   --glass-background: 270 25% 100% / 0.6;
   --glass-border: 270 20% 80% / 0.3;
   --glass-shadow: 265 25% 15% / 0.08;
+}
+
+/* Vibrant Theme - Colorful and cohesive with multi-color accents */
+[data-theme="vibrant"] {
+  --background: 240 15% 96%;
+  --foreground: 250 25% 18%;
+  --card: 0 0% 100%;
+  --card-foreground: 250 25% 18%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 250 25% 18%;
+  --primary: 340 70% 52%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 200 65% 92%;
+  --secondary-foreground: 200 70% 35%;
+  --muted: 240 12% 91%;
+  --muted-foreground: 250 15% 45%;
+  --accent: 45 85% 55%;
+  --accent-foreground: 250 25% 18%;
+  --destructive: 0 65% 52%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 240 15% 82%;
+  --input: 240 15% 88%;
+  --ring: 340 70% 52%;
+  --glass-background: 0 0% 100% / 0.65;
+  --glass-border: 240 15% 80% / 0.35;
+  --glass-shadow: 250 25% 18% / 0.1;
+  
+  /* Multi-color chart variables */
+  --chart-1: 340 70% 52%;
+  --chart-2: 200 70% 50%;
+  --chart-3: 45 85% 55%;
+  --chart-4: 160 60% 45%;
+  --chart-5: 280 60% 55%;
+  --chart-6: 25 80% 55%;
 }
 
 @layer base {
