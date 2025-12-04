@@ -625,32 +625,18 @@ export default function Dashboard() {
                 {isComplete && (
                   <div className="absolute inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ bottom: '50px' }}>
                     <div 
-                      className="flex flex-col items-center justify-center"
+                      className="px-5 py-2 text-white font-semibold text-base uppercase tracking-wider flex items-center gap-1.5"
                       style={{
-                        width: '85px',
-                        height: '85px',
-                        borderRadius: '50%',
-                        background: 'radial-gradient(ellipse at 30% 30%, #c94a4a 0%, #8b2525 50%, #5c1515 100%)',
-                        boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.3), inset 0 -3px 6px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.3), 0 2px 4px rgba(0,0,0,0.2)',
-                        transform: 'rotate(-5deg)',
-                        border: '2px solid #4a1010',
+                        background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+                        borderRadius: '4px',
+                        transform: 'rotate(-3deg)',
+                        boxShadow: '0 4px 12px rgba(34, 197, 94, 0.4)',
                       }}
                     >
-                      <div 
-                        className="flex flex-col items-center justify-center text-amber-100"
-                        style={{
-                          width: '65px',
-                          height: '65px',
-                          borderRadius: '50%',
-                          border: '2px solid rgba(255,215,150,0.4)',
-                          textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-                        }}
-                      >
-                        <svg className="w-6 h-6 mb-0.5 drop-shadow" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.3))' }}>
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                        </svg>
-                        <span className="text-[8px] font-bold uppercase tracking-widest" style={{ textShadow: '0 1px 1px rgba(0,0,0,0.4)' }}>Complete</span>
-                      </div>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                      Completed
                     </div>
                   </div>
                 )}
