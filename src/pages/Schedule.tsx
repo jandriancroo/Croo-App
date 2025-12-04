@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
 import { ChevronLeft, ChevronRight, Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -90,6 +91,7 @@ interface Holiday {
 export default function Schedule() {
   const navigate = useNavigate();
   const { role, isAdmin, isManager } = useUserRole();
+  const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [scheduleId, setScheduleId] = useState<string | null>(null);
@@ -147,21 +149,24 @@ export default function Schedule() {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
   useEffect(() => {
-    if (role) {
+    if (role && currentLocation?.id) {
       fetchScheduleData();
     }
-  }, [currentWeekStart, role]);
+  }, [currentWeekStart, role, currentLocation?.id]);
 
   const fetchScheduleData = async () => {
+    if (!currentLocation?.id) return;
+    
     setLoading(true);
     try {
       const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
 
-      // Fetch or create schedule for this week
+      // Fetch or create schedule for this week and location
       let { data: scheduleData, error: scheduleError } = await supabase
         .from("schedules")
         .select("*")
         .eq("week_start_date", format(currentWeekStart, "yyyy-MM-dd"))
+        .eq("location_id", currentLocation.id)
         .single();
 
       if (scheduleError && scheduleError.code === "PGRST116") {
@@ -172,6 +177,7 @@ export default function Schedule() {
             .insert({
               week_start_date: format(currentWeekStart, "yyyy-MM-dd"),
               week_end_date: format(weekEnd, "yyyy-MM-dd"),
+              location_id: currentLocation.id,
             })
             .select()
             .single();
@@ -201,7 +207,8 @@ export default function Schedule() {
         shiftsResult,
         eventsResult,
         recurringEventsResult,
-        profilesResult,
+        userLocationsResult,
+        allProfilesResult,
         rolesResult,
         templatesResult,
         availabilityResult,
@@ -231,7 +238,13 @@ export default function Schedule() {
           .eq("is_recurring", true)
           .is("schedule_id", null),
         
-        // Fetch all profiles
+        // Fetch user_locations for this location to get user IDs
+        supabase
+          .from("user_locations")
+          .select("user_id")
+          .eq("location_id", currentLocation!.id),
+        
+        // Fetch all active profiles
         supabase
           .from("profiles")
           .select(`
@@ -248,15 +261,17 @@ export default function Schedule() {
           .from("user_roles")
           .select("user_id, role"),
         
-        // Fetch shift templates
+        // Fetch shift templates for this location
         supabase
           .from("shift_templates")
-          .select("*"),
+          .select("*")
+          .eq("location_id", currentLocation!.id),
         
-        // Fetch availability requests
+        // Fetch availability requests for this location
         supabase
           .from("availability_requests")
           .select("*")
+          .eq("location_id", currentLocation!.id)
           .eq("request_type", "unpaid")
           .in("status", ["pending", "approved"])
           .gte("start_date", format(currentWeekStart, "yyyy-MM-dd"))
@@ -268,10 +283,11 @@ export default function Schedule() {
           .select("*")
           .eq("schedule_id", scheduleData.id) : Promise.resolve({ data: [], error: null }),
         
-        // Fetch holidays for the week
+        // Fetch holidays for the week (location-specific or global)
         supabase
           .from("holidays")
           .select("*")
+          .or(`location_id.eq.${currentLocation!.id},location_id.is.null`)
           .gte("holiday_date", format(currentWeekStart, "yyyy-MM-dd"))
           .lte("holiday_date", format(weekEnd, "yyyy-MM-dd")),
         
@@ -279,6 +295,7 @@ export default function Schedule() {
         supabase
           .from("location_settings")
           .select("blackout_dates")
+          .eq("location_id", currentLocation!.id)
           .single()
       ]);
 
@@ -317,11 +334,15 @@ export default function Schedule() {
       
       setEvents(allEvents);
 
-      // Handle profiles and roles
-      if (profilesResult.error) throw profilesResult.error;
+      // Handle profiles and roles - filter by location
+      if (userLocationsResult.error) throw userLocationsResult.error;
+      if (allProfilesResult.error) throw allProfilesResult.error;
       if (rolesResult.error) throw rolesResult.error;
 
-      const profilesWithRoles = (profilesResult.data || []).map(profile => {
+      const locationUserIds = new Set((userLocationsResult.data || []).map(ul => ul.user_id));
+      const locationProfiles = (allProfilesResult.data || []).filter(p => locationUserIds.has(p.id));
+
+      const profilesWithRoles = locationProfiles.map(profile => {
         const userRole = rolesResult.data?.find(r => r.user_id === profile.id);
         return {
           ...profile,

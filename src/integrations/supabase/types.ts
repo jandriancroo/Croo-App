@@ -58,6 +58,7 @@ export type Database = {
           end_time: string | null
           hours_requested: number
           id: string
+          location_id: string | null
           notes: string | null
           request_type: string
           reviewed_at: string | null
@@ -76,6 +77,7 @@ export type Database = {
           end_time?: string | null
           hours_requested?: number
           id?: string
+          location_id?: string | null
           notes?: string | null
           request_type: string
           reviewed_at?: string | null
@@ -94,6 +96,7 @@ export type Database = {
           end_time?: string | null
           hours_requested?: number
           id?: string
+          location_id?: string | null
           notes?: string | null
           request_type?: string
           reviewed_at?: string | null
@@ -106,6 +109,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "availability_requests_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "availability_requests_reviewed_by_fkey"
             columns: ["reviewed_by"]
@@ -247,6 +257,7 @@ export type Database = {
           id: string
           is_announcement: boolean
           is_group: boolean
+          location_id: string | null
           title: string | null
           updated_at: string
         }
@@ -257,6 +268,7 @@ export type Database = {
           id?: string
           is_announcement?: boolean
           is_group?: boolean
+          location_id?: string | null
           title?: string | null
           updated_at?: string
         }
@@ -267,6 +279,7 @@ export type Database = {
           id?: string
           is_announcement?: boolean
           is_group?: boolean
+          location_id?: string | null
           title?: string | null
           updated_at?: string
         }
@@ -276,6 +289,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chats_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
@@ -423,6 +443,7 @@ export type Database = {
         Row: {
           checklist_id: string
           id: string
+          location_id: string | null
           notes: string | null
           submitted_at: string | null
           submitted_by: string
@@ -430,6 +451,7 @@ export type Database = {
         Insert: {
           checklist_id: string
           id?: string
+          location_id?: string | null
           notes?: string | null
           submitted_at?: string | null
           submitted_by: string
@@ -437,6 +459,7 @@ export type Database = {
         Update: {
           checklist_id?: string
           id?: string
+          location_id?: string | null
           notes?: string | null
           submitted_at?: string | null
           submitted_by?: string
@@ -447,6 +470,13 @@ export type Database = {
             columns: ["checklist_id"]
             isOneToOne: false
             referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_submissions_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
           {
@@ -469,6 +499,7 @@ export type Database = {
           frequency: string
           id: string
           is_active: boolean | null
+          location_id: string | null
           template_type: string | null
           title: string
           updated_at: string | null
@@ -484,6 +515,7 @@ export type Database = {
           frequency: string
           id?: string
           is_active?: boolean | null
+          location_id?: string | null
           template_type?: string | null
           title: string
           updated_at?: string | null
@@ -499,6 +531,7 @@ export type Database = {
           frequency?: string
           id?: string
           is_active?: boolean | null
+          location_id?: string | null
           template_type?: string | null
           title?: string
           updated_at?: string | null
@@ -510,6 +543,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklists_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
@@ -816,6 +856,7 @@ export type Database = {
           display_order: number
           id: string
           is_active: boolean
+          location_id: string | null
           name: string
           updated_at: string
         }
@@ -826,6 +867,7 @@ export type Database = {
           display_order?: number
           id?: string
           is_active?: boolean
+          location_id?: string | null
           name: string
           updated_at?: string
         }
@@ -836,6 +878,7 @@ export type Database = {
           display_order?: number
           id?: string
           is_active?: boolean
+          location_id?: string | null
           name?: string
           updated_at?: string
         }
@@ -847,6 +890,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "logbook_categories_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       logbook_entries: {
@@ -856,6 +906,7 @@ export type Database = {
           created_by: string
           entry_date: string
           id: string
+          location_id: string | null
           updated_at: string
         }
         Insert: {
@@ -864,6 +915,7 @@ export type Database = {
           created_by: string
           entry_date: string
           id?: string
+          location_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -872,6 +924,7 @@ export type Database = {
           created_by?: string
           entry_date?: string
           id?: string
+          location_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -887,6 +940,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "logbook_entries_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
         ]
@@ -1581,6 +1641,7 @@ export type Database = {
           created_by: string | null
           id: string
           is_published: boolean | null
+          location_id: string | null
           published_snapshot: Json | null
           updated_at: string | null
           week_end_date: string
@@ -1591,6 +1652,7 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_published?: boolean | null
+          location_id?: string | null
           published_snapshot?: Json | null
           updated_at?: string | null
           week_end_date: string
@@ -1601,12 +1663,21 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_published?: boolean | null
+          location_id?: string | null
           published_snapshot?: Json | null
           updated_at?: string | null
           week_end_date?: string
           week_start_date?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "schedules_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shift_offer_claims: {
         Row: {
@@ -1704,6 +1775,7 @@ export type Database = {
           days_of_week: number[] | null
           end_time: string
           id: string
+          location_id: string | null
           position: string | null
           role: Database["public"]["Enums"]["app_role"]
           start_time: string
@@ -1716,6 +1788,7 @@ export type Database = {
           days_of_week?: number[] | null
           end_time: string
           id?: string
+          location_id?: string | null
           position?: string | null
           role: Database["public"]["Enums"]["app_role"]
           start_time: string
@@ -1728,12 +1801,21 @@ export type Database = {
           days_of_week?: number[] | null
           end_time?: string
           id?: string
+          location_id?: string | null
           position?: string | null
           role?: Database["public"]["Enums"]["app_role"]
           start_time?: string
           template_name?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "shift_templates_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       time_punches: {
         Row: {
@@ -1741,6 +1823,7 @@ export type Database = {
           approved_by: string | null
           created_at: string | null
           id: string
+          location_id: string | null
           notes: string | null
           punch_time: string
           punch_type: string
@@ -1752,6 +1835,7 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           id?: string
+          location_id?: string | null
           notes?: string | null
           punch_time?: string
           punch_type: string
@@ -1763,6 +1847,7 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           id?: string
+          location_id?: string | null
           notes?: string | null
           punch_time?: string
           punch_type?: string
@@ -1775,6 +1860,13 @@ export type Database = {
             columns: ["approved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_punches_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
             referencedColumns: ["id"]
           },
           {
@@ -1938,6 +2030,10 @@ export type Database = {
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_location_access: {
+        Args: { _location_id: string; _user_id: string }
+        Returns: boolean
       }
       has_role: {
         Args: {

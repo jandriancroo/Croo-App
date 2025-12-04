@@ -8,6 +8,7 @@ import { CheckCircle2, Clock, FileCheck, Plus, Pencil, MoreVertical, Trash2, Eye
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ export default function Tasks() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin, isManager } = useUserRole();
+  const { currentLocation } = useAppLocation();
   const queryClient = useQueryClient();
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [historyDate, setHistoryDate] = useState(new Date());
@@ -95,10 +97,12 @@ export default function Tasks() {
     queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
   };
 
-  // Fetch checklists for user's role
+  // Fetch checklists for user's role (location-filtered)
   const { data: checklists = [], isLoading: checklistsLoading } = useQuery({
-    queryKey: ['user-checklists', user?.id, isAdmin],
+    queryKey: ['user-checklists', user?.id, isAdmin, currentLocation?.id],
     queryFn: async () => {
+      if (!currentLocation?.id) return [];
+      
       const { data: userRoles } = await supabase
         .from('user_roles')
         .select('role')
@@ -114,6 +118,7 @@ export default function Tasks() {
           checklist_items(id, days_of_week)
         `)
         .eq('is_active', true)
+        .eq('location_id', currentLocation.id)
         .order('display_order', { ascending: true });
 
       if (error) throw error;
@@ -154,13 +159,15 @@ export default function Tasks() {
         return true;
       });
     },
-    enabled: !!user,
+    enabled: !!user && !!currentLocation?.id,
   });
 
-  // Fetch submission stats
+  // Fetch submission stats (location-filtered)
   const { data: submissionStats, isLoading: statsLoading } = useQuery({
-    queryKey: ['submission-stats', user?.id],
+    queryKey: ['submission-stats', user?.id, currentLocation?.id],
     queryFn: async () => {
+      if (!currentLocation?.id) return { today: 0, thisWeek: 0, thisMonth: 0 };
+      
       const today = new Date();
       const thisWeekStart = new Date(today);
       thisWeekStart.setDate(today.getDate() - today.getDay());
@@ -172,16 +179,19 @@ export default function Tasks() {
           .from('checklist_submissions')
           .select('id', { count: 'exact' })
           .eq('submitted_by', user!.id)
+          .eq('location_id', currentLocation.id)
           .gte('submitted_at', today.toISOString().split('T')[0]),
         supabase
           .from('checklist_submissions')
           .select('id', { count: 'exact' })
           .eq('submitted_by', user!.id)
+          .eq('location_id', currentLocation.id)
           .gte('submitted_at', thisWeekStart.toISOString()),
         supabase
           .from('checklist_submissions')
           .select('id', { count: 'exact' })
           .eq('submitted_by', user!.id)
+          .eq('location_id', currentLocation.id)
           .gte('submitted_at', thisMonthStart.toISOString()),
       ]);
 
@@ -191,7 +201,7 @@ export default function Tasks() {
         thisMonth: monthResult.count || 0,
       };
     },
-    enabled: !!user,
+    enabled: !!user && !!currentLocation?.id,
   });
 
   // Fetch completion history for selected date
