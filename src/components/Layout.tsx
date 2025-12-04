@@ -190,7 +190,7 @@ export const Layout = ({
             <img 
               src={headerLogo} 
               alt={headerLogoAlt} 
-              className={`${isMobile ? 'h-10' : 'h-12'} w-auto max-w-[120px] object-contain`}
+              className={`${isMobile ? 'h-10' : 'h-12'} w-auto max-w-[120px] object-contain rounded-lg`}
               style={{ background: 'transparent' }}
             />
           </button>
