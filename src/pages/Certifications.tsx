@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Upload, CheckCircle, XCircle, Clock, ExternalLink, Trash2, Edit, FileText } from "lucide-react";
+import { Upload, CheckCircle, XCircle, Clock, ExternalLink, Trash2, Edit, FileText, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { EditCertificationDialog } from "@/components/users/EditCertificationDialog";
 import { compressImage } from "@/utils/imageCompression";
@@ -275,85 +275,65 @@ export default function Certifications() {
   return (
     <Layout>
       <div className="container mx-auto p-6 space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold">Certifications</h1>
-            <p className="text-muted-foreground">
-              Track food handlers cards and ServSafe certifications
-            </p>
-          </div>
-          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Certificate
-              </Button>
-            </DialogTrigger>
-            <DialogContent onOpenAutoFocus={(e) => {
-              // Set current user as default if admin
-              if (isAdmin && user?.id && !selectedEmployeeId) {
-                setSelectedEmployeeId(user.id);
-              }
-            }}>
-              <DialogHeader>
-                <DialogTitle>Upload Certificate</DialogTitle>
-                <DialogDescription>
-                  {isAdmin ? "Upload a certification for an employee." : "Upload your certification document. It will be reviewed by an admin."}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                {isAdmin && (
-                  <div>
-                    <Label>Employee</Label>
-                    <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select employee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {profiles.map((profile) => (
-                          <SelectItem key={profile.id} value={profile.id}>
-                            {profile.full_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <div>
-                  <Label>Certification Type</Label>
-                  <Select value={selectedType} onValueChange={(value: CertificationType) => setSelectedType(value)}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="food_handlers">Food Handlers Card</SelectItem>
-                      <SelectItem value="servsafe">ServSafe Certification</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Certificate File</Label>
-                  <Input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                  />
-                </div>
-                <div>
-                  <Label>Expiration Date</Label>
-                  <Input
-                    type="date"
-                    value={expirationDate}
-                    onChange={(e) => setExpirationDate(e.target.value)}
-                  />
-                </div>
-                <Button onClick={handleUpload} disabled={uploading} className="w-full">
-                  {uploading ? "Uploading..." : "Upload"}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+        <div>
+          <h1 className="text-3xl font-bold">Certifications</h1>
+          <p className="text-muted-foreground">
+            Track food handlers cards and ServSafe certifications
+          </p>
         </div>
+
+        {/* Upload Dialog - triggered from individual cards */}
+        <Dialog open={uploadDialogOpen} onOpenChange={(open) => {
+          setUploadDialogOpen(open);
+          if (!open) {
+            setSelectedFile(null);
+            setExpirationDate("");
+          }
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Upload Certificate</DialogTitle>
+              <DialogDescription>
+                {selectedEmployeeId && profiles.find(p => p.id === selectedEmployeeId)?.full_name 
+                  ? `Upload a certification for ${profiles.find(p => p.id === selectedEmployeeId)?.full_name}.`
+                  : "Upload your certification document."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label>Certification Type</Label>
+                <Select value={selectedType} onValueChange={(value: CertificationType) => setSelectedType(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="food_handlers">Food Handlers Card</SelectItem>
+                    <SelectItem value="servsafe">ServSafe Certification</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Certificate File</Label>
+                <Input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                />
+              </div>
+              <div>
+                <Label>Expiration Date</Label>
+                <Input
+                  type="date"
+                  value={expirationDate}
+                  onChange={(e) => setExpirationDate(e.target.value)}
+                />
+              </div>
+              <Button onClick={handleUpload} disabled={uploading} className="w-full">
+                {uploading ? "Uploading..." : "Upload"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           {profiles.map((profile) => {
@@ -373,6 +353,19 @@ export default function Certifications() {
                         {employeeCerts.length} cert{employeeCerts.length !== 1 ? 's' : ''}
                       </CardDescription>
                     </div>
+                    {(isAdmin || profile.id === user?.id) && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 flex-shrink-0"
+                        onClick={() => {
+                          setSelectedEmployeeId(profile.id);
+                          setUploadDialogOpen(true);
+                        }}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 px-4 pb-3">

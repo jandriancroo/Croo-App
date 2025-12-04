@@ -11,7 +11,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical, ArrowUpDown, Building2 } from 'lucide-react';
-import { PositionManagementCompact } from '@/components/settings/PositionManagementCompact';
+import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
 import { NotificationSettings } from '@/components/settings/NotificationSettings';
 import { toast as sonnerToast } from 'sonner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
@@ -28,7 +28,7 @@ const themes = [
   { value: 'vibrant', label: 'Vibrant' },
 ];
 
-const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'organizations', 'roles', 'positions', 'maintenance'];
+const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'organizations', 'roles', 'maintenance'];
 const STORAGE_KEY = 'settings-section-order';
 
 interface SortableSectionProps {
@@ -263,13 +263,13 @@ export default function Settings() {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4" />
-                <CardTitle className="text-base">Role Management</CardTitle>
+                <CardTitle className="text-base">Roles & Permissions</CardTitle>
               </div>
               <CardDescription className="text-xs">
-                Configure permissions and notifications for each role
+                Configure permissions, notifications, and positions
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
               <Button
                 variant="outline"
                 className="w-full"
@@ -278,13 +278,10 @@ export default function Settings() {
                 <Shield className="h-4 w-4 mr-2" />
                 Manage Roles & Permissions
               </Button>
+              <PositionManagementInline />
             </CardContent>
           </Card>
         );
-
-      case 'positions':
-        if (!isAdmin) return null;
-        return <PositionManagementCompact />;
 
       case 'maintenance':
         if (!isAdmin) return null;
@@ -355,7 +352,7 @@ export default function Settings() {
     }
     
     // Standard filtering for normal locations
-    if (['organizations', 'roles', 'positions', 'maintenance'].includes(id)) {
+    if (['organizations', 'roles', 'maintenance'].includes(id)) {
       return isAdmin;
     }
     return true;
