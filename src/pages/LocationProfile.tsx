@@ -256,32 +256,30 @@ export default function LocationProfile() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-start gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} className="mt-2">
+        {/* Header */}
+        <div className="flex items-start gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} className="mt-1 flex-shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div className="flex-1 flex items-center gap-4">
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold flex items-center gap-2">
-                <MapPin className="h-8 w-8 text-primary" />
-                {location.name}
-              </h1>
-              <p className="text-muted-foreground">Manage location details and settings</p>
-              {location.address && (
-                <p className="text-sm text-muted-foreground mt-1">{location.address}</p>
-              )}
-            </div>
-            {location.latitude && location.longitude && (
-              <div className="w-64 h-32 rounded-lg overflow-hidden border shadow-sm flex-shrink-0">
-                <LocationMap 
-                  lat={parseFloat(location.latitude)} 
-                  lng={parseFloat(location.longitude)}
-                  locationName={location.name}
-                />
-              </div>
-            )}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+              <MapPin className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
+              <span className="truncate">{location.name}</span>
+            </h1>
+            <p className="text-sm text-muted-foreground">Manage location details and settings</p>
           </div>
         </div>
+
+        {/* Map - full width on mobile */}
+        {location.latitude && location.longitude && (
+          <div className="w-full h-40 sm:h-48 rounded-lg overflow-hidden border shadow-sm">
+            <LocationMap 
+              lat={parseFloat(location.latitude)} 
+              lng={parseFloat(location.longitude)}
+              locationName={location.name}
+            />
+          </div>
+        )}
 
         <div className="grid gap-6">
           {/* Location Information */}
@@ -309,28 +307,30 @@ export default function LocationProfile() {
                 />
               </div>
               {location.location_code && (
-                <div className="pt-4 border-t space-y-2">
+                <div className="pt-4 border-t space-y-3">
                   <Label>Location Code</Label>
-                  <div className="flex items-center gap-2">
-                    <code className="text-sm bg-muted px-3 py-2 rounded font-mono flex-1">
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <code className="text-sm bg-muted px-3 py-2 rounded font-mono">
                       {location.location_code}
                     </code>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleCopyCode(location.location_code)}
-                    >
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRegenerateCode}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Regenerate
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopyCode(location.location_code)}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRegenerateCode}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                        Regenerate
+                      </Button>
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Share this code with new employees to allow them to sign up for this location
