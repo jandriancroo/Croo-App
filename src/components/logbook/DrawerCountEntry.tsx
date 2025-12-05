@@ -41,20 +41,21 @@ export function DrawerCountEntry({ data, createdAt }: DrawerCountEntryProps) {
       : 'EXACT';
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-sm">
-          <div>
-            <span className="text-muted-foreground">Expected:</span>{' '}
-            <span className="font-medium">{formatCurrency(data.expectedDeposit)}</span>
+    <div className="space-y-3">
+      {/* Mobile: Stack vertically, Desktop: inline */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm flex-1">
+          <div className="flex justify-between sm:block">
+            <span className="text-muted-foreground">Expected:</span>
+            <span className="font-medium ml-2 sm:ml-1">{formatCurrency(data.expectedDeposit)}</span>
           </div>
-          <div>
-            <span className="text-muted-foreground">Actual:</span>{' '}
-            <span className="font-medium">{formatCurrency(data.actualDeposit)}</span>
+          <div className="flex justify-between sm:block">
+            <span className="text-muted-foreground">Actual:</span>
+            <span className="font-medium ml-2 sm:ml-1">{formatCurrency(data.actualDeposit)}</span>
           </div>
-          <div>
-            <span className="text-muted-foreground">Variance:</span>{' '}
-            <span className={`font-semibold ${varianceColor}`}>
+          <div className="flex justify-between sm:block">
+            <span className="text-muted-foreground">Variance:</span>
+            <span className={`font-semibold ml-2 sm:ml-1 ${varianceColor}`}>
               {varianceLabel} {formatCurrency(Math.abs(data.variance))}
             </span>
           </div>
@@ -62,12 +63,12 @@ export function DrawerCountEntry({ data, createdAt }: DrawerCountEntryProps) {
         
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className="w-full sm:w-auto">
               <Eye className="h-4 w-4 mr-1" />
               Details
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Drawer Count Details</DialogTitle>
             </DialogHeader>
@@ -121,7 +122,7 @@ export function DrawerCountEntry({ data, createdAt }: DrawerCountEntryProps) {
               
               <div className="border-t pt-3 space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Expected Deposit (from Qu):</span>
+                  <span className="text-muted-foreground text-sm">Expected (from Qu):</span>
                   <span className="font-medium">{formatCurrency(data.expectedDeposit)}</span>
                 </div>
                 <div className="flex justify-between items-center">
