@@ -253,7 +253,7 @@ export default function Dashboard() {
         .select("*")
         .eq("location_id", currentLocation.id)
         .eq("pickup_date", today)
-        .eq("status", "pending")
+        .in("status", ["pending", "completed"])
         .order("pickup_time", { ascending: true });
 
       if (error) throw error;
@@ -684,40 +684,58 @@ export default function Dashboard() {
         <h3 className="text-xl font-semibold mb-4">Tasks</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {/* Catering Order Cards - Show first */}
-          {todaysCateringOrders.map(order => (
-            <Card key={`catering-${order.id}`} className="hover:shadow-lg transition-shadow overflow-hidden p-0 border-orange-500/50">
-              <CardHeader className="py-2 px-3 bg-orange-500/10">
-                <div className="flex items-center gap-2">
-                  <ChefHat className="h-4 w-4 text-orange-500 flex-shrink-0" />
-                  <CardTitle className="text-sm font-semibold flex-1 truncate">{order.customer_name}</CardTitle>
-                  <Badge className="text-[10px] px-1.5 py-0 flex-shrink-0 bg-orange-500 text-white">
-                    catering
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="py-2 px-3 pt-0">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Clock className="h-3 w-3" />
-                    <span className="text-orange-500 font-medium">{formatCateringTime(order.pickup_time)}</span>
-                    {order.headcount && (
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {order.headcount}
-                      </span>
-                    )}
-                  </div>
-                  <Badge variant="outline" className="text-[10px]">{order.items.length} items</Badge>
-                </div>
-              </CardContent>
-              <Button 
-                className="w-full h-9 text-xs rounded-none rounded-b-lg bg-orange-500 hover:bg-orange-600 text-white" 
-                onClick={() => setSelectedCateringOrder(order)}
+          {todaysCateringOrders.map(order => {
+            const isCompleted = order.status === "completed";
+            return (
+              <Card 
+                key={`catering-${order.id}`} 
+                className={`hover:shadow-lg transition-shadow overflow-hidden p-0 ${
+                  isCompleted ? "border-green-500/50 opacity-75" : "border-orange-500/50"
+                }`}
               >
-                View Order
-              </Button>
-            </Card>
-          ))}
+                <CardHeader className={`py-2 px-3 ${isCompleted ? "bg-green-500/10" : "bg-orange-500/10"}`}>
+                  <div className="flex items-center gap-2">
+                    {isCompleted ? (
+                      <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    ) : (
+                      <ChefHat className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                    )}
+                    <CardTitle className="text-sm font-semibold flex-1 truncate">{order.customer_name}</CardTitle>
+                    <Badge className={`text-[10px] px-1.5 py-0 flex-shrink-0 ${
+                      isCompleted ? "bg-green-500 text-white" : "bg-orange-500 text-white"
+                    }`}>
+                      {isCompleted ? "completed" : "catering"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="py-2 px-3 pt-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Clock className="h-3 w-3" />
+                      <span className={`font-medium ${isCompleted ? "text-green-500" : "text-orange-500"}`}>
+                        {formatCateringTime(order.pickup_time)}
+                      </span>
+                      {order.headcount && (
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {order.headcount}
+                        </span>
+                      )}
+                    </div>
+                    <Badge variant="outline" className="text-[10px]">{order.items.length} items</Badge>
+                  </div>
+                </CardContent>
+                <Button 
+                  className={`w-full h-9 text-xs rounded-none rounded-b-lg text-white ${
+                    isCompleted ? "bg-green-500 hover:bg-green-600" : "bg-orange-500 hover:bg-orange-600"
+                  }`}
+                  onClick={() => setSelectedCateringOrder(order)}
+                >
+                  {isCompleted ? "View Completed" : "View Order"}
+                </Button>
+              </Card>
+            );
+          })}
           
           {/* Checklist Cards */}
           {checklists.map(checklist => {
@@ -839,7 +857,12 @@ export default function Dashboard() {
                   </Button>
                 )}
 
-                {canCompleteCatering && (
+                {selectedCateringOrder.status === "completed" ? (
+                  <div className="w-full py-3 px-4 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center justify-center gap-2">
+                    <Check className="h-5 w-5 text-green-500" />
+                    <span className="text-green-600 font-medium">Order Completed</span>
+                  </div>
+                ) : canCompleteCatering && (
                   <Button
                     className="w-full bg-orange-500 hover:bg-orange-600 text-white"
                     size="lg"
