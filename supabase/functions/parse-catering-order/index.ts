@@ -71,14 +71,14 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a catering order parser. Extract order details from images/PDFs and return structured data. Always respond with valid JSON using the extract_order_details function.`
+            content: `You are a catering order parser. Extract order details from images/PDFs and return structured data. Always respond with valid JSON using the extract_order_details function. IMPORTANT: For customer_name, use the "Deliver To" or "Delivery To" name (the person/company receiving the order), NOT the ordering platform or dispatch service name.`
           },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: "Parse this catering order. Extract the customer name, order number, pickup date, pickup time, headcount, and all items with quantities. Ignore prices."
+                text: "Parse this catering order. Extract the customer name (use the 'Deliver To' name, not the platform name), order number, pickup date, pickup time, headcount, and all items with quantities. Dates should be interpreted in US format (MM/DD/YYYY). Ignore prices."
               },
               {
                 type: "image_url",
@@ -96,7 +96,7 @@ serve(async (req) => {
               parameters: {
                 type: "object",
                 properties: {
-                  customer_name: { type: "string", description: "Customer name" },
+                  customer_name: { type: "string", description: "The 'Deliver To' or recipient name (person or company receiving the order), NOT the ordering platform" },
                   order_number: { type: "string", description: "Order number/ID" },
                   pickup_date: { type: "string", description: "Pickup date in YYYY-MM-DD format" },
                   pickup_time: { type: "string", description: "Pickup time in HH:MM format (24-hour)" },
