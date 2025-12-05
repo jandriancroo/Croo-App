@@ -394,6 +394,7 @@ export default function LogBook() {
                       </p>
                     )}
                     <DrawerCountForm
+                      key={selectedDate.toISOString().split('T')[0]}
                       onSave={async (data: DrawerCountData) => {
                         try {
                           const dateStr = selectedDate.toISOString().split('T')[0];
