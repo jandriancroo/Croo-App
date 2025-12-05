@@ -19,9 +19,11 @@ export function DiagnosticMode() {
   const [inputBuffer, setInputBuffer] = useState('');
   const [tests, setTests] = useState<TestResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
+  const [tapCount, setTapCount] = useState(0);
+  const [lastTapTime, setLastTapTime] = useState(0);
   const { user } = useAuth();
 
-  // Listen for passphrase typed anywhere
+  // Listen for passphrase typed anywhere (desktop)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
@@ -40,6 +42,30 @@ export function DiagnosticMode() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [inputBuffer]);
+
+  // Listen for 5 rapid taps anywhere (mobile) - must be within 500ms between taps
+  useEffect(() => {
+    const handleTap = () => {
+      const now = Date.now();
+      if (now - lastTapTime < 500) {
+        const newCount = tapCount + 1;
+        setTapCount(newCount);
+        if (newCount >= 5) {
+          setIsOpen(true);
+          setTapCount(0);
+        }
+      } else {
+        setTapCount(1);
+      }
+      setLastTapTime(now);
+    };
+
+    // Only add touch listener on mobile
+    if ('ontouchstart' in window) {
+      window.addEventListener('touchstart', handleTap);
+      return () => window.removeEventListener('touchstart', handleTap);
+    }
+  }, [tapCount, lastTapTime]);
 
   // Clear buffer after 2 seconds of no input
   useEffect(() => {
