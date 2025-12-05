@@ -372,7 +372,7 @@ function formatNotificationContent(type: string | undefined, title: string, body
     case 'shift_approvals':
       return { title: `✅ ${title}`, body };
     case 'certification_expiring':
-      return { title, body }; // Already includes emoji in check-alerts
+      return { title: `📜 ${title}`, body };
     default:
       return { title, body };
   }

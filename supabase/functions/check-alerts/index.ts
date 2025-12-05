@@ -395,11 +395,11 @@ async function checkMonthlyChecklists(supabaseClient: any, timezone: string, loc
 
       console.log(`[${locationName}] Monthly "${checklist.title}": ${completedItems}/${totalItems}, ${daysUntilMonthEnd} days left`);
 
-      let urgencyPrefix = '';
+      let urgencyText = '';
       if (daysUntilMonthEnd <= 1) {
-        urgencyPrefix = '⚠️ FINAL DAY: ';
+        urgencyText = 'FINAL DAY: ';
       } else if (daysUntilMonthEnd <= 3) {
-        urgencyPrefix = '⚠️ ';
+        urgencyText = 'URGENT: ';
       }
 
       const daysText = daysUntilMonthEnd === 0 
@@ -411,7 +411,7 @@ async function checkMonthlyChecklists(supabaseClient: any, timezone: string, loc
       await supabaseClient.functions.invoke('send-push-notification', {
         body: {
           user_ids: locationUsers.map((u: any) => u.user_id),
-          title: `${urgencyPrefix}Monthly Checklist - ${locationName}`,
+          title: `${urgencyText}Monthly Checklist - ${locationName}`,
           body: `${checklist.title} - ${remainingTasks} task${remainingTasks === 1 ? '' : 's'} remaining (${daysText})`,
           notification_type: 'overdue_checklists',
           data: {
@@ -514,7 +514,7 @@ async function checkLateArrivals(supabaseClient: any, timezone: string, location
           await supabaseClient.functions.invoke('send-push-notification', {
             body: {
               user_ids: adminUsers.map((u: any) => u.user_id),
-              title: `🚨 Late Arrival - ${locationName}`,
+              title: `Late Arrival - ${locationName}`,
               body: `${employee.name} has not clocked in (shift started ${employee.shift_start})`,
               notification_type: 'late_arrivals',
               data: {
@@ -573,11 +573,11 @@ async function checkExpiringCertifications(supabaseClient: any) {
       const notifyDays = [30, 14, 7, 3, 1];
       if (!notifyDays.includes(daysUntilExpiry)) continue;
 
-      let urgency = '';
+      let urgencyText = '';
       if (daysUntilExpiry <= 3) {
-        urgency = '⚠️ URGENT: ';
+        urgencyText = 'URGENT: ';
       } else if (daysUntilExpiry <= 7) {
-        urgency = '⚠️ ';
+        urgencyText = '';
       }
 
       const formattedDate = expirationDate.toLocaleDateString('en-US', { 
@@ -590,7 +590,7 @@ async function checkExpiringCertifications(supabaseClient: any) {
       await supabaseClient.functions.invoke('send-push-notification', {
         body: {
           user_ids: [cert.user_id],
-          title: `${urgency}Certification Expiring`,
+          title: `${urgencyText}Certification Expiring`,
           body: `Your ${cert.certification_type} expires ${formattedDate} (${daysUntilExpiry} day${daysUntilExpiry === 1 ? '' : 's'})`,
           notification_type: 'certification_expiring',
           data: {
@@ -623,7 +623,7 @@ async function checkExpiringCertifications(supabaseClient: any) {
             await supabaseClient.functions.invoke('send-push-notification', {
               body: {
                 user_ids: adminUsers.map((u: any) => u.user_id),
-                title: `${urgency}Certification Expiring - ${locName}`,
+                title: `${urgencyText}Certification Expiring - ${locName}`,
                 body: `${profileMap.get(cert.user_id) || 'Employee'}'s ${cert.certification_type} expires ${formattedDate}`,
                 notification_type: 'certification_expiring',
                 data: {
