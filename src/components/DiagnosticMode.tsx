@@ -21,7 +21,30 @@ export function DiagnosticMode() {
   const [isRunning, setIsRunning] = useState(false);
   const [tapCount, setTapCount] = useState(0);
   const [lastTapTime, setLastTapTime] = useState(0);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const { user } = useAuth();
+
+  // Check if user is super_admin
+  useEffect(() => {
+    const checkSuperAdmin = async () => {
+      if (!user) {
+        setIsSuperAdmin(false);
+        return;
+      }
+      const { data } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'super_admin' });
+      setIsSuperAdmin(data === true);
+    };
+    checkSuperAdmin();
+  }, [user]);
+
+  // Function to attempt opening diagnostic (checks super_admin)
+  const tryOpenDiagnostic = async () => {
+    if (!user) return;
+    const { data } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'super_admin' });
+    if (data === true) {
+      setIsOpen(true);
+    }
+  };
 
   // Listen for passphrase typed anywhere (desktop)
   useEffect(() => {
@@ -34,14 +57,14 @@ export function DiagnosticMode() {
       setInputBuffer(newBuffer);
       
       if (newBuffer === SECRET_PASSPHRASE) {
-        setIsOpen(true);
+        tryOpenDiagnostic();
         setInputBuffer('');
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [inputBuffer]);
+  }, [inputBuffer, user]);
 
   // Listen for 5 rapid taps anywhere (mobile) - must be within 500ms between taps
   useEffect(() => {
@@ -51,7 +74,7 @@ export function DiagnosticMode() {
         const newCount = tapCount + 1;
         setTapCount(newCount);
         if (newCount >= 5) {
-          setIsOpen(true);
+          tryOpenDiagnostic();
           setTapCount(0);
         }
       } else {
@@ -65,7 +88,7 @@ export function DiagnosticMode() {
       window.addEventListener('touchstart', handleTap);
       return () => window.removeEventListener('touchstart', handleTap);
     }
-  }, [tapCount, lastTapTime]);
+  }, [tapCount, lastTapTime, user]);
 
   // Clear buffer after 2 seconds of no input
   useEffect(() => {
