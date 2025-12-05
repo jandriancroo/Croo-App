@@ -26,6 +26,8 @@ import { compressImage } from "@/utils/imageCompression";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { DrawerCountForm, DrawerCountData } from "@/components/logbook/DrawerCountForm";
 import { DrawerCountEntry, parseDrawerCountData } from "@/components/logbook/DrawerCountEntry";
+import { SafeCountForm, SafeCountData } from "@/components/logbook/SafeCountForm";
+import { SafeCountEntry, parseSafeCountData } from "@/components/logbook/SafeCountEntry";
 
 export default function LogBook() {
   const { user } = useAuth();
@@ -366,6 +368,7 @@ export default function LogBook() {
             {(() => {
               const currentCategoryName = categories.find((c: any) => c.id === selectedCategory)?.name?.toLowerCase();
               const isDrawerCount = currentCategoryName === 'drawer count';
+              const isSafeCount = currentCategoryName === 'safe count';
               
               if (isDrawerCount) {
                 return (
@@ -471,6 +474,101 @@ export default function LogBook() {
                       existingData={entry?.logbook_entry_values?.[0]?.value_text 
                         ? JSON.parse(entry.logbook_entry_values[0].value_text) 
                         : null}
+                    />
+                  </div>
+                );
+              }
+
+              if (isSafeCount) {
+                return (
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <h2 className="text-lg font-semibold">Safe Count</h2>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                            <CalendarIcon className="h-4 w-4 mr-2" />
+                            <span className="text-xs sm:text-sm">{format(selectedDate, 'PPP')}</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={(date) => date && setSelectedDate(date)}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    {entry && (
+                      <p className="text-xs text-muted-foreground">
+                        Last entry by {entry.profiles?.full_name} at {format(new Date(entry.created_at), 'PPp')}
+                      </p>
+                    )}
+                    <SafeCountForm
+                      key={`${selectedDate.toISOString().split('T')[0]}`}
+                      onSave={async (data: SafeCountData) => {
+                        try {
+                          const dateStr = selectedDate.toISOString().split('T')[0];
+                          
+                          // Ensure a field exists for safe count data
+                          let fieldId = fields[0]?.id;
+                          
+                          if (!fieldId) {
+                            const { data: newField, error: fieldError } = await supabase
+                              .from('logbook_fields')
+                              .insert({
+                                category_id: selectedCategory,
+                                field_name: 'safe_data',
+                                field_type: 'text',
+                                display_order: 0,
+                                is_required: false,
+                              })
+                              .select()
+                              .single();
+                            
+                            if (fieldError) throw fieldError;
+                            fieldId = newField.id;
+                            queryClient.invalidateQueries({ queryKey: ['logbook-fields', selectedCategory] });
+                          }
+                          
+                          // Create entry
+                          const { data: entryData, error: entryError } = await supabase
+                            .from('logbook_entries')
+                            .insert({
+                              category_id: selectedCategory,
+                              entry_date: dateStr,
+                              created_by: user!.id,
+                              location_id: currentLocation?.id,
+                            })
+                            .select()
+                            .single();
+
+                          if (entryError) throw entryError;
+
+                          // Store safe count data as JSON
+                          const { error: valuesError } = await supabase
+                            .from('logbook_entry_values')
+                            .insert({
+                              entry_id: entryData.id,
+                              field_id: fieldId,
+                              value_text: JSON.stringify(data),
+                            });
+
+                          if (valuesError) throw valuesError;
+
+                          toast({ title: "Safe count saved successfully" });
+                          queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
+                          queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                        } catch (error: any) {
+                          toast({
+                            title: "Error saving safe count",
+                            description: error.message,
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      isSaving={saveEntryMutation.isPending}
                     />
                   </div>
                 );
@@ -671,6 +769,18 @@ export default function LogBook() {
                                       <DrawerCountEntry 
                                         key={val.id} 
                                         data={drawerData} 
+                                        createdAt={entry.created_at} 
+                                      />
+                                    );
+                                  }
+                                  
+                                  // Check if this is safe count data
+                                  const safeData = val.value_text ? parseSafeCountData(val.value_text) : null;
+                                  if (safeData) {
+                                    return (
+                                      <SafeCountEntry 
+                                        key={val.id} 
+                                        data={safeData} 
                                         createdAt={entry.created_at} 
                                       />
                                     );
