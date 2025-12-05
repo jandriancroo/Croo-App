@@ -4,7 +4,11 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
-import { Check, X, Loader2, Bell, Database, Wifi, User, MapPin, FlaskConical } from 'lucide-react';
+import { Check, X, Loader2, Bell, Database, Wifi, User, MapPin } from 'lucide-react';
+
+// Export a hook for other components to open diagnostic mode
+let openDiagnosticFn: (() => void) | null = null;
+export const openDiagnosticMode = () => openDiagnosticFn?.();
 
 const SECRET_PASSPHRASE = 'ellie';
 
@@ -21,6 +25,12 @@ export function DiagnosticMode() {
   const [isRunning, setIsRunning] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const { user } = useAuth();
+
+  // Register the open function for external use
+  useEffect(() => {
+    openDiagnosticFn = () => setIsOpen(true);
+    return () => { openDiagnosticFn = null; };
+  }, []);
 
   // Check if user is super_admin
   useEffect(() => {
@@ -196,19 +206,7 @@ export function DiagnosticMode() {
   };
 
   return (
-    <>
-      {/* Floating diagnostic button for super admins */}
-      {isSuperAdmin && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-20 right-4 z-50 p-2 rounded-full bg-muted/80 backdrop-blur-sm border border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors md:bottom-4"
-          title="Diagnostic Mode"
-        >
-          <FlaskConical className="w-5 h-5" />
-        </button>
-      )}
-
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -273,6 +271,5 @@ export function DiagnosticMode() {
           </div>
         </DialogContent>
       </Dialog>
-    </>
   );
 }

@@ -2,12 +2,12 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useState } from 'react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { useState, useEffect } from 'react';
 import crooLogo from '@/assets/croo-logo.png';
 import { LocationSelector } from '@/components/LocationSelector';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { openDiagnosticMode } from '@/components/DiagnosticMode';
 
 interface LayoutProps {
   children: ReactNode;
@@ -26,9 +27,7 @@ export const Layout = ({
   // Setup push notifications only in Layout (after auth)
   usePushNotifications();
   
-  const {
-    signOut
-  } = useAuth();
+  const { signOut, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -40,6 +39,20 @@ export const Layout = ({
   const { unreadCount } = useUnreadMessages();
   const { isChecklistOnlyLocation, currentLocation } = useAppLocation();
   const canAccessLogs = isAdmin || isManager;
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+
+  // Check if user is super_admin
+  useEffect(() => {
+    const checkSuperAdmin = async () => {
+      if (!user?.id) {
+        setIsSuperAdmin(false);
+        return;
+      }
+      const { data } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'super_admin' });
+      setIsSuperAdmin(data === true);
+    };
+    checkSuperAdmin();
+  }, [user?.id]);
 
   // Fetch organization logo based on current location
   const { data: orgLogo } = useQuery({
@@ -264,6 +277,15 @@ export const Layout = ({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {isSuperAdmin && (
+                    <>
+                      <DropdownMenuItem onClick={() => openDiagnosticMode()} className="gap-2 cursor-pointer">
+                        <FlaskConical className="h-4 w-4" />
+                        Diagnostics
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
                   <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
                     <SettingsIcon className="h-4 w-4" />
                     Preferences
@@ -321,6 +343,15 @@ export const Layout = ({
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <div className="grid gap-2 py-4">
+                {isSuperAdmin && (
+                  <Button variant="outline" onClick={() => {
+                    openDiagnosticMode();
+                    setMenuOpen(false);
+                  }} className="justify-start gap-3 h-12">
+                    <FlaskConical className="h-5 w-5" />
+                    <span className="text-base">Diagnostics</span>
+                  </Button>
+                )}
                 {mobileMenuItems.map(item => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
