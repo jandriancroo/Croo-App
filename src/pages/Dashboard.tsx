@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown, Banknote, Sparkles, Check } from 'lucide-react';
+import { ChefHat, ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -14,7 +14,6 @@ import { useQuery } from '@tanstack/react-query';
 import { LogBookAlerts } from '@/components/dashboard/LogBookAlerts';
 import { CertificationAlerts } from '@/components/dashboard/CertificationAlerts';
 import { ChecklistCompletionAlerts } from '@/components/dashboard/ChecklistCompletionAlerts';
-import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
 import { LocationSelector } from '@/components/LocationSelector';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -24,6 +23,20 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatTime12Hour } from '@/lib/utils';
 import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+
+interface CateringOrder {
+  id: string;
+  order_number: string | null;
+  customer_name: string;
+  pickup_date: string;
+  pickup_time: string;
+  headcount: number | null;
+  items: { quantity: number; item: string; notes?: string }[];
+  notes: string | null;
+  source_url: string | null;
+  status: string;
+}
 interface Checklist {
   id: string;
   title: string;
@@ -60,6 +73,8 @@ export default function Dashboard() {
   }>>({});
   const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
+  const [todaysCateringOrders, setTodaysCateringOrders] = useState<CateringOrder[]>([]);
+  const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
   const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -78,8 +93,9 @@ export default function Dashboard() {
   const [userName, setUserName] = useState<string>('');
   const navigate = useNavigate();
   const {
-    isAdmin
+    isAdmin, isManager, isShiftManager, isGeneralManager
   } = useUserRole();
+  const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, isChecklistOnlyLocation } = useAppLocation();
   const { animationAmount } = useCrooCashAnimation();
   const isMobile = useIsMobile();
@@ -223,9 +239,69 @@ export default function Dashboard() {
   
   // Calculate monthly totals
   const monthlyTotal = simulatedMonthlyData.reduce((sum, day) => sum + day.sales, 0);
+
+  const fetchTodaysCateringOrders = async () => {
+    if (!currentLocation?.id) return;
+    try {
+      const now = new Date();
+      const pstDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+      const today = format(pstDate, "yyyy-MM-dd");
+      
+      const { data, error } = await supabase
+        .from("catering_orders")
+        .select("*")
+        .eq("location_id", currentLocation.id)
+        .eq("pickup_date", today)
+        .eq("status", "pending")
+        .order("pickup_time", { ascending: true });
+
+      if (error) throw error;
+      setTodaysCateringOrders((data || []).map(order => ({
+        ...order,
+        items: order.items as unknown as { quantity: number; item: string; notes?: string }[]
+      })) as CateringOrder[]);
+    } catch (error) {
+      console.error("Error fetching today's catering orders:", error);
+    }
+  };
+
+  const handleCompleteCateringOrder = async (order: CateringOrder) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("catering_orders")
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          completed_by: user.id,
+        })
+        .eq("id", order.id);
+
+      if (error) throw error;
+
+      toast.success("Catering order completed!");
+      setSelectedCateringOrder(null);
+      fetchTodaysCateringOrders();
+    } catch (error) {
+      console.error("Error completing order:", error);
+      toast.error("Failed to complete order");
+    }
+  };
+
+  const formatCateringTime = (time: string) => {
+    const [hours, minutes] = time.split(":");
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
   useEffect(() => {
     if (currentLocation?.id) {
       fetchData();
+      fetchTodaysCateringOrders();
     }
     fetchCrooCashBalance();
     fetchUserName();
@@ -485,7 +561,6 @@ export default function Dashboard() {
 
   const standardSections = {
     'alerts': <div className="space-y-6">
-        <CateringOrdersAlert />
         <ChecklistCompletionAlerts />
         <LogBookAlerts />
         <CertificationAlerts />
@@ -607,6 +682,43 @@ export default function Dashboard() {
     'checklists-grid': <div>
         <h3 className="text-xl font-semibold mb-4">Tasks</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {/* Catering Order Cards - Show first */}
+          {todaysCateringOrders.map(order => (
+            <Card key={`catering-${order.id}`} className="hover:shadow-lg transition-shadow overflow-hidden p-0 border-orange-500/50">
+              <CardHeader className="py-2 px-3 bg-orange-500/10">
+                <div className="flex items-center gap-2">
+                  <ChefHat className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                  <CardTitle className="text-sm font-semibold flex-1 truncate">{order.customer_name}</CardTitle>
+                  <Badge className="text-[10px] px-1.5 py-0 flex-shrink-0 bg-orange-500 text-white">
+                    catering
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="py-2 px-3 pt-0">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    <span className="text-orange-500 font-medium">{formatCateringTime(order.pickup_time)}</span>
+                    {order.headcount && (
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {order.headcount}
+                      </span>
+                    )}
+                  </div>
+                  <Badge variant="outline" className="text-[10px]">{order.items.length} items</Badge>
+                </div>
+              </CardContent>
+              <Button 
+                className="w-full h-9 text-xs rounded-none rounded-b-lg bg-orange-500 hover:bg-orange-600 text-white" 
+                onClick={() => setSelectedCateringOrder(order)}
+              >
+                View Order
+              </Button>
+            </Card>
+          ))}
+          
+          {/* Checklist Cards */}
           {checklists.map(checklist => {
           const {
             expected,
@@ -654,6 +766,92 @@ export default function Dashboard() {
                 </Card>;
         })}
         </div>
+
+        {/* Catering Order Details Dialog */}
+        <Dialog open={!!selectedCateringOrder} onOpenChange={() => setSelectedCateringOrder(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <ChefHat className="h-5 w-5 text-orange-500" />
+                Catering Order
+              </DialogTitle>
+            </DialogHeader>
+            {selectedCateringOrder && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Customer</span>
+                    <span className="font-medium">{selectedCateringOrder.customer_name}</span>
+                  </div>
+                  {selectedCateringOrder.order_number && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Order #</span>
+                      <span>{selectedCateringOrder.order_number}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Pickup</span>
+                    <span className="text-orange-500 font-medium">
+                      Today at {formatCateringTime(selectedCateringOrder.pickup_time)}
+                    </span>
+                  </div>
+                  {selectedCateringOrder.headcount && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Headcount</span>
+                      <span>{selectedCateringOrder.headcount}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-2">Items</h4>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {selectedCateringOrder.items.map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-3 text-sm">
+                        <span className="font-medium min-w-[24px]">{item.quantity}x</span>
+                        <div>
+                          <span>{item.item}</span>
+                          {item.notes && (
+                            <p className="text-xs text-muted-foreground">{item.notes}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedCateringOrder.notes && (
+                  <div className="border-t pt-4">
+                    <h4 className="font-medium mb-1">Notes</h4>
+                    <p className="text-sm text-muted-foreground">{selectedCateringOrder.notes}</p>
+                  </div>
+                )}
+
+                {selectedCateringOrder.source_url && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => window.open(selectedCateringOrder.source_url!, "_blank")}
+                  >
+                    View Original
+                  </Button>
+                )}
+
+                {canCompleteCatering && (
+                  <Button
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                    size="lg"
+                    onClick={() => handleCompleteCateringOrder(selectedCateringOrder)}
+                  >
+                    <Check className="h-5 w-5 mr-2" />
+                    Mark Completed
+                  </Button>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
   };
 
