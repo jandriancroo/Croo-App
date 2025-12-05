@@ -132,6 +132,85 @@ export type Database = {
           },
         ]
       }
+      catering_orders: {
+        Row: {
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          created_by: string
+          customer_name: string
+          headcount: number | null
+          id: string
+          items: Json
+          location_id: string | null
+          notes: string | null
+          order_number: string | null
+          pickup_date: string
+          pickup_time: string
+          source_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by: string
+          customer_name: string
+          headcount?: number | null
+          id?: string
+          items?: Json
+          location_id?: string | null
+          notes?: string | null
+          order_number?: string | null
+          pickup_date: string
+          pickup_time: string
+          source_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          created_by?: string
+          customer_name?: string
+          headcount?: number | null
+          id?: string
+          items?: Json
+          location_id?: string | null
+          notes?: string | null
+          order_number?: string | null
+          pickup_date?: string
+          pickup_time?: string
+          source_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catering_orders_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catering_orders_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catering_orders_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       certifications: {
         Row: {
           approved_at: string | null

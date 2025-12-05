@@ -28,6 +28,7 @@ import { DrawerCountForm, DrawerCountData } from "@/components/logbook/DrawerCou
 import { DrawerCountEntry, parseDrawerCountData } from "@/components/logbook/DrawerCountEntry";
 import { SafeCountForm, SafeCountData } from "@/components/logbook/SafeCountForm";
 import { SafeCountEntry, parseSafeCountData } from "@/components/logbook/SafeCountEntry";
+import { CateringOrdersSection } from "@/components/logbook/CateringOrdersSection";
 
 export default function LogBook() {
   const { user } = useAuth();
@@ -413,6 +414,7 @@ export default function LogBook() {
           <TabsList>
             <TabsTrigger value="entry">New Entry</TabsTrigger>
             <TabsTrigger value="search">Search Entries</TabsTrigger>
+            <TabsTrigger value="catering">Catering Orders</TabsTrigger>
           </TabsList>
 
           <TabsContent value="entry" className="space-y-4">
@@ -1037,6 +1039,10 @@ export default function LogBook() {
                 <p className="text-center text-muted-foreground py-8">No entries found</p>
               )}
             </div>
+          </TabsContent>
+
+          <TabsContent value="catering">
+            <CateringOrdersSection />
           </TabsContent>
         </Tabs>
 

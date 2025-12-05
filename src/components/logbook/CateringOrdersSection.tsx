@@ -1,0 +1,417 @@
+import { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useLocation } from "@/hooks/useLocation";
+import { toast } from "sonner";
+import { Upload, ChefHat, Clock, Users, Check, Loader2, Trash2, Eye } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { compressImage } from "@/utils/imageCompression";
+import { useUserRole } from "@/hooks/useUserRole";
+
+interface CateringOrder {
+  id: string;
+  order_number: string | null;
+  customer_name: string;
+  pickup_date: string;
+  pickup_time: string;
+  headcount: number | null;
+  items: { quantity: number; item: string; notes?: string }[];
+  notes: string | null;
+  source_url: string | null;
+  status: string;
+  completed_at: string | null;
+  completed_by: string | null;
+  created_at: string;
+}
+
+export function CateringOrdersSection() {
+  const { currentLocation } = useLocation();
+  const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
+  const [orders, setOrders] = useState<CateringOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<CateringOrder | null>(null);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+
+  const canComplete = isShiftManager || isGeneralManager || isManager || isAdmin;
+
+  useEffect(() => {
+    if (currentLocation?.id) {
+      fetchOrders();
+    }
+  }, [currentLocation?.id]);
+
+  const fetchOrders = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("catering_orders")
+        .select("*")
+        .eq("location_id", currentLocation?.id)
+        .order("pickup_date", { ascending: true })
+        .order("pickup_time", { ascending: true });
+
+      if (error) throw error;
+      setOrders((data || []).map(order => ({
+        ...order,
+        items: order.items as unknown as { quantity: number; item: string; notes?: string }[]
+      })) as CateringOrder[]);
+    } catch (error) {
+      console.error("Error fetching catering orders:", error);
+      toast.error("Failed to load catering orders");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentLocation?.id) return;
+
+    setUploading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Upload file to storage
+      let fileToUpload = file;
+      if (file.type.startsWith("image/")) {
+        fileToUpload = await compressImage(file, 1200, 1200, 0.85);
+      }
+
+      const fileExt = file.name.split(".").pop();
+      const filePath = `catering-orders/${currentLocation.id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("checklist-images")
+        .upload(filePath, fileToUpload);
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("checklist-images")
+        .getPublicUrl(filePath);
+
+      // Parse with AI
+      toast.info("Parsing order with AI...");
+      
+      const { data: parseResult, error: parseError } = await supabase.functions.invoke(
+        "parse-catering-order",
+        { body: { imageUrl: urlData.publicUrl } }
+      );
+
+      if (parseError) throw parseError;
+      if (!parseResult.success) throw new Error(parseResult.error);
+
+      const orderData = parseResult.data;
+
+      // Insert order
+      const { error: insertError } = await supabase
+        .from("catering_orders")
+        .insert({
+          location_id: currentLocation.id,
+          order_number: orderData.order_number || null,
+          customer_name: orderData.customer_name,
+          pickup_date: orderData.pickup_date,
+          pickup_time: orderData.pickup_time,
+          headcount: orderData.headcount || null,
+          items: orderData.items,
+          notes: orderData.notes || null,
+          source_url: urlData.publicUrl,
+          created_by: user.id,
+        });
+
+      if (insertError) throw insertError;
+
+      toast.success("Catering order added!");
+      setShowUploadDialog(false);
+      fetchOrders();
+    } catch (error) {
+      console.error("Error uploading catering order:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to process order");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleComplete = async (order: CateringOrder) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("catering_orders")
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          completed_by: user.id,
+        })
+        .eq("id", order.id);
+
+      if (error) throw error;
+
+      toast.success("Order marked as completed!");
+      setSelectedOrder(null);
+      fetchOrders();
+    } catch (error) {
+      console.error("Error completing order:", error);
+      toast.error("Failed to complete order");
+    }
+  };
+
+  const handleDelete = async (orderId: string) => {
+    if (!confirm("Delete this catering order?")) return;
+
+    try {
+      const { error } = await supabase
+        .from("catering_orders")
+        .delete()
+        .eq("id", orderId);
+
+      if (error) throw error;
+      toast.success("Order deleted");
+      fetchOrders();
+    } catch (error) {
+      console.error("Error deleting order:", error);
+      toast.error("Failed to delete order");
+    }
+  };
+
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(":");
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  const pendingOrders = orders.filter(o => o.status === "pending");
+  const completedOrders = orders.filter(o => o.status === "completed");
+
+  if (loading) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center justify-center h-32">
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </Card>
+    );
+  }
+
+  return (
+    <>
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <ChefHat className="h-5 w-5 text-primary" />
+            <h3 className="font-semibold">Catering Orders</h3>
+          </div>
+          <Button size="sm" onClick={() => setShowUploadDialog(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Order
+          </Button>
+        </div>
+
+        {pendingOrders.length === 0 && completedOrders.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">
+            No catering orders. Upload a PDF or screenshot to get started.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {pendingOrders.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-muted-foreground">Upcoming</h4>
+                {pendingOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="p-3 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
+                    onClick={() => setSelectedOrder(order)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{order.customer_name}</p>
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                          <span>{format(parseISO(order.pickup_date), "MMM d")}</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {formatTime(order.pickup_time)}
+                          </span>
+                          {order.headcount && (
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              {order.headcount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Badge variant="outline">{order.items.length} items</Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {completedOrders.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-muted-foreground">Completed</h4>
+                {completedOrders.slice(0, 3).map((order) => (
+                  <div
+                    key={order.id}
+                    className="p-3 border rounded-lg opacity-60 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => setSelectedOrder(order)}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Check className="h-4 w-4 text-green-500" />
+                        <p className="font-medium">{order.customer_name}</p>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {format(parseISO(order.pickup_date), "MMM d")}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
+
+      {/* Upload Dialog */}
+      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Catering Order</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Upload a PDF or screenshot of the catering order. AI will automatically extract the details.
+            </p>
+            <Input
+              type="file"
+              accept="image/*,.pdf"
+              onChange={handleFileUpload}
+              disabled={uploading}
+            />
+            {uploading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Processing order...
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Order Details Dialog */}
+      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ChefHat className="h-5 w-5" />
+              Catering Order
+            </DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Customer</span>
+                  <span className="font-medium">{selectedOrder.customer_name}</span>
+                </div>
+                {selectedOrder.order_number && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Order #</span>
+                    <span>{selectedOrder.order_number}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Pickup</span>
+                  <span>
+                    {format(parseISO(selectedOrder.pickup_date), "EEEE, MMM d")} at{" "}
+                    {formatTime(selectedOrder.pickup_time)}
+                  </span>
+                </div>
+                {selectedOrder.headcount && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Headcount</span>
+                    <span>{selectedOrder.headcount}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-2">Items</h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {selectedOrder.items.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-3 text-sm">
+                      <span className="font-medium min-w-[24px]">{item.quantity}x</span>
+                      <div>
+                        <span>{item.item}</span>
+                        {item.notes && (
+                          <p className="text-xs text-muted-foreground">{item.notes}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedOrder.notes && (
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-1">Notes</h4>
+                  <p className="text-sm text-muted-foreground">{selectedOrder.notes}</p>
+                </div>
+              )}
+
+              {selectedOrder.source_url && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => window.open(selectedOrder.source_url!, "_blank")}
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Original
+                </Button>
+              )}
+
+              <div className="flex gap-2 pt-2 border-t">
+                {selectedOrder.status === "pending" && canComplete && (
+                  <Button
+                    className="flex-1"
+                    onClick={() => handleComplete(selectedOrder)}
+                  >
+                    <Check className="h-4 w-4 mr-2" />
+                    Mark Completed
+                  </Button>
+                )}
+                {selectedOrder.status === "completed" && (
+                  <Badge variant="secondary" className="flex-1 justify-center py-2">
+                    <Check className="h-4 w-4 mr-2" />
+                    Completed
+                  </Badge>
+                )}
+                {isAdmin && (
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => {
+                      handleDelete(selectedOrder.id);
+                      setSelectedOrder(null);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}

@@ -14,6 +14,7 @@ import { useQuery } from '@tanstack/react-query';
 import { LogBookAlerts } from '@/components/dashboard/LogBookAlerts';
 import { CertificationAlerts } from '@/components/dashboard/CertificationAlerts';
 import { ChecklistCompletionAlerts } from '@/components/dashboard/ChecklistCompletionAlerts';
+import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
 import { LocationSelector } from '@/components/LocationSelector';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -484,6 +485,7 @@ export default function Dashboard() {
 
   const standardSections = {
     'alerts': <div className="space-y-6">
+        <CateringOrdersAlert />
         <ChecklistCompletionAlerts />
         <LogBookAlerts />
         <CertificationAlerts />
