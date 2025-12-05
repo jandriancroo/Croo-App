@@ -689,29 +689,22 @@ export default function Dashboard() {
             return (
               <Card 
                 key={`catering-${order.id}`} 
-                className={`hover:shadow-lg transition-shadow overflow-hidden p-0 border-2 ${
-                  isCompleted ? "border-green-500/50 opacity-75" : "border-orange-500"
+                className={`hover:shadow-lg transition-shadow overflow-hidden p-0 ${
+                  isCompleted ? "opacity-75" : ""
                 }`}
               >
-                {/* Prominent Catering Label */}
-                <div className={`px-3 py-1 text-[10px] font-bold tracking-wider uppercase ${
-                  isCompleted ? "bg-green-500 text-white" : "bg-orange-500 text-white"
-                }`}>
-                  <div className="flex items-center gap-1.5">
-                    <ChefHat className="h-3 w-3" />
-                    {isCompleted ? "Catering Complete" : "Catering Order"}
-                  </div>
-                </div>
-                <CardHeader className={`py-2 px-3 ${isCompleted ? "bg-green-500/10" : "bg-orange-500/10"}`}>
+                <CardHeader className="py-2 px-3">
                   <div className="flex items-center gap-2">
-                    {isCompleted && (
+                    {isCompleted ? (
                       <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    ) : (
+                      <ChefHat className="h-4 w-4 text-orange-500 flex-shrink-0" />
                     )}
                     <CardTitle className="text-sm font-semibold flex-1 truncate">{order.customer_name}</CardTitle>
                     <Badge className={`text-[10px] px-1.5 py-0 flex-shrink-0 ${
                       isCompleted ? "bg-green-500 text-white" : "bg-orange-500 text-white"
                     }`}>
-                      {order.items.length} items
+                      catering
                     </Badge>
                   </div>
                 </CardHeader>
