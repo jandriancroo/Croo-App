@@ -379,6 +379,10 @@ function formatNotificationContent(type: string | undefined, title: string, body
       return { title: `📝 ${title}`, body };
     case 'catering_order':
       return { title: `🍽️ ${title}`, body };
+    case 'drawer_count':
+      return { title: `💵 ${title}`, body };
+    case 'safe_count':
+      return { title: `🔐 ${title}`, body };
     default:
       return { title, body };
   }
