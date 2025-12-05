@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 interface SafeCountData {
   shift: 'AM' | 'PM';
   counts: Record<string, number>;
+  rolls?: Record<string, number>;
   totalSafe: number;
   difference: number;
   adjustmentSuggestions: { denomination: string; count: number; value: number; action: 'add' | 'remove' }[];
@@ -80,18 +81,37 @@ export function SafeCountEntry({ data, createdAt }: SafeCountEntryProps) {
                 Entered at {format(new Date(createdAt), 'h:mm a')} on {format(new Date(createdAt), 'MMM d, yyyy')}
               </div>
               
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="font-medium">Denomination</div>
-                <div className="font-medium text-right">Count</div>
-                {Object.entries(data.counts || {}).map(([denom, count]) => (
-                  count > 0 && (
-                    <>
-                      <div key={`${denom}-label`} className="text-muted-foreground">{denom}</div>
-                      <div key={`${denom}-count`} className="text-right">{count}</div>
-                    </>
-                  )
-                ))}
+              {/* Loose counts */}
+              <div className="space-y-2">
+                <div className="font-medium text-sm">Loose Count</div>
+                <div className="grid grid-cols-2 gap-1 text-sm">
+                  {Object.entries(data.counts || {}).map(([denom, count]) => (
+                    count > 0 && (
+                      <div key={denom} className="contents">
+                        <div className="text-muted-foreground">{denom}</div>
+                        <div className="text-right">{count}</div>
+                      </div>
+                    )
+                  ))}
+                </div>
               </div>
+
+              {/* Rolls - only show if there are any */}
+              {data.rolls && Object.values(data.rolls).some(v => v > 0) && (
+                <div className="space-y-2">
+                  <div className="font-medium text-sm">Coin Rolls</div>
+                  <div className="grid grid-cols-2 gap-1 text-sm">
+                    {Object.entries(data.rolls).map(([denom, count]) => (
+                      count > 0 && (
+                        <div key={`roll-${denom}`} className="contents">
+                          <div className="text-muted-foreground">{denom} Rolls</div>
+                          <div className="text-right">{count}</div>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </div>
+              )}
               
               <div className="border-t pt-3 space-y-2">
                 <div className="flex justify-between items-center">

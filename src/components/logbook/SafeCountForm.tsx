@@ -14,13 +14,15 @@ interface Denomination {
   value: number; // in cents
   pluralName: string;
   icon: string;
+  rollCount?: number; // coins per roll (only for coins)
+  rollValue?: number; // value of one roll in cents
 }
 
 const DENOMINATIONS: Denomination[] = [
-  { name: "Penny", value: 1, pluralName: "Pennies", icon: "¢" },
-  { name: "Nickel", value: 5, pluralName: "Nickels", icon: "5¢" },
-  { name: "Dime", value: 10, pluralName: "Dimes", icon: "10¢" },
-  { name: "Quarter", value: 25, pluralName: "Quarters", icon: "25¢" },
+  { name: "Penny", value: 1, pluralName: "Pennies", icon: "¢", rollCount: 50, rollValue: 50 },
+  { name: "Nickel", value: 5, pluralName: "Nickels", icon: "5¢", rollCount: 40, rollValue: 200 },
+  { name: "Dime", value: 10, pluralName: "Dimes", icon: "10¢", rollCount: 50, rollValue: 500 },
+  { name: "Quarter", value: 25, pluralName: "Quarters", icon: "25¢", rollCount: 40, rollValue: 1000 },
   { name: "$1 Bill", value: 100, pluralName: "$1 Bills", icon: "$1" },
   { name: "$5 Bill", value: 500, pluralName: "$5 Bills", icon: "$5" },
   { name: "$10 Bill", value: 1000, pluralName: "$10 Bills", icon: "$10" },
@@ -28,6 +30,9 @@ const DENOMINATIONS: Denomination[] = [
   { name: "$50 Bill", value: 5000, pluralName: "$50 Bills", icon: "$50" },
   { name: "$100 Bill", value: 10000, pluralName: "$100 Bills", icon: "$100" },
 ];
+
+const COINS = DENOMINATIONS.filter(d => d.rollCount);
+const BILLS = DENOMINATIONS.filter(d => !d.rollCount);
 
 interface SafeCountFormProps {
   onSave: (data: SafeCountData) => void;
@@ -37,6 +42,7 @@ interface SafeCountFormProps {
 export interface SafeCountData {
   shift: 'AM' | 'PM';
   counts: Record<string, number>;
+  rolls: Record<string, number>;
   totalSafe: number;
   difference: number;
   adjustmentSuggestions: { denomination: string; count: number; value: number; action: 'add' | 'remove' }[];
@@ -54,14 +60,24 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
   const [counts, setCounts] = useState<Record<string, number>>(
     DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d.name]: 0 }), {})
   );
+  const [rolls, setRolls] = useState<Record<string, number>>(
+    COINS.reduce((acc, d) => ({ ...acc, [d.name]: 0 }), {})
+  );
   const [safeSet, setSafeSet] = useState(false);
 
   // Calculate totals
   const calculations = useMemo(() => {
-    const totalCents = DENOMINATIONS.reduce((sum, d) => {
+    // Calculate loose coins/bills
+    const looseCents = DENOMINATIONS.reduce((sum, d) => {
       return sum + (counts[d.name] || 0) * d.value;
     }, 0);
 
+    // Calculate rolled coins
+    const rollCents = COINS.reduce((sum, d) => {
+      return sum + (rolls[d.name] || 0) * (d.rollValue || 0);
+    }, 0);
+
+    const totalCents = looseCents + rollCents;
     const totalDollars = totalCents / 100;
     const targetCents = SAFE_TARGET * 100;
     const differenceCents = totalCents - targetCents;
@@ -74,8 +90,8 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
       let remaining = Math.abs(differenceCents);
       const action: 'add' | 'remove' = differenceCents > 0 ? 'remove' : 'add';
       
-      // Go from highest to lowest denomination
-      const sortedDenoms = [...DENOMINATIONS].reverse();
+      // Go from highest to lowest denomination (bills only for suggestions)
+      const sortedDenoms = [...BILLS].reverse();
       
       for (const denom of sortedDenoms) {
         if (remaining <= 0) break;
@@ -119,11 +135,17 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
       isOver: differenceCents > 0,
       isUnder: differenceCents < 0,
     };
-  }, [counts]);
+  }, [counts, rolls]);
 
   const handleCountChange = (denomName: string, value: string) => {
     const numValue = parseInt(value) || 0;
     setCounts(prev => ({ ...prev, [denomName]: Math.max(0, numValue) }));
+    setSafeSet(false);
+  };
+
+  const handleRollChange = (denomName: string, value: string) => {
+    const numValue = parseInt(value) || 0;
+    setRolls(prev => ({ ...prev, [denomName]: Math.max(0, numValue) }));
     setSafeSet(false);
   };
 
@@ -137,6 +159,7 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
     onSave({
       shift,
       counts,
+      rolls,
       totalSafe: calculations.totalDollars,
       difference: calculations.difference,
       adjustmentSuggestions: calculations.adjustmentSuggestions,
@@ -177,14 +200,58 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
         </Button>
       </div>
 
-      {/* Denomination Inputs */}
+      {/* Coins Section with Rolls */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Count Safe Contents</CardTitle>
+          <CardTitle className="text-base">Coins</CardTitle>
+          <p className="text-xs text-muted-foreground">Count loose coins and rolls separately</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Header row */}
+          <div className="grid grid-cols-[auto_1fr_1fr] gap-2 text-xs text-muted-foreground font-medium px-1">
+            <div className="w-12"></div>
+            <div className="text-center">Loose</div>
+            <div className="text-center">Rolls</div>
+          </div>
+          
+          {COINS.map((denom) => (
+            <div key={denom.name} className="grid grid-cols-[auto_1fr_1fr] gap-2 items-center">
+              <Badge variant="secondary" className="w-12 justify-center text-xs">
+                {denom.icon}
+              </Badge>
+              <Input
+                type="number"
+                min="0"
+                value={counts[denom.name] || ''}
+                onChange={(e) => handleCountChange(denom.name, e.target.value)}
+                placeholder="0"
+              />
+              <div className="relative">
+                <Input
+                  type="number"
+                  min="0"
+                  value={rolls[denom.name] || ''}
+                  onChange={(e) => handleRollChange(denom.name, e.target.value)}
+                  placeholder="0"
+                  className="pr-16"
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                  {formatCurrency((denom.rollValue || 0) / 100)}/ea
+                </span>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      {/* Bills Section */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Bills</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            {DENOMINATIONS.map((denom) => (
+            {BILLS.map((denom) => (
               <div key={denom.name} className="flex items-center gap-2">
                 <Badge variant="secondary" className="w-12 justify-center text-xs">
                   {denom.icon}
@@ -200,15 +267,18 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
               </div>
             ))}
           </div>
+        </CardContent>
+      </Card>
 
-          <div className="border-t pt-3 mt-3">
-            <div className="flex justify-between items-center text-lg font-semibold">
-              <span>Safe Total:</span>
-              <span>{formatCurrency(calculations.totalDollars)}</span>
-            </div>
-            <div className="text-sm text-muted-foreground text-right">
-              Target: {formatCurrency(SAFE_TARGET)}
-            </div>
+      {/* Totals Card */}
+      <Card>
+        <CardContent className="pt-4">
+          <div className="flex justify-between items-center text-lg font-semibold">
+            <span>Safe Total:</span>
+            <span>{formatCurrency(calculations.totalDollars)}</span>
+          </div>
+          <div className="text-sm text-muted-foreground text-right">
+            Target: {formatCurrency(SAFE_TARGET)}
           </div>
         </CardContent>
       </Card>
