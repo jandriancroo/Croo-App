@@ -14,6 +14,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { DndContext, DragEndEvent, closestCenter, useSensor, useSensors, PointerSensor, TouchSensor } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
 
 interface ManageCategoriesDialogProps {
   open: boolean;
@@ -147,6 +148,7 @@ function SortableCategoryItem({ category, onDelete, onToggleAlert, onToggleActiv
 export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { currentLocation } = useAppLocation();
   const [newCategoryName, setNewCategoryName] = useState("");
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingFields, setEditingFields] = useState<any[]>([]);
@@ -167,20 +169,22 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
   );
 
   const { data: categories = [] } = useQuery({
-    queryKey: ['logbook-categories-manage'],
+    queryKey: ['logbook-categories-manage', currentLocation?.id],
     queryFn: async () => {
+      if (!currentLocation) return [];
       const { data, error } = await supabase
         .from('logbook_categories')
         .select(`
           *,
           logbook_fields(*)
         `)
+        .eq('location_id', currentLocation.id)
         .order('display_order');
       if (error) throw error;
       setLocalCategories(data || []);
       return data;
     },
-    enabled: open,
+    enabled: open && !!currentLocation,
   });
 
   // Sync local categories with fetched data when categories change
@@ -188,6 +192,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
 
   const createCategoryMutation = useMutation({
     mutationFn: async (name: string) => {
+      if (!currentLocation) throw new Error("No location selected");
       const maxOrder = Math.max(...displayCategories.map(c => c.display_order), 0);
       const { error } = await supabase
         .from('logbook_categories')
@@ -196,6 +201,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
           display_order: maxOrder + 1,
           is_active: true,
           alert_enabled: false,
+          location_id: currentLocation.id,
         });
       if (error) throw error;
     },
