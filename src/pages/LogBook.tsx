@@ -23,6 +23,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { compressImage } from "@/utils/imageCompression";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { DrawerCountForm, DrawerCountData } from "@/components/logbook/DrawerCountForm";
+import { DrawerCountEntry, parseDrawerCountData } from "@/components/logbook/DrawerCountEntry";
 
 export default function LogBook() {
   const { user } = useAuth();
@@ -586,23 +587,37 @@ export default function LogBook() {
                                 </div>
                               </div>
                               <div className="mt-2 space-y-1">
-                                {entry.logbook_entry_values?.map((val: any) => (
-                                  <div key={val.id} className="text-sm">
-                                    {val.value_text || val.value_number || val.value_date || 
-                                      (val.attachment_url && (
-                                        <a 
-                                          href={val.attachment_url} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="text-primary hover:underline inline-flex items-center gap-1"
-                                        >
-                                          <Paperclip className="h-3 w-3" />
-                                          View attachment
-                                        </a>
-                                      ))
-                                    }
-                                  </div>
-                                ))}
+                                {entry.logbook_entry_values?.map((val: any) => {
+                                  // Check if this is drawer count data
+                                  const drawerData = val.value_text ? parseDrawerCountData(val.value_text) : null;
+                                  if (drawerData && drawerData.actualDeposit !== undefined) {
+                                    return (
+                                      <DrawerCountEntry 
+                                        key={val.id} 
+                                        data={drawerData} 
+                                        createdAt={entry.created_at} 
+                                      />
+                                    );
+                                  }
+                                  
+                                  return (
+                                    <div key={val.id} className="text-sm">
+                                      {val.value_text || val.value_number || val.value_date || 
+                                        (val.attachment_url && (
+                                          <a 
+                                            href={val.attachment_url} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-primary hover:underline inline-flex items-center gap-1"
+                                          >
+                                            <Paperclip className="h-3 w-3" />
+                                            View attachment
+                                          </a>
+                                        ))
+                                      }
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           </div>
