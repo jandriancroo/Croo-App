@@ -420,12 +420,47 @@ export default function LogBook() {
       <div className="container max-w-6xl mx-auto p-4 md:p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
           <h1 className="text-3xl font-bold">Logs</h1>
-          {isAdmin && (
-            <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>
-              <Settings className="h-4 w-4 mr-2" />
-              Manage Categories
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {isAdmin && (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={async () => {
+                    try {
+                      await supabase.functions.invoke('send-push-notification', {
+                        body: {
+                          user_ids: [user?.id],
+                          notification_type: 'drawer_count',
+                          title: `Drawer Count - ${currentLocation?.name || 'Location'}`,
+                          body: `Deposit: $462.92 | OVER $12.18`,
+                        }
+                      });
+                      await supabase.functions.invoke('send-push-notification', {
+                        body: {
+                          user_ids: [user?.id],
+                          notification_type: 'safe_count',
+                          title: `Safe Count - ${currentLocation?.name || 'Location'}`,
+                          body: `PM Safe Count Complete - $300.00 balanced`,
+                        }
+                      });
+                      toast({ title: "Test notifications sent!" });
+                    } catch (err) {
+                      console.error('Test notification error:', err);
+                      toast({ title: "Error sending test notifications", variant: "destructive" });
+                    }
+                  }}
+                  className="bg-yellow-500/20 border-yellow-500 text-yellow-600"
+                >
+                  🧪 Test Notifications
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Manage Categories
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
