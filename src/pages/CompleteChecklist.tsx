@@ -25,6 +25,7 @@ interface ChecklistItem {
   item_type: string;
   options: any;
   is_required: boolean;
+  requires_temperature_validation?: boolean;
   reference_image_url?: string;
   reference_link?: string;
   reference_video_url?: string;
@@ -534,12 +535,15 @@ export default function CompleteChecklist() {
       } = supabase.storage.from('checklist-images').getPublicUrl(fileName);
       console.log('Image uploaded successfully:', data.publicUrl);
       
-      // Only extract temperature for temperature-type items
+      // Only extract temperature for temperature-type items OR image items with requires_temperature_validation
       const item = items.find(i => i.id === itemId);
       let extractedTemp = null;
       let tempValid = null;
 
-      if (item?.item_type === 'temperature') {
+      const shouldValidateTemp = item?.item_type === 'temperature' || 
+        (item?.item_type === 'image' && item?.requires_temperature_validation === true);
+
+      if (shouldValidateTemp) {
         const { data: tempData, error: tempError } = await supabase.functions.invoke(
           'extract-temperature',
           { body: { imageUrl: data.publicUrl } }

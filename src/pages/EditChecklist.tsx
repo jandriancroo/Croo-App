@@ -22,6 +22,7 @@ interface ChecklistItem {
   question: string;
   item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature';
   is_required: boolean;
+  requires_temperature_validation?: boolean;
   options?: string[] | { minPhotos?: number };
   reference_image_url?: string;
   reference_link?: string;
@@ -96,21 +97,33 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem }: Sort
         )}
 
         {item.item_type === 'image' && (
-          <div className="flex items-center gap-2">
-            <Label className="text-sm text-muted-foreground whitespace-nowrap">Min Photos:</Label>
-            <Select
-              value={String((item.options && typeof item.options === 'object' && !Array.isArray(item.options)) ? item.options.minPhotos || 1 : 1)}
-              onValueChange={(value) => updateItem(index, 'options', { minPhotos: parseInt(value) })}
-            >
-              <SelectTrigger className="w-20">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5, 6].map(n => (
-                  <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <Label className="text-sm text-muted-foreground whitespace-nowrap">Min Photos:</Label>
+              <Select
+                value={String((item.options && typeof item.options === 'object' && !Array.isArray(item.options)) ? item.options.minPhotos || 1 : 1)}
+                onValueChange={(value) => updateItem(index, 'options', { minPhotos: parseInt(value) })}
+              >
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6].map(n => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id={`temp-validation-${index}`}
+                checked={(item as any).requires_temperature_validation || false}
+                onCheckedChange={(checked) => updateItem(index, 'requires_temperature_validation' as any, checked)}
+              />
+              <Label htmlFor={`temp-validation-${index}`} className="text-sm font-normal">
+                Requires Temperature Validation
+              </Label>
+            </div>
           </div>
         )}
 
@@ -201,6 +214,7 @@ export default function EditChecklist() {
         question: item.question,
         item_type: item.item_type as 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature',
         is_required: item.is_required,
+        requires_temperature_validation: (item as any).requires_temperature_validation || false,
         options: item.options as string[] | undefined,
         reference_image_url: item.reference_image_url || undefined,
         reference_link: item.reference_link || undefined,
@@ -272,6 +286,7 @@ export default function EditChecklist() {
           question: item.question,
           item_type: item.item_type,
           is_required: item.is_required,
+          requires_temperature_validation: item.item_type === 'image' ? (item.requires_temperature_validation || false) : false,
           options: item.item_type === 'multiple_choice' ? item.options : null,
           reference_image_url: item.reference_image_url || null,
           reference_link: item.reference_link || null,
