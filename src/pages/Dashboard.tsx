@@ -881,50 +881,30 @@ export default function Dashboard() {
         <Dialog open={!!pdfPreviewUrl} onOpenChange={(open) => !open && setPdfPreviewUrl(null)}>
           <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0">
             <DialogHeader className="p-4 pb-2">
-              <div className="flex items-center justify-between">
-                <DialogTitle>Original Order</DialogTitle>
-                {pdfPreviewUrl && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    asChild
-                    className="mr-8"
-                  >
-                    <a
-                      href={pdfPreviewUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Open in New Tab
-                    </a>
-                  </Button>
-                )}
-              </div>
+              <DialogTitle>Original Order</DialogTitle>
             </DialogHeader>
             <div className="flex-1 px-4 pb-4 min-h-0">
               {pdfPreviewUrl && (
-                <object
-                  data={pdfPreviewUrl}
-                  type="application/pdf"
-                  className="w-full h-full rounded-md border"
-                >
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-muted rounded-md border">
-                    <p className="text-muted-foreground text-center">
-                      Unable to display PDF in browser.
-                    </p>
-                    <Button asChild>
-                      <a
-                        href={pdfPreviewUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        Open PDF in New Tab
-                      </a>
-                    </Button>
-                  </div>
-                </object>
+                <iframe
+                  src={pdfPreviewUrl}
+                  className="w-full h-full rounded-md border bg-white"
+                  title="PDF Preview"
+                />
               )}
             </div>
+            {pdfPreviewUrl && (
+              <div className="p-4 pt-0 flex justify-center">
+                <Button asChild size="lg">
+                  <a
+                    href={pdfPreviewUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open PDF in New Tab
+                  </a>
+                </Button>
+              </div>
+            )}
           </DialogContent>
         </Dialog>
       </div>
