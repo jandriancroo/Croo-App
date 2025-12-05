@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useIsMobile } from "@/hooks/use-mobile";
 import { compressImage } from "@/utils/imageCompression";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { DrawerCountForm, DrawerCountData } from "@/components/logbook/DrawerCountForm";
 
 export default function LogBook() {
   const { user } = useAuth();
@@ -323,108 +324,201 @@ export default function LogBook() {
               </Tabs>
             )}
 
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                  <CardTitle className="text-base sm:text-lg">
-                    {categories.find((c: any) => c.id === selectedCategory)?.name}
-                  </CardTitle>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                        <CalendarIcon className="h-4 w-4 mr-2" />
-                        <span className="text-xs sm:text-sm">{format(selectedDate, 'PPP')}</span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="end">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={(date) => date && setSelectedDate(date)}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                <CardDescription className="text-xs sm:text-sm">
-                  {entry ? `Entry by ${entry.profiles?.full_name} at ${format(new Date(entry.created_at), 'PPp')}` : 'No entry for this date'}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {fields.map((field: any) => (
-                    <div key={field.id} className="space-y-2">
-                      <Label>
-                        {field.field_name}
-                        {field.is_required && <span className="text-destructive ml-1">*</span>}
-                      </Label>
-                      {field.field_type === 'text' && (
-                        <Input
-                          value={formData[field.id] || ''}
-                          onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
-                          required={field.is_required}
-                        />
-                      )}
-                      {field.field_type === 'textarea' && (
-                        <Textarea
-                          value={formData[field.id] || ''}
-                          onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
-                          required={field.is_required}
-                        />
-                      )}
-                      {field.field_type === 'number' && (
-                        <Input
-                          type="number"
-                          value={formData[field.id] || ''}
-                          onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
-                          required={field.is_required}
-                        />
-                      )}
-                      {field.field_type === 'date' && (
-                        <Input
-                          type="date"
-                          value={formData[field.id] || ''}
-                          onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
-                          required={field.is_required}
-                        />
-                      )}
-                      {field.field_type === 'attachment' && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
+            {/* Check if this is a specialized category */}
+            {(() => {
+              const currentCategoryName = categories.find((c: any) => c.id === selectedCategory)?.name?.toLowerCase();
+              const isDrawerCount = currentCategoryName === 'drawer count';
+              
+              if (isDrawerCount) {
+                return (
+                  <div className="space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <h2 className="text-lg font-semibold">Drawer Count</h2>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                            <CalendarIcon className="h-4 w-4 mr-2" />
+                            <span className="text-xs sm:text-sm">{format(selectedDate, 'PPP')}</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={(date) => date && setSelectedDate(date)}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    {entry && (
+                      <p className="text-xs text-muted-foreground">
+                        Last entry by {entry.profiles?.full_name} at {format(new Date(entry.created_at), 'PPp')}
+                      </p>
+                    )}
+                    <DrawerCountForm
+                      onSave={async (data: DrawerCountData) => {
+                        try {
+                          const dateStr = selectedDate.toISOString().split('T')[0];
+                          
+                          // Create or update entry
+                          const { data: entryData, error: entryError } = await supabase
+                            .from('logbook_entries')
+                            .upsert({
+                              category_id: selectedCategory,
+                              entry_date: dateStr,
+                              created_by: user!.id,
+                              location_id: currentLocation?.id,
+                            }, {
+                              onConflict: 'category_id,entry_date'
+                            })
+                            .select()
+                            .single();
+
+                          if (entryError) throw entryError;
+
+                          // Delete existing values
+                          await supabase
+                            .from('logbook_entry_values')
+                            .delete()
+                            .eq('entry_id', entryData.id);
+
+                          // Store drawer count data as JSON in a single text value
+                          const { error: valuesError } = await supabase
+                            .from('logbook_entry_values')
+                            .insert({
+                              entry_id: entryData.id,
+                              field_id: fields[0]?.id || selectedCategory, // Use first field or category as placeholder
+                              value_text: JSON.stringify(data),
+                            });
+
+                          if (valuesError) throw valuesError;
+
+                          toast({ title: "Drawer count saved successfully" });
+                          queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
+                          queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                        } catch (error: any) {
+                          toast({
+                            title: "Error saving drawer count",
+                            description: error.message,
+                            variant: "destructive",
+                          });
+                        }
+                      }}
+                      isSaving={saveEntryMutation.isPending}
+                      existingData={entry?.logbook_entry_values?.[0]?.value_text 
+                        ? JSON.parse(entry.logbook_entry_values[0].value_text) 
+                        : null}
+                    />
+                  </div>
+                );
+              }
+              
+              // Default generic form
+              return (
+                <Card>
+                  <CardHeader>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                      <CardTitle className="text-base sm:text-lg">
+                        {categories.find((c: any) => c.id === selectedCategory)?.name}
+                      </CardTitle>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                            <CalendarIcon className="h-4 w-4 mr-2" />
+                            <span className="text-xs sm:text-sm">{format(selectedDate, 'PPP')}</span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="end">
+                          <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={(date) => date && setSelectedDate(date)}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <CardDescription className="text-xs sm:text-sm">
+                      {entry ? `Entry by ${entry.profiles?.full_name} at ${format(new Date(entry.created_at), 'PPp')}` : 'No entry for this date'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                      {fields.map((field: any) => (
+                        <div key={field.id} className="space-y-2">
+                          <Label>
+                            {field.field_name}
+                            {field.is_required && <span className="text-destructive ml-1">*</span>}
+                          </Label>
+                          {field.field_type === 'text' && (
                             <Input
-                              type="file"
-                              onChange={(e) => {
-                                const file = e.target.files?.[0];
-                                if (file) {
-                                  handleFileUpload(field.id, file);
-                                }
-                              }}
-                              disabled={uploadingFiles[field.id]}
+                              value={formData[field.id] || ''}
+                              onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
+                              required={field.is_required}
                             />
-                            <Paperclip className="h-4 w-4 text-muted-foreground" />
-                          </div>
-                          {uploadingFiles[field.id] && (
-                            <p className="text-xs text-muted-foreground">Uploading...</p>
                           )}
-                          {formData[field.id] && !uploadingFiles[field.id] && (
-                            <a 
-                              href={formData[field.id]} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline"
-                            >
-                              View uploaded file
-                            </a>
+                          {field.field_type === 'textarea' && (
+                            <Textarea
+                              value={formData[field.id] || ''}
+                              onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
+                              required={field.is_required}
+                            />
+                          )}
+                          {field.field_type === 'number' && (
+                            <Input
+                              type="number"
+                              value={formData[field.id] || ''}
+                              onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
+                              required={field.is_required}
+                            />
+                          )}
+                          {field.field_type === 'date' && (
+                            <Input
+                              type="date"
+                              value={formData[field.id] || ''}
+                              onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
+                              required={field.is_required}
+                            />
+                          )}
+                          {field.field_type === 'attachment' && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="file"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      handleFileUpload(field.id, file);
+                                    }
+                                  }}
+                                  disabled={uploadingFiles[field.id]}
+                                />
+                                <Paperclip className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                              {uploadingFiles[field.id] && (
+                                <p className="text-xs text-muted-foreground">Uploading...</p>
+                              )}
+                              {formData[field.id] && !uploadingFiles[field.id] && (
+                                <a 
+                                  href={formData[field.id]} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-primary hover:underline"
+                                >
+                                  View uploaded file
+                                </a>
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  ))}
-                  <Button type="submit" disabled={saveEntryMutation.isPending}>
-                    {saveEntryMutation.isPending ? 'Saving...' : 'Add Entry'}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
+                      ))}
+                      <Button type="submit" disabled={saveEntryMutation.isPending}>
+                        {saveEntryMutation.isPending ? 'Saving...' : 'Add Entry'}
+                      </Button>
+                    </form>
+                  </CardContent>
+                </Card>
+              );
+            })()}
           </TabsContent>
 
           <TabsContent value="search" className="space-y-4">
