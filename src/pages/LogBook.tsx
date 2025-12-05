@@ -281,6 +281,24 @@ export default function LogBook() {
         .insert(values);
 
       if (valuesError) throw valuesError;
+
+      // Check if category has push notifications enabled and send notification
+      const currentCategory = categories.find((c: any) => c.id === selectedCategory);
+      if (currentCategory?.push_notification_enabled && currentLocation) {
+        try {
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              notification_type: 'logbook_entry',
+              title: `New Log Entry - ${currentLocation.name}`,
+              body: `${currentCategory.name} entry submitted`,
+              location_id: currentLocation.id,
+              roles: ['admin', 'manager', 'general_manager', 'shift_manager'],
+            }
+          });
+        } catch (notifError) {
+          console.error('Failed to send push notification:', notifError);
+        }
+      }
     },
     onSuccess: () => {
       toast({ title: "Entry saved successfully" });

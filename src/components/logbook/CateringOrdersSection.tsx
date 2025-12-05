@@ -126,6 +126,23 @@ export function CateringOrdersSection() {
 
       if (insertError) throw insertError;
 
+      // Send push notification for new catering order
+      if (currentLocation?.id) {
+        try {
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              notification_type: 'catering_order',
+              title: `New Catering Order - ${currentLocation?.name || 'Location'}`,
+              body: `${orderData.customer_name} - ${format(parseISO(orderData.pickup_date), "MMM d")} at ${orderData.pickup_time}`,
+              location_id: currentLocation.id,
+              roles: ['admin', 'manager', 'general_manager', 'shift_manager'],
+            }
+          });
+        } catch (notifError) {
+          console.error('Failed to send push notification:', notifError);
+        }
+      }
+
       toast.success("Catering order added!");
       setShowUploadDialog(false);
       fetchOrders();

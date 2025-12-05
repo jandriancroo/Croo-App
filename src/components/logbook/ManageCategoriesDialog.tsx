@@ -25,11 +25,12 @@ interface SortableCategoryItemProps {
   category: any;
   onDelete: (id: string) => void;
   onToggleAlert: (id: string, currentValue: boolean) => void;
+  onTogglePushNotification: (id: string, currentValue: boolean) => void;
   onToggleActive: (id: string, currentValue: boolean) => void;
   onEditFields: (categoryId: string, fields: any[]) => void;
 }
 
-function SortableCategoryItem({ category, onDelete, onToggleAlert, onToggleActive, onEditFields }: SortableCategoryItemProps) {
+function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushNotification, onToggleActive, onEditFields }: SortableCategoryItemProps) {
   const {
     attributes,
     listeners,
@@ -97,31 +98,40 @@ function SortableCategoryItem({ category, onDelete, onToggleAlert, onToggleActiv
       <AccordionContent className="pb-3">
         <div className="space-y-3 pt-2">
           {/* Category Settings */}
-          <div className="flex items-center justify-between p-2 bg-muted rounded">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={category.alert_enabled}
-                  onCheckedChange={() => onToggleAlert(category.id, category.alert_enabled)}
-                />
-                <Label className="text-xs">Dashboard Alert</Label>
+          <div className="flex flex-col gap-2 p-2 bg-muted rounded">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center flex-wrap gap-4">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={category.alert_enabled}
+                    onCheckedChange={() => onToggleAlert(category.id, category.alert_enabled)}
+                  />
+                  <Label className="text-xs">Dashboard Alert</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={category.push_notification_enabled}
+                    onCheckedChange={() => onTogglePushNotification(category.id, category.push_notification_enabled)}
+                  />
+                  <Label className="text-xs">Push Notification</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={category.is_active}
+                    onCheckedChange={() => onToggleActive(category.id, category.is_active)}
+                  />
+                  <Label className="text-xs">Active</Label>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={category.is_active}
-                  onCheckedChange={() => onToggleActive(category.id, category.is_active)}
-                />
-                <Label className="text-xs">Active</Label>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onEditFields(category.id, category.logbook_fields || [])}
+              >
+                <Edit2 className="h-4 w-4 mr-2" />
+                Configure Fields
+              </Button>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onEditFields(category.id, category.logbook_fields || [])}
-            >
-              <Edit2 className="h-4 w-4 mr-2" />
-              Configure Fields
-            </Button>
           </div>
 
           {/* Show current fields */}
@@ -305,6 +315,13 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
     updateCategoryMutation.mutate({
       id,
       updates: { alert_enabled: !currentValue },
+    });
+  };
+
+  const handleTogglePushNotification = (id: string, currentValue: boolean) => {
+    updateCategoryMutation.mutate({
+      id,
+      updates: { push_notification_enabled: !currentValue },
     });
   };
 
@@ -517,6 +534,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                       category={category}
                       onDelete={(id) => deleteCategoryMutation.mutate(id)}
                       onToggleAlert={handleToggleAlert}
+                      onTogglePushNotification={handleTogglePushNotification}
                       onToggleActive={handleToggleActive}
                       onEditFields={handleEditFields}
                     />

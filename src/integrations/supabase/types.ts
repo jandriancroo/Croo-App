@@ -991,6 +991,7 @@ export type Database = {
           is_active: boolean
           location_id: string | null
           name: string
+          push_notification_enabled: boolean
           updated_at: string
         }
         Insert: {
@@ -1002,6 +1003,7 @@ export type Database = {
           is_active?: boolean
           location_id?: string | null
           name: string
+          push_notification_enabled?: boolean
           updated_at?: string
         }
         Update: {
@@ -1013,6 +1015,7 @@ export type Database = {
           is_active?: boolean
           location_id?: string | null
           name?: string
+          push_notification_enabled?: boolean
           updated_at?: string
         }
         Relationships: [
