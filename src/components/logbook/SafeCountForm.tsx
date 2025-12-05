@@ -208,14 +208,14 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
         </CardHeader>
         <CardContent className="space-y-3">
           {/* Header row */}
-          <div className="grid grid-cols-[auto_1fr_1fr] gap-2 text-xs text-muted-foreground font-medium px-1">
-            <div className="w-12"></div>
+          <div className="grid grid-cols-[48px_1fr_minmax(100px,1.2fr)] gap-2 text-xs text-muted-foreground font-medium px-1">
+            <div></div>
             <div className="text-center">Loose</div>
             <div className="text-center">Rolls</div>
           </div>
           
           {COINS.map((denom) => (
-            <div key={denom.name} className="grid grid-cols-[auto_1fr_1fr] gap-2 items-center">
+            <div key={denom.name} className="grid grid-cols-[48px_1fr_minmax(100px,1.2fr)] gap-2 items-center">
               <Badge variant="secondary" className="w-12 justify-center text-xs">
                 {denom.icon}
               </Badge>
@@ -226,16 +226,16 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
                 onChange={(e) => handleCountChange(denom.name, e.target.value)}
                 placeholder="0"
               />
-              <div className="relative">
+              <div className="flex items-center gap-1">
                 <Input
                   type="number"
                   min="0"
                   value={rolls[denom.name] || ''}
                   onChange={(e) => handleRollChange(denom.name, e.target.value)}
                   placeholder="0"
-                  className="pr-16"
+                  className="w-14 flex-shrink-0"
                 />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
                   {formatCurrency((denom.rollValue || 0) / 100)}/ea
                 </span>
               </div>
