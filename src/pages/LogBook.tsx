@@ -513,10 +513,10 @@ export default function LogBook() {
                       </p>
                     )}
                     <DrawerCountForm
-                      key={selectedDate.toISOString().split('T')[0]}
+                      key={getDateInPST(selectedDate)}
                       onSave={async (data: DrawerCountData) => {
                         try {
-                          const dateStr = selectedDate.toISOString().split('T')[0];
+                          const dateStr = getDateInPST(selectedDate);
                           
                           // Ensure a field exists for drawer count data
                           let fieldId = fields[0]?.id;
@@ -645,10 +645,10 @@ export default function LogBook() {
                       </p>
                     )}
                     <SafeCountForm
-                      key={`${selectedDate.toISOString().split('T')[0]}`}
+                      key={`${getDateInPST(selectedDate)}`}
                       onSave={async (data: SafeCountData) => {
                         try {
-                          const dateStr = selectedDate.toISOString().split('T')[0];
+                          const dateStr = getDateInPST(selectedDate);
                           
                           // Ensure a field exists for safe count data
                           let fieldId = fields[0]?.id;

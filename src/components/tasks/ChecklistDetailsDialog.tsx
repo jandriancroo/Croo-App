@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-
+import { getDateInPST } from "@/utils/dateUtils";
 interface ChecklistDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -16,7 +16,8 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
   const { data: checklistDetails, isLoading } = useQuery({
     queryKey: ['checklist-details', checklistId, date],
     queryFn: async () => {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = getDateInPST(date);
+      const nextDateStr = getDateInPST(new Date(date.getTime() + 86400000));
       
       // Get checklist with items
       const { data: checklist } = await supabase
@@ -52,7 +53,7 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
         `)
         .eq('checklist_id', checklistId)
         .gte('submitted_at', dateStr)
-        .lt('submitted_at', new Date(date.getTime() + 86400000).toISOString().split('T')[0]);
+        .lt('submitted_at', nextDateStr);
 
       // Map responses to items
       const items = checklist.checklist_items.map((item: any) => {

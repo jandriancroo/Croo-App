@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { CheckCircle2, AlertTriangle, Edit2, Save, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { getTodayInPST } from '@/utils/dateUtils';
 
 interface TemperatureReading {
   id: string;
@@ -203,7 +204,7 @@ export default function TemperatureValidation() {
     setRescanning(true);
     try {
       const { data, error } = await supabase.functions.invoke('rescan-temperatures', {
-        body: { targetDate: new Date().toISOString().split('T')[0] }
+        body: { targetDate: getTodayInPST() }
       });
 
       if (error) throw error;

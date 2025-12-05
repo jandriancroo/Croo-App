@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { CrooCashCard } from '@/components/users/CrooCashCard';
+import { getTodayInPST, getDateInPST } from '@/utils/dateUtils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 
@@ -90,7 +91,7 @@ export default function UserManagement() {
   const [isWageDialogOpen, setIsWageDialogOpen] = useState(false);
   const [editingWageUser, setEditingWageUser] = useState<UserProfile | null>(null);
   const [newWage, setNewWage] = useState<string>('');
-  const [wageEffectiveDate, setWageEffectiveDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [wageEffectiveDate, setWageEffectiveDate] = useState<string>(getTodayInPST());
   const [isWageHistoryDialogOpen, setIsWageHistoryDialogOpen] = useState(false);
   const [viewingWageHistory, setViewingWageHistory] = useState<string | null>(null);
   const [wageHistory, setWageHistory] = useState<any[]>([]);
@@ -244,7 +245,7 @@ export default function UserManagement() {
         .select('user_id, status, expiration_date')
         .in('user_id', profiles.map(p => p.id))
         .eq('status', 'approved')
-        .gte('expiration_date', new Date().toISOString().split('T')[0]);
+        .gte('expiration_date', getTodayInPST());
 
       // Create map of user certifications
       const certificationMap = new Map(
@@ -565,7 +566,7 @@ export default function UserManagement() {
           full_name: editFullName.trim(),
           profile_photo_url: editProfilePhoto,
           phone_number: editPhoneNumber.trim() || null,
-          birthday: editBirthday ? editBirthday.toISOString().split('T')[0] : null,
+          birthday: editBirthday ? getDateInPST(editBirthday) : null,
           employee_pin: editEmployeePin.trim() || null,
         })
         .eq('id', editingUser.id);
@@ -686,7 +687,7 @@ export default function UserManagement() {
       if (historyError) throw historyError;
 
       // Only update current wage in profiles if the effective date is today or in the past
-      const today = new Date().toISOString().split('T')[0];
+      const today = getTodayInPST();
       const isEffectiveNow = wageEffectiveDate <= today;
       
       if (isEffectiveNow) {
@@ -709,7 +710,7 @@ export default function UserManagement() {
       setEditingWageUser(null);
       setNewWage('');
       setWageNotes('');
-      setWageEffectiveDate(new Date().toISOString().split('T')[0]);
+      setWageEffectiveDate(getTodayInPST());
       fetchUsers();
       
       // Update viewing user if open
@@ -915,8 +916,8 @@ export default function UserManagement() {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) throw new Error('Not authenticated');
 
-      const effectiveDateStr = effectiveDate.toISOString().split('T')[0];
-      const today = new Date().toISOString().split('T')[0];
+      const effectiveDateStr = getDateInPST(effectiveDate);
+      const today = getTodayInPST();
       const isEffectiveNow = effectiveDateStr <= today;
 
       for (const userId of selectedUsers) {
@@ -1921,7 +1922,7 @@ export default function UserManagement() {
                   setEditingWageUser(null);
                   setNewWage('');
                   setWageNotes('');
-                  setWageEffectiveDate(new Date().toISOString().split('T')[0]);
+                  setWageEffectiveDate(getTodayInPST());
                 }}
               >
                 Cancel

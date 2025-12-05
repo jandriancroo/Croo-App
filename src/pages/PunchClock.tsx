@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.png';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
 
 const ALL_FACTS = [
   { fact: "Honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still perfectly edible.", category: "Nature", image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&q=80" },
@@ -265,17 +266,16 @@ export default function PunchClock() {
     if (!currentUser) return;
 
     try {
-      // Get date 30 days from now
-      const thirtyDaysFromNow = new Date();
-      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      const todayPST = getTodayInPST();
+      const thirtyDaysFromNowPST = getDateInPSTOffset(30);
 
       const { data, error } = await supabase
         .from('certifications')
         .select('*')
         .eq('user_id', currentUser.id)
         .eq('status', 'approved')
-        .lte('expiration_date', thirtyDaysFromNow.toISOString().split('T')[0])
-        .gte('expiration_date', new Date().toISOString().split('T')[0]);
+        .lte('expiration_date', thirtyDaysFromNowPST)
+        .gte('expiration_date', todayPST);
 
       if (error) throw error;
 

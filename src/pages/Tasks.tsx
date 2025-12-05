@@ -21,7 +21,7 @@ import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-ki
 import { SortableChecklistItem } from '@/components/tasks/SortableChecklistItem';
 import { ChecklistLeaderboard } from '@/components/tasks/ChecklistLeaderboard';
 import { CopyChecklistDialog } from '@/components/tasks/CopyChecklistDialog';
-
+import { getTodayInPST, getDateInPST, getStartOfDatePST } from '@/utils/dateUtils';
 export default function Tasks() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -174,6 +174,7 @@ export default function Tasks() {
     queryFn: async () => {
       if (!currentLocation?.id) return { today: 0, thisWeek: 0, thisMonth: 0 };
       
+      const todayPST = getTodayInPST();
       const today = new Date();
       const thisWeekStart = new Date(today);
       thisWeekStart.setDate(today.getDate() - today.getDay());
@@ -186,19 +187,19 @@ export default function Tasks() {
           .select('id', { count: 'exact' })
           .eq('submitted_by', user!.id)
           .eq('location_id', currentLocation.id)
-          .gte('submitted_at', today.toISOString().split('T')[0]),
+          .gte('submitted_at', todayPST),
         supabase
           .from('checklist_submissions')
           .select('id', { count: 'exact' })
           .eq('submitted_by', user!.id)
           .eq('location_id', currentLocation.id)
-          .gte('submitted_at', thisWeekStart.toISOString()),
+          .gte('submitted_at', getDateInPST(thisWeekStart)),
         supabase
           .from('checklist_submissions')
           .select('id', { count: 'exact' })
           .eq('submitted_by', user!.id)
           .eq('location_id', currentLocation.id)
-          .gte('submitted_at', thisMonthStart.toISOString()),
+          .gte('submitted_at', getDateInPST(thisMonthStart)),
       ]);
 
       return {

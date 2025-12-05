@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
 import { Trash2, ArrowUp } from 'lucide-react';
+import { getTodayInPST } from '@/utils/dateUtils';
 
 interface Profile {
   id: string;
@@ -83,7 +84,7 @@ export function MobileShiftDialog({
       setEndTime('17:00');
       setSelectedUserId('unassigned');
       setSelectedTemplateId('');
-      setShiftDate(shift?.shift_date || new Date().toISOString().split('T')[0]);
+      setShiftDate(shift?.shift_date || getTodayInPST());
     }
   }, [shift, isCreating, templates]);
 
