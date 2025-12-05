@@ -726,7 +726,7 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
                 <Button 
-                  className={`w-full h-9 text-xs rounded-none rounded-b-lg text-white ${
+                  className={`w-full h-9 text-xs rounded-none text-white ${
                     isCompleted ? "bg-green-500 hover:bg-green-600" : "bg-orange-500 hover:bg-orange-600"
                   }`}
                   onClick={() => setSelectedCateringOrder(order)}
