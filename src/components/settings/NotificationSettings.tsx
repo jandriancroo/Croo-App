@@ -9,6 +9,13 @@ import { useAuth } from '@/lib/auth';
 import { toast } from '@/hooks/use-toast';
 import { Bell, BellOff, Smartphone, MapPin } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface NotificationPreferences {
   overdue_checklists: boolean;
@@ -59,6 +66,7 @@ export const NotificationSettings = () => {
     certification_expiring: true,
   });
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [locationNotifPrefs, setLocationNotifPrefs] = useState<Record<string, LocationNotificationPrefs>>({});
   const [loading, setLoading] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
@@ -128,6 +136,11 @@ export const NotificationSettings = () => {
             location_name: ul.locations?.name || 'Unknown',
           }));
           setUserLocations(locs);
+          
+          // Auto-select first location
+          if (locs.length === 1) {
+            setSelectedLocationId(locs[0].location_id);
+          }
 
           // Fetch existing location notification preferences (per type)
           const { data: existingPrefs } = await supabase
@@ -444,32 +457,41 @@ export const NotificationSettings = () => {
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">Operational — by location</p>
+                <p className="text-xs text-muted-foreground">Operational — select location</p>
               </div>
               
-              {/* Show each location with its toggles */}
-              {userLocations.map((loc) => {
-                const locPrefs = locationNotifPrefs[loc.location_id] || {};
-                return (
-                  <div key={loc.location_id} className="p-3 bg-muted/50 rounded-lg space-y-2">
-                    <p className="text-sm font-medium">{loc.location_name}</p>
-                    <div className="grid grid-cols-1 gap-1">
-                      {LOCATION_NOTIFICATION_TYPES.map((nt) => (
-                        <div key={nt.key} className="flex items-center justify-between py-1">
-                          <Label htmlFor={`loc-${loc.location_id}-${nt.key}`} className="text-sm font-normal">
-                            {nt.label}
-                          </Label>
-                          <Switch
-                            id={`loc-${loc.location_id}-${nt.key}`}
-                            checked={locPrefs[nt.key] ?? true}
-                            onCheckedChange={(checked) => updateLocationNotifPreference(loc.location_id, nt.key, checked)}
-                          />
-                        </div>
-                      ))}
+              <Select
+                value={selectedLocationId || ''}
+                onValueChange={(value) => setSelectedLocationId(value)}
+              >
+                <SelectTrigger className="w-full bg-background">
+                  <SelectValue placeholder="Select a location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {userLocations.map((loc) => (
+                    <SelectItem key={loc.location_id} value={loc.location_id}>
+                      {loc.location_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {selectedLocationId && locationNotifPrefs[selectedLocationId] && (
+                <div className="grid grid-cols-1 gap-1">
+                  {LOCATION_NOTIFICATION_TYPES.map((nt) => (
+                    <div key={nt.key} className="flex items-center justify-between py-1.5">
+                      <Label htmlFor={`loc-${selectedLocationId}-${nt.key}`} className="text-sm font-normal">
+                        {nt.label}
+                      </Label>
+                      <Switch
+                        id={`loc-${selectedLocationId}-${nt.key}`}
+                        checked={locationNotifPrefs[selectedLocationId][nt.key] ?? true}
+                        onCheckedChange={(checked) => updateLocationNotifPreference(selectedLocationId, nt.key, checked)}
+                      />
                     </div>
-                  </div>
-                );
-              })}
+                  ))}
+                </div>
+              )}
               
               {userLocations.length === 0 && (
                 <p className="text-xs text-muted-foreground italic">No locations assigned</p>
