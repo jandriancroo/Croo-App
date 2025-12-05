@@ -40,7 +40,10 @@ export function CateringOrdersAlert() {
 
   const fetchTodaysOrders = async () => {
     try {
-      const today = format(new Date(), "yyyy-MM-dd");
+      // Get today's date in PST timezone
+      const now = new Date();
+      const pstDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+      const today = format(pstDate, "yyyy-MM-dd");
       
       const { data, error } = await supabase
         .from("catering_orders")
