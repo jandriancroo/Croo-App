@@ -37,6 +37,7 @@ const BILLS = DENOMINATIONS.filter(d => !d.rollCount);
 interface SafeCountFormProps {
   onSave: (data: SafeCountData) => void;
   isSaving?: boolean;
+  existingShifts?: ('AM' | 'PM')[];
 }
 
 export interface SafeCountData {
@@ -55,8 +56,10 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
-  const [shift, setShift] = useState<'AM' | 'PM'>('AM');
+export function SafeCountForm({ onSave, isSaving, existingShifts = [] }: SafeCountFormProps) {
+  // Default to first available shift
+  const defaultShift = existingShifts.includes('AM') ? 'PM' : 'AM';
+  const [shift, setShift] = useState<'AM' | 'PM'>(defaultShift);
   const [counts, setCounts] = useState<Record<string, number>>(
     DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d.name]: 0 }), {})
   );
@@ -168,37 +171,53 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
 
   return (
     <div className="space-y-4">
-      {/* AM/PM Selector */}
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant={shift === 'AM' ? 'default' : 'outline'}
-          onClick={() => setShift('AM')}
-          className={cn(
-            "flex-1 transition-all",
-            shift === 'AM' 
-              ? "bg-amber-100 text-amber-900 hover:bg-amber-200 border-amber-300" 
-              : "hover:bg-amber-50"
-          )}
-        >
-          <Sun className="h-4 w-4 mr-2" />
-          AM
-        </Button>
-        <Button
-          type="button"
-          variant={shift === 'PM' ? 'default' : 'outline'}
-          onClick={() => setShift('PM')}
-          className={cn(
-            "flex-1 transition-all",
-            shift === 'PM' 
-              ? "bg-indigo-900 text-indigo-100 hover:bg-indigo-800 border-indigo-700" 
-              : "hover:bg-indigo-50"
-          )}
-        >
-          <Moon className="h-4 w-4 mr-2" />
-          PM
-        </Button>
-      </div>
+      {/* Check if both shifts are done */}
+      {existingShifts.includes('AM') && existingShifts.includes('PM') ? (
+        <Card className="border-green-500 bg-green-50 dark:bg-green-950/20">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+              <CheckCircle2 className="h-5 w-5" />
+              <span className="font-semibold">Both AM and PM safe counts completed for today</span>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* AM/PM Selector */}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={shift === 'AM' ? 'default' : 'outline'}
+              onClick={() => setShift('AM')}
+              disabled={existingShifts.includes('AM')}
+              className={cn(
+                "flex-1 transition-all",
+                existingShifts.includes('AM') && "opacity-50 cursor-not-allowed",
+                shift === 'AM' && !existingShifts.includes('AM')
+                  ? "bg-amber-100 text-amber-900 hover:bg-amber-200 border-amber-300" 
+                  : "hover:bg-amber-50"
+              )}
+            >
+              <Sun className="h-4 w-4 mr-2" />
+              AM {existingShifts.includes('AM') && '✓'}
+            </Button>
+            <Button
+              type="button"
+              variant={shift === 'PM' ? 'default' : 'outline'}
+              onClick={() => setShift('PM')}
+              disabled={existingShifts.includes('PM')}
+              className={cn(
+                "flex-1 transition-all",
+                existingShifts.includes('PM') && "opacity-50 cursor-not-allowed",
+                shift === 'PM' && !existingShifts.includes('PM')
+                  ? "bg-indigo-900 text-indigo-100 hover:bg-indigo-800 border-indigo-700" 
+                  : "hover:bg-indigo-50"
+              )}
+            >
+              <Moon className="h-4 w-4 mr-2" />
+              PM {existingShifts.includes('PM') && '✓'}
+            </Button>
+          </div>
 
       {/* Coins Section with Rolls */}
       <Card>
@@ -249,7 +268,7 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
         </CardHeader>
         <CardContent className="space-y-3">
           {BILLS.map((denom) => (
-            <div key={denom.name} className="grid grid-cols-[48px_1fr_60px] gap-2 items-center">
+            <div key={denom.name} className="grid grid-cols-[48px_1fr] gap-2 items-center">
               <Badge variant="secondary" className="w-12 justify-center text-xs">
                 {denom.icon}
               </Badge>
@@ -260,9 +279,6 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
                 onChange={(e) => handleCountChange(denom.name, e.target.value)}
                 placeholder="0"
               />
-              <Badge className="justify-center text-[10px] bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
-                {formatCurrency(denom.value / 100)}
-              </Badge>
             </div>
           ))}
         </CardContent>
@@ -342,6 +358,8 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
             </Button>
           </CardContent>
         </Card>
+      )}
+        </>
       )}
     </div>
   );
