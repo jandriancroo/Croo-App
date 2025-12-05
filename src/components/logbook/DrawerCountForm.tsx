@@ -32,6 +32,7 @@ interface DrawerCountFormProps {
   onSave: (data: DrawerCountData) => void;
   isSaving?: boolean;
   existingData?: DrawerCountData | null;
+  entryCount?: number;
 }
 
 export interface DrawerCountData {
@@ -43,7 +44,7 @@ export interface DrawerCountData {
   removalSuggestions: { denomination: string; count: number; value: number }[];
 }
 
-export function DrawerCountForm({ onSave, isSaving, existingData }: DrawerCountFormProps) {
+export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0 }: DrawerCountFormProps) {
   const [counts, setCounts] = useState<Record<string, number>>(() => {
     if (existingData?.counts) return existingData.counts;
     return DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d.name]: 0 }), {});
@@ -140,6 +141,18 @@ export function DrawerCountForm({ onSave, isSaving, existingData }: DrawerCountF
 
   return (
     <div className="space-y-6">
+      {/* Check if max entries reached */}
+      {entryCount >= 2 ? (
+        <Card className="border-green-500 bg-green-50 dark:bg-green-950/20">
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+              <CheckCircle2 className="h-5 w-5" />
+              <span className="font-semibold">Both drawer counts completed for today</span>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
       {/* Denomination Inputs */}
       <Card>
         <CardHeader className="pb-3">
@@ -318,7 +331,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData }: DrawerCountF
           <Button onClick={handleSubmit} disabled={isSaving} className="w-full">
             {isSaving ? "Saving..." : "Save Drawer Count"}
           </Button>
-        </>
+          </>
       )}
     </div>
   );

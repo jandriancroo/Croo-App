@@ -147,6 +147,58 @@ export default function LogBook() {
     enabled: !!currentLocation,
   });
 
+  // Find safe count category ID
+  const safeCountCategoryId = categories.find((c: any) => c.name?.toLowerCase() === 'safe count')?.id;
+  const drawerCountCategoryId = categories.find((c: any) => c.name?.toLowerCase() === 'drawer count')?.id;
+
+  // Fetch safe count entries for selected date
+  const { data: safeCountEntries = [] } = useQuery({
+    queryKey: ['safe-count-entries', safeCountCategoryId, selectedDate.toISOString().split('T')[0], currentLocation?.id],
+    queryFn: async () => {
+      if (!safeCountCategoryId || !currentLocation) return [];
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('logbook_entries')
+        .select(`*, logbook_entry_values(*)`)
+        .eq('category_id', safeCountCategoryId)
+        .eq('entry_date', dateStr)
+        .eq('location_id', currentLocation.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!safeCountCategoryId && !!currentLocation,
+  });
+
+  // Fetch drawer count entries for selected date
+  const { data: drawerCountEntries = [] } = useQuery({
+    queryKey: ['drawer-count-entries', drawerCountCategoryId, selectedDate.toISOString().split('T')[0], currentLocation?.id],
+    queryFn: async () => {
+      if (!drawerCountCategoryId || !currentLocation) return [];
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('logbook_entries')
+        .select(`*, logbook_entry_values(*)`)
+        .eq('category_id', drawerCountCategoryId)
+        .eq('entry_date', dateStr)
+        .eq('location_id', currentLocation.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!drawerCountCategoryId && !!currentLocation,
+  });
+
+  // Get existing shifts from safe count entries
+  const existingSafeCountShifts: ('AM' | 'PM')[] = safeCountEntries
+    .map((entry: any) => {
+      try {
+        const data = JSON.parse(entry.logbook_entry_values?.[0]?.value_text || '{}');
+        return data.shift as 'AM' | 'PM';
+      } catch {
+        return null;
+      }
+    })
+    .filter((shift): shift is 'AM' | 'PM' => shift === 'AM' || shift === 'PM');
+
   const [formData, setFormData] = useState<Record<string, any>>({});
 
   // Handle file upload
@@ -462,6 +514,7 @@ export default function LogBook() {
                           toast({ title: "Drawer count saved successfully" });
                           queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
                           queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                          queryClient.invalidateQueries({ queryKey: ['drawer-count-entries'] });
 
                           // Send push notification to managers/admins
                           try {
@@ -517,6 +570,7 @@ export default function LogBook() {
                       existingData={entry?.logbook_entry_values?.[0]?.value_text 
                         ? JSON.parse(entry.logbook_entry_values[0].value_text) 
                         : null}
+                      entryCount={drawerCountEntries.length}
                     />
                   </div>
                 );
@@ -603,6 +657,7 @@ export default function LogBook() {
                           toast({ title: "Safe count saved successfully" });
                           queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
                           queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                          queryClient.invalidateQueries({ queryKey: ['safe-count-entries'] });
 
                           // Send push notification to managers/admins
                           try {
@@ -647,6 +702,7 @@ export default function LogBook() {
                         }
                       }}
                       isSaving={saveEntryMutation.isPending}
+                      existingShifts={existingSafeCountShifts}
                     />
                   </div>
                 );
