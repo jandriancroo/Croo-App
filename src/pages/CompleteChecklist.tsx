@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useLocation } from '@/hooks/useLocation';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,6 +76,7 @@ export default function CompleteChecklist() {
     user
   } = useAuth();
   const { isAdmin, isManager } = useUserRole();
+  const { currentLocation } = useLocation();
   const navigate = useNavigate();
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
   useEffect(() => {
@@ -116,7 +118,7 @@ export default function CompleteChecklist() {
 
   // Create or get shared daily submission (one per checklist per day, not per user)
   useEffect(() => {
-    if (!id || !user?.id || submissionId) return;
+    if (!id || !user?.id || !currentLocation?.id || submissionId) return;
     const createDraftSubmission = async () => {
       try {
         const startOfDay = new Date(viewDate);
@@ -134,6 +136,7 @@ export default function CompleteChecklist() {
           .from('checklist_submissions')
           .select('id')
           .eq('checklist_id', id)
+          .eq('location_id', currentLocation.id)
           .gte('submitted_at', startOfDay.toISOString())
           .lte('submitted_at', endOfDay.toISOString())
           .order('submitted_at', { ascending: true })
@@ -153,6 +156,7 @@ export default function CompleteChecklist() {
           } = await supabase.from('checklist_submissions').insert({
             checklist_id: id,
             submitted_by: user.id,
+            location_id: currentLocation.id,
             notes: ''
           }).select().single();
           if (error) throw error;
@@ -163,7 +167,7 @@ export default function CompleteChecklist() {
       }
     };
     createDraftSubmission();
-  }, [id, user, submissionId, viewDate]);
+  }, [id, user, submissionId, viewDate, currentLocation?.id]);
 
   // Load existing responses (and completer info) whenever we have a submissionId
   useEffect(() => {
