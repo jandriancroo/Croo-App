@@ -956,6 +956,8 @@ export type Database = {
           created_at: string
           created_by: string
           entry_date: string
+          followup_completed_at: string | null
+          followup_completed_by: string | null
           id: string
           location_id: string | null
           updated_at: string
@@ -965,6 +967,8 @@ export type Database = {
           created_at?: string
           created_by: string
           entry_date: string
+          followup_completed_at?: string | null
+          followup_completed_by?: string | null
           id?: string
           location_id?: string | null
           updated_at?: string
@@ -974,6 +978,8 @@ export type Database = {
           created_at?: string
           created_by?: string
           entry_date?: string
+          followup_completed_at?: string | null
+          followup_completed_by?: string | null
           id?: string
           location_id?: string | null
           updated_at?: string
