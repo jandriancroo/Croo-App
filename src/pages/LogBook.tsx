@@ -307,6 +307,8 @@ export default function LogBook() {
       queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
       queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
       setFormData({});
+      // Navigate to search tab to show submission
+      setActiveTab('search');
     },
     onError: (error: any) => {
       toast({
