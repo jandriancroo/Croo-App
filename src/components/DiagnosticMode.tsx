@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
-import { Check, X, Loader2, Bell, Database, Wifi, User, MapPin } from 'lucide-react';
+import { Check, X, Loader2, Bell, Database, Wifi, User, MapPin, FlaskConical } from 'lucide-react';
 
 const SECRET_PASSPHRASE = 'ellie';
 
@@ -19,8 +19,6 @@ export function DiagnosticMode() {
   const [inputBuffer, setInputBuffer] = useState('');
   const [tests, setTests] = useState<TestResult[]>([]);
   const [isRunning, setIsRunning] = useState(false);
-  const [tapCount, setTapCount] = useState(0);
-  const [lastTapTime, setLastTapTime] = useState(0);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const { user } = useAuth();
 
@@ -37,58 +35,25 @@ export function DiagnosticMode() {
     checkSuperAdmin();
   }, [user]);
 
-  // Function to attempt opening diagnostic (checks super_admin)
-  const tryOpenDiagnostic = async () => {
-    if (!user) return;
-    const { data } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'super_admin' });
-    if (data === true) {
-      setIsOpen(true);
-    }
-  };
-
   // Listen for passphrase typed anywhere (desktop)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return; // Don't capture when typing in inputs
+        return;
       }
       
       const newBuffer = (inputBuffer + e.key).slice(-SECRET_PASSPHRASE.length);
       setInputBuffer(newBuffer);
       
-      if (newBuffer === SECRET_PASSPHRASE) {
-        tryOpenDiagnostic();
+      if (newBuffer === SECRET_PASSPHRASE && isSuperAdmin) {
+        setIsOpen(true);
         setInputBuffer('');
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [inputBuffer, user]);
-
-  // Listen for 5 rapid taps anywhere (mobile) - must be within 500ms between taps
-  useEffect(() => {
-    const handleTap = () => {
-      const now = Date.now();
-      if (now - lastTapTime < 500) {
-        const newCount = tapCount + 1;
-        setTapCount(newCount);
-        if (newCount >= 5) {
-          tryOpenDiagnostic();
-          setTapCount(0);
-        }
-      } else {
-        setTapCount(1);
-      }
-      setLastTapTime(now);
-    };
-
-    // Only add touch listener on mobile
-    if ('ontouchstart' in window) {
-      window.addEventListener('touchstart', handleTap);
-      return () => window.removeEventListener('touchstart', handleTap);
-    }
-  }, [tapCount, lastTapTime, user]);
+  }, [inputBuffer, isSuperAdmin]);
 
   // Clear buffer after 2 seconds of no input
   useEffect(() => {
@@ -231,70 +196,83 @@ export function DiagnosticMode() {
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            🔧 Diagnostic Mode
-          </DialogTitle>
-          <DialogDescription>
-            Run system tests to verify functionality
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      {/* Floating diagnostic button for super admins */}
+      {isSuperAdmin && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-20 right-4 z-50 p-2 rounded-full bg-muted/80 backdrop-blur-sm border border-border/50 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors md:bottom-4"
+          title="Diagnostic Mode"
+        >
+          <FlaskConical className="w-5 h-5" />
+        </button>
+      )}
 
-        <div className="space-y-4">
-          <Button 
-            onClick={runTests} 
-            disabled={isRunning || !user}
-            className="w-full"
-          >
-            {isRunning ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Running Tests...
-              </>
-            ) : (
-              'Run All Tests'
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              🔧 Diagnostic Mode
+            </DialogTitle>
+            <DialogDescription>
+              Run system tests to verify functionality
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <Button 
+              onClick={runTests} 
+              disabled={isRunning || !user}
+              className="w-full"
+            >
+              {isRunning ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Running Tests...
+                </>
+              ) : (
+                'Run All Tests'
+              )}
+            </Button>
+
+            {tests.length > 0 && (
+              <div className="space-y-2 mt-4">
+                {tests.map((test) => (
+                  <div 
+                    key={test.name}
+                    className={`flex items-center gap-3 p-3 rounded-lg border ${
+                      test.status === 'error' ? 'border-red-500/50 bg-red-500/10' :
+                      test.status === 'success' ? 'border-green-500/50 bg-green-500/10' :
+                      'border-border bg-muted/30'
+                    }`}
+                  >
+                    <div className="text-muted-foreground">
+                      {getTestIcon(test.name)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-sm">{test.name}</div>
+                      {test.message && (
+                        <div className={`text-xs truncate ${
+                          test.status === 'error' ? 'text-red-400' : 'text-muted-foreground'
+                        }`}>
+                          {test.message}
+                        </div>
+                      )}
+                    </div>
+                    {getStatusIcon(test.status)}
+                  </div>
+                ))}
+              </div>
             )}
-          </Button>
 
-          {tests.length > 0 && (
-            <div className="space-y-2 mt-4">
-              {tests.map((test) => (
-                <div 
-                  key={test.name}
-                  className={`flex items-center gap-3 p-3 rounded-lg border ${
-                    test.status === 'error' ? 'border-red-500/50 bg-red-500/10' :
-                    test.status === 'success' ? 'border-green-500/50 bg-green-500/10' :
-                    'border-border bg-muted/30'
-                  }`}
-                >
-                  <div className="text-muted-foreground">
-                    {getTestIcon(test.name)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm">{test.name}</div>
-                    {test.message && (
-                      <div className={`text-xs truncate ${
-                        test.status === 'error' ? 'text-red-400' : 'text-muted-foreground'
-                      }`}>
-                        {test.message}
-                      </div>
-                    )}
-                  </div>
-                  {getStatusIcon(test.status)}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {!user && (
-            <p className="text-sm text-muted-foreground text-center">
-              Please log in to run diagnostic tests
-            </p>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
+            {!user && (
+              <p className="text-sm text-muted-foreground text-center">
+                Please log in to run diagnostic tests
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
