@@ -335,6 +335,32 @@ export default function LogBook() {
     },
   });
 
+  // Follow-up completion mutation
+  const followupMutation = useMutation({
+    mutationFn: async (entryId: string) => {
+      const { error } = await supabase
+        .from('logbook_entries')
+        .update({
+          followup_completed_at: new Date().toISOString(),
+          followup_completed_by: user?.id,
+        })
+        .eq('id', entryId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Follow-up completed" });
+      queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating follow-up",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const filteredEntries = allEntries.filter((entry: any) => {
     if (!searchQuery) return true;
     const searchLower = searchQuery.toLowerCase();
@@ -939,6 +965,66 @@ export default function LogBook() {
                                   );
                                 })}
                               </div>
+                              
+                              {/* Follow-up action buttons for Guest Re-Makes and Online Refunds */}
+                              {entry.logbook_categories?.name === 'Guest Re-Makes' && (
+                                <div className="mt-3 pt-3 border-t border-border">
+                                  {entry.followup_completed_at ? (
+                                    <div className="flex items-center gap-2">
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline"
+                                        className="bg-green-500/20 text-green-600 border-green-500/30 hover:bg-green-500/30 cursor-default"
+                                        disabled
+                                      >
+                                        ✓ Redeemed
+                                      </Button>
+                                      <span className="text-xs text-muted-foreground">
+                                        {format(new Date(entry.followup_completed_at), 'MMM d, h:mm a')}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      onClick={() => followupMutation.mutate(entry.id)}
+                                      disabled={followupMutation.isPending}
+                                    >
+                                      Redeem
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {entry.logbook_categories?.name === 'Online Refunds' && (
+                                <div className="mt-3 pt-3 border-t border-border">
+                                  {entry.followup_completed_at ? (
+                                    <div className="flex items-center gap-2">
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline"
+                                        className="bg-green-500/20 text-green-600 border-green-500/30 hover:bg-green-500/30 cursor-default"
+                                        disabled
+                                      >
+                                        ✓ Refund Completed
+                                      </Button>
+                                      <span className="text-xs text-muted-foreground">
+                                        {format(new Date(entry.followup_completed_at), 'MMM d, h:mm a')}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      className="border-amber-500/50 text-amber-600 hover:bg-amber-500/10"
+                                      onClick={() => followupMutation.mutate(entry.id)}
+                                      disabled={followupMutation.isPending}
+                                    >
+                                      Need to Refund
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </CardContent>
