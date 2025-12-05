@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ interface ChecklistItem {
   item_type: string;
   order_index: number;
   days_of_week: number[] | null;
+  requires_temperature_validation: boolean;
 }
 
 interface Checklist {
@@ -71,7 +73,7 @@ function DraggableTask({ task, onDelete }: { task: ChecklistItem; onDelete?: (id
   );
 }
 
-function UnassignedDropzone({ unassignedItems, onDelete, onQuickAdd, newQuestion, setNewQuestion, newItemType, setNewItemType }: { 
+function UnassignedDropzone({ unassignedItems, onDelete, onQuickAdd, newQuestion, setNewQuestion, newItemType, setNewItemType, requiresTempValidation, setRequiresTempValidation }: { 
   unassignedItems: ChecklistItem[]; 
   onDelete: (id: string) => void; 
   onQuickAdd: () => void;
@@ -79,6 +81,8 @@ function UnassignedDropzone({ unassignedItems, onDelete, onQuickAdd, newQuestion
   setNewQuestion: (value: string) => void;
   newItemType: string;
   setNewItemType: (value: string) => void;
+  requiresTempValidation: boolean;
+  setRequiresTempValidation: (value: boolean) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: 'unassigned',
@@ -110,6 +114,18 @@ function UnassignedDropzone({ unassignedItems, onDelete, onQuickAdd, newQuestion
             <SelectItem value="PHOTO">Photo</SelectItem>
           </SelectContent>
         </Select>
+        {newItemType === 'PHOTO' && (
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="tempValidation"
+              checked={requiresTempValidation}
+              onCheckedChange={(checked) => setRequiresTempValidation(checked === true)}
+            />
+            <label htmlFor="tempValidation" className="text-sm text-muted-foreground">
+              Requires temperature validation
+            </label>
+          </div>
+        )}
         <Button onClick={onQuickAdd} className="w-full" size="sm">
           <Plus className="h-4 w-4 mr-2" />
           Add Task
@@ -200,6 +216,7 @@ export default function DynamicChecklistCalendar() {
   // Quick add form state
   const [newQuestion, setNewQuestion] = useState("");
   const [newItemType, setNewItemType] = useState("TEXT");
+  const [requiresTempValidation, setRequiresTempValidation] = useState(false);
 
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -359,6 +376,7 @@ export default function DynamicChecklistCalendar() {
           item_type: newItemType,
           order_index: nextOrderIndex,
           is_required: true,
+          requires_temperature_validation: newItemType === 'PHOTO' ? requiresTempValidation : false,
         })
         .select()
         .single();
@@ -368,12 +386,14 @@ export default function DynamicChecklistCalendar() {
       const newItem: ChecklistItem = {
         ...data,
         days_of_week: null,
+        requires_temperature_validation: data.requires_temperature_validation || false,
       };
 
       setItems([...items, newItem]);
       setUnassignedItems([...unassignedItems, newItem]);
       setNewQuestion("");
       setNewItemType("TEXT");
+      setRequiresTempValidation(false);
       toast.success('Task added');
     } catch (error) {
       console.error('Error adding task:', error);
@@ -522,7 +542,7 @@ export default function DynamicChecklistCalendar() {
           onDragEnd={handleDragEnd}
         >
           <div className="grid lg:grid-cols-4 gap-6">
-            <UnassignedDropzone unassignedItems={unassignedItems} onDelete={handleDeleteItem} onQuickAdd={handleQuickAdd} newQuestion={newQuestion} setNewQuestion={setNewQuestion} newItemType={newItemType} setNewItemType={setNewItemType} />
+            <UnassignedDropzone unassignedItems={unassignedItems} onDelete={handleDeleteItem} onQuickAdd={handleQuickAdd} newQuestion={newQuestion} setNewQuestion={setNewQuestion} newItemType={newItemType} setNewItemType={setNewItemType} requiresTempValidation={requiresTempValidation} setRequiresTempValidation={setRequiresTempValidation} />
 
             <div className="lg:col-span-3">
               <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
