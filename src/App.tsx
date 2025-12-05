@@ -42,11 +42,9 @@ import RoleManagement from "./pages/RoleManagement";
 import CompletedStampPreview from "./pages/CompletedStampPreview";
 import OrganizationProfile from "./pages/OrganizationProfile";
 
-console.log('[App] Module loaded');
 const queryClient = new QueryClient();
 
 const AppContent = () => {
-  console.log('[App] AppContent rendering');
   // Don't setup push notifications until user navigates to protected routes
   // This prevents blocking the auth page
   return (
