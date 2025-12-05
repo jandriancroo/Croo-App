@@ -21,6 +21,7 @@ interface ChecklistItem {
   item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature';
   options?: string[];
   is_required: boolean;
+  requires_temperature_validation?: boolean;
   reference_image_url?: string;
   reference_link?: string;
   reference_video_url?: string;
@@ -204,6 +205,7 @@ export default function CreateChecklist() {
       options: item.item_type === 'multiple_choice' ? item.options : null,
       order_index: index,
       is_required: item.is_required,
+      requires_temperature_validation: item.item_type === 'image' ? (item.requires_temperature_validation || false) : false,
       reference_image_url: item.reference_image_url || null,
       reference_link: item.reference_link || null,
       reference_video_url: item.reference_video_url || null,
@@ -256,6 +258,7 @@ export default function CreateChecklist() {
       options: item.item_type === 'multiple_choice' ? item.options : null,
       order_index: index,
       is_required: item.is_required,
+      requires_temperature_validation: item.item_type === 'image' ? (item.requires_temperature_validation || false) : false,
       reference_image_url: item.reference_image_url || null,
       reference_link: item.reference_link || null,
       reference_video_url: item.reference_video_url || null,
@@ -511,6 +514,19 @@ export default function CreateChecklist() {
                               placeholder="e.g., Yes, No, N/A"
                               required
                             />
+                          </div>
+                        )}
+
+                        {item.item_type === 'image' && (
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`temp-validation-${index}`}
+                              checked={item.requires_temperature_validation || false}
+                              onCheckedChange={(checked) => updateItem(index, 'requires_temperature_validation', checked)}
+                            />
+                            <Label htmlFor={`temp-validation-${index}`} className="text-sm font-normal">
+                              Requires Temperature Validation
+                            </Label>
                           </div>
                         )}
 

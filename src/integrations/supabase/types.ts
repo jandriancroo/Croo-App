@@ -315,6 +315,7 @@ export type Database = {
           reference_link: string | null
           reference_notes: string | null
           reference_video_url: string | null
+          requires_temperature_validation: boolean
         }
         Insert: {
           checklist_id: string
@@ -330,6 +331,7 @@ export type Database = {
           reference_link?: string | null
           reference_notes?: string | null
           reference_video_url?: string | null
+          requires_temperature_validation?: boolean
         }
         Update: {
           checklist_id?: string
@@ -345,6 +347,7 @@ export type Database = {
           reference_link?: string | null
           reference_notes?: string | null
           reference_video_url?: string | null
+          requires_temperature_validation?: boolean
         }
         Relationships: [
           {
