@@ -1,10 +1,12 @@
+const DEFAULT_TIMEZONE = 'America/Los_Angeles';
+
 /**
- * Get the current date string in PST timezone (YYYY-MM-DD format)
- * This should be used for all "today" date comparisons to ensure consistency
+ * Get the current date string in specified timezone (YYYY-MM-DD format)
+ * Defaults to PST if no timezone provided
  */
-export const getTodayInPST = (): string => {
+export const getTodayInTimezone = (timezone: string = DEFAULT_TIMEZONE): string => {
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Los_Angeles',
+    timeZone: timezone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -12,11 +14,11 @@ export const getTodayInPST = (): string => {
 };
 
 /**
- * Convert any Date object to a date string in PST timezone (YYYY-MM-DD format)
+ * Convert any Date object to a date string in specified timezone (YYYY-MM-DD format)
  */
-export const getDateInPST = (date: Date): string => {
+export const getDateInTimezone = (date: Date, timezone: string = DEFAULT_TIMEZONE): string => {
   return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Los_Angeles',
+    timeZone: timezone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit'
@@ -24,30 +26,51 @@ export const getDateInPST = (date: Date): string => {
 };
 
 /**
- * Get the start of today in PST as a Date object (for timestamp comparisons)
+ * Get timezone offset string for common US timezones
  */
-export const getStartOfTodayPST = (): Date => {
-  const pstDateStr = getTodayInPST();
-  // Create date at midnight PST, then convert to UTC for database queries
-  const [year, month, day] = pstDateStr.split('-').map(Number);
-  // Create a date string with PST timezone offset
-  const pstMidnight = new Date(`${pstDateStr}T00:00:00-08:00`);
-  return pstMidnight;
+const getTimezoneOffset = (timezone: string): string => {
+  const offsets: Record<string, string> = {
+    'America/Los_Angeles': '-08:00',
+    'America/Denver': '-07:00',
+    'America/Phoenix': '-07:00',
+    'America/Chicago': '-06:00',
+    'America/New_York': '-05:00',
+    'America/Anchorage': '-09:00',
+    'Pacific/Honolulu': '-10:00',
+  };
+  return offsets[timezone] || '-08:00';
 };
 
 /**
- * Get the start of a specific date in PST as a Date object
+ * Get the start of today in specified timezone as a Date object
  */
-export const getStartOfDatePST = (date: Date): Date => {
-  const pstDateStr = getDateInPST(date);
-  return new Date(`${pstDateStr}T00:00:00-08:00`);
+export const getStartOfTodayInTimezone = (timezone: string = DEFAULT_TIMEZONE): Date => {
+  const dateStr = getTodayInTimezone(timezone);
+  const offset = getTimezoneOffset(timezone);
+  return new Date(`${dateStr}T00:00:00${offset}`);
 };
 
 /**
- * Get a date N days from now in PST (YYYY-MM-DD format)
+ * Get the start of a specific date in specified timezone as a Date object
  */
-export const getDateInPSTOffset = (daysOffset: number): string => {
+export const getStartOfDateInTimezone = (date: Date, timezone: string = DEFAULT_TIMEZONE): Date => {
+  const dateStr = getDateInTimezone(date, timezone);
+  const offset = getTimezoneOffset(timezone);
+  return new Date(`${dateStr}T00:00:00${offset}`);
+};
+
+/**
+ * Get a date N days from now in specified timezone (YYYY-MM-DD format)
+ */
+export const getDateInTimezoneOffset = (daysOffset: number, timezone: string = DEFAULT_TIMEZONE): string => {
   const date = new Date();
   date.setDate(date.getDate() + daysOffset);
-  return getDateInPST(date);
+  return getDateInTimezone(date, timezone);
 };
+
+// Legacy aliases for backward compatibility (default to PST)
+export const getTodayInPST = (): string => getTodayInTimezone(DEFAULT_TIMEZONE);
+export const getDateInPST = (date: Date): string => getDateInTimezone(date, DEFAULT_TIMEZONE);
+export const getStartOfTodayPST = (): Date => getStartOfTodayInTimezone(DEFAULT_TIMEZONE);
+export const getStartOfDatePST = (date: Date): Date => getStartOfDateInTimezone(date, DEFAULT_TIMEZONE);
+export const getDateInPSTOffset = (daysOffset: number): string => getDateInTimezoneOffset(daysOffset, DEFAULT_TIMEZONE);

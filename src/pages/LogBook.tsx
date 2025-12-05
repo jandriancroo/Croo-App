@@ -29,16 +29,7 @@ import { DrawerCountEntry, parseDrawerCountData } from "@/components/logbook/Dra
 import { SafeCountForm, SafeCountData } from "@/components/logbook/SafeCountForm";
 import { SafeCountEntry, parseSafeCountData } from "@/components/logbook/SafeCountEntry";
 import { CateringOrdersSection } from "@/components/logbook/CateringOrdersSection";
-
-// Helper to get date string in PST timezone (YYYY-MM-DD format)
-const getDateInPST = (date: Date): string => {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Los_Angeles',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-  }).format(date);
-};
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 
 export default function LogBook() {
   const { user } = useAuth();
@@ -46,6 +37,7 @@ export default function LogBook() {
   const queryClient = useQueryClient();
   const { isAdmin, isManager, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
+  const { getDateInTimezone } = useLocationTimezone();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -115,9 +107,9 @@ export default function LogBook() {
 
   // Fetch entry for selected date and category
   const { data: entry } = useQuery({
-    queryKey: ['logbook-entry', selectedCategory, getDateInPST(selectedDate)],
+    queryKey: ['logbook-entry', selectedCategory, getDateInTimezone(selectedDate)],
     queryFn: async () => {
-      const dateStr = getDateInPST(selectedDate);
+      const dateStr = getDateInTimezone(selectedDate);
       const { data, error } = await supabase
         .from('logbook_entries')
         .select(`
@@ -164,10 +156,10 @@ export default function LogBook() {
 
   // Fetch safe count entries for selected date
   const { data: safeCountEntries = [] } = useQuery({
-    queryKey: ['safe-count-entries', safeCountCategoryId, getDateInPST(selectedDate), currentLocation?.id],
+    queryKey: ['safe-count-entries', safeCountCategoryId, getDateInTimezone(selectedDate), currentLocation?.id],
     queryFn: async () => {
       if (!safeCountCategoryId || !currentLocation) return [];
-      const dateStr = getDateInPST(selectedDate);
+      const dateStr = getDateInTimezone(selectedDate);
       const { data, error } = await supabase
         .from('logbook_entries')
         .select(`*, logbook_entry_values(*)`)
@@ -182,10 +174,10 @@ export default function LogBook() {
 
   // Fetch drawer count entries for selected date
   const { data: drawerCountEntries = [] } = useQuery({
-    queryKey: ['drawer-count-entries', drawerCountCategoryId, getDateInPST(selectedDate), currentLocation?.id],
+    queryKey: ['drawer-count-entries', drawerCountCategoryId, getDateInTimezone(selectedDate), currentLocation?.id],
     queryFn: async () => {
       if (!drawerCountCategoryId || !currentLocation) return [];
-      const dateStr = getDateInPST(selectedDate);
+      const dateStr = getDateInTimezone(selectedDate);
       const { data, error } = await supabase
         .from('logbook_entries')
         .select(`*, logbook_entry_values(*)`)
@@ -252,7 +244,7 @@ export default function LogBook() {
   // Save entry mutation
   const saveEntryMutation = useMutation({
     mutationFn: async () => {
-      const dateStr = getDateInPST(selectedDate);
+      const dateStr = getDateInTimezone(selectedDate);
       
       // Create or update entry
       const { data: entryData, error: entryError } = await supabase
@@ -513,10 +505,10 @@ export default function LogBook() {
                       </p>
                     )}
                     <DrawerCountForm
-                      key={getDateInPST(selectedDate)}
+                      key={getDateInTimezone(selectedDate)}
                       onSave={async (data: DrawerCountData) => {
                         try {
-                          const dateStr = getDateInPST(selectedDate);
+                          const dateStr = getDateInTimezone(selectedDate);
                           
                           // Ensure a field exists for drawer count data
                           let fieldId = fields[0]?.id;
@@ -579,6 +571,9 @@ export default function LogBook() {
                           queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
                           queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
                           queryClient.invalidateQueries({ queryKey: ['drawer-count-entries'] });
+                          
+                          // Navigate to search tab to show submission
+                          setActiveTab('search');
 
                           // Send push notification to managers/admins
                           try {
@@ -645,10 +640,10 @@ export default function LogBook() {
                       </p>
                     )}
                     <SafeCountForm
-                      key={`${getDateInPST(selectedDate)}`}
+                      key={`${getDateInTimezone(selectedDate)}`}
                       onSave={async (data: SafeCountData) => {
                         try {
-                          const dateStr = getDateInPST(selectedDate);
+                          const dateStr = getDateInTimezone(selectedDate);
                           
                           // Ensure a field exists for safe count data
                           let fieldId = fields[0]?.id;
@@ -700,6 +695,9 @@ export default function LogBook() {
                           queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
                           queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
                           queryClient.invalidateQueries({ queryKey: ['safe-count-entries'] });
+                          
+                          // Navigate to search tab to show submission
+                          setActiveTab('search');
 
                           // Send push notification to managers/admins
                           try {
