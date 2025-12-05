@@ -572,43 +572,21 @@ export default function LogBook() {
 
                           // Send push notification to managers/admins
                           try {
-                            // Get managers and admins at this location
-                            const { data: locationUsers } = await supabase
-                              .from('user_locations')
-                              .select('user_id')
-                              .eq('location_id', currentLocation?.id);
+                            const overUnderText = data.variance > 0 
+                              ? `OVER $${data.variance.toFixed(2)}` 
+                              : data.variance < 0 
+                                ? `SHORT $${Math.abs(data.variance).toFixed(2)}`
+                                : 'BALANCED';
                             
-                            if (locationUsers && locationUsers.length > 0) {
-                              const userIds = locationUsers.map(u => u.user_id);
-                              
-                              // Get users with manager/admin roles
-                              const { data: roleUsers } = await supabase
-                                .from('user_roles')
-                                .select('user_id')
-                                .in('user_id', userIds)
-                                .in('role', ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin']);
-                              
-                              if (roleUsers && roleUsers.length > 0) {
-                                const managerIds = roleUsers.map(r => r.user_id);
-                                
-                                if (managerIds.length > 0) {
-                                  const overUnderText = data.variance > 0 
-                                    ? `OVER $${data.variance.toFixed(2)}` 
-                                    : data.variance < 0 
-                                      ? `SHORT $${Math.abs(data.variance).toFixed(2)}`
-                                      : 'BALANCED';
-                                  
-                                  await supabase.functions.invoke('send-push-notification', {
-                                    body: {
-                                      user_ids: managerIds,
-                                      title: `Drawer Count - ${currentLocation?.name || 'Location'}`,
-                                      body: `Deposit: $${data.actualDeposit.toFixed(2)} | ${overUnderText}`,
-                                      data: { type: 'drawer_count', location_id: currentLocation?.id }
-                                    }
-                                  });
-                                }
+                            await supabase.functions.invoke('send-push-notification', {
+                              body: {
+                                notification_type: 'drawer_count',
+                                title: `Drawer Count - ${currentLocation?.name || 'Location'}`,
+                                body: `Deposit: $${data.actualDeposit.toFixed(2)} | ${overUnderText}`,
+                                location_id: currentLocation?.id,
+                                roles: ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin'],
                               }
-                            }
+                            });
                           } catch (notifError) {
                             console.error('Error sending drawer count notification:', notifError);
                           }
@@ -715,35 +693,15 @@ export default function LogBook() {
 
                           // Send push notification to managers/admins
                           try {
-                            const { data: locationUsers } = await supabase
-                              .from('user_locations')
-                              .select('user_id')
-                              .eq('location_id', currentLocation?.id);
-                            
-                            if (locationUsers && locationUsers.length > 0) {
-                              const userIds = locationUsers.map(u => u.user_id);
-                              
-                              const { data: roleUsers } = await supabase
-                                .from('user_roles')
-                                .select('user_id')
-                                .in('user_id', userIds)
-                                .in('role', ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin']);
-                              
-                              if (roleUsers && roleUsers.length > 0) {
-                                const managerIds = roleUsers.map(r => r.user_id);
-                                
-                                if (managerIds.length > 0) {
-                                  await supabase.functions.invoke('send-push-notification', {
-                                    body: {
-                                      user_ids: managerIds,
-                                      title: `Safe Count - ${currentLocation?.name || 'Location'}`,
-                                      body: `${data.shift} Safe Count Complete - $${data.totalSafe.toFixed(2)} balanced`,
-                                      data: { type: 'safe_count', location_id: currentLocation?.id }
-                                    }
-                                  });
-                                }
+                            await supabase.functions.invoke('send-push-notification', {
+                              body: {
+                                notification_type: 'safe_count',
+                                title: `Safe Count - ${currentLocation?.name || 'Location'}`,
+                                body: `${data.shift} Safe Count Complete - $${data.totalSafe.toFixed(2)} balanced`,
+                                location_id: currentLocation?.id,
+                                roles: ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin'],
                               }
-                            }
+                            });
                           } catch (notifError) {
                             console.error('Error sending safe count notification:', notifError);
                           }
