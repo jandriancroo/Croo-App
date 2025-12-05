@@ -11,7 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Paperclip, Search, User, Settings } from "lucide-react";
+import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
@@ -39,6 +41,7 @@ export default function LogBook() {
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<string>("entry");
+  const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   // Redirect team members away from logs page
@@ -243,6 +246,40 @@ export default function LogBook() {
     e.preventDefault();
     saveEntryMutation.mutate();
   };
+
+  // Delete entry mutation
+  const deleteEntryMutation = useMutation({
+    mutationFn: async (entryId: string) => {
+      // First delete the entry values
+      const { error: valuesError } = await supabase
+        .from('logbook_entry_values')
+        .delete()
+        .eq('entry_id', entryId);
+
+      if (valuesError) throw valuesError;
+
+      // Then delete the entry
+      const { error: entryError } = await supabase
+        .from('logbook_entries')
+        .delete()
+        .eq('id', entryId);
+
+      if (entryError) throw entryError;
+    },
+    onSuccess: () => {
+      toast({ title: "Entry deleted" });
+      queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
+      queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+      setDeleteEntryId(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error deleting entry",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const filteredEntries = allEntries.filter((entry: any) => {
     if (!searchQuery) return true;
@@ -582,9 +619,29 @@ export default function LogBook() {
                                     {entry.logbook_categories?.name}
                                   </div>
                                 </div>
+                              <div className="flex items-center gap-2">
                                 <div className="text-xs text-muted-foreground">
                                   {format(new Date(entry.created_at), 'h:mm a')}
                                 </div>
+                                {(isAdmin || entry.created_by === user?.id) && (
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-6 w-6">
+                                        <MoreVertical className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem 
+                                        onClick={() => setDeleteEntryId(entry.id)}
+                                        className="text-destructive focus:text-destructive"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                )}
+                              </div>
                               </div>
                               <div className="mt-2 space-y-1">
                                 {entry.logbook_entry_values?.map((val: any) => {
@@ -640,6 +697,26 @@ export default function LogBook() {
             onOpenChange={setManageCategoriesOpen}
           />
         )}
+
+        <AlertDialog open={!!deleteEntryId} onOpenChange={(open) => !open && setDeleteEntryId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Entry</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this log entry? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => deleteEntryId && deleteEntryMutation.mutate(deleteEntryId)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Layout>
   );
