@@ -153,26 +153,26 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
         </Card>
       ) : (
         <>
-      {/* Denomination Inputs */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Coins className="h-5 w-5" />
-            Count Your Drawer
-          </CardTitle>
-          <CardDescription>Enter the quantity of each denomination</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-            {DENOMINATIONS.map((denom) => {
-              const count = counts[denom.name] || 0;
-              const valueCents = count * denom.value;
-              const valueDollars = valueCents / 100;
-              
-              return (
-                <div key={denom.name} className="space-y-1">
-                  <Label className="text-xs font-medium">{denom.pluralName}</Label>
-                  <div className="relative">
+          {/* Denomination Inputs */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Coins className="h-5 w-5" />
+                Count Your Drawer
+              </CardTitle>
+              <CardDescription>Enter the quantity of each denomination</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                {DENOMINATIONS.map((denom) => {
+                  const count = counts[denom.name] || 0;
+                  const valueCents = count * denom.value;
+                  const valueDollars = valueCents / 100;
+                  
+                  return (
+                    <div key={denom.name} className="space-y-1">
+                      <Label className="text-xs font-medium">{denom.pluralName}</Label>
+                      <div className="relative">
                     <Input
                       type="number"
                       min="0"
@@ -331,7 +331,9 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
           <Button onClick={handleSubmit} disabled={isSaving} className="w-full">
             {isSaving ? "Saving..." : "Save Drawer Count"}
           </Button>
-          </>
+        </>
+      )}
+        </>
       )}
     </div>
   );
