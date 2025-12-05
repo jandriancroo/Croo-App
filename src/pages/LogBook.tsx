@@ -360,6 +360,30 @@ export default function LogBook() {
                         try {
                           const dateStr = selectedDate.toISOString().split('T')[0];
                           
+                          // Ensure a field exists for drawer count data
+                          let fieldId = fields[0]?.id;
+                          
+                          if (!fieldId) {
+                            // Auto-create a field for drawer count if none exists
+                            const { data: newField, error: fieldError } = await supabase
+                              .from('logbook_fields')
+                              .insert({
+                                category_id: selectedCategory,
+                                field_name: 'drawer_data',
+                                field_type: 'text',
+                                display_order: 0,
+                                is_required: false,
+                              })
+                              .select()
+                              .single();
+                            
+                            if (fieldError) throw fieldError;
+                            fieldId = newField.id;
+                            
+                            // Invalidate fields query to refresh
+                            queryClient.invalidateQueries({ queryKey: ['logbook-fields', selectedCategory] });
+                          }
+                          
                           // Create or update entry
                           const { data: entryData, error: entryError } = await supabase
                             .from('logbook_entries')
@@ -387,7 +411,7 @@ export default function LogBook() {
                             .from('logbook_entry_values')
                             .insert({
                               entry_id: entryData.id,
-                              field_id: fields[0]?.id || selectedCategory, // Use first field or category as placeholder
+                              field_id: fieldId,
                               value_text: JSON.stringify(data),
                             });
 
