@@ -482,7 +482,7 @@ export default function LogBook() {
                                 .in('role', ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin']);
                               
                               if (roleUsers && roleUsers.length > 0) {
-                                const managerIds = roleUsers.map(r => r.user_id).filter(id => id !== user?.id);
+                                const managerIds = roleUsers.map(r => r.user_id);
                                 
                                 if (managerIds.length > 0) {
                                   const overUnderText = data.variance > 0 
@@ -621,7 +621,7 @@ export default function LogBook() {
                                 .in('role', ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin']);
                               
                               if (roleUsers && roleUsers.length > 0) {
-                                const managerIds = roleUsers.map(r => r.user_id).filter(id => id !== user?.id);
+                                const managerIds = roleUsers.map(r => r.user_id);
                                 
                                 if (managerIds.length > 0) {
                                   await supabase.functions.invoke('send-push-notification', {
