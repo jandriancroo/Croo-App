@@ -11,8 +11,15 @@ export function LogBookAlerts() {
   const { data: alerts = [] } = useQuery({
     queryKey: ['logbook-alerts'],
     queryFn: async () => {
-      const twentyFourHoursAgo = new Date();
-      twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+      // Get current date in PST timezone
+      const now = new Date();
+      const pstFormatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Los_Angeles',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      const todayPST = pstFormatter.format(now); // Format: YYYY-MM-DD
 
       // Get categories with alerts enabled
       const { data: alertCategories, error: catError } = await supabase
@@ -24,7 +31,7 @@ export function LogBookAlerts() {
       if (catError) throw catError;
       if (!alertCategories || alertCategories.length === 0) return [];
 
-      // Get recent entries from alert-enabled categories
+      // Get entries from today (PST) from alert-enabled categories
       const { data: entries, error: entriesError } = await supabase
         .from('logbook_entries')
         .select(`
@@ -35,7 +42,7 @@ export function LogBookAlerts() {
           profiles(full_name, profile_photo_url)
         `)
         .in('category_id', alertCategories.map(c => c.id))
-        .gte('created_at', twentyFourHoursAgo.toISOString())
+        .eq('entry_date', todayPST)
         .order('created_at', { ascending: false });
 
       if (entriesError) throw entriesError;
