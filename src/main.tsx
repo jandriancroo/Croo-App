@@ -3,20 +3,17 @@ import App from "./App.tsx";
 import "./index.css";
 import { registerPushHandler } from "./sw-push-handler";
 
-console.log('[Main] Starting app initialization');
-
-// Register push notification handler
-registerPushHandler();
+// Register push handler in background (non-blocking)
+try {
+  registerPushHandler();
+} catch (e) {
+  console.error('[Main] Push handler registration failed:', e);
+}
 
 const rootElement = document.getElementById("root");
-console.log('[Main] Root element:', rootElement);
 
 if (rootElement) {
-  console.log('[Main] Creating React root');
-  const root = createRoot(rootElement);
-  console.log('[Main] Rendering App');
-  root.render(<App />);
-  console.log('[Main] App render called');
+  createRoot(rootElement).render(<App />);
 } else {
   console.error('[Main] Root element not found!');
 }
