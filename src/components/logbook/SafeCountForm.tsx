@@ -208,43 +208,35 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
         </CardHeader>
         <CardContent className="space-y-3">
           {/* Header row */}
-          <div className="grid grid-cols-[48px_1fr_1fr] gap-3 text-xs text-muted-foreground font-medium px-1">
+          <div className="grid grid-cols-[48px_1fr_1fr_60px] gap-2 text-xs text-muted-foreground font-medium px-1">
             <div></div>
             <div className="text-center">Loose</div>
             <div className="text-center">Rolls</div>
+            <div></div>
           </div>
           
           {COINS.map((denom) => (
-            <div key={denom.name} className="grid grid-cols-[48px_1fr_1fr] gap-3 items-center">
+            <div key={denom.name} className="grid grid-cols-[48px_1fr_1fr_60px] gap-2 items-center">
               <Badge variant="secondary" className="w-12 justify-center text-xs">
                 {denom.icon}
               </Badge>
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="number"
-                  min="0"
-                  value={counts[denom.name] || ''}
-                  onChange={(e) => handleCountChange(denom.name, e.target.value)}
-                  placeholder="0"
-                  className="w-14 flex-shrink-0"
-                />
-                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                  {formatCurrency(denom.value / 100)}/ea
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Input
-                  type="number"
-                  min="0"
-                  value={rolls[denom.name] || ''}
-                  onChange={(e) => handleRollChange(denom.name, e.target.value)}
-                  placeholder="0"
-                  className="w-14 flex-shrink-0"
-                />
-                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                  {formatCurrency((denom.rollValue || 0) / 100)}/ea
-                </span>
-              </div>
+              <Input
+                type="number"
+                min="0"
+                value={counts[denom.name] || ''}
+                onChange={(e) => handleCountChange(denom.name, e.target.value)}
+                placeholder="0"
+              />
+              <Input
+                type="number"
+                min="0"
+                value={rolls[denom.name] || ''}
+                onChange={(e) => handleRollChange(denom.name, e.target.value)}
+                placeholder="0"
+              />
+              <Badge className="justify-center text-[10px] bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
+                {formatCurrency((denom.rollValue || 0) / 100)}
+              </Badge>
             </div>
           ))}
         </CardContent>
