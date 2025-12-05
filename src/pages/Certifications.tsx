@@ -888,7 +888,6 @@ export default function Certifications() {
                 >
                   <a
                     href={previewUrl}
-                    download
                     target="_blank"
                     rel="noopener noreferrer"
                   >
@@ -902,11 +901,26 @@ export default function Certifications() {
           {previewUrl && (
             <div className="flex-1 w-full min-h-0 px-4 pb-4">
               {previewUrl.toLowerCase().endsWith('.pdf') ? (
-                <iframe
-                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(previewUrl)}&embedded=true`}
+                <object
+                  data={previewUrl}
+                  type="application/pdf"
                   className="w-full h-full rounded-md border"
-                  title="PDF Preview"
-                />
+                >
+                  <div className="w-full h-full flex flex-col items-center justify-center gap-4 bg-muted rounded-md border">
+                    <p className="text-muted-foreground text-center">
+                      Unable to display PDF in browser.
+                    </p>
+                    <Button asChild>
+                      <a
+                        href={previewUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        Open PDF in New Tab
+                      </a>
+                    </Button>
+                  </div>
+                </object>
               ) : (
                 <img
                   src={previewUrl}
