@@ -13,6 +13,7 @@ import { ArrowLeft, Save, Plus, X } from "lucide-react";
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
+import { getDateInPST } from "@/utils/dateUtils";
 
 interface ChecklistItem {
   id: string;
@@ -160,7 +161,7 @@ function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates }: {
   const today = new Date();
   const startOfWeek = new Date(today);
   startOfWeek.setDate(today.getDate() - today.getDay() + 1 + dayIndex);
-  const dateString = startOfWeek.toISOString().split('T')[0];
+  const dateString = getDateInPST(startOfWeek);
 
   const dayHolidays = holidays.filter(h => h.holiday_date === dateString);
   const isBlackout = blackoutDates.includes(dateString);
@@ -263,8 +264,8 @@ export default function DynamicChecklistCalendar() {
       const { data: holidaysData, error: holidaysError } = await supabase
         .from("holidays")
         .select("*")
-        .gte("holiday_date", startOfWeek.toISOString().split('T')[0])
-        .lte("holiday_date", endOfWeek.toISOString().split('T')[0]);
+        .gte("holiday_date", getDateInPST(startOfWeek))
+        .lte("holiday_date", getDateInPST(endOfWeek));
 
       if (holidaysError) throw holidaysError;
       setHolidays(holidaysData || []);

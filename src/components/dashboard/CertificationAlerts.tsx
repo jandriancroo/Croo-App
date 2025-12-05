@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle } from "lucide-react";
 import { differenceInDays } from "date-fns";
+import { getTodayInPST, getDateInPSTOffset } from "@/utils/dateUtils";
 
 interface ExpiringCertification {
   id: string;
@@ -22,9 +23,8 @@ export function CertificationAlerts() {
 
   const fetchExpiringCertifications = async () => {
     try {
-      // Get date 30 days from now
-      const thirtyDaysFromNow = new Date();
-      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      const todayPST = getTodayInPST();
+      const thirtyDaysFromNowPST = getDateInPSTOffset(30);
 
       const { data, error } = await supabase
         .from("certifications")
@@ -36,8 +36,8 @@ export function CertificationAlerts() {
           profiles!certifications_user_id_fkey(full_name)
         `)
         .eq("status", "approved")
-        .lte("expiration_date", thirtyDaysFromNow.toISOString().split("T")[0])
-        .gte("expiration_date", new Date().toISOString().split("T")[0]);
+        .lte("expiration_date", thirtyDaysFromNowPST)
+        .gte("expiration_date", todayPST);
 
       if (error) throw error;
 
