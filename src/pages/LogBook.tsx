@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2 } from "lucide-react";
+import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
@@ -631,6 +631,24 @@ export default function LogBook() {
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
+                                      <DropdownMenuItem 
+                                        onClick={() => {
+                                          // Set up for editing: switch to entry tab, select category and date
+                                          setSelectedCategory(entry.category_id);
+                                          setSelectedDate(new Date(entry.entry_date));
+                                          // Pre-fill form data from existing values
+                                          const existingData: Record<string, any> = {};
+                                          entry.logbook_entry_values?.forEach((val: any) => {
+                                            existingData[val.field_id] = val.value_text || val.value_number || val.value_date || val.attachment_url;
+                                          });
+                                          setFormData(existingData);
+                                          setActiveTab('entry');
+                                          toast({ title: "Edit mode", description: "Update the entry and save" });
+                                        }}
+                                      >
+                                        <Pencil className="h-4 w-4 mr-2" />
+                                        Edit
+                                      </DropdownMenuItem>
                                       <DropdownMenuItem 
                                         onClick={() => setDeleteEntryId(entry.id)}
                                         className="text-destructive focus:text-destructive"
