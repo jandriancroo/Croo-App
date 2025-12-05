@@ -4,22 +4,17 @@ import { AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 
 export function LogBookAlerts() {
   const navigate = useNavigate();
+  const { timezone, getTodayInTimezone } = useLocationTimezone();
   
   const { data: alerts = [] } = useQuery({
-    queryKey: ['logbook-alerts'],
+    queryKey: ['logbook-alerts', timezone],
     queryFn: async () => {
-      // Get current date in PST timezone
-      const now = new Date();
-      const pstFormatter = new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'America/Los_Angeles',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      });
-      const todayPST = pstFormatter.format(now); // Format: YYYY-MM-DD
+      // Get current date in location's timezone
+      const todayInTimezone = getTodayInTimezone();
 
       // Get categories with alerts enabled
       const { data: alertCategories, error: catError } = await supabase
@@ -42,7 +37,7 @@ export function LogBookAlerts() {
           profiles(full_name, profile_photo_url)
         `)
         .in('category_id', alertCategories.map(c => c.id))
-        .eq('entry_date', todayPST)
+        .eq('entry_date', todayInTimezone)
         .order('created_at', { ascending: false });
 
       if (entriesError) throw entriesError;
