@@ -407,86 +407,101 @@ export const NotificationSettings = () => {
         {/* Show preferences if permission granted or on native */}
         {(!needsPermission || isNative) && (
           <>
-            <div className="grid grid-cols-1 gap-1">
-              <div className="flex items-center justify-between py-1.5">
-                <Label htmlFor="overdue-checklists" className="text-sm font-normal">Overdue Checklists</Label>
-                <Switch
-                  id="overdue-checklists"
-                  checked={preferences.overdue_checklists}
-                  onCheckedChange={(checked) => updatePreference('overdue_checklists', checked)}
-                />
-              </div>
+            {/* Personal Notifications - follow you everywhere */}
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground mb-2">Personal — these follow you everywhere</p>
+              <div className="grid grid-cols-1 gap-1">
+                <div className="flex items-center justify-between py-1.5">
+                  <Label htmlFor="chat-messages" className="text-sm font-normal">Chat Messages</Label>
+                  <Switch
+                    id="chat-messages"
+                    checked={preferences.chat_messages}
+                    onCheckedChange={(checked) => updatePreference('chat_messages', checked)}
+                  />
+                </div>
 
-              <div className="flex items-center justify-between py-1.5">
-                <Label htmlFor="late-arrivals" className="text-sm font-normal">Late Arrivals</Label>
-                <Switch
-                  id="late-arrivals"
-                  checked={preferences.late_arrivals}
-                  onCheckedChange={(checked) => updatePreference('late_arrivals', checked)}
-                />
-              </div>
+                <div className="flex items-center justify-between py-1.5">
+                  <Label htmlFor="announcements" className="text-sm font-normal">Announcements</Label>
+                  <Switch
+                    id="announcements"
+                    checked={preferences.announcements}
+                    onCheckedChange={(checked) => updatePreference('announcements', checked)}
+                  />
+                </div>
 
-              <div className="flex items-center justify-between py-1.5">
-                <Label htmlFor="announcements" className="text-sm font-normal">Announcements</Label>
-                <Switch
-                  id="announcements"
-                  checked={preferences.announcements}
-                  onCheckedChange={(checked) => updatePreference('announcements', checked)}
-                />
-              </div>
+                <div className="flex items-center justify-between py-1.5">
+                  <Label htmlFor="schedule-updates" className="text-sm font-normal">Schedule Updates</Label>
+                  <Switch
+                    id="schedule-updates"
+                    checked={preferences.schedule_updates}
+                    onCheckedChange={(checked) => updatePreference('schedule_updates', checked)}
+                  />
+                </div>
 
-              <div className="flex items-center justify-between py-1.5">
-                <Label htmlFor="chat-messages" className="text-sm font-normal">Chat Messages</Label>
-                <Switch
-                  id="chat-messages"
-                  checked={preferences.chat_messages}
-                  onCheckedChange={(checked) => updatePreference('chat_messages', checked)}
-                />
-              </div>
-
-              <div className="flex items-center justify-between py-1.5">
-                <Label htmlFor="schedule-updates" className="text-sm font-normal">Schedule Updates</Label>
-                <Switch
-                  id="schedule-updates"
-                  checked={preferences.schedule_updates}
-                  onCheckedChange={(checked) => updatePreference('schedule_updates', checked)}
-                />
-              </div>
-
-              <div className="flex items-center justify-between py-1.5">
-                <Label htmlFor="shift-approvals" className="text-sm font-normal">Shift Approvals</Label>
-                <Switch
-                  id="shift-approvals"
-                  checked={preferences.shift_approvals}
-                  onCheckedChange={(checked) => updatePreference('shift_approvals', checked)}
-                />
-              </div>
-
-              <div className="flex items-center justify-between py-1.5">
-                <Label htmlFor="certification-expiring" className="text-sm font-normal">Cert Expiring</Label>
-                <Switch
-                  id="certification-expiring"
-                  checked={preferences.certification_expiring}
-                  onCheckedChange={(checked) => updatePreference('certification_expiring', checked)}
-                />
+                <div className="flex items-center justify-between py-1.5">
+                  <Label htmlFor="shift-approvals" className="text-sm font-normal">Shift Approvals</Label>
+                  <Switch
+                    id="shift-approvals"
+                    checked={preferences.shift_approvals}
+                    onCheckedChange={(checked) => updatePreference('shift_approvals', checked)}
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Location-specific notification toggles */}
-            {userLocations.length > 1 && (
-              <>
-                <Separator className="my-3" />
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5" />
-                    <span>Notifications by Location</span>
-                  </div>
+            <Separator className="my-3" />
+
+            {/* Operational Alerts - location-based */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">
+                  Operational — {userLocations.length > 1 ? 'toggle per location below' : 'alerts for your location'}
+                </p>
+              </div>
+              
+              {/* Global toggles for operational alerts */}
+              <div className="grid grid-cols-1 gap-1">
+                <div className="flex items-center justify-between py-1.5">
+                  <Label htmlFor="overdue-checklists" className="text-sm font-normal">Overdue Checklists</Label>
+                  <Switch
+                    id="overdue-checklists"
+                    checked={preferences.overdue_checklists}
+                    onCheckedChange={(checked) => updatePreference('overdue_checklists', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between py-1.5">
+                  <Label htmlFor="late-arrivals" className="text-sm font-normal">Late Arrivals</Label>
+                  <Switch
+                    id="late-arrivals"
+                    checked={preferences.late_arrivals}
+                    onCheckedChange={(checked) => updatePreference('late_arrivals', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between py-1.5">
+                  <Label htmlFor="certification-expiring" className="text-sm font-normal">Cert Expiring</Label>
+                  <Switch
+                    id="certification-expiring"
+                    checked={preferences.certification_expiring}
+                    onCheckedChange={(checked) => updatePreference('certification_expiring', checked)}
+                  />
+                </div>
+              </div>
+
+              {/* Per-location filter (only if multiple locations) */}
+              {userLocations.length > 1 && (
+                <div className="mt-3 p-3 bg-muted/50 rounded-lg space-y-3">
+                  <p className="text-xs text-muted-foreground">
+                    Fine-tune which locations send you these alerts:
+                  </p>
                   
                   <Select
                     value={selectedLocationId || ''}
                     onValueChange={(value) => setSelectedLocationId(value)}
                   >
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full bg-background">
                       <SelectValue placeholder="Select a location" />
                     </SelectTrigger>
                     <SelectContent>
@@ -515,8 +530,8 @@ export const NotificationSettings = () => {
                     </div>
                   )}
                 </div>
-              </>
-            )}
+              )}
+            </div>
           </>
         )}
       </CardContent>
