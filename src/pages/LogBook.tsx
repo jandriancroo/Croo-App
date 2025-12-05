@@ -722,7 +722,7 @@ export default function LogBook() {
                                 <div className="text-xs text-muted-foreground">
                                   {format(new Date(entry.created_at), 'h:mm a')}
                                 </div>
-                                {(isAdmin || entry.created_by === user?.id) && (
+                                {(isAdmin || isManager || entry.created_by === user?.id) && (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <Button variant="ghost" size="icon" className="h-6 w-6">
