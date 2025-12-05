@@ -7,15 +7,8 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from '@/hooks/use-toast';
-import { Bell, BellOff, Smartphone, MapPin, ChevronDown } from 'lucide-react';
+import { Bell, BellOff, Smartphone, MapPin } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 interface NotificationPreferences {
   overdue_checklists: boolean;
@@ -66,7 +59,6 @@ export const NotificationSettings = () => {
     certification_expiring: true,
   });
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
-  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
   const [locationNotifPrefs, setLocationNotifPrefs] = useState<Record<string, LocationNotificationPrefs>>({});
   const [loading, setLoading] = useState(true);
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
@@ -363,9 +355,6 @@ export const NotificationSettings = () => {
     }
   };
 
-  const selectedLocation = userLocations.find(l => l.location_id === selectedLocationId);
-  const selectedLocationPrefs = selectedLocationId ? locationNotifPrefs[selectedLocationId] : null;
-
   // Always render for debugging
   console.log('[NotificationSettings] Rendering, loading:', loading, 'shouldShow:', shouldShow);
 
@@ -452,84 +441,38 @@ export const NotificationSettings = () => {
             <Separator className="my-3" />
 
             {/* Operational Alerts - location-based */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                <p className="text-xs text-muted-foreground">
-                  Operational — {userLocations.length > 1 ? 'toggle per location below' : 'alerts for your location'}
-                </p>
+                <p className="text-xs text-muted-foreground">Operational — by location</p>
               </div>
               
-              {/* Global toggles for operational alerts */}
-              <div className="grid grid-cols-1 gap-1">
-                <div className="flex items-center justify-between py-1.5">
-                  <Label htmlFor="overdue-checklists" className="text-sm font-normal">Overdue Checklists</Label>
-                  <Switch
-                    id="overdue-checklists"
-                    checked={preferences.overdue_checklists}
-                    onCheckedChange={(checked) => updatePreference('overdue_checklists', checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between py-1.5">
-                  <Label htmlFor="late-arrivals" className="text-sm font-normal">Late Arrivals</Label>
-                  <Switch
-                    id="late-arrivals"
-                    checked={preferences.late_arrivals}
-                    onCheckedChange={(checked) => updatePreference('late_arrivals', checked)}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between py-1.5">
-                  <Label htmlFor="certification-expiring" className="text-sm font-normal">Cert Expiring</Label>
-                  <Switch
-                    id="certification-expiring"
-                    checked={preferences.certification_expiring}
-                    onCheckedChange={(checked) => updatePreference('certification_expiring', checked)}
-                  />
-                </div>
-              </div>
-
-              {/* Per-location filter (only if multiple locations) */}
-              {userLocations.length > 1 && (
-                <div className="mt-3 p-3 bg-muted/50 rounded-lg space-y-3">
-                  <p className="text-xs text-muted-foreground">
-                    Fine-tune which locations send you these alerts:
-                  </p>
-                  
-                  <Select
-                    value={selectedLocationId || ''}
-                    onValueChange={(value) => setSelectedLocationId(value)}
-                  >
-                    <SelectTrigger className="w-full bg-background">
-                      <SelectValue placeholder="Select a location" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {userLocations.map((loc) => (
-                        <SelectItem key={loc.location_id} value={loc.location_id}>
-                          {loc.location_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-
-                  {selectedLocationId && selectedLocationPrefs && (
-                    <div className="grid grid-cols-1 gap-1 pt-1">
+              {/* Show each location with its toggles */}
+              {userLocations.map((loc) => {
+                const locPrefs = locationNotifPrefs[loc.location_id] || {};
+                return (
+                  <div key={loc.location_id} className="p-3 bg-muted/50 rounded-lg space-y-2">
+                    <p className="text-sm font-medium">{loc.location_name}</p>
+                    <div className="grid grid-cols-1 gap-1">
                       {LOCATION_NOTIFICATION_TYPES.map((nt) => (
-                        <div key={nt.key} className="flex items-center justify-between py-1.5">
-                          <Label htmlFor={`loc-${selectedLocationId}-${nt.key}`} className="text-sm font-normal">
+                        <div key={nt.key} className="flex items-center justify-between py-1">
+                          <Label htmlFor={`loc-${loc.location_id}-${nt.key}`} className="text-sm font-normal">
                             {nt.label}
                           </Label>
                           <Switch
-                            id={`loc-${selectedLocationId}-${nt.key}`}
-                            checked={selectedLocationPrefs[nt.key] ?? true}
-                            onCheckedChange={(checked) => updateLocationNotifPreference(selectedLocationId, nt.key, checked)}
+                            id={`loc-${loc.location_id}-${nt.key}`}
+                            checked={locPrefs[nt.key] ?? true}
+                            onCheckedChange={(checked) => updateLocationNotifPreference(loc.location_id, nt.key, checked)}
                           />
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
+                  </div>
+                );
+              })}
+              
+              {userLocations.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">No locations assigned</p>
               )}
             </div>
           </>
