@@ -689,7 +689,7 @@ export default function Dashboard() {
             return (
               <Card 
                 key={`catering-${order.id}`} 
-                className={`hover:shadow-lg transition-shadow overflow-hidden p-0 ${
+                className={`hover:shadow-lg transition-shadow overflow-hidden p-0 flex flex-col ${
                   isCompleted ? "opacity-75" : ""
                 }`}
               >
@@ -708,7 +708,7 @@ export default function Dashboard() {
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="py-2 px-3 pt-0 pb-0">
+                <CardContent className="py-2 px-3 pt-0 pb-0 flex-1">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Clock className="h-3 w-3" />
@@ -726,7 +726,7 @@ export default function Dashboard() {
                   </div>
                 </CardContent>
                 <Button 
-                  className={`w-full h-9 text-xs rounded-none rounded-b-lg text-white ${
+                  className={`w-full h-9 text-xs rounded-none rounded-b-lg text-white mt-auto ${
                     isCompleted ? "bg-green-500 hover:bg-green-600" : "bg-orange-500 hover:bg-orange-600"
                   }`}
                   onClick={() => setSelectedCateringOrder(order)}
