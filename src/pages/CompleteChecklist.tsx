@@ -83,7 +83,7 @@ export default function CompleteChecklist() {
 
   // Helper to check if a multi-photo item is complete
   const isMultiPhotoComplete = useCallback((item: ChecklistItem, response: any): boolean => {
-    if (item.item_type !== 'image' && item.item_type !== 'PHOTO') return true;
+    if (item.item_type !== 'image' && item.item_type !== 'PHOTO' && item.item_type !== 'temperature') return true;
     const minPhotos = item.options?.minPhotos || 1;
     if (minPhotos <= 1) return !!response;
     
@@ -106,7 +106,7 @@ export default function CompleteChecklist() {
       if (item.item_type === 'confirmation' || item.item_type === 'CHECKMARK') {
         return response === true;
       }
-      if (item.item_type === 'image' || item.item_type === 'PHOTO') {
+      if (item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature') {
         return isMultiPhotoComplete(item, response);
       }
       return response !== undefined && response !== '' && response !== null;
@@ -633,7 +633,7 @@ export default function CompleteChecklist() {
           {items.map(item => {
           const isCompleted = responsesWithCompleters[item.id]?.completedBy;
           const completerInfo = responsesWithCompleters[item.id]?.completedBy;
-          const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO';
+          const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
           const hasResponse = isImageItem 
             ? isMultiPhotoComplete(item, responses[item.id])
             : responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
@@ -760,7 +760,7 @@ export default function CompleteChecklist() {
                           <Label htmlFor={`${item.id}-${option}`} className="text-sm font-normal cursor-pointer">{option}</Label>
                         </div>)}
                     </RadioGroup>}
-                  {(item.item_type === 'image' || item.item_type === 'PHOTO') && (() => {
+                  {(item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature') && (() => {
                     const minPhotos = getMinPhotos(item);
                     const isMultiPhoto = minPhotos > 1;
                     const currentPhotos = getPhotosForItem(item.id);
