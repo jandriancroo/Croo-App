@@ -411,11 +411,19 @@ export default function LogBook() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="entry">New Entry</TabsTrigger>
-            <TabsTrigger value="search">Search Entries</TabsTrigger>
-            <TabsTrigger value="catering">Catering Orders</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <TabsList>
+              <TabsTrigger value="entry">New Entry</TabsTrigger>
+              <TabsTrigger value="search">Search Entries</TabsTrigger>
+            </TabsList>
+            <Button 
+              variant={activeTab === 'catering' ? 'default' : 'outline'}
+              onClick={() => setActiveTab('catering')}
+              className={activeTab === 'catering' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'border-orange-500 text-orange-500 hover:bg-orange-500/10'}
+            >
+              🍽️ Catering Orders
+            </Button>
+          </div>
 
           <TabsContent value="entry" className="space-y-4">
             {/* Category Selection - Dropdown on mobile/tablet, Tabs on desktop */}
