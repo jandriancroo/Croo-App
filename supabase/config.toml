@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.extract-certification-date]
 verify_jwt = false
+
+[functions.parse-catering-order]
+verify_jwt = false
