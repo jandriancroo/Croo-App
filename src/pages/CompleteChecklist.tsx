@@ -142,25 +142,33 @@ export default function CompleteChecklist() {
         });
 
         // Check if there's already ANY submission for this day (shared by all users)
-        // Get the FIRST submission created on this day so all users work on the same one
+        // Get the submission with responses, or the most recent one if there are duplicates from race conditions
         const {
           data: submissions,
           error: submissionsError,
         } = await supabase
           .from('checklist_submissions')
-          .select('id')
+          .select(`
+            id,
+            checklist_responses(count)
+          `)
           .eq('checklist_id', id)
           .eq('location_id', locationId)
           .gte('submitted_at', startOfDay.toISOString())
           .lte('submitted_at', endOfDay.toISOString())
-          .order('submitted_at', { ascending: true })
-          .limit(1);
+          .order('submitted_at', { ascending: false });
 
         console.log('Submission query result:', { submissions, submissionsError });
 
         if (submissionsError) throw submissionsError;
 
-        const existingSubmission = submissions?.[0];
+        // Find the submission with the most responses (handles race condition duplicates)
+        const existingSubmission = submissions?.reduce((best: any, current: any) => {
+          const currentCount = current.checklist_responses?.[0]?.count || 0;
+          const bestCount = best?.checklist_responses?.[0]?.count || 0;
+          return currentCount > bestCount ? current : best;
+        }, submissions[0]);
+        
         if (existingSubmission) {
           // Use the existing shared submission for this day
           console.log('Using existing submission:', existingSubmission.id);
