@@ -66,7 +66,6 @@ export function SafeCountForm({ onSave, isSaving, existingShifts = [] }: SafeCou
   const [rolls, setRolls] = useState<Record<string, number>>(
     COINS.reduce((acc, d) => ({ ...acc, [d.name]: 0 }), {})
   );
-  const [safeSet, setSafeSet] = useState(false);
 
   // Calculate totals
   const calculations = useMemo(() => {
@@ -143,17 +142,11 @@ export function SafeCountForm({ onSave, isSaving, existingShifts = [] }: SafeCou
   const handleCountChange = (denomName: string, value: string) => {
     const numValue = parseInt(value) || 0;
     setCounts(prev => ({ ...prev, [denomName]: Math.max(0, numValue) }));
-    setSafeSet(false);
   };
 
   const handleRollChange = (denomName: string, value: string) => {
     const numValue = parseInt(value) || 0;
     setRolls(prev => ({ ...prev, [denomName]: Math.max(0, numValue) }));
-    setSafeSet(false);
-  };
-
-  const handleSetSafe = () => {
-    setSafeSet(true);
   };
 
   const handleSubmit = () => {
@@ -284,9 +277,13 @@ export function SafeCountForm({ onSave, isSaving, existingShifts = [] }: SafeCou
         </CardContent>
       </Card>
 
-      {/* Totals Card */}
-      <Card>
-        <CardContent className="pt-4">
+      {/* Status & Save Card */}
+      <Card className={cn(
+        "border-2",
+        calculations.totalDollars === 0 ? "border-border" :
+        calculations.isExact ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-red-500 bg-red-50 dark:bg-red-950/20"
+      )}>
+        <CardContent className="pt-4 space-y-3">
           <div className="flex justify-between items-center text-lg font-semibold">
             <span>Safe Total:</span>
             <span>{formatCurrency(calculations.totalDollars)}</span>
@@ -294,71 +291,60 @@ export function SafeCountForm({ onSave, isSaving, existingShifts = [] }: SafeCou
           <div className="text-sm text-muted-foreground text-right">
             Target: {formatCurrency(SAFE_TARGET)}
           </div>
+
+          {calculations.totalDollars > 0 && (
+            <>
+              {calculations.isExact ? (
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                  <CheckCircle2 className="h-5 w-5" />
+                  <span className="font-semibold">Safe is balanced at {formatCurrency(SAFE_TARGET)}</span>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                    <AlertCircle className="h-5 w-5" />
+                    <span className="font-semibold">
+                      Safe is {calculations.isOver ? 'OVER' : 'UNDER'} by {formatCurrency(Math.abs(calculations.difference))}
+                    </span>
+                  </div>
+
+                  {calculations.adjustmentSuggestions.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">
+                        {calculations.isOver ? 'Remove from safe:' : 'Add to safe:'}
+                      </Label>
+                      <div className="space-y-1">
+                        {calculations.adjustmentSuggestions.map((suggestion, idx) => (
+                          <div key={idx} className="flex items-center justify-between text-sm bg-background/50 rounded px-2 py-1">
+                            <span className="flex items-center gap-1">
+                              {suggestion.action === 'remove' ? (
+                                <ArrowUp className="h-3 w-3 text-red-500" />
+                              ) : (
+                                <ArrowDown className="h-3 w-3 text-green-500" />
+                              )}
+                              {suggestion.count}x {suggestion.denomination}
+                            </span>
+                            <span>{formatCurrency(suggestion.value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+
+          <Button 
+            onClick={handleSubmit} 
+            disabled={!calculations.isExact || isSaving}
+            className="w-full"
+            size="lg"
+          >
+            {isSaving ? 'Saving...' : calculations.isExact ? 'Save Safe Count' : 'Must be exactly $300 to save'}
+          </Button>
         </CardContent>
       </Card>
-
-      {!safeSet && (
-        <Button onClick={handleSetSafe} className="w-full" size="lg">
-          Set Safe
-        </Button>
-      )}
-
-      {safeSet && (
-        <Card className={cn(
-          "border-2",
-          calculations.isExact ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-red-500 bg-red-50 dark:bg-red-950/20"
-        )}>
-          <CardContent className="pt-4 space-y-3">
-            {calculations.isExact ? (
-              <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
-                <CheckCircle2 className="h-5 w-5" />
-                <span className="font-semibold">Safe is balanced at {formatCurrency(SAFE_TARGET)}</span>
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
-                  <AlertCircle className="h-5 w-5" />
-                  <span className="font-semibold">
-                    Safe is {calculations.isOver ? 'OVER' : 'UNDER'} by {formatCurrency(Math.abs(calculations.difference))}
-                  </span>
-                </div>
-
-                {calculations.adjustmentSuggestions.length > 0 && (
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">
-                      {calculations.isOver ? 'Remove from safe:' : 'Add to safe:'}
-                    </Label>
-                    <div className="space-y-1">
-                      {calculations.adjustmentSuggestions.map((suggestion, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-sm bg-background/50 rounded px-2 py-1">
-                          <span className="flex items-center gap-1">
-                            {suggestion.action === 'remove' ? (
-                              <ArrowUp className="h-3 w-3 text-red-500" />
-                            ) : (
-                              <ArrowDown className="h-3 w-3 text-green-500" />
-                            )}
-                            {suggestion.count}x {suggestion.denomination}
-                          </span>
-                          <span>{formatCurrency(suggestion.value)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-
-            <Button 
-              onClick={handleSubmit} 
-              disabled={!calculations.isExact || isSaving}
-              className="w-full"
-              size="lg"
-            >
-              {isSaving ? 'Saving...' : calculations.isExact ? 'Save Safe Count' : 'Must be exactly $300 to save'}
-            </Button>
-          </CardContent>
-        </Card>
-      )}
         </>
       )}
     </div>
