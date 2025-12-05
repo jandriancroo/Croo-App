@@ -34,6 +34,7 @@ interface Checklist {
   id: string;
   title: string;
   description: string | null;
+  location_id: string | null;
 }
 interface ResponseWithCompleter {
   responseId: string;
@@ -118,8 +119,12 @@ export default function CompleteChecklist() {
 
   // Create or get shared daily submission (one per checklist per day, not per user)
   useEffect(() => {
-    console.log('Submission effect triggered:', { id, userId: user?.id, locationId: currentLocation?.id, submissionId });
-    if (!id || !user?.id || !currentLocation?.id || submissionId) return;
+    // Get location_id from currentLocation or fall back to checklist's location_id
+    const locationId = currentLocation?.id || checklist?.location_id;
+    
+    console.log('Submission effect triggered:', { id, userId: user?.id, locationId, checklistLocationId: checklist?.location_id, submissionId });
+    if (!id || !user?.id || !locationId || submissionId) return;
+    
     const createDraftSubmission = async () => {
       try {
         const startOfDay = new Date(viewDate);
@@ -130,7 +135,7 @@ export default function CompleteChecklist() {
 
         console.log('Querying for existing submission:', { 
           checklistId: id, 
-          locationId: currentLocation.id,
+          locationId,
           startOfDay: startOfDay.toISOString(),
           endOfDay: endOfDay.toISOString()
         });
@@ -144,7 +149,7 @@ export default function CompleteChecklist() {
           .from('checklist_submissions')
           .select('id')
           .eq('checklist_id', id)
-          .eq('location_id', currentLocation.id)
+          .eq('location_id', locationId)
           .gte('submitted_at', startOfDay.toISOString())
           .lte('submitted_at', endOfDay.toISOString())
           .order('submitted_at', { ascending: true })
@@ -168,7 +173,7 @@ export default function CompleteChecklist() {
           } = await supabase.from('checklist_submissions').insert({
             checklist_id: id,
             submitted_by: user.id,
-            location_id: currentLocation.id,
+            location_id: locationId,
             notes: ''
           }).select().single();
           console.log('New submission result:', { newSubmission, error });
@@ -180,7 +185,7 @@ export default function CompleteChecklist() {
       }
     };
     createDraftSubmission();
-  }, [id, user, submissionId, viewDate, currentLocation?.id]);
+  }, [id, user, submissionId, viewDate, currentLocation?.id, checklist?.location_id]);
 
   // Load existing responses (and completer info) whenever we have a submissionId
   useEffect(() => {
