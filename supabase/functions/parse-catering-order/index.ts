@@ -27,6 +27,39 @@ serve(async (req) => {
 
     console.log("Parsing catering order from:", imageUrl);
 
+    // Fetch the file and convert to base64
+    const fileResponse = await fetch(imageUrl);
+    if (!fileResponse.ok) {
+      throw new Error(`Failed to fetch file: ${fileResponse.status}`);
+    }
+    
+    const contentType = fileResponse.headers.get('content-type') || 'application/octet-stream';
+    const arrayBuffer = await fileResponse.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    // Convert to base64
+    let binary = '';
+    for (let i = 0; i < uint8Array.length; i++) {
+      binary += String.fromCharCode(uint8Array[i]);
+    }
+    const base64Data = btoa(binary);
+    
+    // Determine mime type for the AI
+    let mimeType = contentType;
+    if (imageUrl.toLowerCase().endsWith('.pdf') || contentType.includes('pdf')) {
+      mimeType = 'application/pdf';
+    } else if (imageUrl.toLowerCase().endsWith('.png') || contentType.includes('png')) {
+      mimeType = 'image/png';
+    } else if (imageUrl.toLowerCase().endsWith('.jpg') || imageUrl.toLowerCase().endsWith('.jpeg') || contentType.includes('jpeg')) {
+      mimeType = 'image/jpeg';
+    } else if (imageUrl.toLowerCase().endsWith('.webp') || contentType.includes('webp')) {
+      mimeType = 'image/webp';
+    }
+    
+    console.log("File mime type:", mimeType, "Size:", uint8Array.length);
+
+    const dataUrl = `data:${mimeType};base64,${base64Data}`;
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -49,7 +82,7 @@ serve(async (req) => {
               },
               {
                 type: "image_url",
-                image_url: { url: imageUrl }
+                image_url: { url: dataUrl }
               }
             ]
           }
