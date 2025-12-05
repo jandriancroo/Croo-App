@@ -75,6 +75,7 @@ export default function Dashboard() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [todaysCateringOrders, setTodaysCateringOrders] = useState<CateringOrder[]>([]);
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -828,20 +829,14 @@ export default function Dashboard() {
                 )}
 
                 {selectedCateringOrder.source_url && (
-                  <a
-                    href={selectedCateringOrder.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                  <Button
+                    variant="outline"
+                    size="sm"
                     className="w-full"
+                    onClick={() => setPdfPreviewUrl(selectedCateringOrder.source_url)}
                   >
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                    >
-                      View Original
-                    </Button>
-                  </a>
+                    View Original
+                  </Button>
                 )}
 
                 {canCompleteCatering && (
@@ -856,6 +851,24 @@ export default function Dashboard() {
                 )}
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* PDF Preview Dialog */}
+        <Dialog open={!!pdfPreviewUrl} onOpenChange={(open) => !open && setPdfPreviewUrl(null)}>
+          <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0">
+            <DialogHeader className="p-4 pb-2">
+              <DialogTitle>Original Order</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 px-4 pb-4">
+              {pdfPreviewUrl && (
+                <iframe
+                  src={`https://docs.google.com/viewer?url=${encodeURIComponent(pdfPreviewUrl)}&embedded=true`}
+                  className="w-full h-full rounded-md border"
+                  title="PDF Preview"
+                />
+              )}
+            </div>
           </DialogContent>
         </Dialog>
       </div>
