@@ -828,14 +828,20 @@ export default function Dashboard() {
                 )}
 
                 {selectedCateringOrder.source_url && (
-                  <Button
-                    variant="outline"
-                    size="sm"
+                  <a
+                    href={selectedCateringOrder.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="w-full"
-                    onClick={() => window.open(selectedCateringOrder.source_url!, "_blank")}
                   >
-                    View Original
-                  </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                    >
+                      View Original
+                    </Button>
+                  </a>
                 )}
 
                 {canCompleteCatering && (
