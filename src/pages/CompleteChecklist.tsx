@@ -118,6 +118,7 @@ export default function CompleteChecklist() {
 
   // Create or get shared daily submission (one per checklist per day, not per user)
   useEffect(() => {
+    console.log('Submission effect triggered:', { id, userId: user?.id, locationId: currentLocation?.id, submissionId });
     if (!id || !user?.id || !currentLocation?.id || submissionId) return;
     const createDraftSubmission = async () => {
       try {
@@ -126,6 +127,13 @@ export default function CompleteChecklist() {
         
         const endOfDay = new Date(viewDate);
         endOfDay.setHours(23, 59, 59, 999);
+
+        console.log('Querying for existing submission:', { 
+          checklistId: id, 
+          locationId: currentLocation.id,
+          startOfDay: startOfDay.toISOString(),
+          endOfDay: endOfDay.toISOString()
+        });
 
         // Check if there's already ANY submission for this day (shared by all users)
         // Get the FIRST submission created on this day so all users work on the same one
@@ -142,14 +150,18 @@ export default function CompleteChecklist() {
           .order('submitted_at', { ascending: true })
           .limit(1);
 
+        console.log('Submission query result:', { submissions, submissionsError });
+
         if (submissionsError) throw submissionsError;
 
         const existingSubmission = submissions?.[0];
         if (existingSubmission) {
           // Use the existing shared submission for this day
+          console.log('Using existing submission:', existingSubmission.id);
           setSubmissionId(existingSubmission.id);
         } else {
           // Create new shared daily submission
+          console.log('Creating new submission...');
           const {
             data: newSubmission,
             error
@@ -159,6 +171,7 @@ export default function CompleteChecklist() {
             location_id: currentLocation.id,
             notes: ''
           }).select().single();
+          console.log('New submission result:', { newSubmission, error });
           if (error) throw error;
           setSubmissionId(newSubmission.id);
         }
@@ -497,6 +510,8 @@ export default function CompleteChecklist() {
     const minPhotos = item ? getMinPhotos(item) : 1;
     const isMultiPhoto = minPhotos > 1;
 
+    console.log('handleImageUpload called:', { itemId, submissionId, userId: user?.id });
+
     try {
       // Compress image to reduce memory usage on mobile devices
       const compressedFile = await compressImage(file, 1200, 1200, 0.8);
@@ -505,10 +520,14 @@ export default function CompleteChecklist() {
       const {
         error: uploadError
       } = await supabase.storage.from('checklist-images').upload(fileName, compressedFile);
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Image upload error:', uploadError);
+        throw uploadError;
+      }
       const {
         data
       } = supabase.storage.from('checklist-images').getPublicUrl(fileName);
+      console.log('Image uploaded successfully:', data.publicUrl);
       
       // Only extract temperature for temperature-type items
       const item = items.find(i => i.id === itemId);
@@ -546,12 +565,15 @@ export default function CompleteChecklist() {
       // Save the response with temperature data
       let responseId: string | undefined;
       if (submissionId && user?.id) {
-        const { data: existing } = await supabase
+        console.log('Saving response for submission:', submissionId);
+        const { data: existing, error: existingError } = await supabase
           .from('checklist_responses')
           .select('id')
           .eq('submission_id', submissionId)
           .eq('item_id', itemId)
-          .single();
+          .maybeSingle();
+
+        console.log('Existing response check:', { existing, existingError });
 
         const responseData = {
           response_image_url: isMultiPhoto ? null : data.publicUrl,
@@ -563,13 +585,15 @@ export default function CompleteChecklist() {
         };
 
         if (existing) {
-          await supabase
+          const { error: updateError } = await supabase
             .from('checklist_responses')
             .update(responseData)
             .eq('id', existing.id);
+          console.log('Update response result:', { updateError });
+          if (updateError) throw updateError;
           responseId = existing.id;
         } else {
-          const { data: newResponse } = await supabase
+          const { data: newResponse, error: insertError } = await supabase
             .from('checklist_responses')
             .insert({
               submission_id: submissionId,
@@ -578,6 +602,8 @@ export default function CompleteChecklist() {
             })
             .select('id')
             .single();
+          console.log('Insert response result:', { newResponse, insertError });
+          if (insertError) throw insertError;
           responseId = newResponse?.id;
         }
 
