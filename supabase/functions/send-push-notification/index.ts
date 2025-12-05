@@ -345,11 +345,13 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
 // ============ Notification Formatting ============
 
 interface PushNotificationRequest {
-  user_ids: string[];
+  user_ids?: string[];
+  roles?: string[];
+  location_id?: string;
   title: string;
   body: string;
   data?: Record<string, any>;
-  notification_type?: 'overdue_checklists' | 'late_arrivals' | 'announcements' | 'chat_messages' | 'schedule_updates' | 'shift_approvals' | 'certification_expiring';
+  notification_type?: 'overdue_checklists' | 'late_arrivals' | 'announcements' | 'chat_messages' | 'schedule_updates' | 'shift_approvals' | 'certification_expiring' | 'logbook_entry' | 'catering_order';
   badge_count?: number;
 }
 
@@ -373,6 +375,10 @@ function formatNotificationContent(type: string | undefined, title: string, body
       return { title: `✅ ${title}`, body };
     case 'certification_expiring':
       return { title: `📜 ${title}`, body };
+    case 'logbook_entry':
+      return { title: `📝 ${title}`, body };
+    case 'catering_order':
+      return { title: `🍽️ ${title}`, body };
     default:
       return { title, body };
   }
@@ -391,10 +397,56 @@ const handler = async (req: Request): Promise<Response> => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { user_ids, title, body, data, notification_type, badge_count }: PushNotificationRequest = await req.json();
+    const { user_ids: providedUserIds, roles, location_id, title, body, data, notification_type, badge_count }: PushNotificationRequest = await req.json();
 
     const formattedContent = formatNotificationContent(notification_type, title, body);
     const notificationSound = getNotificationSound(notification_type);
+
+    // If roles are provided, fetch user_ids from those roles at the specified location
+    let user_ids = providedUserIds || [];
+    
+    if (roles && roles.length > 0 && location_id) {
+      console.log(`Fetching users by roles ${roles.join(', ')} at location ${location_id}`);
+      
+      // Get users with matching roles at the specified location
+      const { data: userLocations, error: locError } = await supabaseClient
+        .from('user_locations')
+        .select('user_id')
+        .eq('location_id', location_id);
+        
+      if (locError) {
+        console.error('Error fetching user locations:', locError);
+      }
+      
+      const locationUserIds = userLocations?.map(ul => ul.user_id) || [];
+      
+      if (locationUserIds.length > 0) {
+        const { data: matchingUsers, error: rolesErr } = await supabaseClient
+          .from('user_roles')
+          .select('user_id')
+          .in('role', roles)
+          .in('user_id', locationUserIds);
+          
+        if (rolesErr) {
+          console.error('Error fetching users by role:', rolesErr);
+        }
+        
+        user_ids = matchingUsers?.map(u => u.user_id) || [];
+        console.log(`Found ${user_ids.length} users matching roles at location`);
+      }
+    } else if (roles && roles.length > 0 && !location_id) {
+      // No location specified, get all users with matching roles
+      const { data: matchingUsers, error: rolesErr } = await supabaseClient
+        .from('user_roles')
+        .select('user_id')
+        .in('role', roles);
+        
+      if (rolesErr) {
+        console.error('Error fetching users by role:', rolesErr);
+      }
+      
+      user_ids = matchingUsers?.map(u => u.user_id) || [];
+    }
 
     console.log('Push notification request:', { 
       user_ids_count: user_ids?.length, 
@@ -405,8 +457,8 @@ const handler = async (req: Request): Promise<Response> => {
 
     if (!user_ids || user_ids.length === 0) {
       return new Response(
-        JSON.stringify({ error: "user_ids is required" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({ message: "No users found for notification" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
