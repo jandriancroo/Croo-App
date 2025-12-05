@@ -248,23 +248,23 @@ export function SafeCountForm({ onSave, isSaving }: SafeCountFormProps) {
           <CardTitle className="text-base">Bills</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            {BILLS.map((denom) => (
-              <div key={denom.name} className="flex items-center gap-2">
-                <Badge variant="secondary" className="w-12 justify-center text-xs">
-                  {denom.icon}
-                </Badge>
-                <Input
-                  type="number"
-                  min="0"
-                  value={counts[denom.name] || ''}
-                  onChange={(e) => handleCountChange(denom.name, e.target.value)}
-                  placeholder="0"
-                  className="flex-1"
-                />
-              </div>
-            ))}
-          </div>
+          {BILLS.map((denom) => (
+            <div key={denom.name} className="grid grid-cols-[48px_1fr_60px] gap-2 items-center">
+              <Badge variant="secondary" className="w-12 justify-center text-xs">
+                {denom.icon}
+              </Badge>
+              <Input
+                type="number"
+                min="0"
+                value={counts[denom.name] || ''}
+                onChange={(e) => handleCountChange(denom.name, e.target.value)}
+                placeholder="0"
+              />
+              <Badge className="justify-center text-[10px] bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100">
+                {formatCurrency(denom.value / 100)}
+              </Badge>
+            </div>
+          ))}
         </CardContent>
       </Card>
 
