@@ -381,18 +381,55 @@ export default function PayrollReview() {
     generatePayPeriods();
   };
 
+  const [ptoData, setPtoData] = useState<Record<string, number>>({});
+
+  // Fetch PTO data when period is selected
+  useEffect(() => {
+    const fetchPtoData = async () => {
+      if (!selectedPeriod || !currentLocation) return;
+      
+      const startDate = format(selectedPeriod.start, 'yyyy-MM-dd');
+      const endDate = format(selectedPeriod.end, 'yyyy-MM-dd');
+      
+      // Fetch approved PTO requests for this period
+      const { data: ptoRequests } = await supabase
+        .from('availability_requests')
+        .select('user_id, hours_requested, request_type')
+        .eq('location_id', currentLocation.id)
+        .eq('status', 'approved')
+        .in('request_type', ['paid', 'vacation', 'sick']) // Paid time off types
+        .gte('start_date', startDate)
+        .lte('start_date', endDate);
+      
+      // Group PTO hours by user
+      const ptoByUser: Record<string, number> = {};
+      ptoRequests?.forEach(req => {
+        if (!ptoByUser[req.user_id]) ptoByUser[req.user_id] = 0;
+        ptoByUser[req.user_id] += req.hours_requested || 0;
+      });
+      
+      setPtoData(ptoByUser);
+    };
+    
+    fetchPtoData();
+  }, [selectedPeriod, currentLocation]);
+
   const calculatePayrollSummary = () => {
     const summary = timeCards.map(card => {
+      const ptoHours = ptoData[card.profile.id] || 0;
       const regularHours = Math.min(card.totalHours, 40);
       const overtimeHours = Math.max(card.totalHours - 40, 0);
       const wage = card.profile.hourly_wage || 15;
-      const grossWages = (regularHours * wage) + (overtimeHours * wage * 1.5);
+      // Include PTO hours in gross wages calculation (paid at regular rate)
+      const grossWages = (regularHours * wage) + (overtimeHours * wage * 1.5) + (ptoHours * wage);
       
       return {
         name: card.profile.full_name,
+        odId: card.profile.id,
         wage,
         regularHours,
         overtimeHours,
+        ptoHours,
         doubleOvertimeHours: 0, // Not calculated yet
         grossWages
       };
@@ -402,7 +439,7 @@ export default function PayrollReview() {
       regularHours: acc.regularHours + emp.regularHours,
       overtimeHours: acc.overtimeHours + emp.overtimeHours,
       doubleOvertimeHours: acc.doubleOvertimeHours + emp.doubleOvertimeHours,
-      ptoHours: 0, // Will add PTO calculation
+      ptoHours: acc.ptoHours + emp.ptoHours,
       grossWages: acc.grossWages + emp.grossWages
     }), { regularHours: 0, overtimeHours: 0, doubleOvertimeHours: 0, ptoHours: 0, grossWages: 0 });
 
@@ -565,6 +602,7 @@ export default function PayrollReview() {
                         <TableHead className="text-right">Hourly Wage</TableHead>
                         <TableHead className="text-right">Hours</TableHead>
                         <TableHead className="text-right">Overtime</TableHead>
+                        <TableHead className="text-right">PTO</TableHead>
                         <TableHead className="text-right">Gross Wages</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -575,6 +613,7 @@ export default function PayrollReview() {
                           <TableCell className="text-right">${emp.wage.toFixed(2)}</TableCell>
                           <TableCell className="text-right">{emp.regularHours.toFixed(2)}</TableCell>
                           <TableCell className="text-right">{emp.overtimeHours.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{emp.ptoHours.toFixed(2)}</TableCell>
                           <TableCell className="text-right">${emp.grossWages.toFixed(2)}</TableCell>
                         </TableRow>
                       ))}
@@ -583,6 +622,7 @@ export default function PayrollReview() {
                         <TableCell></TableCell>
                         <TableCell className="text-right">{calculatePayrollSummary().totals.regularHours.toFixed(2)}</TableCell>
                         <TableCell className="text-right">{calculatePayrollSummary().totals.overtimeHours.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{calculatePayrollSummary().totals.ptoHours.toFixed(2)}</TableCell>
                         <TableCell className="text-right">${calculatePayrollSummary().totals.grossWages.toFixed(2)}</TableCell>
                       </TableRow>
                     </TableBody>
