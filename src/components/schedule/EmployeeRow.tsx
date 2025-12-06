@@ -191,6 +191,11 @@ function DayCell({
             <div className="text-[10px] text-muted-foreground font-medium">
               {request.time_scope === "partial_day" && request.start_time && request.end_time ? `${request.start_time} - ${request.end_time}` : "Time Off"}
             </div>
+            {request.status === "pending" && (
+              <div className="text-[9px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide">
+                PENDING
+              </div>
+            )}
           </div>)}
       </div>
     </div>;
