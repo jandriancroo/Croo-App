@@ -1463,6 +1463,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          appears_on_schedule: boolean
           birthday: string | null
           created_at: string | null
           croo_cash_balance: number
@@ -1479,6 +1480,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          appears_on_schedule?: boolean
           birthday?: string | null
           created_at?: string | null
           croo_cash_balance?: number
@@ -1495,6 +1497,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          appears_on_schedule?: boolean
           birthday?: string | null
           created_at?: string | null
           croo_cash_balance?: number

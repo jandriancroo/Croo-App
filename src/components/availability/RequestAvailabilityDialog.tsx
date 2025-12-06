@@ -134,6 +134,7 @@ export function RequestAvailabilityDialog({ open, onOpenChange, onSuccess }: Req
 
       const { error } = await supabase.from("availability_requests").insert({
         user_id: user.id,
+        location_id: currentLocation?.id,
         request_type: requestType,
         time_scope: timeScope,
         start_date: startDate,

@@ -244,7 +244,7 @@ export default function Schedule() {
           .select("user_id")
           .eq("location_id", currentLocation!.id),
         
-        // Fetch all active profiles
+        // Fetch all active profiles that appear on schedule
         supabase
           .from("profiles")
           .select(`
@@ -252,9 +252,11 @@ export default function Schedule() {
             full_name, 
             profile_photo_url,
             hourly_wage,
-            display_order
+            display_order,
+            appears_on_schedule
           `)
-          .eq("is_active", true),
+          .eq("is_active", true)
+          .eq("appears_on_schedule", true),
         
         // Fetch user roles
         supabase
@@ -352,10 +354,17 @@ export default function Schedule() {
       });
 
       // Sort by role first, then by display_order within each role
-      const roleOrder = { admin: 0, manager: 1, team_member: 2 };
+      const roleOrder: Record<string, number> = { 
+        super_admin: 0,
+        admin: 1, 
+        general_manager: 2,
+        shift_manager: 3,
+        manager: 3, 
+        team_member: 4 
+      };
       profilesWithRoles.sort((a, b) => {
-        const aRoleOrder = roleOrder[a.role as keyof typeof roleOrder] ?? 3;
-        const bRoleOrder = roleOrder[b.role as keyof typeof roleOrder] ?? 3;
+        const aRoleOrder = roleOrder[a.role as string] ?? 5;
+        const bRoleOrder = roleOrder[b.role as string] ?? 5;
         
         // If same role, sort by display_order
         if (aRoleOrder === bRoleOrder) {
