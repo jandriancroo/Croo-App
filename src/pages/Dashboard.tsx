@@ -561,7 +561,7 @@ export default function Dashboard() {
   };
 
   const standardSections = {
-    'alerts': <div className="space-y-6">
+    'alerts': <div className="space-y-2">
         <ChecklistCompletionAlerts />
         <LogBookAlerts />
         <CertificationAlerts />
