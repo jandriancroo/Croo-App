@@ -52,6 +52,7 @@ interface UserProfile {
   employee_pin: string | null;
   created_at: string;
   is_active: boolean;
+  appears_on_schedule: boolean;
   role?: AppRole;
   paid_hours?: number;
   unpaid_hours?: number;
@@ -1507,6 +1508,46 @@ export default function UserManagement() {
                   </div>
                   )}
                 </div>
+
+                {/* Schedule Visibility Toggle - Manager and above */}
+                {(isAdmin || isManager) && (
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Appear on Schedule</Label>
+                    <p className="text-xs text-muted-foreground">Show this employee in schedule views</p>
+                  </div>
+                  <Button
+                    variant={viewingUser.appears_on_schedule ? "default" : "outline"}
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const newValue = !viewingUser.appears_on_schedule;
+                        const { error } = await supabase
+                          .from('profiles')
+                          .update({ appears_on_schedule: newValue })
+                          .eq('id', viewingUser.id);
+                        
+                        if (error) throw error;
+                        
+                        toast({
+                          title: 'Updated',
+                          description: newValue ? 'User will appear on schedule' : 'User hidden from schedule',
+                        });
+                        setViewingUser({ ...viewingUser, appears_on_schedule: newValue });
+                        fetchUsers();
+                      } catch (error: any) {
+                        toast({
+                          title: 'Error',
+                          description: error.message,
+                          variant: 'destructive',
+                        });
+                      }
+                    }}
+                  >
+                    {viewingUser.appears_on_schedule ? 'Visible' : 'Hidden'}
+                  </Button>
+                </div>
+                )}
 
                 {/* Quick Actions Grid - Admin only */}
                 {isAdmin && (
