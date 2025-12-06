@@ -343,6 +343,10 @@ export default function Schedule() {
 
       const locationUserIds = new Set((userLocationsResult.data || []).map(ul => ul.user_id));
       const locationProfiles = (allProfilesResult.data || []).filter(p => locationUserIds.has(p.id));
+      
+      console.log('[Schedule] All profiles from query:', allProfilesResult.data?.length);
+      console.log('[Schedule] Location user IDs:', Array.from(locationUserIds));
+      console.log('[Schedule] Filtered location profiles:', locationProfiles.map(p => ({ id: p.id, name: p.full_name })));
 
       const profilesWithRoles = locationProfiles.map(profile => {
         const userRole = rolesResult.data?.find(r => r.user_id === profile.id);
