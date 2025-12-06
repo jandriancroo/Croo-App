@@ -41,7 +41,7 @@ export function ChecklistCompletionAlerts() {
       const relevantChecklists = checklists.filter(checklist => {
         if (checklist.template_type === 'dynamic') {
           const todayItems = checklist.checklist_items?.filter((item: any) => 
-            item.days_of_week && item.days_of_week.includes(currentDay)
+            !item.days_of_week || item.days_of_week.includes(currentDay)
           );
           return todayItems && todayItems.length > 0;
         }
@@ -86,7 +86,7 @@ export function ChecklistCompletionAlerts() {
         let totalItems = checklist.checklist_items?.length || 0;
         if (checklist.template_type === 'dynamic') {
           totalItems = checklist.checklist_items?.filter((item: any) => 
-            item.days_of_week && item.days_of_week.includes(currentDay)
+            !item.days_of_week || item.days_of_week.includes(currentDay)
           ).length || 0;
         }
 
