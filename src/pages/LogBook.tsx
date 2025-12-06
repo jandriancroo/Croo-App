@@ -140,7 +140,7 @@ export default function LogBook() {
           logbook_categories(name)
         `)
         .eq('location_id', currentLocation.id)
-        .order('entry_date', { ascending: false })
+        .order('created_at', { ascending: false })
         .limit(50);
 
       const { data, error } = await query;
