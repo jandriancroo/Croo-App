@@ -273,7 +273,7 @@ export default function EditChecklist() {
           .from('checklist_items')
           .delete()
           .eq('checklist_id', id)
-          .not('id', 'in', `(${existingItemIds.map(id => `'${id}'`).join(',')})`);
+          .not('id', 'in', `(${existingItemIds.join(',')})`);
 
         if (deleteError) throw deleteError;
       }
