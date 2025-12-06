@@ -347,6 +347,7 @@ export default function Schedule() {
       console.log('[Schedule] All profiles from query:', allProfilesResult.data?.length);
       console.log('[Schedule] Location user IDs:', Array.from(locationUserIds));
       console.log('[Schedule] Filtered location profiles:', locationProfiles.map(p => ({ id: p.id, name: p.full_name })));
+      console.log('[Schedule] Roles from DB:', rolesResult.data);
 
       const profilesWithRoles = locationProfiles.map(profile => {
         const userRole = rolesResult.data?.find(r => r.user_id === profile.id);
@@ -356,6 +357,8 @@ export default function Schedule() {
           display_order: profile.display_order ?? 0
         };
       });
+      
+      console.log('[Schedule] Profiles with roles:', profilesWithRoles.map(p => ({ name: p.full_name, role: p.role })));
 
       // Sort by role first, then by display_order within each role
       const roleOrder: Record<string, number> = { 
