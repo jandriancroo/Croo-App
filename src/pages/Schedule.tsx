@@ -1125,11 +1125,13 @@ export default function Schedule() {
               ) : (
               // Admin/Manager view: show all employees grouped by role
                 <>
-                  {['admin', 'general_manager', 'shift_manager', 'team_member'].map((roleFilter) => {
+                  {['super_admin', 'admin', 'general_manager', 'shift_manager', 'team_member'].map((roleFilter) => {
                     const roleProfiles = profiles.filter(p => p.role === roleFilter);
                     if (roleProfiles.length === 0) return null;
 
-                    const roleColorClass = roleFilter === 'admin' 
+                    const roleColorClass = roleFilter === 'super_admin' 
+                      ? 'bg-role-admin/5 border-l-4 border-role-admin'
+                      : roleFilter === 'admin' 
                       ? 'bg-role-admin/5 border-l-4 border-role-admin' 
                       : roleFilter === 'general_manager'
                       ? 'bg-role-manager/5 border-l-4 border-role-manager'
@@ -1137,7 +1139,8 @@ export default function Schedule() {
                       ? 'bg-role-manager/5 border-l-4 border-role-manager'
                       : 'bg-role-team-member/5 border-l-4 border-role-team-member';
 
-                    const roleLabel = roleFilter === 'admin' ? 'Admins' 
+                    const roleLabel = roleFilter === 'super_admin' ? 'Super Admins'
+                      : roleFilter === 'admin' ? 'Admins' 
                       : roleFilter === 'general_manager' ? 'General Managers'
                       : roleFilter === 'shift_manager' ? 'Shift Managers'
                       : 'Team Members';
