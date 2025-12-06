@@ -221,7 +221,9 @@ export default function Alerts() {
         const date = new Date();
         date.setDate(date.getDate() - i);
         date.setHours(0, 0, 0, 0);
-        const dayOfWeek = date.getDay();
+        // Convert JS getDay() (Sun=0..Sat=6) to calendar index (Mon=0..Sun=6)
+        const jsDay = date.getDay();
+        const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
         const isToday = i === 0;
         const dateStr = format(date, 'yyyy-MM-dd');
 

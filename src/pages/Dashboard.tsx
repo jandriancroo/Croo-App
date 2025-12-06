@@ -373,7 +373,9 @@ export default function Dashboard() {
   };
   const loadCompletionData = async () => {
     const today = new Date();
-    const currentDay = today.getDay();
+    // Convert JS getDay() (Sun=0..Sat=6) to calendar index (Mon=0..Sun=6)
+    const jsDay = today.getDay();
+    const currentDay = jsDay === 0 ? 6 : jsDay - 1;
     const startOfToday = new Date(today);
     startOfToday.setHours(0, 0, 0, 0);
     const endOfToday = new Date(today);
@@ -425,7 +427,9 @@ export default function Dashboard() {
     if (!currentLocation?.id) return;
     
     try {
-      const currentDay = new Date().getDay();
+      // Convert JS getDay() (Sun=0..Sat=6) to calendar index (Mon=0..Sun=6)
+      const jsDay = new Date().getDay();
+      const currentDay = jsDay === 0 ? 6 : jsDay - 1;
 
       // Fetch all active checklists for this location
       const {
