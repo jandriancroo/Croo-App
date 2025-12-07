@@ -9,11 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
 import { Plus, Trash2, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatTime12Hour } from "@/lib/utils";
-
 interface ShiftTemplate {
   id: string;
   template_name: string;
@@ -28,6 +28,7 @@ interface ShiftTemplate {
 export default function ShiftTemplates() {
   const navigate = useNavigate();
   const { isAdmin, isManager, loading: roleLoading } = useUserRole();
+  const { currentLocation } = useAppLocation();
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ShiftTemplate | null>(null);
@@ -96,15 +97,20 @@ export default function ShiftTemplates() {
       navigate("/");
       return;
     }
-    fetchTemplates();
-  }, [isAdmin, isManager, roleLoading, navigate]);
+    if (currentLocation?.id) {
+      fetchTemplates();
+    }
+  }, [isAdmin, isManager, roleLoading, navigate, currentLocation?.id]);
 
   const fetchTemplates = async () => {
+    if (!currentLocation?.id) return;
+    
     try {
       const { data, error } = await supabase
         .from("shift_templates")
         .select("*")
-        .order("created_at", { ascending: false });
+        .eq("location_id", currentLocation.id)
+        .order("start_time", { ascending: true });
 
       if (error) throw error;
       setTemplates(data || []);
@@ -154,6 +160,7 @@ export default function ShiftTemplates() {
           color: formData.color,
           position: positionValue,
           days_of_week: formData.days_of_week,
+          location_id: currentLocation?.id,
         });
 
         if (error) throw error;
