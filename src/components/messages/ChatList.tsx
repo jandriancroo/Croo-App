@@ -1,6 +1,7 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, Megaphone } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Users, Megaphone, Pin, PinOff } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 
 const formatLastMessageTime = (dateString: string) => {
@@ -20,6 +21,7 @@ interface Chat {
   group_image_url: string | null;
   unreadCount?: number;
   messagePreview?: string;
+  isPinned?: boolean;
   chat_members?: Array<{
     user_id: string;
     profiles: {
@@ -32,6 +34,7 @@ interface ChatListProps {
   chats: Chat[];
   selectedChatId: string | null;
   onSelectChat: (chatId: string) => void;
+  onTogglePin?: (chatId: string, isPinned: boolean) => void;
   loading: boolean;
   searchQuery?: string;
   currentUserId?: string | null;
@@ -52,7 +55,7 @@ const highlightSearchTerm = (text: string, searchQuery: string) => {
   );
 };
 
-export function ChatList({ chats, selectedChatId, onSelectChat, loading, searchQuery, currentUserId }: ChatListProps) {
+export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loading, searchQuery, currentUserId }: ChatListProps) {
   if (loading) {
     return (
       <div className="space-y-2">
@@ -84,7 +87,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, loading, searchQ
         <button
           key={chat.id}
           onClick={() => onSelectChat(chat.id)}
-          className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left ${
+          className={`group w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left ${
             selectedChatId === chat.id
               ? 'bg-accent text-accent-foreground'
               : chat.unreadCount && chat.unreadCount > 0
@@ -120,14 +123,38 @@ export function ChatList({ chats, selectedChatId, onSelectChat, loading, searchQ
           </Avatar>
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
-              <p className={`truncate ${
-                chat.unreadCount && chat.unreadCount > 0 ? 'font-bold' : 'font-medium'
-              }`}>
-                {chat.title || (chat.is_group ? 'Group Chat' : 'Direct Message')}
-              </p>
-              <span className="flex-shrink-0 text-xs text-muted-foreground">
-                {formatLastMessageTime(chat.updated_at)}
-              </span>
+              <div className="flex items-center gap-1 min-w-0">
+                {chat.isPinned && (
+                  <Pin className="h-3 w-3 text-primary flex-shrink-0" />
+                )}
+                <p className={`truncate ${
+                  chat.unreadCount && chat.unreadCount > 0 ? 'font-bold' : 'font-medium'
+                }`}>
+                  {chat.title || (chat.is_group ? 'Group Chat' : 'Direct Message')}
+                </p>
+              </div>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {onTogglePin && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTogglePin(chat.id, chat.isPinned || false);
+                    }}
+                  >
+                    {chat.isPinned ? (
+                      <PinOff className="h-3 w-3" />
+                    ) : (
+                      <Pin className="h-3 w-3" />
+                    )}
+                  </Button>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {formatLastMessageTime(chat.updated_at)}
+                </span>
+              </div>
             </div>
             {chat.messagePreview && searchQuery && (
               <p className="text-xs text-muted-foreground truncate mt-1">

@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, ArrowLeft, Megaphone } from 'lucide-react';
+import { Plus, Users, ArrowLeft, Megaphone, ShoppingBag } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
@@ -27,8 +27,10 @@ interface Chat {
   group_image_url: string | null;
   unreadCount?: number;
   messagePreview?: string;
+  isPinned?: boolean;
   chat_members: Array<{
     user_id: string;
+    is_pinned?: boolean;
     profiles: {
       id: string;
       full_name: string;
@@ -51,7 +53,7 @@ export default function Messages() {
   const [showChatList, setShowChatList] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
-  const [viewMode, setViewMode] = useState<'chats' | 'announcements'>('chats');
+  const [viewMode, setViewMode] = useState<'chats' | 'announcements' | 'marketplace'>('chats');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const fetchChats = async () => {
@@ -125,6 +127,7 @@ export default function Messages() {
           *,
           chat_members!inner(
             user_id,
+            is_pinned,
             profiles(id, full_name, profile_photo_url)
           )
         `)
@@ -181,29 +184,35 @@ export default function Messages() {
             chat.title = otherMember?.profiles?.full_name || 'Direct Message';
           }
 
-          return { ...chat, unreadCount };
+          // Check if current user has pinned this chat
+          const currentMember = chat.chat_members.find((m: any) => m.user_id === user.id);
+          const isPinned = currentMember?.is_pinned || false;
+
+          return { ...chat, unreadCount, isPinned };
         })
       );
 
-      // Sort chats: Shift Marketplace first, then unread chats, then by updated_at
-      const sortedChats = chatsWithUnread.sort((a, b) => {
-        if (a.title === "Shift Marketplace") {
-          // Store marketplace chat ID for icon selector
-          setMarketplaceChatId(a.id);
-          return -1;
-        }
-        if (b.title === "Shift Marketplace") {
-          setMarketplaceChatId(b.id);
-          return 1;
-        }
-        
-        // Sort by unread status
-        if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
-        if (a.unreadCount === 0 && b.unreadCount > 0) return 1;
-        
-        // If both have same unread status, sort by updated_at
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-      });
+      // Find and store marketplace chat ID
+      const marketplaceItem = chatsWithUnread.find(c => c.title === "Shift Marketplace");
+      if (marketplaceItem) {
+        setMarketplaceChatId(marketplaceItem.id);
+      }
+
+      // Sort chats: pinned first, then unread, then by updated_at (excluding marketplace from regular list)
+      const sortedChats = chatsWithUnread
+        .filter(c => c.title !== "Shift Marketplace") // Remove marketplace from chat list
+        .sort((a, b) => {
+          // Pinned chats first
+          if (a.isPinned && !b.isPinned) return -1;
+          if (!a.isPinned && b.isPinned) return 1;
+          
+          // Then sort by unread status
+          if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
+          if (a.unreadCount === 0 && b.unreadCount > 0) return 1;
+          
+          // If both have same status, sort by updated_at
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+        });
 
       setChats(sortedChats);
       setFilteredChats(sortedChats);
@@ -216,7 +225,12 @@ export default function Messages() {
     }
   };
 
-  const applyViewFilter = (chatList: Chat[], mode: 'chats' | 'announcements') => {
+  const applyViewFilter = (chatList: Chat[], mode: 'chats' | 'announcements' | 'marketplace') => {
+    if (mode === 'marketplace') {
+      // Marketplace is handled separately via selectedChatId
+      setFilteredChats([]);
+      return;
+    }
     const filtered = mode === 'announcements' 
       ? chatList.filter(chat => chat.is_announcement)
       : chatList.filter(chat => !chat.is_announcement);
@@ -260,7 +274,9 @@ export default function Messages() {
       // Filter chats based on view mode first, then apply search
       const modeFilteredChats = viewMode === 'announcements'
         ? chats.filter(chat => chat.is_announcement)
-        : chats.filter(chat => !chat.is_announcement);
+        : viewMode === 'chats'
+        ? chats.filter(chat => !chat.is_announcement)
+        : [];
 
       // Then filter by search criteria
       const filtered = modeFilteredChats
@@ -280,10 +296,35 @@ export default function Messages() {
     }
   };
 
-  const handleViewModeChange = (mode: 'chats' | 'announcements') => {
+  const handleViewModeChange = (mode: 'chats' | 'announcements' | 'marketplace') => {
     setViewMode(mode);
     setSearchQuery('');
-    applyViewFilter(chats, mode);
+    if (mode === 'marketplace' && marketplaceChatId) {
+      setSelectedChatId(marketplaceChatId);
+    } else {
+      setSelectedChatId(null);
+      applyViewFilter(chats, mode);
+    }
+  };
+
+  const handleTogglePin = async (chatId: string, currentlyPinned: boolean) => {
+    if (!currentUserId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('chat_members')
+        .update({ is_pinned: !currentlyPinned })
+        .eq('chat_id', chatId)
+        .eq('user_id', currentUserId);
+
+      if (error) throw error;
+      
+      toast.success(currentlyPinned ? 'Chat unpinned' : 'Chat pinned');
+      fetchChats();
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+      toast.error('Failed to update pin status');
+    }
   };
 
   useEffect(() => {
@@ -343,36 +384,48 @@ export default function Messages() {
               </div>
             </div>
             
-            <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements')} className="mb-4">
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace')} className="mb-4">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="chats">Chats</TabsTrigger>
-                <TabsTrigger value="announcements">Announcements</TabsTrigger>
+                <TabsTrigger value="announcements">Announce</TabsTrigger>
+                <TabsTrigger value="marketplace" className="gap-1">
+                  <ShoppingBag className="h-3 w-3" />
+                  Shifts
+                </TabsTrigger>
               </TabsList>
             </Tabs>
             
-            <div className="mb-4">
-              <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
-            </div>
-            <ChatList
-              chats={filteredChats}
-              selectedChatId={selectedChatId}
-              onSelectChat={setSelectedChatId}
-              loading={loading}
-              searchQuery={searchQuery}
-              currentUserId={currentUserId}
-            />
+            {viewMode !== 'marketplace' && (
+              <>
+                <div className="mb-4">
+                  <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
+                </div>
+                <ChatList
+                  chats={filteredChats}
+                  selectedChatId={selectedChatId}
+                  onSelectChat={setSelectedChatId}
+                  onTogglePin={handleTogglePin}
+                  loading={loading}
+                  searchQuery={searchQuery}
+                  currentUserId={currentUserId}
+                />
+              </>
+            )}
           </div>
         )}
 
         {/* Desktop: Chat Window */}
         {!isMobile && (
           <div className="flex-1 bg-card rounded-lg">
-            {selectedChatId ? (
+            {selectedChatId || viewMode === 'marketplace' ? (
               <ChatWindow
-                chatId={selectedChatId}
-                chatDetails={chats.find(c => c.id === selectedChatId) || null}
+                chatId={viewMode === 'marketplace' ? marketplaceChatId : selectedChatId}
+                chatDetails={chats.find(c => c.id === (viewMode === 'marketplace' ? marketplaceChatId : selectedChatId)) || null}
                 onChatDeleted={() => {
                   setSelectedChatId(null);
+                  if (viewMode === 'marketplace') {
+                    setViewMode('chats');
+                  }
                   fetchChats();
                 }}
                 onChatUpdated={fetchChats}
@@ -415,32 +468,44 @@ export default function Messages() {
                 </div>
               </div>
               
-              <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements')} className="mb-4">
-                <TabsList className="grid w-full grid-cols-2">
+              <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace')} className="mb-4">
+                <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="chats">Chats</TabsTrigger>
-                  <TabsTrigger value="announcements">Announcements</TabsTrigger>
+                  <TabsTrigger value="announcements">Announce</TabsTrigger>
+                  <TabsTrigger value="marketplace" className="gap-1">
+                    <ShoppingBag className="h-3 w-3" />
+                    Shifts
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
               
-              <div className="mb-4">
-                <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
-              </div>
-              <ChatList
-                chats={filteredChats}
-                selectedChatId={selectedChatId}
-                onSelectChat={setSelectedChatId}
-                loading={loading}
-                searchQuery={searchQuery}
-                currentUserId={currentUserId}
-              />
+              {viewMode !== 'marketplace' && (
+                <>
+                  <div className="mb-4">
+                    <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
+                  </div>
+                  <ChatList
+                    chats={filteredChats}
+                    selectedChatId={selectedChatId}
+                    onSelectChat={setSelectedChatId}
+                    onTogglePin={handleTogglePin}
+                    loading={loading}
+                    searchQuery={searchQuery}
+                    currentUserId={currentUserId}
+                  />
+                </>
+              )}
             </div>
             
             {/* Mobile Slide-Over Chat Window */}
             <Drawer 
-              open={!!selectedChatId} 
+              open={!!selectedChatId || viewMode === 'marketplace'} 
               onOpenChange={(open) => {
                 if (!open) {
                   setSelectedChatId(null);
+                  if (viewMode === 'marketplace') {
+                    setViewMode('chats');
+                  }
                 }
               }}
               modal={true}
@@ -455,19 +520,27 @@ export default function Messages() {
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedChatId(null);
+                        if (viewMode === 'marketplace') {
+                          setViewMode('chats');
+                        }
                       }}
                     >
                       <ArrowLeft className="h-4 w-4" />
                     </Button>
-                    <h2 className="text-lg font-semibold">Chat</h2>
+                    <h2 className="text-lg font-semibold">
+                      {viewMode === 'marketplace' ? 'Shift Marketplace' : 'Chat'}
+                    </h2>
                   </div>
                   <div className="flex-1 overflow-hidden pb-4">
-                    {selectedChatId && (
+                    {(selectedChatId || viewMode === 'marketplace') && (
                       <ChatWindow
-                        chatId={selectedChatId}
-                        chatDetails={chats.find(c => c.id === selectedChatId) || null}
+                        chatId={viewMode === 'marketplace' ? marketplaceChatId : selectedChatId}
+                        chatDetails={chats.find(c => c.id === (viewMode === 'marketplace' ? marketplaceChatId : selectedChatId)) || null}
                         onChatDeleted={() => {
                           setSelectedChatId(null);
+                          if (viewMode === 'marketplace') {
+                            setViewMode('chats');
+                          }
                           fetchChats();
                         }}
                         onChatUpdated={fetchChats}
