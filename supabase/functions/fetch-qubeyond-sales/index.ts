@@ -79,8 +79,8 @@ serve(async (req) => {
     const today = new Date();
     const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
 
-    // Step 4: Fetch real-time summary data from gateway API
-    const dataResponse = await fetch('https://gateway-api.qubeyond.com/api/v4/reports/data', {
+    // Step 4: Fetch sales summary data from gateway API
+    const dataResponse = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -121,7 +121,7 @@ serve(async (req) => {
     }
 
     const salesData = await dataResponse.json();
-    console.log('Sales data received:', JSON.stringify(salesData).substring(0, 500));
+    console.log('Sales data received:', JSON.stringify(salesData).substring(0, 1000));
 
     // Parse the response to extract sales figures
     let dailySales = 0;
@@ -131,7 +131,7 @@ serve(async (req) => {
     // The response should have rows with metric names and totals
     if (salesData.rows && Array.isArray(salesData.rows)) {
       for (const row of salesData.rows) {
-        const metricName = row.metric?.toLowerCase() || '';
+        const metricName = (row.metric || '').toLowerCase();
         const total = parseFloat(row.total) || 0;
         
         if (metricName.includes('net sales') || metricName === 'net sales') {
