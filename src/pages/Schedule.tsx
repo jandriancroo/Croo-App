@@ -1236,10 +1236,10 @@ export default function Schedule() {
                 </Collapsible>
                 
                 {/* Shift Templates - Always visible */}
-                <div className="flex items-center gap-3 border-t border-border pt-1">
-                  <h3 className="font-semibold whitespace-nowrap text-xs">Templates:</h3>
+                <div className="flex items-start gap-3 border-t border-border pt-1">
+                  <h3 className="font-semibold whitespace-nowrap text-xs pt-1">Templates:</h3>
                   {templates.length > 0 ? (
-                    <div className="flex gap-2 overflow-x-auto flex-1">
+                    <div className="flex flex-wrap gap-2 flex-1">
                       {templates.map((template) => (
                         <ShiftCard key={template.id} shift={{ template, isTemplate: true }} />
                       ))}
