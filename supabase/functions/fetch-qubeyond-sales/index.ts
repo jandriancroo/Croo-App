@@ -9,10 +9,9 @@ const corsHeaders = {
 interface QuBeyondCredentials {
   username: string;
   password: string;
-  location_id?: string; // Optional - will be extracted from JWT if not provided
+  location_id?: string;
 }
 
-// Decode JWT payload without verification
 function decodeJwtPayload(token: string): any {
   const parts = token.split('.');
   if (parts.length !== 3) throw new Error('Invalid JWT format');
@@ -22,7 +21,6 @@ function decodeJwtPayload(token: string): any {
   return JSON.parse(jsonPayload);
 }
 
-// Get date string in YYYY-MM-DD format for a timezone
 function getDateStringForTimezone(date: Date, timezone: string): string {
   const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
   const year = tzDate.getFullYear();
@@ -31,7 +29,6 @@ function getDateStringForTimezone(date: Date, timezone: string): string {
   return `${year}-${month}-${day}`;
 }
 
-// Get start of week (Monday)
 function getWeekStartDate(dateStr: string): string {
   const date = new Date(dateStr + 'T12:00:00');
   const day = date.getDay();
@@ -40,14 +37,12 @@ function getWeekStartDate(dateStr: string): string {
   return getDateStringForTimezone(date, 'America/Los_Angeles');
 }
 
-// Get start of month
 function getMonthStartDate(dateStr: string): string {
   const date = new Date(dateStr + 'T12:00:00');
   date.setDate(1);
   return getDateStringForTimezone(date, 'America/Los_Angeles');
 }
 
-// Generate date range array
 function getDateRange(startDate: string, endDate: string): string[] {
   const dates: string[] = [];
   const start = new Date(startDate + 'T12:00:00');
@@ -64,14 +59,20 @@ function getDateRange(startDate: string, endDate: string): string[] {
   return dates;
 }
 
-// Adjust date by days
 function adjustDate(dateStr: string, days: number): string {
   const date = new Date(dateStr + 'T12:00:00');
   date.setDate(date.getDate() + days);
   return getDateStringForTimezone(date, 'America/Los_Angeles');
 }
 
-// Fetch sales for dates
+// Get current hour in location timezone (0-23)
+function getCurrentHourInTimezone(timezone: string): number {
+  const now = new Date();
+  const tzTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+  return tzTime.getHours();
+}
+
+// Fetch sales for dates with detailed logging
 async function fetchSalesForDates(
   tokenGw: string, 
   dates: string[], 
@@ -117,31 +118,12 @@ async function fetchSalesForDates(
       }
     }
   }
+  
+  console.log(`${periodType} result: total=${total}, guestCount=${guestCount}`);
   return { total, guestCount };
 }
 
-// Fetch daily breakdown
-async function fetchDailyBreakdown(
-  tokenGw: string, 
-  dates: string[],
-  qbLocationId: string
-): Promise<{ date: string; sales: number; guestCount: number }[]> {
-  const dailyData: { date: string; sales: number; guestCount: number }[] = [];
-  const batchSize = 7;
-  
-  for (let i = 0; i < dates.length; i += batchSize) {
-    const batch = dates.slice(i, i + batchSize);
-    const batchPromises = batch.map(async (dateStr) => {
-      const result = await fetchSalesForDates(tokenGw, [dateStr], qbLocationId, `day-${dateStr}`);
-      return { date: dateStr, sales: result.total, guestCount: result.guestCount };
-    });
-    const batchResults = await Promise.all(batchPromises);
-    dailyData.push(...batchResults);
-  }
-  return dailyData.sort((a, b) => a.date.localeCompare(b.date));
-}
-
-// Fetch hourly sales
+// Fetch hourly sales for a specific day
 async function fetchHourlySales(
   tokenGw: string, 
   dateStr: string,
@@ -198,6 +180,60 @@ async function fetchHourlySales(
   return hourlyData;
 }
 
+// Fetch hourly sales for multiple days and aggregate by hour (for real-time comparison)
+async function fetchHourlySalesForDates(
+  tokenGw: string, 
+  dates: string[],
+  qbLocationId: string,
+  upToHour?: number // If provided, only count sales up to this hour
+): Promise<{ totalSales: number; totalGuests: number }> {
+  let totalSales = 0;
+  let totalGuests = 0;
+  
+  for (const dateStr of dates) {
+    const hourlyData = await fetchHourlySales(tokenGw, dateStr, qbLocationId);
+    
+    for (const hourData of hourlyData) {
+      const hourNum = parseInt(hourData.hour.split(':')[0]);
+      
+      // If upToHour is specified, only include hours up to that time
+      if (upToHour === undefined || hourNum <= upToHour) {
+        totalSales += hourData.sales;
+        totalGuests += hourData.checksCount;
+      }
+    }
+  }
+  
+  return { totalSales, totalGuests };
+}
+
+// Fetch daily breakdown with guest counts from hourly data
+async function fetchDailyBreakdown(
+  tokenGw: string, 
+  dates: string[],
+  qbLocationId: string
+): Promise<{ date: string; sales: number; guestCount: number }[]> {
+  const dailyData: { date: string; sales: number; guestCount: number }[] = [];
+  
+  // Fetch each day's hourly data in parallel (batches of 3 to avoid rate limits)
+  const batchSize = 3;
+  
+  for (let i = 0; i < dates.length; i += batchSize) {
+    const batch = dates.slice(i, i + batchSize);
+    const batchPromises = batch.map(async (dateStr) => {
+      const hourlyData = await fetchHourlySales(tokenGw, dateStr, qbLocationId);
+      const sales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
+      const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
+      console.log(`Day ${dateStr}: sales=${sales}, guests=${guestCount}`);
+      return { date: dateStr, sales, guestCount };
+    });
+    const batchResults = await Promise.all(batchPromises);
+    dailyData.push(...batchResults);
+  }
+  
+  return dailyData.sort((a, b) => a.date.localeCompare(b.date));
+}
+
 // Fetch product mix
 async function fetchProductMix(
   tokenGw: string, 
@@ -252,7 +288,122 @@ async function fetchProductMix(
   }
   
   console.log(`Found ${products.length} products`);
-  return products.slice(0, 50); // Top 50 products
+  return products.slice(0, 50);
+}
+
+// Generate AI sales projections using Lovable AI
+async function generateProjections(
+  dailySales: number,
+  weeklySales: number,
+  monthlySales: number,
+  weeklyBreakdown: { date: string; sales: number }[],
+  monthlyBreakdown: { date: string; sales: number }[],
+  currentHour: number,
+  hoursOpen: number,
+  hoursClose: number
+): Promise<{ todayProjected: number; weekProjected: number; monthProjected: number }> {
+  try {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      console.log("No LOVABLE_API_KEY, using simple projections");
+      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, currentHour, hoursOpen, hoursClose);
+    }
+
+    const prompt = `You are a sales projection AI. Based on the following data, predict the final totals.
+
+Current Data:
+- Today's sales so far: $${dailySales.toFixed(2)}
+- Current hour: ${currentHour}:00
+- Business hours: ${hoursOpen}:00 to ${hoursClose}:00
+- Week-to-date sales: $${weeklySales.toFixed(2)}
+- Month-to-date sales: $${monthlySales.toFixed(2)}
+
+Weekly breakdown (daily sales this week):
+${weeklyBreakdown.map(d => `${d.date}: $${d.sales.toFixed(2)}`).join('\n')}
+
+Monthly breakdown (daily sales this month):
+${monthlyBreakdown.slice(-14).map(d => `${d.date}: $${d.sales.toFixed(2)}`).join('\n')}
+
+Based on the patterns and current pace, predict:
+1. Today's projected end-of-day total
+2. This week's projected end-of-week total (through Sunday)
+3. This month's projected end-of-month total
+
+Return ONLY a JSON object with these three numbers, no explanation:
+{"todayProjected": number, "weekProjected": number, "monthProjected": number}`;
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: "You are a sales forecasting AI. Always respond with valid JSON only." },
+          { role: "user", content: prompt }
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      console.error("AI projection failed:", response.status);
+      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, currentHour, hoursOpen, hoursClose);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+    
+    // Extract JSON from response
+    const jsonMatch = content.match(/\{[^}]+\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      console.log("AI projections:", parsed);
+      return {
+        todayProjected: parsed.todayProjected || 0,
+        weekProjected: parsed.weekProjected || 0,
+        monthProjected: parsed.monthProjected || 0
+      };
+    }
+    
+    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, currentHour, hoursOpen, hoursClose);
+  } catch (error) {
+    console.error("AI projection error:", error);
+    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, currentHour, hoursOpen, hoursClose);
+  }
+}
+
+// Simple fallback projections without AI
+function simpleProjections(
+  dailySales: number,
+  weeklySales: number,
+  monthlySales: number,
+  weeklyBreakdown: { date: string; sales: number }[],
+  currentHour: number,
+  hoursOpen: number,
+  hoursClose: number
+): { todayProjected: number; weekProjected: number; monthProjected: number } {
+  // Calculate remaining hours today
+  const totalBusinessHours = hoursClose - hoursOpen;
+  const hoursElapsed = Math.max(0, currentHour - hoursOpen);
+  const hoursFraction = hoursElapsed > 0 ? hoursElapsed / totalBusinessHours : 0.5;
+  
+  // Today's projection: extrapolate based on hours elapsed
+  const todayProjected = hoursFraction > 0 ? dailySales / hoursFraction : dailySales * 2;
+  
+  // Week projection: average daily sales * 7
+  const daysThisWeek = weeklyBreakdown.length;
+  const avgDailySales = daysThisWeek > 0 ? weeklySales / daysThisWeek : dailySales;
+  const weekProjected = avgDailySales * 7;
+  
+  // Month projection: use current pace for remaining days
+  const today = new Date();
+  const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+  const dayOfMonth = today.getDate();
+  const monthProjected = (monthlySales / dayOfMonth) * daysInMonth;
+  
+  return { todayProjected, weekProjected, monthProjected };
 }
 
 serve(async (req) => {
@@ -264,12 +415,12 @@ serve(async (req) => {
     const { locationId, targetDate, testCredentials } = await req.json().catch(() => ({}));
     
     let credentials: QuBeyondCredentials;
+    let hoursOpen = 11;
+    let hoursClose = 22;
     
     if (testCredentials) {
-      // Testing mode - use provided credentials
       credentials = testCredentials;
     } else if (locationId) {
-      // Fetch credentials from database
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseKey);
@@ -295,8 +446,19 @@ serve(async (req) => {
       }
       
       credentials = integration.credentials as QuBeyondCredentials;
+      
+      // Fetch location hours
+      const { data: locationSettings } = await supabase
+        .from('location_settings')
+        .select('hours_open, hours_close')
+        .eq('location_id', locationId)
+        .single();
+      
+      if (locationSettings) {
+        hoursOpen = parseInt(locationSettings.hours_open?.split(':')[0] || '11');
+        hoursClose = parseInt(locationSettings.hours_close?.split(':')[0] || '22');
+      }
     } else {
-      // Fallback to global secrets (username/password only)
       credentials = {
         username: Deno.env.get('QU_USERNAME') || '',
         password: Deno.env.get('QU_PASSWORD') || ''
@@ -309,7 +471,6 @@ serve(async (req) => {
 
     console.log('Starting QuBeyond authentication with user:', credentials.username);
 
-    // Login using the payload wrapper format (confirmed working)
     const loginPayload = {
       payload: {
         username: credentials.username,
@@ -335,12 +496,10 @@ serve(async (req) => {
       console.error('Login failed with status:', loginResponse.status);
       console.error('Login error body:', errorBody);
       
-      // Check for rate limiting
       if (loginResponse.status === 429 || errorBody.toLowerCase().includes('rate') || errorBody.toLowerCase().includes('limit')) {
         throw new Error('Rate limited by QuBeyond API. Please try again in a few minutes.');
       }
       
-      // Include more context in error
       throw new Error(`QuBeyond login failed (${loginResponse.status}): ${errorBody.substring(0, 200)}`);
     }
 
@@ -351,22 +510,16 @@ serve(async (req) => {
     const tokenGw = jwtPayload.tokenGw;
     if (!tokenGw) throw new Error('No tokenGw found in JWT payload');
 
-    // Log JWT payload to discover available fields
     console.log('JWT payload keys:', Object.keys(jwtPayload));
     console.log('JWT payload:', JSON.stringify(jwtPayload, null, 2));
 
-    // Extract location ID from JWT if not provided in credentials
-    // The JWT typically contains location/store info we can use
     let qbLocationId = credentials.location_id;
     
-    // Try to find location in JWT payload
     if (!qbLocationId) {
-      // Common JWT field names for location
       qbLocationId = jwtPayload.locationId || jwtPayload.location_id || 
                      jwtPayload.storeId || jwtPayload.store_id ||
                      jwtPayload.singleLocation || jwtPayload.defaultLocation;
       
-      // Check nested objects
       if (!qbLocationId && jwtPayload.user) {
         qbLocationId = jwtPayload.user.locationId || jwtPayload.user.storeId || jwtPayload.user.defaultLocation;
       }
@@ -378,11 +531,10 @@ serve(async (req) => {
     console.log('Using QuBeyond location ID:', qbLocationId);
     console.log('Authentication successful');
 
-    // If testing, return success with discovered location info
     if (testCredentials) {
       return new Response(JSON.stringify({ 
         authenticated: true,
-        jwtPayload: jwtPayload, // Return full payload so we can see what's available
+        jwtPayload: jwtPayload,
         discoveredLocationId: qbLocationId
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -393,20 +545,22 @@ serve(async (req) => {
       throw new Error('Could not determine QuBeyond location ID. Please configure it in settings.');
     }
     
-    // Determine target date (default to today in Pacific)
+    const timezone = 'America/Los_Angeles';
     const now = new Date();
-    const todayStr = targetDate || getDateStringForTimezone(now, 'America/Los_Angeles');
+    const todayStr = targetDate || getDateStringForTimezone(now, timezone);
     const weekStartStr = getWeekStartDate(todayStr);
     const monthStartStr = getMonthStartDate(todayStr);
+    const currentHour = getCurrentHourInTimezone(timezone);
     
-    // Previous period dates for comparison
-    const prevDayStr = adjustDate(todayStr, -7); // Same day last week
+    // Previous period dates for REAL-TIME comparison
+    // Compare to same day of week last week, same time span
+    const prevDayStr = adjustDate(todayStr, -7); // Same weekday last week
     const prevWeekStartStr = adjustDate(weekStartStr, -7);
-    const prevWeekEndStr = adjustDate(todayStr, -7);
+    const prevWeekEndStr = adjustDate(todayStr, -7); // Same relative day in week
     const prevMonthDate = new Date(todayStr + 'T12:00:00');
     prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
-    const prevMonthStartStr = getMonthStartDate(getDateStringForTimezone(prevMonthDate, 'America/Los_Angeles'));
-    const prevMonthEndStr = getDateStringForTimezone(prevMonthDate, 'America/Los_Angeles');
+    const prevMonthStartStr = getMonthStartDate(getDateStringForTimezone(prevMonthDate, timezone));
+    const prevMonthEndStr = getDateStringForTimezone(prevMonthDate, timezone); // Same relative day in month
 
     // Generate date arrays
     const weekDates = getDateRange(weekStartStr, todayStr);
@@ -414,43 +568,80 @@ serve(async (req) => {
     const prevWeekDates = getDateRange(prevWeekStartStr, prevWeekEndStr);
     const prevMonthDates = getDateRange(prevMonthStartStr, prevMonthEndStr);
 
-    // Fetch all data in parallel
+    console.log(`Today: ${todayStr}, Current hour: ${currentHour}`);
+    console.log(`Week dates: ${weekDates.join(', ')}`);
+    console.log(`Prev week dates: ${prevWeekDates.join(', ')}`);
+
+    // Fetch hourly data for today and previous day (for real-time comparison)
     const [
-      dailySalesResult, 
-      weeklySalesResult, 
-      monthlySalesResult, 
-      hourlyData, 
-      weeklyBreakdown, 
+      todayHourly,
+      prevDayHourly,
+      weeklyBreakdown,
       monthlyBreakdown,
-      prevDaySalesResult,
-      prevWeekSalesResult,
-      prevMonthSalesResult,
       productMix
     ] = await Promise.all([
-      fetchSalesForDates(tokenGw, [todayStr], qbLocationId, 'daily'),
-      fetchSalesForDates(tokenGw, weekDates, qbLocationId, 'weekly'),
-      fetchSalesForDates(tokenGw, monthDates, qbLocationId, 'monthly'),
       fetchHourlySales(tokenGw, todayStr, qbLocationId),
+      fetchHourlySales(tokenGw, prevDayStr, qbLocationId),
       fetchDailyBreakdown(tokenGw, weekDates, qbLocationId),
       fetchDailyBreakdown(tokenGw, monthDates, qbLocationId),
-      fetchSalesForDates(tokenGw, [prevDayStr], qbLocationId, 'prevDay'),
-      fetchSalesForDates(tokenGw, prevWeekDates, qbLocationId, 'prevWeek'),
-      fetchSalesForDates(tokenGw, prevMonthDates, qbLocationId, 'prevMonth'),
       fetchProductMix(tokenGw, [todayStr], qbLocationId)
     ]);
 
-    // Calculate metrics - use breakdown data for weekly/monthly guest counts as it's more reliable
-    const dailyGuestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
-    // Sum guest counts from daily breakdown for more accurate weekly/monthly totals
-    const weeklyGuestCount = weeklyBreakdown.reduce((sum, d) => sum + d.guestCount, 0) || weeklySalesResult.guestCount;
-    const monthlyGuestCount = monthlyBreakdown.reduce((sum, d) => sum + d.guestCount, 0) || monthlySalesResult.guestCount;
-    const avgTicket = dailyGuestCount > 0 ? dailySalesResult.total / dailyGuestCount : 0;
+    // Calculate today's metrics from hourly data
+    const dailySales = todayHourly.reduce((sum, h) => sum + h.sales, 0);
+    const dailyGuestCount = todayHourly.reduce((sum, h) => sum + h.checksCount, 0);
+    
+    // Calculate previous day REAL-TIME comparison (same hours as now)
+    let prevDaySalesRealTime = 0;
+    let prevDayGuestsRealTime = 0;
+    for (const h of prevDayHourly) {
+      const hourNum = parseInt(h.hour.split(':')[0]);
+      if (hourNum <= currentHour) {
+        prevDaySalesRealTime += h.sales;
+        prevDayGuestsRealTime += h.checksCount;
+      }
+    }
+    
+    // Previous day full day total
+    const prevDayTotalSales = prevDayHourly.reduce((sum, h) => sum + h.sales, 0);
+
+    // Calculate weekly/monthly from breakdown data (accurate guest counts)
+    const weeklySales = weeklyBreakdown.reduce((sum, d) => sum + d.sales, 0);
+    const weeklyGuestCount = weeklyBreakdown.reduce((sum, d) => sum + d.guestCount, 0);
+    const monthlySales = monthlyBreakdown.reduce((sum, d) => sum + d.sales, 0);
+    const monthlyGuestCount = monthlyBreakdown.reduce((sum, d) => sum + d.guestCount, 0);
+    
+    console.log(`Weekly breakdown totals: sales=${weeklySales}, guests=${weeklyGuestCount}`);
+    console.log(`Monthly breakdown totals: sales=${monthlySales}, guests=${monthlyGuestCount}`);
+
+    // Fetch previous week/month breakdowns for real-time comparison
+    const [prevWeekBreakdown, prevMonthBreakdown] = await Promise.all([
+      fetchDailyBreakdown(tokenGw, prevWeekDates, qbLocationId),
+      fetchDailyBreakdown(tokenGw, prevMonthDates, qbLocationId)
+    ]);
+    
+    const prevWeekSales = prevWeekBreakdown.reduce((sum, d) => sum + d.sales, 0);
+    const prevMonthSales = prevMonthBreakdown.reduce((sum, d) => sum + d.sales, 0);
+
+    const avgTicket = dailyGuestCount > 0 ? dailySales / dailyGuestCount : 0;
+
+    // Generate AI projections
+    const projections = await generateProjections(
+      dailySales,
+      weeklySales,
+      monthlySales,
+      weeklyBreakdown,
+      monthlyBreakdown,
+      currentHour,
+      hoursOpen,
+      hoursClose
+    );
 
     const result = {
-      daily: dailySalesResult.total,
-      weekly: weeklySalesResult.total,
-      monthly: monthlySalesResult.total,
-      hourly: hourlyData,
+      daily: dailySales,
+      weekly: weeklySales,
+      monthly: monthlySales,
+      hourly: todayHourly,
       weeklyBreakdown,
       monthlyBreakdown,
       guestCount: {
@@ -460,13 +651,16 @@ serve(async (req) => {
       },
       avgTicket,
       comparison: {
-        prevDay: prevDaySalesResult.total,
-        prevWeek: prevWeekSalesResult.total,
-        prevMonth: prevMonthSalesResult.total
+        prevDay: prevDaySalesRealTime, // Real-time: same hours last week
+        prevDayFullDay: prevDayTotalSales, // Full day total for reference
+        prevWeek: prevWeekSales, // Week-to-date comparison
+        prevMonth: prevMonthSales // Month-to-date comparison
       },
+      projections, // AI-powered projections
       productMix,
       authenticated: true,
       timestamp: new Date().toISOString(),
+      currentHour,
       dateRange: {
         today: todayStr,
         weekStart: weekStartStr,
@@ -478,7 +672,9 @@ serve(async (req) => {
       daily: result.daily,
       weekly: result.weekly,
       monthly: result.monthly,
+      guestCount: result.guestCount,
       comparison: result.comparison,
+      projections: result.projections,
       productMixCount: result.productMix.length
     }));
 

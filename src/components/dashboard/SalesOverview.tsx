@@ -3,7 +3,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronLeft, ChevronRight, ChevronDown, TrendingUp, TrendingDown, Package } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, TrendingUp, TrendingDown, Package, Sparkles } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,7 +20,9 @@ interface SalesData {
   monthlyBreakdown?: Array<{ date: string; sales: number; guestCount: number }>;
   guestCount?: { daily: number; weekly: number; monthly: number };
   avgTicket?: number;
-  comparison?: { prevDay: number; prevWeek: number; prevMonth: number };
+  comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevMonth: number };
+  projections?: { todayProjected: number; weekProjected: number; monthProjected: number };
+  currentHour?: number;
   productMix?: Array<{ name: string; quantity: number; sales: number; category: string }>;
   dateRange?: { today: string; weekStart: string; monthStart: string };
 }
@@ -204,7 +206,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     <ComparisonBadge 
                       current={salesData.daily} 
                       previous={salesData.comparison.prevDay} 
-                      label="last week"
+                      label={`same time last ${format(targetDate, 'EEEE').slice(0, 3)}`}
                     />
                   )}
                 </div>
@@ -221,6 +223,17 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   </p>
                 </div>
               </div>
+
+              {/* AI Projection for Today */}
+              {salesData?.projections?.todayProjected && salesData.projections.todayProjected > 0 && (
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20 mb-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span className="text-xs text-muted-foreground">Projected EOD:</span>
+                  <span className="text-sm font-semibold text-primary">
+                    {formatCurrency(salesData.projections.todayProjected)}
+                  </span>
+                </div>
+              )}
               
               {salesData?.hourly ? (
                 <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
@@ -299,7 +312,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     <ComparisonBadge 
                       current={salesData.weekly} 
                       previous={salesData.comparison.prevWeek} 
-                      label="last week"
+                      label="same span last wk"
                     />
                   )}
                 </div>
@@ -318,6 +331,17 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   </p>
                 </div>
               </div>
+
+              {/* AI Projection for Week */}
+              {salesData?.projections?.weekProjected && salesData.projections.weekProjected > 0 && (
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20 mb-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span className="text-xs text-muted-foreground">Projected Week Total:</span>
+                  <span className="text-sm font-semibold text-primary">
+                    {formatCurrency(salesData.projections.weekProjected)}
+                  </span>
+                </div>
+              )}
               
               {salesData?.weeklyBreakdown && salesData.weeklyBreakdown.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
@@ -374,7 +398,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     <ComparisonBadge 
                       current={salesData.monthly} 
                       previous={salesData.comparison.prevMonth} 
-                      label="last month"
+                      label="same span last mo"
                     />
                   )}
                 </div>
@@ -393,6 +417,17 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   </p>
                 </div>
               </div>
+
+              {/* AI Projection for Month */}
+              {salesData?.projections?.monthProjected && salesData.projections.monthProjected > 0 && (
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20 mb-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <span className="text-xs text-muted-foreground">Projected Month Total:</span>
+                  <span className="text-sm font-semibold text-primary">
+                    {formatCurrency(salesData.projections.monthProjected)}
+                  </span>
+                </div>
+              )}
               
               {salesData?.monthlyBreakdown && salesData.monthlyBreakdown.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
