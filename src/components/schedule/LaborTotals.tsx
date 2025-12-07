@@ -1,9 +1,13 @@
 import { useMemo, useEffect, useState } from 'react';
-import { format, addDays } from 'date-fns';
+import { format, addDays, isBefore, isToday, startOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { Sparkles, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 interface Profile {
   id: string;
   full_name: string;
@@ -32,13 +36,17 @@ export function LaborTotals({
   isEditable = false
 }: LaborTotalsProps) {
   const { canViewAllWages } = useUserRole();
+  const { currentLocation } = useAppLocation();
   const weekDays = Array.from({
     length: 7
   }, (_, i) => addDays(currentWeekStart, i));
   const [shiftWages, setShiftWages] = useState<Record<string, number>>({});
   const [isLoadingWages, setIsLoadingWages] = useState(true);
   const [projectedSales, setProjectedSales] = useState<Record<number, number>>({});
+  const [salesSource, setSalesSource] = useState<Record<number, 'manual' | 'historical' | 'ai'>>({});
   const [isLoadingSales, setIsLoadingSales] = useState(true);
+  const [isLoadingQuSales, setIsLoadingQuSales] = useState(false);
+  
   useEffect(() => {
     const fetchWages = async () => {
       setIsLoadingWages(true);
@@ -96,6 +104,8 @@ export function LaborTotals({
       setIsLoadingWages(false);
     }
   }, [shifts]);
+
+  // Fetch saved projected sales first
   useEffect(() => {
     const fetchProjectedSales = async () => {
       if (!scheduleId) {
@@ -110,10 +120,13 @@ export function LaborTotals({
         } = await supabase.from('schedule_projected_sales').select('*').eq('schedule_id', scheduleId);
         if (error) throw error;
         const sales: Record<number, number> = {};
+        const sources: Record<number, 'manual' | 'historical' | 'ai'> = {};
         data?.forEach(item => {
           sales[item.day_of_week] = Number(item.projected_sales);
+          sources[item.day_of_week] = 'manual';
         });
         setProjectedSales(sales);
+        setSalesSource(sources);
       } catch (error) {
         console.error('Error fetching projected sales:', error);
       } finally {
@@ -122,12 +135,80 @@ export function LaborTotals({
     };
     fetchProjectedSales();
   }, [scheduleId]);
+
+  // Auto-fill from Qu data for days without manual entries
+  useEffect(() => {
+    const fetchQuSalesData = async () => {
+      if (!currentLocation?.id || isLoadingSales) return;
+      
+      const today = startOfDay(new Date());
+      const daysToFetch = weekDays.filter((day, index) => !projectedSales[index]);
+      
+      if (daysToFetch.length === 0) return;
+      
+      setIsLoadingQuSales(true);
+      try {
+        // Fetch sales data for days that need it
+        const salesPromises = daysToFetch.map(async (day, idx) => {
+          const dayIndex = weekDays.findIndex(wd => format(wd, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd'));
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const isPast = isBefore(day, today);
+          const isTodayDate = isToday(day);
+          
+          try {
+            const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
+              body: { locationId: currentLocation.id, targetDate: dateStr }
+            });
+            
+            if (!error && data) {
+              if (isPast || isTodayDate) {
+                // Use historical/current data
+                return { dayIndex, sales: data.daily || 0, source: 'historical' as const };
+              } else {
+                // Use AI projection for future days
+                return { dayIndex, sales: data.projections?.todayProjected || 0, source: 'ai' as const };
+              }
+            }
+          } catch (err) {
+            console.error(`Failed to fetch Qu sales for ${dateStr}:`, err);
+          }
+          return null;
+        });
+        
+        const results = await Promise.all(salesPromises);
+        
+        const newSales: Record<number, number> = { ...projectedSales };
+        const newSources: Record<number, 'manual' | 'historical' | 'ai'> = { ...salesSource };
+        
+        results.forEach(result => {
+          if (result && result.sales > 0) {
+            newSales[result.dayIndex] = result.sales;
+            newSources[result.dayIndex] = result.source;
+          }
+        });
+        
+        setProjectedSales(newSales);
+        setSalesSource(newSources);
+      } catch (error) {
+        console.error('Error fetching Qu sales data:', error);
+      } finally {
+        setIsLoadingQuSales(false);
+      }
+    };
+    
+    fetchQuSalesData();
+  }, [currentLocation?.id, isLoadingSales, weekDays.map(d => format(d, 'yyyy-MM-dd')).join(',')]);
+
   const handleSalesChange = async (dayIndex: number, value: string) => {
     if (!scheduleId) return;
     const numValue = parseFloat(value) || 0;
     setProjectedSales(prev => ({
       ...prev,
       [dayIndex]: numValue
+    }));
+    setSalesSource(prev => ({
+      ...prev,
+      [dayIndex]: 'manual'
     }));
     try {
       const {
@@ -226,14 +307,54 @@ export function LaborTotals({
       {/* Projected Sales Row */}
       <div className="grid grid-cols-8 gap-0 border-b border-border">
         <div className="p-2 border-r border-border bg-muted/50">
-          <p className="text-xs font-semibold">Sales</p>
+          <div className="flex items-center gap-1">
+            <p className="text-xs font-semibold">Sales</p>
+            {isLoadingQuSales && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          </div>
           <p className="text-xs font-bold mt-1">${weeklyTotals.sales.toFixed(0)}</p>
         </div>
-        {weekDays.map((day, index) => <div key={index} className="p-1 border-r border-border text-center">
-            {isEditable ? <Input type="number" step="0.01" min="0" value={projectedSales[index] || ''} onChange={e => handleSalesChange(index, e.target.value)} className="h-7 text-center text-xs p-1" placeholder="$0" /> : <p className="text-xs py-1">
-                {isLoadingSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
-              </p>}
-          </div>)}
+        {weekDays.map((day, index) => {
+          const source = salesSource[index];
+          const isAI = source === 'ai';
+          const isHistorical = source === 'historical';
+          
+          return (
+            <div key={index} className="p-1 border-r border-border text-center relative">
+              {isEditable ? (
+                <div className="relative">
+                  <Input 
+                    type="number" 
+                    step="0.01" 
+                    min="0" 
+                    value={projectedSales[index] || ''} 
+                    onChange={e => handleSalesChange(index, e.target.value)} 
+                    className={`h-7 text-center text-xs p-1 ${isAI ? 'pr-5 border-primary/30' : ''}`} 
+                    placeholder="$0" 
+                  />
+                  {isAI && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Sparkles className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 text-primary" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="text-xs">AI Projection</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-0.5 py-1">
+                  <p className="text-xs">
+                    {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
+                  </p>
+                  {isAI && <Sparkles className="h-2.5 w-2.5 text-primary" />}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Labor Percentage Row */}
