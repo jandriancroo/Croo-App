@@ -128,18 +128,15 @@ serve(async (req) => {
     let guestCount = 0;
     let avgTicket = 0;
 
-    // The response should have rows with metric names and totals
-    if (salesData.rows && Array.isArray(salesData.rows)) {
-      for (const row of salesData.rows) {
-        const metricName = (row.metric || '').toLowerCase();
-        const total = parseFloat(row.total) || 0;
+    // The response has items array with metric names and totals
+    if (salesData.items && Array.isArray(salesData.items)) {
+      for (const item of salesData.items) {
+        const metricName = (item.metric || '').toLowerCase();
+        const total = parseFloat(item.total) || 0;
         
-        if (metricName.includes('net sales') || metricName === 'net sales') {
+        // metricTypeId 1 = Net Sales
+        if (item.metricTypeId === 1 || metricName === 'net sales') {
           dailySales = total;
-        } else if (metricName.includes('guest') || metricName.includes('count')) {
-          guestCount = total;
-        } else if (metricName.includes('average') || metricName.includes('avg')) {
-          avgTicket = total;
         }
       }
     }
