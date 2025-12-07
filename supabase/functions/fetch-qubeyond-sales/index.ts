@@ -533,7 +533,7 @@ serve(async (req) => {
   }
 
   try {
-    const { locationId, targetDate, testCredentials } = await req.json().catch(() => ({}));
+    const { locationId, targetDate, testCredentials, skipProjections } = await req.json().catch(() => ({}));
     
     let credentials: QuBeyondCredentials;
     let hoursOpen = 11;
@@ -754,18 +754,24 @@ serve(async (req) => {
 
     const avgTicket = dailyGuestCount > 0 ? dailySales / dailyGuestCount : 0;
 
-    // Generate AI projections
-    const projections = await generateProjections(
-      dailySales,
-      weeklySales,
-      monthlySales,
-      weeklyBreakdown,
-      monthlyBreakdown,
-      currentHour,
-      hoursOpen,
-      hoursClose,
-      todayStr
-    );
+    // Generate AI projections (skip if client already has cached projections)
+    let projections = { todayProjected: 0, weekProjected: 0, monthProjected: 0 };
+    if (!skipProjections) {
+      console.log('Generating AI projections...');
+      projections = await generateProjections(
+        dailySales,
+        weeklySales,
+        monthlySales,
+        weeklyBreakdown,
+        monthlyBreakdown,
+        currentHour,
+        hoursOpen,
+        hoursClose,
+        todayStr
+      );
+    } else {
+      console.log('Skipping projections - client has cached values');
+    }
 
     const result = {
       daily: dailySales,
