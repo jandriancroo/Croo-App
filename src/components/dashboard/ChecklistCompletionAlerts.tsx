@@ -135,14 +135,14 @@ export function ChecklistCompletionAlerts() {
   if (alerts.length === 0) return null;
 
   return (
-    <div className="flex items-start gap-2 border border-destructive/50 bg-red-50/80 dark:bg-red-950/50 py-1.5 px-2.5 rounded-md">
-      <AlertTriangle className="h-3.5 w-3.5 text-destructive flex-shrink-0 mt-0.5" />
-      <div className="text-xs text-red-800 dark:text-red-200 space-y-0.5">
+    <div className="flex items-start gap-3 border border-destructive/50 bg-red-50/80 dark:bg-red-950/50 py-2.5 px-3 rounded-md">
+      <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+      <div className="text-sm text-red-800 dark:text-red-200 space-y-1">
         {alerts.slice(0, 5).map((alert: any) => (
           <button
             key={alert.id}
             onClick={() => navigate(`/complete-checklist/${alert.id}`)}
-            className="block w-full text-left py-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
+            className="block w-full text-left py-1 rounded hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors"
           >
             <span className="font-medium">{alert.title}</span>
             {' • '}
@@ -160,7 +160,7 @@ export function ChecklistCompletionAlerts() {
             variant="link"
             size="sm"
             onClick={() => navigate('/tasks')}
-            className="h-auto p-0 text-xs text-red-600 dark:text-red-400"
+            className="h-auto p-0 text-sm text-red-600 dark:text-red-400"
           >
             + {alerts.length - 5} more
           </Button>

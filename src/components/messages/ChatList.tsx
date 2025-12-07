@@ -99,7 +99,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           : 'hover:bg-muted'
       }`}
     >
-      <Avatar className="h-10 w-10">
+      <Avatar className="h-12 w-12">
         {chat.is_announcement ? (
           <AvatarFallback className="bg-primary/10">
             <Megaphone className="h-5 w-5 text-primary" />
@@ -128,7 +128,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 min-w-0">
-            <p className={`truncate ${
+            <p className={`truncate text-base ${
               chat.unreadCount && chat.unreadCount > 0 ? 'font-bold' : 'font-medium'
             }`}>
               {chat.title || (chat.is_group ? 'Group Chat' : 'Direct Message')}
@@ -152,13 +152,13 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
                 )}
               </Button>
             )}
-            <span className="text-xs text-muted-foreground">
+            <span className="text-sm text-muted-foreground">
               {formatLastMessageTime(chat.updated_at)}
             </span>
           </div>
         </div>
         {chat.messagePreview && searchQuery && (
-          <p className="text-xs text-muted-foreground truncate mt-1">
+          <p className="text-sm text-muted-foreground truncate mt-1">
             {highlightSearchTerm(chat.messagePreview, searchQuery)}
           </p>
         )}
