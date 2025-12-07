@@ -300,34 +300,45 @@ async function generateProjections(
   monthlyBreakdown: { date: string; sales: number }[],
   currentHour: number,
   hoursOpen: number,
-  hoursClose: number
+  hoursClose: number,
+  todayStr: string
 ): Promise<{ todayProjected: number; weekProjected: number; monthProjected: number }> {
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       console.log("No LOVABLE_API_KEY, using simple projections");
-      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, currentHour, hoursOpen, hoursClose);
+      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr);
     }
 
-    const prompt = `You are a sales projection AI. Based on the following data, predict the final totals.
+    // Calculate remaining hours and days
+    const hoursRemaining = Math.max(0, hoursClose - currentHour);
+    const today = new Date(todayStr + 'T12:00:00');
+    const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, etc.
+    const daysRemainingInWeek = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+    const daysRemainingInMonth = daysInMonth - today.getDate();
 
-Current Data:
+    const prompt = `You are a sales projection AI for a pizza restaurant. Based on the following data, predict the final totals.
+
+Current Status:
 - Today's sales so far: $${dailySales.toFixed(2)}
-- Current hour: ${currentHour}:00
-- Business hours: ${hoursOpen}:00 to ${hoursClose}:00
+- Current time: ${currentHour}:00 (business closes at ${hoursClose}:00)
+- Hours remaining today: ${hoursRemaining} hours
 - Week-to-date sales: $${weeklySales.toFixed(2)}
+- Days remaining this week (through Sunday): ${daysRemainingInWeek} days
 - Month-to-date sales: $${monthlySales.toFixed(2)}
+- Days remaining this month: ${daysRemainingInMonth} days
 
-Weekly breakdown (daily sales this week):
+Daily sales this week so far:
 ${weeklyBreakdown.map(d => `${d.date}: $${d.sales.toFixed(2)}`).join('\n')}
 
-Monthly breakdown (daily sales this month):
+Daily sales this month (last 14 days):
 ${monthlyBreakdown.slice(-14).map(d => `${d.date}: $${d.sales.toFixed(2)}`).join('\n')}
 
-Based on the patterns and current pace, predict:
-1. Today's projected end-of-day total
-2. This week's projected end-of-week total (through Sunday)
-3. This month's projected end-of-month total
+Based on the hourly sales patterns (restaurants typically see lunch rush 11am-1pm and dinner rush 5pm-8pm), predict:
+1. Today's FINAL end-of-day total (close of business at ${hoursClose}:00)
+2. This week's FINAL total (through end of day Sunday)
+3. This month's FINAL total (through end of month)
 
 Return ONLY a JSON object with these three numbers, no explanation:
 {"todayProjected": number, "weekProjected": number, "monthProjected": number}`;
@@ -341,7 +352,7 @@ Return ONLY a JSON object with these three numbers, no explanation:
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are a sales forecasting AI. Always respond with valid JSON only." },
+          { role: "system", content: "You are a sales forecasting AI for restaurants. Always respond with valid JSON only. Use realistic projections based on hourly patterns - dinner hours typically generate 40-50% of daily sales." },
           { role: "user", content: prompt }
         ],
       }),
@@ -349,7 +360,7 @@ Return ONLY a JSON object with these three numbers, no explanation:
 
     if (!response.ok) {
       console.error("AI projection failed:", response.status);
-      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, currentHour, hoursOpen, hoursClose);
+      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr);
     }
 
     const data = await response.json();
@@ -367,10 +378,10 @@ Return ONLY a JSON object with these three numbers, no explanation:
       };
     }
     
-    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, currentHour, hoursOpen, hoursClose);
+    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr);
   } catch (error) {
     console.error("AI projection error:", error);
-    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, currentHour, hoursOpen, hoursClose);
+    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr);
   }
 }
 
@@ -380,28 +391,36 @@ function simpleProjections(
   weeklySales: number,
   monthlySales: number,
   weeklyBreakdown: { date: string; sales: number }[],
+  monthlyBreakdown: { date: string; sales: number }[],
   currentHour: number,
   hoursOpen: number,
-  hoursClose: number
+  hoursClose: number,
+  todayStr: string
 ): { todayProjected: number; weekProjected: number; monthProjected: number } {
-  // Calculate remaining hours today
+  // Calculate remaining hours today until close
   const totalBusinessHours = hoursClose - hoursOpen;
   const hoursElapsed = Math.max(0, currentHour - hoursOpen);
   const hoursFraction = hoursElapsed > 0 ? hoursElapsed / totalBusinessHours : 0.5;
   
-  // Today's projection: extrapolate based on hours elapsed
+  // Today's projection: extrapolate to close time based on hours elapsed
   const todayProjected = hoursFraction > 0 ? dailySales / hoursFraction : dailySales * 2;
   
-  // Week projection: average daily sales * 7
+  // Week projection: current week sales + (avg daily * remaining days through Sunday)
+  const today = new Date(todayStr + 'T12:00:00');
+  const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, etc.
+  const daysRemainingInWeek = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
   const daysThisWeek = weeklyBreakdown.length;
   const avgDailySales = daysThisWeek > 0 ? weeklySales / daysThisWeek : dailySales;
-  const weekProjected = avgDailySales * 7;
+  // Add projected remaining sales for today to current daily sales
+  const todayRemainingProjected = todayProjected - dailySales;
+  const weekProjected = weeklySales + todayRemainingProjected + (avgDailySales * daysRemainingInWeek);
   
-  // Month projection: use current pace for remaining days
-  const today = new Date();
+  // Month projection: current month sales + (avg daily * remaining days)
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const dayOfMonth = today.getDate();
-  const monthProjected = (monthlySales / dayOfMonth) * daysInMonth;
+  const daysRemainingInMonth = daysInMonth - dayOfMonth;
+  const monthAvgDaily = monthlyBreakdown.length > 0 ? monthlySales / monthlyBreakdown.length : avgDailySales;
+  const monthProjected = monthlySales + todayRemainingProjected + (monthAvgDaily * daysRemainingInMonth);
   
   return { todayProjected, weekProjected, monthProjected };
 }
@@ -552,21 +571,27 @@ serve(async (req) => {
     const monthStartStr = getMonthStartDate(todayStr);
     const currentHour = getCurrentHourInTimezone(timezone);
     
-    // Previous period dates for REAL-TIME comparison
-    // Compare to same day of week last week, same time span
+    // Previous period dates - FULL historical periods (not real-time)
+    // Today comparison: same weekday last week, real-time comparison
     const prevDayStr = adjustDate(todayStr, -7); // Same weekday last week
+    
+    // Previous FULL week (Monday-Sunday of last week)
     const prevWeekStartStr = adjustDate(weekStartStr, -7);
-    const prevWeekEndStr = adjustDate(todayStr, -7); // Same relative day in week
+    const prevWeekEndStr = adjustDate(weekStartStr, -1); // Sunday of last week (full week)
+    
+    // Previous FULL month
     const prevMonthDate = new Date(todayStr + 'T12:00:00');
     prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
-    const prevMonthStartStr = getMonthStartDate(getDateStringForTimezone(prevMonthDate, timezone));
-    const prevMonthEndStr = getDateStringForTimezone(prevMonthDate, timezone); // Same relative day in month
+    const prevMonthStart = getMonthStartDate(getDateStringForTimezone(prevMonthDate, timezone));
+    // Get last day of previous month
+    const lastDayPrevMonth = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1, 0);
+    const prevMonthEndStr = getDateStringForTimezone(lastDayPrevMonth, timezone);
 
     // Generate date arrays
     const weekDates = getDateRange(weekStartStr, todayStr);
     const monthDates = getDateRange(monthStartStr, todayStr);
-    const prevWeekDates = getDateRange(prevWeekStartStr, prevWeekEndStr);
-    const prevMonthDates = getDateRange(prevMonthStartStr, prevMonthEndStr);
+    const prevWeekDates = getDateRange(prevWeekStartStr, prevWeekEndStr); // Full previous week
+    const prevMonthDates = getDateRange(prevMonthStart, prevMonthEndStr); // Full previous month
 
     console.log(`Today: ${todayStr}, Current hour: ${currentHour}`);
     console.log(`Week dates: ${weekDates.join(', ')}`);
@@ -634,7 +659,8 @@ serve(async (req) => {
       monthlyBreakdown,
       currentHour,
       hoursOpen,
-      hoursClose
+      hoursClose,
+      todayStr
     );
 
     const result = {

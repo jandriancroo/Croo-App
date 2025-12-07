@@ -312,7 +312,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     <ComparisonBadge 
                       current={salesData.weekly} 
                       previous={salesData.comparison.prevWeek} 
-                      label="same span last wk"
+                      label="last week"
                     />
                   )}
                 </div>
@@ -398,7 +398,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     <ComparisonBadge 
                       current={salesData.monthly} 
                       previous={salesData.comparison.prevMonth} 
-                      label="same span last mo"
+                      label="last month"
                     />
                   )}
                 </div>
