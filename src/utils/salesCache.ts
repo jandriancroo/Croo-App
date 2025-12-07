@@ -38,22 +38,24 @@ function isDateInPast(dateStr: string): boolean {
   return targetDate < today;
 }
 
-// Get current date in PST timezone
-function getCurrentPSTDate(): string {
+// Get current date/time in PST timezone
+function getPSTDate(): { date: string; hour: number } {
   const now = new Date();
-  const pstOffset = -8; // PST is UTC-8
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const pst = new Date(utc + (3600000 * pstOffset));
-  return pst.toISOString().split('T')[0];
+  // Use proper timezone conversion
+  const pstString = now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' });
+  const pstDate = new Date(pstString);
+  const year = pstDate.getFullYear();
+  const month = String(pstDate.getMonth() + 1).padStart(2, '0');
+  const day = String(pstDate.getDate()).padStart(2, '0');
+  return { 
+    date: `${year}-${month}-${day}`,
+    hour: pstDate.getHours()
+  };
 }
 
 // Check if current time is after close of business (10 PM PST)
 function isAfterCloseOfBusiness(): boolean {
-  const now = new Date();
-  const pstOffset = -8;
-  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const pst = new Date(utc + (3600000 * pstOffset));
-  return pst.getHours() >= 22;
+  return getPSTDate().hour >= 22;
 }
 
 export function getCachedSalesData(locationId: string, date: string): CachedSalesData['data'] | null {
@@ -111,18 +113,19 @@ export function getCachedProjections(locationId: string): CachedProjections['dat
     // Check version
     if (parsed.version !== CACHE_VERSION) return null;
     
-    const currentDate = getCurrentPSTDate();
+    const { date: currentDate, hour: currentHour } = getPSTDate();
     const validUntilDate = parsed.validUntil;
     
-    // Cache is valid if:
-    // 1. We're still on the same day as when cached, OR
-    // 2. We're on the next day but before close of business hasn't happened yet on the cached day
-    if (currentDate === validUntilDate) {
-      // Same day - cache is valid
+    // Cache is valid if we're still on the same day AND before close of business (10 PM)
+    // Once close of business passes, cache expires for the next day's projections
+    if (currentDate === validUntilDate && currentHour < 22) {
+      // Same day before close - cache is valid
       return parsed.data;
     }
     
-    // Different day - cache expired
+    // Different day or after close of business - cache expired
+    // Clear the old cache
+    localStorage.removeItem(key);
     return null;
   } catch {
     return null;
@@ -136,12 +139,12 @@ export function setCachedProjections(
 ): void {
   try {
     const key = getProjectionCacheKey(locationId);
-    const currentDate = getCurrentPSTDate();
+    const { date: currentDate } = getPSTDate();
     
     const cacheEntry: CachedProjections = {
       version: CACHE_VERSION,
       cachedAt: new Date().toISOString(),
-      validUntil: currentDate, // Valid until end of today
+      validUntil: currentDate, // Valid until close of business today
       data
     };
     localStorage.setItem(key, JSON.stringify(cacheEntry));
