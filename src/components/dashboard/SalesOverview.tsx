@@ -41,7 +41,15 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [showProductMix, setShowProductMix] = useState(false);
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number, compact = false) => {
+    if (compact && amount >= 1000) {
+      return new Intl.NumberFormat('en-US', { 
+        style: 'currency', 
+        currency: 'USD',
+        notation: 'compact',
+        maximumFractionDigits: 1
+      }).format(amount);
+    }
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   };
 
@@ -118,16 +126,16 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     const isPositive = change >= 0;
     
     return (
-      <div className="flex items-center gap-1 text-xs">
+      <div className="flex items-center gap-1 text-xs whitespace-nowrap">
         {isPositive ? (
-          <TrendingUp className="h-3 w-3 text-green-500" />
+          <TrendingUp className="h-3 w-3 text-green-500 flex-shrink-0" />
         ) : (
-          <TrendingDown className="h-3 w-3 text-red-500" />
+          <TrendingDown className="h-3 w-3 text-red-500 flex-shrink-0" />
         )}
         <span className={isPositive ? "text-green-500" : "text-red-500"}>
           {isPositive ? "+" : ""}{change.toFixed(1)}%
         </span>
-        <span className="text-muted-foreground">vs {label}</span>
+        <span className="text-muted-foreground hidden sm:inline">vs {label}</span>
       </div>
     );
   };
@@ -196,11 +204,12 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 canGoNext={!isToday}
               />
               
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Total Sales</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">Sales</p>
+                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
+                    <span className="sm:hidden">{salesData?.daily ? formatCurrency(salesData.daily, true) : "--"}</span>
+                    <span className="hidden sm:inline">{salesData?.daily ? formatCurrency(salesData.daily) : "--"}</span>
                   </p>
                   {salesData?.comparison?.prevDay !== undefined && salesData.daily !== undefined && (
                     <ComparisonBadge 
@@ -210,15 +219,15 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     />
                   )}
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Guests</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">Guests</p>
+                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
                     {salesData?.guestCount?.daily ?? "--"}
                   </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Avg Ticket</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">Avg Ticket</p>
+                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
                     {salesData?.avgTicket ? formatCurrency(salesData.avgTicket) : "--"}
                   </p>
                 </div>
@@ -302,11 +311,12 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 canGoNext={!isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })}
               />
               
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Week-to-Date</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.weekly !== undefined ? formatCurrency(salesData.weekly) : "--"}
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">WTD</p>
+                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
+                    <span className="sm:hidden">{salesData?.weekly !== undefined ? formatCurrency(salesData.weekly, true) : "--"}</span>
+                    <span className="hidden sm:inline">{salesData?.weekly !== undefined ? formatCurrency(salesData.weekly) : "--"}</span>
                   </p>
                   {salesData?.comparison?.prevWeek !== undefined && salesData.weekly !== undefined && (
                     <ComparisonBadge 
@@ -316,15 +326,15 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     />
                   )}
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Guests</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">Guests</p>
+                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
                     {salesData?.guestCount?.weekly ?? "--"}
                   </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Avg Ticket</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">Avg Ticket</p>
+                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
                     {salesData?.guestCount?.weekly && salesData?.weekly 
                       ? formatCurrency(salesData.weekly / salesData.guestCount.weekly) 
                       : "--"}
@@ -388,11 +398,12 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 canGoNext={!isSameMonth(targetDate, new Date())}
               />
               
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Month-to-Date</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.monthly !== undefined ? formatCurrency(salesData.monthly) : "--"}
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">MTD</p>
+                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
+                    <span className="sm:hidden">{salesData?.monthly !== undefined ? formatCurrency(salesData.monthly, true) : "--"}</span>
+                    <span className="hidden sm:inline">{salesData?.monthly !== undefined ? formatCurrency(salesData.monthly) : "--"}</span>
                   </p>
                   {salesData?.comparison?.prevMonth !== undefined && salesData.monthly !== undefined && (
                     <ComparisonBadge 
@@ -402,15 +413,15 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     />
                   )}
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Guests</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">Guests</p>
+                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
                     {salesData?.guestCount?.monthly ?? "--"}
                   </p>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Avg Ticket</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
+                <div className="space-y-1 min-w-0">
+                  <p className="text-xs text-muted-foreground whitespace-nowrap">Avg Ticket</p>
+                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
                     {salesData?.guestCount?.monthly && salesData?.monthly 
                       ? formatCurrency(salesData.monthly / salesData.guestCount.monthly) 
                       : "--"}
