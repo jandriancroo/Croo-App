@@ -62,7 +62,7 @@ function getDateRange(startDate: string, endDate: string): string[] {
 }
 
 // Fetch sales data for specified dates using the working endpoint format
-async function fetchSalesForDates(tokenGw: string, dates: string[], periodType: string): Promise<number> {
+async function fetchSalesForDates(tokenGw: string, dates: string[], periodType: string): Promise<{ total: number; guestCount: number }> {
   console.log(`Fetching ${periodType} sales for ${dates.length} days: ${dates[0]} to ${dates[dates.length - 1]}`);
   
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
@@ -101,23 +101,51 @@ async function fetchSalesForDates(tokenGw: string, dates: string[], periodType: 
 
   if (!response.ok) {
     console.error(`${periodType} fetch failed:`, response.status);
-    return 0;
+    return { total: 0, guestCount: 0 };
   }
 
   const data = await response.json();
   console.log(`${periodType} response preview:`, JSON.stringify(data).substring(0, 300));
   
+  let total = 0;
+  let guestCount = 0;
+  
   if (data.items && Array.isArray(data.items)) {
     for (const item of data.items) {
       if (item.metricTypeId === 1 || item.metric === 'Net Sales') {
-        const total = parseFloat(String(item.total || '0').replace(/,/g, '')) || 0;
+        total = parseFloat(String(item.total || '0').replace(/,/g, '')) || 0;
         console.log(`${periodType} Net Sales found: $${total}`);
-        return total;
+      }
+      if (item.metricTypeId === 2 || item.metric === 'Check Count' || item.metric === 'Guest Count') {
+        guestCount = parseInt(String(item.total || '0').replace(/,/g, '')) || 0;
+        console.log(`${periodType} Guest Count found: ${guestCount}`);
       }
     }
   }
   
-  return 0;
+  return { total, guestCount };
+}
+
+// Fetch daily breakdown for a date range (for week/month charts)
+async function fetchDailyBreakdown(tokenGw: string, dates: string[]): Promise<{ date: string; sales: number; guestCount: number }[]> {
+  console.log(`Fetching daily breakdown for ${dates.length} days`);
+  
+  // Fetch each day's sales individually for breakdown
+  const dailyData: { date: string; sales: number; guestCount: number }[] = [];
+  
+  // Use Promise.all for parallel fetching but limit batch size
+  const batchSize = 7;
+  for (let i = 0; i < dates.length; i += batchSize) {
+    const batch = dates.slice(i, i + batchSize);
+    const batchPromises = batch.map(async (dateStr) => {
+      const result = await fetchSalesForDates(tokenGw, [dateStr], `day-${dateStr}`);
+      return { date: dateStr, sales: result.total, guestCount: result.guestCount };
+    });
+    const batchResults = await Promise.all(batchPromises);
+    dailyData.push(...batchResults);
+  }
+  
+  return dailyData.sort((a, b) => a.date.localeCompare(b.date));
 }
 
 // Fetch hourly sales breakdown using the dedicated hourly-sales endpoint
@@ -344,19 +372,34 @@ serve(async (req) => {
     const monthDates = getDateRange(monthStartStr, todayStr);
 
     // Step 4: Fetch all data in parallel
-    const [dailySales, weeklySales, monthlySales, hourlyData] = await Promise.all([
-      fetchTodaySales(tokenGw, todayStr),
+    const [dailySalesResult, weeklySalesResult, monthlySalesResult, hourlyData, weeklyBreakdown, monthlyBreakdown] = await Promise.all([
+      fetchSalesForDates(tokenGw, [todayStr], 'daily'),
       fetchSalesForDates(tokenGw, weekDates, 'weekly'),
       fetchSalesForDates(tokenGw, monthDates, 'monthly'),
-      fetchHourlySales(tokenGw, todayStr)
+      fetchHourlySales(tokenGw, todayStr),
+      fetchDailyBreakdown(tokenGw, weekDates),
+      fetchDailyBreakdown(tokenGw, monthDates)
     ]);
+
+    // Calculate average ticket from hourly data
+    const totalSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
+    const totalGuests = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
+    const avgTicket = totalGuests > 0 ? totalSales / totalGuests : 0;
 
     // Return structured data
     const result = {
-      daily: dailySales,
-      weekly: weeklySales,
-      monthly: monthlySales,
+      daily: dailySalesResult.total,
+      weekly: weeklySalesResult.total,
+      monthly: monthlySalesResult.total,
       hourly: hourlyData,
+      weeklyBreakdown,
+      monthlyBreakdown,
+      guestCount: {
+        daily: dailySalesResult.guestCount,
+        weekly: weeklySalesResult.guestCount,
+        monthly: monthlySalesResult.guestCount
+      },
+      avgTicket,
       authenticated: true,
       timestamp: new Date().toISOString(),
       dateRange: {
@@ -370,7 +413,10 @@ serve(async (req) => {
       daily: result.daily,
       weekly: result.weekly,
       monthly: result.monthly,
-      hourlyCount: result.hourly.length
+      hourlyCount: result.hourly.length,
+      weeklyBreakdownCount: result.weeklyBreakdown.length,
+      monthlyBreakdownCount: result.monthlyBreakdown.length,
+      guestCount: result.guestCount
     }));
 
     return new Response(JSON.stringify(result), {

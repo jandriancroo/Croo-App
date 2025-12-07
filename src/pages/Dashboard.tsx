@@ -59,11 +59,26 @@ type SalesData = {
   hourly?: Array<{
     hour: string;
     sales: number;
+    checksCount?: number;
+  }>;
+  weeklyBreakdown?: Array<{
+    date: string;
+    sales: number;
+    guestCount: number;
+  }>;
+  monthlyBreakdown?: Array<{
+    date: string;
+    sales: number;
+    guestCount: number;
   }>;
   daily: number;
   weekly?: number;
   monthly?: number;
-  guestCount?: number;
+  guestCount?: {
+    daily: number;
+    weekly: number;
+    monthly: number;
+  };
   avgTicket?: number;
   authenticated?: boolean;
   rawData?: any;
@@ -182,6 +197,8 @@ export default function Dashboard() {
           daily: filteredDaily || rawSalesData.daily,
           weekly: rawSalesData.weekly,
           monthly: rawSalesData.monthly,
+          weeklyBreakdown: rawSalesData.weeklyBreakdown,
+          monthlyBreakdown: rawSalesData.monthlyBreakdown,
           guestCount: rawSalesData.guestCount,
           avgTicket: rawSalesData.avgTicket,
           dateRange: rawSalesData.dateRange,
@@ -530,11 +547,17 @@ export default function Dashboard() {
             </TabsList>
             
             <TabsContent value="today" className="space-y-4">
-              <div className="grid grid-cols-2 gap-6 mb-4">
+              <div className="grid grid-cols-3 gap-4 mb-4">
                 <div className="space-y-1">
                   <p className="text-xs md:text-sm text-muted-foreground">Total Sales</p>
                   <p className="text-lg md:text-2xl font-bold break-words">
                     {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Guests</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.guestCount?.daily ?? "--"}
                   </p>
                 </div>
                 <div className="space-y-1">
@@ -569,46 +592,124 @@ export default function Dashboard() {
               <div className="mb-2 text-xs text-muted-foreground">
                 Week starting {salesData?.dateRange?.weekStart ? format(new Date(salesData.dateRange.weekStart + 'T00:00:00'), 'MMM d, yyyy') : '--'}
               </div>
-              <div className="grid grid-cols-2 gap-6 mb-4">
+              <div className="grid grid-cols-3 gap-4 mb-4">
                 <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Week-to-Date Sales</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Week-to-Date</p>
                   <p className="text-lg md:text-2xl font-bold break-words">
                     {salesData?.weekly !== undefined ? formatCurrency(salesData.weekly) : "--"}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Today</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Guests</p>
                   <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
+                    {salesData?.guestCount?.weekly ?? "--"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Avg Ticket</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.guestCount?.weekly && salesData?.weekly 
+                      ? formatCurrency(salesData.weekly / salesData.guestCount.weekly) 
+                      : "--"}
                   </p>
                 </div>
               </div>
-              <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
-                Daily breakdown coming soon
-              </div>
+              {salesData?.weeklyBreakdown && salesData.weeklyBreakdown.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
+                  <BarChart data={salesData.weeklyBreakdown.map(d => ({
+                    ...d,
+                    label: format(new Date(d.date + 'T00:00:00'), 'EEE')
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
+                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
+                    <Tooltip 
+                      formatter={(value, name) => {
+                        if (name === 'sales') return formatCurrency(value as number);
+                        return value;
+                      }}
+                      labelFormatter={(label, payload) => {
+                        if (payload?.[0]?.payload?.date) {
+                          return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
+                        }
+                        return label;
+                      }}
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }} 
+                    />
+                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
+                  No weekly data available
+                </div>
+              )}
             </TabsContent>
             
             <TabsContent value="month" className="space-y-4">
               <div className="mb-2 text-xs text-muted-foreground">
                 Month starting {salesData?.dateRange?.monthStart ? format(new Date(salesData.dateRange.monthStart + 'T00:00:00'), 'MMM d, yyyy') : '--'}
               </div>
-              <div className="grid grid-cols-2 gap-6 mb-4">
+              <div className="grid grid-cols-3 gap-4 mb-4">
                 <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Month-to-Date Sales</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Month-to-Date</p>
                   <p className="text-lg md:text-2xl font-bold break-words">
                     {salesData?.monthly !== undefined ? formatCurrency(salesData.monthly) : "--"}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Today</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Guests</p>
                   <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
+                    {salesData?.guestCount?.monthly ?? "--"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Avg Ticket</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.guestCount?.monthly && salesData?.monthly 
+                      ? formatCurrency(salesData.monthly / salesData.guestCount.monthly) 
+                      : "--"}
                   </p>
                 </div>
               </div>
-              <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
-                Daily breakdown coming soon
-              </div>
+              {salesData?.monthlyBreakdown && salesData.monthlyBreakdown.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
+                  <BarChart data={salesData.monthlyBreakdown.map(d => ({
+                    ...d,
+                    label: format(new Date(d.date + 'T00:00:00'), 'd')
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
+                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
+                    <Tooltip 
+                      formatter={(value, name) => {
+                        if (name === 'sales') return formatCurrency(value as number);
+                        return value;
+                      }}
+                      labelFormatter={(label, payload) => {
+                        if (payload?.[0]?.payload?.date) {
+                          return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
+                        }
+                        return label;
+                      }}
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }} 
+                    />
+                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
+                  No monthly data available
+                </div>
+              )}
             </TabsContent>
           </Tabs>
         </CardContent>
