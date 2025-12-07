@@ -355,7 +355,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   <p className="text-xs text-muted-foreground">Guests</p>
                   <p className="text-lg sm:text-2xl font-bold">
                     {salesData?.guestCount?.weekly ?? "--"}
-                    {salesData?.guestCount?.weekly ?? "--"}
                   </p>
                 </div>
                 <div className="text-right min-w-0">

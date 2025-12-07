@@ -522,7 +522,8 @@ function simpleProjections(
     monthAvgDaily = todayProjected;
   }
   
-  const monthProjected = monthlySales + todayRemainingProjected + (monthAvgDaily * daysRemainingInMonth);
+  // Apply a conservative 10% reduction to monthly projection to avoid overestimating
+  const monthProjected = (monthlySales + todayRemainingProjected + (monthAvgDaily * daysRemainingInMonth)) * 0.90;
   
   return { todayProjected, weekProjected, monthProjected };
 }
