@@ -41,16 +41,13 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [showProductMix, setShowProductMix] = useState(false);
 
-  const formatCurrency = (amount: number, compact = false) => {
-    if (compact && amount >= 1000) {
-      return new Intl.NumberFormat('en-US', { 
-        style: 'currency', 
-        currency: 'USD',
-        notation: 'compact',
-        maximumFractionDigits: 1
-      }).format(amount);
-    }
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { 
+      style: 'currency', 
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
   };
 
   const getDateString = (date: Date) => {
@@ -205,11 +202,10 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               />
               
               <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
-                <div className="space-y-1 min-w-0">
-                  <p className="text-xs text-muted-foreground whitespace-nowrap">Sales</p>
-                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
-                    <span className="sm:hidden">{salesData?.daily ? formatCurrency(salesData.daily, true) : "--"}</span>
-                    <span className="hidden sm:inline">{salesData?.daily ? formatCurrency(salesData.daily) : "--"}</span>
+              <div className="flex-1 min-w-0">
+                  <p className="text-xs text-muted-foreground">Sales</p>
+                  <p className="text-lg sm:text-2xl font-bold">
+                    {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
                   </p>
                   {salesData?.comparison?.prevDay !== undefined && salesData.daily !== undefined && (
                     <ComparisonBadge 
@@ -219,15 +215,15 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     />
                   )}
                 </div>
-                <div className="space-y-1 min-w-0">
-                  <p className="text-xs text-muted-foreground whitespace-nowrap">Guests</p>
-                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
+                <div className="text-center min-w-0">
+                  <p className="text-xs text-muted-foreground">Guests</p>
+                  <p className="text-lg sm:text-2xl font-bold">
                     {salesData?.guestCount?.daily ?? "--"}
                   </p>
                 </div>
-                <div className="space-y-1 min-w-0">
-                  <p className="text-xs text-muted-foreground whitespace-nowrap">Avg Ticket</p>
-                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
+                <div className="text-right min-w-0">
+                  <p className="text-xs text-muted-foreground">Avg Ticket</p>
+                  <p className="text-lg sm:text-2xl font-bold">
                     {salesData?.avgTicket ? formatCurrency(salesData.avgTicket) : "--"}
                   </p>
                 </div>
@@ -316,11 +312,10 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               />
               
               <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
-                <div className="space-y-1 min-w-0">
-                  <p className="text-xs text-muted-foreground whitespace-nowrap">WTD</p>
-                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
-                    <span className="sm:hidden">{salesData?.weekly !== undefined ? formatCurrency(salesData.weekly, true) : "--"}</span>
-                    <span className="hidden sm:inline">{salesData?.weekly !== undefined ? formatCurrency(salesData.weekly) : "--"}</span>
+              <div className="flex-1 min-w-0">
+                  <p className="text-xs text-muted-foreground">WTD</p>
+                  <p className="text-lg sm:text-2xl font-bold">
+                    {salesData?.weekly !== undefined ? formatCurrency(salesData.weekly) : "--"}
                   </p>
                   {salesData?.comparison?.prevWeek !== undefined && salesData.weekly !== undefined && (
                     <ComparisonBadge 
@@ -330,15 +325,16 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     />
                   )}
                 </div>
-                <div className="space-y-1 min-w-0">
-                  <p className="text-xs text-muted-foreground whitespace-nowrap">Guests</p>
-                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
+                <div className="text-center min-w-0">
+                  <p className="text-xs text-muted-foreground">Guests</p>
+                  <p className="text-lg sm:text-2xl font-bold">
+                    {salesData?.guestCount?.weekly ?? "--"}
                     {salesData?.guestCount?.weekly ?? "--"}
                   </p>
                 </div>
-                <div className="space-y-1 min-w-0">
-                  <p className="text-xs text-muted-foreground whitespace-nowrap">Avg Ticket</p>
-                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
+                <div className="text-right min-w-0">
+                  <p className="text-xs text-muted-foreground">Avg Ticket</p>
+                  <p className="text-lg sm:text-2xl font-bold">
                     {salesData?.guestCount?.weekly && salesData?.weekly 
                       ? formatCurrency(salesData.weekly / salesData.guestCount.weekly) 
                       : "--"}
@@ -407,11 +403,10 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               />
               
               <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
-                <div className="space-y-1 min-w-0">
-                  <p className="text-xs text-muted-foreground whitespace-nowrap">MTD</p>
-                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
-                    <span className="sm:hidden">{salesData?.monthly !== undefined ? formatCurrency(salesData.monthly, true) : "--"}</span>
-                    <span className="hidden sm:inline">{salesData?.monthly !== undefined ? formatCurrency(salesData.monthly) : "--"}</span>
+              <div className="flex-1 min-w-0">
+                  <p className="text-xs text-muted-foreground">MTD</p>
+                  <p className="text-lg sm:text-2xl font-bold">
+                    {salesData?.monthly !== undefined ? formatCurrency(salesData.monthly) : "--"}
                   </p>
                   {salesData?.comparison?.prevMonth !== undefined && salesData.monthly !== undefined && (
                     <ComparisonBadge 
@@ -421,15 +416,15 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     />
                   )}
                 </div>
-                <div className="space-y-1 min-w-0">
-                  <p className="text-xs text-muted-foreground whitespace-nowrap">Guests</p>
-                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
+                <div className="text-center min-w-0">
+                  <p className="text-xs text-muted-foreground">Guests</p>
+                  <p className="text-lg sm:text-2xl font-bold">
                     {salesData?.guestCount?.monthly ?? "--"}
                   </p>
                 </div>
-                <div className="space-y-1 min-w-0">
-                  <p className="text-xs text-muted-foreground whitespace-nowrap">Avg Ticket</p>
-                  <p className="text-base sm:text-2xl font-bold whitespace-nowrap">
+                <div className="text-right min-w-0">
+                  <p className="text-xs text-muted-foreground">Avg Ticket</p>
+                  <p className="text-lg sm:text-2xl font-bold">
                     {salesData?.guestCount?.monthly && salesData?.monthly 
                       ? formatCurrency(salesData.monthly / salesData.guestCount.monthly) 
                       : "--"}
