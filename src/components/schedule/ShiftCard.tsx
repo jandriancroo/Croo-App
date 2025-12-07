@@ -107,9 +107,6 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
         <div className="text-white text-xs opacity-90 mt-0.5">{position}</div>
       )}
       {shift.is_time_off && <div className="text-white text-sm font-medium">TIME OFF</div>}
-      {!shift.isTemplate && !isPublished && (
-        <div className="text-white/70 text-[10px] font-medium mt-0.5">DRAFT</div>
-      )}
       {!shift.isTemplate && onDelete && (
         <div className="absolute top-0 right-0 opacity-0 group-hover:opacity-100">
           <Button

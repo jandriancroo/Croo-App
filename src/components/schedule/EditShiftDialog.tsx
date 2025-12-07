@@ -24,6 +24,7 @@ interface EditShiftDialogProps {
   currentUserId?: string;
   availabilityRequests?: any[];
   isAdmin?: boolean;
+  isShiftPublished?: boolean;
 }
 
 export function EditShiftDialog({ 
@@ -37,7 +38,8 @@ export function EditShiftDialog({
   currentWeekStart,
   currentUserId,
   availabilityRequests = [],
-  isAdmin = false
+  isAdmin = false,
+  isShiftPublished = true
 }: EditShiftDialogProps) {
   const [startTime, setStartTime] = useState(shift.start_time);
   const [endTime, setEndTime] = useState(shift.end_time);
@@ -423,7 +425,7 @@ export function EditShiftDialog({
                   Take This Shift
                 </Button>
               )}
-              {currentUserId && (isAdmin || shift.user_id === currentUserId) && (
+              {isShiftPublished && currentUserId && (isAdmin || shift.user_id === currentUserId) && (
                 <Button variant="outline" onClick={() => setShowOfferDialog(true)}>
                   <ArrowUp className="h-4 w-4 mr-2" />
                   Offer Up

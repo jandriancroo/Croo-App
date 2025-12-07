@@ -1257,21 +1257,34 @@ export default function Schedule() {
           )}
         </DndContext>
 
-        {(isAdmin || isManager) && editingShift && (
-          <EditShiftDialog
-            open={!!editingShift}
-            onOpenChange={(open) => !open && setEditingShift(null)}
-            shift={editingShift}
-            profiles={profiles}
-            templates={templates}
-            onUpdate={fetchScheduleData}
-            scheduleId={scheduleId || ""}
-            currentWeekStart={currentWeekStart}
-            currentUserId={currentUserId || undefined}
-            availabilityRequests={availabilityRequests}
-            isAdmin={isAdmin}
-          />
-        )}
+        {(isAdmin || isManager) && editingShift && (() => {
+          const snapshotShift = publishedSnapshot?.find((s: any) => s.id === editingShift.id);
+          const isShiftModified = snapshotShift && (
+            snapshotShift.start_time !== editingShift.start_time ||
+            snapshotShift.end_time !== editingShift.end_time ||
+            snapshotShift.user_id !== editingShift.user_id ||
+            snapshotShift.shift_date !== editingShift.shift_date ||
+            snapshotShift.template_id !== editingShift.template_id
+          );
+          const isShiftPublished = isPublished && snapshotShift && !isShiftModified;
+          
+          return (
+            <EditShiftDialog
+              open={!!editingShift}
+              onOpenChange={(open) => !open && setEditingShift(null)}
+              shift={editingShift}
+              profiles={profiles}
+              templates={templates}
+              onUpdate={fetchScheduleData}
+              scheduleId={scheduleId || ""}
+              currentWeekStart={currentWeekStart}
+              currentUserId={currentUserId || undefined}
+              availabilityRequests={availabilityRequests}
+              isAdmin={isAdmin}
+              isShiftPublished={isShiftPublished}
+            />
+          );
+        })()}
 
         {(isAdmin || isManager) && (
           <ConflictWarningDialog
