@@ -396,9 +396,9 @@ export default function LogBook() {
     );
   });
 
-  // Group entries by day
+  // Group entries by day - use entry_date directly as it's already YYYY-MM-DD
   const entriesByDay = filteredEntries.reduce((acc: any, entry: any) => {
-    const dateKey = format(new Date(entry.entry_date), 'yyyy-MM-dd');
+    const dateKey = entry.entry_date;
     if (!acc[dateKey]) {
       acc[dateKey] = [];
     }
@@ -851,7 +851,7 @@ export default function LogBook() {
               {sortedDays.map((dateKey) => (
                 <div key={dateKey} className="space-y-2">
                   <h3 className="text-sm font-semibold text-muted-foreground sticky top-0 bg-background py-2">
-                    {format(new Date(dateKey), 'EEEE, MMMM d, yyyy')}
+                    {format(new Date(dateKey + 'T12:00:00'), 'EEEE, MMMM d, yyyy')}
                   </h3>
                   <div className="space-y-2">
                     {entriesByDay[dateKey].map((entry: any) => (
