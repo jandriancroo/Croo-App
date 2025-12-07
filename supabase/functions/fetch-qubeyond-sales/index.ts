@@ -120,9 +120,84 @@ async function fetchSalesForDates(tokenGw: string, dates: string[], periodType: 
   return 0;
 }
 
-// Fetch today's sales using the hourly endpoint (which works correctly)
-async function fetchTodaySales(tokenGw: string, dateStr: string): Promise<{ daily: number; hourly: { hour: string; sales: number }[] }> {
-  console.log(`Fetching today's sales for: ${dateStr}`);
+// Fetch hourly sales breakdown using the dedicated hourly-sales endpoint
+async function fetchHourlySales(tokenGw: string, dateStr: string): Promise<{ hour: string; sales: number; checksCount: number }[]> {
+  console.log(`Fetching hourly sales breakdown for: ${dateStr}`);
+  
+  const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/hourly-sales/sections/main', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'Authorization': tokenGw,
+      'Origin': 'https://admin.qubeyond.com',
+      'Referer': 'https://admin.qubeyond.com/',
+    },
+    body: JSON.stringify({
+      fields: [
+        { fieldName: "hour" },
+        { fieldName: "checksCount" },
+        { fieldName: "netSales" },
+        { fieldName: "averageCheck" },
+        { fieldName: "discount" },
+        { fieldName: "serviceCharge" },
+        { fieldName: "tax" },
+        { fieldName: "netSalesPercentage" }
+      ],
+      filters: {
+        date: {
+          from: null,
+          to: null,
+          values: [dateStr],
+          type: "today"
+        },
+        singleLocation: 5448
+      },
+      params: {
+        sectionId: "main",
+        pageNumber: 1,
+        pageSize: 25,
+        totalRecords: null,
+        sort: null,
+        showTotals: true
+      }
+    }),
+  });
+
+  if (!response.ok) {
+    console.error('Hourly sales fetch failed:', response.status);
+    return [];
+  }
+
+  const data = await response.json();
+  console.log('Hourly sales response structure:', JSON.stringify(data).substring(0, 500));
+  
+  const hourlyData: { hour: string; sales: number; checksCount: number }[] = [];
+  
+  if (data.items && Array.isArray(data.items)) {
+    console.log(`Found ${data.items.length} hourly items`);
+    for (const item of data.items) {
+      // Each item should have hour, netSales, checksCount
+      const hour = item.hour || '';
+      const sales = parseFloat(String(item.netSales || '0').replace(/[$,]/g, '')) || 0;
+      const checksCount = parseInt(String(item.checksCount || '0').replace(/,/g, '')) || 0;
+      
+      if (hour) {
+        hourlyData.push({ hour, sales, checksCount });
+      }
+    }
+    console.log(`Parsed ${hourlyData.length} hourly entries`);
+    if (hourlyData.length > 0) {
+      console.log('Sample hourly data:', JSON.stringify(hourlyData.slice(0, 3)));
+    }
+  }
+  
+  return hourlyData;
+}
+
+// Fetch today's daily total from the summary endpoint
+async function fetchTodaySales(tokenGw: string, dateStr: string): Promise<number> {
+  console.log(`Fetching today's total sales for: ${dateStr}`);
   
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
     method: 'POST',
@@ -135,8 +210,8 @@ async function fetchTodaySales(tokenGw: string, dateStr: string): Promise<{ dail
     },
     body: JSON.stringify({
       fields: [
-        { fieldName: "hour" },
-        { fieldName: "netSales" }
+        { fieldName: "metric" },
+        { fieldName: "total" }
       ],
       filters: {
         date: {
@@ -148,9 +223,9 @@ async function fetchTodaySales(tokenGw: string, dateStr: string): Promise<{ dail
         singleLocation: 5448
       },
       params: {
-        sectionId: "hourly",
+        sectionId: "overview",
         pageNumber: 1,
-        pageSize: 24,
+        pageSize: 25,
         totalRecords: null,
         sort: null,
         showTotals: true
@@ -160,43 +235,23 @@ async function fetchTodaySales(tokenGw: string, dateStr: string): Promise<{ dail
 
   if (!response.ok) {
     console.error('Today sales fetch failed:', response.status);
-    return { daily: 0, hourly: [] };
+    return 0;
   }
 
   const data = await response.json();
   console.log('Today sales response items count:', data.items?.length);
   
-  // Log first few items to understand structure
-  if (data.items && data.items.length > 0) {
-    console.log('Sample items:', JSON.stringify(data.items.slice(0, 3)));
-  }
-  
-  let dailyTotal = 0;
-  const hourlyData: { hour: string; sales: number }[] = [];
-  
   if (data.items && Array.isArray(data.items)) {
-    // First, extract the daily total from Net Sales metric
     for (const item of data.items) {
       if (item.metricTypeId === 1 || item.metric === 'Net Sales') {
-        dailyTotal = parseFloat(String(item.total || '0').replace(/,/g, '')) || 0;
-        console.log(`Daily Net Sales from hourly endpoint: $${dailyTotal}`);
-        break;
-      }
-    }
-    
-    // Check if there's hourly data in a different structure
-    if (data.hourlyData && Array.isArray(data.hourlyData)) {
-      for (const item of data.hourlyData) {
-        const hour = item.hour || '';
-        const sales = parseFloat(String(item.netSales || item.sales || '0').replace(/,/g, '')) || 0;
-        if (hour) {
-          hourlyData.push({ hour, sales });
-        }
+        const total = parseFloat(String(item.total || '0').replace(/,/g, '')) || 0;
+        console.log(`Daily Net Sales: $${total}`);
+        return total;
       }
     }
   }
   
-  return { daily: dailyTotal, hourly: hourlyData };
+  return 0;
 }
 
 serve(async (req) => {
@@ -268,18 +323,19 @@ serve(async (req) => {
     const monthDates = getDateRange(monthStartStr, todayStr);
 
     // Step 4: Fetch all data in parallel
-    const [todayData, weeklySales, monthlySales] = await Promise.all([
+    const [dailySales, weeklySales, monthlySales, hourlyData] = await Promise.all([
       fetchTodaySales(tokenGw, todayStr),
       fetchSalesForDates(tokenGw, weekDates, 'weekly'),
-      fetchSalesForDates(tokenGw, monthDates, 'monthly')
+      fetchSalesForDates(tokenGw, monthDates, 'monthly'),
+      fetchHourlySales(tokenGw, todayStr)
     ]);
 
     // Return structured data
     const result = {
-      daily: todayData.daily,
+      daily: dailySales,
       weekly: weeklySales,
       monthly: monthlySales,
-      hourly: todayData.hourly,
+      hourly: hourlyData,
       authenticated: true,
       timestamp: new Date().toISOString(),
       dateRange: {
