@@ -381,10 +381,14 @@ serve(async (req) => {
       fetchDailyBreakdown(tokenGw, monthDates)
     ]);
 
-    // Calculate average ticket from hourly data
+    // Calculate average ticket and guest count from hourly data (more accurate)
     const totalSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
-    const totalGuests = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
-    const avgTicket = totalGuests > 0 ? totalSales / totalGuests : 0;
+    const dailyGuestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
+    const avgTicket = dailyGuestCount > 0 ? totalSales / dailyGuestCount : 0;
+
+    // Calculate weekly and monthly guest counts from breakdowns
+    const weeklyGuestCount = weeklyBreakdown.reduce((sum, d) => sum + d.guestCount, 0);
+    const monthlyGuestCount = monthlyBreakdown.reduce((sum, d) => sum + d.guestCount, 0);
 
     // Return structured data
     const result = {
@@ -395,9 +399,9 @@ serve(async (req) => {
       weeklyBreakdown,
       monthlyBreakdown,
       guestCount: {
-        daily: dailySalesResult.guestCount,
-        weekly: weeklySalesResult.guestCount,
-        monthly: monthlySalesResult.guestCount
+        daily: dailyGuestCount,
+        weekly: weeklyGuestCount,
+        monthly: monthlyGuestCount
       },
       avgTicket,
       authenticated: true,

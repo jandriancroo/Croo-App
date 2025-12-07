@@ -893,6 +893,44 @@ export type Database = {
           },
         ]
       }
+      location_integrations: {
+        Row: {
+          created_at: string
+          credentials: Json
+          id: string
+          integration_type: string
+          is_active: boolean
+          location_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          credentials?: Json
+          id?: string
+          integration_type: string
+          is_active?: boolean
+          location_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          credentials?: Json
+          id?: string
+          integration_type?: string
+          is_active?: boolean
+          location_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_integrations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_settings: {
         Row: {
           blackout_dates: string[] | null
