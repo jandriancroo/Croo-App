@@ -8,6 +8,7 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
 interface Profile {
   id: string;
   full_name: string;
@@ -136,7 +137,7 @@ export function LaborTotals({
     fetchProjectedSales();
   }, [scheduleId]);
 
-  // Auto-fill from Qu data - always fetch for all days and use for days without manual entries
+  // Auto-fill from Qu data - use cache for past days, only fetch fresh for today/future
   useEffect(() => {
     const fetchQuSalesData = async () => {
       if (!currentLocation?.id || isLoadingSales) return;
@@ -145,24 +146,41 @@ export function LaborTotals({
       
       setIsLoadingQuSales(true);
       try {
-        // Fetch sales data for ALL days in the week
+        // Process all days - use cache for past, fetch for today/future
         const salesPromises = weekDays.map(async (day, dayIndex) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const isPast = isBefore(day, today);
           const isTodayDate = isToday(day);
           
+          // Check cache for past dates first
+          if (isPast) {
+            const cached = getCachedSalesData(currentLocation.id, dateStr);
+            if (cached) {
+              const salesValue = Math.round(cached.daily * 100) / 100;
+              return { dayIndex, sales: salesValue, source: 'historical' as const };
+            }
+          }
+          
+          // Fetch from API for cache misses and today/future
           try {
             const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
               body: { locationId: currentLocation.id, targetDate: dateStr }
             });
             
             if (!error && data) {
+              // Cache past data for future use
+              if (isPast && data.daily > 0) {
+                setCachedSalesData(currentLocation.id, dateStr, {
+                  daily: data.daily,
+                  hourly: data.hourly || [],
+                  guestCount: data.guestCount || { daily: 0 }
+                });
+              }
+              
               if (isPast || isTodayDate) {
-                // Use historical/current data - round to 2 decimals
                 const salesValue = Math.round((data.daily || 0) * 100) / 100;
                 return { dayIndex, sales: salesValue, source: 'historical' as const };
               } else {
-                // Use AI projection for future days - round to 2 decimals
                 const salesValue = Math.round((data.projections?.todayProjected || 0) * 100) / 100;
                 return { dayIndex, sales: salesValue, source: 'ai' as const };
               }
