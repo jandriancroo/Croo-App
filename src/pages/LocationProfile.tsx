@@ -13,6 +13,7 @@ import { MapPin, ArrowLeft, Copy, RefreshCw, Save } from 'lucide-react';
 import { LocationMap } from '@/components/settings/LocationMap';
 import { LocationSettingsSection } from '@/components/settings/LocationSettingsSection';
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
+import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
 import { useAuth } from '@/lib/auth';
 
 export default function LocationProfile() {
@@ -346,6 +347,10 @@ export default function LocationProfile() {
           {/* Location Settings (hours and blackout dates) - only for existing locations */}
           {!isNew && <LocationSettingsSection locationId={locationId} />}
 
+          {/* Integrations - only for existing standard locations */}
+          {!isNew && location?.location_type !== 'checklist_only' && (
+            <IntegrationsSection locationId={locationId} />
+          )}
 
           {/* Labor Rules - only for existing standard locations */}
           {!isNew && location?.location_type !== 'checklist_only' && (
