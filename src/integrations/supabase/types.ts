@@ -296,18 +296,21 @@ export type Database = {
         Row: {
           chat_id: string
           id: string
+          is_pinned: boolean
           joined_at: string
           user_id: string
         }
         Insert: {
           chat_id: string
           id?: string
+          is_pinned?: boolean
           joined_at?: string
           user_id: string
         }
         Update: {
           chat_id?: string
           id?: string
+          is_pinned?: boolean
           joined_at?: string
           user_id?: string
         }
