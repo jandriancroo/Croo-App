@@ -290,9 +290,6 @@ export function MobileScheduleView({
                         {shiftHasBreak(shift.start_time, shift.end_time) && (
                           <BreakIndicator hasBreak={true} size="sm" />
                         )}
-                        {isShiftDraft && (
-                          <Badge variant="outline" className="text-[10px] px-1 py-0 border-dashed opacity-70">DRAFT</Badge>
-                        )}
                       </div>
                       {shift.template?.position && (
                         <Badge variant="outline" className="text-xs mt-1 w-fit">
@@ -301,7 +298,7 @@ export function MobileScheduleView({
                       )}
                     </div>
                     
-                    {(isAdmin || shift.user_id === user?.id) && (
+                    {!isShiftDraft && (isAdmin || shift.user_id === user?.id) && (
                       <Button
                         size="sm"
                         variant="outline"
