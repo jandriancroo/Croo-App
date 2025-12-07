@@ -347,14 +347,14 @@ export default function LocationProfile() {
           {/* Location Settings (hours and blackout dates) - only for existing locations */}
           {!isNew && <LocationSettingsSection locationId={locationId} />}
 
-          {/* Integrations - only for existing standard locations */}
-          {!isNew && location?.location_type !== 'checklist_only' && (
-            <IntegrationsSection locationId={locationId} />
-          )}
-
           {/* Labor Rules - only for existing standard locations */}
           {!isNew && location?.location_type !== 'checklist_only' && (
             <LaborRulesSection locationId={locationId} />
+          )}
+
+          {/* Integrations - at bottom, only for existing standard locations */}
+          {!isNew && location?.location_type !== 'checklist_only' && (
+            <IntegrationsSection locationId={locationId} />
           )}
         </div>
       </div>
