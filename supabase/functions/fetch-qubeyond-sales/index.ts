@@ -138,7 +138,8 @@ serve(async (req) => {
     if (salesData.items && Array.isArray(salesData.items)) {
       for (const item of salesData.items) {
         const metricName = (item.metric || '').toLowerCase();
-        const total = parseFloat(item.total) || 0;
+        // Remove commas from number string before parsing (e.g., "2,678.53" -> "2678.53")
+        const total = parseFloat(String(item.total || '0').replace(/,/g, '')) || 0;
         
         // metricTypeId 1 = Net Sales
         if (item.metricTypeId === 1 || metricName === 'net sales') {
