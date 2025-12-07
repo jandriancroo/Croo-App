@@ -62,8 +62,8 @@ All colors MUST be HSL.
     --croo-beige: 40 33% 94%;
     
     /* Liquid Glass UI */
-    --glass-background: 0 0% 100% / 0.6;
-    --glass-border: 0 0% 100% / 0.3;
+    --glass-background: 40 33% 94% / 0.85;
+    --glass-border: 40 33% 88% / 0.5;
     --glass-shadow: 220 25% 10% / 0.08;
     --glass-blur: 20px;
   }
