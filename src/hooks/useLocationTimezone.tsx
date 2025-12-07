@@ -67,9 +67,17 @@ export const useLocationTimezone = () => {
   };
 
   const getDateInTimezoneOffset = (daysOffset: number): string => {
-    const date = new Date();
-    date.setDate(date.getDate() + daysOffset);
-    return getDateInTimezone(date);
+    // Get today's date string in the timezone first
+    const todayStr = getTodayInTimezone();
+    // Parse as a date and add/subtract days
+    const [year, month, day] = todayStr.split('-').map(Number);
+    const baseDate = new Date(year, month - 1, day);
+    baseDate.setDate(baseDate.getDate() + daysOffset);
+    // Format as YYYY-MM-DD
+    const yyyy = baseDate.getFullYear();
+    const mm = String(baseDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(baseDate.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   };
 
   return {
