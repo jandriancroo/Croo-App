@@ -400,7 +400,7 @@ async function generateProjections(
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     const daysRemainingInMonth = daysInMonth - today.getDate();
 
-    const prompt = `You are a sales projection AI for a pizza restaurant. Based on the following data, predict the final totals.
+    const prompt = `You are a sales projection AI for a pizza restaurant. Based on the following data, predict the final totals. Be conservative in your projections - it's better to slightly underestimate than dramatically overestimate.
 
 Current Status:
 - Today's sales so far: $${dailySales.toFixed(2)}
@@ -408,7 +408,7 @@ Current Status:
 - Hours remaining today: ${hoursRemaining} hours
 - Week-to-date sales: $${weeklySales.toFixed(2)}
 - Days remaining this week (through Sunday): ${daysRemainingInWeek} days
-- Month-to-date sales: $${monthlySales.toFixed(2)}
+- Month-to-date sales: $${monthlySales.toFixed(2)} (${monthlyBreakdown.length} days of data)
 - Days remaining this month: ${daysRemainingInMonth} days
 
 Daily sales this week so far:
@@ -417,10 +417,12 @@ ${weeklyBreakdown.map(d => `${d.date}: $${d.sales.toFixed(2)}`).join('\n')}
 Daily sales this month (last 14 days):
 ${monthlyBreakdown.slice(-14).map(d => `${d.date}: $${d.sales.toFixed(2)}`).join('\n')}
 
-Based on the hourly sales patterns (restaurants typically see lunch rush 11am-1pm and dinner rush 5pm-8pm), predict:
+Based on the hourly sales patterns (restaurants typically see lunch rush 11am-1pm and dinner rush 5pm-8pm):
 1. Today's FINAL end-of-day total (close of business at ${hoursClose}:00)
 2. This week's FINAL total (through end of day Sunday)
-3. This month's FINAL total (through end of month)
+3. This month's FINAL total - BE CONSERVATIVE here, especially if we only have ${monthlyBreakdown.length} days of data
+
+IMPORTANT: For monthly projections, don't just multiply daily average by remaining days. Account for typical restaurant patterns (some days are slower than others). Use conservative estimates.
 
 Return ONLY a JSON object with these three numbers, no explanation:
 {"todayProjected": number, "weekProjected": number, "monthProjected": number}`;
@@ -485,7 +487,9 @@ function simpleProjections(
   const hoursFraction = hoursElapsed > 0 ? hoursElapsed / totalBusinessHours : 0.5;
   
   // Today's projection: extrapolate to close time based on hours elapsed
-  const todayProjected = hoursFraction > 0 ? dailySales / hoursFraction : dailySales * 2;
+  // Cap the projection multiplier to prevent extreme projections early in the day
+  const projectionMultiplier = Math.min(hoursFraction > 0 ? 1 / hoursFraction : 2, 3);
+  const todayProjected = dailySales * projectionMultiplier;
   
   // Week projection: current week sales + (avg daily * remaining days through Sunday)
   const today = new Date(todayStr + 'T12:00:00');
@@ -497,11 +501,27 @@ function simpleProjections(
   const todayRemainingProjected = todayProjected - dailySales;
   const weekProjected = weeklySales + todayRemainingProjected + (avgDailySales * daysRemainingInWeek);
   
-  // Month projection: current month sales + (avg daily * remaining days)
+  // Month projection: Use more conservative approach
+  // Only project based on current month data, with a cap on how far we extrapolate
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const dayOfMonth = today.getDate();
   const daysRemainingInMonth = daysInMonth - dayOfMonth;
-  const monthAvgDaily = monthlyBreakdown.length > 0 ? monthlySales / monthlyBreakdown.length : avgDailySales;
+  
+  // Early in month (less than 7 days), use weekly average if available for more stable projection
+  // This prevents wild extrapolation from just a few days of data
+  const daysOfData = monthlyBreakdown.length;
+  let monthAvgDaily: number;
+  if (daysOfData >= 7) {
+    // Enough month data, use it directly
+    monthAvgDaily = monthlySales / daysOfData;
+  } else if (daysThisWeek > 0) {
+    // Not enough month data, blend with week average
+    monthAvgDaily = avgDailySales;
+  } else {
+    // Fallback to today's projected
+    monthAvgDaily = todayProjected;
+  }
+  
   const monthProjected = monthlySales + todayRemainingProjected + (monthAvgDaily * daysRemainingInMonth);
   
   return { todayProjected, weekProjected, monthProjected };
