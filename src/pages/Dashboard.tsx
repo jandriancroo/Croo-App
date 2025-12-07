@@ -462,8 +462,8 @@ export default function Dashboard() {
                     ) : (
                       <ChefHat className="h-4 w-4 text-orange-500 flex-shrink-0" />
                     )}
-                    <CardTitle className="text-sm font-semibold flex-1 truncate">{order.customer_name}</CardTitle>
-                    <Badge className={`text-[10px] px-1.5 py-0 flex-shrink-0 ${
+                    <CardTitle className="text-base font-semibold flex-1 truncate">{order.customer_name}</CardTitle>
+                    <Badge className={`text-xs px-2 py-0.5 flex-shrink-0 ${
                       isCompleted ? "bg-green-500 text-white" : "bg-orange-500 text-white"
                     }`}>
                       catering
@@ -472,23 +472,23 @@ export default function Dashboard() {
                 </CardHeader>
                 <CardContent className="py-2 px-3 pt-0 pb-0 flex-1">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Clock className="h-3 w-3" />
+                    <div className="flex items-center gap-2 text-base text-muted-foreground">
+                      <Clock className="h-4 w-4" />
                       <span className={`font-medium ${isCompleted ? "text-green-500" : "text-orange-500"}`}>
                         {formatCateringTime(order.pickup_time)}
                       </span>
                       {order.headcount && (
-                        <span className="flex items-center gap-1">
-                          <Users className="h-3 w-3" />
+                        <span className="flex items-center gap-1 text-base">
+                          <Users className="h-4 w-4" />
                           {order.headcount}
                         </span>
                       )}
                     </div>
-                    <Badge variant="outline" className="text-[10px]">{order.items.length} items</Badge>
+                    <Badge variant="outline" className="text-xs">{order.items.length} items</Badge>
                   </div>
                 </CardContent>
                 <Button 
-                  className={`w-full h-9 text-xs rounded-none rounded-b-lg text-white mt-auto ${
+                  className={`w-full h-10 text-sm rounded-none rounded-b-lg text-white mt-auto ${
                     isCompleted ? "bg-green-500 hover:bg-green-600" : "bg-orange-500 hover:bg-orange-600"
                   }`}
                   onClick={() => setSelectedCateringOrder(order)}
@@ -511,9 +511,9 @@ export default function Dashboard() {
                   {/* Header Section - Original style */}
                   <CardHeader className="py-2 px-3">
                     <div className="flex items-center gap-2">
-                      <ClipboardCheck className="h-4 w-4 text-primary flex-shrink-0" />
-                      <CardTitle className="text-sm font-semibold flex-1 truncate">{checklist.title}</CardTitle>
-                      <Badge className={`text-[10px] px-1.5 py-0 flex-shrink-0 ${getFrequencyColor(checklist.frequency)}`}>
+                      <ClipboardCheck className="h-5 w-5 text-primary flex-shrink-0" />
+                      <CardTitle className="text-base font-semibold flex-1 truncate">{checklist.title}</CardTitle>
+                      <Badge className={`text-xs px-2 py-0.5 flex-shrink-0 ${getFrequencyColor(checklist.frequency)}`}>
                         {checklist.frequency}
                       </Badge>
                     </div>
@@ -522,7 +522,7 @@ export default function Dashboard() {
                   {/* Middle Section - Stats */}
                   <CardContent className="py-2 px-3 pt-0 flex-1">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-base text-muted-foreground font-medium">
                         {completed}/{expected}
                       </div>
                       {isComplete ? (
@@ -539,7 +539,7 @@ export default function Dashboard() {
 
                   {/* Bottom Button - Contoured to card shape */}
                   <Button 
-                    className="w-full h-9 text-xs rounded-none rounded-b-lg mt-auto"
+                    className="w-full h-10 text-sm rounded-none rounded-b-lg mt-auto"
                     onClick={() => navigate(`/complete/${checklist.id}`)}
                   >
                     {isComplete ? 'Review' : 'Complete'}
