@@ -234,6 +234,88 @@ async function fetchDailyBreakdown(
   return dailyData.sort((a, b) => a.date.localeCompare(b.date));
 }
 
+// Fetch tills data (expected cash) for a specific date
+async function fetchTillsData(
+  tokenGw: string,
+  dateStr: string,
+  qbLocationId: string
+): Promise<{ expectedCash: number; actualCash: number; overUnder: number } | null> {
+  console.log(`Fetching tills data for ${dateStr}`);
+  
+  try {
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/tills/sections/main', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': tokenGw,
+        'Origin': 'https://admin.qubeyond.com',
+        'Referer': 'https://admin.qubeyond.com/',
+      },
+      body: JSON.stringify({
+        fields: [
+          { fieldName: "date" },
+          { fieldName: "location" },
+          { fieldName: "employee" },
+          { fieldName: "startingCash" },
+          { fieldName: "cashSales" },
+          { fieldName: "paidIns" },
+          { fieldName: "paidOuts" },
+          { fieldName: "endingCash" },
+          { fieldName: "actualCash" },
+          { fieldName: "overOrUnderAmount" },
+          { fieldName: "cashTips" }
+        ],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: "custom" },
+          singleLocation: parseInt(qbLocationId),
+          noSales: null
+        },
+        params: { 
+          sectionId: "main", 
+          pageNumber: 1, 
+          pageSize: 25, 
+          totalRecords: null, 
+          sort: [{ fieldName: "date", direction: "asc" }],
+          showTotals: true 
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Tills fetch failed:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    console.log('Tills response:', JSON.stringify(data).substring(0, 500));
+    
+    // Look for the totals or first item with endingCash
+    let expectedCash = 0;
+    let actualCash = 0;
+    let overUnder = 0;
+    
+    if (data.totals) {
+      expectedCash = parseFloat(String(data.totals.endingCash || '0').replace(/[$,]/g, '')) || 0;
+      actualCash = parseFloat(String(data.totals.actualCash || '0').replace(/[$,]/g, '')) || 0;
+      overUnder = parseFloat(String(data.totals.overOrUnderAmount || '0').replace(/[$,]/g, '')) || 0;
+    } else if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+      // Sum up all items
+      for (const item of data.items) {
+        expectedCash += parseFloat(String(item.endingCash || '0').replace(/[$,]/g, '')) || 0;
+        actualCash += parseFloat(String(item.actualCash || '0').replace(/[$,]/g, '')) || 0;
+        overUnder += parseFloat(String(item.overOrUnderAmount || '0').replace(/[$,]/g, '')) || 0;
+      }
+    }
+    
+    console.log(`Tills result: expectedCash=${expectedCash}, actualCash=${actualCash}, overUnder=${overUnder}`);
+    return { expectedCash, actualCash, overUnder };
+  } catch (error) {
+    console.error('Tills fetch error:', error);
+    return null;
+  }
+}
+
 // Fetch product mix
 async function fetchProductMix(
   tokenGw: string, 
@@ -603,13 +685,15 @@ serve(async (req) => {
       prevDayHourly,
       weeklyBreakdown,
       monthlyBreakdown,
-      productMix
+      productMix,
+      tillsData
     ] = await Promise.all([
       fetchHourlySales(tokenGw, todayStr, qbLocationId),
       fetchHourlySales(tokenGw, prevDayStr, qbLocationId),
       fetchDailyBreakdown(tokenGw, weekDates, qbLocationId),
       fetchDailyBreakdown(tokenGw, monthDates, qbLocationId),
-      fetchProductMix(tokenGw, [todayStr], qbLocationId)
+      fetchProductMix(tokenGw, [todayStr], qbLocationId),
+      fetchTillsData(tokenGw, todayStr, qbLocationId)
     ]);
 
     // Calculate today's metrics from hourly data
@@ -684,6 +768,7 @@ serve(async (req) => {
       },
       projections, // AI-powered projections
       productMix,
+      tills: tillsData, // Tills data for drawer count expected cash
       authenticated: true,
       timestamp: new Date().toISOString(),
       currentHour,
