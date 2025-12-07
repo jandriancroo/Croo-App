@@ -267,7 +267,8 @@ export default function Schedule() {
         supabase
           .from("shift_templates")
           .select("*")
-          .eq("location_id", currentLocation!.id),
+          .eq("location_id", currentLocation!.id)
+          .order("start_time", { ascending: true }),
         
         // Fetch availability requests for this location
         supabase
