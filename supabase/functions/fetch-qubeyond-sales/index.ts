@@ -481,48 +481,82 @@ function simpleProjections(
   hoursClose: number,
   todayStr: string
 ): { todayProjected: number; weekProjected: number; monthProjected: number } {
-  // Calculate remaining hours today until close
   const totalBusinessHours = hoursClose - hoursOpen;
-  const hoursElapsed = Math.max(0, currentHour - hoursOpen);
-  const hoursFraction = hoursElapsed > 0 ? hoursElapsed / totalBusinessHours : 0.5;
   
-  // Today's projection: extrapolate to close time based on hours elapsed
-  // Cap the projection multiplier to prevent extreme projections early in the day
-  const projectionMultiplier = Math.min(hoursFraction > 0 ? 1 / hoursFraction : 2, 3);
-  const todayProjected = dailySales * projectionMultiplier;
+  // Calculate today's projection based on expected hourly performance
+  let todayProjected = 0;
+  
+  // Don't start projecting until after opening hour (sales flow starts at opening)
+  if (currentHour < hoursOpen) {
+    // Before opening - no projection yet, use last week same day's total as estimate
+    const completedDays = weeklyBreakdown.filter(d => d.sales > 0);
+    if (completedDays.length > 0) {
+      todayProjected = completedDays.reduce((sum, d) => sum + d.sales, 0) / completedDays.length;
+    }
+  } else if (currentHour >= hoursClose) {
+    // After close - actual sales ARE the projection (day is complete)
+    todayProjected = dailySales;
+  } else {
+    // During business hours - project based on expected hourly performance
+    // Typical restaurant sales distribution:
+    // - Morning (11am-2pm): ~25% of daily sales
+    // - Afternoon (2pm-5pm): ~20% of daily sales  
+    // - Evening (5pm-10pm): ~55% of daily sales
+    const hoursElapsed = currentHour - hoursOpen;
+    
+    // Calculate expected percentage of day's sales by current hour
+    let expectedPercentComplete = 0;
+    for (let h = hoursOpen; h < currentHour; h++) {
+      if (h >= 11 && h < 14) expectedPercentComplete += 0.25 / 3; // 25% over 3 hours (lunch)
+      else if (h >= 14 && h < 17) expectedPercentComplete += 0.20 / 3; // 20% over 3 hours (afternoon)
+      else if (h >= 17 && h < 22) expectedPercentComplete += 0.55 / 5; // 55% over 5 hours (dinner)
+      else expectedPercentComplete += 0.5 / totalBusinessHours; // fallback for hours outside typical patterns
+    }
+    
+    // If we have some sales, project based on actual vs expected performance
+    if (dailySales > 0 && expectedPercentComplete > 0) {
+      // Project today = actual sales / expected percent complete
+      todayProjected = dailySales / expectedPercentComplete;
+    } else if (hoursElapsed > 0) {
+      // Fallback to simple linear projection
+      const hoursFraction = hoursElapsed / totalBusinessHours;
+      const projectionMultiplier = Math.min(1 / hoursFraction, 3);
+      todayProjected = dailySales * projectionMultiplier;
+    } else {
+      // Just opened - use average from week if available
+      const completedDays = weeklyBreakdown.filter(d => d.sales > 0);
+      todayProjected = completedDays.length > 0 
+        ? completedDays.reduce((sum, d) => sum + d.sales, 0) / completedDays.length 
+        : dailySales;
+    }
+  }
   
   // Week projection: current week sales + (avg daily * remaining days through Sunday)
   const today = new Date(todayStr + 'T12:00:00');
   const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, etc.
   const daysRemainingInWeek = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
   const daysThisWeek = weeklyBreakdown.length;
-  const avgDailySales = daysThisWeek > 0 ? weeklySales / daysThisWeek : dailySales;
+  const avgDailySales = daysThisWeek > 0 ? weeklySales / daysThisWeek : todayProjected;
   // Add projected remaining sales for today to current daily sales
   const todayRemainingProjected = todayProjected - dailySales;
   const weekProjected = weeklySales + todayRemainingProjected + (avgDailySales * daysRemainingInWeek);
   
   // Month projection: Use more conservative approach
-  // Only project based on current month data, with a cap on how far we extrapolate
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const dayOfMonth = today.getDate();
   const daysRemainingInMonth = daysInMonth - dayOfMonth;
   
-  // Early in month (less than 7 days), use weekly average if available for more stable projection
-  // This prevents wild extrapolation from just a few days of data
   const daysOfData = monthlyBreakdown.length;
   let monthAvgDaily: number;
   if (daysOfData >= 7) {
-    // Enough month data, use it directly
     monthAvgDaily = monthlySales / daysOfData;
   } else if (daysThisWeek > 0) {
-    // Not enough month data, blend with week average
     monthAvgDaily = avgDailySales;
   } else {
-    // Fallback to today's projected
     monthAvgDaily = todayProjected;
   }
   
-  // Apply a conservative 10% reduction to monthly projection to avoid overestimating
+  // Apply a conservative 10% reduction to monthly projection
   const monthProjected = (monthlySales + todayRemainingProjected + (monthAvgDaily * daysRemainingInMonth)) * 0.90;
   
   return { todayProjected, weekProjected, monthProjected };
