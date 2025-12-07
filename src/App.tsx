@@ -41,7 +41,6 @@ import MyWallet from "./pages/MyWallet";
 import RoleManagement from "./pages/RoleManagement";
 import CompletedStampPreview from "./pages/CompletedStampPreview";
 import OrganizationProfile from "./pages/OrganizationProfile";
-import Integrations from "./pages/Integrations";
 
 const queryClient = new QueryClient();
 
@@ -85,7 +84,6 @@ const AppContent = () => {
       <Route path="/temperature-validation" element={<ProtectedRoute><TemperatureValidation /></ProtectedRoute>} />
       <Route path="/my-wallet" element={<ProtectedRoute><MyWallet /></ProtectedRoute>} />
       <Route path="/role-management" element={<ProtectedRoute><RoleManagement /></ProtectedRoute>} />
-      <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

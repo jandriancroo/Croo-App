@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical, Plug } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -197,10 +197,6 @@ export const Layout = ({
       path: '/users',
       label: 'Users',
       icon: Users
-    }, {
-      path: '/integrations',
-      label: 'Integrations',
-      icon: Plug
     }] : []), {
       path: '/settings',
       label: 'Settings',
@@ -301,16 +297,10 @@ export const Layout = ({
                     Preferences
                   </DropdownMenuItem>
                   {isAdmin && (
-                    <>
-                      <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
-                        <Users className="h-4 w-4" />
-                        User Management
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate('/integrations')} className="gap-2 cursor-pointer">
-                        <Plug className="h-4 w-4" />
-                        Integrations
-                      </DropdownMenuItem>
-                    </>
+                    <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
+                      <Users className="h-4 w-4" />
+                      User Management
+                    </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>}
