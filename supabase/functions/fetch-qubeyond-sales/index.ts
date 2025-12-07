@@ -174,21 +174,42 @@ async function fetchHourlySales(tokenGw: string, dateStr: string): Promise<{ hou
   
   const hourlyData: { hour: string; sales: number; checksCount: number }[] = [];
   
+  // Helper to convert 12-hour format to 24-hour format
+  const convertTo24Hour = (time12h: string): string => {
+    // time12h is like "11:00 AM" or "01:00 PM"
+    const match = time12h.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return time12h;
+    
+    let hours = parseInt(match[1]);
+    const minutes = match[2];
+    const period = match[3].toUpperCase();
+    
+    if (period === 'AM') {
+      if (hours === 12) hours = 0; // 12 AM = 00:00
+    } else {
+      if (hours !== 12) hours += 12; // 1 PM = 13, 12 PM = 12
+    }
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes}`;
+  };
+  
   if (data.items && Array.isArray(data.items)) {
     console.log(`Found ${data.items.length} hourly items`);
     for (const item of data.items) {
       // Each item should have hour, netSales, checksCount
-      const hour = item.hour || '';
+      const rawHour = item.hour || '';
+      const hour24 = convertTo24Hour(rawHour);
       const sales = parseFloat(String(item.netSales || '0').replace(/[$,]/g, '')) || 0;
       const checksCount = parseInt(String(item.checksCount || '0').replace(/,/g, '')) || 0;
       
-      if (hour) {
-        hourlyData.push({ hour, sales, checksCount });
+      if (rawHour) {
+        hourlyData.push({ hour: hour24, sales, checksCount });
       }
     }
     console.log(`Parsed ${hourlyData.length} hourly entries`);
     if (hourlyData.length > 0) {
-      console.log('Sample hourly data:', JSON.stringify(hourlyData.slice(0, 3)));
+      console.log('Sample hourly data (24h format):', JSON.stringify(hourlyData.slice(0, 3)));
+      console.log('Sample afternoon data:', JSON.stringify(hourlyData.filter(h => parseInt(h.hour.split(':')[0]) >= 11).slice(0, 3)));
     }
   }
   
