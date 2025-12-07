@@ -56,12 +56,16 @@ interface ChecklistStats {
   submissions_today: number;
 }
 type SalesData = {
-  hourly: Array<{
+  hourly?: Array<{
     hour: string;
     sales: number;
   }>;
   daily: number;
-  weekly: number;
+  weekly?: number;
+  guestCount?: number;
+  avgTicket?: number;
+  authenticated?: boolean;
+  rawData?: any;
 };
 const DEFAULT_SECTION_ORDER = ['alerts', 'checklists-grid', 'sales-overview'];
 const STORAGE_KEY = 'dashboard-section-order';
@@ -205,7 +209,7 @@ export default function Dashboard() {
   });
 
   // Filter and fill sales data based on business hours
-  const salesData = rawSalesData && locationSettings?.hours_open && locationSettings?.hours_close
+  const salesData = rawSalesData && locationSettings?.hours_open && locationSettings?.hours_close && rawSalesData.hourly
     ? (() => {
         const openHour = parseInt(locationSettings.hours_open.split(':')[0]);
         const closeHour = parseInt(locationSettings.hours_close.split(':')[0]);
@@ -214,7 +218,7 @@ export default function Dashboard() {
         const completeHourly = [];
         for (let hour = openHour; hour < closeHour; hour++) {
           const hourStr24 = `${hour.toString().padStart(2, '0')}:00`;
-          const existingData = rawSalesData.hourly.find(item => {
+          const existingData = rawSalesData.hourly?.find(item => {
             const itemHour = parseInt(item.hour.split(':')[0]);
             return itemHour === hour;
           });
@@ -229,8 +233,10 @@ export default function Dashboard() {
 
         return {
           hourly: completeHourly,
-          daily: filteredDaily,
-          weekly: rawSalesData.weekly
+          daily: filteredDaily || rawSalesData.daily,
+          weekly: rawSalesData.weekly,
+          guestCount: rawSalesData.guestCount,
+          avgTicket: rawSalesData.avgTicket,
         };
       })()
     : rawSalesData;
@@ -587,13 +593,13 @@ export default function Dashboard() {
                 <div className="space-y-1">
                   <p className="text-xs md:text-sm text-muted-foreground">Total Sales</p>
                   <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData ? formatCurrency(salesData.daily) : "--"}
+                    {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Avg/Hour</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Avg Ticket</p>
                   <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData ? formatCurrency(salesData.hourly.reduce((sum, h) => sum + h.sales, 0) / salesData.hourly.length) : "--"}
+                    {salesData?.avgTicket ? formatCurrency(salesData.avgTicket) : "--"}
                   </p>
                 </div>
               </div>
