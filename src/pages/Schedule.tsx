@@ -154,10 +154,13 @@ export default function Schedule() {
     }
   }, [currentWeekStart, role, currentLocation?.id]);
 
-  const fetchScheduleData = async () => {
+  const fetchScheduleData = async (showLoading = true) => {
     if (!currentLocation?.id) return;
     
-    setLoading(true);
+    // Only show loading spinner on initial load, not on refreshes after actions
+    if (showLoading && shifts.length === 0) {
+      setLoading(true);
+    }
     try {
       const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
 
@@ -596,7 +599,7 @@ export default function Schedule() {
 
         if (error) throw error;
         toast.success("Shift added");
-        fetchScheduleData();
+        fetchScheduleData(false);
       } else {
         // Moving existing shift
         const shift = active.data?.current || active;
@@ -611,7 +614,7 @@ export default function Schedule() {
 
         if (error) throw error;
         toast.success("Shift moved");
-        fetchScheduleData();
+        fetchScheduleData(false);
       }
     } catch (error: any) {
       console.error("Error handling drop:", error);
@@ -652,7 +655,7 @@ export default function Schedule() {
 
       toast.success("Schedule cleared successfully");
       setClearScheduleDialogOpen(false);
-      fetchScheduleData();
+      fetchScheduleData(false);
     } catch (error: any) {
       console.error("Error clearing schedule:", error);
       toast.error("Failed to clear schedule");
