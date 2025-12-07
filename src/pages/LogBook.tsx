@@ -536,16 +536,14 @@ export default function LogBook() {
                             queryClient.invalidateQueries({ queryKey: ['logbook-fields', selectedCategory] });
                           }
                           
-                          // Create or update entry
+                          // Create new entry (drawer counts allow multiple per day)
                           const { data: entryData, error: entryError } = await supabase
                             .from('logbook_entries')
-                            .upsert({
+                            .insert({
                               category_id: selectedCategory,
                               entry_date: dateStr,
                               created_by: user!.id,
                               location_id: currentLocation?.id,
-                            }, {
-                              onConflict: 'category_id,entry_date'
                             })
                             .select()
                             .single();
