@@ -9,9 +9,7 @@ const corsHeaders = {
 interface QuBeyondCredentials {
   username: string;
   password: string;
-  cid: string;
-  sid: string;
-  location_id: string;
+  location_id?: string; // Optional - will be extracted from JWT if not provided
 }
 
 // Decode JWT payload without verification
@@ -298,13 +296,10 @@ serve(async (req) => {
       
       credentials = integration.credentials as QuBeyondCredentials;
     } else {
-      // Fallback to global secrets
+      // Fallback to global secrets (username/password only)
       credentials = {
         username: Deno.env.get('QU_USERNAME') || '',
-        password: Deno.env.get('QU_PASSWORD') || '',
-        cid: Deno.env.get('QU_CID') || '',
-        sid: Deno.env.get('QU_SID') || '',
-        location_id: '5448'
+        password: Deno.env.get('QU_PASSWORD') || ''
       };
     }
 
@@ -356,16 +351,47 @@ serve(async (req) => {
     const tokenGw = jwtPayload.tokenGw;
     if (!tokenGw) throw new Error('No tokenGw found in JWT payload');
 
+    // Log JWT payload to discover available fields
+    console.log('JWT payload keys:', Object.keys(jwtPayload));
+    console.log('JWT payload:', JSON.stringify(jwtPayload, null, 2));
+
+    // Extract location ID from JWT if not provided in credentials
+    // The JWT typically contains location/store info we can use
+    let qbLocationId = credentials.location_id;
+    
+    // Try to find location in JWT payload
+    if (!qbLocationId) {
+      // Common JWT field names for location
+      qbLocationId = jwtPayload.locationId || jwtPayload.location_id || 
+                     jwtPayload.storeId || jwtPayload.store_id ||
+                     jwtPayload.singleLocation || jwtPayload.defaultLocation;
+      
+      // Check nested objects
+      if (!qbLocationId && jwtPayload.user) {
+        qbLocationId = jwtPayload.user.locationId || jwtPayload.user.storeId || jwtPayload.user.defaultLocation;
+      }
+      if (!qbLocationId && jwtPayload.locations && Array.isArray(jwtPayload.locations) && jwtPayload.locations.length > 0) {
+        qbLocationId = jwtPayload.locations[0].id || jwtPayload.locations[0];
+      }
+    }
+    
+    console.log('Using QuBeyond location ID:', qbLocationId);
     console.log('Authentication successful');
 
-    // If testing, just return success
+    // If testing, return success with discovered location info
     if (testCredentials) {
-      return new Response(JSON.stringify({ authenticated: true }), {
+      return new Response(JSON.stringify({ 
+        authenticated: true,
+        jwtPayload: jwtPayload, // Return full payload so we can see what's available
+        discoveredLocationId: qbLocationId
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const qbLocationId = credentials.location_id || '5448';
+    if (!qbLocationId) {
+      throw new Error('Could not determine QuBeyond location ID. Please configure it in settings.');
+    }
     
     // Determine target date (default to today in Pacific)
     const now = new Date();
