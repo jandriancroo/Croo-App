@@ -21,9 +21,10 @@ interface AnnouncementDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAnnouncementCreated: (chatId: string) => void;
+  locationId?: string;
 }
 
-export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated }: AnnouncementDialogProps) {
+export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, locationId }: AnnouncementDialogProps) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [title, setTitle] = useState('');
@@ -135,6 +136,7 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated }
           is_group: true,
           is_announcement: true,
           created_by: user.id,
+          location_id: locationId || null,
         })
         .select()
         .single();

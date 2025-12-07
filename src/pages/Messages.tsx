@@ -501,6 +501,7 @@ export default function Messages() {
           fetchChats();
           setIsAnnouncementOpen(false);
         }}
+        locationId={currentLocation?.id}
       />
 
       {marketplaceChatId && (
