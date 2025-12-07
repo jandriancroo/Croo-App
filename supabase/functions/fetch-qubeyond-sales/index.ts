@@ -312,25 +312,41 @@ serve(async (req) => {
       throw new Error('QuBeyond credentials not configured');
     }
 
-    console.log('Starting QuBeyond authentication...');
+    console.log('Starting QuBeyond authentication with user:', credentials.username);
 
-    // Login
+    // Login using the payload wrapper format (confirmed working)
+    const loginPayload = {
+      payload: {
+        username: credentials.username,
+        password: credentials.password,
+        captchaToken: ''
+      }
+    };
+    
     const loginResponse = await fetch('https://admin.qubeyond.com/api/auth/login', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json;charset=utf-8',
+        'Content-Type': 'application/json',
         'Accept': 'application/json, text/plain, */*',
         'Origin': 'https://admin.qubeyond.com',
         'Referer': 'https://admin.qubeyond.com/login',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       },
-      body: JSON.stringify({
-        payload: { username: credentials.username, password: credentials.password, captchaToken: '' }
-      }),
+      body: JSON.stringify(loginPayload),
     });
 
     if (!loginResponse.ok) {
-      console.error('Login failed:', loginResponse.status);
-      throw new Error(`Login failed: ${loginResponse.status}`);
+      const errorBody = await loginResponse.text();
+      console.error('Login failed with status:', loginResponse.status);
+      console.error('Login error body:', errorBody);
+      
+      // Check for rate limiting
+      if (loginResponse.status === 429 || errorBody.toLowerCase().includes('rate') || errorBody.toLowerCase().includes('limit')) {
+        throw new Error('Rate limited by QuBeyond API. Please try again in a few minutes.');
+      }
+      
+      // Include more context in error
+      throw new Error(`QuBeyond login failed (${loginResponse.status}): ${errorBody.substring(0, 200)}`);
     }
 
     const loginData = await loginResponse.json();
