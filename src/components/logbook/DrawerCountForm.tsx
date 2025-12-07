@@ -1,10 +1,12 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle2, ArrowDown, DollarSign, Coins, Calculator } from "lucide-react";
+import { AlertCircle, CheckCircle2, ArrowDown, DollarSign, Coins, Calculator, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
 
 const DRAWER_BANK = 200; // $200 starting drawer
 
@@ -45,6 +47,7 @@ export interface DrawerCountData {
 }
 
 export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0 }: DrawerCountFormProps) {
+  const { currentLocation } = useAppLocation();
   const [counts, setCounts] = useState<Record<string, number>>(() => {
     if (existingData?.counts) return existingData.counts;
     return DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d.name]: 0 }), {});
@@ -52,6 +55,35 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
   const [expectedDeposit, setExpectedDeposit] = useState<string>(
     existingData?.expectedDeposit?.toString() || ""
   );
+  const [isLoadingQuDeposit, setIsLoadingQuDeposit] = useState(false);
+  const [quDepositLoaded, setQuDepositLoaded] = useState(false);
+
+  // Auto-fetch expected deposit from Qu on load
+  useEffect(() => {
+    const fetchQuExpectedDeposit = async () => {
+      if (!currentLocation?.id || existingData?.expectedDeposit || quDepositLoaded) return;
+      
+      setIsLoadingQuDeposit(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
+          body: { locationId: currentLocation.id }
+        });
+        
+        if (!error && data?.daily) {
+          // The expected deposit is the day's sales (cash portion would be a subset)
+          // For now, we'll set it as the daily sales - this could be refined
+          setExpectedDeposit(data.daily.toFixed(2));
+          setQuDepositLoaded(true);
+        }
+      } catch (err) {
+        console.error("Failed to fetch Qu expected deposit:", err);
+      } finally {
+        setIsLoadingQuDeposit(false);
+      }
+    };
+
+    fetchQuExpectedDeposit();
+  }, [currentLocation?.id, existingData?.expectedDeposit, quDepositLoaded]);
   const [drawerSet, setDrawerSet] = useState(!!existingData);
 
   // Calculate totals
@@ -274,7 +306,13 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Expected Deposit from Qu</Label>
+                <div className="flex items-center gap-2">
+                  <Label>Expected Deposit from Qu</Label>
+                  {isLoadingQuDeposit && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                  {quDepositLoaded && !isLoadingQuDeposit && (
+                    <Badge variant="secondary" className="text-[10px] py-0">Auto-filled</Badge>
+                  )}
+                </div>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
                   <Input

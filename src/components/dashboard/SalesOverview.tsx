@@ -235,12 +235,16 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
               {/* AI Projection for Today */}
               {salesData?.projections?.todayProjected && salesData.projections.todayProjected > 0 && (
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20 mb-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <span className="text-xs text-muted-foreground">Projected EOD:</span>
-                  <span className="text-sm font-semibold text-primary">
-                    {formatCurrency(salesData.projections.todayProjected)}
-                  </span>
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 border border-primary/20 mb-2">
+                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500">
+                    <Sparkles className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">AI Projected EOD:</span>
+                    <span className="text-sm font-semibold text-primary">
+                      {formatCurrency(salesData.projections.todayProjected)}
+                    </span>
+                  </div>
                 </div>
               )}
               
@@ -344,12 +348,16 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
               {/* AI Projection for Week */}
               {salesData?.projections?.weekProjected && salesData.projections.weekProjected > 0 && (
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20 mb-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <span className="text-xs text-muted-foreground">Projected Week Total:</span>
-                  <span className="text-sm font-semibold text-primary">
-                    {formatCurrency(salesData.projections.weekProjected)}
-                  </span>
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 border border-primary/20 mb-2">
+                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500">
+                    <Sparkles className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">AI Projected Week Total:</span>
+                    <span className="text-sm font-semibold text-primary">
+                      {formatCurrency(salesData.projections.weekProjected)}
+                    </span>
+                  </div>
                 </div>
               )}
               
@@ -431,12 +439,16 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
               {/* AI Projection for Month */}
               {salesData?.projections?.monthProjected && salesData.projections.monthProjected > 0 && (
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20 mb-2">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                  <span className="text-xs text-muted-foreground">Projected Month Total:</span>
-                  <span className="text-sm font-semibold text-primary">
-                    {formatCurrency(salesData.projections.monthProjected)}
-                  </span>
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 border border-primary/20 mb-2">
+                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500">
+                    <Sparkles className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground">AI Projected Month Total:</span>
+                    <span className="text-sm font-semibold text-primary">
+                      {formatCurrency(salesData.projections.monthProjected)}
+                    </span>
+                  </div>
                 </div>
               )}
               
