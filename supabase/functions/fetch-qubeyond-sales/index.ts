@@ -439,10 +439,11 @@ serve(async (req) => {
       fetchProductMix(tokenGw, [todayStr], qbLocationId)
     ]);
 
-    // Calculate metrics
+    // Calculate metrics - use breakdown data for weekly/monthly guest counts as it's more reliable
     const dailyGuestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
-    const weeklyGuestCount = weeklySalesResult.guestCount;
-    const monthlyGuestCount = monthlySalesResult.guestCount;
+    // Sum guest counts from daily breakdown for more accurate weekly/monthly totals
+    const weeklyGuestCount = weeklyBreakdown.reduce((sum, d) => sum + d.guestCount, 0) || weeklySalesResult.guestCount;
+    const monthlyGuestCount = monthlyBreakdown.reduce((sum, d) => sum + d.guestCount, 0) || monthlySalesResult.guestCount;
     const avgTicket = dailyGuestCount > 0 ? dailySalesResult.total / dailyGuestCount : 0;
 
     const result = {
