@@ -13,9 +13,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 interface QuBeyondCredentials {
   username: string;
   password: string;
-  location_id: string;
-  cid: string;
-  sid: string;
+  location_id?: string; // Optional - will try to auto-detect from JWT
 }
 
 interface IntegrationsSectionProps {
@@ -28,9 +26,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [credentials, setCredentials] = useState<QuBeyondCredentials>({
     username: "",
     password: "",
-    location_id: "",
-    cid: "",
-    sid: ""
+    location_id: ""
   });
   const [isActive, setIsActive] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -64,9 +60,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setCredentials({
         username: creds?.username || "",
         password: creds?.password || "",
-        location_id: creds?.location_id || "",
-        cid: creds?.cid || "",
-        sid: creds?.sid || ""
+        location_id: creds?.location_id || ""
       });
       setIsActive(integration.is_active);
     }
@@ -227,44 +221,19 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="qb-cid" className="text-sm">CID</Label>
-                      <Input
-                        id="qb-cid"
-                        value={credentials.cid}
-                        onChange={(e) => setCredentials(prev => ({ ...prev, cid: e.target.value }))}
-                        placeholder="123"
-                        className="h-9"
-                      />
-                    </div>
-                    
-                    <div className="space-y-1.5">
-                      <Label htmlFor="qb-sid" className="text-sm">SID</Label>
-                      <Input
-                        id="qb-sid"
-                        value={credentials.sid}
-                        onChange={(e) => setCredentials(prev => ({ ...prev, sid: e.target.value }))}
-                        placeholder="456"
-                        className="h-9"
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <Label htmlFor="qb-location" className="text-sm">Location ID</Label>
-                      <Input
-                        id="qb-location"
-                        value={credentials.location_id}
-                        onChange={(e) => setCredentials(prev => ({ ...prev, location_id: e.target.value }))}
-                        placeholder="5448"
-                        className="h-9"
-                      />
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="qb-location" className="text-sm">Store ID (optional)</Label>
+                    <Input
+                      id="qb-location"
+                      value={credentials.location_id || ""}
+                      onChange={(e) => setCredentials(prev => ({ ...prev, location_id: e.target.value }))}
+                      placeholder="Auto-detected if empty"
+                      className="h-9"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Leave blank to auto-detect from your account
+                    </p>
                   </div>
-
-                  <p className="text-xs text-muted-foreground">
-                    Find these values in your QuBeyond dashboard URL or JWT token
-                  </p>
 
                   <div className="flex gap-2">
                     <Button
