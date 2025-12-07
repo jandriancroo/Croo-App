@@ -16,6 +16,8 @@ interface QuBeyondCredentials {
   username: string;
   password: string;
   location_id: string; // QuBeyond's internal location ID (e.g., "5448")
+  cid: string; // Company ID (X-Company-ID header)
+  sid: string; // User ID (X-User-ID header)
 }
 
 export default function Integrations() {
@@ -26,7 +28,9 @@ export default function Integrations() {
   const [credentials, setCredentials] = useState<QuBeyondCredentials>({
     username: "",
     password: "",
-    location_id: ""
+    location_id: "",
+    cid: "",
+    sid: ""
   });
   const [isActive, setIsActive] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -59,7 +63,9 @@ export default function Integrations() {
       setCredentials({
         username: creds?.username || "",
         password: creds?.password || "",
-        location_id: creds?.location_id || ""
+        location_id: creds?.location_id || "",
+        cid: creds?.cid || "",
+        sid: creds?.sid || ""
       });
       setIsActive(integration.is_active);
     }
@@ -219,6 +225,28 @@ export default function Integrations() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cid">Company ID (CID)</Label>
+                    <Input
+                      id="cid"
+                      value={credentials.cid}
+                      onChange={(e) => setCredentials(prev => ({ ...prev, cid: e.target.value }))}
+                      placeholder="e.g., 123"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="sid">User ID (SID)</Label>
+                    <Input
+                      id="sid"
+                      value={credentials.sid}
+                      onChange={(e) => setCredentials(prev => ({ ...prev, sid: e.target.value }))}
+                      placeholder="e.g., 456"
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="location_id">QuBeyond Location ID</Label>
                   <Input
@@ -228,7 +256,7 @@ export default function Integrations() {
                     placeholder="e.g., 5448"
                   />
                   <p className="text-xs text-muted-foreground">
-                    The numeric location ID from QuBeyond (found in your QuBeyond dashboard URL)
+                    CID, SID, and Location ID can be found in your QuBeyond dashboard URL or JWT token
                   </p>
                 </div>
 
