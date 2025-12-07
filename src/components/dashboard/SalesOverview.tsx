@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { formatTime12Hour } from '@/lib/utils';
+import { getCachedProjections, setCachedProjections } from '@/utils/salesCache';
 
 interface SalesData {
   daily: number;
@@ -59,20 +60,45 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
   const isToday = isSameDay(targetDate, new Date());
 
+  // Check for cached projections first
+  const cachedProjections = useMemo(() => {
+    if (!currentLocation?.id || !isToday) return null;
+    return getCachedProjections(currentLocation.id);
+  }, [currentLocation?.id, isToday]);
+
   const { data: rawSalesData, isLoading, refetch } = useQuery({
     queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
         body: { 
           locationId: currentLocation?.id,
-          targetDate: getDateString(targetDate)
+          targetDate: getDateString(targetDate),
+          // Skip AI projection if we have cached projections
+          skipProjections: cachedProjections !== null
         }
       });
       if (error) {
         console.error("Error fetching sales data:", error);
         return null;
       }
-      return data as SalesData;
+      
+      const salesData = data as SalesData;
+      
+      // Cache new projections if received and viewing today
+      if (isToday && salesData?.projections && currentLocation?.id && !cachedProjections) {
+        setCachedProjections(currentLocation.id, {
+          weekProjected: salesData.projections.weekProjected,
+          monthProjected: salesData.projections.monthProjected
+        });
+      }
+      
+      // Use cached projections if available
+      if (cachedProjections && salesData?.projections) {
+        salesData.projections.weekProjected = cachedProjections.weekProjected;
+        salesData.projections.monthProjected = cachedProjections.monthProjected;
+      }
+      
+      return salesData;
     },
     enabled: !!currentLocation?.id
   });
