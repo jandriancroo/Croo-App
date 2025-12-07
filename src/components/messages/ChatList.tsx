@@ -81,89 +81,115 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
     );
   }
 
-  return (
-    <div className="space-y-1 overflow-y-auto flex-1">
-      {chats.map((chat) => (
-        <button
-          key={chat.id}
-          onClick={() => onSelectChat(chat.id)}
-          className={`group w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left ${
-            selectedChatId === chat.id
-              ? 'bg-accent text-accent-foreground'
-              : chat.unreadCount && chat.unreadCount > 0
-              ? 'bg-primary/5 hover:bg-primary/10'
-              : 'hover:bg-muted'
-          }`}
-        >
-          <Avatar className="h-10 w-10">
-            {chat.is_announcement ? (
-              <AvatarFallback className="bg-primary/10">
-                <Megaphone className="h-5 w-5 text-primary" />
-              </AvatarFallback>
-            ) : chat.is_group ? (
-              <>
-                <AvatarImage src={chat.group_image_url || undefined} />
-                <AvatarFallback>
-                  <Users className="h-5 w-5" />
-                </AvatarFallback>
-              </>
-            ) : (
-              <>
-                <AvatarImage src={
-                  // For DM chats, show the OTHER person's photo (not the logged-in user)
-                  chat.chat_members?.find(m => m.user_id !== currentUserId)?.profiles?.profile_photo_url || 
-                  chat.chat_members?.[0]?.profiles?.profile_photo_url || 
-                  undefined
-                } />
-                <AvatarFallback>
-                  {chat.title?.charAt(0) || 'C'}
-                </AvatarFallback>
-              </>
+  // Separate pinned and unpinned chats
+  const pinnedChats = chats.filter(chat => chat.isPinned);
+  const unpinnedChats = chats.filter(chat => !chat.isPinned);
+
+  const renderChat = (chat: Chat) => (
+    <button
+      key={chat.id}
+      onClick={() => onSelectChat(chat.id)}
+      className={`group w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left ${
+        selectedChatId === chat.id
+          ? 'bg-accent text-accent-foreground'
+          : chat.isPinned
+          ? 'bg-primary/5 hover:bg-primary/10'
+          : chat.unreadCount && chat.unreadCount > 0
+          ? 'bg-primary/5 hover:bg-primary/10'
+          : 'hover:bg-muted'
+      }`}
+    >
+      <Avatar className="h-10 w-10">
+        {chat.is_announcement ? (
+          <AvatarFallback className="bg-primary/10">
+            <Megaphone className="h-5 w-5 text-primary" />
+          </AvatarFallback>
+        ) : chat.is_group ? (
+          <>
+            <AvatarImage src={chat.group_image_url || undefined} />
+            <AvatarFallback>
+              <Users className="h-5 w-5" />
+            </AvatarFallback>
+          </>
+        ) : (
+          <>
+            <AvatarImage src={
+              // For DM chats, show the OTHER person's photo (not the logged-in user)
+              chat.chat_members?.find(m => m.user_id !== currentUserId)?.profiles?.profile_photo_url || 
+              chat.chat_members?.[0]?.profiles?.profile_photo_url || 
+              undefined
+            } />
+            <AvatarFallback>
+              {chat.title?.charAt(0) || 'C'}
+            </AvatarFallback>
+          </>
+        )}
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1 min-w-0">
+            {chat.isPinned && (
+              <Pin className="h-3 w-3 text-primary flex-shrink-0" />
             )}
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1 min-w-0">
-                {chat.isPinned && (
-                  <Pin className="h-3 w-3 text-primary flex-shrink-0" />
-                )}
-                <p className={`truncate ${
-                  chat.unreadCount && chat.unreadCount > 0 ? 'font-bold' : 'font-medium'
-                }`}>
-                  {chat.title || (chat.is_group ? 'Group Chat' : 'Direct Message')}
-                </p>
-              </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {onTogglePin && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onTogglePin(chat.id, chat.isPinned || false);
-                    }}
-                  >
-                    {chat.isPinned ? (
-                      <PinOff className="h-3 w-3" />
-                    ) : (
-                      <Pin className="h-3 w-3" />
-                    )}
-                  </Button>
-                )}
-                <span className="text-xs text-muted-foreground">
-                  {formatLastMessageTime(chat.updated_at)}
-                </span>
-              </div>
-            </div>
-            {chat.messagePreview && searchQuery && (
-              <p className="text-xs text-muted-foreground truncate mt-1">
-                {highlightSearchTerm(chat.messagePreview, searchQuery)}
-              </p>
-            )}
+            <p className={`truncate ${
+              chat.unreadCount && chat.unreadCount > 0 ? 'font-bold' : 'font-medium'
+            }`}>
+              {chat.title || (chat.is_group ? 'Group Chat' : 'Direct Message')}
+            </p>
           </div>
-        </button>
-      ))}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {onTogglePin && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTogglePin(chat.id, chat.isPinned || false);
+                }}
+              >
+                {chat.isPinned ? (
+                  <PinOff className="h-3 w-3" />
+                ) : (
+                  <Pin className="h-3 w-3" />
+                )}
+              </Button>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {formatLastMessageTime(chat.updated_at)}
+            </span>
+          </div>
+        </div>
+        {chat.messagePreview && searchQuery && (
+          <p className="text-xs text-muted-foreground truncate mt-1">
+            {highlightSearchTerm(chat.messagePreview, searchQuery)}
+          </p>
+        )}
+      </div>
+    </button>
+  );
+
+  return (
+    <div className="overflow-y-auto flex-1">
+      {pinnedChats.length > 0 && (
+        <>
+          <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+            <Pin className="h-3 w-3" />
+            Pinned
+          </div>
+          <div className="space-y-1">
+            {pinnedChats.map(renderChat)}
+          </div>
+          {unpinnedChats.length > 0 && (
+            <div className="my-2 mx-3 border-t border-border" />
+          )}
+        </>
+      )}
+      {unpinnedChats.length > 0 && (
+        <div className="space-y-1">
+          {unpinnedChats.map(renderChat)}
+        </div>
+      )}
     </div>
   );
 }
