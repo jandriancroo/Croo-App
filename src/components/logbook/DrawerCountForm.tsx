@@ -58,7 +58,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
   const [isLoadingQuDeposit, setIsLoadingQuDeposit] = useState(false);
   const [quDepositLoaded, setQuDepositLoaded] = useState(false);
 
-  // Auto-fetch expected deposit from Qu on load
+  // Auto-fetch expected deposit from Qu tills on load
   useEffect(() => {
     const fetchQuExpectedDeposit = async () => {
       if (!currentLocation?.id || existingData?.expectedDeposit || quDepositLoaded) return;
@@ -69,9 +69,12 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
           body: { locationId: currentLocation.id }
         });
         
-        if (!error && data?.daily) {
-          // The expected deposit is the day's sales (cash portion would be a subset)
-          // For now, we'll set it as the daily sales - this could be refined
+        if (!error && data?.tills?.expectedCash) {
+          // Use the "Expected Cash" (endingCash) from tills report
+          setExpectedDeposit(data.tills.expectedCash.toFixed(2));
+          setQuDepositLoaded(true);
+        } else if (!error && data?.daily) {
+          // Fallback to daily sales if tills not available
           setExpectedDeposit(data.daily.toFixed(2));
           setQuDepositLoaded(true);
         }
