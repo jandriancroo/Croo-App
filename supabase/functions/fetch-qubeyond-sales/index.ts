@@ -75,9 +75,15 @@ serve(async (req) => {
 
     console.log('Extracted gateway token');
 
-    // Step 3: Get today's date in the format needed
+    // Step 3: Get today's date in Pacific timezone
     const today = new Date();
-    const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const pacificDate = new Date(today.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    const year = pacificDate.getFullYear();
+    const month = String(pacificDate.getMonth() + 1).padStart(2, '0');
+    const day = String(pacificDate.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`; // YYYY-MM-DD format in Pacific
+    
+    console.log('Querying QuBeyond for date (Pacific):', dateStr);
 
     // Step 4: Fetch sales summary data from gateway API
     const dataResponse = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
