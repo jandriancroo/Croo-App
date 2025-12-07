@@ -51,6 +51,15 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     }).format(amount);
   };
 
+  const formatCurrencyDecimal = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { 
+      style: 'currency', 
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
+
   const getDateString = (date: Date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -250,7 +259,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 <div className="text-right min-w-0">
                   <p className="text-xs text-muted-foreground">Avg Ticket</p>
                   <p className="text-lg sm:text-2xl font-bold">
-                    {salesData?.avgTicket ? formatCurrency(salesData.avgTicket) : "--"}
+                    {salesData?.avgTicket ? formatCurrencyDecimal(salesData.avgTicket) : "--"}
                   </p>
                 </div>
               </div>
@@ -361,7 +370,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   <p className="text-xs text-muted-foreground">Avg Ticket</p>
                   <p className="text-lg sm:text-2xl font-bold">
                     {salesData?.guestCount?.weekly && salesData?.weekly 
-                      ? formatCurrency(salesData.weekly / salesData.guestCount.weekly) 
+                      ? formatCurrencyDecimal(salesData.weekly / salesData.guestCount.weekly) 
                       : "--"}
                   </p>
                 </div>
@@ -451,7 +460,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   <p className="text-xs text-muted-foreground">Avg Ticket</p>
                   <p className="text-lg sm:text-2xl font-bold">
                     {salesData?.guestCount?.monthly && salesData?.monthly 
-                      ? formatCurrency(salesData.monthly / salesData.guestCount.monthly) 
+                      ? formatCurrencyDecimal(salesData.monthly / salesData.guestCount.monthly) 
                       : "--"}
                   </p>
                 </div>
