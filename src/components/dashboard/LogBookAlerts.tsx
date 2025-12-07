@@ -41,7 +41,13 @@ export function LogBookAlerts() {
         .order('created_at', { ascending: false });
 
       if (entriesError) throw entriesError;
-      return entries || [];
+      
+      // Filter to only show most recent Safe Count entry (keep all other categories)
+      const safeCountEntries = (entries || []).filter((e: any) => e.logbook_categories?.name === 'Safe Count');
+      const otherEntries = (entries || []).filter((e: any) => e.logbook_categories?.name !== 'Safe Count');
+      const mostRecentSafeCount = safeCountEntries.length > 0 ? [safeCountEntries[0]] : [];
+      
+      return [...otherEntries, ...mostRecentSafeCount];
     },
     refetchInterval: 60000, // Refresh every minute
   });
