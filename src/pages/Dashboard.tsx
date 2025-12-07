@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ChefHat, ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useQuery } from '@tanstack/react-query';
 import { LogBookAlerts } from '@/components/dashboard/LogBookAlerts';
@@ -18,7 +18,7 @@ import { LocationSelector } from '@/components/LocationSelector';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatTime12Hour } from '@/lib/utils';
@@ -62,10 +62,16 @@ type SalesData = {
   }>;
   daily: number;
   weekly?: number;
+  monthly?: number;
   guestCount?: number;
   avgTicket?: number;
   authenticated?: boolean;
   rawData?: any;
+  dateRange?: {
+    today: string;
+    weekStart: string;
+    monthStart: string;
+  };
 };
 const DEFAULT_SECTION_ORDER = ['alerts', 'checklists-grid', 'sales-overview'];
 const STORAGE_KEY = 'dashboard-section-order';
@@ -126,66 +132,6 @@ export default function Dashboard() {
     refetchInterval: 15000, // Refresh every 15 seconds
   });
 
-  // Generate simulated sales data for 30 days
-  const generateSimulatedSalesData = () => {
-    const today = new Date();
-    const dailyData = [];
-    
-    // Generate 30 days of data
-    for (let i = 29; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dayOfWeek = date.getDay();
-      
-      // Weekend sales are typically higher
-      const baseAmount = dayOfWeek === 5 || dayOfWeek === 6 ? 2500 : 1800;
-      const variance = Math.random() * 600 - 300; // ±300 variance
-      
-      dailyData.push({
-        date: format(date, 'MMM d'),
-        fullDate: date,
-        sales: Math.max(1000, baseAmount + variance)
-      });
-    }
-    
-    return dailyData;
-  };
-
-  // Aggregate daily data into weekly buckets for mobile view
-  const aggregateIntoWeeks = (dailyData: Array<{ date: string; fullDate: Date; sales: number }>) => {
-    const weeks: Array<{ week: string; sales: number }> = [];
-    let currentWeek: { week: string; sales: number } | null = null;
-    let weekStart: Date | null = null;
-    
-    dailyData.forEach((day, index) => {
-      const dayOfWeek = day.fullDate.getDay();
-      
-      // Start a new week on Sunday (0) or if it's the first day
-      if (dayOfWeek === 0 || index === 0) {
-        if (currentWeek) {
-          weeks.push(currentWeek);
-        }
-        weekStart = day.fullDate;
-        currentWeek = {
-          week: `Wk ${weeks.length + 1}`,
-          sales: day.sales
-        };
-      } else if (currentWeek) {
-        currentWeek.sales += day.sales;
-      }
-    });
-    
-    // Push the last week
-    if (currentWeek) {
-      weeks.push(currentWeek);
-    }
-    
-    return weeks;
-  };
-
-  const simulatedMonthlyData = generateSimulatedSalesData();
-  const weeklyAggregatedData = aggregateIntoWeeks(simulatedMonthlyData);
-  
   const {
     data: rawSalesData,
     refetch: refetchSales
@@ -235,18 +181,13 @@ export default function Dashboard() {
           hourly: completeHourly,
           daily: filteredDaily || rawSalesData.daily,
           weekly: rawSalesData.weekly,
+          monthly: rawSalesData.monthly,
           guestCount: rawSalesData.guestCount,
           avgTicket: rawSalesData.avgTicket,
+          dateRange: rawSalesData.dateRange,
         };
       })()
     : rawSalesData;
-  
-  // Calculate weekly data from simulated monthly data (last 7 days)
-  const weeklyData = simulatedMonthlyData.slice(-7);
-  const weeklyTotal = weeklyData.reduce((sum, day) => sum + day.sales, 0);
-  
-  // Calculate monthly totals
-  const monthlyTotal = simulatedMonthlyData.reduce((sum, day) => sum + day.sales, 0);
 
   const fetchTodaysCateringOrders = async () => {
     if (!currentLocation?.id) return;
@@ -625,67 +566,49 @@ export default function Dashboard() {
             </TabsContent>
             
             <TabsContent value="week" className="space-y-4">
+              <div className="mb-2 text-xs text-muted-foreground">
+                Week starting {salesData?.dateRange?.weekStart ? format(new Date(salesData.dateRange.weekStart + 'T00:00:00'), 'MMM d, yyyy') : '--'}
+              </div>
               <div className="grid grid-cols-2 gap-6 mb-4">
                 <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Total Sales</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Week-to-Date Sales</p>
                   <p className="text-lg md:text-2xl font-bold break-words">
-                    {formatCurrency(weeklyTotal)}
+                    {salesData?.weekly !== undefined ? formatCurrency(salesData.weekly) : "--"}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Daily Avg</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Today</p>
                   <p className="text-lg md:text-2xl font-bold break-words">
-                    {formatCurrency(weeklyTotal / 7)}
+                    {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
                   </p>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                <BarChart data={weeklyData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" className="text-xs" tick={{
-                fill: 'hsl(var(--foreground))'
-              }} />
-                  <YAxis className="text-xs" tick={{
-                fill: 'hsl(var(--foreground))'
-              }} tickFormatter={value => `$${value}`} />
-                  <Tooltip formatter={value => formatCurrency(value as number)} contentStyle={{
-                backgroundColor: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '6px'
-              }} />
-                  <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
+                Daily breakdown coming soon
+              </div>
             </TabsContent>
             
             <TabsContent value="month" className="space-y-4">
+              <div className="mb-2 text-xs text-muted-foreground">
+                Month starting {salesData?.dateRange?.monthStart ? format(new Date(salesData.dateRange.monthStart + 'T00:00:00'), 'MMM d, yyyy') : '--'}
+              </div>
               <div className="grid grid-cols-2 gap-6 mb-4">
                 <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Total Sales</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">{formatCurrency(monthlyTotal)}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Month-to-Date Sales</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.monthly !== undefined ? formatCurrency(salesData.monthly) : "--"}
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Daily Avg</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">{formatCurrency(monthlyTotal / 30)}</p>
+                  <p className="text-xs md:text-sm text-muted-foreground">Today</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
+                  </p>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                <BarChart data={isMobile ? weeklyAggregatedData : simulatedMonthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey={isMobile ? "week" : "date"} className="text-xs" tick={{
-                fill: 'hsl(var(--foreground))'
-              }} interval={isMobile ? 0 : 4} />
-                  <YAxis className="text-xs" tick={{
-                fill: 'hsl(var(--foreground))'
-              }} tickFormatter={value => `$${value}`} />
-                  <Tooltip formatter={value => formatCurrency(value as number)} contentStyle={{
-                backgroundColor: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '6px'
-              }} />
-                  <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
+                Daily breakdown coming soon
+              </div>
             </TabsContent>
           </Tabs>
         </CardContent>
