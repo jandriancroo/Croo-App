@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatTime12Hour } from "@/lib/utils";
 
@@ -30,6 +30,7 @@ export default function ShiftTemplates() {
   const { isAdmin, isManager, loading: roleLoading } = useUserRole();
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<ShiftTemplate | null>(null);
   const [customPosition, setCustomPosition] = useState("");
   const [showCustomPosition, setShowCustomPosition] = useState(false);
   const [formData, setFormData] = useState({
@@ -40,6 +41,41 @@ export default function ShiftTemplates() {
     position: "",
     days_of_week: [0, 1, 2, 3, 4, 5, 6] as number[],
   });
+
+  const resetForm = () => {
+    setFormData({
+      start_time: "09:00",
+      end_time: "17:00",
+      role: "team_member",
+      color: "#ef4444",
+      position: "",
+      days_of_week: [0, 1, 2, 3, 4, 5, 6],
+    });
+    setCustomPosition("");
+    setShowCustomPosition(false);
+    setEditingTemplate(null);
+  };
+
+  const openEditDialog = (template: ShiftTemplate) => {
+    setEditingTemplate(template);
+    const isPredefined = predefinedPositions.includes(template.position || "");
+    setShowCustomPosition(!isPredefined && !!template.position);
+    setCustomPosition(!isPredefined ? template.position || "" : "");
+    setFormData({
+      start_time: template.start_time,
+      end_time: template.end_time,
+      role: template.role as any,
+      color: template.color || "#ef4444",
+      position: isPredefined ? template.position || "" : "",
+      days_of_week: template.days_of_week || [0, 1, 2, 3, 4, 5, 6],
+    });
+    setDialogOpen(true);
+  };
+
+  const openCreateDialog = () => {
+    resetForm();
+    setDialogOpen(true);
+  };
 
   const predefinedPositions = [
     "Pizza Smith",
@@ -92,34 +128,44 @@ export default function ShiftTemplates() {
       // Auto-generate template name from position and time
       const templateName = `${positionValue} ${formatTime12Hour(formData.start_time)} - ${formatTime12Hour(formData.end_time)}`;
       
-      const { error } = await supabase.from("shift_templates").insert({
-        template_name: templateName,
-        start_time: formData.start_time,
-        end_time: formData.end_time,
-        role: formData.role,
-        color: formData.color,
-        position: positionValue,
-        days_of_week: formData.days_of_week,
-      });
+      if (editingTemplate) {
+        // Update existing template
+        const { error } = await supabase.from("shift_templates")
+          .update({
+            template_name: templateName,
+            start_time: formData.start_time,
+            end_time: formData.end_time,
+            role: formData.role,
+            color: formData.color,
+            position: positionValue,
+            days_of_week: formData.days_of_week,
+          })
+          .eq("id", editingTemplate.id);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success("Shift template updated");
+      } else {
+        // Create new template
+        const { error } = await supabase.from("shift_templates").insert({
+          template_name: templateName,
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          role: formData.role,
+          color: formData.color,
+          position: positionValue,
+          days_of_week: formData.days_of_week,
+        });
 
-      toast.success("Shift template created");
+        if (error) throw error;
+        toast.success("Shift template created");
+      }
+
       setDialogOpen(false);
-      setFormData({
-        start_time: "09:00",
-        end_time: "17:00",
-        role: "team_member",
-        color: "#ef4444",
-        position: "",
-        days_of_week: [0, 1, 2, 3, 4, 5, 6],
-      });
-      setCustomPosition("");
-      setShowCustomPosition(false);
+      resetForm();
       fetchTemplates();
     } catch (error: any) {
-      console.error("Error creating template:", error);
-      toast.error("Failed to create shift template");
+      console.error("Error saving template:", error);
+      toast.error(editingTemplate ? "Failed to update shift template" : "Failed to create shift template");
     }
   };
 
@@ -158,16 +204,14 @@ export default function ShiftTemplates() {
             </Button>
             <h1 className="text-3xl font-bold">Shift Templates</h1>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                New Template
-              </Button>
-            </DialogTrigger>
+          <Button onClick={openCreateDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Template
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Create Shift Template</DialogTitle>
+                <DialogTitle>{editingTemplate ? "Edit Shift Template" : "Create Shift Template"}</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -292,7 +336,7 @@ export default function ShiftTemplates() {
                 </div>
 
                 <Button type="submit" className="w-full">
-                  Create Template
+                  {editingTemplate ? "Update Template" : "Create Template"}
                 </Button>
               </form>
             </DialogContent>
@@ -334,14 +378,23 @@ export default function ShiftTemplates() {
                       </div>
                     )}
                   </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleDelete(template.id)}
-                  className="text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => openEditDialog(template)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDelete(template.id)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </Card>
           ))}
