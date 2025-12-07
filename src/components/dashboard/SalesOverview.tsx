@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronLeft, ChevronRight, ChevronDown, TrendingUp, TrendingDown, Package, Sparkles } from 'lucide-react';
-import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -250,20 +250,58 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               
               {salesData?.hourly ? (
                 <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                  <BarChart data={salesData.hourly}>
+                  <ComposedChart data={(() => {
+                    const hourlyData = salesData.hourly || [];
+                    // Calculate projected hourly trend if we have today projection
+                    if (!salesData.projections?.todayProjected || salesData.projections.todayProjected <= 0) {
+                      return hourlyData;
+                    }
+                    
+                    const hoursCount = hourlyData.length;
+                    if (hoursCount === 0) return hourlyData;
+                    
+                    // Calculate average projected per hour (even distribution for visualization)
+                    const avgProjectedPerHour = salesData.projections.todayProjected / hoursCount;
+                    
+                    // Create cumulative projection line
+                    let cumulativeProjected = 0;
+                    
+                    return hourlyData.map((h, idx) => {
+                      cumulativeProjected = avgProjectedPerHour * (idx + 1);
+                      
+                      return {
+                        ...h,
+                        projectedCumulative: Math.round(cumulativeProjected)
+                      };
+                    });
+                  })()}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="hour" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
                     <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
                     <Tooltip 
-                      formatter={value => formatCurrency(value as number)} 
+                      formatter={(value, name) => {
+                        const label = name === 'sales' ? 'Actual' : name === 'projectedCumulative' ? 'Projected (Cum.)' : name;
+                        return [formatCurrency(value as number), label];
+                      }}
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '6px'
                       }} 
                     />
-                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                  </BarChart>
+                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} name="Actual" />
+                    {salesData.projections?.todayProjected && salesData.projections.todayProjected > 0 && (
+                      <Line 
+                        type="monotone" 
+                        dataKey="projectedCumulative" 
+                        stroke="hsl(var(--chart-4))" 
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={false}
+                        name="Projected"
+                      />
+                    )}
+                  </ComposedChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
@@ -363,15 +401,37 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               
               {salesData?.weeklyBreakdown && salesData.weeklyBreakdown.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                  <BarChart data={salesData.weeklyBreakdown.map(d => ({
-                    ...d,
-                    label: format(new Date(d.date + 'T00:00:00'), 'EEE')
-                  }))}>
+                  <ComposedChart data={(() => {
+                    const mapped = salesData.weeklyBreakdown.map(d => ({
+                      ...d,
+                      label: format(new Date(d.date + 'T00:00:00'), 'EEE')
+                    }));
+                    
+                    // Add projection line if available
+                    if (!salesData.projections?.weekProjected || salesData.projections.weekProjected <= 0) {
+                      return mapped;
+                    }
+                    
+                    const daysCount = mapped.length;
+                    const avgProjectedPerDay = salesData.projections.weekProjected / 7; // Full week projection
+                    
+                    let cumulativeProjected = 0;
+                    return mapped.map((d, idx) => {
+                      cumulativeProjected = avgProjectedPerDay * (idx + 1);
+                      return {
+                        ...d,
+                        projectedCumulative: Math.round(cumulativeProjected)
+                      };
+                    });
+                  })()}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
                     <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
                     <Tooltip 
-                      formatter={(value, name) => name === 'sales' ? formatCurrency(value as number) : value}
+                      formatter={(value, name) => {
+                        const label = name === 'sales' ? 'Actual' : name === 'projectedCumulative' ? 'Projected (Cum.)' : name;
+                        return [formatCurrency(value as number), label];
+                      }}
                       labelFormatter={(label, payload) => {
                         if (payload?.[0]?.payload?.date) {
                           return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
@@ -384,8 +444,19 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                         borderRadius: '6px'
                       }} 
                     />
-                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                  </BarChart>
+                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} name="Actual" />
+                    {salesData.projections?.weekProjected && salesData.projections.weekProjected > 0 && (
+                      <Line 
+                        type="monotone" 
+                        dataKey="projectedCumulative" 
+                        stroke="hsl(var(--chart-4))" 
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={false}
+                        name="Projected"
+                      />
+                    )}
+                  </ComposedChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
@@ -454,15 +525,38 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               
               {salesData?.monthlyBreakdown && salesData.monthlyBreakdown.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                  <BarChart data={salesData.monthlyBreakdown.map(d => ({
-                    ...d,
-                    label: format(new Date(d.date + 'T00:00:00'), 'd')
-                  }))}>
+                  <ComposedChart data={(() => {
+                    const mapped = salesData.monthlyBreakdown.map(d => ({
+                      ...d,
+                      label: format(new Date(d.date + 'T00:00:00'), 'd')
+                    }));
+                    
+                    // Add projection line if available
+                    if (!salesData.projections?.monthProjected || salesData.projections.monthProjected <= 0) {
+                      return mapped;
+                    }
+                    
+                    // Get days in month for proper projection distribution
+                    const daysInMonth = new Date(new Date(mapped[0].date).getFullYear(), new Date(mapped[0].date).getMonth() + 1, 0).getDate();
+                    const avgProjectedPerDay = salesData.projections.monthProjected / daysInMonth;
+                    
+                    let cumulativeProjected = 0;
+                    return mapped.map((d, idx) => {
+                      cumulativeProjected = avgProjectedPerDay * (idx + 1);
+                      return {
+                        ...d,
+                        projectedCumulative: Math.round(cumulativeProjected)
+                      };
+                    });
+                  })()}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
                     <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
                     <Tooltip 
-                      formatter={(value, name) => name === 'sales' ? formatCurrency(value as number) : value}
+                      formatter={(value, name) => {
+                        const label = name === 'sales' ? 'Actual' : name === 'projectedCumulative' ? 'Projected (Cum.)' : name;
+                        return [formatCurrency(value as number), label];
+                      }}
                       labelFormatter={(label, payload) => {
                         if (payload?.[0]?.payload?.date) {
                           return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
@@ -475,8 +569,19 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                         borderRadius: '6px'
                       }} 
                     />
-                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                  </BarChart>
+                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} name="Actual" />
+                    {salesData.projections?.monthProjected && salesData.projections.monthProjected > 0 && (
+                      <Line 
+                        type="monotone" 
+                        dataKey="projectedCumulative" 
+                        stroke="hsl(var(--chart-4))" 
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={false}
+                        name="Projected"
+                      />
+                    )}
+                  </ComposedChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
