@@ -118,6 +118,7 @@ export default function Schedule() {
   const [weeklyTotalSales, setWeeklyTotalSales] = useState(0);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
+  const [locationSettings, setLocationSettings] = useState<{ hours_open?: string; hours_close?: string } | null>(null);
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [roleChangeDialogOpen, setRoleChangeDialogOpen] = useState(false);
   const [pendingRoleChange, setPendingRoleChange] = useState<{
@@ -297,10 +298,10 @@ export default function Schedule() {
           .gte("holiday_date", format(currentWeekStart, "yyyy-MM-dd"))
           .lte("holiday_date", format(weekEnd, "yyyy-MM-dd")),
         
-        // Fetch location blackout dates
+        // Fetch location settings (blackout dates, hours)
         supabase
           .from("location_settings")
-          .select("blackout_dates")
+          .select("blackout_dates, hours_open, hours_close")
           .eq("location_id", currentLocation!.id)
           .single()
       ]);
@@ -412,11 +413,16 @@ export default function Schedule() {
         setHolidays(holidaysResult.data || []);
       }
 
-      // Handle blackout dates
+      // Handle location settings
       if (locationSettingsResult && !locationSettingsResult.error && locationSettingsResult.data) {
         setBlackoutDates(locationSettingsResult.data.blackout_dates || []);
+        setLocationSettings({
+          hours_open: locationSettingsResult.data.hours_open || undefined,
+          hours_close: locationSettingsResult.data.hours_close || undefined
+        });
       } else {
         setBlackoutDates([]);
+        setLocationSettings(null);
       }
 
       // Sync birthday holidays (non-blocking, happens in background)
@@ -1303,6 +1309,7 @@ export default function Schedule() {
             scheduleId={scheduleId}
             shifts={shifts}
             profiles={profiles}
+            locationSettings={locationSettings}
           />
         )}
 
