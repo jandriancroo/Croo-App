@@ -1,0 +1,434 @@
+import { useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChevronLeft, ChevronRight, ChevronDown, TrendingUp, TrendingDown, Package } from 'lucide-react';
+import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { formatTime12Hour } from '@/lib/utils';
+
+interface SalesData {
+  daily: number;
+  weekly?: number;
+  monthly?: number;
+  hourly?: Array<{ hour: string; sales: number; checksCount?: number }>;
+  weeklyBreakdown?: Array<{ date: string; sales: number; guestCount: number }>;
+  monthlyBreakdown?: Array<{ date: string; sales: number; guestCount: number }>;
+  guestCount?: { daily: number; weekly: number; monthly: number };
+  avgTicket?: number;
+  comparison?: { prevDay: number; prevWeek: number; prevMonth: number };
+  productMix?: Array<{ name: string; quantity: number; sales: number; category: string }>;
+  dateRange?: { today: string; weekStart: string; monthStart: string };
+}
+
+interface LocationSettings {
+  hours_open?: string;
+  hours_close?: string;
+}
+
+interface SalesOverviewProps {
+  locationSettings?: LocationSettings | null;
+}
+
+export function SalesOverview({ locationSettings }: SalesOverviewProps) {
+  const { currentLocation } = useAppLocation();
+  const [targetDate, setTargetDate] = useState<Date>(new Date());
+  const [showProductMix, setShowProductMix] = useState(false);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
+  };
+
+  const getDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const isToday = isSameDay(targetDate, new Date());
+
+  const { data: rawSalesData, isLoading, refetch } = useQuery({
+    queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
+        body: { 
+          locationId: currentLocation?.id,
+          targetDate: getDateString(targetDate)
+        }
+      });
+      if (error) {
+        console.error("Error fetching sales data:", error);
+        return null;
+      }
+      return data as SalesData;
+    },
+    enabled: !!currentLocation?.id
+  });
+
+  // Filter and fill sales data based on business hours
+  const salesData = rawSalesData && locationSettings?.hours_open && locationSettings?.hours_close && rawSalesData.hourly
+    ? (() => {
+        const openHour = parseInt(locationSettings.hours_open.split(':')[0]);
+        const closeHour = parseInt(locationSettings.hours_close.split(':')[0]);
+        
+        const completeHourly = [];
+        for (let hour = openHour; hour < closeHour; hour++) {
+          const hourStr24 = `${hour.toString().padStart(2, '0')}:00`;
+          const existingData = rawSalesData.hourly?.find(item => {
+            const itemHour = parseInt(item.hour.split(':')[0]);
+            return itemHour === hour;
+          });
+          
+          completeHourly.push({
+            hour: formatTime12Hour(hourStr24),
+            sales: existingData?.sales || 0
+          });
+        }
+
+        return { ...rawSalesData, hourly: completeHourly };
+      })()
+    : rawSalesData;
+
+  const navigateDay = (direction: 'prev' | 'next') => {
+    setTargetDate(prev => direction === 'prev' ? subDays(prev, 1) : addDays(prev, 1));
+  };
+
+  const navigateWeek = (direction: 'prev' | 'next') => {
+    setTargetDate(prev => direction === 'prev' ? subWeeks(prev, 1) : addWeeks(prev, 1));
+  };
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    setTargetDate(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1));
+  };
+
+  const getChangePercent = (current: number, previous: number) => {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return ((current - previous) / previous) * 100;
+  };
+
+  const ComparisonBadge = ({ current, previous, label }: { current: number; previous: number; label: string }) => {
+    const change = getChangePercent(current, previous);
+    const isPositive = change >= 0;
+    
+    return (
+      <div className="flex items-center gap-1 text-xs">
+        {isPositive ? (
+          <TrendingUp className="h-3 w-3 text-green-500" />
+        ) : (
+          <TrendingDown className="h-3 w-3 text-red-500" />
+        )}
+        <span className={isPositive ? "text-green-500" : "text-red-500"}>
+          {isPositive ? "+" : ""}{change.toFixed(1)}%
+        </span>
+        <span className="text-muted-foreground">vs {label}</span>
+      </div>
+    );
+  };
+
+  const DateNavigator = ({ 
+    onPrev, 
+    onNext, 
+    label, 
+    canGoNext 
+  }: { 
+    onPrev: () => void; 
+    onNext: () => void; 
+    label: string;
+    canGoNext: boolean;
+  }) => (
+    <div className="flex items-center justify-between mb-2">
+      <Button variant="ghost" size="sm" onClick={onPrev} className="h-7 px-2">
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <span className="text-xs text-muted-foreground font-medium">{label}</span>
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        onClick={onNext} 
+        disabled={!canGoNext}
+        className="h-7 px-2"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+
+  if (isLoading) {
+    return (
+      <div>
+        <h3 className="text-xl font-semibold mb-4">Sales Overview</h3>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+              Loading sales data...
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h3 className="text-xl font-semibold mb-4">Sales Overview</h3>
+      <Card>
+        <CardContent className="pt-4">
+          <Tabs defaultValue="today" className="w-full">
+            <TabsList className="grid w-full grid-cols-3 mb-4">
+              <TabsTrigger value="today">Today</TabsTrigger>
+              <TabsTrigger value="week">This Week</TabsTrigger>
+              <TabsTrigger value="month">This Month</TabsTrigger>
+            </TabsList>
+            
+            {/* TODAY TAB */}
+            <TabsContent value="today" className="space-y-4">
+              <DateNavigator 
+                onPrev={() => navigateDay('prev')}
+                onNext={() => navigateDay('next')}
+                label={isToday ? 'Today' : format(targetDate, 'EEEE, MMM d')}
+                canGoNext={!isToday}
+              />
+              
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Total Sales</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
+                  </p>
+                  {salesData?.comparison?.prevDay !== undefined && salesData.daily !== undefined && (
+                    <ComparisonBadge 
+                      current={salesData.daily} 
+                      previous={salesData.comparison.prevDay} 
+                      label="last week"
+                    />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Guests</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.guestCount?.daily ?? "--"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Avg Ticket</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.avgTicket ? formatCurrency(salesData.avgTicket) : "--"}
+                  </p>
+                </div>
+              </div>
+              
+              {salesData?.hourly ? (
+                <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
+                  <BarChart data={salesData.hourly}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="hour" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
+                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
+                    <Tooltip 
+                      formatter={value => formatCurrency(value as number)} 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }} 
+                    />
+                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
+                  No sales data available
+                </div>
+              )}
+
+              {/* Product Mix Section */}
+              {salesData?.productMix && salesData.productMix.length > 0 && (
+                <Collapsible open={showProductMix} onOpenChange={setShowProductMix}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-between h-9 text-sm">
+                      <span className="flex items-center gap-2">
+                        <Package className="h-4 w-4" />
+                        Product Mix ({salesData.productMix.length} items)
+                      </span>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${showProductMix ? 'rotate-180' : ''}`} />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-2">
+                    <div className="max-h-[300px] overflow-y-auto space-y-1">
+                      {salesData.productMix.map((product, idx) => (
+                        <div key={idx} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{product.name}</p>
+                            <p className="text-xs text-muted-foreground">{product.category}</p>
+                          </div>
+                          <div className="text-right ml-2">
+                            <p className="text-sm font-medium">{product.quantity}</p>
+                            <p className="text-xs text-muted-foreground">{formatCurrency(product.sales)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              )}
+            </TabsContent>
+            
+            {/* WEEK TAB */}
+            <TabsContent value="week" className="space-y-4">
+              <DateNavigator 
+                onPrev={() => navigateWeek('prev')}
+                onNext={() => navigateWeek('next')}
+                label={salesData?.dateRange?.weekStart 
+                  ? `Week of ${format(new Date(salesData.dateRange.weekStart + 'T00:00:00'), 'MMM d, yyyy')}`
+                  : 'This Week'
+                }
+                canGoNext={!isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })}
+              />
+              
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Week-to-Date</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.weekly !== undefined ? formatCurrency(salesData.weekly) : "--"}
+                  </p>
+                  {salesData?.comparison?.prevWeek !== undefined && salesData.weekly !== undefined && (
+                    <ComparisonBadge 
+                      current={salesData.weekly} 
+                      previous={salesData.comparison.prevWeek} 
+                      label="last week"
+                    />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Guests</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.guestCount?.weekly ?? "--"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Avg Ticket</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.guestCount?.weekly && salesData?.weekly 
+                      ? formatCurrency(salesData.weekly / salesData.guestCount.weekly) 
+                      : "--"}
+                  </p>
+                </div>
+              </div>
+              
+              {salesData?.weeklyBreakdown && salesData.weeklyBreakdown.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
+                  <BarChart data={salesData.weeklyBreakdown.map(d => ({
+                    ...d,
+                    label: format(new Date(d.date + 'T00:00:00'), 'EEE')
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
+                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
+                    <Tooltip 
+                      formatter={(value, name) => name === 'sales' ? formatCurrency(value as number) : value}
+                      labelFormatter={(label, payload) => {
+                        if (payload?.[0]?.payload?.date) {
+                          return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
+                        }
+                        return label;
+                      }}
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }} 
+                    />
+                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
+                  No weekly data available
+                </div>
+              )}
+            </TabsContent>
+            
+            {/* MONTH TAB */}
+            <TabsContent value="month" className="space-y-4">
+              <DateNavigator 
+                onPrev={() => navigateMonth('prev')}
+                onNext={() => navigateMonth('next')}
+                label={salesData?.dateRange?.monthStart 
+                  ? format(new Date(salesData.dateRange.monthStart + 'T00:00:00'), 'MMMM yyyy')
+                  : 'This Month'
+                }
+                canGoNext={!isSameMonth(targetDate, new Date())}
+              />
+              
+              <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Month-to-Date</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.monthly !== undefined ? formatCurrency(salesData.monthly) : "--"}
+                  </p>
+                  {salesData?.comparison?.prevMonth !== undefined && salesData.monthly !== undefined && (
+                    <ComparisonBadge 
+                      current={salesData.monthly} 
+                      previous={salesData.comparison.prevMonth} 
+                      label="last month"
+                    />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Guests</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.guestCount?.monthly ?? "--"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-xs md:text-sm text-muted-foreground">Avg Ticket</p>
+                  <p className="text-lg md:text-2xl font-bold break-words">
+                    {salesData?.guestCount?.monthly && salesData?.monthly 
+                      ? formatCurrency(salesData.monthly / salesData.guestCount.monthly) 
+                      : "--"}
+                  </p>
+                </div>
+              </div>
+              
+              {salesData?.monthlyBreakdown && salesData.monthlyBreakdown.length > 0 ? (
+                <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
+                  <BarChart data={salesData.monthlyBreakdown.map(d => ({
+                    ...d,
+                    label: format(new Date(d.date + 'T00:00:00'), 'd')
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
+                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
+                    <Tooltip 
+                      formatter={(value, name) => name === 'sales' ? formatCurrency(value as number) : value}
+                      labelFormatter={(label, payload) => {
+                        if (payload?.[0]?.payload?.date) {
+                          return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
+                        }
+                        return label;
+                      }}
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }} 
+                    />
+                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
+                  No monthly data available
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

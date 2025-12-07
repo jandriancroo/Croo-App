@@ -5,10 +5,8 @@ import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChefHat, ClipboardCheck, Calendar, Plus, TrendingUp, Edit, DollarSign, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users } from 'lucide-react';
+import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useQuery } from '@tanstack/react-query';
 import { LogBookAlerts } from '@/components/dashboard/LogBookAlerts';
@@ -18,6 +16,7 @@ import { LocationSelector } from '@/components/LocationSelector';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
+import { SalesOverview } from '@/components/dashboard/SalesOverview';
 import { format } from 'date-fns';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -55,39 +54,6 @@ interface ChecklistStats {
   submissions_this_month: number;
   submissions_today: number;
 }
-type SalesData = {
-  hourly?: Array<{
-    hour: string;
-    sales: number;
-    checksCount?: number;
-  }>;
-  weeklyBreakdown?: Array<{
-    date: string;
-    sales: number;
-    guestCount: number;
-  }>;
-  monthlyBreakdown?: Array<{
-    date: string;
-    sales: number;
-    guestCount: number;
-  }>;
-  daily: number;
-  weekly?: number;
-  monthly?: number;
-  guestCount?: {
-    daily: number;
-    weekly: number;
-    monthly: number;
-  };
-  avgTicket?: number;
-  authenticated?: boolean;
-  rawData?: any;
-  dateRange?: {
-    today: string;
-    weekStart: string;
-    monthStart: string;
-  };
-};
 const DEFAULT_SECTION_ORDER = ['alerts', 'checklists-grid', 'sales-overview'];
 const STORAGE_KEY = 'dashboard-section-order';
 export default function Dashboard() {
@@ -146,66 +112,6 @@ export default function Dashboard() {
     enabled: !!currentLocation,
     refetchInterval: 15000, // Refresh every 15 seconds
   });
-
-  const {
-    data: rawSalesData,
-    refetch: refetchSales
-  } = useQuery({
-    queryKey: ["qubeyond-sales"],
-    queryFn: async () => {
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke("fetch-qubeyond-sales", {
-        body: {
-          period: "today"
-        }
-      });
-      if (error) {
-        console.error("Error fetching sales data:", error);
-        return null;
-      }
-      return data as SalesData;
-    }
-  });
-
-  // Filter and fill sales data based on business hours
-  const salesData = rawSalesData && locationSettings?.hours_open && locationSettings?.hours_close && rawSalesData.hourly
-    ? (() => {
-        const openHour = parseInt(locationSettings.hours_open.split(':')[0]);
-        const closeHour = parseInt(locationSettings.hours_close.split(':')[0]);
-        
-        // Create a complete array of business hours with data or zeros
-        const completeHourly = [];
-        for (let hour = openHour; hour < closeHour; hour++) {
-          const hourStr24 = `${hour.toString().padStart(2, '0')}:00`;
-          const existingData = rawSalesData.hourly?.find(item => {
-            const itemHour = parseInt(item.hour.split(':')[0]);
-            return itemHour === hour;
-          });
-          
-          completeHourly.push({
-            hour: formatTime12Hour(hourStr24),
-            sales: existingData?.sales || 0
-          });
-        }
-
-        const filteredDaily = completeHourly.reduce((sum, h) => sum + h.sales, 0);
-
-        return {
-          hourly: completeHourly,
-          daily: filteredDaily || rawSalesData.daily,
-          weekly: rawSalesData.weekly,
-          monthly: rawSalesData.monthly,
-          weeklyBreakdown: rawSalesData.weeklyBreakdown,
-          monthlyBreakdown: rawSalesData.monthlyBreakdown,
-          guestCount: rawSalesData.guestCount,
-          avgTicket: rawSalesData.avgTicket,
-          dateRange: rawSalesData.dateRange,
-        };
-      })()
-    : rawSalesData;
-
   const fetchTodaysCateringOrders = async () => {
     if (!currentLocation?.id) return;
     try {
@@ -535,186 +441,7 @@ export default function Dashboard() {
         <LogBookAlerts />
         <CertificationAlerts />
       </div>,
-    'sales-overview': <div>
-        <h3 className="text-xl font-semibold mb-4">Sales Overview</h3>
-        <Card>
-        <CardContent className="pt-4">
-          <Tabs defaultValue="today" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 mb-4">
-              <TabsTrigger value="today">Today</TabsTrigger>
-              <TabsTrigger value="week">This Week</TabsTrigger>
-              <TabsTrigger value="month">This Month</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="today" className="space-y-4">
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Total Sales</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Guests</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.guestCount?.daily ?? "--"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Avg Ticket</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.avgTicket ? formatCurrency(salesData.avgTicket) : "--"}
-                  </p>
-                </div>
-              </div>
-              {salesData?.hourly ? <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                  <BarChart data={salesData.hourly}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="hour" className="text-xs" tick={{
-                  fill: 'hsl(var(--foreground))'
-                }} />
-                    <YAxis className="text-xs" tick={{
-                  fill: 'hsl(var(--foreground))'
-                }} tickFormatter={value => `$${value}`} />
-                    <Tooltip formatter={value => formatCurrency(value as number)} contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '6px'
-                }} />
-                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer> : <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
-                  No sales data available
-                </div>}
-            </TabsContent>
-            
-            <TabsContent value="week" className="space-y-4">
-              <div className="mb-2 text-xs text-muted-foreground">
-                Week starting {salesData?.dateRange?.weekStart ? format(new Date(salesData.dateRange.weekStart + 'T00:00:00'), 'MMM d, yyyy') : '--'}
-              </div>
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Week-to-Date</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.weekly !== undefined ? formatCurrency(salesData.weekly) : "--"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Guests</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.guestCount?.weekly ?? "--"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Avg Ticket</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.guestCount?.weekly && salesData?.weekly 
-                      ? formatCurrency(salesData.weekly / salesData.guestCount.weekly) 
-                      : "--"}
-                  </p>
-                </div>
-              </div>
-              {salesData?.weeklyBreakdown && salesData.weeklyBreakdown.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                  <BarChart data={salesData.weeklyBreakdown.map(d => ({
-                    ...d,
-                    label: format(new Date(d.date + 'T00:00:00'), 'EEE')
-                  }))}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
-                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
-                    <Tooltip 
-                      formatter={(value, name) => {
-                        if (name === 'sales') return formatCurrency(value as number);
-                        return value;
-                      }}
-                      labelFormatter={(label, payload) => {
-                        if (payload?.[0]?.payload?.date) {
-                          return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
-                        }
-                        return label;
-                      }}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '6px'
-                      }} 
-                    />
-                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
-                  No weekly data available
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="month" className="space-y-4">
-              <div className="mb-2 text-xs text-muted-foreground">
-                Month starting {salesData?.dateRange?.monthStart ? format(new Date(salesData.dateRange.monthStart + 'T00:00:00'), 'MMM d, yyyy') : '--'}
-              </div>
-              <div className="grid grid-cols-3 gap-4 mb-4">
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Month-to-Date</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.monthly !== undefined ? formatCurrency(salesData.monthly) : "--"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Guests</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.guestCount?.monthly ?? "--"}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs md:text-sm text-muted-foreground">Avg Ticket</p>
-                  <p className="text-lg md:text-2xl font-bold break-words">
-                    {salesData?.guestCount?.monthly && salesData?.monthly 
-                      ? formatCurrency(salesData.monthly / salesData.guestCount.monthly) 
-                      : "--"}
-                  </p>
-                </div>
-              </div>
-              {salesData?.monthlyBreakdown && salesData.monthlyBreakdown.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                  <BarChart data={salesData.monthlyBreakdown.map(d => ({
-                    ...d,
-                    label: format(new Date(d.date + 'T00:00:00'), 'd')
-                  }))}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
-                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
-                    <Tooltip 
-                      formatter={(value, name) => {
-                        if (name === 'sales') return formatCurrency(value as number);
-                        return value;
-                      }}
-                      labelFormatter={(label, payload) => {
-                        if (payload?.[0]?.payload?.date) {
-                          return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
-                        }
-                        return label;
-                      }}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '6px'
-                      }} 
-                    />
-                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
-                  No monthly data available
-                </div>
-              )}
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
-    </div>,
+    'sales-overview': <SalesOverview locationSettings={locationSettings} />,
     'checklists-grid': <div>
         <h3 className="text-xl font-semibold mb-4">Tasks</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

@@ -1,55 +1,61 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Decode JWT payload without verification (we just need to extract tokenGw)
+interface QuBeyondCredentials {
+  username: string;
+  password: string;
+  cid: string;
+  sid: string;
+  location_id: string;
+}
+
+// Decode JWT payload without verification
 function decodeJwtPayload(token: string): any {
   const parts = token.split('.');
-  if (parts.length !== 3) {
-    throw new Error('Invalid JWT format');
-  }
+  if (parts.length !== 3) throw new Error('Invalid JWT format');
   const payload = parts[1];
-  // Base64url decode
   const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
   const jsonPayload = atob(base64);
   return JSON.parse(jsonPayload);
 }
 
-// Get date string in YYYY-MM-DD format for Pacific timezone
-function getPacificDateString(date: Date): string {
-  const pacificDate = new Date(date.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-  const year = pacificDate.getFullYear();
-  const month = String(pacificDate.getMonth() + 1).padStart(2, '0');
-  const day = String(pacificDate.getDate()).padStart(2, '0');
+// Get date string in YYYY-MM-DD format for a timezone
+function getDateStringForTimezone(date: Date, timezone: string): string {
+  const tzDate = new Date(date.toLocaleString('en-US', { timeZone: timezone }));
+  const year = tzDate.getFullYear();
+  const month = String(tzDate.getMonth() + 1).padStart(2, '0');
+  const day = String(tzDate.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
-// Get start of week (Monday) in Pacific timezone
-function getWeekStartDate(date: Date): string {
-  const pacificDate = new Date(date.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-  const day = pacificDate.getDay();
-  const diff = day === 0 ? 6 : day - 1; // Adjust for Monday start
-  pacificDate.setDate(pacificDate.getDate() - diff);
-  return getPacificDateString(pacificDate);
+// Get start of week (Monday)
+function getWeekStartDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T12:00:00');
+  const day = date.getDay();
+  const diff = day === 0 ? 6 : day - 1;
+  date.setDate(date.getDate() - diff);
+  return getDateStringForTimezone(date, 'America/Los_Angeles');
 }
 
-// Get start of month in Pacific timezone
-function getMonthStartDate(date: Date): string {
-  const pacificDate = new Date(date.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-  pacificDate.setDate(1);
-  return getPacificDateString(pacificDate);
+// Get start of month
+function getMonthStartDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T12:00:00');
+  date.setDate(1);
+  return getDateStringForTimezone(date, 'America/Los_Angeles');
 }
 
-// Generate array of date strings from start to end (inclusive)
+// Generate date range array
 function getDateRange(startDate: string, endDate: string): string[] {
   const dates: string[] = [];
-  const start = new Date(startDate + 'T00:00:00');
-  const end = new Date(endDate + 'T00:00:00');
-  
+  const start = new Date(startDate + 'T12:00:00');
+  const end = new Date(endDate + 'T12:00:00');
   const current = new Date(start);
+  
   while (current <= end) {
     const year = current.getFullYear();
     const month = String(current.getMonth() + 1).padStart(2, '0');
@@ -57,13 +63,24 @@ function getDateRange(startDate: string, endDate: string): string[] {
     dates.push(`${year}-${month}-${day}`);
     current.setDate(current.getDate() + 1);
   }
-  
   return dates;
 }
 
-// Fetch sales data for specified dates using the working endpoint format
-async function fetchSalesForDates(tokenGw: string, dates: string[], periodType: string): Promise<{ total: number; guestCount: number }> {
-  console.log(`Fetching ${periodType} sales for ${dates.length} days: ${dates[0]} to ${dates[dates.length - 1]}`);
+// Adjust date by days
+function adjustDate(dateStr: string, days: number): string {
+  const date = new Date(dateStr + 'T12:00:00');
+  date.setDate(date.getDate() + days);
+  return getDateStringForTimezone(date, 'America/Los_Angeles');
+}
+
+// Fetch sales for dates
+async function fetchSalesForDates(
+  tokenGw: string, 
+  dates: string[], 
+  qbLocationId: string,
+  periodType: string
+): Promise<{ total: number; guestCount: number }> {
+  console.log(`Fetching ${periodType} sales for ${dates.length} days`);
   
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
     method: 'POST',
@@ -75,27 +92,12 @@ async function fetchSalesForDates(tokenGw: string, dates: string[], periodType: 
       'Referer': 'https://admin.qubeyond.com/',
     },
     body: JSON.stringify({
-      fields: [
-        { fieldName: "metric" },
-        { fieldName: "total" }
-      ],
+      fields: [{ fieldName: "metric" }, { fieldName: "total" }],
       filters: {
-        date: {
-          from: null,
-          to: null,
-          values: dates,
-          type: "custom"
-        },
-        singleLocation: 5448 // Jo Pizza location ID
+        date: { from: null, to: null, values: dates, type: "custom" },
+        singleLocation: parseInt(qbLocationId)
       },
-      params: {
-        sectionId: "overview",
-        pageNumber: 1,
-        pageSize: 25,
-        totalRecords: null,
-        sort: null,
-        showTotals: true
-      }
+      params: { sectionId: "overview", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
     }),
   });
 
@@ -105,53 +107,48 @@ async function fetchSalesForDates(tokenGw: string, dates: string[], periodType: 
   }
 
   const data = await response.json();
-  console.log(`${periodType} response preview:`, JSON.stringify(data).substring(0, 300));
-  
-  let total = 0;
-  let guestCount = 0;
+  let total = 0, guestCount = 0;
   
   if (data.items && Array.isArray(data.items)) {
     for (const item of data.items) {
       if (item.metricTypeId === 1 || item.metric === 'Net Sales') {
         total = parseFloat(String(item.total || '0').replace(/,/g, '')) || 0;
-        console.log(`${periodType} Net Sales found: $${total}`);
       }
       if (item.metricTypeId === 2 || item.metric === 'Check Count' || item.metric === 'Guest Count') {
         guestCount = parseInt(String(item.total || '0').replace(/,/g, '')) || 0;
-        console.log(`${periodType} Guest Count found: ${guestCount}`);
       }
     }
   }
-  
   return { total, guestCount };
 }
 
-// Fetch daily breakdown for a date range (for week/month charts)
-async function fetchDailyBreakdown(tokenGw: string, dates: string[]): Promise<{ date: string; sales: number; guestCount: number }[]> {
-  console.log(`Fetching daily breakdown for ${dates.length} days`);
-  
-  // Fetch each day's sales individually for breakdown
+// Fetch daily breakdown
+async function fetchDailyBreakdown(
+  tokenGw: string, 
+  dates: string[],
+  qbLocationId: string
+): Promise<{ date: string; sales: number; guestCount: number }[]> {
   const dailyData: { date: string; sales: number; guestCount: number }[] = [];
-  
-  // Use Promise.all for parallel fetching but limit batch size
   const batchSize = 7;
+  
   for (let i = 0; i < dates.length; i += batchSize) {
     const batch = dates.slice(i, i + batchSize);
     const batchPromises = batch.map(async (dateStr) => {
-      const result = await fetchSalesForDates(tokenGw, [dateStr], `day-${dateStr}`);
+      const result = await fetchSalesForDates(tokenGw, [dateStr], qbLocationId, `day-${dateStr}`);
       return { date: dateStr, sales: result.total, guestCount: result.guestCount };
     });
     const batchResults = await Promise.all(batchPromises);
     dailyData.push(...batchResults);
   }
-  
   return dailyData.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-// Fetch hourly sales breakdown using the dedicated hourly-sales endpoint
-async function fetchHourlySales(tokenGw: string, dateStr: string): Promise<{ hour: string; sales: number; checksCount: number }[]> {
-  console.log(`Fetching hourly sales breakdown for: ${dateStr}`);
-  
+// Fetch hourly sales
+async function fetchHourlySales(
+  tokenGw: string, 
+  dateStr: string,
+  qbLocationId: string
+): Promise<{ hour: string; sales: number; checksCount: number }[]> {
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/hourly-sales/sections/main', {
     method: 'POST',
     headers: {
@@ -163,92 +160,55 @@ async function fetchHourlySales(tokenGw: string, dateStr: string): Promise<{ hou
     },
     body: JSON.stringify({
       fields: [
-        { fieldName: "hour" },
-        { fieldName: "checksCount" },
-        { fieldName: "netSales" },
-        { fieldName: "averageCheck" },
-        { fieldName: "discount" },
-        { fieldName: "serviceCharge" },
-        { fieldName: "tax" },
-        { fieldName: "netSalesPercentage" }
+        { fieldName: "hour" }, { fieldName: "checksCount" }, { fieldName: "netSales" },
+        { fieldName: "averageCheck" }, { fieldName: "discount" }, { fieldName: "serviceCharge" },
+        { fieldName: "tax" }, { fieldName: "netSalesPercentage" }
       ],
       filters: {
-        date: {
-          from: null,
-          to: null,
-          values: [dateStr],
-          type: "today"
-        },
-        singleLocation: 5448
+        date: { from: null, to: null, values: [dateStr], type: "today" },
+        singleLocation: parseInt(qbLocationId)
       },
-      params: {
-        sectionId: "main",
-        pageNumber: 1,
-        pageSize: 25,
-        totalRecords: null,
-        sort: null,
-        showTotals: true
-      }
+      params: { sectionId: "main", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
     }),
   });
 
-  if (!response.ok) {
-    console.error('Hourly sales fetch failed:', response.status);
-    return [];
-  }
+  if (!response.ok) return [];
 
   const data = await response.json();
-  console.log('Hourly sales response structure:', JSON.stringify(data).substring(0, 500));
-  
   const hourlyData: { hour: string; sales: number; checksCount: number }[] = [];
-  
-  // Helper to convert 12-hour format to 24-hour format
+
   const convertTo24Hour = (time12h: string): string => {
-    // time12h is like "11:00 AM" or "01:00 PM"
     const match = time12h.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
     if (!match) return time12h;
-    
     let hours = parseInt(match[1]);
     const minutes = match[2];
     const period = match[3].toUpperCase();
-    
-    if (period === 'AM') {
-      if (hours === 12) hours = 0; // 12 AM = 00:00
-    } else {
-      if (hours !== 12) hours += 12; // 1 PM = 13, 12 PM = 12
-    }
-    
+    if (period === 'AM') { if (hours === 12) hours = 0; }
+    else { if (hours !== 12) hours += 12; }
     return `${hours.toString().padStart(2, '0')}:${minutes}`;
   };
-  
+
   if (data.items && Array.isArray(data.items)) {
-    console.log(`Found ${data.items.length} hourly items`);
     for (const item of data.items) {
-      // Each item should have hour, netSales, checksCount
       const rawHour = item.hour || '';
       const hour24 = convertTo24Hour(rawHour);
       const sales = parseFloat(String(item.netSales || '0').replace(/[$,]/g, '')) || 0;
       const checksCount = parseInt(String(item.checksCount || '0').replace(/,/g, '')) || 0;
-      
-      if (rawHour) {
-        hourlyData.push({ hour: hour24, sales, checksCount });
-      }
-    }
-    console.log(`Parsed ${hourlyData.length} hourly entries`);
-    if (hourlyData.length > 0) {
-      console.log('Sample hourly data (24h format):', JSON.stringify(hourlyData.slice(0, 3)));
-      console.log('Sample afternoon data:', JSON.stringify(hourlyData.filter(h => parseInt(h.hour.split(':')[0]) >= 11).slice(0, 3)));
+      if (rawHour) hourlyData.push({ hour: hour24, sales, checksCount });
     }
   }
-  
   return hourlyData;
 }
 
-// Fetch today's daily total from the summary endpoint
-async function fetchTodaySales(tokenGw: string, dateStr: string): Promise<number> {
-  console.log(`Fetching today's total sales for: ${dateStr}`);
+// Fetch product mix
+async function fetchProductMix(
+  tokenGw: string, 
+  dates: string[],
+  qbLocationId: string
+): Promise<{ name: string; quantity: number; sales: number; category: string }[]> {
+  console.log(`Fetching product mix for ${dates.length} days`);
   
-  const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
+  const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -259,48 +219,42 @@ async function fetchTodaySales(tokenGw: string, dateStr: string): Promise<number
     },
     body: JSON.stringify({
       fields: [
-        { fieldName: "metric" },
-        { fieldName: "total" }
+        { fieldName: "productName" },
+        { fieldName: "categoryName" },
+        { fieldName: "quantity" },
+        { fieldName: "netSales" },
+        { fieldName: "netSalesPercentage" }
       ],
       filters: {
-        date: {
-          from: null,
-          to: null,
-          values: [dateStr],
-          type: "today"
-        },
-        singleLocation: 5448
+        date: { from: null, to: null, values: dates, type: "custom" },
+        singleLocation: parseInt(qbLocationId)
       },
-      params: {
-        sectionId: "overview",
-        pageNumber: 1,
-        pageSize: 25,
-        totalRecords: null,
-        sort: null,
-        showTotals: true
-      }
+      params: { sectionId: "main", pageNumber: 1, pageSize: 100, totalRecords: null, sort: { field: "netSales", dir: "desc" }, showTotals: true }
     }),
   });
 
   if (!response.ok) {
-    console.error('Today sales fetch failed:', response.status);
-    return 0;
+    console.error('Product mix fetch failed:', response.status);
+    return [];
   }
 
   const data = await response.json();
-  console.log('Today sales response items count:', data.items?.length);
+  const products: { name: string; quantity: number; sales: number; category: string }[] = [];
   
   if (data.items && Array.isArray(data.items)) {
     for (const item of data.items) {
-      if (item.metricTypeId === 1 || item.metric === 'Net Sales') {
-        const total = parseFloat(String(item.total || '0').replace(/,/g, '')) || 0;
-        console.log(`Daily Net Sales: $${total}`);
-        return total;
+      const name = item.productName || '';
+      const category = item.categoryName || '';
+      const quantity = parseInt(String(item.quantity || '0').replace(/,/g, '')) || 0;
+      const sales = parseFloat(String(item.netSales || '0').replace(/[$,]/g, '')) || 0;
+      if (name && quantity > 0) {
+        products.push({ name, quantity, sales, category });
       }
     }
   }
   
-  return 0;
+  console.log(`Found ${products.length} products`);
+  return products.slice(0, 50); // Top 50 products
 }
 
 serve(async (req) => {
@@ -309,16 +263,58 @@ serve(async (req) => {
   }
 
   try {
-    const username = Deno.env.get('QU_USERNAME');
-    const password = Deno.env.get('QU_PASSWORD');
+    const { locationId, targetDate, testCredentials } = await req.json().catch(() => ({}));
+    
+    let credentials: QuBeyondCredentials;
+    
+    if (testCredentials) {
+      // Testing mode - use provided credentials
+      credentials = testCredentials;
+    } else if (locationId) {
+      // Fetch credentials from database
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      const { data: integration, error } = await supabase
+        .from('location_integrations')
+        .select('credentials, is_active')
+        .eq('location_id', locationId)
+        .eq('integration_type', 'qubeyond')
+        .single();
+      
+      if (error || !integration) {
+        console.log('No integration found for location:', locationId);
+        return new Response(JSON.stringify({ error: 'No QuBeyond integration configured', authenticated: false }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      if (!integration.is_active) {
+        return new Response(JSON.stringify({ error: 'QuBeyond integration is disabled', authenticated: false }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      credentials = integration.credentials as QuBeyondCredentials;
+    } else {
+      // Fallback to global secrets
+      credentials = {
+        username: Deno.env.get('QU_USERNAME') || '',
+        password: Deno.env.get('QU_PASSWORD') || '',
+        cid: Deno.env.get('QU_CID') || '',
+        sid: Deno.env.get('QU_SID') || '',
+        location_id: '5448'
+      };
+    }
 
-    if (!username || !password) {
+    if (!credentials.username || !credentials.password) {
       throw new Error('QuBeyond credentials not configured');
     }
 
     console.log('Starting QuBeyond authentication...');
 
-    // Step 1: Login to get JWT token
+    // Login
     const loginResponse = await fetch('https://admin.qubeyond.com/api/auth/login', {
       method: 'POST',
       headers: {
@@ -328,69 +324,85 @@ serve(async (req) => {
         'Referer': 'https://admin.qubeyond.com/login',
       },
       body: JSON.stringify({
-        payload: {
-          username: username,
-          password: password,
-          captchaToken: ''
-        }
+        payload: { username: credentials.username, password: credentials.password, captchaToken: '' }
       }),
     });
 
     if (!loginResponse.ok) {
-      const errorText = await loginResponse.text();
-      console.error('Login failed:', loginResponse.status, errorText);
+      console.error('Login failed:', loginResponse.status);
       throw new Error(`Login failed: ${loginResponse.status}`);
     }
 
     const loginData = await loginResponse.json();
-    console.log('Login successful, got token');
+    if (!loginData.token) throw new Error('No token in login response');
 
-    if (!loginData.token) {
-      throw new Error('No token in login response');
-    }
-
-    // Step 2: Decode JWT to get tokenGw (the gateway Bearer token)
     const jwtPayload = decodeJwtPayload(loginData.token);
     const tokenGw = jwtPayload.tokenGw;
-    
-    if (!tokenGw) {
-      throw new Error('No tokenGw found in JWT payload');
+    if (!tokenGw) throw new Error('No tokenGw found in JWT payload');
+
+    console.log('Authentication successful');
+
+    // If testing, just return success
+    if (testCredentials) {
+      return new Response(JSON.stringify({ authenticated: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    console.log('Extracted gateway token');
-
-    // Step 3: Get dates in Pacific timezone
-    const now = new Date();
-    const todayStr = getPacificDateString(now);
-    const weekStartStr = getWeekStartDate(now);
-    const monthStartStr = getMonthStartDate(now);
+    const qbLocationId = credentials.location_id || '5448';
     
-    console.log(`Date ranges - Today: ${todayStr}, Week start: ${weekStartStr}, Month start: ${monthStartStr}`);
+    // Determine target date (default to today in Pacific)
+    const now = new Date();
+    const todayStr = targetDate || getDateStringForTimezone(now, 'America/Los_Angeles');
+    const weekStartStr = getWeekStartDate(todayStr);
+    const monthStartStr = getMonthStartDate(todayStr);
+    
+    // Previous period dates for comparison
+    const prevDayStr = adjustDate(todayStr, -7); // Same day last week
+    const prevWeekStartStr = adjustDate(weekStartStr, -7);
+    const prevWeekEndStr = adjustDate(todayStr, -7);
+    const prevMonthDate = new Date(todayStr + 'T12:00:00');
+    prevMonthDate.setMonth(prevMonthDate.getMonth() - 1);
+    const prevMonthStartStr = getMonthStartDate(getDateStringForTimezone(prevMonthDate, 'America/Los_Angeles'));
+    const prevMonthEndStr = getDateStringForTimezone(prevMonthDate, 'America/Los_Angeles');
 
-    // Generate date arrays for weekly and monthly
+    // Generate date arrays
     const weekDates = getDateRange(weekStartStr, todayStr);
     const monthDates = getDateRange(monthStartStr, todayStr);
+    const prevWeekDates = getDateRange(prevWeekStartStr, prevWeekEndStr);
+    const prevMonthDates = getDateRange(prevMonthStartStr, prevMonthEndStr);
 
-    // Step 4: Fetch all data in parallel
-    const [dailySalesResult, weeklySalesResult, monthlySalesResult, hourlyData, weeklyBreakdown, monthlyBreakdown] = await Promise.all([
-      fetchSalesForDates(tokenGw, [todayStr], 'daily'),
-      fetchSalesForDates(tokenGw, weekDates, 'weekly'),
-      fetchSalesForDates(tokenGw, monthDates, 'monthly'),
-      fetchHourlySales(tokenGw, todayStr),
-      fetchDailyBreakdown(tokenGw, weekDates),
-      fetchDailyBreakdown(tokenGw, monthDates)
+    // Fetch all data in parallel
+    const [
+      dailySalesResult, 
+      weeklySalesResult, 
+      monthlySalesResult, 
+      hourlyData, 
+      weeklyBreakdown, 
+      monthlyBreakdown,
+      prevDaySalesResult,
+      prevWeekSalesResult,
+      prevMonthSalesResult,
+      productMix
+    ] = await Promise.all([
+      fetchSalesForDates(tokenGw, [todayStr], qbLocationId, 'daily'),
+      fetchSalesForDates(tokenGw, weekDates, qbLocationId, 'weekly'),
+      fetchSalesForDates(tokenGw, monthDates, qbLocationId, 'monthly'),
+      fetchHourlySales(tokenGw, todayStr, qbLocationId),
+      fetchDailyBreakdown(tokenGw, weekDates, qbLocationId),
+      fetchDailyBreakdown(tokenGw, monthDates, qbLocationId),
+      fetchSalesForDates(tokenGw, [prevDayStr], qbLocationId, 'prevDay'),
+      fetchSalesForDates(tokenGw, prevWeekDates, qbLocationId, 'prevWeek'),
+      fetchSalesForDates(tokenGw, prevMonthDates, qbLocationId, 'prevMonth'),
+      fetchProductMix(tokenGw, [todayStr], qbLocationId)
     ]);
 
-    // Calculate average ticket and guest count from hourly data (more accurate)
-    const totalSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
+    // Calculate metrics
     const dailyGuestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
-    const avgTicket = dailyGuestCount > 0 ? totalSales / dailyGuestCount : 0;
+    const weeklyGuestCount = weeklySalesResult.guestCount;
+    const monthlyGuestCount = monthlySalesResult.guestCount;
+    const avgTicket = dailyGuestCount > 0 ? dailySalesResult.total / dailyGuestCount : 0;
 
-    // Calculate weekly and monthly guest counts from breakdowns
-    const weeklyGuestCount = weeklyBreakdown.reduce((sum, d) => sum + d.guestCount, 0);
-    const monthlyGuestCount = monthlyBreakdown.reduce((sum, d) => sum + d.guestCount, 0);
-
-    // Return structured data
     const result = {
       daily: dailySalesResult.total,
       weekly: weeklySalesResult.total,
@@ -404,6 +416,12 @@ serve(async (req) => {
         monthly: monthlyGuestCount
       },
       avgTicket,
+      comparison: {
+        prevDay: prevDaySalesResult.total,
+        prevWeek: prevWeekSalesResult.total,
+        prevMonth: prevMonthSalesResult.total
+      },
+      productMix,
       authenticated: true,
       timestamp: new Date().toISOString(),
       dateRange: {
@@ -417,10 +435,8 @@ serve(async (req) => {
       daily: result.daily,
       weekly: result.weekly,
       monthly: result.monthly,
-      hourlyCount: result.hourly.length,
-      weeklyBreakdownCount: result.weeklyBreakdown.length,
-      monthlyBreakdownCount: result.monthlyBreakdown.length,
-      guestCount: result.guestCount
+      comparison: result.comparison,
+      productMixCount: result.productMix.length
     }));
 
     return new Response(JSON.stringify(result), {
@@ -431,10 +447,7 @@ serve(async (req) => {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
     return new Response(
       JSON.stringify({ error: errorMessage, authenticated: false }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
