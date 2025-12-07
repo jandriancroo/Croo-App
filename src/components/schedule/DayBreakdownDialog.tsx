@@ -57,11 +57,13 @@ export function DayBreakdownDialog({
           const isPast = targetDate < today && targetDate.toDateString() !== today.toDateString();
           const isToday = targetDate.toDateString() === today.toDateString();
           
-          // Build hourly sales map
+          // Build hourly sales map from "hourly" array (format: { hour: "10:00", sales: 123, checksCount: 5 })
           const hourlyMap: Record<number, number> = {};
-          if (data.hourlyBreakdown && Array.isArray(data.hourlyBreakdown)) {
-            data.hourlyBreakdown.forEach((item: { hour: number; sales: number }) => {
-              hourlyMap[item.hour] = item.sales || 0;
+          if (data.hourly && Array.isArray(data.hourly)) {
+            data.hourly.forEach((item: { hour: string; sales: number }) => {
+              // Parse hour from "HH:00" format
+              const hourNum = parseInt(item.hour.split(':')[0]);
+              hourlyMap[hourNum] = item.sales || 0;
             });
           }
           

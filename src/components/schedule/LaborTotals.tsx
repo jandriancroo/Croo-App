@@ -136,21 +136,17 @@ export function LaborTotals({
     fetchProjectedSales();
   }, [scheduleId]);
 
-  // Auto-fill from Qu data for days without manual entries
+  // Auto-fill from Qu data - always fetch for all days and use for days without manual entries
   useEffect(() => {
     const fetchQuSalesData = async () => {
       if (!currentLocation?.id || isLoadingSales) return;
       
       const today = startOfDay(new Date());
-      const daysToFetch = weekDays.filter((day, index) => !projectedSales[index]);
-      
-      if (daysToFetch.length === 0) return;
       
       setIsLoadingQuSales(true);
       try {
-        // Fetch sales data for days that need it
-        const salesPromises = daysToFetch.map(async (day, idx) => {
-          const dayIndex = weekDays.findIndex(wd => format(wd, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd'));
+        // Fetch sales data for ALL days in the week
+        const salesPromises = weekDays.map(async (day, dayIndex) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const isPast = isBefore(day, today);
           const isTodayDate = isToday(day);
@@ -160,17 +156,17 @@ export function LaborTotals({
               body: { locationId: currentLocation.id, targetDate: dateStr }
             });
             
-              if (!error && data) {
-                if (isPast || isTodayDate) {
-                  // Use historical/current data - round to 2 decimals
-                  const salesValue = Math.round((data.daily || 0) * 100) / 100;
-                  return { dayIndex, sales: salesValue, source: 'historical' as const };
-                } else {
-                  // Use AI projection for future days - round to 2 decimals
-                  const salesValue = Math.round((data.projections?.todayProjected || 0) * 100) / 100;
-                  return { dayIndex, sales: salesValue, source: 'ai' as const };
-                }
+            if (!error && data) {
+              if (isPast || isTodayDate) {
+                // Use historical/current data - round to 2 decimals
+                const salesValue = Math.round((data.daily || 0) * 100) / 100;
+                return { dayIndex, sales: salesValue, source: 'historical' as const };
+              } else {
+                // Use AI projection for future days - round to 2 decimals
+                const salesValue = Math.round((data.projections?.todayProjected || 0) * 100) / 100;
+                return { dayIndex, sales: salesValue, source: 'ai' as const };
               }
+            }
           } catch (err) {
             console.error(`Failed to fetch Qu sales for ${dateStr}:`, err);
           }
@@ -183,7 +179,8 @@ export function LaborTotals({
         const newSources: Record<number, 'manual' | 'historical' | 'ai'> = { ...salesSource };
         
         results.forEach(result => {
-          if (result && result.sales > 0) {
+          // Only auto-fill if no manual entry exists
+          if (result && result.sales > 0 && !projectedSales[result.dayIndex]) {
             newSales[result.dayIndex] = result.sales;
             newSources[result.dayIndex] = result.source;
           }
