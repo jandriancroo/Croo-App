@@ -160,15 +160,17 @@ export function LaborTotals({
               body: { locationId: currentLocation.id, targetDate: dateStr }
             });
             
-            if (!error && data) {
-              if (isPast || isTodayDate) {
-                // Use historical/current data
-                return { dayIndex, sales: data.daily || 0, source: 'historical' as const };
-              } else {
-                // Use AI projection for future days
-                return { dayIndex, sales: data.projections?.todayProjected || 0, source: 'ai' as const };
+              if (!error && data) {
+                if (isPast || isTodayDate) {
+                  // Use historical/current data - round to 2 decimals
+                  const salesValue = Math.round((data.daily || 0) * 100) / 100;
+                  return { dayIndex, sales: salesValue, source: 'historical' as const };
+                } else {
+                  // Use AI projection for future days - round to 2 decimals
+                  const salesValue = Math.round((data.projections?.todayProjected || 0) * 100) / 100;
+                  return { dayIndex, sales: salesValue, source: 'ai' as const };
+                }
               }
-            }
           } catch (err) {
             console.error(`Failed to fetch Qu sales for ${dateStr}:`, err);
           }

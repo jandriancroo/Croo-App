@@ -2,6 +2,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { formatTime12Hour } from "@/lib/utils";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { Sparkles, Loader2 } from "lucide-react";
 
 interface DayBreakdownDialogProps {
   open: boolean;
@@ -12,6 +16,8 @@ interface DayBreakdownDialogProps {
   shifts: any[];
   // Profiles so we can resolve names and wages
   profiles: { id: string; full_name?: string | null; hourly_wage?: number | null }[];
+  // Location settings for business hours
+  locationSettings?: { hours_open?: string; hours_close?: string } | null;
 }
 
 export function DayBreakdownDialog({
@@ -21,8 +27,59 @@ export function DayBreakdownDialog({
   scheduleId,
   shifts,
   profiles,
+  locationSettings,
 }: DayBreakdownDialogProps) {
   const dateStr = format(date, "yyyy-MM-dd");
+  const { currentLocation } = useAppLocation();
+  
+  // Sales data state
+  const [salesData, setSalesData] = useState<{
+    daily: number;
+    hourly: Record<number, number>;
+    isProjection: boolean;
+  } | null>(null);
+  const [isLoadingSales, setIsLoadingSales] = useState(false);
+  
+  // Fetch sales data for this day
+  useEffect(() => {
+    const fetchSalesData = async () => {
+      if (!open || !currentLocation?.id) return;
+      
+      setIsLoadingSales(true);
+      try {
+        const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
+          body: { locationId: currentLocation.id, targetDate: dateStr }
+        });
+        
+        if (!error && data) {
+          const today = new Date();
+          const targetDate = new Date(dateStr);
+          const isPast = targetDate < today && targetDate.toDateString() !== today.toDateString();
+          const isToday = targetDate.toDateString() === today.toDateString();
+          
+          // Build hourly sales map
+          const hourlyMap: Record<number, number> = {};
+          if (data.hourlyBreakdown && Array.isArray(data.hourlyBreakdown)) {
+            data.hourlyBreakdown.forEach((item: { hour: number; sales: number }) => {
+              hourlyMap[item.hour] = item.sales || 0;
+            });
+          }
+          
+          setSalesData({
+            daily: isPast || isToday ? (data.daily || 0) : (data.projections?.todayProjected || 0),
+            hourly: hourlyMap,
+            isProjection: !isPast && !isToday
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch sales data:', err);
+      } finally {
+        setIsLoadingSales(false);
+      }
+    };
+    
+    fetchSalesData();
+  }, [open, currentLocation?.id, dateStr]);
 
   // Use in-memory shifts from the Schedule page so we always match what the grid shows
   const dayShifts = (shifts || []).filter(
@@ -51,11 +108,22 @@ export function DayBreakdownDialog({
     return aMinutes - bMinutes;
   });
 
-  // Get earliest and latest hours for timeline
+  // Get earliest and latest hours for timeline based on business hours
   const getTimelineBounds = () => {
-    let earliest = 24;
-    let latest = 0;
-
+    // Use location business hours if available
+    let earliest = 6; // Default 6 AM
+    let latest = 22;  // Default 10 PM
+    
+    if (locationSettings?.hours_open) {
+      const [openHour] = locationSettings.hours_open.split(":").map(Number);
+      earliest = openHour;
+    }
+    if (locationSettings?.hours_close) {
+      const [closeHour] = locationSettings.hours_close.split(":").map(Number);
+      latest = closeHour;
+    }
+    
+    // Also include any shifts that extend beyond business hours
     dayShifts.forEach((shift: any) => {
       if (shift.is_time_off) return;
       const [startHour] = shift.start_time.split(":").map(Number);
@@ -63,14 +131,6 @@ export function DayBreakdownDialog({
       earliest = Math.min(earliest, startHour);
       latest = Math.max(latest, endHour);
     });
-
-    // Default to 6 AM to 10 PM if no shifts
-    if (earliest === 24) earliest = 6;
-    if (latest === 0) latest = 22;
-
-    // Add padding
-    earliest = Math.max(0, earliest - 1);
-    latest = Math.min(24, latest + 1);
 
     return { earliest, latest };
   };
@@ -159,8 +219,28 @@ export function DayBreakdownDialog({
         </DialogHeader>
 
         {dayShifts.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
-            No shifts scheduled for this day
+          <div className="space-y-4">
+            <div className="text-center py-8 text-muted-foreground">
+              No shifts scheduled for this day
+            </div>
+            {/* Still show sales data even with no shifts */}
+            {salesData && (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted p-2 flex items-center gap-2">
+                  <h3 className="font-semibold text-sm">Daily Sales</h3>
+                  {salesData.isProjection && (
+                    <Badge variant="secondary" className="text-[10px] flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" /> AI Projection
+                    </Badge>
+                  )}
+                </div>
+                <div className="p-4">
+                  <div className="text-3xl font-bold text-primary">
+                    {formatCurrency(salesData.daily)}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -234,10 +314,38 @@ export function DayBreakdownDialog({
               </div>
             </div>
 
+            {/* Sales Summary */}
+            {salesData && (
+              <div className="border rounded-lg overflow-hidden">
+                <div className="bg-muted p-2 flex items-center gap-2">
+                  <h3 className="font-semibold text-sm">Daily Sales</h3>
+                  {salesData.isProjection && (
+                    <Badge variant="secondary" className="text-[10px] flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" /> AI Projection
+                    </Badge>
+                  )}
+                  {isLoadingSales && <Loader2 className="h-3 w-3 animate-spin" />}
+                </div>
+                <div className="p-4">
+                  <div className="text-3xl font-bold text-primary">
+                    {formatCurrency(salesData.daily)}
+                  </div>
+                  {totalCost > 0 && salesData.daily > 0 && (
+                    <div className="text-sm text-muted-foreground mt-1">
+                      Labor %: <span className={`font-semibold ${(totalCost / salesData.daily * 100) <= 30 ? 'text-green-600' : (totalCost / salesData.daily * 100) <= 35 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {(totalCost / salesData.daily * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Hourly Breakdown Table */}
             <div className="border rounded-lg overflow-hidden">
-              <div className="bg-muted p-2">
-                <h3 className="font-semibold text-sm">Hourly Labor Breakdown</h3>
+              <div className="bg-muted p-2 flex items-center gap-2">
+                <h3 className="font-semibold text-sm">Hourly Breakdown</h3>
+                {salesData?.isProjection && <Sparkles className="h-3 w-3 text-primary" />}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
@@ -247,35 +355,43 @@ export function DayBreakdownDialog({
                       <th className="p-2 text-center font-medium">Staff</th>
                       <th className="p-2 text-right font-medium">Hours</th>
                       <th className="p-2 text-right font-medium">Labor $</th>
+                      <th className="p-2 text-right font-medium">Sales</th>
+                      <th className="p-2 text-right font-medium">Labor %</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(hourlyBreakdown)
-                      .sort(([a], [b]) => Number(a) - Number(b))
-                      .map(([hourStr, data]) => {
-                        const hourNum = Number(hourStr);
-                        const hour = hourNum % 12 === 0 ? 12 : hourNum % 12;
-                        const period = hourNum < 12 ? "AM" : "PM";
+                    {timelineHours.map((hourNum) => {
+                      const data = hourlyBreakdown[hourNum] || { hours: 0, cost: 0, count: 0 };
+                      const hour = hourNum % 12 === 0 ? 12 : hourNum % 12;
+                      const period = hourNum < 12 ? "AM" : "PM";
+                      const hourlySales = salesData?.hourly[hourNum] || 0;
+                      const laborPercent = hourlySales > 0 ? (data.cost / hourlySales) * 100 : 0;
 
-                        return (
-                          <tr key={hourStr} className="border-b hover:bg-muted/50">
-                            <td className="p-2 font-medium">
-                              {hour} {period}
-                            </td>
-                            <td className="p-2 text-center">
-                              <Badge variant="outline" className="text-[10px]">
-                                {data.count}
-                              </Badge>
-                            </td>
-                            <td className="p-2 text-right">
-                              {data.hours.toFixed(2)}
-                            </td>
-                            <td className="p-2 text-right font-medium">
-                              {formatCurrency(data.cost)}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                      return (
+                        <tr key={hourNum} className="border-b hover:bg-muted/50">
+                          <td className="p-2 font-medium">
+                            {hour} {period}
+                          </td>
+                          <td className="p-2 text-center">
+                            <Badge variant="outline" className="text-[10px]">
+                              {data.count}
+                            </Badge>
+                          </td>
+                          <td className="p-2 text-right">
+                            {data.hours.toFixed(2)}
+                          </td>
+                          <td className="p-2 text-right font-medium">
+                            {formatCurrency(data.cost)}
+                          </td>
+                          <td className="p-2 text-right">
+                            {hourlySales > 0 ? formatCurrency(hourlySales) : '-'}
+                          </td>
+                          <td className={`p-2 text-right font-medium ${laborPercent > 0 && laborPercent <= 30 ? 'text-green-600' : laborPercent > 30 && laborPercent <= 35 ? 'text-yellow-600' : laborPercent > 35 ? 'text-red-600' : ''}`}>
+                            {hourlySales > 0 ? `${laborPercent.toFixed(1)}%` : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
                     <tr className="bg-muted font-semibold">
                       <td className="p-2">Total</td>
                       <td className="p-2 text-center">
@@ -283,6 +399,10 @@ export function DayBreakdownDialog({
                       </td>
                       <td className="p-2 text-right">{totalHours.toFixed(2)} Hrs</td>
                       <td className="p-2 text-right">{formatCurrency(totalCost)}</td>
+                      <td className="p-2 text-right">{salesData?.daily ? formatCurrency(salesData.daily) : '-'}</td>
+                      <td className={`p-2 text-right ${salesData?.daily && (totalCost / salesData.daily * 100) <= 30 ? 'text-green-600' : salesData?.daily && (totalCost / salesData.daily * 100) <= 35 ? 'text-yellow-600' : salesData?.daily ? 'text-red-600' : ''}`}>
+                        {salesData?.daily ? `${(totalCost / salesData.daily * 100).toFixed(1)}%` : '-'}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
