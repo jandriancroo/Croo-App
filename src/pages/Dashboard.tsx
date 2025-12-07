@@ -23,6 +23,7 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatTime12Hour } from '@/lib/utils';
 import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
+import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface CateringOrder {
@@ -923,8 +924,8 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">{isChecklistOnlyLocation ? 'Checklists' : 'Dash'}</h1>
           <div className="flex gap-2 items-center">
-            {/* Hide Croo Cash for checklist-only locations */}
-            {!isChecklistOnlyLocation && (
+            {/* Hide Croo Cash for checklist-only locations or when feature is disabled */}
+            {FEATURE_FLAGS.CROO_CASH_ENABLED && !isChecklistOnlyLocation && (
               <div className="flex flex-col items-center justify-center px-3 py-1 h-10 rounded-full bg-primary/10 text-primary border border-primary/20 relative">
                 {userName && <span className="text-[10px] font-medium leading-none">{userName}</span>}
                 <div className="flex items-center gap-1">

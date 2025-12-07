@@ -17,6 +17,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
+import { FEATURE_FLAGS } from '@/config/featureFlags';
 
 interface LayoutProps {
   children: ReactNode;
@@ -118,23 +119,26 @@ export const Layout = ({
     label: 'Chat',
     icon: MessageSquare
   }];
-  const timeMenuItems = [{
-    path: '/my-wallet',
-    label: 'My Wallet',
-    icon: Wallet
-  }, {
-    path: '/availability',
-    label: 'Availability',
-    icon: CalendarCheck
-  }, ...(isAdmin ? [{
-    path: '/punch-clock',
-    label: 'Punch Clock',
-    icon: Clock
-  }, {
-    path: '/payroll-review',
-    label: 'Payroll Review',
-    icon: DollarSign
-  }] : [])];
+  const timeMenuItems = [
+    ...(FEATURE_FLAGS.CROO_CASH_ENABLED ? [{
+      path: '/my-wallet',
+      label: 'My Wallet',
+      icon: Wallet
+    }] : []),
+    {
+      path: '/availability',
+      label: 'Availability',
+      icon: CalendarCheck
+    }, ...(isAdmin ? [{
+      path: '/punch-clock',
+      label: 'Punch Clock',
+      icon: Clock
+    }, {
+      path: '/payroll-review',
+      label: 'Payroll Review',
+      icon: DollarSign
+    }] : [])
+  ];
   const mobileMainNavItems = isChecklistOnlyLocation ? checklistOnlyNavItems : [{
     path: '/dashboard',
     label: 'Dash',
@@ -171,31 +175,33 @@ export const Layout = ({
     path: '/logbook',
     label: 'Logs',
     icon: Scroll
-  }] : []), {
-    path: '/my-wallet',
-    label: 'My Wallet',
-    icon: Wallet
-  }, {
-    path: '/availability',
-    label: 'Availability',
-    icon: CalendarCheck
-  }, ...(isAdmin ? [{
-    path: '/punch-clock',
-    label: 'Punch Clock',
-    icon: Clock
-  }, {
-    path: '/payroll-review',
-    label: 'Payroll Review',
-    icon: DollarSign
-  }, {
-    path: '/users',
-    label: 'Users',
-    icon: Users
-  }] : []), {
-    path: '/settings',
-    label: 'Settings',
-    icon: SettingsIcon
-  }];
+  }] : []),
+    ...(FEATURE_FLAGS.CROO_CASH_ENABLED ? [{
+      path: '/my-wallet',
+      label: 'My Wallet',
+      icon: Wallet
+    }] : []),
+    {
+      path: '/availability',
+      label: 'Availability',
+      icon: CalendarCheck
+    }, ...(isAdmin ? [{
+      path: '/punch-clock',
+      label: 'Punch Clock',
+      icon: Clock
+    }, {
+      path: '/payroll-review',
+      label: 'Payroll Review',
+      icon: DollarSign
+    }, {
+      path: '/users',
+      label: 'Users',
+      icon: Users
+    }] : []), {
+      path: '/settings',
+      label: 'Settings',
+      icon: SettingsIcon
+    }];
   return <div className="flex min-h-screen flex-col bg-background overflow-x-hidden">
       <header className="sticky top-0 z-50 glass border-b border-border/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className={`container flex items-center ${isMobile ? 'h-14' : 'h-16'}`}>
