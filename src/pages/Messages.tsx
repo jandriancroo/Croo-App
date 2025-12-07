@@ -490,6 +490,7 @@ export default function Messages() {
           setIsNewChatOpen(false);
         }}
         canCreateGroup={isAdmin || isManager}
+        locationId={currentLocation?.id}
       />
 
       <AnnouncementDialog

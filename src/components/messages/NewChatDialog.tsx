@@ -19,9 +19,10 @@ interface NewChatDialogProps {
   onOpenChange: (open: boolean) => void;
   onChatCreated: (chatId: string) => void;
   canCreateGroup: boolean;
+  locationId?: string;
 }
 
-export function NewChatDialog({ open, onOpenChange, onChatCreated, canCreateGroup }: NewChatDialogProps) {
+export function NewChatDialog({ open, onOpenChange, onChatCreated, canCreateGroup, locationId }: NewChatDialogProps) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [chatTitle, setChatTitle] = useState('');
@@ -76,6 +77,7 @@ export function NewChatDialog({ open, onOpenChange, onChatCreated, canCreateGrou
           title: isGroup ? chatTitle.trim() : null,
           is_group: isGroup,
           created_by: user.id,
+          location_id: locationId || null,
         })
         .select()
         .single();
