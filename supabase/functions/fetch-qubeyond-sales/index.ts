@@ -43,9 +43,27 @@ function getMonthStartDate(date: Date): string {
   return getPacificDateString(pacificDate);
 }
 
-// Fetch sales data for a specific period
-async function fetchSalesForPeriod(tokenGw: string, dateFrom: string, dateTo: string, periodType: string): Promise<number> {
-  console.log(`Fetching ${periodType} sales: ${dateFrom} to ${dateTo}`);
+// Generate array of date strings from start to end (inclusive)
+function getDateRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const start = new Date(startDate + 'T00:00:00');
+  const end = new Date(endDate + 'T00:00:00');
+  
+  const current = new Date(start);
+  while (current <= end) {
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const day = String(current.getDate()).padStart(2, '0');
+    dates.push(`${year}-${month}-${day}`);
+    current.setDate(current.getDate() + 1);
+  }
+  
+  return dates;
+}
+
+// Fetch sales data for specified dates using the working endpoint format
+async function fetchSalesForDates(tokenGw: string, dates: string[], periodType: string): Promise<number> {
+  console.log(`Fetching ${periodType} sales for ${dates.length} days: ${dates[0]} to ${dates[dates.length - 1]}`);
   
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
     method: 'POST',
@@ -63,9 +81,9 @@ async function fetchSalesForPeriod(tokenGw: string, dateFrom: string, dateTo: st
       ],
       filters: {
         date: {
-          from: dateFrom,
-          to: dateTo,
-          values: [],
+          from: null,
+          to: null,
+          values: dates,
           type: "custom"
         },
         singleLocation: 5448 // Jo Pizza location ID
@@ -87,12 +105,13 @@ async function fetchSalesForPeriod(tokenGw: string, dateFrom: string, dateTo: st
   }
 
   const data = await response.json();
+  console.log(`${periodType} response preview:`, JSON.stringify(data).substring(0, 300));
   
   if (data.items && Array.isArray(data.items)) {
     for (const item of data.items) {
-      if (item.metricTypeId === 1) { // Net Sales
+      if (item.metricTypeId === 1 || item.metric === 'Net Sales') {
         const total = parseFloat(String(item.total || '0').replace(/,/g, '')) || 0;
-        console.log(`${periodType} Net Sales: $${total}`);
+        console.log(`${periodType} Net Sales found: $${total}`);
         return total;
       }
     }
@@ -101,9 +120,9 @@ async function fetchSalesForPeriod(tokenGw: string, dateFrom: string, dateTo: st
   return 0;
 }
 
-// Fetch hourly sales data
-async function fetchHourlySales(tokenGw: string, dateStr: string): Promise<{ hour: string; amount: number }[]> {
-  console.log(`Fetching hourly sales for: ${dateStr}`);
+// Fetch today's sales using the hourly endpoint (which works correctly)
+async function fetchTodaySales(tokenGw: string, dateStr: string): Promise<{ daily: number; hourly: { hour: string; sales: number }[] }> {
+  console.log(`Fetching today's sales for: ${dateStr}`);
   
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
     method: 'POST',
@@ -140,26 +159,44 @@ async function fetchHourlySales(tokenGw: string, dateStr: string): Promise<{ hou
   });
 
   if (!response.ok) {
-    console.error('Hourly fetch failed:', response.status);
-    return [];
+    console.error('Today sales fetch failed:', response.status);
+    return { daily: 0, hourly: [] };
   }
 
   const data = await response.json();
-  console.log('Hourly data response:', JSON.stringify(data).substring(0, 500));
+  console.log('Today sales response items count:', data.items?.length);
   
-  const hourlyData: { hour: string; amount: number }[] = [];
+  // Log first few items to understand structure
+  if (data.items && data.items.length > 0) {
+    console.log('Sample items:', JSON.stringify(data.items.slice(0, 3)));
+  }
+  
+  let dailyTotal = 0;
+  const hourlyData: { hour: string; sales: number }[] = [];
   
   if (data.items && Array.isArray(data.items)) {
+    // First, extract the daily total from Net Sales metric
     for (const item of data.items) {
-      const hour = item.hour || item.Hour || '';
-      const amount = parseFloat(String(item.netSales || item.NetSales || item.total || '0').replace(/,/g, '')) || 0;
-      if (hour) {
-        hourlyData.push({ hour, amount });
+      if (item.metricTypeId === 1 || item.metric === 'Net Sales') {
+        dailyTotal = parseFloat(String(item.total || '0').replace(/,/g, '')) || 0;
+        console.log(`Daily Net Sales from hourly endpoint: $${dailyTotal}`);
+        break;
+      }
+    }
+    
+    // Check if there's hourly data in a different structure
+    if (data.hourlyData && Array.isArray(data.hourlyData)) {
+      for (const item of data.hourlyData) {
+        const hour = item.hour || '';
+        const sales = parseFloat(String(item.netSales || item.sales || '0').replace(/,/g, '')) || 0;
+        if (hour) {
+          hourlyData.push({ hour, sales });
+        }
       }
     }
   }
   
-  return hourlyData;
+  return { daily: dailyTotal, hourly: hourlyData };
 }
 
 serve(async (req) => {
@@ -226,20 +263,23 @@ serve(async (req) => {
     
     console.log(`Date ranges - Today: ${todayStr}, Week start: ${weekStartStr}, Month start: ${monthStartStr}`);
 
+    // Generate date arrays for weekly and monthly
+    const weekDates = getDateRange(weekStartStr, todayStr);
+    const monthDates = getDateRange(monthStartStr, todayStr);
+
     // Step 4: Fetch all data in parallel
-    const [dailySales, weeklySales, monthlySales, hourlyData] = await Promise.all([
-      fetchSalesForPeriod(tokenGw, todayStr, todayStr, 'daily'),
-      fetchSalesForPeriod(tokenGw, weekStartStr, todayStr, 'weekly'),
-      fetchSalesForPeriod(tokenGw, monthStartStr, todayStr, 'monthly'),
-      fetchHourlySales(tokenGw, todayStr)
+    const [todayData, weeklySales, monthlySales] = await Promise.all([
+      fetchTodaySales(tokenGw, todayStr),
+      fetchSalesForDates(tokenGw, weekDates, 'weekly'),
+      fetchSalesForDates(tokenGw, monthDates, 'monthly')
     ]);
 
     // Return structured data
     const result = {
-      daily: dailySales,
+      daily: todayData.daily,
       weekly: weeklySales,
       monthly: monthlySales,
-      hourly: hourlyData,
+      hourly: todayData.hourly,
       authenticated: true,
       timestamp: new Date().toISOString(),
       dateRange: {
