@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { Sparkles, Loader2 } from "lucide-react";
+import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
 
 interface DayBreakdownDialogProps {
   open: boolean;
@@ -40,10 +41,34 @@ export function DayBreakdownDialog({
   } | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(false);
   
-  // Fetch sales data for this day
+  // Fetch sales data for this day - use cache for past dates
   useEffect(() => {
     const fetchSalesData = async () => {
       if (!open || !currentLocation?.id) return;
+      
+      const today = new Date();
+      const targetDate = new Date(dateStr);
+      const isPast = targetDate < today && targetDate.toDateString() !== today.toDateString();
+      const isTodayDate = targetDate.toDateString() === today.toDateString();
+      
+      // Check cache for past dates first
+      if (isPast) {
+        const cached = getCachedSalesData(currentLocation.id, dateStr);
+        if (cached) {
+          const hourlyMap: Record<number, number> = {};
+          cached.hourly.forEach((item) => {
+            const hourNum = parseInt(item.hour.split(':')[0]);
+            hourlyMap[hourNum] = item.sales || 0;
+          });
+          
+          setSalesData({
+            daily: cached.daily,
+            hourly: hourlyMap,
+            isProjection: false
+          });
+          return;
+        }
+      }
       
       setIsLoadingSales(true);
       try {
@@ -52,25 +77,28 @@ export function DayBreakdownDialog({
         });
         
         if (!error && data) {
-          const today = new Date();
-          const targetDate = new Date(dateStr);
-          const isPast = targetDate < today && targetDate.toDateString() !== today.toDateString();
-          const isToday = targetDate.toDateString() === today.toDateString();
-          
-          // Build hourly sales map from "hourly" array (format: { hour: "10:00", sales: 123, checksCount: 5 })
+          // Build hourly sales map from "hourly" array
           const hourlyMap: Record<number, number> = {};
           if (data.hourly && Array.isArray(data.hourly)) {
             data.hourly.forEach((item: { hour: string; sales: number }) => {
-              // Parse hour from "HH:00" format
               const hourNum = parseInt(item.hour.split(':')[0]);
               hourlyMap[hourNum] = item.sales || 0;
             });
           }
           
+          // Cache past data for future use
+          if (isPast && data.daily > 0) {
+            setCachedSalesData(currentLocation.id, dateStr, {
+              daily: data.daily,
+              hourly: data.hourly || [],
+              guestCount: data.guestCount || { daily: 0 }
+            });
+          }
+          
           setSalesData({
-            daily: isPast || isToday ? (data.daily || 0) : (data.projections?.todayProjected || 0),
+            daily: isPast || isTodayDate ? (data.daily || 0) : (data.projections?.todayProjected || 0),
             hourly: hourlyMap,
-            isProjection: !isPast && !isToday
+            isProjection: !isPast && !isTodayDate
           });
         }
       } catch (err) {
