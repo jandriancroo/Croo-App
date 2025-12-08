@@ -14,6 +14,7 @@ import { LocationMap } from '@/components/settings/LocationMap';
 import { LocationSettingsSection } from '@/components/settings/LocationSettingsSection';
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
+import { LocationAuditsSection } from '@/components/settings/LocationAuditsSection';
 import { useAuth } from '@/lib/auth';
 
 export default function LocationProfile() {
@@ -350,6 +351,11 @@ export default function LocationProfile() {
           {/* Labor Rules - only for existing standard locations */}
           {!isNew && location?.location_type !== 'checklist_only' && (
             <LaborRulesSection locationId={locationId} />
+          )}
+
+          {/* Food Safety Audits - only for existing locations */}
+          {!isNew && (
+            <LocationAuditsSection locationId={locationId} locationName={location?.name} />
           )}
 
           {/* Integrations - at bottom, only for existing standard locations */}

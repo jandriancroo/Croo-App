@@ -2,14 +2,15 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical, MapPin } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useState, useEffect } from 'react';
 import crooLogo from '@/assets/croo-logo.png';
-import { LocationSelector } from '@/components/LocationSelector';
+import { LocationPickerDialog } from './LocationPickerDialog';
 import { useUnreadMessages } from '@/hooks/useUnreadMessages';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,7 @@ import { FEATURE_FLAGS } from '@/config/featureFlags';
 interface LayoutProps {
   children: ReactNode;
 }
+
 export const Layout = ({
   children
 }: LayoutProps) => {
@@ -37,8 +39,9 @@ export const Layout = ({
   } = useUserRole();
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const { unreadCount } = useUnreadMessages();
-  const { isChecklistOnlyLocation, currentLocation } = useAppLocation();
+  const { isChecklistOnlyLocation, currentLocation, setCurrentLocation } = useAppLocation();
   const canAccessLogs = isAdmin || isManager;
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
@@ -54,6 +57,21 @@ export const Layout = ({
     };
     checkSuperAdmin();
   }, [user?.id]);
+
+  // Fetch user profile for avatar
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name, profile_photo_url')
+        .eq('id', user.id)
+        .single();
+      return data;
+    },
+    enabled: !!user?.id,
+  });
 
   // Fetch organization logo based on current location
   const { data: orgLogo } = useQuery({
@@ -82,6 +100,9 @@ export const Layout = ({
 
   const headerLogo = orgLogo?.logo_url || crooLogo;
   const headerLogoAlt = orgLogo?.logo_url ? (orgLogo.name || 'Organization') : 'Croo';
+
+  const firstName = userProfile?.full_name?.split(' ')[0] || 'User';
+  const initials = userProfile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
 
   // Checklist-only location navigation (Tasks, Chat, Settings only)
   const checklistOnlyNavItems = [{
@@ -202,6 +223,7 @@ export const Layout = ({
       label: 'Settings',
       icon: SettingsIcon
     }];
+
   return <div className="flex min-h-screen flex-col bg-background overflow-x-hidden">
       <header className="sticky top-0 z-50 glass border-b border-border/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className={`container flex items-center ${isMobile ? 'h-14' : 'h-16'}`}>
@@ -275,39 +297,57 @@ export const Layout = ({
           )}
           
           <div className="hidden md:flex items-center gap-2">
-            {/* Settings dropdown - show for admins normally, or for all users in checklist-only locations */}
-            {(isAdmin || isChecklistOnlyLocation) && <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant={['/settings', '/users'].includes(location.pathname) ? 'secondary' : 'ghost'} size="icon" title="Settings">
-                    <SettingsIcon className="h-4 w-4 flex-shrink-0" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {isSuperAdmin && (
-                    <>
-                      <DropdownMenuItem onClick={() => openDiagnosticMode()} className="gap-2 cursor-pointer">
-                        <FlaskConical className="h-4 w-4" />
-                        Diagnostics
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                    </>
-                  )}
-                  <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
-                    <SettingsIcon className="h-4 w-4" />
-                    Preferences
-                  </DropdownMenuItem>
-                  {isAdmin && (
-                    <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
-                      <Users className="h-4 w-4" />
-                      User Management
+            {/* Location Selector */}
+            {currentLocation && (
+              <Button 
+                variant="outline" 
+                className="gap-2 h-9"
+                onClick={() => setLocationDialogOpen(true)}
+              >
+                <MapPin className="h-4 w-4" />
+                <span className="hidden lg:inline max-w-[120px] truncate">{currentLocation.name}</span>
+              </Button>
+            )}
+
+            {/* Profile dropdown - replaces settings icon */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="gap-2 h-auto py-1.5 px-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={userProfile?.profile_photo_url || ''} />
+                    <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                  </Avatar>
+                  <span className="hidden lg:inline text-sm font-medium">{firstName}</span>
+                  <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                {isSuperAdmin && (
+                  <>
+                    <DropdownMenuItem onClick={() => openDiagnosticMode()} className="gap-2 cursor-pointer">
+                      <FlaskConical className="h-4 w-4" />
+                      Diagnostics
                     </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>}
-            
-            <Button variant="outline" onClick={signOut} size="icon" title="Sign Out" className="text-destructive hover:text-destructive">
-              <DoorOpen className="h-4 w-4 flex-shrink-0" />
-            </Button>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
+                  <SettingsIcon className="h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
+                    <Users className="h-4 w-4" />
+                    User Management
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={signOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+                  <DoorOpen className="h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
         </div>
@@ -349,6 +389,35 @@ export const Layout = ({
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <div className="grid gap-2 py-4">
+                {/* Profile Section at top of mobile menu */}
+                <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2">
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={userProfile?.profile_photo_url || ''} />
+                    <AvatarFallback>{initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{userProfile?.full_name || 'User'}</p>
+                    {currentLocation && (
+                      <p className="text-xs text-muted-foreground truncate">{currentLocation.name}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Location Selector */}
+                {currentLocation && (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setLocationDialogOpen(true);
+                      setMenuOpen(false);
+                    }} 
+                    className="justify-start gap-3 h-12"
+                  >
+                    <MapPin className="h-5 w-5" />
+                    <span className="text-base">Change Location</span>
+                  </Button>
+                )}
+
                 {isSuperAdmin && (
                   <Button variant="outline" onClick={() => {
                     openDiagnosticMode();
@@ -381,5 +450,19 @@ export const Layout = ({
           </Sheet>
         </div>
       </nav>
+
+      {/* Location Picker Dialog */}
+      <LocationPickerDialog
+        open={locationDialogOpen}
+        onOpenChange={setLocationDialogOpen}
+        currentLocationId={currentLocation?.id}
+        onSelectLocation={(loc) => {
+          setCurrentLocation({
+            id: loc.id,
+            name: loc.name,
+            location_type: loc.location_type,
+          });
+        }}
+      />
     </div>;
 };
