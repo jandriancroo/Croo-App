@@ -1,0 +1,2 @@
+-- Make sensitive storage buckets private (policies already exist)
+UPDATE storage.buckets SET public = false WHERE name IN ('certificates', 'food-safety-audits', 'checklist-images', 'message-attachments');

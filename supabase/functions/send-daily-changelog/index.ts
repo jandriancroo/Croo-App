@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
 };
 
 // Hardcoded recipient - Jordan's user ID
@@ -12,6 +12,17 @@ const CHANGELOG_RECIPIENT_ID = "a2e81a39-0e0b-47b1-a1aa-0e53f3869d37";
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Validate cron secret for internal/scheduled calls
+  const cronSecret = req.headers.get('x-cron-secret');
+  const expectedSecret = Deno.env.get('CRON_SECRET');
+  if (!expectedSecret || cronSecret !== expectedSecret) {
+    console.error('Unauthorized: Invalid or missing CRON_SECRET');
+    return new Response(
+      JSON.stringify({ error: 'Unauthorized' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   }
 
   try {
