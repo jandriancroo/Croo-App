@@ -1,10 +1,10 @@
 project_id = "lmodeiyrpwvgyqcvjkjr"
 
 [functions.extract-temperature]
-verify_jwt = false
+verify_jwt = true
 
 [functions.rescan-temperatures]
-verify_jwt = false
+verify_jwt = true
 
 [functions.backfill-croo-cash-transactions]
 verify_jwt = false
@@ -16,7 +16,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.extract-certification-date]
-verify_jwt = false
+verify_jwt = true
 
 [functions.parse-catering-order]
-verify_jwt = false
+verify_jwt = true
