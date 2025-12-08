@@ -265,14 +265,14 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               </div>
 
               {/* AI Projection for Today */}
-              {salesData?.projections?.todayProjected && salesData.projections.todayProjected > 0 && (
+              {salesData?.projections?.todayProjected !== undefined && salesData.projections.todayProjected > 0 && (
                 <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 border border-primary/20 mb-2">
-                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500">
+                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
                     <Sparkles className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">AI Projected EOD:</span>
-                    <span className="text-sm font-semibold text-primary">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs sm:text-sm text-muted-foreground">AI Projected EOD:</span>
+                    <span className="text-sm sm:text-base font-semibold text-primary">
                       {formatCurrency(salesData.projections.todayProjected)}
                     </span>
                   </div>
