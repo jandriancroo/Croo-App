@@ -16,7 +16,17 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { targetDate } = await req.json();
+    // Handle empty request body gracefully
+    let targetDate = null;
+    try {
+      const body = await req.text();
+      if (body && body.trim()) {
+        const parsed = JSON.parse(body);
+        targetDate = parsed.targetDate;
+      }
+    } catch (parseError) {
+      console.log("No valid JSON body provided, using default date");
+    }
     const scanDate = targetDate || new Date().toISOString().split('T')[0];
 
     console.log(`Rescanning temperatures for date: ${scanDate}`);
