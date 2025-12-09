@@ -58,38 +58,28 @@ export default function PunchClock() {
   const [todayShift, setTodayShift] = useState<any>(null);
   const [lastPunch, setLastPunch] = useState<any>(null);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [exitPin, setExitPin] = useState('');
-  const [showExitDialog, setShowExitDialog] = useState(false);
+  // Master exit code - reserved, cannot be used as employee PIN
   const [expiringCerts, setExpiringCerts] = useState<any[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
   const [birthdayEmployees, setBirthdayEmployees] = useState<any[]>([]);
 
   const currentFact = DAILY_FACTS[currentFactIndex];
 
-  const handleExit = () => {
-    setShowExitDialog(true);
-  };
+  const MASTER_EXIT_CODE = '0223';
 
-  const handleExitConfirm = async () => {
-    if (exitPin === '0223') {
-      // Exit fullscreen before navigating away
-      if (document.fullscreenElement) {
-        await document.exitFullscreen().catch(error => {
-          console.error('Failed to exit fullscreen:', error);
-        });
-      }
-      
-      setPin('');
-      setCurrentUser(null);
-      setTodayShift(null);
-      setLastPunch(null);
-      setShowExitDialog(false);
-      setExitPin('');
-      window.location.href = '/';
-    } else {
-      toast.error('Invalid exit code');
-      setExitPin('');
+  const handleMasterExit = async () => {
+    // Exit fullscreen before navigating away
+    if (document.fullscreenElement) {
+      await document.exitFullscreen().catch(error => {
+        console.error('Failed to exit fullscreen:', error);
+      });
     }
+    
+    setPin('');
+    setCurrentUser(null);
+    setTodayShift(null);
+    setLastPunch(null);
+    window.location.href = '/';
   };
 
   useEffect(() => {
@@ -214,6 +204,12 @@ export default function PunchClock() {
   const verifyPin = async () => {
     if (pin.length !== 4) {
       toast.error('Please enter a 4-digit PIN');
+      return;
+    }
+
+    // Check for master exit code
+    if (pin === MASTER_EXIT_CODE) {
+      handleMasterExit();
       return;
     }
 
@@ -414,36 +410,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
 
   return (
     <>
-      {/* Exit Dialog - Always rendered */}
-      <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Exit Punch Clock</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">Enter the 4-digit exit code to leave</p>
-            <Input
-              type="password"
-              maxLength={4}
-              placeholder="••••"
-              value={exitPin}
-              onChange={(e) => setExitPin(e.target.value)}
-              className="text-center text-2xl tracking-widest"
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
-              setShowExitDialog(false);
-              setExitPin('');
-            }}>
-              Cancel
-            </Button>
-            <Button onClick={handleExitConfirm} disabled={exitPin.length !== 4}>
-              Exit
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Master code 0223 on keypad exits to dashboard */}
 
       {!currentUser ? (
         <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 overflow-hidden touch-none" style={{ touchAction: 'none' }}>
@@ -452,15 +419,6 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
             <img src={crooLogo} alt="Croo" className="h-24 w-auto" />
           </div>
           
-          {/* Exit Button */}
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={handleExit}
-            className="fixed top-4 left-4 z-50"
-          >
-            Exit
-          </Button>
           
           <Card className="w-full max-w-5xl overflow-hidden">
             <div className="grid md:grid-cols-2">
@@ -571,15 +529,6 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
             <img src={crooLogo} alt="Croo" className="h-24 w-auto" />
           </div>
           
-          {/* Exit Button */}
-          <Button
-            size="sm"
-            variant="destructive"
-            onClick={handleExit}
-            className="fixed top-4 left-4 z-50"
-          >
-            Exit
-          </Button>
           
           <Card className="w-full max-w-md">
             <CardHeader className="text-center space-y-2">

@@ -548,11 +548,24 @@ export default function UserManagement() {
     setEditDialogOpen(true);
   };
 
+  // Reserved master code - cannot be used as employee PIN
+  const RESERVED_MASTER_PIN = '0223';
+
   const handleUpdateUser = async () => {
     if (!editingUser || !editFullName.trim()) {
       toast({
         title: 'Validation Error',
         description: 'Please provide a full name.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Prevent using reserved master PIN
+    if (editEmployeePin.trim() === RESERVED_MASTER_PIN) {
+      toast({
+        title: 'Error',
+        description: 'This PIN is reserved and cannot be used.',
         variant: 'destructive',
       });
       return;
@@ -1438,6 +1451,15 @@ export default function UserManagement() {
                             toast({
                               title: 'Error',
                               description: 'PIN must be 4 digits',
+                              variant: 'destructive',
+                            });
+                            return;
+                          }
+                          // Prevent using reserved master PIN
+                          if (editEmployeePin === RESERVED_MASTER_PIN) {
+                            toast({
+                              title: 'Error',
+                              description: 'This PIN is reserved and cannot be used.',
                               variant: 'destructive',
                             });
                             return;
