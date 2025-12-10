@@ -108,17 +108,24 @@ export default function Auth() {
         return;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
+      // Wait a moment for auth state to settle, then get the user
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const { data: { user: newUser } } = await supabase.auth.getUser();
 
-      if (user) {
+      if (newUser) {
         const { error: locationAssignError } = await supabase.rpc('assign_user_to_location', {
-          p_user_id: user.id,
+          p_user_id: newUser.id,
           p_location_id: location.id,
         });
 
         if (locationAssignError) {
           console.error('Failed to assign location:', locationAssignError);
+          toast.error('Account created but failed to assign location. Please contact your manager.');
         }
+      } else {
+        console.error('User not available after signup');
+        toast.error('Account created but failed to assign location. Please contact your manager.');
       }
 
       toast.success(`Welcome to ${location.name}! Let's finish setting up your profile.`);
