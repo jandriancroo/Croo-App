@@ -138,7 +138,7 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
     } else {
       params.set("category", "Drawer Count");
     }
-    navigate(`/logs?${params.toString()}`);
+    navigate(`/logbook?${params.toString()}`);
   };
   
   const tasks = [
