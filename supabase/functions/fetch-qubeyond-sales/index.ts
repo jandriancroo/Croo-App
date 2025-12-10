@@ -90,14 +90,15 @@ async function fetchSalesForDates(
       'Origin': 'https://admin.qubeyond.com',
       'Referer': 'https://admin.qubeyond.com/',
     },
-    body: JSON.stringify({
-      fields: [{ fieldName: "metric" }, { fieldName: "total" }],
-      filters: {
-        date: { from: null, to: null, values: dates, type: "custom" },
-        singleLocation: parseInt(qbLocationId)
-      },
-      params: { sectionId: "overview", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
-    }),
+      body: JSON.stringify({
+        fields: [{ fieldName: "metric" }, { fieldName: "total" }],
+        filters: {
+          date: { from: null, to: null, values: dates, type: "custom" },
+          singleLocation: parseInt(qbLocationId),
+          location: [parseInt(qbLocationId)]
+        },
+        params: { sectionId: "overview", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
+      }),
   });
 
   if (!response.ok) {
@@ -138,18 +139,19 @@ async function fetchHourlySales(
       'Origin': 'https://admin.qubeyond.com',
       'Referer': 'https://admin.qubeyond.com/',
     },
-    body: JSON.stringify({
-      fields: [
-        { fieldName: "hour" }, { fieldName: "checksCount" }, { fieldName: "netSales" },
-        { fieldName: "averageCheck" }, { fieldName: "discount" }, { fieldName: "serviceCharge" },
-        { fieldName: "tax" }, { fieldName: "netSalesPercentage" }
-      ],
-      filters: {
-        date: { from: null, to: null, values: [dateStr], type: "today" },
-        singleLocation: parseInt(qbLocationId)
-      },
-      params: { sectionId: "main", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
-    }),
+      body: JSON.stringify({
+        fields: [
+          { fieldName: "hour" }, { fieldName: "checksCount" }, { fieldName: "netSales" },
+          { fieldName: "averageCheck" }, { fieldName: "discount" }, { fieldName: "serviceCharge" },
+          { fieldName: "tax" }, { fieldName: "netSalesPercentage" }
+        ],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: "today" },
+          singleLocation: parseInt(qbLocationId),
+          location: [parseInt(qbLocationId)]
+        },
+        params: { sectionId: "main", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
+      }),
   });
 
   if (!response.ok) return [];
@@ -269,6 +271,7 @@ async function fetchTillsData(
         filters: {
           date: { from: null, to: null, values: [dateStr], type: "custom" },
           singleLocation: parseInt(qbLocationId),
+          location: [parseInt(qbLocationId)],
           noSales: null
         },
         params: { 
@@ -343,7 +346,8 @@ async function fetchProductMix(
       ],
       filters: {
         date: { from: null, to: null, values: dates, type: "custom" },
-        singleLocation: parseInt(qbLocationId)
+        singleLocation: parseInt(qbLocationId),
+        location: [parseInt(qbLocationId)]
       },
       params: { sectionId: "main", pageNumber: 1, pageSize: 100, totalRecords: null, sort: { field: "netSales", dir: "desc" }, showTotals: true }
     }),
