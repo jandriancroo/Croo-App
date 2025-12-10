@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { formatTime12Hour } from '@/lib/utils';
-import { getCachedProjections, setCachedProjections } from '@/utils/salesCache';
+import { setCachedProjections } from '@/utils/salesCache';
 
 interface SalesData {
   daily: number;
@@ -69,11 +69,8 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
   const isToday = isSameDay(targetDate, new Date());
 
-  // Check for cached projections first
-  const cachedProjections = useMemo(() => {
-    if (!currentLocation?.id || !isToday) return null;
-    return getCachedProjections(currentLocation.id);
-  }, [currentLocation?.id, isToday]);
+  // Note: We always fetch fresh projections now for accuracy
+  // Cache is only used for storage/persistence, not to skip API calls
 
   const { data: rawSalesData, isLoading, refetch } = useQuery({
     queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
@@ -82,8 +79,8 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
         body: { 
           locationId: currentLocation?.id,
           targetDate: getDateString(targetDate),
-          // Skip AI projection if we have cached projections
-          skipProjections: cachedProjections !== null
+          // Always fetch fresh projections for accuracy
+          skipProjections: false
         }
       });
       if (error) {
@@ -93,18 +90,18 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       
       const salesData = data as SalesData;
       
-      // Cache new projections if received and viewing today
-      if (isToday && salesData?.projections && currentLocation?.id && !cachedProjections) {
-        setCachedProjections(currentLocation.id, {
-          weekProjected: salesData.projections.weekProjected,
-          monthProjected: salesData.projections.monthProjected
-        });
-      }
-      
-      // Use cached projections if available
-      if (cachedProjections && salesData?.projections) {
-        salesData.projections.weekProjected = cachedProjections.weekProjected;
-        salesData.projections.monthProjected = cachedProjections.monthProjected;
+      // Always use fresh projections from API
+      // Only cache if projections are valid (projection >= actual)
+      if (isToday && salesData?.projections && currentLocation?.id) {
+        const weekProjected = salesData.projections.weekProjected;
+        const monthProjected = salesData.projections.monthProjected;
+        const weeklySales = salesData?.weekly || 0;
+        const monthlySales = salesData?.monthly || 0;
+        
+        // Sanity check: projections must be >= actual sales
+        if (weekProjected >= weeklySales && monthProjected >= monthlySales && weekProjected > 0 && monthProjected > 0) {
+          setCachedProjections(currentLocation.id, { weekProjected, monthProjected });
+        }
       }
       
       return salesData;
