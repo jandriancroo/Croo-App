@@ -8,13 +8,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, GripVertical, Edit2, X } from "lucide-react";
+import { Plus, Trash2, GripVertical, Edit2, X, Copy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { DndContext, DragEndEvent, closestCenter, useSensor, useSensors, PointerSensor, TouchSensor } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useAuth } from "@/lib/auth";
 
 interface ManageCategoriesDialogProps {
   open: boolean;
@@ -158,11 +159,14 @@ function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushN
 export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesDialogProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { currentLocation } = useAppLocation();
+  const { currentLocation, locations } = useAppLocation();
+  const { user } = useAuth();
   const [newCategoryName, setNewCategoryName] = useState("");
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingFields, setEditingFields] = useState<any[]>([]);
   const [localCategories, setLocalCategories] = useState<any[]>([]);
+  const [copyTargetLocationId, setCopyTargetLocationId] = useState<string>("");
+  const [isCopying, setIsCopying] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -503,6 +507,90 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
         ) : (
           /* Category Manager */
           <div className="space-y-4">
+            {/* Copy Categories Section */}
+            {locations && locations.filter(l => l.id !== currentLocation?.id).length > 0 && (
+              <div className="border rounded-lg p-3 bg-muted/30">
+                <Label className="text-sm font-medium mb-2 block">Copy All Categories To Another Location</Label>
+                <div className="flex gap-2">
+                  <Select value={copyTargetLocationId} onValueChange={setCopyTargetLocationId}>
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select destination location..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {locations
+                        .filter(l => l.id !== currentLocation?.id)
+                        .map(location => (
+                          <SelectItem key={location.id} value={location.id}>
+                            {location.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    variant="outline"
+                    disabled={!copyTargetLocationId || isCopying || displayCategories.length === 0}
+                    onClick={async () => {
+                      if (!copyTargetLocationId || !user) return;
+                      setIsCopying(true);
+                      try {
+                        // Get categories with their fields
+                        for (const category of displayCategories) {
+                          // Create category in target location
+                          const { data: newCategory, error: catError } = await supabase
+                            .from('logbook_categories')
+                            .insert({
+                              name: category.name,
+                              display_order: category.display_order,
+                              is_active: category.is_active,
+                              alert_enabled: category.alert_enabled,
+                              push_notification_enabled: category.push_notification_enabled,
+                              location_id: copyTargetLocationId,
+                              created_by: user.id
+                            })
+                            .select()
+                            .single();
+                          
+                          if (catError) throw catError;
+                          
+                          // Copy fields for this category
+                          if (category.logbook_fields && category.logbook_fields.length > 0) {
+                            const fieldsToInsert = category.logbook_fields.map((field: any) => ({
+                              category_id: newCategory.id,
+                              field_name: field.field_name,
+                              field_type: field.field_type,
+                              is_required: field.is_required,
+                              display_order: field.display_order
+                            }));
+                            
+                            const { error: fieldsError } = await supabase
+                              .from('logbook_fields')
+                              .insert(fieldsToInsert);
+                            
+                            if (fieldsError) throw fieldsError;
+                          }
+                        }
+                        
+                        toast({ title: `Copied ${displayCategories.length} categories to destination` });
+                        setCopyTargetLocationId("");
+                        queryClient.invalidateQueries({ queryKey: ['logbook-categories'] });
+                      } catch (error: any) {
+                        toast({
+                          title: "Error copying categories",
+                          description: error.message,
+                          variant: "destructive"
+                        });
+                      } finally {
+                        setIsCopying(false);
+                      }
+                    }}
+                  >
+                    <Copy className="h-4 w-4 mr-2" />
+                    {isCopying ? 'Copying...' : 'Copy'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Create New Category */}
             <div className="flex gap-2">
               <Input
