@@ -112,29 +112,48 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     enabled: !!currentLocation?.id
   });
 
-  // Filter and fill sales data based on business hours
-  const salesData = rawSalesData && locationSettings?.hours_open && locationSettings?.hours_close && rawSalesData.hourly
-    ? (() => {
-        const openHour = parseInt(locationSettings.hours_open.split(':')[0]);
-        const closeHour = parseInt(locationSettings.hours_close.split(':')[0]);
+  // Convert hourly data to 12-hour format and fill based on business hours
+  const salesData = useMemo(() => {
+    if (!rawSalesData) return rawSalesData;
+    
+    // If we have business hours, create complete hourly range
+    if (locationSettings?.hours_open && locationSettings?.hours_close && rawSalesData.hourly) {
+      const openHour = parseInt(locationSettings.hours_open.split(':')[0]);
+      const closeHour = parseInt(locationSettings.hours_close.split(':')[0]);
+      
+      const completeHourly = [];
+      for (let hour = openHour; hour < closeHour; hour++) {
+        const hourStr24 = `${hour.toString().padStart(2, '0')}:00`;
+        const existingData = rawSalesData.hourly?.find(item => {
+          // Handle both 24-hour and 12-hour formats from API
+          const itemHour = item.hour.includes('AM') || item.hour.includes('PM')
+            ? parseInt(item.hour) + (item.hour.includes('PM') && !item.hour.startsWith('12') ? 12 : 0)
+            : parseInt(item.hour.split(':')[0]);
+          return itemHour === hour;
+        });
         
-        const completeHourly = [];
-        for (let hour = openHour; hour < closeHour; hour++) {
-          const hourStr24 = `${hour.toString().padStart(2, '0')}:00`;
-          const existingData = rawSalesData.hourly?.find(item => {
-            const itemHour = parseInt(item.hour.split(':')[0]);
-            return itemHour === hour;
-          });
-          
-          completeHourly.push({
-            hour: formatTime12Hour(hourStr24),
-            sales: existingData?.sales || 0
-          });
-        }
+        completeHourly.push({
+          hour: formatTime12Hour(hourStr24),
+          sales: existingData?.sales || 0
+        });
+      }
 
-        return { ...rawSalesData, hourly: completeHourly };
-      })()
-    : rawSalesData;
+      return { ...rawSalesData, hourly: completeHourly };
+    }
+    
+    // If no business hours but we have hourly data, just convert to 12-hour format
+    if (rawSalesData.hourly) {
+      const convertedHourly = rawSalesData.hourly.map(item => ({
+        ...item,
+        hour: item.hour.includes('AM') || item.hour.includes('PM') 
+          ? item.hour 
+          : formatTime12Hour(item.hour)
+      }));
+      return { ...rawSalesData, hourly: convertedHourly };
+    }
+    
+    return rawSalesData;
+  }, [rawSalesData, locationSettings]);
 
   const navigateDay = (direction: 'prev' | 'next') => {
     setTargetDate(prev => direction === 'prev' ? subDays(prev, 1) : addDays(prev, 1));
