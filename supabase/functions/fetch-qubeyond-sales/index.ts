@@ -395,13 +395,18 @@ async function generateProjections(
     sameWeek: number; 
     sameMonth: number;
     weeklyBreakdown: { date: string; sales: number }[];
+  },
+  fourWeekAverage?: {
+    avgWeekTotal: number;
+    avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[];
+    weeks: { weekStart: string; total: number }[];
   }
 ): Promise<{ todayProjected: number; weekProjected: number; monthProjected: number }> {
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       console.log("No LOVABLE_API_KEY, using simple projections");
-      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr, lastYearData);
+      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr, lastYearData, fourWeekAverage);
     }
 
     // Calculate remaining hours and days
@@ -416,19 +421,46 @@ async function generateProjections(
     let lastYearSection = "";
     if (lastYearData) {
       lastYearSection = `
-LAST YEAR COMPARISON (same dates from last year - USE THIS FOR CONTEXT):
+LAST YEAR COMPARISON (same dates from last year):
 - Same day last year: $${lastYearData.sameDay.toFixed(2)}
 - Same week last year (full week): $${lastYearData.sameWeek.toFixed(2)}
 - Same month last year (full month): $${lastYearData.sameMonth.toFixed(2)}
 
 Last year's daily breakdown for same week:
 ${lastYearData.weeklyBreakdown.map(d => `${d.date}: $${d.sales.toFixed(2)}`).join('\n')}
-
-Year-over-year trends: Compare current performance to last year. If this year is trending +10% vs last year, apply similar growth to projections.
 `;
     }
 
-    const prompt = `You are a sales projection AI for a pizza restaurant. Based on the following data, predict the final totals. Be conservative in your projections - it's better to slightly underestimate than dramatically overestimate.
+    // Build 4-week average section
+    let fourWeekSection = "";
+    if (fourWeekAverage) {
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      fourWeekSection = `
+4-WEEK HISTORICAL AVERAGE (CRITICAL - USE THIS AS PRIMARY BASELINE):
+- Average weekly total (past 4 weeks): $${fourWeekAverage.avgWeekTotal.toFixed(2)}
+
+Weekly totals for past 4 weeks:
+${fourWeekAverage.weeks.map(w => `Week of ${w.weekStart}: $${w.total.toFixed(2)}`).join('\n')}
+
+Average sales by day of week (based on 4 weeks):
+${fourWeekAverage.avgDailyByDayOfWeek.map(d => `${dayNames[d.dayOfWeek]}: $${d.avgSales.toFixed(2)}`).join('\n')}
+
+IMPORTANT: The 4-week average is your most reliable baseline. Use this to project remaining days of the week and month.
+`;
+    }
+
+    // Calculate YoY growth if both datasets available
+    let yoyGrowthSection = "";
+    if (lastYearData && fourWeekAverage && lastYearData.sameWeek > 0) {
+      const yoyGrowth = ((fourWeekAverage.avgWeekTotal - lastYearData.sameWeek) / lastYearData.sameWeek) * 100;
+      yoyGrowthSection = `
+YEAR-OVER-YEAR TREND:
+- 4-week average vs last year same week: ${yoyGrowth >= 0 ? '+' : ''}${yoyGrowth.toFixed(1)}%
+- Apply this growth rate when projecting from last year's data.
+`;
+    }
+
+    const prompt = `You are a sales projection AI for a pizza restaurant. Based on the following data, predict the final totals.
 
 Current Status:
 - Today's sales so far: $${dailySales.toFixed(2)}
@@ -444,16 +476,19 @@ ${weeklyBreakdown.map(d => `${d.date}: $${d.sales.toFixed(2)}`).join('\n')}
 
 Daily sales this month (last 14 days):
 ${monthlyBreakdown.slice(-14).map(d => `${d.date}: $${d.sales.toFixed(2)}`).join('\n')}
+${fourWeekSection}
 ${lastYearSection}
-Based on the hourly sales patterns (restaurants typically see lunch rush 11am-1pm and dinner rush 5pm-8pm):
-1. Today's FINAL end-of-day total (close of business at ${hoursClose}:00)
-2. This week's FINAL total (through end of day Sunday)
-3. This month's FINAL total - BE CONSERVATIVE here, especially if we only have ${monthlyBreakdown.length} days of data
+${yoyGrowthSection}
 
-IMPORTANT: 
-- For monthly projections, don't just multiply daily average by remaining days. Account for typical restaurant patterns (some days are slower than others). 
-- Use last year's data as a baseline if available - apply year-over-year growth/decline trends.
-- Use conservative estimates.
+PROJECTION INSTRUCTIONS:
+1. TODAY'S PROJECTION: Use the 4-week average for today's day-of-week as baseline, adjusted for current hour progress.
+2. WEEK PROJECTION: Week-to-date + (4-week average for remaining days of week). The weekly projection MUST be >= week-to-date sales.
+3. MONTH PROJECTION: Month-to-date + (4-week daily averages × remaining days). Use day-of-week patterns. The monthly projection MUST be >= month-to-date sales.
+
+CRITICAL RULES:
+- Week projection MUST be greater than or equal to current week-to-date ($${weeklySales.toFixed(2)})
+- Month projection MUST be greater than or equal to current month-to-date ($${monthlySales.toFixed(2)})
+- Use the 4-week historical average as your primary baseline - it's the most reliable recent data.
 
 Return ONLY a JSON object with these three numbers, no explanation:
 {"todayProjected": number, "weekProjected": number, "monthProjected": number}`;
@@ -467,7 +502,7 @@ Return ONLY a JSON object with these three numbers, no explanation:
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are a sales forecasting AI for restaurants. Always respond with valid JSON only. Use realistic projections based on hourly patterns - dinner hours typically generate 40-50% of daily sales. When last year data is available, use it as a key reference point for your projections." },
+          { role: "system", content: "You are a sales forecasting AI for restaurants. Always respond with valid JSON only. Use the 4-week historical average as your primary baseline for projections. Projections must ALWAYS be >= current totals." },
           { role: "user", content: prompt }
         ],
       }),
@@ -475,7 +510,7 @@ Return ONLY a JSON object with these three numbers, no explanation:
 
     if (!response.ok) {
       console.error("AI projection failed:", response.status);
-      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr, lastYearData);
+      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr, lastYearData, fourWeekAverage);
     }
 
     const data = await response.json();
@@ -486,17 +521,19 @@ Return ONLY a JSON object with these three numbers, no explanation:
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
       console.log("AI projections:", parsed);
+      
+      // Ensure projections are at least current totals
       return {
-        todayProjected: parsed.todayProjected || 0,
-        weekProjected: parsed.weekProjected || 0,
-        monthProjected: parsed.monthProjected || 0
+        todayProjected: Math.max(parsed.todayProjected || 0, dailySales),
+        weekProjected: Math.max(parsed.weekProjected || 0, weeklySales),
+        monthProjected: Math.max(parsed.monthProjected || 0, monthlySales)
       };
     }
     
-    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr, lastYearData);
+    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr, lastYearData, fourWeekAverage);
   } catch (error) {
     console.error("AI projection error:", error);
-    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr, lastYearData);
+    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr, lastYearData, fourWeekAverage);
   }
 }
 
@@ -516,17 +553,26 @@ function simpleProjections(
     sameWeek: number; 
     sameMonth: number;
     weeklyBreakdown: { date: string; sales: number }[];
+  },
+  fourWeekAverage?: {
+    avgWeekTotal: number;
+    avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[];
+    weeks: { weekStart: string; total: number }[];
   }
 ): { todayProjected: number; weekProjected: number; monthProjected: number } {
   const totalBusinessHours = hoursClose - hoursOpen;
+  const today = new Date(todayStr + 'T12:00:00');
+  const dayOfWeek = today.getDay();
   
-  // Calculate today's projection based on expected hourly performance
+  // Calculate today's projection - prefer 4-week average for day of week
   let todayProjected = 0;
+  const todayAvgFromFourWeeks = fourWeekAverage?.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0;
   
-  // Don't start projecting until after opening hour (sales flow starts at opening)
   if (currentHour < hoursOpen) {
-    // Before opening - use last year same day if available, else use this week's average
-    if (lastYearData && lastYearData.sameDay > 0) {
+    // Before opening - use 4-week average for this day of week
+    if (todayAvgFromFourWeeks > 0) {
+      todayProjected = todayAvgFromFourWeeks;
+    } else if (lastYearData && lastYearData.sameDay > 0) {
       todayProjected = lastYearData.sameDay;
     } else {
       const completedDays = weeklyBreakdown.filter(d => d.sales > 0);
@@ -547,72 +593,80 @@ function simpleProjections(
       if (h >= 11 && h < 14) expectedPercentComplete += 0.25 / 3; // 25% over 3 hours (lunch)
       else if (h >= 14 && h < 17) expectedPercentComplete += 0.20 / 3; // 20% over 3 hours (afternoon)
       else if (h >= 17 && h < 22) expectedPercentComplete += 0.55 / 5; // 55% over 5 hours (dinner)
-      else expectedPercentComplete += 0.5 / totalBusinessHours; // fallback for hours outside typical patterns
+      else expectedPercentComplete += 0.5 / totalBusinessHours;
     }
     
     // If we have some sales, project based on actual vs expected performance
     if (dailySales > 0 && expectedPercentComplete > 0) {
       todayProjected = dailySales / expectedPercentComplete;
-    } else if (hoursElapsed > 0) {
-      const hoursFraction = hoursElapsed / totalBusinessHours;
-      const projectionMultiplier = Math.min(1 / hoursFraction, 3);
-      todayProjected = dailySales * projectionMultiplier;
+    } else if (todayAvgFromFourWeeks > 0) {
+      todayProjected = todayAvgFromFourWeeks;
+    } else if (lastYearData && lastYearData.sameDay > 0) {
+      todayProjected = lastYearData.sameDay;
     } else {
-      // Just opened - use last year same day or this week average
-      if (lastYearData && lastYearData.sameDay > 0) {
-        todayProjected = lastYearData.sameDay;
-      } else {
-        const completedDays = weeklyBreakdown.filter(d => d.sales > 0);
-        todayProjected = completedDays.length > 0 
-          ? completedDays.reduce((sum, d) => sum + d.sales, 0) / completedDays.length 
-          : dailySales;
-      }
+      const completedDays = weeklyBreakdown.filter(d => d.sales > 0);
+      todayProjected = completedDays.length > 0 
+        ? completedDays.reduce((sum, d) => sum + d.sales, 0) / completedDays.length 
+        : dailySales;
     }
   }
   
-  // Week projection: use last year as baseline if available
-  const today = new Date(todayStr + 'T12:00:00');
-  const dayOfWeek = today.getDay();
+  // Ensure today's projection is at least actual sales
+  todayProjected = Math.max(todayProjected, dailySales);
+  
+  // Week projection: use 4-week average as primary baseline
   const daysRemainingInWeek = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-  const daysThisWeek = weeklyBreakdown.length;
   
   let weekProjected: number;
-  if (lastYearData && lastYearData.sameWeek > 0 && daysThisWeek > 0) {
-    // Calculate YoY growth rate and apply to projection
+  if (fourWeekAverage && fourWeekAverage.avgWeekTotal > 0) {
+    // Use 4-week average for remaining days
+    let remainingDaysProjection = 0;
+    for (let d = dayOfWeek + 1; d <= 6; d++) {
+      const avgForDay = fourWeekAverage.avgDailyByDayOfWeek.find(x => x.dayOfWeek === d)?.avgSales || 0;
+      remainingDaysProjection += avgForDay;
+    }
+    // Sunday (0)
+    if (dayOfWeek !== 0) {
+      const sundayAvg = fourWeekAverage.avgDailyByDayOfWeek.find(x => x.dayOfWeek === 0)?.avgSales || 0;
+      remainingDaysProjection += sundayAvg;
+    }
+    weekProjected = weeklySales + (todayProjected - dailySales) + remainingDaysProjection;
+  } else if (lastYearData && lastYearData.sameWeek > 0) {
     const lastYearAvg = lastYearData.sameWeek / 7;
-    const thisYearAvg = weeklySales / daysThisWeek;
+    const thisYearAvg = weeklySales / Math.max(weeklyBreakdown.length, 1);
     const growthRate = thisYearAvg / lastYearAvg;
     weekProjected = weeklySales + (todayProjected - dailySales) + (lastYearAvg * growthRate * daysRemainingInWeek);
   } else {
-    const avgDailySales = daysThisWeek > 0 ? weeklySales / daysThisWeek : todayProjected;
-    const todayRemainingProjected = todayProjected - dailySales;
-    weekProjected = weeklySales + todayRemainingProjected + (avgDailySales * daysRemainingInWeek);
+    const avgDailySales = weeklyBreakdown.length > 0 ? weeklySales / weeklyBreakdown.length : todayProjected;
+    weekProjected = weeklySales + (todayProjected - dailySales) + (avgDailySales * daysRemainingInWeek);
   }
   
-  // Month projection: use last year as baseline if available
+  // Ensure week projection is at least actual weekly sales
+  weekProjected = Math.max(weekProjected, weeklySales);
+  
+  // Month projection: use 4-week average for remaining days
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const dayOfMonth = today.getDate();
   const daysRemainingInMonth = daysInMonth - dayOfMonth;
   
   let monthProjected: number;
-  if (lastYearData && lastYearData.sameMonth > 0 && monthlyBreakdown.length > 0) {
-    // Calculate YoY growth rate and apply to projection
+  if (fourWeekAverage && fourWeekAverage.avgWeekTotal > 0) {
+    // Calculate average daily from 4-week data and project remaining days
+    const avgDaily = fourWeekAverage.avgWeekTotal / 7;
+    monthProjected = monthlySales + (todayProjected - dailySales) + (avgDaily * daysRemainingInMonth);
+  } else if (lastYearData && lastYearData.sameMonth > 0) {
     const lastYearAvg = lastYearData.sameMonth / daysInMonth;
-    const thisYearAvg = monthlySales / monthlyBreakdown.length;
+    const thisYearAvg = monthlySales / Math.max(monthlyBreakdown.length, 1);
     const growthRate = thisYearAvg / lastYearAvg;
-    monthProjected = (monthlySales + (todayProjected - dailySales) + (lastYearAvg * growthRate * daysRemainingInMonth)) * 0.95; // Slightly conservative
+    monthProjected = (monthlySales + (todayProjected - dailySales) + (lastYearAvg * growthRate * daysRemainingInMonth)) * 0.95;
   } else {
     const daysOfData = monthlyBreakdown.length;
-    let monthAvgDaily: number;
-    if (daysOfData >= 7) {
-      monthAvgDaily = monthlySales / daysOfData;
-    } else if (daysThisWeek > 0) {
-      monthAvgDaily = weeklySales / daysThisWeek;
-    } else {
-      monthAvgDaily = todayProjected;
-    }
+    const monthAvgDaily = daysOfData > 0 ? monthlySales / daysOfData : todayProjected;
     monthProjected = (monthlySales + (todayProjected - dailySales) + (monthAvgDaily * daysRemainingInMonth)) * 0.90;
   }
+  
+  // Ensure month projection is at least actual monthly sales
+  monthProjected = Math.max(monthProjected, monthlySales);
   
   return { todayProjected, weekProjected, monthProjected };
 }
@@ -869,7 +923,7 @@ serve(async (req) => {
 
     const avgTicket = dailyGuestCount > 0 ? dailySales / dailyGuestCount : 0;
 
-    // Fetch last year data for better projections (only if not skipping projections)
+    // Fetch last year data and 4-week historical data for better projections (only if not skipping projections)
     let lastYearData: { 
       sameDay: number; 
       sameWeek: number; 
@@ -877,15 +931,44 @@ serve(async (req) => {
       weeklyBreakdown: { date: string; sales: number }[];
     } | undefined;
     
+    let fourWeekAverage: {
+      avgWeekTotal: number;
+      avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[];
+      weeks: { weekStart: string; total: number }[];
+    } | undefined;
+    
     if (!skipProjections) {
-      console.log('Fetching last year data for projections...');
+      console.log('Fetching historical data for projections...');
+      
+      // Generate 4-week historical date ranges (past 4 complete weeks)
+      const fourWeekRanges: { weekStart: string; weekEnd: string }[] = [];
+      for (let i = 1; i <= 4; i++) {
+        const weekStartOffset = i * 7;
+        const weekEndOffset = (i - 1) * 7 + 1;
+        fourWeekRanges.push({
+          weekStart: adjustDate(weekStartStr, -weekStartOffset),
+          weekEnd: adjustDate(weekStartStr, -weekEndOffset)
+        });
+      }
+      
+      console.log('4-week historical ranges:', fourWeekRanges.map(r => `${r.weekStart} to ${r.weekEnd}`).join(', '));
+      
       try {
-        const [lastYearDayHourly, lastYearWeekBreakdown, lastYearMonthResult] = await Promise.all([
+        // Fetch all 4 weeks of data in parallel
+        const fourWeekPromises = fourWeekRanges.map(range => {
+          const dates = getDateRange(range.weekStart, range.weekEnd);
+          return fetchDailyBreakdown(tokenGw, dates, qbLocationId);
+        });
+        
+        // Also fetch last year data
+        const [lastYearDayHourly, lastYearWeekBreakdown, lastYearMonthResult, ...fourWeekResults] = await Promise.all([
           fetchHourlySales(tokenGw, lastYearTodayStr, qbLocationId),
           fetchDailyBreakdown(tokenGw, lastYearWeekDates, qbLocationId),
-          fetchSalesForDates(tokenGw, lastYearMonthDates, qbLocationId, 'last_year_month')
+          fetchSalesForDates(tokenGw, lastYearMonthDates, qbLocationId, 'last_year_month'),
+          ...fourWeekPromises
         ]);
         
+        // Process last year data
         const lastYearSameDay = lastYearDayHourly.reduce((sum, h) => sum + h.sales, 0);
         const lastYearSameWeek = lastYearWeekBreakdown.reduce((sum, d) => sum + d.sales, 0);
         
@@ -897,16 +980,64 @@ serve(async (req) => {
         };
         
         console.log(`Last year same day: $${lastYearSameDay}, same week: $${lastYearSameWeek}, same month: $${lastYearMonthResult.total}`);
+        
+        // Process 4-week historical data
+        const allFourWeekDays: { date: string; sales: number; dayOfWeek: number }[] = [];
+        const weekTotals: { weekStart: string; total: number }[] = [];
+        
+        fourWeekResults.forEach((weekData, idx) => {
+          const weekTotal = weekData.reduce((sum, d) => sum + d.sales, 0);
+          weekTotals.push({
+            weekStart: fourWeekRanges[idx].weekStart,
+            total: weekTotal
+          });
+          
+          weekData.forEach(d => {
+            const date = new Date(d.date + 'T12:00:00');
+            allFourWeekDays.push({
+              date: d.date,
+              sales: d.sales,
+              dayOfWeek: date.getDay()
+            });
+          });
+        });
+        
+        // Calculate averages by day of week
+        const salesByDayOfWeek: { [key: number]: number[] } = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+        allFourWeekDays.forEach(d => {
+          if (d.sales > 0) {
+            salesByDayOfWeek[d.dayOfWeek].push(d.sales);
+          }
+        });
+        
+        const avgDailyByDayOfWeek = Object.entries(salesByDayOfWeek).map(([dow, sales]) => ({
+          dayOfWeek: parseInt(dow),
+          avgSales: sales.length > 0 ? sales.reduce((sum, s) => sum + s, 0) / sales.length : 0
+        }));
+        
+        const avgWeekTotal = weekTotals.length > 0 
+          ? weekTotals.reduce((sum, w) => sum + w.total, 0) / weekTotals.length 
+          : 0;
+        
+        fourWeekAverage = {
+          avgWeekTotal,
+          avgDailyByDayOfWeek,
+          weeks: weekTotals
+        };
+        
+        console.log(`4-week average weekly total: $${avgWeekTotal.toFixed(2)}`);
+        console.log('Average by day of week:', avgDailyByDayOfWeek.map(d => `${d.dayOfWeek}: $${d.avgSales.toFixed(2)}`).join(', '));
+        
       } catch (error) {
-        console.error('Failed to fetch last year data:', error);
-        // Continue without last year data
+        console.error('Failed to fetch historical data:', error);
+        // Continue without historical data
       }
     }
 
     // Generate AI projections (skip if client already has cached projections)
     let projections = { todayProjected: 0, weekProjected: 0, monthProjected: 0 };
     if (!skipProjections) {
-      console.log('Generating AI projections with last year data...');
+      console.log('Generating AI projections with 4-week average and last year data...');
       projections = await generateProjections(
         dailySales,
         weeklySales,
@@ -917,7 +1048,8 @@ serve(async (req) => {
         hoursOpen,
         hoursClose,
         todayStr,
-        lastYearData
+        lastYearData,
+        fourWeekAverage
       );
     } else {
       console.log('Skipping projections - client has cached values');
