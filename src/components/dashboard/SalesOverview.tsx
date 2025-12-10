@@ -26,6 +26,7 @@ interface SalesData {
   currentHour?: number;
   productMix?: Array<{ name: string; quantity: number; sales: number; category: string }>;
   dateRange?: { today: string; weekStart: string; monthStart: string };
+  labor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number } | null;
 }
 
 interface LocationSettings {
@@ -244,9 +245,13 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     );
   }
 
+  const hasLaborData = salesData?.labor && salesData.labor.laborPercent > 0;
+
   return (
     <div>
-      <h3 className="text-xl font-semibold mb-4">Sales Overview</h3>
+      <h3 className="text-xl font-semibold mb-4">
+        {hasLaborData ? 'Sales & Labor Overview' : 'Sales Overview'}
+      </h3>
       <Card>
         <CardContent className="pt-4">
           <Tabs defaultValue="today" className="w-full">
@@ -304,6 +309,31 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     <span className="text-sm sm:text-base font-semibold text-primary">
                       {formatCurrency(salesData.projections.todayProjected)}
                     </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Live Labor from Qu */}
+              {hasLaborData && salesData?.labor && (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex-shrink-0">
+                      <span className="text-xs font-bold text-white">%</span>
+                    </div>
+                    <span className="text-xs sm:text-sm text-muted-foreground">Live Labor</span>
+                  </div>
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="text-right">
+                      <p className="text-lg sm:text-xl font-bold text-orange-500">{salesData.labor.laborPercent.toFixed(1)}%</p>
+                    </div>
+                    <div className="text-right hidden sm:block">
+                      <p className="text-xs text-muted-foreground">Cost</p>
+                      <p className="text-sm font-medium">{formatCurrency(salesData.labor.laborCost)}</p>
+                    </div>
+                    <div className="text-right hidden sm:block">
+                      <p className="text-xs text-muted-foreground">Hours</p>
+                      <p className="text-sm font-medium">{salesData.labor.hoursWorked.toFixed(1)}h</p>
+                    </div>
                   </div>
                 </div>
               )}
