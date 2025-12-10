@@ -93,21 +93,33 @@ export default function Dashboard() {
   const { animationAmount } = useCrooCashAnimation();
   const isMobile = useIsMobile();
   
-  // Fetch location settings for business hours
+  // Fetch location hours for current day of week
   const { data: locationSettings } = useQuery({
-    queryKey: ["location-settings", currentLocation?.id],
+    queryKey: ["location-hours-today", currentLocation?.id],
     queryFn: async () => {
       if (!currentLocation) return null;
+      const today = new Date();
+      const dayOfWeek = today.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      
       const { data, error } = await supabase
-        .from('location_settings')
-        .select('hours_open, hours_close')
+        .from('location_hours')
+        .select('open_time, close_time, is_closed')
         .eq('location_id', currentLocation.id)
+        .eq('day_of_week', dayOfWeek)
         .maybeSingle();
+      
       if (error) {
-        console.error("Error fetching location settings:", error);
+        console.error("Error fetching location hours:", error);
         return null;
       }
-      return data;
+      
+      if (!data || data.is_closed) return null;
+      
+      // Map to expected format
+      return {
+        hours_open: data.open_time,
+        hours_close: data.close_time
+      };
     },
     enabled: !!currentLocation,
     refetchInterval: 15000, // Refresh every 15 seconds
