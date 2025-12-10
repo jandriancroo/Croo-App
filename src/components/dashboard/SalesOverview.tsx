@@ -69,25 +69,25 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
   const isToday = isSameDay(targetDate, new Date());
 
-  // Check for cached projections first (only for today)
-  const cachedProjections = isToday && currentLocation?.id 
-    ? getCachedProjections(currentLocation.id) 
-    : null;
-
-  // Determine if we should skip AI projection calls
-  const hasValidDailyCache = cachedProjections?.todayProjected !== undefined;
-  const hasValidWeeklyMonthlyCache = cachedProjections?.weekProjected !== undefined && cachedProjections?.monthProjected !== undefined;
-
   const { data: rawSalesData, isLoading, refetch } = useQuery({
     queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
     queryFn: async () => {
-      // Skip projections if we have all cached values
-      const skipProjections = isToday && hasValidDailyCache && hasValidWeeklyMonthlyCache;
+      const dateStr = getDateString(targetDate);
+      const isTodayCheck = isSameDay(targetDate, new Date());
+      
+      // Check cache INSIDE the query function to get fresh values
+      const cachedProjections = isTodayCheck && currentLocation?.id 
+        ? getCachedProjections(currentLocation.id) 
+        : null;
+      
+      const hasValidDailyCache = cachedProjections?.todayProjected !== undefined;
+      const hasValidWeeklyMonthlyCache = cachedProjections?.weekProjected !== undefined && cachedProjections?.monthProjected !== undefined;
+      const skipProjections = isTodayCheck && hasValidDailyCache && hasValidWeeklyMonthlyCache;
       
       const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
         body: { 
           locationId: currentLocation?.id,
-          targetDate: getDateString(targetDate),
+          targetDate: dateStr,
           skipProjections
         }
       });
@@ -108,7 +108,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       }
       
       // Cache new projections if we fetched them fresh
-      if (isToday && !skipProjections && salesData?.projections && currentLocation?.id) {
+      if (isTodayCheck && !skipProjections && salesData?.projections && currentLocation?.id) {
         const todayProjected = salesData.projections.todayProjected;
         const weekProjected = salesData.projections.weekProjected;
         const monthProjected = salesData.projections.monthProjected;
@@ -127,7 +127,9 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       
       return salesData;
     },
-    enabled: !!currentLocation?.id
+    enabled: !!currentLocation?.id,
+    staleTime: 60000, // Consider data fresh for 1 minute to reduce refetches
+    refetchOnWindowFocus: false // Don't refetch just because user switched tabs
   });
 
   // Convert hourly data to 12-hour format and filter to business hours only
