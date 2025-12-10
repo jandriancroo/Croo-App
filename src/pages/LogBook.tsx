@@ -90,12 +90,25 @@ export default function LogBook() {
     enabled: !!currentLocation,
   });
 
-  // Set initial category
+  // Set initial category or handle URL parameter
   useEffect(() => {
-    if (!selectedCategory && categories.length > 0) {
+    const categoryParam = searchParams.get('category');
+    
+    if (categoryParam && categories.length > 0) {
+      // Find category by name (case-insensitive)
+      const matchedCategory = categories.find(
+        (c: any) => c.name?.toLowerCase() === categoryParam.toLowerCase()
+      );
+      if (matchedCategory) {
+        setSelectedCategory(matchedCategory.id);
+        setActiveTab('entry');
+        // Clear the URL param after setting
+        setSearchParams({});
+      }
+    } else if (!selectedCategory && categories.length > 0) {
       setSelectedCategory(categories[0].id);
     }
-  }, [categories, selectedCategory]);
+  }, [categories, selectedCategory, searchParams, setSearchParams]);
 
   // Handle navigation from alert link
   useEffect(() => {
