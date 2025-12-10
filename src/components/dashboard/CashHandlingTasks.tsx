@@ -61,7 +61,7 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
   
-  if (!canAccessCashHandling || !locationHours) return null;
+  if (!canAccessCashHandling) return null;
   
   const safeCountCategory = categories?.find(c => c.name.toLowerCase().includes("safe count"));
   const drawerCountCategory = categories?.find(c => c.name.toLowerCase().includes("drawer count"));
@@ -98,31 +98,37 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   
-  // Visibility logic
-  // AM Safe Count: 2 hours before open to 2 hours after open (or until submitted)
-  const amWindowStart = openMinutes !== null ? openMinutes - 120 : null;
-  const amWindowEnd = openMinutes !== null ? openMinutes + 120 : null;
-  const showAmSafeCount = !amSafeCountSubmitted && 
-    amWindowStart !== null && 
-    amWindowEnd !== null && 
-    currentMinutes >= amWindowStart && 
-    currentMinutes <= amWindowEnd;
+  // TEMPORARY: Force show all cards for testing
+  const showAmSafeCount = true;
+  const showPmSafeCount = true;
+  const showDeposit = true;
   
-  // PM Safe Count: At close to 2 hours after close (or until submitted)
-  const pmWindowStart = closeMinutes;
-  const pmWindowEnd = closeMinutes !== null ? closeMinutes + 120 : null;
-  const showPmSafeCount = !pmSafeCountSubmitted && 
-    pmWindowStart !== null && 
-    pmWindowEnd !== null && 
-    currentMinutes >= pmWindowStart && 
-    currentMinutes <= pmWindowEnd;
+  // Original visibility logic (commented out for testing):
+  // // Visibility logic
+  // // AM Safe Count: 2 hours before open to 2 hours after open (or until submitted)
+  // const amWindowStart = openMinutes !== null ? openMinutes - 120 : null;
+  // const amWindowEnd = openMinutes !== null ? openMinutes + 120 : null;
+  // const showAmSafeCount = !amSafeCountSubmitted && 
+  //   amWindowStart !== null && 
+  //   amWindowEnd !== null && 
+  //   currentMinutes >= amWindowStart && 
+  //   currentMinutes <= amWindowEnd;
   
-  // Deposit: At close to 2 hours after close (or until submitted)
-  const showDeposit = !depositSubmitted && 
-    pmWindowStart !== null && 
-    pmWindowEnd !== null && 
-    currentMinutes >= pmWindowStart && 
-    currentMinutes <= pmWindowEnd;
+  // // PM Safe Count: At close to 2 hours after close (or until submitted)
+  // const pmWindowStart = closeMinutes;
+  // const pmWindowEnd = closeMinutes !== null ? closeMinutes + 120 : null;
+  // const showPmSafeCount = !pmSafeCountSubmitted && 
+  //   pmWindowStart !== null && 
+  //   pmWindowEnd !== null && 
+  //   currentMinutes >= pmWindowStart && 
+  //   currentMinutes <= pmWindowEnd;
+  
+  // // Deposit: At close to 2 hours after close (or until submitted)
+  // const showDeposit = !depositSubmitted && 
+  //   pmWindowStart !== null && 
+  //   pmWindowEnd !== null && 
+  //   currentMinutes >= pmWindowStart && 
+  //   currentMinutes <= pmWindowEnd;
   
   const handleNavigate = (categoryName: string, shift?: string) => {
     const params = new URLSearchParams();
@@ -138,21 +144,21 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
   const tasks = [
     {
       id: "am-safe",
-      show: showAmSafeCount && safeCountCategory,
+      show: showAmSafeCount,
       title: "AM Safe Count",
       icon: Vault,
       onClick: () => handleNavigate("safe", "AM"),
     },
     {
       id: "pm-safe",
-      show: showPmSafeCount && safeCountCategory,
+      show: showPmSafeCount,
       title: "PM Safe Count",
       icon: Vault,
       onClick: () => handleNavigate("safe", "PM"),
     },
     {
       id: "deposit",
-      show: showDeposit && drawerCountCategory,
+      show: showDeposit,
       title: "Deposit",
       icon: Banknote,
       onClick: () => handleNavigate("drawer"),
