@@ -34,6 +34,8 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
   const [hoursClose, setHoursClose] = useState("");
   const [timezone, setTimezone] = useState("America/Los_Angeles");
   const [blackoutDates, setBlackoutDates] = useState<Date[]>([]);
+  const [safeTarget, setSafeTarget] = useState<number>(300);
+  const [drawerBank, setDrawerBank] = useState<number>(200);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -61,12 +63,16 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
         setBlackoutDates(
           data.blackout_dates ? data.blackout_dates.map((d: string) => new Date(d)) : []
         );
+        setSafeTarget(data.safe_target ?? 300);
+        setDrawerBank(data.drawer_bank ?? 200);
       } else {
         setSettingsId(null);
         setHoursOpen("");
         setHoursClose("");
         setTimezone("America/Los_Angeles");
         setBlackoutDates([]);
+        setSafeTarget(300);
+        setDrawerBank(200);
       }
     } catch (error) {
       console.error("Error fetching location settings:", error);
@@ -91,6 +97,8 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
         hours_close: hoursClose || null,
         timezone: timezone,
         blackout_dates: blackoutDates.map(d => format(d, "yyyy-MM-dd")),
+        safe_target: safeTarget,
+        drawer_bank: drawerBank,
       };
 
       if (settingsId) {
@@ -246,6 +254,46 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
                 ))}
             </div>
           )}
+        </div>
+
+        {/* Cash Handling Settings */}
+        <div className="space-y-4 pt-4 border-t">
+          <div>
+            <Label className="text-base font-medium">Cash Handling</Label>
+            <p className="text-sm text-muted-foreground">
+              Configure safe and drawer count targets for this location
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="safe-target">Safe Target ($)</Label>
+              <Input
+                id="safe-target"
+                type="number"
+                min="0"
+                step="50"
+                value={safeTarget}
+                onChange={(e) => setSafeTarget(parseFloat(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Amount to keep in safe after balancing
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="drawer-bank">Drawer Bank ($)</Label>
+              <Input
+                id="drawer-bank"
+                type="number"
+                min="0"
+                step="50"
+                value={drawerBank}
+                onChange={(e) => setDrawerBank(parseFloat(e.target.value) || 0)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Starting drawer amount to keep after deposit
+              </p>
+            </div>
+          </div>
         </div>
 
         <Button onClick={handleSave} disabled={loading}>

@@ -8,7 +8,7 @@ import { AlertCircle, CheckCircle2, ArrowDown, DollarSign, Coins, Calculator, Lo
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 
-const DRAWER_BANK = 200; // $200 starting drawer
+const DEFAULT_DRAWER_BANK = 200; // $200 default starting drawer
 
 interface Denomination {
   name: string;
@@ -35,6 +35,7 @@ interface DrawerCountFormProps {
   isSaving?: boolean;
   existingData?: DrawerCountData | null;
   entryCount?: number;
+  drawerBank?: number;
 }
 
 export interface DrawerCountData {
@@ -46,8 +47,9 @@ export interface DrawerCountData {
   removalSuggestions: { denomination: string; count: number; value: number }[];
 }
 
-export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0 }: DrawerCountFormProps) {
+export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0, drawerBank = DEFAULT_DRAWER_BANK }: DrawerCountFormProps) {
   const { currentLocation } = useAppLocation();
+  const DRAWER_BANK = drawerBank;
   const [counts, setCounts] = useState<Record<string, number>>(() => {
     if (existingData?.counts) return existingData.counts;
     return DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d.name]: 0 }), {});
