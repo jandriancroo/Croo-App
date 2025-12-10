@@ -744,12 +744,12 @@ export default function Dashboard() {
               </div>
             )}
             
-            {!isChecklistOnlyLocation && isEditMode && <Button onClick={resetLayout} variant="outline" size="icon" className="h-10 w-10">
+            {isEditMode && <Button onClick={resetLayout} variant="outline" size="icon" className="h-10 w-10">
                 <ArrowUpDown className="h-4 w-4" />
               </Button>}
-            {!isChecklistOnlyLocation && <Button onClick={toggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="icon" className="h-10 w-10" title={isEditMode ? "Save Layout" : "Edit Layout"}>
+            <Button onClick={toggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="icon" className="h-10 w-10" title={isEditMode ? "Save Layout" : "Edit Layout"}>
               {isEditMode ? <Check className="h-4 w-4" /> : <ArrowUpDown className="h-4 w-4" />}
-            </Button>}
+            </Button>
           </div>
         </div>
 
