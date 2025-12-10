@@ -79,7 +79,18 @@ async function fetchSalesForDates(
   qbLocationId: string,
   periodType: string
 ): Promise<{ total: number; guestCount: number }> {
-  console.log(`Fetching ${periodType} sales for ${dates.length} days`);
+  console.log(`Fetching ${periodType} sales for ${dates.length} days with location ID: ${qbLocationId}`);
+  
+  const requestPayload = {
+    fields: [{ fieldName: "metric" }, { fieldName: "total" }],
+    filters: {
+      date: { from: null, to: null, values: dates, type: "custom" },
+      singleLocation: parseInt(qbLocationId)
+    },
+    params: { sectionId: "overview", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
+  };
+  
+  console.log(`[DEBUG] ${periodType} request payload:`, JSON.stringify(requestPayload));
   
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
     method: 'POST',
@@ -90,14 +101,7 @@ async function fetchSalesForDates(
       'Origin': 'https://admin.qubeyond.com',
       'Referer': 'https://admin.qubeyond.com/',
     },
-      body: JSON.stringify({
-        fields: [{ fieldName: "metric" }, { fieldName: "total" }],
-        filters: {
-          date: { from: null, to: null, values: dates, type: "custom" },
-          singleLocation: parseInt(qbLocationId)
-        },
-        params: { sectionId: "overview", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
-      }),
+    body: JSON.stringify(requestPayload),
   });
 
   if (!response.ok) {
@@ -106,6 +110,8 @@ async function fetchSalesForDates(
   }
 
   const data = await response.json();
+  console.log(`[DEBUG] ${periodType} FULL RESPONSE:`, JSON.stringify(data));
+  
   let total = 0, guestCount = 0;
   
   if (data.items && Array.isArray(data.items)) {
