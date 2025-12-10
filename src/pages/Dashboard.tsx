@@ -695,7 +695,10 @@ export default function Dashboard() {
 
   // Use appropriate sections based on location type
   const sections = isChecklistOnlyLocation 
-    ? { 'checklists-grid': standardSections['checklists-grid'] }
+    ? { 
+        ...(hasQuBeyondIntegration ? { 'sales-overview': standardSections['sales-overview'] } : {}),
+        'checklists-grid': standardSections['checklists-grid'] 
+      }
     : standardSections;
   return <Layout>
       <div className="space-y-6">
