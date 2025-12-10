@@ -85,12 +85,14 @@ async function fetchSalesForDates(
     fields: [{ fieldName: "metric" }, { fieldName: "total" }],
     filters: {
       date: { from: null, to: null, values: dates, type: "custom" },
-      singleLocation: parseInt(qbLocationId)
+      singleLocation: parseInt(qbLocationId),
+      locationId: parseInt(qbLocationId),
+      storeId: parseInt(qbLocationId)
     },
     params: { sectionId: "overview", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
   };
   
-  console.log(`[DEBUG] ${periodType} request payload:`, JSON.stringify(requestPayload));
+  console.log(`[DEBUG] ${periodType} request with locationId: ${qbLocationId}`);
   
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
     method: 'POST',
@@ -152,7 +154,9 @@ async function fetchHourlySales(
         ],
         filters: {
           date: { from: null, to: null, values: [dateStr], type: "today" },
-          singleLocation: parseInt(qbLocationId)
+          singleLocation: parseInt(qbLocationId),
+          locationId: parseInt(qbLocationId),
+          storeId: parseInt(qbLocationId)
         },
         params: { sectionId: "main", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
       }),
