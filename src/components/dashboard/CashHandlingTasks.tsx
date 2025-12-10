@@ -98,37 +98,31 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   
-  // TEMPORARY: Force show all cards for testing
-  const showAmSafeCount = true;
-  const showPmSafeCount = true;
-  const showDeposit = true;
+  // Visibility logic
+  // AM Safe Count: 2 hours before open to 2 hours after open (or until submitted)
+  const amWindowStart = openMinutes !== null ? openMinutes - 120 : null;
+  const amWindowEnd = openMinutes !== null ? openMinutes + 120 : null;
+  const showAmSafeCount = !amSafeCountSubmitted && 
+    amWindowStart !== null && 
+    amWindowEnd !== null && 
+    currentMinutes >= amWindowStart && 
+    currentMinutes <= amWindowEnd;
   
-  // Original visibility logic (commented out for testing):
-  // // Visibility logic
-  // // AM Safe Count: 2 hours before open to 2 hours after open (or until submitted)
-  // const amWindowStart = openMinutes !== null ? openMinutes - 120 : null;
-  // const amWindowEnd = openMinutes !== null ? openMinutes + 120 : null;
-  // const showAmSafeCount = !amSafeCountSubmitted && 
-  //   amWindowStart !== null && 
-  //   amWindowEnd !== null && 
-  //   currentMinutes >= amWindowStart && 
-  //   currentMinutes <= amWindowEnd;
+  // PM Safe Count: At close to 2 hours after close (or until submitted)
+  const pmWindowStart = closeMinutes;
+  const pmWindowEnd = closeMinutes !== null ? closeMinutes + 120 : null;
+  const showPmSafeCount = !pmSafeCountSubmitted && 
+    pmWindowStart !== null && 
+    pmWindowEnd !== null && 
+    currentMinutes >= pmWindowStart && 
+    currentMinutes <= pmWindowEnd;
   
-  // // PM Safe Count: At close to 2 hours after close (or until submitted)
-  // const pmWindowStart = closeMinutes;
-  // const pmWindowEnd = closeMinutes !== null ? closeMinutes + 120 : null;
-  // const showPmSafeCount = !pmSafeCountSubmitted && 
-  //   pmWindowStart !== null && 
-  //   pmWindowEnd !== null && 
-  //   currentMinutes >= pmWindowStart && 
-  //   currentMinutes <= pmWindowEnd;
-  
-  // // Deposit: At close to 2 hours after close (or until submitted)
-  // const showDeposit = !depositSubmitted && 
-  //   pmWindowStart !== null && 
-  //   pmWindowEnd !== null && 
-  //   currentMinutes >= pmWindowStart && 
-  //   currentMinutes <= pmWindowEnd;
+  // Deposit: At close to 2 hours after close (or until submitted)
+  const showDeposit = !depositSubmitted && 
+    pmWindowStart !== null && 
+    pmWindowEnd !== null && 
+    currentMinutes >= pmWindowStart && 
+    currentMinutes <= pmWindowEnd;
   
   const handleNavigate = (categoryName: string, shift?: string) => {
     const params = new URLSearchParams();
