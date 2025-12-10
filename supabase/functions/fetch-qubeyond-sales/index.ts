@@ -421,13 +421,15 @@ async function generateProjections(
     let lastYearSection = "";
     if (lastYearData) {
       lastYearSection = `
-LAST YEAR COMPARISON (same dates from last year):
+LAST YEAR COMPARISON (same dates from last year - CRITICAL FOR SEASONALITY):
 - Same day last year: $${lastYearData.sameDay.toFixed(2)}
 - Same week last year (full week): $${lastYearData.sameWeek.toFixed(2)}
-- Same month last year (full month): $${lastYearData.sameMonth.toFixed(2)}
+- Same month last year (FULL MONTH): $${lastYearData.sameMonth.toFixed(2)} <-- This is the benchmark for monthly projection!
 
 Last year's daily breakdown for same week:
 ${lastYearData.weeklyBreakdown.map(d => `${d.date}: $${d.sales.toFixed(2)}`).join('\n')}
+
+IMPORTANT: December is historically a strong month. Last year's FULL December total should be your primary guide for the monthly projection.
 `;
     }
 
@@ -436,7 +438,7 @@ ${lastYearData.weeklyBreakdown.map(d => `${d.date}: $${d.sales.toFixed(2)}`).joi
     if (fourWeekAverage) {
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       fourWeekSection = `
-4-WEEK HISTORICAL AVERAGE (CRITICAL - USE THIS AS PRIMARY BASELINE):
+4-WEEK HISTORICAL AVERAGE (for daily/weekly patterns):
 - Average weekly total (past 4 weeks): $${fourWeekAverage.avgWeekTotal.toFixed(2)}
 
 Weekly totals for past 4 weeks:
@@ -444,8 +446,6 @@ ${fourWeekAverage.weeks.map(w => `Week of ${w.weekStart}: $${w.total.toFixed(2)}
 
 Average sales by day of week (based on 4 weeks):
 ${fourWeekAverage.avgDailyByDayOfWeek.map(d => `${dayNames[d.dayOfWeek]}: $${d.avgSales.toFixed(2)}`).join('\n')}
-
-IMPORTANT: The 4-week average is your most reliable baseline. Use this to project remaining days of the week and month.
 `;
     }
 
@@ -456,7 +456,7 @@ IMPORTANT: The 4-week average is your most reliable baseline. Use this to projec
       yoyGrowthSection = `
 YEAR-OVER-YEAR TREND:
 - 4-week average vs last year same week: ${yoyGrowth >= 0 ? '+' : ''}${yoyGrowth.toFixed(1)}%
-- Apply this growth rate when projecting from last year's data.
+- Use this growth rate to adjust last year's monthly total for the monthly projection.
 `;
     }
 
@@ -482,13 +482,16 @@ ${yoyGrowthSection}
 
 PROJECTION INSTRUCTIONS:
 1. TODAY'S PROJECTION: Use the 4-week average for today's day-of-week as baseline, adjusted for current hour progress.
-2. WEEK PROJECTION: Week-to-date + (4-week average for remaining days of week). The weekly projection MUST be >= week-to-date sales.
-3. MONTH PROJECTION: Month-to-date + (4-week daily averages × remaining days). Use day-of-week patterns. The monthly projection MUST be >= month-to-date sales.
+2. WEEK PROJECTION: Week-to-date + (4-week average for remaining days of week). Must be >= week-to-date.
+3. MONTH PROJECTION: Start with LAST YEAR'S FULL MONTH as your baseline, then adjust by YoY growth trend. December is a peak month - don't underestimate it!
+   - If last year's same month was $${lastYearData?.sameMonth?.toFixed(2) || 'N/A'}, your projection should be close to or above that.
+   - Must be >= month-to-date ($${monthlySales.toFixed(2)}).
 
 CRITICAL RULES:
-- Week projection MUST be greater than or equal to current week-to-date ($${weeklySales.toFixed(2)})
-- Month projection MUST be greater than or equal to current month-to-date ($${monthlySales.toFixed(2)})
-- Use the 4-week historical average as your primary baseline - it's the most reliable recent data.
+- Week projection MUST be >= current week-to-date ($${weeklySales.toFixed(2)})
+- Month projection MUST be >= current month-to-date ($${monthlySales.toFixed(2)})
+- For MONTHLY projections: USE LAST YEAR'S FULL MONTH as your primary baseline - it captures seasonal patterns that the 4-week average misses.
+- For daily/weekly projections: Use the 4-week historical average.
 
 Return ONLY a JSON object with these three numbers, no explanation:
 {"todayProjected": number, "weekProjected": number, "monthProjected": number}`;
@@ -502,7 +505,7 @@ Return ONLY a JSON object with these three numbers, no explanation:
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are a sales forecasting AI for restaurants. Always respond with valid JSON only. Use the 4-week historical average as your primary baseline for projections. Projections must ALWAYS be >= current totals." },
+          { role: "system", content: "You are a sales forecasting AI for restaurants. Always respond with valid JSON only. For MONTHLY projections, use LAST YEAR'S SAME MONTH as your primary baseline (it captures seasonality). For daily/weekly projections, use the 4-week rolling average. Projections must ALWAYS be >= current totals." },
           { role: "user", content: prompt }
         ],
       }),
