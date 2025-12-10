@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle2, ArrowUp, ArrowDown, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const SAFE_TARGET = 300; // $300 target for safe
+const DEFAULT_SAFE_TARGET = 300; // $300 default target for safe
 
 interface Denomination {
   name: string;
@@ -38,6 +38,7 @@ interface SafeCountFormProps {
   onSave: (data: SafeCountData) => void;
   isSaving?: boolean;
   existingShifts?: ('AM' | 'PM')[];
+  safeTarget?: number;
 }
 
 export interface SafeCountData {
@@ -56,10 +57,11 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export function SafeCountForm({ onSave, isSaving, existingShifts = [] }: SafeCountFormProps) {
+export function SafeCountForm({ onSave, isSaving, existingShifts = [], safeTarget = DEFAULT_SAFE_TARGET }: SafeCountFormProps) {
   // Default to first available shift
   const defaultShift = existingShifts.includes('AM') ? 'PM' : 'AM';
   const [shift, setShift] = useState<'AM' | 'PM'>(defaultShift);
+  const SAFE_TARGET = safeTarget;
   const [counts, setCounts] = useState<Record<string, number>>(
     DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d.name]: 0 }), {})
   );
@@ -341,7 +343,7 @@ export function SafeCountForm({ onSave, isSaving, existingShifts = [] }: SafeCou
             className="w-full"
             size="lg"
           >
-            {isSaving ? 'Saving...' : calculations.isExact ? 'Save Safe Count' : 'Must be exactly $300 to save'}
+            {isSaving ? 'Saving...' : calculations.isExact ? 'Save Safe Count' : `Must be exactly ${formatCurrency(SAFE_TARGET)} to save`}
           </Button>
         </CardContent>
       </Card>

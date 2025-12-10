@@ -935,30 +935,36 @@ export type Database = {
         Row: {
           blackout_dates: string[] | null
           created_at: string
+          drawer_bank: number
           hours_close: string | null
           hours_open: string | null
           id: string
           location_id: string
+          safe_target: number
           timezone: string
           updated_at: string
         }
         Insert: {
           blackout_dates?: string[] | null
           created_at?: string
+          drawer_bank?: number
           hours_close?: string | null
           hours_open?: string | null
           id?: string
           location_id: string
+          safe_target?: number
           timezone?: string
           updated_at?: string
         }
         Update: {
           blackout_dates?: string[] | null
           created_at?: string
+          drawer_bank?: number
           hours_close?: string | null
           hours_open?: string | null
           id?: string
           location_id?: string
+          safe_target?: number
           timezone?: string
           updated_at?: string
         }
