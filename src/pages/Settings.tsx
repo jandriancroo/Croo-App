@@ -344,6 +344,7 @@ export default function Settings() {
     // For checklist-only locations, show limited settings
     if (isChecklistOnlyLocation) {
       if (id === 'theme') return true;
+      if (id === 'notifications') return true;
       if (id === 'organizations' && isAdmin) return true;
       if (id === 'locations' && isAdmin) return true;
       if (id === 'maintenance' && isAdmin) return true;
