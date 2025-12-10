@@ -893,6 +893,47 @@ export type Database = {
           },
         ]
       }
+      location_hours: {
+        Row: {
+          close_time: string | null
+          created_at: string
+          day_of_week: number
+          id: string
+          is_closed: boolean
+          location_id: string
+          open_time: string | null
+          updated_at: string
+        }
+        Insert: {
+          close_time?: string | null
+          created_at?: string
+          day_of_week: number
+          id?: string
+          is_closed?: boolean
+          location_id: string
+          open_time?: string | null
+          updated_at?: string
+        }
+        Update: {
+          close_time?: string | null
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          is_closed?: boolean
+          location_id?: string
+          open_time?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_hours_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_integrations: {
         Row: {
           created_at: string

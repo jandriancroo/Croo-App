@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
@@ -22,6 +23,23 @@ const TIMEZONES = [
   { value: "America/Phoenix", label: "Arizona (no DST)" },
 ];
 
+const DAYS_OF_WEEK = [
+  { value: 0, label: "Sunday", short: "Sun" },
+  { value: 1, label: "Monday", short: "Mon" },
+  { value: 2, label: "Tuesday", short: "Tue" },
+  { value: 3, label: "Wednesday", short: "Wed" },
+  { value: 4, label: "Thursday", short: "Thu" },
+  { value: 5, label: "Friday", short: "Fri" },
+  { value: 6, label: "Saturday", short: "Sat" },
+];
+
+interface DayHours {
+  day_of_week: number;
+  open_time: string;
+  close_time: string;
+  is_closed: boolean;
+}
+
 interface LocationSettingsSectionProps {
   locationId?: string;
 }
@@ -30,15 +48,22 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
   const { currentLocation } = useLocation();
   const effectiveLocationId = locationId || currentLocation?.id;
   const { toast } = useToast();
-  const [hoursOpen, setHoursOpen] = useState("");
-  const [hoursClose, setHoursClose] = useState("");
   const [timezone, setTimezone] = useState("America/Los_Angeles");
   const [blackoutDates, setBlackoutDates] = useState<Date[]>([]);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [businessHours, setBusinessHours] = useState<DayHours[]>(
+    DAYS_OF_WEEK.map(day => ({
+      day_of_week: day.value,
+      open_time: "11:00",
+      close_time: "22:00",
+      is_closed: false,
+    }))
+  );
 
   useEffect(() => {
     fetchLocationSettings();
+    fetchBusinessHours();
   }, [effectiveLocationId]);
 
   const fetchLocationSettings = async () => {
@@ -55,22 +80,63 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
 
       if (data) {
         setSettingsId(data.id);
-        setHoursOpen(data.hours_open || "");
-        setHoursClose(data.hours_close || "");
         setTimezone(data.timezone || "America/Los_Angeles");
         setBlackoutDates(
           data.blackout_dates ? data.blackout_dates.map((d: string) => new Date(d)) : []
         );
       } else {
         setSettingsId(null);
-        setHoursOpen("");
-        setHoursClose("");
         setTimezone("America/Los_Angeles");
         setBlackoutDates([]);
       }
     } catch (error) {
       console.error("Error fetching location settings:", error);
     }
+  };
+
+  const fetchBusinessHours = async () => {
+    if (!effectiveLocationId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("location_hours")
+        .select("*")
+        .eq("location_id", effectiveLocationId)
+        .order("day_of_week");
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        setBusinessHours(
+          DAYS_OF_WEEK.map(day => {
+            const existing = data.find(d => d.day_of_week === day.value);
+            return existing
+              ? {
+                  day_of_week: existing.day_of_week,
+                  open_time: existing.open_time || "11:00",
+                  close_time: existing.close_time || "22:00",
+                  is_closed: existing.is_closed,
+                }
+              : {
+                  day_of_week: day.value,
+                  open_time: "11:00",
+                  close_time: "22:00",
+                  is_closed: false,
+                };
+          })
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching business hours:", error);
+    }
+  };
+
+  const updateDayHours = (dayOfWeek: number, field: keyof DayHours, value: string | boolean) => {
+    setBusinessHours(prev =>
+      prev.map(day =>
+        day.day_of_week === dayOfWeek ? { ...day, [field]: value } : day
+      )
+    );
   };
 
   const handleSave = async () => {
@@ -86,9 +152,8 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
     setLoading(true);
 
     try {
+      // Save general settings
       const settingsData = {
-        hours_open: hoursOpen || null,
-        hours_close: hoursClose || null,
         timezone: timezone,
         blackout_dates: blackoutDates.map(d => format(d, "yyyy-MM-dd")),
       };
@@ -115,6 +180,24 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
 
         if (error) throw error;
         setSettingsId(data.id);
+      }
+
+      // Save business hours (upsert each day)
+      for (const dayHours of businessHours) {
+        const { error } = await supabase
+          .from("location_hours")
+          .upsert({
+            location_id: effectiveLocationId,
+            day_of_week: dayHours.day_of_week,
+            open_time: dayHours.is_closed ? null : dayHours.open_time,
+            close_time: dayHours.is_closed ? null : dayHours.close_time,
+            is_closed: dayHours.is_closed,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'location_id,day_of_week',
+          });
+
+        if (error) throw error;
       }
 
       toast({
@@ -185,24 +268,47 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        {/* Business Hours */}
+        <div className="space-y-3">
+          <Label>Business Hours</Label>
+          <p className="text-sm text-muted-foreground">
+            Set opening and closing times for each day of the week
+          </p>
           <div className="space-y-2">
-            <Label htmlFor="hours-open">Opening Time</Label>
-            <Input
-              id="hours-open"
-              type="time"
-              value={hoursOpen}
-              onChange={(e) => setHoursOpen(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="hours-close">Closing Time</Label>
-            <Input
-              id="hours-close"
-              type="time"
-              value={hoursClose}
-              onChange={(e) => setHoursClose(e.target.value)}
-            />
+            {DAYS_OF_WEEK.map((day) => {
+              const dayHours = businessHours.find(d => d.day_of_week === day.value);
+              return (
+                <div key={day.value} className="flex items-center gap-3 p-2 rounded-lg bg-muted/30">
+                  <span className="w-20 text-sm font-medium">{day.short}</span>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={!dayHours?.is_closed}
+                      onCheckedChange={(checked) => updateDayHours(day.value, 'is_closed', !checked)}
+                    />
+                    <span className="text-xs text-muted-foreground w-12">
+                      {dayHours?.is_closed ? 'Closed' : 'Open'}
+                    </span>
+                  </div>
+                  {!dayHours?.is_closed && (
+                    <>
+                      <Input
+                        type="time"
+                        value={dayHours?.open_time || "11:00"}
+                        onChange={(e) => updateDayHours(day.value, 'open_time', e.target.value)}
+                        className="w-28"
+                      />
+                      <span className="text-muted-foreground">to</span>
+                      <Input
+                        type="time"
+                        value={dayHours?.close_time || "22:00"}
+                        onChange={(e) => updateDayHours(day.value, 'close_time', e.target.value)}
+                        className="w-28"
+                      />
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
