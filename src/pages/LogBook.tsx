@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { useUserRole } from "@/hooks/useUserRole";
 import { ManageCategoriesDialog } from "@/components/logbook/ManageCategoriesDialog";
+import { IntegrationsSection } from "@/components/settings/IntegrationsSection";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -47,6 +48,7 @@ export default function LogBook() {
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<string>("entry");
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
+  const [showIntegrations, setShowIntegrations] = useState(false);
   const navigate = useNavigate();
 
   // Redirect team members away from logs page
@@ -425,12 +427,25 @@ export default function LogBook() {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
           <h1 className="text-3xl font-bold">Logs</h1>
           {isAdmin && (
-            <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>
-              <Settings className="h-4 w-4 mr-2" />
-              Manage Categories
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowIntegrations(!showIntegrations)}>
+                <Settings className="h-4 w-4 mr-2" />
+                QuBeyond
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>
+                <Settings className="h-4 w-4 mr-2" />
+                Categories
+              </Button>
+            </div>
           )}
         </div>
+
+        {/* QuBeyond Integration Settings */}
+        {isAdmin && showIntegrations && (
+          <div className="mb-6">
+            <IntegrationsSection locationId={currentLocation?.id} />
+          </div>
+        )}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
