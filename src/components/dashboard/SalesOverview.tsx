@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { formatTime12Hour } from '@/lib/utils';
-import { setCachedProjections } from '@/utils/salesCache';
+import { setCachedProjections, getCachedProjections } from '@/utils/salesCache';
 
 interface SalesData {
   daily: number;
@@ -69,18 +69,22 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
   const isToday = isSameDay(targetDate, new Date());
 
-  // Note: We always fetch fresh projections now for accuracy
-  // Cache is only used for storage/persistence, not to skip API calls
+  // Check for cached projections first (only for today)
+  const cachedProjections = isToday && currentLocation?.id 
+    ? getCachedProjections(currentLocation.id) 
+    : null;
 
   const { data: rawSalesData, isLoading, refetch } = useQuery({
     queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
     queryFn: async () => {
+      // If we have cached projections, skip fetching new ones from AI
+      const skipProjections = isToday && cachedProjections !== null;
+      
       const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
         body: { 
           locationId: currentLocation?.id,
           targetDate: getDateString(targetDate),
-          // Always fetch fresh projections for accuracy
-          skipProjections: false
+          skipProjections
         }
       });
       if (error) {
@@ -90,9 +94,17 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       
       const salesData = data as SalesData;
       
-      // Always use fresh projections from API
-      // Only cache if projections are valid (projection >= actual)
-      if (isToday && salesData?.projections && currentLocation?.id) {
+      // If we skipped projections but have cached ones, merge them in
+      if (skipProjections && cachedProjections && salesData) {
+        salesData.projections = {
+          ...salesData.projections,
+          weekProjected: cachedProjections.weekProjected,
+          monthProjected: cachedProjections.monthProjected
+        };
+      }
+      
+      // Cache new projections if we fetched them fresh
+      if (isToday && !skipProjections && salesData?.projections && currentLocation?.id) {
         const weekProjected = salesData.projections.weekProjected;
         const monthProjected = salesData.projections.monthProjected;
         const weeklySales = salesData?.weekly || 0;
