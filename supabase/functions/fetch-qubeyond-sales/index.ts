@@ -449,16 +449,24 @@ ${fourWeekAverage.avgDailyByDayOfWeek.map(d => `${dayNames[d.dayOfWeek]}: $${d.a
 `;
     }
 
-    // Calculate YoY growth if both datasets available
+    // Calculate YoY growth - be conservative, cap at reasonable range
     let yoyGrowthSection = "";
+    let yoyGrowthPercent = 0;
     if (lastYearData && fourWeekAverage && lastYearData.sameWeek > 0) {
-      const yoyGrowth = ((fourWeekAverage.avgWeekTotal - lastYearData.sameWeek) / lastYearData.sameWeek) * 100;
+      const rawYoYGrowth = ((fourWeekAverage.avgWeekTotal - lastYearData.sameWeek) / lastYearData.sameWeek) * 100;
+      // Cap YoY growth between -15% and +15% to prevent wild projections
+      yoyGrowthPercent = Math.max(-15, Math.min(15, rawYoYGrowth));
       yoyGrowthSection = `
-YEAR-OVER-YEAR TREND:
-- 4-week average vs last year same week: ${yoyGrowth >= 0 ? '+' : ''}${yoyGrowth.toFixed(1)}%
-- Use this growth rate to adjust last year's monthly total for the monthly projection.
+YEAR-OVER-YEAR TREND (capped at ±15% for realistic projection):
+- Raw YoY comparison: ${rawYoYGrowth >= 0 ? '+' : ''}${rawYoYGrowth.toFixed(1)}%
+- Applied adjustment: ${yoyGrowthPercent >= 0 ? '+' : ''}${yoyGrowthPercent.toFixed(1)}%
 `;
     }
+
+    // Pre-calculate a reasonable monthly projection range
+    const lastYearMonthly = lastYearData?.sameMonth || 0;
+    const suggestedMonthlyLow = lastYearMonthly > 0 ? Math.round(lastYearMonthly * 0.95) : 0;
+    const suggestedMonthlyHigh = lastYearMonthly > 0 ? Math.round(lastYearMonthly * 1.10) : 0;
 
     const prompt = `You are a sales projection AI for a pizza restaurant. Based on the following data, predict the final totals.
 
@@ -483,15 +491,18 @@ ${yoyGrowthSection}
 PROJECTION INSTRUCTIONS:
 1. TODAY'S PROJECTION: Use the 4-week average for today's day-of-week as baseline, adjusted for current hour progress.
 2. WEEK PROJECTION: Week-to-date + (4-week average for remaining days of week). Must be >= week-to-date.
-3. MONTH PROJECTION: Start with LAST YEAR'S FULL MONTH as your baseline, then adjust by YoY growth trend. December is a peak month - don't underestimate it!
-   - If last year's same month was $${lastYearData?.sameMonth?.toFixed(2) || 'N/A'}, your projection should be close to or above that.
-   - Must be >= month-to-date ($${monthlySales.toFixed(2)}).
+3. MONTH PROJECTION: 
+   - Your BASELINE is last year's same month: $${lastYearMonthly.toFixed(2)}
+   - Apply a SMALL adjustment (±5-10%) based on recent trends
+   - Expected range: $${suggestedMonthlyLow} to $${suggestedMonthlyHigh}
+   - DO NOT add 4-week averages to last year's total - that double-counts!
+   - Must be >= month-to-date ($${monthlySales.toFixed(2)})
 
 CRITICAL RULES:
-- Week projection MUST be >= current week-to-date ($${weeklySales.toFixed(2)})
-- Month projection MUST be >= current month-to-date ($${monthlySales.toFixed(2)})
-- For MONTHLY projections: USE LAST YEAR'S FULL MONTH as your primary baseline - it captures seasonal patterns that the 4-week average misses.
-- For daily/weekly projections: Use the 4-week historical average.
+- Week projection MUST be >= week-to-date ($${weeklySales.toFixed(2)})
+- Month projection MUST be >= month-to-date ($${monthlySales.toFixed(2)})
+- Month projection should be CLOSE TO last year's same month ($${lastYearMonthly.toFixed(2)}), with only minor adjustments
+- DO NOT inflate monthly projection by adding weekly averages to yearly baseline
 
 Return ONLY a JSON object with these three numbers, no explanation:
 {"todayProjected": number, "weekProjected": number, "monthProjected": number}`;
@@ -505,7 +516,7 @@ Return ONLY a JSON object with these three numbers, no explanation:
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are a sales forecasting AI for restaurants. Always respond with valid JSON only. For MONTHLY projections, use LAST YEAR'S SAME MONTH as your primary baseline (it captures seasonality). For daily/weekly projections, use the 4-week rolling average. Projections must ALWAYS be >= current totals." },
+          { role: "system", content: "You are a conservative sales forecasting AI. For MONTHLY projections, use last year's same month as your baseline with only small adjustments (±5-10%). DO NOT add weekly averages to yearly baselines. Projections must be >= current totals. Respond with valid JSON only." },
           { role: "user", content: prompt }
         ],
       }),
