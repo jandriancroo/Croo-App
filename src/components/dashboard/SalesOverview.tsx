@@ -74,11 +74,15 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     ? getCachedProjections(currentLocation.id) 
     : null;
 
+  // Determine if we should skip AI projection calls
+  const hasValidDailyCache = cachedProjections?.todayProjected !== undefined;
+  const hasValidWeeklyMonthlyCache = cachedProjections?.weekProjected !== undefined && cachedProjections?.monthProjected !== undefined;
+
   const { data: rawSalesData, isLoading, refetch } = useQuery({
     queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
     queryFn: async () => {
-      // If we have cached projections, skip fetching new ones from AI
-      const skipProjections = isToday && cachedProjections !== null;
+      // Skip projections if we have all cached values
+      const skipProjections = isToday && hasValidDailyCache && hasValidWeeklyMonthlyCache;
       
       const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
         body: { 
@@ -97,7 +101,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       // If we skipped projections but have cached ones, merge them in
       if (skipProjections && cachedProjections && salesData) {
         salesData.projections = {
-          ...salesData.projections,
+          todayProjected: cachedProjections.todayProjected || 0,
           weekProjected: cachedProjections.weekProjected,
           monthProjected: cachedProjections.monthProjected
         };
@@ -105,6 +109,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       
       // Cache new projections if we fetched them fresh
       if (isToday && !skipProjections && salesData?.projections && currentLocation?.id) {
+        const todayProjected = salesData.projections.todayProjected;
         const weekProjected = salesData.projections.weekProjected;
         const monthProjected = salesData.projections.monthProjected;
         const weeklySales = salesData?.weekly || 0;
@@ -112,7 +117,11 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
         
         // Sanity check: projections must be >= actual sales
         if (weekProjected >= weeklySales && monthProjected >= monthlySales && weekProjected > 0 && monthProjected > 0) {
-          setCachedProjections(currentLocation.id, { weekProjected, monthProjected });
+          setCachedProjections(currentLocation.id, { 
+            todayProjected: todayProjected > 0 ? todayProjected : undefined,
+            weekProjected, 
+            monthProjected 
+          });
         }
       }
       

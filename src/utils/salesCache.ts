@@ -1,7 +1,7 @@
 // Cache for QuBeyond sales data - historical data won't change
 const CACHE_KEY_PREFIX = 'qu_sales_cache_';
 const PROJECTION_CACHE_KEY = 'qu_projections_cache_';
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 
 interface CachedSalesData {
   version: number;
@@ -18,6 +18,8 @@ interface CachedProjections {
   cachedAt: string;
   validUntil: string; // ISO date string - projections valid until this date's close of business
   data: {
+    todayProjected?: number;
+    todayProjectedAt?: string; // ISO timestamp for 30-min expiry check
     weekProjected: number;
     monthProjected: number;
   };
@@ -119,8 +121,22 @@ export function getCachedProjections(locationId: string): CachedProjections['dat
     // Cache is valid if we're still on the same day AND before close of business (10 PM)
     // Once close of business passes, cache expires for the next day's projections
     if (currentDate === validUntilDate && currentHour < 22) {
-      // Same day before close - cache is valid
-      return parsed.data;
+      // Check if daily projection is still valid (30-min expiry)
+      const result = { ...parsed.data };
+      
+      if (result.todayProjectedAt) {
+        const projectedTime = new Date(result.todayProjectedAt).getTime();
+        const now = Date.now();
+        const thirtyMinutes = 30 * 60 * 1000;
+        
+        // If daily projection is older than 30 minutes, clear it
+        if (now - projectedTime > thirtyMinutes) {
+          result.todayProjected = undefined;
+          result.todayProjectedAt = undefined;
+        }
+      }
+      
+      return result;
     }
     
     // Different day or after close of business - cache expired
@@ -135,7 +151,7 @@ export function getCachedProjections(locationId: string): CachedProjections['dat
 // Cache projections - valid until close of business today
 export function setCachedProjections(
   locationId: string,
-  data: { weekProjected: number; monthProjected: number }
+  data: { todayProjected?: number; weekProjected: number; monthProjected: number }
 ): void {
   try {
     const key = getProjectionCacheKey(locationId);
@@ -145,7 +161,10 @@ export function setCachedProjections(
       version: CACHE_VERSION,
       cachedAt: new Date().toISOString(),
       validUntil: currentDate, // Valid until close of business today
-      data
+      data: {
+        ...data,
+        todayProjectedAt: data.todayProjected ? new Date().toISOString() : undefined
+      }
     };
     localStorage.setItem(key, JSON.stringify(cacheEntry));
   } catch {
