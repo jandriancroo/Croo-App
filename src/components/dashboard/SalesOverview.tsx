@@ -112,11 +112,11 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     enabled: !!currentLocation?.id
   });
 
-  // Convert hourly data to 12-hour format and fill based on business hours
+  // Convert hourly data to 12-hour format and filter to business hours only
   const salesData = useMemo(() => {
     if (!rawSalesData) return rawSalesData;
     
-    // If we have business hours, create complete hourly range
+    // Only show hourly breakdown if business hours are configured
     if (locationSettings?.hours_open && locationSettings?.hours_close && rawSalesData.hourly) {
       const openHour = parseInt(locationSettings.hours_open.split(':')[0]);
       const closeHour = parseInt(locationSettings.hours_close.split(':')[0]);
@@ -141,18 +141,8 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       return { ...rawSalesData, hourly: completeHourly };
     }
     
-    // If no business hours but we have hourly data, just convert to 12-hour format
-    if (rawSalesData.hourly) {
-      const convertedHourly = rawSalesData.hourly.map(item => ({
-        ...item,
-        hour: item.hour.includes('AM') || item.hour.includes('PM') 
-          ? item.hour 
-          : formatTime12Hour(item.hour)
-      }));
-      return { ...rawSalesData, hourly: convertedHourly };
-    }
-    
-    return rawSalesData;
+    // If no business hours configured, don't show hourly breakdown
+    return { ...rawSalesData, hourly: undefined };
   }, [rawSalesData, locationSettings]);
 
   const navigateDay = (direction: 'prev' | 'next') => {
