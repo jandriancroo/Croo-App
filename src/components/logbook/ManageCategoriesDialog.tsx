@@ -167,6 +167,28 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
   const [localCategories, setLocalCategories] = useState<any[]>([]);
   const [copyTargetLocationId, setCopyTargetLocationId] = useState<string>("");
   const [isCopying, setIsCopying] = useState(false);
+  const [safeTarget, setSafeTarget] = useState<number>(300);
+  const [drawerBank, setDrawerBank] = useState<number>(200);
+
+  // Fetch location settings for cash handling values
+  const { data: locationSettings } = useQuery({
+    queryKey: ['location-settings-cash', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation) return null;
+      const { data, error } = await supabase
+        .from('location_settings')
+        .select('safe_target, drawer_bank')
+        .eq('location_id', currentLocation.id)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) {
+        setSafeTarget(data.safe_target ?? 300);
+        setDrawerBank(data.drawer_bank ?? 200);
+      }
+      return data;
+    },
+    enabled: open && !!currentLocation,
+  });
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -494,12 +516,98 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
               ))}
             </div>
 
+            {/* Cash Handling Settings - only for Safe Count and Drawer Count categories */}
+            {(() => {
+              const categoryName = displayCategories.find(c => c.id === editingCategoryId)?.name?.toLowerCase();
+              const isSafeCount = categoryName === 'safe count';
+              const isDrawerCount = categoryName === 'drawer count';
+              
+              if (!isSafeCount && !isDrawerCount) return null;
+              
+              return (
+                <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                  <Label className="text-sm font-medium">Cash Handling Settings</Label>
+                  {isSafeCount && (
+                    <div className="space-y-2">
+                      <Label htmlFor="safe-target" className="text-xs">Safe Target Amount ($)</Label>
+                      <Input
+                        id="safe-target"
+                        type="number"
+                        min="0"
+                        step="50"
+                        value={safeTarget}
+                        onChange={(e) => setSafeTarget(parseFloat(e.target.value) || 0)}
+                        className="max-w-[200px]"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Amount to keep in safe after balancing
+                      </p>
+                    </div>
+                  )}
+                  {isDrawerCount && (
+                    <div className="space-y-2">
+                      <Label htmlFor="drawer-bank" className="text-xs">Drawer Bank Amount ($)</Label>
+                      <Input
+                        id="drawer-bank"
+                        type="number"
+                        min="0"
+                        step="50"
+                        value={drawerBank}
+                        onChange={(e) => setDrawerBank(parseFloat(e.target.value) || 0)}
+                        className="max-w-[200px]"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Starting drawer amount to keep after deposit
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             <div className="flex gap-2">
               <Button onClick={handleAddField} variant="outline">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Field
               </Button>
-              <Button onClick={handleSaveFields}>
+              <Button onClick={async () => {
+                // Save cash handling settings if applicable
+                const categoryName = displayCategories.find(c => c.id === editingCategoryId)?.name?.toLowerCase();
+                if ((categoryName === 'safe count' || categoryName === 'drawer count') && currentLocation) {
+                  try {
+                    const { data: existingSettings } = await supabase
+                      .from('location_settings')
+                      .select('id')
+                      .eq('location_id', currentLocation.id)
+                      .maybeSingle();
+                    
+                    const updateData: any = {};
+                    if (categoryName === 'safe count') {
+                      updateData.safe_target = safeTarget;
+                    } else {
+                      updateData.drawer_bank = drawerBank;
+                    }
+                    
+                    if (existingSettings) {
+                      await supabase
+                        .from('location_settings')
+                        .update(updateData)
+                        .eq('location_id', currentLocation.id);
+                    } else {
+                      await supabase
+                        .from('location_settings')
+                        .insert({
+                          location_id: currentLocation.id,
+                          ...updateData,
+                        });
+                    }
+                    queryClient.invalidateQueries({ queryKey: ['location-settings'] });
+                  } catch (error) {
+                    console.error('Error saving cash handling settings:', error);
+                  }
+                }
+                handleSaveFields();
+              }}>
                 Save Fields
               </Button>
             </div>
