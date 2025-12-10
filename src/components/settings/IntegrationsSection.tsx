@@ -14,6 +14,7 @@ interface QuBeyondCredentials {
   username: string;
   password: string;
   location_id?: string; // Optional - will try to auto-detect from JWT
+  pull_labor?: boolean; // Enable pulling labor % from Real Time Summary
 }
 
 interface IntegrationsSectionProps {
@@ -26,7 +27,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [credentials, setCredentials] = useState<QuBeyondCredentials>({
     username: "",
     password: "",
-    location_id: ""
+    location_id: "",
+    pull_labor: false
   });
   const [isActive, setIsActive] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -60,7 +62,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setCredentials({
         username: creds?.username || "",
         password: creds?.password || "",
-        location_id: creds?.location_id || ""
+        location_id: creds?.location_id || "",
+        pull_labor: creds?.pull_labor || false
       });
       setIsActive(integration.is_active);
     }
@@ -233,6 +236,19 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                     <p className="text-xs text-muted-foreground">
                       Leave blank to auto-detect from your account
                     </p>
+                  </div>
+
+                  <div className="flex items-center justify-between py-2">
+                    <div>
+                      <Label className="text-sm">Pull Qu Labor %</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Fetch labor data from Real Time Summary
+                      </p>
+                    </div>
+                    <Switch
+                      checked={credentials.pull_labor || false}
+                      onCheckedChange={(checked) => setCredentials(prev => ({ ...prev, pull_labor: checked }))}
+                    />
                   </div>
 
                   <div className="flex gap-2">
