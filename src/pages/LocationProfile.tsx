@@ -358,8 +358,8 @@ export default function LocationProfile() {
             <LocationAuditsSection locationId={locationId} locationName={location?.name} />
           )}
 
-          {/* Integrations - at bottom, only for existing standard locations */}
-          {!isNew && location?.location_type !== 'checklist_only' && (
+          {/* Integrations - at bottom, for all existing locations */}
+          {!isNew && (
             <IntegrationsSection locationId={locationId} />
           )}
         </div>
