@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical, MapPin } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -104,7 +104,7 @@ export const Layout = ({
   const firstName = userProfile?.full_name?.split(' ')[0] || 'User';
   const initials = userProfile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
 
-  // Checklist-only location navigation (Tasks, Chat, Settings only)
+  // Checklist-only location navigation (Tasks, Chat, Logs, Settings)
   const checklistOnlyNavItems = [{
     path: '/dashboard',
     label: 'Dash',
@@ -113,7 +113,11 @@ export const Layout = ({
     path: '/tasks',
     label: 'Tasks',
     icon: ClipboardCheck
-  }, {
+  }, ...(canAccessLogs ? [{
+    path: '/logbook',
+    label: 'Logs',
+    icon: BookOpen
+  }] : []), {
     path: '/messages',
     label: 'Chat',
     icon: MessageSquare
