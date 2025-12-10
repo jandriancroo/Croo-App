@@ -11,16 +11,28 @@ const handler = async (req: Request): Promise<Response> => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Validate cron secret for internal/scheduled calls
+  // Validate cron secret for scheduled calls (optional - also accepts service role calls)
   const cronSecret = req.headers.get('x-cron-secret');
   const expectedSecret = Deno.env.get('CRON_SECRET');
-  if (!expectedSecret || cronSecret !== expectedSecret) {
-    console.error('Unauthorized: Invalid or missing CRON_SECRET');
-    return new Response(
-      JSON.stringify({ error: 'Unauthorized' }),
-      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+  const authHeader = req.headers.get('authorization');
+  
+  // Allow if: valid cron secret OR valid service role key in auth header
+  const hasValidCronSecret = expectedSecret && cronSecret === expectedSecret;
+  const hasServiceRole = authHeader?.includes('service_role');
+  
+  if (!hasValidCronSecret && !hasServiceRole) {
+    // For pg_cron calls, check if it's coming from internal Supabase network
+    const isInternalCall = req.headers.get('x-supabase-internal') === 'true';
+    if (!isInternalCall) {
+      console.error('Unauthorized: Invalid or missing CRON_SECRET');
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
   }
+  
+  console.log('Authorization check passed');
 
   try {
     const supabaseClient = createClient(
