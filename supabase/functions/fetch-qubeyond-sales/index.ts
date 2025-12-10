@@ -85,8 +85,7 @@ async function fetchSalesForDates(
     fields: [{ fieldName: "metric" }, { fieldName: "total" }],
     filters: {
       date: { from: null, to: null, values: dates, type: "custom" },
-      locations: [parseInt(qbLocationId)],
-      location: parseInt(qbLocationId)
+      location: { operationalUnits: [parseInt(qbLocationId)] }
     },
     params: { sectionId: "overview", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
   };
@@ -153,8 +152,7 @@ async function fetchHourlySales(
         ],
         filters: {
           date: { from: null, to: null, values: [dateStr], type: "today" },
-          locations: [parseInt(qbLocationId)],
-          location: parseInt(qbLocationId)
+          location: { operationalUnits: [parseInt(qbLocationId)] }
         },
         params: { sectionId: "main", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
       }),
