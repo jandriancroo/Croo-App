@@ -389,13 +389,19 @@ async function generateProjections(
   currentHour: number,
   hoursOpen: number,
   hoursClose: number,
-  todayStr: string
+  todayStr: string,
+  lastYearData?: { 
+    sameDay: number; 
+    sameWeek: number; 
+    sameMonth: number;
+    weeklyBreakdown: { date: string; sales: number }[];
+  }
 ): Promise<{ todayProjected: number; weekProjected: number; monthProjected: number }> {
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       console.log("No LOVABLE_API_KEY, using simple projections");
-      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr);
+      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr, lastYearData);
     }
 
     // Calculate remaining hours and days
@@ -405,6 +411,22 @@ async function generateProjections(
     const daysRemainingInWeek = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     const daysRemainingInMonth = daysInMonth - today.getDate();
+
+    // Build last year comparison section
+    let lastYearSection = "";
+    if (lastYearData) {
+      lastYearSection = `
+LAST YEAR COMPARISON (same dates from last year - USE THIS FOR CONTEXT):
+- Same day last year: $${lastYearData.sameDay.toFixed(2)}
+- Same week last year (full week): $${lastYearData.sameWeek.toFixed(2)}
+- Same month last year (full month): $${lastYearData.sameMonth.toFixed(2)}
+
+Last year's daily breakdown for same week:
+${lastYearData.weeklyBreakdown.map(d => `${d.date}: $${d.sales.toFixed(2)}`).join('\n')}
+
+Year-over-year trends: Compare current performance to last year. If this year is trending +10% vs last year, apply similar growth to projections.
+`;
+    }
 
     const prompt = `You are a sales projection AI for a pizza restaurant. Based on the following data, predict the final totals. Be conservative in your projections - it's better to slightly underestimate than dramatically overestimate.
 
@@ -422,13 +444,16 @@ ${weeklyBreakdown.map(d => `${d.date}: $${d.sales.toFixed(2)}`).join('\n')}
 
 Daily sales this month (last 14 days):
 ${monthlyBreakdown.slice(-14).map(d => `${d.date}: $${d.sales.toFixed(2)}`).join('\n')}
-
+${lastYearSection}
 Based on the hourly sales patterns (restaurants typically see lunch rush 11am-1pm and dinner rush 5pm-8pm):
 1. Today's FINAL end-of-day total (close of business at ${hoursClose}:00)
 2. This week's FINAL total (through end of day Sunday)
 3. This month's FINAL total - BE CONSERVATIVE here, especially if we only have ${monthlyBreakdown.length} days of data
 
-IMPORTANT: For monthly projections, don't just multiply daily average by remaining days. Account for typical restaurant patterns (some days are slower than others). Use conservative estimates.
+IMPORTANT: 
+- For monthly projections, don't just multiply daily average by remaining days. Account for typical restaurant patterns (some days are slower than others). 
+- Use last year's data as a baseline if available - apply year-over-year growth/decline trends.
+- Use conservative estimates.
 
 Return ONLY a JSON object with these three numbers, no explanation:
 {"todayProjected": number, "weekProjected": number, "monthProjected": number}`;
@@ -442,7 +467,7 @@ Return ONLY a JSON object with these three numbers, no explanation:
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [
-          { role: "system", content: "You are a sales forecasting AI for restaurants. Always respond with valid JSON only. Use realistic projections based on hourly patterns - dinner hours typically generate 40-50% of daily sales." },
+          { role: "system", content: "You are a sales forecasting AI for restaurants. Always respond with valid JSON only. Use realistic projections based on hourly patterns - dinner hours typically generate 40-50% of daily sales. When last year data is available, use it as a key reference point for your projections." },
           { role: "user", content: prompt }
         ],
       }),
@@ -450,7 +475,7 @@ Return ONLY a JSON object with these three numbers, no explanation:
 
     if (!response.ok) {
       console.error("AI projection failed:", response.status);
-      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr);
+      return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr, lastYearData);
     }
 
     const data = await response.json();
@@ -468,10 +493,10 @@ Return ONLY a JSON object with these three numbers, no explanation:
       };
     }
     
-    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr);
+    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr, lastYearData);
   } catch (error) {
     console.error("AI projection error:", error);
-    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr);
+    return simpleProjections(dailySales, weeklySales, monthlySales, weeklyBreakdown, monthlyBreakdown, currentHour, hoursOpen, hoursClose, todayStr, lastYearData);
   }
 }
 
@@ -485,7 +510,13 @@ function simpleProjections(
   currentHour: number,
   hoursOpen: number,
   hoursClose: number,
-  todayStr: string
+  todayStr: string,
+  lastYearData?: { 
+    sameDay: number; 
+    sameWeek: number; 
+    sameMonth: number;
+    weeklyBreakdown: { date: string; sales: number }[];
+  }
 ): { todayProjected: number; weekProjected: number; monthProjected: number } {
   const totalBusinessHours = hoursClose - hoursOpen;
   
@@ -494,20 +525,20 @@ function simpleProjections(
   
   // Don't start projecting until after opening hour (sales flow starts at opening)
   if (currentHour < hoursOpen) {
-    // Before opening - no projection yet, use last week same day's total as estimate
-    const completedDays = weeklyBreakdown.filter(d => d.sales > 0);
-    if (completedDays.length > 0) {
-      todayProjected = completedDays.reduce((sum, d) => sum + d.sales, 0) / completedDays.length;
+    // Before opening - use last year same day if available, else use this week's average
+    if (lastYearData && lastYearData.sameDay > 0) {
+      todayProjected = lastYearData.sameDay;
+    } else {
+      const completedDays = weeklyBreakdown.filter(d => d.sales > 0);
+      if (completedDays.length > 0) {
+        todayProjected = completedDays.reduce((sum, d) => sum + d.sales, 0) / completedDays.length;
+      }
     }
   } else if (currentHour >= hoursClose) {
     // After close - actual sales ARE the projection (day is complete)
     todayProjected = dailySales;
   } else {
     // During business hours - project based on expected hourly performance
-    // Typical restaurant sales distribution:
-    // - Morning (11am-2pm): ~25% of daily sales
-    // - Afternoon (2pm-5pm): ~20% of daily sales  
-    // - Evening (5pm-10pm): ~55% of daily sales
     const hoursElapsed = currentHour - hoursOpen;
     
     // Calculate expected percentage of day's sales by current hour
@@ -521,49 +552,67 @@ function simpleProjections(
     
     // If we have some sales, project based on actual vs expected performance
     if (dailySales > 0 && expectedPercentComplete > 0) {
-      // Project today = actual sales / expected percent complete
       todayProjected = dailySales / expectedPercentComplete;
     } else if (hoursElapsed > 0) {
-      // Fallback to simple linear projection
       const hoursFraction = hoursElapsed / totalBusinessHours;
       const projectionMultiplier = Math.min(1 / hoursFraction, 3);
       todayProjected = dailySales * projectionMultiplier;
     } else {
-      // Just opened - use average from week if available
-      const completedDays = weeklyBreakdown.filter(d => d.sales > 0);
-      todayProjected = completedDays.length > 0 
-        ? completedDays.reduce((sum, d) => sum + d.sales, 0) / completedDays.length 
-        : dailySales;
+      // Just opened - use last year same day or this week average
+      if (lastYearData && lastYearData.sameDay > 0) {
+        todayProjected = lastYearData.sameDay;
+      } else {
+        const completedDays = weeklyBreakdown.filter(d => d.sales > 0);
+        todayProjected = completedDays.length > 0 
+          ? completedDays.reduce((sum, d) => sum + d.sales, 0) / completedDays.length 
+          : dailySales;
+      }
     }
   }
   
-  // Week projection: current week sales + (avg daily * remaining days through Sunday)
+  // Week projection: use last year as baseline if available
   const today = new Date(todayStr + 'T12:00:00');
-  const dayOfWeek = today.getDay(); // 0=Sun, 1=Mon, etc.
+  const dayOfWeek = today.getDay();
   const daysRemainingInWeek = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
   const daysThisWeek = weeklyBreakdown.length;
-  const avgDailySales = daysThisWeek > 0 ? weeklySales / daysThisWeek : todayProjected;
-  // Add projected remaining sales for today to current daily sales
-  const todayRemainingProjected = todayProjected - dailySales;
-  const weekProjected = weeklySales + todayRemainingProjected + (avgDailySales * daysRemainingInWeek);
   
-  // Month projection: Use more conservative approach
+  let weekProjected: number;
+  if (lastYearData && lastYearData.sameWeek > 0 && daysThisWeek > 0) {
+    // Calculate YoY growth rate and apply to projection
+    const lastYearAvg = lastYearData.sameWeek / 7;
+    const thisYearAvg = weeklySales / daysThisWeek;
+    const growthRate = thisYearAvg / lastYearAvg;
+    weekProjected = weeklySales + (todayProjected - dailySales) + (lastYearAvg * growthRate * daysRemainingInWeek);
+  } else {
+    const avgDailySales = daysThisWeek > 0 ? weeklySales / daysThisWeek : todayProjected;
+    const todayRemainingProjected = todayProjected - dailySales;
+    weekProjected = weeklySales + todayRemainingProjected + (avgDailySales * daysRemainingInWeek);
+  }
+  
+  // Month projection: use last year as baseline if available
   const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const dayOfMonth = today.getDate();
   const daysRemainingInMonth = daysInMonth - dayOfMonth;
   
-  const daysOfData = monthlyBreakdown.length;
-  let monthAvgDaily: number;
-  if (daysOfData >= 7) {
-    monthAvgDaily = monthlySales / daysOfData;
-  } else if (daysThisWeek > 0) {
-    monthAvgDaily = avgDailySales;
+  let monthProjected: number;
+  if (lastYearData && lastYearData.sameMonth > 0 && monthlyBreakdown.length > 0) {
+    // Calculate YoY growth rate and apply to projection
+    const lastYearAvg = lastYearData.sameMonth / daysInMonth;
+    const thisYearAvg = monthlySales / monthlyBreakdown.length;
+    const growthRate = thisYearAvg / lastYearAvg;
+    monthProjected = (monthlySales + (todayProjected - dailySales) + (lastYearAvg * growthRate * daysRemainingInMonth)) * 0.95; // Slightly conservative
   } else {
-    monthAvgDaily = todayProjected;
+    const daysOfData = monthlyBreakdown.length;
+    let monthAvgDaily: number;
+    if (daysOfData >= 7) {
+      monthAvgDaily = monthlySales / daysOfData;
+    } else if (daysThisWeek > 0) {
+      monthAvgDaily = weeklySales / daysThisWeek;
+    } else {
+      monthAvgDaily = todayProjected;
+    }
+    monthProjected = (monthlySales + (todayProjected - dailySales) + (monthAvgDaily * daysRemainingInMonth)) * 0.90;
   }
-  
-  // Apply a conservative 10% reduction to monthly projection
-  const monthProjected = (monthlySales + todayRemainingProjected + (monthAvgDaily * daysRemainingInMonth)) * 0.90;
   
   return { todayProjected, weekProjected, monthProjected };
 }
@@ -730,15 +779,40 @@ serve(async (req) => {
     const lastDayPrevMonth = new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1, 0);
     const prevMonthEndStr = getDateStringForTimezone(lastDayPrevMonth, timezone);
 
+    // LAST YEAR dates for better projections
+    const lastYearTodayDate = new Date(todayStr + 'T12:00:00');
+    lastYearTodayDate.setFullYear(lastYearTodayDate.getFullYear() - 1);
+    // Adjust to same day of week
+    const targetDayOfWeek = new Date(todayStr + 'T12:00:00').getDay();
+    const lastYearDayOfWeek = lastYearTodayDate.getDay();
+    const dayDiff = targetDayOfWeek - lastYearDayOfWeek;
+    lastYearTodayDate.setDate(lastYearTodayDate.getDate() + dayDiff);
+    const lastYearTodayStr = getDateStringForTimezone(lastYearTodayDate, timezone);
+    
+    // Last year same week (full week)
+    const lastYearWeekStartStr = getWeekStartDate(lastYearTodayStr);
+    const lastYearWeekEndStr = adjustDate(lastYearWeekStartStr, 6); // Sunday
+    
+    // Last year same month (full month)
+    const lastYearMonthDate = new Date(todayStr + 'T12:00:00');
+    lastYearMonthDate.setFullYear(lastYearMonthDate.getFullYear() - 1);
+    const lastYearMonthStartStr = getMonthStartDate(getDateStringForTimezone(lastYearMonthDate, timezone));
+    const lastDayLastYearMonth = new Date(lastYearMonthDate.getFullYear(), lastYearMonthDate.getMonth() + 1, 0);
+    const lastYearMonthEndStr = getDateStringForTimezone(lastDayLastYearMonth, timezone);
+
     // Generate date arrays
     const weekDates = getDateRange(weekStartStr, todayStr);
     const monthDates = getDateRange(monthStartStr, todayStr);
     const prevWeekDates = getDateRange(prevWeekStartStr, prevWeekEndStr); // Full previous week
     const prevMonthDates = getDateRange(prevMonthStart, prevMonthEndStr); // Full previous month
+    const lastYearWeekDates = getDateRange(lastYearWeekStartStr, lastYearWeekEndStr); // Last year same week
+    const lastYearMonthDates = getDateRange(lastYearMonthStartStr, lastYearMonthEndStr); // Last year same month
 
     console.log(`Today: ${todayStr}, Current hour: ${currentHour}`);
     console.log(`Week dates: ${weekDates.join(', ')}`);
     console.log(`Prev week dates: ${prevWeekDates.join(', ')}`);
+    console.log(`Last year same day: ${lastYearTodayStr}`);
+    console.log(`Last year week dates: ${lastYearWeekDates.join(', ')}`);
 
     // Fetch hourly data for today and previous day (for real-time comparison)
     const [
@@ -795,10 +869,44 @@ serve(async (req) => {
 
     const avgTicket = dailyGuestCount > 0 ? dailySales / dailyGuestCount : 0;
 
+    // Fetch last year data for better projections (only if not skipping projections)
+    let lastYearData: { 
+      sameDay: number; 
+      sameWeek: number; 
+      sameMonth: number;
+      weeklyBreakdown: { date: string; sales: number }[];
+    } | undefined;
+    
+    if (!skipProjections) {
+      console.log('Fetching last year data for projections...');
+      try {
+        const [lastYearDayHourly, lastYearWeekBreakdown, lastYearMonthResult] = await Promise.all([
+          fetchHourlySales(tokenGw, lastYearTodayStr, qbLocationId),
+          fetchDailyBreakdown(tokenGw, lastYearWeekDates, qbLocationId),
+          fetchSalesForDates(tokenGw, lastYearMonthDates, qbLocationId, 'last_year_month')
+        ]);
+        
+        const lastYearSameDay = lastYearDayHourly.reduce((sum, h) => sum + h.sales, 0);
+        const lastYearSameWeek = lastYearWeekBreakdown.reduce((sum, d) => sum + d.sales, 0);
+        
+        lastYearData = {
+          sameDay: lastYearSameDay,
+          sameWeek: lastYearSameWeek,
+          sameMonth: lastYearMonthResult.total,
+          weeklyBreakdown: lastYearWeekBreakdown.map(d => ({ date: d.date, sales: d.sales }))
+        };
+        
+        console.log(`Last year same day: $${lastYearSameDay}, same week: $${lastYearSameWeek}, same month: $${lastYearMonthResult.total}`);
+      } catch (error) {
+        console.error('Failed to fetch last year data:', error);
+        // Continue without last year data
+      }
+    }
+
     // Generate AI projections (skip if client already has cached projections)
     let projections = { todayProjected: 0, weekProjected: 0, monthProjected: 0 };
     if (!skipProjections) {
-      console.log('Generating AI projections...');
+      console.log('Generating AI projections with last year data...');
       projections = await generateProjections(
         dailySales,
         weeklySales,
@@ -808,7 +916,8 @@ serve(async (req) => {
         currentHour,
         hoursOpen,
         hoursClose,
-        todayStr
+        todayStr,
+        lastYearData
       );
     } else {
       console.log('Skipping projections - client has cached values');
