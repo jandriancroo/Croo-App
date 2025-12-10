@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users } from 'lucide-react';
+import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useQuery } from '@tanstack/react-query';
@@ -478,7 +479,10 @@ export default function Dashboard() {
     'checklists-grid': <div>
         <h3 className="text-xl font-semibold mb-4">Tasks</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {/* Catering Order Cards - Show first */}
+          {/* Cash Handling Task Cards - Show first */}
+          <CashHandlingTasks locationHours={locationSettings} />
+          
+          {/* Catering Order Cards */}
           {todaysCateringOrders.map(order => {
             const isCompleted = order.status === "completed";
             return (
