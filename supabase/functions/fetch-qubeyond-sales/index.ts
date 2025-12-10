@@ -94,8 +94,7 @@ async function fetchSalesForDates(
         fields: [{ fieldName: "metric" }, { fieldName: "total" }],
         filters: {
           date: { from: null, to: null, values: dates, type: "custom" },
-          singleLocation: parseInt(qbLocationId),
-          location: [parseInt(qbLocationId)]
+          singleLocation: parseInt(qbLocationId)
         },
         params: { sectionId: "overview", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
       }),
@@ -147,8 +146,7 @@ async function fetchHourlySales(
         ],
         filters: {
           date: { from: null, to: null, values: [dateStr], type: "today" },
-          singleLocation: parseInt(qbLocationId),
-          location: [parseInt(qbLocationId)]
+          singleLocation: parseInt(qbLocationId)
         },
         params: { sectionId: "main", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
       }),
@@ -271,7 +269,6 @@ async function fetchTillsData(
         filters: {
           date: { from: null, to: null, values: [dateStr], type: "custom" },
           singleLocation: parseInt(qbLocationId),
-          location: [parseInt(qbLocationId)],
           noSales: null
         },
         params: { 
@@ -346,8 +343,7 @@ async function fetchProductMix(
       ],
       filters: {
         date: { from: null, to: null, values: dates, type: "custom" },
-        singleLocation: parseInt(qbLocationId),
-        location: [parseInt(qbLocationId)]
+        singleLocation: parseInt(qbLocationId)
       },
       params: { sectionId: "main", pageNumber: 1, pageSize: 100, totalRecords: null, sort: { field: "netSales", dir: "desc" }, showTotals: true }
     }),
