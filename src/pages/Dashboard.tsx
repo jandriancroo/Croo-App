@@ -112,6 +112,27 @@ export default function Dashboard() {
     enabled: !!currentLocation,
     refetchInterval: 15000, // Refresh every 15 seconds
   });
+
+  // Check if location has active QuBeyond integration
+  const { data: hasQuBeyondIntegration } = useQuery({
+    queryKey: ["qubeyond-integration-check", currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation) return false;
+      const { data, error } = await supabase
+        .from('location_integrations')
+        .select('is_active')
+        .eq('location_id', currentLocation.id)
+        .eq('integration_type', 'qubeyond')
+        .eq('is_active', true)
+        .maybeSingle();
+      if (error) {
+        console.error("Error checking integration:", error);
+        return false;
+      }
+      return !!data;
+    },
+    enabled: !!currentLocation,
+  });
   const fetchTodaysCateringOrders = async () => {
     if (!currentLocation?.id) return;
     try {
@@ -435,13 +456,13 @@ export default function Dashboard() {
     'checklists-grid': null // Will be defined below
   };
 
-  const standardSections = {
+  const standardSections: Record<string, JSX.Element | null> = {
     'alerts': <div className="space-y-2">
         <ChecklistCompletionAlerts />
         <LogBookAlerts />
         <CertificationAlerts />
       </div>,
-    'sales-overview': <SalesOverview locationSettings={locationSettings} />,
+    'sales-overview': hasQuBeyondIntegration ? <SalesOverview locationSettings={locationSettings} /> : null,
     'checklists-grid': <div>
         <h3 className="text-xl font-semibold mb-4">Tasks</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
