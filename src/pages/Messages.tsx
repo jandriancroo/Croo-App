@@ -494,16 +494,14 @@ export default function Messages() {
               
               <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
                 <TabsList className={`grid w-full ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                  <TabsTrigger value="chats">Chats</TabsTrigger>
-                  <TabsTrigger value="announcements">Announce</TabsTrigger>
-                  <TabsTrigger value="marketplace" className="gap-1">
+                  <TabsTrigger value="chats" className="text-xs px-2">Chats</TabsTrigger>
+                  <TabsTrigger value="announcements" className="text-xs px-2">News</TabsTrigger>
+                  <TabsTrigger value="marketplace" className="text-xs px-2">
                     <ShoppingBag className="h-3 w-3" />
-                    Shifts
                   </TabsTrigger>
                   {(isAdmin || isManager) && (
-                    <TabsTrigger value="hiring" className="gap-1">
+                    <TabsTrigger value="hiring" className="text-xs px-2">
                       <Briefcase className="h-3 w-3" />
-                      Hiring
                     </TabsTrigger>
                   )}
                 </TabsList>
