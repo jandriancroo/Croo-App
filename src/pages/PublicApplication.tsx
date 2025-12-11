@@ -381,13 +381,27 @@ export default function PublicApplication() {
       return;
     }
 
-    // Check required custom questions
+    // Check required custom questions (skip built-in types that use separate state)
+    const builtInTypes = ['availability', 'work_history', 'references'];
     if (customQuestions) {
       for (const q of customQuestions) {
+        // Skip built-in types - they use separate state variables
+        if (builtInTypes.includes(q.question_type)) continue;
+        
         if (q.is_required && !customResponses[q.id]?.trim()) {
           toast.error(`Please answer: ${q.question}`);
           return;
         }
+      }
+    }
+    
+    // Check if availability is required and at least one slot is selected
+    const availabilityQuestion = customQuestions?.find(q => q.question_type === 'availability');
+    if (availabilityQuestion?.is_required) {
+      const hasAnyAvailability = Object.values(availability).some(day => day.am || day.pm);
+      if (!hasAnyAvailability) {
+        toast.error('Please select at least one availability slot');
+        return;
       }
     }
 
