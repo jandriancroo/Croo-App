@@ -14,7 +14,6 @@ interface LocationContextType {
   locations: Location[];
   setCurrentLocation: (location: Location) => void;
   loading: boolean;
-  switching: boolean;
   refetchLocations: () => Promise<void>;
   isChecklistOnlyLocation: boolean;
 }
@@ -27,7 +26,6 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   const [currentLocation, setCurrentLocationState] = useState<Location | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
-  const [switching, setSwitching] = useState(false);
 
   const fetchLocations = async () => {
     if (!user) {
@@ -71,17 +69,13 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   const setCurrentLocation = useCallback((location: Location) => {
-    setSwitching(true);
+    // Update location immediately for instant UI feedback
     setCurrentLocationState(location);
     localStorage.setItem('currentLocationId', location.id);
     
-    // Remove all cached data immediately - queries will refetch on-demand
+    // Remove all location-scoped cached data - queries will refetch on-demand
+    // This clears stale data without blocking the UI
     queryClient.removeQueries();
-    
-    // Brief UI feedback then let components refetch naturally
-    setTimeout(() => {
-      setSwitching(false);
-    }, 150);
   }, [queryClient]);
 
   const isChecklistOnlyLocation = currentLocation?.location_type === 'checklist_only';
@@ -93,7 +87,6 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         locations,
         setCurrentLocation,
         loading,
-        switching,
         refetchLocations: fetchLocations,
         isChecklistOnlyLocation,
       }}

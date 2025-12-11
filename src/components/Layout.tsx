@@ -42,7 +42,7 @@ export const Layout = ({
   const [menuOpen, setMenuOpen] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const { unreadCount } = useUnreadMessages();
-  const { isChecklistOnlyLocation, currentLocation, setCurrentLocation, switching } = useAppLocation();
+  const { isChecklistOnlyLocation, currentLocation, setCurrentLocation } = useAppLocation();
   const canAccessLogs = isAdmin || isManager;
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
@@ -358,21 +358,12 @@ export const Layout = ({
         </div>
       </header>
       <main className="container flex-1 py-3 md:py-8 pb-24 md:pb-8 overflow-x-hidden relative">
-        {switching && (
-          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center">
-            <div className="animate-pulse text-muted-foreground">Switching location...</div>
-          </div>
-        )}
         {isMobile ? (
           <PullToRefresh>
-            <div className={switching ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
-              {children}
-            </div>
+            {children}
           </PullToRefresh>
         ) : (
-          <div className={switching ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
-            {children}
-          </div>
+          children
         )}
       </main>
       
