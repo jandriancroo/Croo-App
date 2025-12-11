@@ -377,12 +377,12 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
                   <Label>Category</Label>
                   <div className="flex gap-2 mt-1">
                     <Select
-                      value={formData.category_id}
-                      onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                      value={formData.category_id || "__none__"}
+                      onValueChange={(value) => setFormData({ ...formData, category_id: value === "__none__" ? "" : value })}
                     >
                       <SelectTrigger className="flex-1">
                         <SelectValue placeholder="Select category (optional)">
-                          {formData.category_id && (
+                          {formData.category_id && formData.category_id !== "__none__" && (
                             <div className="flex items-center gap-2">
                               <div
                                 className="w-3 h-3 rounded-full"
@@ -394,7 +394,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No category</SelectItem>
+                        <SelectItem value="__none__">No category</SelectItem>
                         {categories.map((cat) => (
                           <SelectItem key={cat.id} value={cat.id}>
                             <div className="flex items-center gap-2">
