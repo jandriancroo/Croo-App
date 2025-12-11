@@ -341,10 +341,12 @@ export default function Hiring() {
                             <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
                               {app.location && <span>{app.location.name}</span>}
                               <span>{format(new Date(app.submitted_at), 'MMM d, yyyy')}</span>
-                              {isAiMatch && app.ai_match_reason && (
-                                <span className="text-primary">{app.ai_match_reason}</span>
-                              )}
                             </div>
+                            {app.ai_match_reason && (
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                                {app.ai_match_reason}
+                              </p>
+                            )}
                           </div>
                           {app.status === 'pending' && (
                             <Button

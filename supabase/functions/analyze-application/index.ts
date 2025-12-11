@@ -48,9 +48,15 @@ serve(async (req) => {
       ?.map((wh: any) => `${wh.job_title || 'Unknown role'} at ${wh.employer_name}`)
       .join(', ') || 'No work history provided';
 
-    const prompt = `Analyze this job applicant's work history and determine if they have relevant experience for a restaurant/food service position.
+    // Parse availability data
+    const availability = application.availability || {};
+    const availabilityText = JSON.stringify(availability);
+
+    const prompt = `Analyze this job applicant's work history and availability for a restaurant/food service position.
 
 Work History: ${workHistoryText}
+
+Availability: ${availabilityText}
 
 Relevant experience includes:
 - Restaurant work (any position: server, cook, host, manager, etc.)
@@ -61,10 +67,12 @@ Relevant experience includes:
 Respond with ONLY a JSON object in this exact format:
 {
   "isMatch": true/false,
-  "matchReason": "Brief explanation (max 50 words)"
+  "matchReason": "Brief explanation of experience (max 30 words)",
+  "availabilityNote": "Brief note about their availability - e.g. 'Full availability', 'Weekends only', 'Weeknights only', 'Limited availability', 'Mornings only', 'Evenings only', etc. (max 20 words)"
 }
 
-Set isMatch to true if the applicant has ANY relevant experience in the categories above.`;
+Set isMatch to true if the applicant has ANY relevant experience in the categories above.
+For availabilityNote, summarize when they can work based on the availability data.`;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -119,7 +127,7 @@ Set isMatch to true if the applicant has ANY relevant experience in the categori
     console.log('AI response:', content);
 
     // Parse AI response
-    let analysisResult = { isMatch: false, matchReason: '' };
+    let analysisResult = { isMatch: false, matchReason: '', availabilityNote: '' };
     try {
       // Extract JSON from response (handle markdown code blocks)
       const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -130,12 +138,18 @@ Set isMatch to true if the applicant has ANY relevant experience in the categori
       console.error('Error parsing AI response:', parseError);
     }
 
+    // Combine match reason and availability note
+    const combinedReason = [
+      analysisResult.matchReason,
+      analysisResult.availabilityNote ? `Availability: ${analysisResult.availabilityNote}` : ''
+    ].filter(Boolean).join(' | ');
+
     // Update application with AI analysis
     const { error: updateError } = await supabase
       .from('job_applications')
       .update({
         ai_match: analysisResult.isMatch,
-        ai_match_reason: analysisResult.matchReason,
+        ai_match_reason: combinedReason,
         ai_analyzed_at: new Date().toISOString(),
       })
       .eq('id', applicationId);
@@ -147,7 +161,7 @@ Set isMatch to true if the applicant has ANY relevant experience in the categori
     return new Response(JSON.stringify({
       success: true,
       isMatch: analysisResult.isMatch,
-      matchReason: analysisResult.matchReason,
+      matchReason: combinedReason,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
