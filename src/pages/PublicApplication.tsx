@@ -336,6 +336,8 @@ export default function PublicApplication() {
       return application;
     },
     onSuccess: () => {
+      // Save email for the applicant portal before showing success
+      localStorage.setItem('applicant_email', email.toLowerCase().trim());
       setSubmitted(true);
     },
     onError: (error) => {
@@ -444,9 +446,6 @@ export default function PublicApplication() {
     );
   }
   if (submitted) {
-    // Save email for the applicant portal
-    localStorage.setItem('applicant_email', email.toLowerCase().trim());
-    
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
@@ -462,7 +461,7 @@ export default function PublicApplication() {
             <div className="border-t border-border pt-6 space-y-3">
               <Button
                 className="w-full"
-                onClick={() => window.location.href = '/my-applications'}
+                onClick={() => navigate('/my-applications')}
               >
                 View My Applications
               </Button>
