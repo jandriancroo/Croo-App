@@ -48,11 +48,11 @@ export const PullToRefresh = ({ children }: PullToRefreshProps) => {
       setIsRefreshing(true);
       setPullDistance(threshold * 0.6);
       
-      // Invalidate all queries to refresh data
-      await queryClient.invalidateQueries();
+      // Invalidate queries with a timeout so it doesn't hang
+      const refreshPromise = queryClient.invalidateQueries();
+      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Brief delay to show the refresh happened
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await Promise.race([refreshPromise, timeoutPromise]);
       
       setIsRefreshing(false);
     }
