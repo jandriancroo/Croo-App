@@ -185,18 +185,32 @@ function DayCell({
           const isShiftDraft = !isPublished && (!snapshotShift || isShiftModified);
           return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} canTakeShift={canTakeShifts} currentUserId={currentUserId} onTakeShift={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} />;
         })}
-        {availabilityRequests.map(request => <div key={request.id} className="p-1 bg-muted/30 border-dashed border rounded relative text-[10px]" style={{
-        background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
-      }}>
-            <div className="text-[10px] text-muted-foreground font-medium">
-              {request.time_scope === "partial_day" && request.start_time && request.end_time ? `${request.start_time} - ${request.end_time}` : "Time Off"}
-            </div>
-            {request.status === "pending" && (
-              <div className="text-[9px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide">
-                PENDING
+        {availabilityRequests.map(request => {
+          const formatTime12h = (time: string) => {
+            const parts = time.split(":");
+            const hour = parseInt(parts[0]);
+            const minutes = parts[1];
+            const ampm = hour >= 12 ? "PM" : "AM";
+            const displayHour = hour % 12 || 12;
+            return `${displayHour}:${minutes} ${ampm}`;
+          };
+          return (
+            <div key={request.id} className="p-1 bg-muted/30 border-dashed border rounded relative text-[10px]" style={{
+              background: "repeating-linear-gradient(45deg, rgba(150,150,150,0.1), rgba(150,150,150,0.1) 10px, transparent 10px, transparent 20px)"
+            }}>
+              <div className="text-[10px] text-muted-foreground font-medium">
+                {request.time_scope === "partial_day" && request.start_time && request.end_time 
+                  ? `${formatTime12h(request.start_time)} - ${formatTime12h(request.end_time)}` 
+                  : "Time Off"}
               </div>
-            )}
-          </div>)}
+              {request.status === "pending" && (
+                <div className="text-[9px] font-semibold text-amber-600 dark:text-amber-500 uppercase tracking-wide">
+                  PENDING
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>;
 }
