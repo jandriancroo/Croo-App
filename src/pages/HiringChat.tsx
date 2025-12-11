@@ -44,7 +44,7 @@ export default function HiringChat() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [respondingToInterview, setRespondingToInterview] = useState(false);
+  const [respondingToMessageId, setRespondingToMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -144,7 +144,7 @@ export default function HiringChat() {
   const handleRespondToInterview = async (messageId: string, accepted: boolean) => {
     if (!conversation) return;
     
-    setRespondingToInterview(true);
+    setRespondingToMessageId(messageId);
     try {
       // Find the message and update the interview data
       const message = messages.find(m => m.id === messageId);
@@ -155,13 +155,15 @@ export default function HiringChat() {
       interviewData.status = accepted ? 'accepted' : 'declined';
       
       // Update the message content
-      await supabase
+      const { error: msgError } = await supabase
         .from('hiring_messages')
         .update({ content: `INTERVIEW_INVITE:${JSON.stringify(interviewData)}` })
         .eq('id', messageId);
       
+      if (msgError) throw msgError;
+      
       // Update the application status
-      await supabase
+      const { error: appError } = await supabase
         .from('job_applications')
         .update({ 
           interview_status: accepted ? 'accepted' : 'declined',
@@ -169,7 +171,9 @@ export default function HiringChat() {
         })
         .eq('id', conversation.application_id);
       
-      // Update local state
+      if (appError) throw appError;
+      
+      // Update local state immediately
       setMessages(prev => prev.map(m => 
         m.id === messageId 
           ? { ...m, content: `INTERVIEW_INVITE:${JSON.stringify(interviewData)}` }
@@ -193,7 +197,7 @@ export default function HiringChat() {
       console.error('Error responding to interview:', err);
       toast.error('Failed to respond to interview');
     } finally {
-      setRespondingToInterview(false);
+      setRespondingToMessageId(null);
     }
   };
 
@@ -345,7 +349,7 @@ export default function HiringChat() {
                         content={message.content} 
                         isApplicantView={true}
                         onRespond={(accepted) => handleRespondToInterview(message.id, accepted)}
-                        responding={respondingToInterview}
+                        responding={respondingToMessageId === message.id}
                       />
                     ) : (
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>

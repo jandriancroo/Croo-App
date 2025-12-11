@@ -74,7 +74,18 @@ export function InterviewCalendarDialog({
 
       if (!managerIds.length) return [];
 
-      // Get shifts directly by user_id and date range (simpler query)
+      // Get schedules for this location in the date range
+      const { data: schedules } = await supabase
+        .from('schedules')
+        .select('id')
+        .eq('location_id', currentLocation.id)
+        .gte('week_end_date', format(weekStart, 'yyyy-MM-dd'))
+        .lte('week_start_date', format(weekEnd, 'yyyy-MM-dd'));
+
+      const scheduleIds = schedules?.map(s => s.id) || [];
+      if (!scheduleIds.length) return [];
+
+      // Get shifts for managers at this location's schedules
       const { data: shifts } = await supabase
         .from('scheduled_shifts')
         .select(`
@@ -82,6 +93,7 @@ export function InterviewCalendarDialog({
           user:profiles(id, full_name, profile_photo_url)
         `)
         .in('user_id', managerIds)
+        .in('schedule_id', scheduleIds)
         .gte('shift_date', format(weekStart, 'yyyy-MM-dd'))
         .lte('shift_date', format(weekEnd, 'yyyy-MM-dd'))
         .eq('is_time_off', false);
