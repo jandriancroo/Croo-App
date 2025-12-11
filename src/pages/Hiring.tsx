@@ -349,7 +349,7 @@ export default function Hiring() {
                               <span>{format(new Date(app.submitted_at), 'MMM d, yyyy')}</span>
                             </div>
                             {app.ai_match_reason && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2 sm:line-clamp-1">
                                 {app.ai_match_reason}
                               </p>
                             )}
