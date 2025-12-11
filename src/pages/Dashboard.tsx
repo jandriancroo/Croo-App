@@ -471,11 +471,8 @@ export default function Dashboard() {
   };
 
   const standardSections: Record<string, JSX.Element | null> = {
-    'alerts': <div className="space-y-2">
-        <ChecklistCompletionAlerts />
-        <LogBookAlerts />
-        <CertificationAlerts />
-      </div>,
+    // Alerts disabled on dashboard - view them on the Alerts page
+    'alerts': null,
     'sales-overview': hasQuBeyondIntegration ? <SalesOverview locationSettings={locationSettings} /> : null,
     'checklists-grid': <div>
         <h3 className="text-xl font-semibold mb-4">Tasks</h3>
