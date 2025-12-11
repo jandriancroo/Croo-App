@@ -61,7 +61,7 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
     refetchInterval: 30000, // Refresh every 30 seconds
   });
   
-  if (!canAccessCashHandling) return null;
+  if (!canAccessCashHandling || !locationHours) return null;
   
   const safeCountCategory = categories?.find(c => c.name.toLowerCase().includes("safe count"));
   const drawerCountCategory = categories?.find(c => c.name.toLowerCase().includes("drawer count"));
