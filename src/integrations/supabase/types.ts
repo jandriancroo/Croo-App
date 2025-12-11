@@ -1838,6 +1838,7 @@ export type Database = {
       }
       organizations: {
         Row: {
+          brand_name: string | null
           created_at: string
           id: string
           is_active: boolean
@@ -1847,6 +1848,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brand_name?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -1856,6 +1858,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brand_name?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
