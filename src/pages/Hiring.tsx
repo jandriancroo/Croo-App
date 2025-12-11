@@ -97,16 +97,22 @@ export default function Hiring() {
     enabled: !!organization?.id,
   });
 
-  // Auto-analyze new applications that haven't been analyzed
+  // Auto-analyze applications that need analysis (new or missing availability info)
   useEffect(() => {
     const analyzeUnanalyzed = async () => {
       if (!applications) return;
       
-      const unanalyzed = applications.filter(
-        (app: any) => app.ai_analyzed_at === null && app.work_history?.length > 0
+      const needsAnalysis = applications.filter(
+        (app: any) => {
+          // Not analyzed yet
+          if (app.ai_analyzed_at === null && app.work_history?.length > 0) return true;
+          // Analyzed but missing availability note (needs re-analysis with new prompt)
+          if (app.ai_analyzed_at && app.ai_match_reason && !app.ai_match_reason.includes('Availability:')) return true;
+          return false;
+        }
       );
 
-      for (const app of unanalyzed.slice(0, 5)) { // Limit to 5 at a time to avoid rate limits
+      for (const app of needsAnalysis.slice(0, 5)) { // Limit to 5 at a time to avoid rate limits
         try {
           await supabase.functions.invoke('analyze-application', {
             body: { applicationId: app.id }
@@ -116,7 +122,7 @@ export default function Hiring() {
         }
       }
 
-      if (unanalyzed.length > 0) {
+      if (needsAnalysis.length > 0) {
         // Refetch after analysis
         setTimeout(() => {
           queryClient.invalidateQueries({ queryKey: ['job-applications'] });
