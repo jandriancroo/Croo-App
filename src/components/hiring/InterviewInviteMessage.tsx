@@ -1,20 +1,21 @@
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CalendarCheck, Check, X, Loader2 } from 'lucide-react';
+import { CalendarCheck, Check, X, Loader2, CalendarX, RefreshCw } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface InterviewData {
   date: string;
   time: string;
-  status: 'pending' | 'accepted' | 'declined';
+  status: 'pending' | 'accepted' | 'declined' | 'cancelled';
 }
 
 interface InterviewInviteMessageProps {
   content: string;
   isApplicantView: boolean;
   onRespond?: (accepted: boolean) => void;
+  onCancel?: () => void;
+  onReschedule?: () => void;
   responding?: boolean;
 }
 
@@ -22,6 +23,8 @@ export function InterviewInviteMessage({
   content, 
   isApplicantView,
   onRespond,
+  onCancel,
+  onReschedule,
   responding = false
 }: InterviewInviteMessageProps) {
   // Parse the interview data from content
@@ -43,6 +46,7 @@ export function InterviewInviteMessage({
 
   const interviewDate = parseISO(data.date);
   const isPast = new Date() > interviewDate;
+  const canModify = !isPast && data.status !== 'cancelled' && data.status !== 'declined';
 
   return (
     <div className="space-y-3">
@@ -54,9 +58,10 @@ export function InterviewInviteMessage({
       <div className={cn(
         "bg-background/50 rounded-lg p-3 space-y-2",
         data.status === 'accepted' && "ring-1 ring-green-500/50",
-        data.status === 'declined' && "ring-1 ring-red-500/50"
+        data.status === 'declined' && "ring-1 ring-red-500/50",
+        data.status === 'cancelled' && "ring-1 ring-muted-foreground/30 opacity-60"
       )}>
-        <div className="text-center">
+        <div className={cn("text-center", data.status === 'cancelled' && "line-through opacity-60")}>
           <p className="font-semibold">
             {format(interviewDate, 'EEEE, MMMM d, yyyy')}
           </p>
@@ -103,6 +108,13 @@ export function InterviewInviteMessage({
           </Badge>
         )}
 
+        {data.status === 'cancelled' && (
+          <Badge className="w-full justify-center bg-muted text-muted-foreground">
+            <CalendarX className="h-3 w-3 mr-1" />
+            Cancelled
+          </Badge>
+        )}
+
         {data.status === 'pending' && isPast && (
           <Badge className="w-full justify-center" variant="secondary">
             Expired
@@ -113,6 +125,36 @@ export function InterviewInviteMessage({
           <Badge className="w-full justify-center bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30">
             Awaiting Response
           </Badge>
+        )}
+
+        {/* Manager actions - cancel/reschedule */}
+        {!isApplicantView && canModify && (onCancel || onReschedule) && (
+          <div className="flex gap-2 pt-2 border-t border-border/50 mt-2">
+            {onReschedule && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 text-xs"
+                onClick={onReschedule}
+                disabled={responding}
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Reschedule
+              </Button>
+            )}
+            {onCancel && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="flex-1 text-xs border-red-500/30 text-red-600 hover:bg-red-500/10"
+                onClick={onCancel}
+                disabled={responding}
+              >
+                <CalendarX className="h-3 w-3 mr-1" />
+                Cancel
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </div>

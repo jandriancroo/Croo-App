@@ -9,6 +9,16 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { InterviewScheduleDialog } from './InterviewScheduleDialog';
 import { InterviewInviteMessage } from './InterviewInviteMessage';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Message {
   id: string;
@@ -37,6 +47,8 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
   const [sending, setSending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+  const [isRescheduling, setIsRescheduling] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -179,6 +191,11 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
 
     setSending(true);
     try {
+      // If rescheduling, cancel the previous interview first
+      if (isRescheduling) {
+        await cancelInterviewInternal(false);
+      }
+
       // Send interview invitation message
       const { error: msgError } = await supabase
         .from('hiring_messages')
@@ -204,13 +221,72 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
 
       if (appError) throw appError;
 
-      toast.success('Interview invitation sent!');
+      toast.success(isRescheduling ? 'Interview rescheduled!' : 'Interview invitation sent!');
+      setIsRescheduling(false);
     } catch (err) {
       console.error('Error scheduling interview:', err);
       toast.error('Failed to schedule interview');
     } finally {
       setSending(false);
     }
+  };
+
+  const cancelInterviewInternal = async (sendMessage = true) => {
+    if (!conversationId || !user) return;
+
+    // Find the latest pending/accepted interview message and update it
+    const latestInterviewMsg = [...messages].reverse().find(m => 
+      m.content.startsWith('INTERVIEW_INVITE:') && 
+      !m.content.includes('"status":"cancelled"') &&
+      !m.content.includes('"status":"declined"')
+    );
+
+    if (latestInterviewMsg && sendMessage) {
+      // Parse and update status
+      const jsonStr = latestInterviewMsg.content.replace('INTERVIEW_INVITE:', '');
+      const data = JSON.parse(jsonStr);
+      data.status = 'cancelled';
+
+      // Send cancellation message
+      await supabase
+        .from('hiring_messages')
+        .insert({
+          conversation_id: conversationId,
+          sender_type: 'staff',
+          sender_id: user.id,
+          content: `INTERVIEW_INVITE:${JSON.stringify(data)}`
+        });
+    }
+
+    // Clear interview from application
+    await supabase
+      .from('job_applications')
+      .update({
+        interview_date: null,
+        interview_time: null,
+        interview_status: null,
+        status: 'pending'
+      })
+      .eq('id', applicationId);
+  };
+
+  const handleCancelInterview = async () => {
+    setSending(true);
+    try {
+      await cancelInterviewInternal(true);
+      toast.success('Interview cancelled');
+      setShowCancelDialog(false);
+    } catch (err) {
+      console.error('Error cancelling interview:', err);
+      toast.error('Failed to cancel interview');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleReschedule = () => {
+    setIsRescheduling(true);
+    setShowScheduleDialog(true);
   };
 
   if (loading) {
@@ -285,7 +361,10 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
                   {isInterviewInvite ? (
                     <InterviewInviteMessage 
                       content={message.content} 
-                      isApplicantView={false} 
+                      isApplicantView={false}
+                      onCancel={() => setShowCancelDialog(true)}
+                      onReschedule={handleReschedule}
+                      responding={sending}
                     />
                   ) : (
                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -311,7 +390,10 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setShowScheduleDialog(true)}
+            onClick={() => {
+              setIsRescheduling(false);
+              setShowScheduleDialog(true);
+            }}
             title="Schedule Interview"
           >
             <CalendarPlus className="h-4 w-4" />
@@ -332,10 +414,34 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
 
       <InterviewScheduleDialog
         open={showScheduleDialog}
-        onOpenChange={setShowScheduleDialog}
+        onOpenChange={(open) => {
+          setShowScheduleDialog(open);
+          if (!open) setIsRescheduling(false);
+        }}
         onSchedule={handleScheduleInterview}
         applicantName={applicantName}
+        isRescheduling={isRescheduling}
       />
+
+      <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Interview?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will cancel the scheduled interview with {applicantName}. They will be notified in the chat.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep Interview</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleCancelInterview}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Cancel Interview
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

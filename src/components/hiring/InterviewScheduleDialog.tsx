@@ -3,12 +3,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useLocation } from '@/hooks/useLocation';
-import { format, addDays, isSameDay } from 'date-fns';
-import { Loader2, CalendarCheck, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { format, addDays } from 'date-fns';
+import { Loader2, CalendarCheck, Clock, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface InterviewScheduleDialogProps {
@@ -16,13 +15,15 @@ interface InterviewScheduleDialogProps {
   onOpenChange: (open: boolean) => void;
   onSchedule: (date: Date, time: string) => void;
   applicantName: string;
+  isRescheduling?: boolean;
 }
 
 export function InterviewScheduleDialog({ 
   open, 
   onOpenChange, 
   onSchedule,
-  applicantName 
+  applicantName,
+  isRescheduling = false
 }: InterviewScheduleDialogProps) {
   const { user } = useAuth();
   const { currentLocation } = useLocation();
@@ -93,14 +94,23 @@ export function InterviewScheduleDialog({
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CalendarCheck className="h-5 w-5 text-primary" />
-            Schedule Interview
+            {isRescheduling ? (
+              <>
+                <RefreshCw className="h-5 w-5 text-primary" />
+                Reschedule Interview
+              </>
+            ) : (
+              <>
+                <CalendarCheck className="h-5 w-5 text-primary" />
+                Schedule Interview
+              </>
+            )}
           </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4 py-2">
           <p className="text-sm text-muted-foreground">
-            Schedule an interview with <span className="font-medium text-foreground">{applicantName}</span>
+            {isRescheduling ? 'Reschedule' : 'Schedule'} an interview with <span className="font-medium text-foreground">{applicantName}</span>
           </p>
 
           {/* Calendar */}
@@ -185,7 +195,7 @@ export function InterviewScheduleDialog({
             disabled={!selectedDate || !selectedTime || loading}
           >
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Send Invitation
+            {isRescheduling ? 'Send New Invitation' : 'Send Invitation'}
           </Button>
         </DialogFooter>
       </DialogContent>
