@@ -75,13 +75,13 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     setCurrentLocationState(location);
     localStorage.setItem('currentLocationId', location.id);
     
-    // Invalidate all queries to force refetch with new location
-    queryClient.invalidateQueries();
+    // Remove all cached data immediately - queries will refetch on-demand
+    queryClient.removeQueries();
     
-    // Clear switching state after queries have time to refetch
+    // Brief UI feedback then let components refetch naturally
     setTimeout(() => {
       setSwitching(false);
-    }, 500);
+    }, 150);
   }, [queryClient]);
 
   const isChecklistOnlyLocation = currentLocation?.location_type === 'checklist_only';
