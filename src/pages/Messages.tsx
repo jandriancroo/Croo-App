@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, ArrowLeft, Megaphone, ShoppingBag } from 'lucide-react';
+import { Plus, Users, ArrowLeft, Megaphone, ShoppingBag, Briefcase } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
@@ -15,6 +15,8 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
+import { HiringChatList } from '@/components/messages/HiringChatList';
+import { HiringChatPanel } from '@/components/hiring/HiringChatPanel';
 
 interface Chat {
   id: string;
@@ -53,8 +55,9 @@ export default function Messages() {
   const [showChatList, setShowChatList] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
-  const [viewMode, setViewMode] = useState<'chats' | 'announcements' | 'marketplace'>('chats');
+  const [viewMode, setViewMode] = useState<'chats' | 'announcements' | 'marketplace' | 'hiring'>('chats');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [selectedHiringConversation, setSelectedHiringConversation] = useState<any>(null);
 
   const fetchChats = async () => {
     setLoading(true);
@@ -225,9 +228,9 @@ export default function Messages() {
     }
   };
 
-  const applyViewFilter = (chatList: Chat[], mode: 'chats' | 'announcements' | 'marketplace') => {
-    if (mode === 'marketplace') {
-      // Marketplace is handled separately via selectedChatId
+  const applyViewFilter = (chatList: Chat[], mode: 'chats' | 'announcements' | 'marketplace' | 'hiring') => {
+    if (mode === 'marketplace' || mode === 'hiring') {
+      // Marketplace and Hiring are handled separately
       setFilteredChats([]);
       return;
     }
@@ -296,11 +299,14 @@ export default function Messages() {
     }
   };
 
-  const handleViewModeChange = (mode: 'chats' | 'announcements' | 'marketplace') => {
+  const handleViewModeChange = (mode: 'chats' | 'announcements' | 'marketplace' | 'hiring') => {
     setViewMode(mode);
     setSearchQuery('');
+    setSelectedHiringConversation(null);
     if (mode === 'marketplace' && marketplaceChatId) {
       setSelectedChatId(marketplaceChatId);
+    } else if (mode === 'hiring') {
+      setSelectedChatId(null);
     } else {
       setSelectedChatId(null);
       applyViewFilter(chats, mode);
@@ -384,18 +390,29 @@ export default function Messages() {
               </div>
             </div>
             
-            <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace')} className="mb-4">
-              <TabsList className="grid w-full grid-cols-3">
+            <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
+              <TabsList className={`grid w-full ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
                 <TabsTrigger value="chats">Chats</TabsTrigger>
                 <TabsTrigger value="announcements">Announce</TabsTrigger>
                 <TabsTrigger value="marketplace" className="gap-1">
                   <ShoppingBag className="h-3 w-3" />
                   Shifts
                 </TabsTrigger>
+                {(isAdmin || isManager) && (
+                  <TabsTrigger value="hiring" className="gap-1">
+                    <Briefcase className="h-3 w-3" />
+                    Hiring
+                  </TabsTrigger>
+                )}
               </TabsList>
             </Tabs>
             
-            {viewMode !== 'marketplace' && (
+            {viewMode === 'hiring' ? (
+              <HiringChatList
+                onSelectConversation={(conv) => setSelectedHiringConversation(conv)}
+                selectedId={selectedHiringConversation?.id}
+              />
+            ) : viewMode !== 'marketplace' && (
               <>
                 <div className="mb-4">
                   <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
@@ -417,7 +434,14 @@ export default function Messages() {
         {/* Desktop: Chat Window */}
         {!isMobile && (
           <div className="flex-1 bg-card rounded-lg">
-            {selectedChatId || viewMode === 'marketplace' ? (
+            {viewMode === 'hiring' && selectedHiringConversation ? (
+              <div className="p-4">
+                <HiringChatPanel
+                  applicationId={selectedHiringConversation.application_id}
+                  applicantName={selectedHiringConversation.application?.full_name || 'Applicant'}
+                />
+              </div>
+            ) : selectedChatId || viewMode === 'marketplace' ? (
               <ChatWindow
                 chatId={viewMode === 'marketplace' ? marketplaceChatId : selectedChatId}
                 chatDetails={chats.find(c => c.id === (viewMode === 'marketplace' ? marketplaceChatId : selectedChatId)) || null}
@@ -468,18 +492,29 @@ export default function Messages() {
                 </div>
               </div>
               
-              <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace')} className="mb-4">
-                <TabsList className="grid w-full grid-cols-3">
+              <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
+                <TabsList className={`grid w-full ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
                   <TabsTrigger value="chats">Chats</TabsTrigger>
                   <TabsTrigger value="announcements">Announce</TabsTrigger>
                   <TabsTrigger value="marketplace" className="gap-1">
                     <ShoppingBag className="h-3 w-3" />
                     Shifts
                   </TabsTrigger>
+                  {(isAdmin || isManager) && (
+                    <TabsTrigger value="hiring" className="gap-1">
+                      <Briefcase className="h-3 w-3" />
+                      Hiring
+                    </TabsTrigger>
+                  )}
                 </TabsList>
               </Tabs>
               
-              {viewMode !== 'marketplace' && (
+              {viewMode === 'hiring' ? (
+                <HiringChatList
+                  onSelectConversation={(conv) => setSelectedHiringConversation(conv)}
+                  selectedId={selectedHiringConversation?.id}
+                />
+              ) : viewMode !== 'marketplace' && (
                 <>
                   <div className="mb-4">
                     <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />

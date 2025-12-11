@@ -1,0 +1,315 @@
+import { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Send, MessageCircle, Loader2, Bell, BellOff } from 'lucide-react';
+import { format } from 'date-fns';
+import { AddToHomeScreenButton } from '@/components/AddToHomeScreenButton';
+import { toast } from 'sonner';
+import crooLogo from '@/assets/croo-logo.png';
+
+interface Message {
+  id: string;
+  sender_type: 'staff' | 'applicant';
+  sender_id: string | null;
+  content: string;
+  created_at: string;
+  sender?: {
+    full_name: string;
+    profile_photo_url: string | null;
+  };
+}
+
+interface ConversationData {
+  id: string;
+  application: {
+    full_name: string;
+    organization: {
+      name: string;
+      logo_url: string | null;
+    };
+  };
+}
+
+export default function HiringChat() {
+  const { token } = useParams<{ token: string }>();
+  const [conversation, setConversation] = useState<ConversationData | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (token) {
+      fetchConversation();
+    }
+  }, [token]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  useEffect(() => {
+    if (!conversation) return;
+
+    // Subscribe to new messages
+    const channel = supabase
+      .channel(`hiring-chat-${conversation.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'hiring_messages',
+          filter: `conversation_id=eq.${conversation.id}`
+        },
+        async (payload) => {
+          const newMsg = payload.new as Message;
+          
+          // Fetch sender info if staff message
+          if (newMsg.sender_type === 'staff' && newMsg.sender_id) {
+            const { data: sender } = await supabase
+              .from('profiles')
+              .select('full_name, profile_photo_url')
+              .eq('id', newMsg.sender_id)
+              .single();
+            newMsg.sender = sender || undefined;
+          }
+          
+          setMessages(prev => [...prev, newMsg]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversation]);
+
+  const fetchConversation = async () => {
+    try {
+      // Fetch conversation by token
+      const { data: conv, error: convError } = await supabase
+        .from('hiring_conversations')
+        .select(`
+          id,
+          application:job_applications(
+            full_name,
+            organization:organizations(name, logo_url)
+          )
+        `)
+        .eq('access_token', token)
+        .single();
+
+      if (convError || !conv) {
+        setError('Conversation not found. Please check your link.');
+        setLoading(false);
+        return;
+      }
+
+      setConversation(conv as unknown as ConversationData);
+
+      // Fetch messages
+      const { data: msgs } = await supabase
+        .from('hiring_messages')
+        .select(`
+          id,
+          sender_type,
+          sender_id,
+          content,
+          created_at,
+          sender:profiles(full_name, profile_photo_url)
+        `)
+        .eq('conversation_id', conv.id)
+        .order('created_at', { ascending: true });
+
+      setMessages((msgs || []) as Message[]);
+    } catch (err) {
+      console.error('Error fetching conversation:', err);
+      setError('Failed to load conversation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSend = async () => {
+    if (!newMessage.trim() || !conversation) return;
+
+    setSending(true);
+    try {
+      const { error: sendError } = await supabase
+        .from('hiring_messages')
+        .insert({
+          conversation_id: conversation.id,
+          sender_type: 'applicant',
+          sender_id: null,
+          content: newMessage.trim()
+        });
+
+      if (sendError) throw sendError;
+      setNewMessage('');
+    } catch (err) {
+      console.error('Error sending message:', err);
+      toast.error('Failed to send message');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const requestNotifications = async () => {
+    if (!('Notification' in window)) {
+      toast.error('Notifications not supported on this device');
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      setNotificationsEnabled(true);
+      toast.success('Notifications enabled! You\'ll be notified of new messages.');
+    } else {
+      toast.error('Notifications were denied');
+    }
+  };
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'granted') {
+      setNotificationsEnabled(true);
+    }
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error || !conversation) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6 text-center">
+            <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h2 className="text-lg font-semibold mb-2">Link Not Found</h2>
+            <p className="text-muted-foreground">{error || 'This conversation link is invalid or has expired.'}</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const orgLogo = conversation.application.organization?.logo_url;
+  const orgName = conversation.application.organization?.name || 'Hiring Team';
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img 
+              src={orgLogo || crooLogo} 
+              alt={orgName} 
+              className="h-10 w-10 rounded-lg object-contain"
+            />
+            <div>
+              <h1 className="font-semibold">{orgName}</h1>
+              <p className="text-xs text-muted-foreground">Hiring Chat</p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={requestNotifications}
+            className={notificationsEnabled ? 'text-primary' : 'text-muted-foreground'}
+          >
+            {notificationsEnabled ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
+          </Button>
+        </div>
+      </div>
+
+      {/* Install Banner */}
+      {!window.matchMedia('(display-mode: standalone)').matches && (
+        <div className="bg-primary/10 border-b border-primary/20 px-4 py-3">
+          <div className="max-w-2xl mx-auto flex items-center justify-between gap-4">
+            <p className="text-sm text-primary-foreground/80">
+              Add to your home screen to get notifications!
+            </p>
+            <AddToHomeScreenButton size="sm" variant="default">
+              Install
+            </AddToHomeScreenButton>
+          </div>
+        </div>
+      )}
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="max-w-2xl mx-auto space-y-4">
+          {messages.length === 0 ? (
+            <div className="text-center py-12">
+              <MessageCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <p className="text-muted-foreground">No messages yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                The hiring team will message you here
+              </p>
+            </div>
+          ) : (
+            messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.sender_type === 'applicant' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                    message.sender_type === 'applicant'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted'
+                  }`}
+                >
+                  {message.sender_type === 'staff' && message.sender && (
+                    <p className="text-xs font-medium mb-1 opacity-70">
+                      {message.sender.full_name}
+                    </p>
+                  )}
+                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  <p className={`text-xs mt-1 ${
+                    message.sender_type === 'applicant' 
+                      ? 'text-primary-foreground/60' 
+                      : 'text-muted-foreground'
+                  }`}>
+                    {format(new Date(message.created_at), 'h:mm a')}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* Input */}
+      <div className="border-t bg-card/50 backdrop-blur-sm sticky bottom-0">
+        <div className="max-w-2xl mx-auto p-4">
+          <div className="flex gap-2">
+            <Input
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              placeholder="Type your message..."
+              onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+              disabled={sending}
+            />
+            <Button onClick={handleSend} disabled={!newMessage.trim() || sending}>
+              {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

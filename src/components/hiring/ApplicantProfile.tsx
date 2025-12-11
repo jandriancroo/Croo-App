@@ -7,11 +7,12 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Mail, Phone, MapPin, FileText, ExternalLink, Briefcase, Users, Trash2 } from 'lucide-react';
+import { Loader2, Mail, Phone, MapPin, FileText, ExternalLink, Briefcase, Users, Trash2, MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { HiringChatPanel } from './HiringChatPanel';
 
 type ApplicationStatus = 'pending' | 'interested' | 'interviewing' | 'hired' | 'rejected';
 
@@ -362,6 +363,12 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                   </Button>
                 </CardContent>
               </Card>
+
+              {/* Hiring Chat */}
+              <HiringChatPanel 
+                applicationId={application.id} 
+                applicantName={application.full_name} 
+              />
 
               {/* Delete Application */}
               <div className="pt-4 border-t">
