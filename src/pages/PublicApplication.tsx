@@ -155,6 +155,68 @@ export default function PublicApplication() {
     }
   }, [templates, selectedTemplate]);
 
+  // Parse resume with AI
+  const parseResumeWithAI = async (file: File) => {
+    try {
+      // Read file as text for parsing
+      let resumeText = '';
+      
+      if (file.type === 'application/pdf') {
+        // For PDFs, we'll send the file name and let the user know
+        // AI parsing works best with text-based resumes
+        toast.info('PDF detected - parsing may be limited. For best results, use a text-based resume.');
+        return;
+      } else {
+        resumeText = await file.text();
+      }
+
+      if (!resumeText.trim()) {
+        return;
+      }
+
+      toast.loading('Scanning resume...', { id: 'resume-parse' });
+
+      const { data, error } = await supabase.functions.invoke('parse-resume', {
+        body: { resumeText }
+      });
+
+      if (error) {
+        console.error('Parse error:', error);
+        toast.dismiss('resume-parse');
+        return;
+      }
+
+      if (data?.success && data?.data) {
+        const parsed = data.data;
+        
+        // Auto-fill form fields
+        if (parsed.firstName) setFirstName(parsed.firstName);
+        if (parsed.lastName) setLastName(parsed.lastName);
+        if (parsed.email) setEmail(parsed.email);
+        if (parsed.phone) setPhone(parsed.phone);
+        
+        // Auto-fill work history if available
+        if (parsed.workHistory && parsed.workHistory.length > 0) {
+          setWorkHistory(parsed.workHistory.map((w: any) => ({
+            employer_name: w.employer_name || '',
+            job_title: w.job_title || '',
+            start_date: w.start_date || '',
+            end_date: w.end_date || '',
+            is_current: w.is_current || false,
+            reason_for_leaving: ''
+          })));
+        }
+
+        toast.success('Resume scanned! Fields auto-filled.', { id: 'resume-parse' });
+      } else {
+        toast.dismiss('resume-parse');
+      }
+    } catch (error) {
+      console.error('AI parse error:', error);
+      toast.dismiss('resume-parse');
+    }
+  };
+
   // Handle resume upload
   const handleResumeUpload = async (file: File) => {
     setUploading(true);
@@ -176,6 +238,9 @@ export default function PublicApplication() {
       setResumeUrl(publicUrl);
       setResumeFile(file);
       toast.success('Resume uploaded');
+
+      // Try to parse with AI
+      parseResumeWithAI(file);
     } catch (error) {
       console.error('Upload error:', error);
       toast.error('Failed to upload resume');
