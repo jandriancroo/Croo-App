@@ -4,9 +4,11 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, MessageCircle, Loader2, Copy, Check, ExternalLink } from 'lucide-react';
+import { Send, MessageCircle, Loader2, Copy, Check, ExternalLink, CalendarPlus } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { InterviewScheduleDialog } from './InterviewScheduleDialog';
+import { InterviewInviteMessage } from './InterviewInviteMessage';
 
 interface Message {
   id: string;
@@ -34,6 +36,7 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -165,6 +168,51 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleScheduleInterview = async (date: Date, time: string) => {
+    if (!conversationId || !user) return;
+    
+    const interviewData = {
+      date: format(date, 'yyyy-MM-dd'),
+      time,
+      status: 'pending'
+    };
+
+    setSending(true);
+    try {
+      // Send interview invitation message
+      const { error: msgError } = await supabase
+        .from('hiring_messages')
+        .insert({
+          conversation_id: conversationId,
+          sender_type: 'staff',
+          sender_id: user.id,
+          content: `INTERVIEW_INVITE:${JSON.stringify(interviewData)}`
+        });
+
+      if (msgError) throw msgError;
+
+      // Update application with interview details
+      const { error: appError } = await supabase
+        .from('job_applications')
+        .update({
+          interview_date: interviewData.date,
+          interview_time: time,
+          interview_status: 'pending',
+          status: 'interviewing'
+        })
+        .eq('id', applicationId);
+
+      if (appError) throw appError;
+
+      toast.success('Interview invitation sent!');
+    } catch (err) {
+      console.error('Error scheduling interview:', err);
+      toast.error('Failed to schedule interview');
+    } finally {
+      setSending(false);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -216,32 +264,43 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
             <p className="text-sm">Start the conversation</p>
           </div>
         ) : (
-          messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.sender_type === 'staff' ? 'justify-end' : 'justify-start'}`}
-            >
+          messages.map((message) => {
+            const isInterviewInvite = message.content.startsWith('INTERVIEW_INVITE:');
+            
+            return (
               <div
-                className={`max-w-[80%] rounded-2xl px-3 py-2 ${
-                  message.sender_type === 'staff'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted'
-                }`}
+                key={message.id}
+                className={`flex ${message.sender_type === 'staff' ? 'justify-end' : 'justify-start'}`}
               >
-                {message.sender_type === 'applicant' && (
-                  <p className="text-xs font-medium mb-1 opacity-70">{applicantName}</p>
-                )}
-                <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                <p className={`text-xs mt-1 ${
-                  message.sender_type === 'staff' 
-                    ? 'text-primary-foreground/60' 
-                    : 'text-muted-foreground'
-                }`}>
-                  {format(new Date(message.created_at), 'h:mm a')}
-                </p>
+                <div
+                  className={`max-w-[80%] rounded-2xl px-3 py-2 ${
+                    message.sender_type === 'staff'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted'
+                  }`}
+                >
+                  {message.sender_type === 'applicant' && (
+                    <p className="text-xs font-medium mb-1 opacity-70">{applicantName}</p>
+                  )}
+                  {isInterviewInvite ? (
+                    <InterviewInviteMessage 
+                      content={message.content} 
+                      isApplicantView={false} 
+                    />
+                  ) : (
+                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                  )}
+                  <p className={`text-xs mt-1 ${
+                    message.sender_type === 'staff' 
+                      ? 'text-primary-foreground/60' 
+                      : 'text-muted-foreground'
+                  }`}>
+                    {format(new Date(message.created_at), 'h:mm a')}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </CardContent>
@@ -249,6 +308,14 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
       {/* Input */}
       <div className="border-t p-3">
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowScheduleDialog(true)}
+            title="Schedule Interview"
+          >
+            <CalendarPlus className="h-4 w-4" />
+          </Button>
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
@@ -262,6 +329,13 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
           </Button>
         </div>
       </div>
+
+      <InterviewScheduleDialog
+        open={showScheduleDialog}
+        onOpenChange={setShowScheduleDialog}
+        onSchedule={handleScheduleInterview}
+        applicantName={applicantName}
+      />
     </Card>
   );
 }

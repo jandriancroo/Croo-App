@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { AddToHomeScreenButton } from '@/components/AddToHomeScreenButton';
 import { toast } from 'sonner';
 import crooLogo from '@/assets/croo-logo.png';
+import { InterviewInviteMessage } from '@/components/hiring/InterviewInviteMessage';
 
 interface Message {
   id: string;
@@ -24,6 +25,7 @@ interface Message {
 
 interface ConversationData {
   id: string;
+  application_id: string;
   application: {
     full_name: string;
     organization: {
@@ -42,6 +44,7 @@ export default function HiringChat() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [respondingToInterview, setRespondingToInterview] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -98,6 +101,7 @@ export default function HiringChat() {
         .from('hiring_conversations')
         .select(`
           id,
+          application_id,
           application:job_applications(
             full_name,
             organization:organizations(name, logo_url)
@@ -134,6 +138,62 @@ export default function HiringChat() {
       setError('Failed to load conversation');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRespondToInterview = async (messageId: string, accepted: boolean) => {
+    if (!conversation) return;
+    
+    setRespondingToInterview(true);
+    try {
+      // Find the message and update the interview data
+      const message = messages.find(m => m.id === messageId);
+      if (!message) return;
+      
+      const jsonStr = message.content.replace('INTERVIEW_INVITE:', '');
+      const interviewData = JSON.parse(jsonStr);
+      interviewData.status = accepted ? 'accepted' : 'declined';
+      
+      // Update the message content
+      await supabase
+        .from('hiring_messages')
+        .update({ content: `INTERVIEW_INVITE:${JSON.stringify(interviewData)}` })
+        .eq('id', messageId);
+      
+      // Update the application status
+      await supabase
+        .from('job_applications')
+        .update({ 
+          interview_status: accepted ? 'accepted' : 'declined',
+          status: accepted ? 'interviewing' : 'interested'
+        })
+        .eq('id', conversation.application_id);
+      
+      // Update local state
+      setMessages(prev => prev.map(m => 
+        m.id === messageId 
+          ? { ...m, content: `INTERVIEW_INVITE:${JSON.stringify(interviewData)}` }
+          : m
+      ));
+      
+      // Send a response message
+      await supabase
+        .from('hiring_messages')
+        .insert({
+          conversation_id: conversation.id,
+          sender_type: 'applicant',
+          sender_id: null,
+          content: accepted 
+            ? "I've accepted the interview invitation. Looking forward to meeting you!"
+            : "I'm unable to make that time. Could we schedule for a different time?"
+        });
+      
+      toast.success(accepted ? 'Interview accepted!' : 'Interview declined');
+    } catch (err) {
+      console.error('Error responding to interview:', err);
+      toast.error('Failed to respond to interview');
+    } finally {
+      setRespondingToInterview(false);
     }
   };
 
@@ -260,34 +320,47 @@ export default function HiringChat() {
               </p>
             </div>
           ) : (
-            messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${message.sender_type === 'applicant' ? 'justify-end' : 'justify-start'}`}
-              >
+            messages.map((message) => {
+              const isInterviewInvite = message.content.startsWith('INTERVIEW_INVITE:');
+              
+              return (
                 <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                    message.sender_type === 'applicant'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
-                  }`}
+                  key={message.id}
+                  className={`flex ${message.sender_type === 'applicant' ? 'justify-end' : 'justify-start'}`}
                 >
-                  {message.sender_type === 'staff' && message.sender && (
-                    <p className="text-xs font-medium mb-1 opacity-70">
-                      {message.sender.full_name}
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-4 py-2 ${
+                      message.sender_type === 'applicant'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted'
+                    }`}
+                  >
+                    {message.sender_type === 'staff' && message.sender && (
+                      <p className="text-xs font-medium mb-1 opacity-70">
+                        {message.sender.full_name}
+                      </p>
+                    )}
+                    {isInterviewInvite ? (
+                      <InterviewInviteMessage 
+                        content={message.content} 
+                        isApplicantView={true}
+                        onRespond={(accepted) => handleRespondToInterview(message.id, accepted)}
+                        responding={respondingToInterview}
+                      />
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                    )}
+                    <p className={`text-xs mt-1 ${
+                      message.sender_type === 'applicant' 
+                        ? 'text-primary-foreground/60' 
+                        : 'text-muted-foreground'
+                    }`}>
+                      {format(new Date(message.created_at), 'h:mm a')}
                     </p>
-                  )}
-                  <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                  <p className={`text-xs mt-1 ${
-                    message.sender_type === 'applicant' 
-                      ? 'text-primary-foreground/60' 
-                      : 'text-muted-foreground'
-                  }`}>
-                    {format(new Date(message.created_at), 'h:mm a')}
-                  </p>
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
           <div ref={messagesEndRef} />
         </div>

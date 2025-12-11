@@ -15,11 +15,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Loader2, Plus, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles } from 'lucide-react';
+import { Loader2, Plus, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
 import { ApplicationTemplates } from '@/components/hiring/ApplicationTemplates';
 import { ApplicantProfile } from '@/components/hiring/ApplicantProfile';
 import { HireApplicantDialog } from '@/components/hiring/HireApplicantDialog';
+import { InterviewCalendarDialog } from '@/components/hiring/InterviewCalendarDialog';
 import { QRCodeSVG } from 'qrcode.react';
 
 const STATUS_COLORS: Record<ApplicationStatus, string> = {
@@ -40,6 +41,7 @@ export default function Hiring() {
   const [selectedApplicant, setSelectedApplicant] = useState<string | null>(null);
   const [showQrDialog, setShowQrDialog] = useState(false);
   const [showHireDialog, setShowHireDialog] = useState(false);
+  const [showInterviewCalendar, setShowInterviewCalendar] = useState(false);
   const [applicantToHire, setApplicantToHire] = useState<{ id: string; full_name: string; email: string; phone?: string } | null>(null);
 
   // Get organization for current location
@@ -224,9 +226,13 @@ export default function Hiring() {
             <p className="text-muted-foreground">{organization.name}</p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowInterviewCalendar(true)}>
+              <CalendarDays className="h-4 w-4 mr-2" />
+              <span className="hidden sm:inline">Interviews</span>
+            </Button>
             <Button variant="outline" onClick={() => setShowQrDialog(true)}>
               <QrCode className="h-4 w-4 mr-2" />
-              Share Link
+              <span className="hidden sm:inline">Share Link</span>
             </Button>
           </div>
         </div>
@@ -418,7 +424,15 @@ export default function Hiring() {
           }}
         />
 
-        {/* QR Code / Share Link Dialog */}
+        {/* Interview Calendar Dialog */}
+        {organization && (
+          <InterviewCalendarDialog
+            open={showInterviewCalendar}
+            onOpenChange={setShowInterviewCalendar}
+            organizationId={organization.id}
+          />
+        )}
+
         <Dialog open={showQrDialog} onOpenChange={setShowQrDialog}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
