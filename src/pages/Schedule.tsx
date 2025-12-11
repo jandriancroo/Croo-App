@@ -64,9 +64,12 @@ interface ScheduleEvent {
   event_name: string;
   event_time: string;
   day_of_week: number;
+  days_of_week?: number[] | null;
   notes: string | null;
   tagged_roles: string[] | null;
   is_recurring: boolean;
+  category_id?: string | null;
+  is_daily_task?: boolean;
 }
 
 interface AvailabilityRequest {
@@ -1101,7 +1104,7 @@ export default function Schedule() {
 
             {/* Events Section - show for all users */}
             <div className="border-b border-border">
-              <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} />
+              <EventRow events={events} scheduleId={scheduleId} isEditable={isAdmin || isManager} onUpdate={fetchScheduleData} locationId={currentLocation?.id} />
             </div>
 
             {/* Shifts by User - Grouped by Role (filtered for team members) */}
