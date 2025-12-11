@@ -1064,6 +1064,7 @@ export default function UserManagement() {
           fullName: inviteFullName.trim(),
           role: inviteRole,
           profilePhotoUrl: inviteProfilePhoto,
+          locationId: currentLocation?.id,
         },
       });
  

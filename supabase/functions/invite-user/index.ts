@@ -12,6 +12,7 @@ interface InviteUserRequest {
   fullName: string;
   role: 'admin' | 'manager' | 'team_member';
   profilePhotoUrl?: string;
+  locationId?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -71,7 +72,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("User is admin, proceeding with invitation");
 
-    const { email, fullName, role, profilePhotoUrl }: InviteUserRequest = await req.json();
+    const { email, fullName, role, profilePhotoUrl, locationId }: InviteUserRequest = await req.json();
 
     // Validate input
     if (!email || !fullName || !role) {
@@ -130,6 +131,22 @@ const handler = async (req: Request): Promise<Response> => {
     if (roleAssignError) {
       console.error("Role assignment error:", roleAssignError);
       throw roleAssignError;
+    }
+
+    // Assign to location if provided
+    if (locationId) {
+      const { error: locationAssignError } = await supabaseAdmin
+        .from('user_locations')
+        .upsert({
+          user_id: newUser.user.id,
+          location_id: locationId,
+        }, {
+          onConflict: 'user_id,location_id',
+        });
+
+      if (locationAssignError) {
+        console.error("Location assignment error:", locationAssignError);
+      }
     }
 
     // Get the origin from the request to use as redirect URL
