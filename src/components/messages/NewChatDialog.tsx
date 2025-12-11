@@ -40,14 +40,42 @@ export function NewChatDialog({ open, onOpenChange, onChatCreated, canCreateGrou
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, profile_photo_url')
-        .eq('is_active', true)
-        .neq('id', user.id);
+      // If locationId provided, filter to users at that location
+      if (locationId) {
+        const { data: locationUsers, error: locationError } = await supabase
+          .from('user_locations')
+          .select('user_id')
+          .eq('location_id', locationId);
 
-      if (error) throw error;
-      setProfiles(data || []);
+        if (locationError) throw locationError;
+
+        const userIds = locationUsers?.map(u => u.user_id) || [];
+        
+        if (userIds.length === 0) {
+          setProfiles([]);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, profile_photo_url')
+          .eq('is_active', true)
+          .neq('id', user.id)
+          .in('id', userIds);
+
+        if (error) throw error;
+        setProfiles(data || []);
+      } else {
+        // Fallback to all users if no location
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, profile_photo_url')
+          .eq('is_active', true)
+          .neq('id', user.id);
+
+        if (error) throw error;
+        setProfiles(data || []);
+      }
     } catch (error: any) {
       console.error('Error fetching profiles:', error);
       toast.error('Failed to load users');
