@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
+import { PullToRefresh } from './PullToRefresh';
 
 interface LayoutProps {
   children: ReactNode;
@@ -362,9 +363,17 @@ export const Layout = ({
             <div className="animate-pulse text-muted-foreground">Switching location...</div>
           </div>
         )}
-        <div className={switching ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
-          {children}
-        </div>
+        {isMobile ? (
+          <PullToRefresh>
+            <div className={switching ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
+              {children}
+            </div>
+          </PullToRefresh>
+        ) : (
+          <div className={switching ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
+            {children}
+          </div>
+        )}
       </main>
       
       {/* Footer - desktop only */}
