@@ -102,46 +102,62 @@ export default function Availability() {
         if (requestsError) throw requestsError;
         setRequests(requestsData || []);
 
-        // Fetch employee hours for admin
+        // Fetch employee hours for admin - filter by location
         const currentYear = new Date().getFullYear();
         
-        const { data: profiles, error: profilesError } = await supabase
-          .from("profiles")
-          .select("id, full_name, profile_photo_url")
-          .eq("is_active", true);
+        // Get profiles for users at this location
+        const { data: userLocations, error: userLocError } = await supabase
+          .from("user_locations")
+          .select("user_id")
+          .eq("location_id", currentLocation.id);
+        
+        if (userLocError) throw userLocError;
+        
+        const locationUserIds = (userLocations || []).map(ul => ul.user_id);
+        
+        if (locationUserIds.length > 0) {
+          const { data: profiles, error: profilesError } = await supabase
+            .from("profiles")
+            .select("id, full_name, profile_photo_url")
+            .eq("is_active", true)
+            .in("id", locationUserIds);
 
-        if (profilesError) throw profilesError;
+          if (profilesError) throw profilesError;
 
-        const { data: availabilityData, error: availabilityError } = await supabase
-          .from("availability_requests")
-          .select("user_id, request_type, hours_requested, status")
-          .eq("status", "approved")
-          .gte("start_date", `${currentYear}-01-01`)
-          .lte("start_date", `${currentYear}-12-31`);
+          const { data: availabilityData, error: availabilityError } = await supabase
+            .from("availability_requests")
+            .select("user_id, request_type, hours_requested, status")
+            .eq("status", "approved")
+            .eq("location_id", currentLocation.id)
+            .gte("start_date", `${currentYear}-01-01`)
+            .lte("start_date", `${currentYear}-12-31`);
 
-        if (availabilityError) throw availabilityError;
+          if (availabilityError) throw availabilityError;
 
-        const hoursByUser = (availabilityData || []).reduce((acc: any, req: any) => {
-          if (!acc[req.user_id]) {
-            acc[req.user_id] = { paid: 0, unpaid: 0 };
-          }
-          if (req.request_type === "paid") {
-            acc[req.user_id].paid += req.hours_requested;
-          } else {
-            acc[req.user_id].unpaid += req.hours_requested;
-          }
-          return acc;
-        }, {});
+          const hoursByUser = (availabilityData || []).reduce((acc: any, req: any) => {
+            if (!acc[req.user_id]) {
+              acc[req.user_id] = { paid: 0, unpaid: 0 };
+            }
+            if (req.request_type === "paid") {
+              acc[req.user_id].paid += req.hours_requested;
+            } else {
+              acc[req.user_id].unpaid += req.hours_requested;
+            }
+            return acc;
+          }, {});
 
-        const employeeHoursData = (profiles || []).map((profile) => ({
-          id: profile.id,
-          full_name: profile.full_name || "",
-          profile_photo_url: profile.profile_photo_url,
-          paid_hours: hoursByUser[profile.id]?.paid || 0,
-          unpaid_hours: hoursByUser[profile.id]?.unpaid || 0,
-        }));
+          const employeeHoursData = (profiles || []).map((profile) => ({
+            id: profile.id,
+            full_name: profile.full_name || "",
+            profile_photo_url: profile.profile_photo_url,
+            paid_hours: hoursByUser[profile.id]?.paid || 0,
+            unpaid_hours: hoursByUser[profile.id]?.unpaid || 0,
+          }));
 
-        setEmployeeHours(employeeHoursData);
+          setEmployeeHours(employeeHoursData);
+        } else {
+          setEmployeeHours([]);
+        }
       } else {
         // Non-admin view - fetch only user's own requests for current location
         const { data: requestsData, error: requestsError } = await supabase
@@ -305,35 +321,32 @@ export default function Availability() {
         {isAdmin && <ShiftPoolSection />}
 
         {/* Employee Accruals - Admin Only */}
-        {isAdmin && (
+        {isAdmin && employeeHours.length > 0 && (
           <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Employee Accruals (Year to Date)</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {employeeHours.map((employee) => (
-                <div
-                  key={employee.id}
-                  className="flex items-center gap-3 p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={employee.profile_photo_url || undefined} />
-                    <AvatarFallback>{employee.full_name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <div className="font-medium">{employee.full_name}</div>
-                    <div className="flex gap-3 text-sm mt-1">
-                      <div className="flex items-center gap-1">
-                        <Badge variant="default" className="text-xs">Paid</Badge>
-                        <span className="text-muted-foreground">{employee.paid_hours}h</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Badge variant="secondary" className="text-xs">Unpaid</Badge>
+            <h2 className="text-xl font-semibold mb-4">Time Off Used (Year to Date)</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+              {employeeHours
+                .filter(e => e.paid_hours > 0 || e.unpaid_hours > 0)
+                .map((employee) => (
+                  <div
+                    key={employee.id}
+                    className="flex items-center justify-between gap-2 px-3 py-2 border rounded-lg text-sm"
+                  >
+                    <span className="font-medium truncate">{employee.full_name}</span>
+                    <div className="flex gap-2 flex-shrink-0">
+                      {employee.paid_hours > 0 && (
+                        <span className="text-primary font-medium">{employee.paid_hours}h</span>
+                      )}
+                      {employee.unpaid_hours > 0 && (
                         <span className="text-muted-foreground">{employee.unpaid_hours}h</span>
-                      </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
             </div>
+            {employeeHours.filter(e => e.paid_hours > 0 || e.unpaid_hours > 0).length === 0 && (
+              <p className="text-muted-foreground text-center py-4">No time off used this year</p>
+            )}
           </Card>
         )}
 
