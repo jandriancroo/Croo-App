@@ -732,6 +732,77 @@ export type Database = {
           },
         ]
       }
+      event_categories: {
+        Row: {
+          color: string
+          created_at: string | null
+          id: string
+          location_id: string | null
+          name: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string | null
+          id?: string
+          location_id?: string | null
+          name: string
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          id?: string
+          location_id?: string | null
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_categories_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_task_completions: {
+        Row: {
+          completed_at: string
+          completed_by: string
+          completed_date: string
+          event_id: string
+          id: string
+        }
+        Insert: {
+          completed_at?: string
+          completed_by: string
+          completed_date: string
+          event_id: string
+          id?: string
+        }
+        Update: {
+          completed_at?: string
+          completed_by?: string
+          completed_date?: string
+          event_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_task_completions_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_task_completions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "schedule_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       food_safety_audits: {
         Row: {
           audit_date: string
@@ -2095,39 +2166,65 @@ export type Database = {
       }
       schedule_events: {
         Row: {
+          category_id: string | null
           created_at: string | null
           day_of_week: number
+          days_of_week: number[] | null
           event_name: string
           event_time: string
           id: string
+          is_daily_task: boolean
           is_recurring: boolean
+          location_id: string | null
           notes: string | null
           schedule_id: string | null
           tagged_roles: Json | null
         }
         Insert: {
+          category_id?: string | null
           created_at?: string | null
           day_of_week: number
+          days_of_week?: number[] | null
           event_name: string
           event_time: string
           id?: string
+          is_daily_task?: boolean
           is_recurring?: boolean
+          location_id?: string | null
           notes?: string | null
           schedule_id?: string | null
           tagged_roles?: Json | null
         }
         Update: {
+          category_id?: string | null
           created_at?: string | null
           day_of_week?: number
+          days_of_week?: number[] | null
           event_name?: string
           event_time?: string
           id?: string
+          is_daily_task?: boolean
           is_recurring?: boolean
+          location_id?: string | null
           notes?: string | null
           schedule_id?: string | null
           tagged_roles?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "schedule_events_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "event_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "schedule_events_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "schedule_events_schedule_id_fkey"
             columns: ["schedule_id"]
