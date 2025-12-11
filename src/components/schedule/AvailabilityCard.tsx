@@ -15,11 +15,13 @@ interface AvailabilityCardProps {
 
 export function AvailabilityCard({ request }: AvailabilityCardProps) {
   const formatTime = (time: string) => {
-    const [hours, minutes] = time.split(":");
-    const hour = parseInt(hours);
+    // Handle HH:mm:ss or HH:mm format
+    const parts = time.split(":");
+    const hour = parseInt(parts[0]);
+    const minutes = parts[1];
     const ampm = hour >= 12 ? "PM" : "AM";
     const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes}${ampm}`;
+    return `${displayHour}:${minutes} ${ampm}`;
   };
 
   return (
