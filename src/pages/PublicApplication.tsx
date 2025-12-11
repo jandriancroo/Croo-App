@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Loader2, Plus, Trash2, Upload, CheckCircle } from 'lucide-react';
+import { Loader2, Plus, Trash2, Upload, CheckCircle, Sparkles } from 'lucide-react';
 import crooLogo from '@/assets/croo-logo.png';
 
 interface WorkHistoryEntry {
@@ -61,6 +61,7 @@ export default function PublicApplication() {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumeUrl, setResumeUrl] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const [customResponses, setCustomResponses] = useState<Record<string, string>>({});
   
   const [availability, setAvailability] = useState<Availability>({
@@ -157,6 +158,7 @@ export default function PublicApplication() {
 
   // Parse resume with AI
   const parseResumeWithAI = async (file: File) => {
+    setIsScanning(true);
     try {
       toast.loading('Scanning resume...', { id: 'resume-parse' });
 
@@ -217,6 +219,8 @@ export default function PublicApplication() {
     } catch (error) {
       console.error('AI parse error:', error);
       toast.error('Resume scan failed', { id: 'resume-parse' });
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -608,16 +612,25 @@ export default function PublicApplication() {
             <CardContent>
               <div className="space-y-2">
                 {resumeFile ? (
-                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                    <span className="flex-1 truncate">{resumeFile.name}</span>
-                    <Button 
-                      type="button" 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => { setResumeFile(null); setResumeUrl(''); }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                      <span className="flex-1 truncate">{resumeFile.name}</span>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => { setResumeFile(null); setResumeUrl(''); }}
+                        disabled={isScanning}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    {isScanning && (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 border border-primary/20 rounded-lg animate-pulse">
+                        <Sparkles className="h-4 w-4 text-primary animate-spin" />
+                        <span className="text-sm font-medium text-primary">AI Scanning Resume...</span>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
