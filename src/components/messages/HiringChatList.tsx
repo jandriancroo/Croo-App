@@ -158,7 +158,7 @@ export function HiringChatList({ onSelectConversation, selectedId }: HiringChatL
   }
 
   return (
-    <div className="divide-y">
+    <div className="divide-y overflow-y-auto flex-1">
       {conversations.map((conv) => (
         <button
           key={conv.id}
@@ -167,32 +167,17 @@ export function HiringChatList({ onSelectConversation, selectedId }: HiringChatL
             selectedId === conv.id ? 'bg-muted' : ''
           }`}
         >
-          <div className="flex items-start gap-3">
+          <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
               <AvatarFallback className="bg-primary/10 text-primary">
                 {conv.application.full_name.charAt(0).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium truncate">{conv.application.full_name}</span>
-                {conv.last_message && (
-                  <span className="text-xs text-muted-foreground flex-shrink-0">
-                    {formatTime(conv.last_message.created_at)}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="secondary" className={`text-xs ${getStatusColor(conv.application.status)}`}>
-                  {conv.application.status}
-                </Badge>
-              </div>
-              {conv.last_message && (
-                <p className="text-sm text-muted-foreground truncate mt-1">
-                  {conv.last_message.sender_type === 'staff' ? 'You: ' : ''}
-                  {conv.last_message.content}
-                </p>
-              )}
+              <span className="font-medium truncate block">{conv.application.full_name}</span>
+              <Badge variant="secondary" className={`text-xs mt-1 ${getStatusColor(conv.application.status)}`}>
+                {conv.application.status}
+              </Badge>
             </div>
           </div>
         </button>
