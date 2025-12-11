@@ -72,6 +72,7 @@ export default function Availability() {
   const [requestDialogOpen, setRequestDialogOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
+  const [timeOffSort, setTimeOffSort] = useState<string>("lastName");
 
   // Default PTO balance (can be configured per company/location later)
   const DEFAULT_PTO_HOURS = 40;
@@ -320,33 +321,53 @@ export default function Availability() {
         {/* Shift Pool - Admin Only */}
         {isAdmin && <ShiftPoolSection />}
 
-        {/* Employee Accruals - Admin Only */}
+        {/* Time Off Used - Admin Only */}
         {isAdmin && employeeHours.length > 0 && (
           <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-4">Time Off Used (Year to Date)</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Time Off Used (Year to Date)</h2>
+              <Select value={timeOffSort} onValueChange={setTimeOffSort}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lastName">Last Name</SelectItem>
+                  <SelectItem value="firstName">First Name</SelectItem>
+                  <SelectItem value="mostUsed">Most Used</SelectItem>
+                  <SelectItem value="leastUsed">Least Used</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-              {employeeHours
-                .filter(e => e.paid_hours > 0 || e.unpaid_hours > 0)
+              {[...employeeHours]
+                .sort((a, b) => {
+                  if (timeOffSort === "lastName") {
+                    const aLast = a.full_name.split(" ").slice(-1)[0] || "";
+                    const bLast = b.full_name.split(" ").slice(-1)[0] || "";
+                    return aLast.localeCompare(bLast);
+                  } else if (timeOffSort === "firstName") {
+                    const aFirst = a.full_name.split(" ")[0] || "";
+                    const bFirst = b.full_name.split(" ")[0] || "";
+                    return aFirst.localeCompare(bFirst);
+                  } else if (timeOffSort === "mostUsed") {
+                    return (b.paid_hours + b.unpaid_hours) - (a.paid_hours + a.unpaid_hours);
+                  } else {
+                    return (a.paid_hours + a.unpaid_hours) - (b.paid_hours + b.unpaid_hours);
+                  }
+                })
                 .map((employee) => (
                   <div
                     key={employee.id}
                     className="flex items-center justify-between gap-2 px-3 py-2 border rounded-lg text-sm"
                   >
                     <span className="font-medium truncate">{employee.full_name}</span>
-                    <div className="flex gap-2 flex-shrink-0">
-                      {employee.paid_hours > 0 && (
-                        <span className="text-primary font-medium">{employee.paid_hours}h</span>
-                      )}
-                      {employee.unpaid_hours > 0 && (
-                        <span className="text-muted-foreground">{employee.unpaid_hours}h</span>
-                      )}
+                    <div className="flex gap-2 flex-shrink-0 text-xs">
+                      <span className="text-primary font-medium">{employee.paid_hours}h</span>
+                      <span className="text-muted-foreground">{employee.unpaid_hours}h</span>
                     </div>
                   </div>
                 ))}
             </div>
-            {employeeHours.filter(e => e.paid_hours > 0 || e.unpaid_hours > 0).length === 0 && (
-              <p className="text-muted-foreground text-center py-4">No time off used this year</p>
-            )}
           </Card>
         )}
 
