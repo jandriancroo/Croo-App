@@ -97,10 +97,7 @@ export function InterviewScheduleDialog({
       // Fetch all shifts for this date
       const { data: shifts } = await supabase
         .from('scheduled_shifts')
-        .select(`
-          *,
-          user:profiles(id, full_name, profile_photo_url)
-        `)
+        .select('*')
         .in('schedule_id', scheduleIds)
         .eq('shift_date', dateStr)
         .eq('is_time_off', false);
@@ -128,8 +125,21 @@ export function InterviewScheduleDialog({
 
       const managerUserIds = new Set(managerRoles?.map(r => r.user_id) || []);
       
-      // Filter shifts to only managers
-      const managersWorking = shifts.filter(shift => managerUserIds.has(shift.user_id));
+      // Get profile data for managers
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, profile_photo_url')
+        .in('id', Array.from(managerUserIds));
+
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      
+      // Filter shifts to only managers and attach profile data
+      const managersWorking = shifts
+        .filter(shift => managerUserIds.has(shift.user_id))
+        .map(shift => ({
+          ...shift,
+          user: profileMap.get(shift.user_id) || null
+        }));
       setManagerShifts(managersWorking);
       setCheckingSchedule(false);
     };
