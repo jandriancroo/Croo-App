@@ -21,6 +21,7 @@ import UserManagement from "./pages/UserManagement";
 import Settings from "./pages/Settings";
 import Schedule from "./pages/Schedule";
 import ShiftTemplates from "./pages/ShiftTemplates";
+import TestingChecklist from "./pages/TestingChecklist";
 import Availability from "./pages/Availability";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
@@ -92,6 +93,7 @@ const AppContent = () => {
       <Route path="/my-wallet" element={<ProtectedRoute><MyWallet /></ProtectedRoute>} />
       <Route path="/role-management" element={<ProtectedRoute><RoleManagement /></ProtectedRoute>} />
       <Route path="/hiring" element={<ProtectedRoute><Hiring /></ProtectedRoute>} />
+      <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
