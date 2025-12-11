@@ -3,11 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useLocation } from '@/hooks/useLocation';
 import { format, addDays } from 'date-fns';
-import { Loader2, CalendarCheck, Clock, AlertCircle, CheckCircle2, RefreshCw } from 'lucide-react';
+import { Loader2, CalendarCheck, Clock, AlertCircle, CheckCircle2, RefreshCw, Users, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface InterviewScheduleDialogProps {
@@ -30,6 +32,7 @@ export function InterviewScheduleDialog({
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(addDays(new Date(), 1));
   const [selectedTime, setSelectedTime] = useState<string>('10:00');
   const [myShifts, setMyShifts] = useState<any[]>([]);
+  const [managerShifts, setManagerShifts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [checkingSchedule, setCheckingSchedule] = useState(false);
 
@@ -46,29 +49,73 @@ export function InterviewScheduleDialog({
     };
   });
 
-  // Fetch user's shifts when date changes
+  // Fetch all manager shifts when date changes
   useEffect(() => {
     if (!selectedDate || !user || !currentLocation?.id) return;
     
-    const fetchMyShifts = async () => {
+    const fetchShifts = async () => {
       setCheckingSchedule(true);
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       
-      const { data } = await supabase
+      // Get published schedules for this date
+      const { data: schedules } = await supabase
+        .from('schedules')
+        .select('id')
+        .eq('location_id', currentLocation.id)
+        .eq('is_published', true)
+        .lte('week_start_date', dateStr)
+        .gte('week_end_date', dateStr);
+
+      const scheduleIds = schedules?.map(s => s.id) || [];
+      
+      if (scheduleIds.length === 0) {
+        setMyShifts([]);
+        setManagerShifts([]);
+        setCheckingSchedule(false);
+        return;
+      }
+
+      // Fetch all shifts for this date
+      const { data: shifts } = await supabase
         .from('scheduled_shifts')
         .select(`
           *,
-          schedule:schedules(location_id)
+          user:profiles(id, full_name, profile_photo_url)
         `)
-        .eq('user_id', user.id)
+        .in('schedule_id', scheduleIds)
         .eq('shift_date', dateStr)
         .eq('is_time_off', false);
+
+      if (!shifts?.length) {
+        setMyShifts([]);
+        setManagerShifts([]);
+        setCheckingSchedule(false);
+        return;
+      }
+
+      // Get current user's shifts
+      const userShifts = shifts.filter(s => s.user_id === user.id);
+      setMyShifts(userShifts);
+
+      // Get user IDs from shifts
+      const shiftUserIds = [...new Set(shifts.map(s => s.user_id).filter(Boolean))];
       
-      setMyShifts(data || []);
+      // Get manager roles for these users
+      const { data: managerRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .in('user_id', shiftUserIds)
+        .in('role', ['super_admin', 'admin', 'general_manager', 'shift_manager']);
+
+      const managerUserIds = new Set(managerRoles?.map(r => r.user_id) || []);
+      
+      // Filter shifts to only managers
+      const managersWorking = shifts.filter(shift => managerUserIds.has(shift.user_id));
+      setManagerShifts(managersWorking);
       setCheckingSchedule(false);
     };
     
-    fetchMyShifts();
+    fetchShifts();
   }, [selectedDate, user, currentLocation?.id]);
 
   const handleSchedule = () => {
@@ -148,6 +195,50 @@ export function InterviewScheduleDialog({
                 <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
                   <AlertCircle className="h-4 w-4" />
                   <span>You are not scheduled to work on {format(selectedDate, 'MMM d')}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Managers working that day */}
+          {selectedDate && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                Managers Working ({managerShifts.length})
+              </label>
+              {checkingSchedule ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading...
+                </div>
+              ) : managerShifts.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">No managers scheduled</p>
+              ) : (
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {managerShifts.map(shift => {
+                    const shiftUser = Array.isArray(shift.user) ? shift.user[0] : shift.user;
+                    return (
+                      <Card key={shift.id} className="bg-muted/50">
+                        <CardContent className="py-1.5 px-2">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                              <AvatarImage src={shiftUser?.profile_photo_url} />
+                              <AvatarFallback>
+                                <UserCircle className="h-4 w-4" />
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-sm font-medium flex-1 truncate">
+                              {shiftUser?.full_name || 'Unknown'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {formatTime12h(shift.start_time)} - {formatTime12h(shift.end_time)}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               )}
             </div>
