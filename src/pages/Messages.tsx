@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, ArrowLeft, Megaphone, ShoppingBag, Briefcase } from 'lucide-react';
+import { Plus, Users, ArrowLeft, Megaphone, ArrowLeftRight, UserPlus, MessageCircle } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
@@ -395,12 +395,12 @@ export default function Messages() {
                 <TabsTrigger value="chats">Chats</TabsTrigger>
                 <TabsTrigger value="announcements">Announce</TabsTrigger>
                 <TabsTrigger value="marketplace" className="gap-1">
-                  <ShoppingBag className="h-3 w-3" />
+                  <ArrowLeftRight className="h-3 w-3" />
                   Shifts
                 </TabsTrigger>
                 {(isAdmin || isManager) && (
                   <TabsTrigger value="hiring" className="gap-1">
-                    <Briefcase className="h-3 w-3" />
+                    <UserPlus className="h-3 w-3" />
                     Hiring
                   </TabsTrigger>
                 )}
@@ -494,14 +494,18 @@ export default function Messages() {
               
               <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
                 <TabsList className={`grid w-full ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                  <TabsTrigger value="chats" className="text-xs px-2">Chats</TabsTrigger>
-                  <TabsTrigger value="announcements" className="text-xs px-2">News</TabsTrigger>
-                  <TabsTrigger value="marketplace" className="text-xs px-2">
-                    <ShoppingBag className="h-3 w-3" />
+                  <TabsTrigger value="chats" className="px-2">
+                    <MessageCircle className="h-4 w-4" />
+                  </TabsTrigger>
+                  <TabsTrigger value="announcements" className="px-2">
+                    <Megaphone className="h-4 w-4" />
+                  </TabsTrigger>
+                  <TabsTrigger value="marketplace" className="px-2">
+                    <ArrowLeftRight className="h-4 w-4" />
                   </TabsTrigger>
                   {(isAdmin || isManager) && (
-                    <TabsTrigger value="hiring" className="text-xs px-2">
-                      <Briefcase className="h-3 w-3" />
+                    <TabsTrigger value="hiring" className="px-2">
+                      <UserPlus className="h-4 w-4" />
                     </TabsTrigger>
                   )}
                 </TabsList>
