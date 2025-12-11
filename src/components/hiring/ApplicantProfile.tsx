@@ -1,0 +1,351 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Loader2, Mail, Phone, MapPin, FileText, ExternalLink, Briefcase, Users } from 'lucide-react';
+import { format } from 'date-fns';
+import { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+
+type ApplicationStatus = 'pending' | 'interested' | 'interviewing' | 'hired' | 'rejected';
+
+const STATUS_COLORS: Record<ApplicationStatus, string> = {
+  pending: 'bg-muted text-muted-foreground',
+  interested: 'bg-blue-500/20 text-blue-700 dark:text-blue-300',
+  interviewing: 'bg-amber-500/20 text-amber-700 dark:text-amber-300',
+  hired: 'bg-green-500/20 text-green-700 dark:text-green-300',
+  rejected: 'bg-red-500/20 text-red-700 dark:text-red-300',
+};
+
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
+
+interface ApplicantProfileProps {
+  applicationId: string | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onStatusChange: (id: string, status: ApplicationStatus) => void;
+}
+
+export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusChange }: ApplicantProfileProps) {
+  const queryClient = useQueryClient();
+  const [internalNotes, setInternalNotes] = useState('');
+
+  const { data: application, isLoading } = useQuery({
+    queryKey: ['application-detail', applicationId],
+    queryFn: async () => {
+      if (!applicationId) return null;
+
+      const { data, error } = await supabase
+        .from('job_applications')
+        .select(`
+          *,
+          location:locations(name),
+          template:job_application_templates(name, questions:job_application_template_questions(*)),
+          work_history:job_application_work_history(*),
+          references:job_application_references(*)
+        `)
+        .eq('id', applicationId)
+        .single();
+
+      if (error) throw error;
+      setInternalNotes(data.internal_notes || '');
+      return data;
+    },
+    enabled: !!applicationId && open,
+  });
+
+  const updateNotesMutation = useMutation({
+    mutationFn: async () => {
+      if (!applicationId) return;
+      const { error } = await supabase
+        .from('job_applications')
+        .update({ internal_notes: internalNotes })
+        .eq('id', applicationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['application-detail'] });
+      toast.success('Notes saved');
+    },
+    onError: () => {
+      toast.error('Failed to save notes');
+    },
+  });
+
+  if (!open) return null;
+
+  const availability = application?.availability as Record<string, { am: boolean; pm: boolean }> | null;
+  const customResponses = application?.custom_responses as Record<string, string> | null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        {isLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : application ? (
+          <>
+            <DialogHeader>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <DialogTitle className="text-2xl">{application.full_name}</DialogTitle>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    <Badge className={STATUS_COLORS[application.status as ApplicationStatus]}>
+                      {application.status}
+                    </Badge>
+                    {application.template && (
+                      <Badge variant="outline">{application.template.name}</Badge>
+                    )}
+                  </div>
+                </div>
+                <Select 
+                  value={application.status} 
+                  onValueChange={val => onStatusChange(application.id, val as ApplicationStatus)}
+                >
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="interested">Interested</SelectItem>
+                    <SelectItem value="interviewing">Interviewing</SelectItem>
+                    <SelectItem value="hired">Hired</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </DialogHeader>
+
+            <div className="space-y-6 mt-4">
+              {/* Contact Info */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Contact Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <a href={`mailto:${application.email}`} className="text-primary hover:underline">
+                      {application.email}
+                    </a>
+                  </div>
+                  {application.phone && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <a href={`tel:${application.phone}`} className="text-primary hover:underline">
+                        {application.phone}
+                      </a>
+                    </div>
+                  )}
+                  {application.location && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <MapPin className="h-4 w-4 text-muted-foreground" />
+                      <span>{application.location.name}</span>
+                    </div>
+                  )}
+                  {application.resume_url && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <a 
+                        href={application.resume_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline flex items-center gap-1"
+                      >
+                        View Resume <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground pt-2">
+                    Applied {format(new Date(application.submitted_at), 'MMMM d, yyyy \'at\' h:mm a')}
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Availability */}
+              {availability && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Availability</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr>
+                            <th className="text-left py-2"></th>
+                            {DAYS.map(day => (
+                              <th key={day} className="text-center py-2 px-2 capitalize text-xs">
+                                {day.slice(0, 3)}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td className="py-2 font-medium">AM</td>
+                            {DAYS.map(day => (
+                              <td key={`${day}-am`} className="text-center py-2 px-2">
+                                <div 
+                                  className={`w-6 h-6 rounded mx-auto flex items-center justify-center text-xs ${
+                                    availability[day]?.am 
+                                      ? 'bg-green-500/20 text-green-700' 
+                                      : 'bg-muted text-muted-foreground'
+                                  }`}
+                                >
+                                  {availability[day]?.am ? '✓' : '–'}
+                                </div>
+                              </td>
+                            ))}
+                          </tr>
+                          <tr>
+                            <td className="py-2 font-medium">PM</td>
+                            {DAYS.map(day => (
+                              <td key={`${day}-pm`} className="text-center py-2 px-2">
+                                <div 
+                                  className={`w-6 h-6 rounded mx-auto flex items-center justify-center text-xs ${
+                                    availability[day]?.pm 
+                                      ? 'bg-green-500/20 text-green-700' 
+                                      : 'bg-muted text-muted-foreground'
+                                  }`}
+                                >
+                                  {availability[day]?.pm ? '✓' : '–'}
+                                </div>
+                              </td>
+                            ))}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Work History */}
+              {application.work_history && application.work_history.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Briefcase className="h-4 w-4" />
+                      Work History
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {application.work_history.map((work: any, i: number) => (
+                      <div key={i} className="border-b last:border-0 pb-3 last:pb-0">
+                        <p className="font-medium">{work.employer_name}</p>
+                        {work.job_title && (
+                          <p className="text-sm text-muted-foreground">{work.job_title}</p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          {work.start_date && format(new Date(work.start_date), 'MMM yyyy')}
+                          {' – '}
+                          {work.is_current ? 'Present' : (work.end_date ? format(new Date(work.end_date), 'MMM yyyy') : 'N/A')}
+                        </p>
+                        {work.reason_for_leaving && (
+                          <p className="text-sm mt-1">
+                            <span className="text-muted-foreground">Left because:</span> {work.reason_for_leaving}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* References */}
+              {application.references && application.references.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Users className="h-4 w-4" />
+                      References
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {application.references.map((ref: any, i: number) => (
+                      <div key={i} className="border-b last:border-0 pb-3 last:pb-0">
+                        <p className="font-medium">{ref.name}</p>
+                        {ref.relationship && (
+                          <p className="text-sm text-muted-foreground">{ref.relationship}</p>
+                        )}
+                        <div className="flex gap-4 mt-1 text-sm">
+                          {ref.phone && (
+                            <a href={`tel:${ref.phone}`} className="text-primary hover:underline">
+                              {ref.phone}
+                            </a>
+                          )}
+                          {ref.email && (
+                            <a href={`mailto:${ref.email}`} className="text-primary hover:underline">
+                              {ref.email}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Custom Responses */}
+              {customResponses && Object.keys(customResponses).length > 0 && application.template?.questions && (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Additional Questions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {application.template.questions.map((q: any) => (
+                      customResponses[q.id] && (
+                        <div key={q.id}>
+                          <p className="text-sm font-medium">{q.question}</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {customResponses[q.id]}
+                          </p>
+                        </div>
+                      )
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Internal Notes */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Internal Notes</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Textarea
+                    value={internalNotes}
+                    onChange={e => setInternalNotes(e.target.value)}
+                    placeholder="Add private notes about this applicant..."
+                    rows={3}
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => updateNotesMutation.mutate()}
+                    disabled={updateNotesMutation.isPending}
+                  >
+                    {updateNotesMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Save Notes
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            Application not found
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

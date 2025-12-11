@@ -1,0 +1,744 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from 'sonner';
+import { Loader2, Plus, Trash2, Upload, CheckCircle } from 'lucide-react';
+import crooLogo from '@/assets/croo-logo.png';
+
+interface WorkHistoryEntry {
+  employer_name: string;
+  job_title: string;
+  start_date: string;
+  end_date: string;
+  is_current: boolean;
+  reason_for_leaving: string;
+}
+
+interface ReferenceEntry {
+  name: string;
+  relationship: string;
+  phone: string;
+  email: string;
+}
+
+type AvailabilityDay = {
+  am: boolean;
+  pm: boolean;
+};
+
+type Availability = {
+  monday: AvailabilityDay;
+  tuesday: AvailabilityDay;
+  wednesday: AvailabilityDay;
+  thursday: AvailabilityDay;
+  friday: AvailabilityDay;
+  saturday: AvailabilityDay;
+  sunday: AvailabilityDay;
+};
+
+const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
+
+export default function PublicApplication() {
+  const { orgSlug } = useParams();
+  const navigate = useNavigate();
+  const [submitted, setSubmitted] = useState(false);
+  
+  // Form state
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState('');
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [resumeUrl, setResumeUrl] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [customResponses, setCustomResponses] = useState<Record<string, string>>({});
+  
+  const [availability, setAvailability] = useState<Availability>({
+    monday: { am: false, pm: false },
+    tuesday: { am: false, pm: false },
+    wednesday: { am: false, pm: false },
+    thursday: { am: false, pm: false },
+    friday: { am: false, pm: false },
+    saturday: { am: false, pm: false },
+    sunday: { am: false, pm: false },
+  });
+
+  const [workHistory, setWorkHistory] = useState<WorkHistoryEntry[]>([
+    { employer_name: '', job_title: '', start_date: '', end_date: '', is_current: false, reason_for_leaving: '' }
+  ]);
+
+  const [references, setReferences] = useState<ReferenceEntry[]>([
+    { name: '', relationship: '', phone: '', email: '' }
+  ]);
+
+  // Fetch organization by slug
+  const { data: organization, isLoading: orgLoading, error: orgError } = useQuery({
+    queryKey: ['org-by-slug', orgSlug],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('organizations')
+        .select('*')
+        .eq('slug', orgSlug)
+        .eq('is_active', true)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!orgSlug,
+  });
+
+  // Fetch locations for the organization
+  const { data: locations } = useQuery({
+    queryKey: ['org-locations', organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('locations')
+        .select('id, name')
+        .eq('organization_id', organization!.id)
+        .eq('location_type', 'standard')
+        .order('name');
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id,
+  });
+
+  // Fetch application templates for the organization
+  const { data: templates } = useQuery({
+    queryKey: ['org-templates', organization?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('job_application_templates')
+        .select('*')
+        .eq('organization_id', organization!.id)
+        .eq('is_active', true)
+        .order('name');
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organization?.id,
+  });
+
+  // Fetch custom questions for selected template
+  const { data: customQuestions } = useQuery({
+    queryKey: ['template-questions', selectedTemplate],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('job_application_template_questions')
+        .select('*')
+        .eq('template_id', selectedTemplate)
+        .order('display_order');
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedTemplate,
+  });
+
+  // Auto-select first template if only one
+  useEffect(() => {
+    if (templates?.length === 1 && !selectedTemplate) {
+      setSelectedTemplate(templates[0].id);
+    }
+  }, [templates, selectedTemplate]);
+
+  // Handle resume upload
+  const handleResumeUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `${orgSlug}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('resumes')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('resumes')
+        .getPublicUrl(filePath);
+
+      setResumeUrl(publicUrl);
+      setResumeFile(file);
+      toast.success('Resume uploaded');
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload resume');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  // Submit application
+  const submitMutation = useMutation({
+    mutationFn: async () => {
+      if (!organization || !selectedTemplate) throw new Error('Missing required data');
+
+      // Insert main application
+      const { data: application, error: appError } = await supabase
+        .from('job_applications')
+        .insert({
+          template_id: selectedTemplate,
+          organization_id: organization.id,
+          location_id: selectedLocation || null,
+          full_name: fullName.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          availability,
+          resume_url: resumeUrl || null,
+          custom_responses: customResponses,
+        })
+        .select()
+        .single();
+
+      if (appError) throw appError;
+
+      // Insert work history
+      const validWorkHistory = workHistory.filter(w => w.employer_name.trim());
+      if (validWorkHistory.length > 0) {
+        const { error: workError } = await supabase
+          .from('job_application_work_history')
+          .insert(
+            validWorkHistory.map((w, i) => ({
+              application_id: application.id,
+              employer_name: w.employer_name.trim(),
+              job_title: w.job_title.trim(),
+              start_date: w.start_date || null,
+              end_date: w.is_current ? null : (w.end_date || null),
+              is_current: w.is_current,
+              reason_for_leaving: w.reason_for_leaving.trim(),
+              display_order: i,
+            }))
+          );
+
+        if (workError) console.error('Work history error:', workError);
+      }
+
+      // Insert references
+      const validRefs = references.filter(r => r.name.trim());
+      if (validRefs.length > 0) {
+        const { error: refError } = await supabase
+          .from('job_application_references')
+          .insert(
+            validRefs.map((r, i) => ({
+              application_id: application.id,
+              name: r.name.trim(),
+              relationship: r.relationship.trim(),
+              phone: r.phone.trim(),
+              email: r.email.trim(),
+              display_order: i,
+            }))
+          );
+
+        if (refError) console.error('References error:', refError);
+      }
+
+      return application;
+    },
+    onSuccess: () => {
+      setSubmitted(true);
+    },
+    onError: (error) => {
+      console.error('Submit error:', error);
+      toast.error('Failed to submit application. Please try again.');
+    },
+  });
+
+  const toggleAvailability = (day: keyof Availability, shift: 'am' | 'pm') => {
+    setAvailability(prev => ({
+      ...prev,
+      [day]: {
+        ...prev[day],
+        [shift]: !prev[day][shift]
+      }
+    }));
+  };
+
+  const addWorkHistory = () => {
+    setWorkHistory(prev => [...prev, { employer_name: '', job_title: '', start_date: '', end_date: '', is_current: false, reason_for_leaving: '' }]);
+  };
+
+  const removeWorkHistory = (index: number) => {
+    setWorkHistory(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateWorkHistory = (index: number, field: keyof WorkHistoryEntry, value: string | boolean) => {
+    setWorkHistory(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
+  };
+
+  const addReference = () => {
+    setReferences(prev => [...prev, { name: '', relationship: '', phone: '', email: '' }]);
+  };
+
+  const removeReference = (index: number) => {
+    setReferences(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateReference = (index: number, field: keyof ReferenceEntry, value: string) => {
+    setReferences(prev => prev.map((item, i) => i === index ? { ...item, [field]: value } : item));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!fullName.trim()) {
+      toast.error('Please enter your full name');
+      return;
+    }
+    if (!email.trim()) {
+      toast.error('Please enter your email');
+      return;
+    }
+    if (!selectedTemplate) {
+      toast.error('Please select a position');
+      return;
+    }
+
+    // Check required custom questions
+    if (customQuestions) {
+      for (const q of customQuestions) {
+        if (q.is_required && !customResponses[q.id]?.trim()) {
+          toast.error(`Please answer: ${q.question}`);
+          return;
+        }
+      }
+    }
+
+    submitMutation.mutate();
+  };
+
+  if (orgLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (orgError || !organization) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6 text-center">
+            <h2 className="text-xl font-semibold mb-2">Organization Not Found</h2>
+            <p className="text-muted-foreground">
+              The application link you followed doesn't exist or is no longer active.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (submitted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6 text-center">
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-semibold mb-2">Application Submitted!</h2>
+            <p className="text-muted-foreground">
+              Thank you for applying to {organization.name}. We'll review your application and be in touch soon.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background py-8 px-4">
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="text-center space-y-2">
+          {organization.logo_url ? (
+            <img src={organization.logo_url} alt={organization.name} className="h-16 mx-auto object-contain" />
+          ) : (
+            <h1 className="text-3xl font-bold">{organization.name}</h1>
+          )}
+          <p className="text-muted-foreground">Join Our Team</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Position Selection */}
+          {templates && templates.length > 1 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Select Position</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose position to apply for" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {templates.map(t => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Basic Info */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Personal Information</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name *</Label>
+                <Input
+                  id="fullName"
+                  value={fullName}
+                  onChange={e => setFullName(e.target.value)}
+                  placeholder="John Smith"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  placeholder="john@example.com"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="(555) 123-4567"
+                />
+              </div>
+              {locations && locations.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Preferred Location</Label>
+                  <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select location" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {locations.map(loc => (
+                        <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Availability */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Availability</CardTitle>
+              <CardDescription>Select when you're available to work</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="text-left py-2"></th>
+                      {DAYS.map(day => (
+                        <th key={day} className="text-center py-2 px-1 capitalize text-xs">
+                          {day.slice(0, 3)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="py-2 font-medium">AM</td>
+                      {DAYS.map(day => (
+                        <td key={`${day}-am`} className="text-center py-2 px-1">
+                          <button
+                            type="button"
+                            onClick={() => toggleAvailability(day, 'am')}
+                            className={`w-8 h-8 rounded-md border-2 transition-colors ${
+                              availability[day].am 
+                                ? 'bg-primary border-primary text-primary-foreground' 
+                                : 'bg-muted border-border hover:border-primary/50'
+                            }`}
+                          >
+                            {availability[day].am && '✓'}
+                          </button>
+                        </td>
+                      ))}
+                    </tr>
+                    <tr>
+                      <td className="py-2 font-medium">PM</td>
+                      {DAYS.map(day => (
+                        <td key={`${day}-pm`} className="text-center py-2 px-1">
+                          <button
+                            type="button"
+                            onClick={() => toggleAvailability(day, 'pm')}
+                            className={`w-8 h-8 rounded-md border-2 transition-colors ${
+                              availability[day].pm 
+                                ? 'bg-primary border-primary text-primary-foreground' 
+                                : 'bg-muted border-border hover:border-primary/50'
+                            }`}
+                          >
+                            {availability[day].pm && '✓'}
+                          </button>
+                        </td>
+                      ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Resume Upload */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Resume</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {resumeFile ? (
+                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                    <span className="flex-1 truncate">{resumeFile.name}</span>
+                    <Button 
+                      type="button" 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => { setResumeFile(null); setResumeUrl(''); }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      {uploading ? (
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                      ) : (
+                        <>
+                          <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+                          <p className="text-sm text-muted-foreground">
+                            Click to upload resume (PDF, DOC, DOCX)
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept=".pdf,.doc,.docx"
+                      onChange={e => e.target.files?.[0] && handleResumeUpload(e.target.files[0])}
+                      disabled={uploading}
+                    />
+                  </label>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Work History */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Work History</CardTitle>
+              <CardDescription>List your previous employers (most recent first)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {workHistory.map((work, index) => (
+                <div key={index} className="p-4 border rounded-lg space-y-3">
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm font-medium text-muted-foreground">Employer {index + 1}</span>
+                    {workHistory.length > 1 && (
+                      <Button type="button" variant="ghost" size="sm" onClick={() => removeWorkHistory(index)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Input
+                      placeholder="Company Name"
+                      value={work.employer_name}
+                      onChange={e => updateWorkHistory(index, 'employer_name', e.target.value)}
+                    />
+                    <Input
+                      placeholder="Job Title"
+                      value={work.job_title}
+                      onChange={e => updateWorkHistory(index, 'job_title', e.target.value)}
+                    />
+                    <Input
+                      type="date"
+                      placeholder="Start Date"
+                      value={work.start_date}
+                      onChange={e => updateWorkHistory(index, 'start_date', e.target.value)}
+                    />
+                    <div className="space-y-2">
+                      <Input
+                        type="date"
+                        placeholder="End Date"
+                        value={work.end_date}
+                        onChange={e => updateWorkHistory(index, 'end_date', e.target.value)}
+                        disabled={work.is_current}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`current-${index}`}
+                          checked={work.is_current}
+                          onCheckedChange={checked => updateWorkHistory(index, 'is_current', checked as boolean)}
+                        />
+                        <label htmlFor={`current-${index}`} className="text-sm">Currently employed here</label>
+                      </div>
+                    </div>
+                  </div>
+                  <Input
+                    placeholder="Reason for leaving"
+                    value={work.reason_for_leaving}
+                    onChange={e => updateWorkHistory(index, 'reason_for_leaving', e.target.value)}
+                  />
+                </div>
+              ))}
+              <Button type="button" variant="outline" onClick={addWorkHistory} className="w-full">
+                <Plus className="h-4 w-4 mr-2" /> Add Another Employer
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* References */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">References</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {references.map((ref, index) => (
+                <div key={index} className="p-4 border rounded-lg space-y-3">
+                  <div className="flex justify-between items-start">
+                    <span className="text-sm font-medium text-muted-foreground">Reference {index + 1}</span>
+                    {references.length > 1 && (
+                      <Button type="button" variant="ghost" size="sm" onClick={() => removeReference(index)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Input
+                      placeholder="Name"
+                      value={ref.name}
+                      onChange={e => updateReference(index, 'name', e.target.value)}
+                    />
+                    <Input
+                      placeholder="Relationship (e.g., Former Manager)"
+                      value={ref.relationship}
+                      onChange={e => updateReference(index, 'relationship', e.target.value)}
+                    />
+                    <Input
+                      type="tel"
+                      placeholder="Phone"
+                      value={ref.phone}
+                      onChange={e => updateReference(index, 'phone', e.target.value)}
+                    />
+                    <Input
+                      type="email"
+                      placeholder="Email"
+                      value={ref.email}
+                      onChange={e => updateReference(index, 'email', e.target.value)}
+                    />
+                  </div>
+                </div>
+              ))}
+              <Button type="button" variant="outline" onClick={addReference} className="w-full">
+                <Plus className="h-4 w-4 mr-2" /> Add Another Reference
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Custom Questions */}
+          {customQuestions && customQuestions.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Additional Questions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {customQuestions.map(q => (
+                  <div key={q.id} className="space-y-2">
+                    <Label>
+                      {q.question}
+                      {q.is_required && <span className="text-destructive ml-1">*</span>}
+                    </Label>
+                    {q.question_type === 'textarea' ? (
+                      <Textarea
+                        value={customResponses[q.id] || ''}
+                        onChange={e => setCustomResponses(prev => ({ ...prev, [q.id]: e.target.value }))}
+                        required={q.is_required}
+                      />
+                    ) : q.question_type === 'select' && q.options ? (
+                      <Select 
+                        value={customResponses[q.id] || ''} 
+                        onValueChange={val => setCustomResponses(prev => ({ ...prev, [q.id]: val }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(q.options as string[]).map((opt, i) => (
+                            <SelectItem key={i} value={opt}>{opt}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        value={customResponses[q.id] || ''}
+                        onChange={e => setCustomResponses(prev => ({ ...prev, [q.id]: e.target.value }))}
+                        required={q.is_required}
+                      />
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          <Button 
+            type="submit" 
+            className="w-full h-12 text-lg"
+            disabled={submitMutation.isPending}
+          >
+            {submitMutation.isPending ? (
+              <>
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              'Submit Application'
+            )}
+          </Button>
+        </form>
+
+        {/* Footer */}
+        <div className="text-center pt-6 pb-4 text-muted-foreground text-sm flex items-center justify-center gap-2">
+          <span>Powered by</span>
+          <img src={crooLogo} alt="Croo" className="h-6" />
+        </div>
+      </div>
+    </div>
+  );
+}
