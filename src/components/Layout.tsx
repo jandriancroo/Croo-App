@@ -90,7 +90,7 @@ export const Layout = ({
       
       const { data: orgData } = await supabase
         .from('organizations')
-        .select('logo_url, name')
+        .select('logo_url, name, brand_name')
         .eq('id', locationData.organization_id)
         .single();
       
@@ -100,7 +100,8 @@ export const Layout = ({
   });
 
   const headerLogo = orgLogo?.logo_url || crooLogo;
-  const headerLogoAlt = orgLogo?.logo_url ? (orgLogo.name || 'Organization') : 'Croo';
+  const orgDisplayName = (orgLogo as any)?.brand_name || orgLogo?.name;
+  const headerLogoAlt = orgLogo?.logo_url ? (orgDisplayName || 'Organization') : 'Croo';
 
   const firstName = userProfile?.full_name?.split(' ')[0] || 'User';
   const initials = userProfile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';

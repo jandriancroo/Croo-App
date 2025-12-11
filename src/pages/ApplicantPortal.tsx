@@ -17,6 +17,7 @@ interface Application {
   submitted_at: string;
   organization: {
     name: string;
+    brand_name?: string | null;
     logo_url: string | null;
   };
   location: {
@@ -74,6 +75,7 @@ export default function ApplicantPortal() {
           submitted_at,
           organization:organizations!job_applications_organization_id_fkey (
             name,
+            brand_name,
             logo_url
           ),
           location:locations!job_applications_location_id_fkey (
@@ -212,7 +214,7 @@ export default function ApplicantPortal() {
                       {app.organization?.logo_url ? (
                         <img 
                           src={app.organization.logo_url} 
-                          alt={app.organization.name}
+                          alt={app.organization.brand_name || app.organization.name}
                           className="h-12 w-12 rounded-lg object-contain bg-muted"
                         />
                       ) : (
@@ -227,8 +229,11 @@ export default function ApplicantPortal() {
                       <div className="flex items-start justify-between gap-2">
                         <div>
                           <h3 className="font-semibold text-foreground">
-                            {app.organization?.name || 'Unknown Organization'}
+                            {app.organization?.brand_name || app.organization?.name || 'Unknown Organization'}
                           </h3>
+                          {app.organization?.brand_name && app.organization?.name && (
+                            <p className="text-xs text-muted-foreground">{app.organization.name}</p>
+                          )}
                           {app.location && (
                             <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                               <MapPin className="h-3 w-3" />

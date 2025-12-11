@@ -454,7 +454,7 @@ export default function PublicApplication() {
             <div>
               <h2 className="text-2xl font-semibold mb-2">Application Submitted!</h2>
               <p className="text-muted-foreground">
-                Thank you for applying to {organization.name}. We'll review your application and be in touch soon.
+                Thank you for applying to {(organization as any).brand_name || organization.name}. We'll review your application and be in touch soon.
               </p>
             </div>
             
@@ -485,12 +485,15 @@ export default function PublicApplication() {
         <div className="border-b border-border pb-6">
           <div className="flex items-center justify-center gap-4">
             {organization.logo_url && (
-              <img src={organization.logo_url} alt={organization.name} className="h-14 w-14 object-contain rounded-lg" />
+              <img src={organization.logo_url} alt={(organization as any).brand_name || organization.name} className="h-14 w-14 object-contain rounded-lg" />
             )}
             <div className="text-left">
               <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                {organization.name}
+                {(organization as any).brand_name || organization.name}
               </h1>
+              {(organization as any).brand_name && (
+                <p className="text-xs text-muted-foreground">{organization.name}</p>
+              )}
               {selectedLocationName && (
                 <p className="text-sm text-muted-foreground font-normal">{selectedLocationName}</p>
               )}
