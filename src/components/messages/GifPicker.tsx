@@ -5,6 +5,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ImageIcon, Search, X } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface GifPickerProps {
   onSelect: (gifUrl: string) => void;
@@ -25,9 +26,6 @@ interface GiphyGif {
   };
 }
 
-// GIPHY public beta API key - free for development
-const GIPHY_API_KEY = 'dc6zaTOxFJmzC';
-
 export function GifPicker({ onSelect }: GifPickerProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -38,13 +36,12 @@ export function GifPicker({ onSelect }: GifPickerProps) {
   const fetchGifs = useCallback(async (query: string) => {
     setLoading(true);
     try {
-      const endpoint = query 
-        ? `https://api.giphy.com/v1/gifs/search?api_key=${GIPHY_API_KEY}&q=${encodeURIComponent(query)}&limit=30&rating=pg-13`
-        : `https://api.giphy.com/v1/gifs/trending?api_key=${GIPHY_API_KEY}&limit=30&rating=pg-13`;
+      const { data, error } = await supabase.functions.invoke('fetch-gifs', {
+        body: { search: query }
+      });
       
-      const response = await fetch(endpoint);
-      const data = await response.json();
-      setGifs(data.data || []);
+      if (error) throw error;
+      setGifs(data?.gifs || []);
     } catch (error) {
       console.error('Error fetching GIFs:', error);
       setGifs([]);
