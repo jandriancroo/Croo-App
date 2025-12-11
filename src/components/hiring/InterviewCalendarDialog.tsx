@@ -130,12 +130,12 @@ export function InterviewCalendarDialog({
     );
   }, [interviews, selectedDate]);
 
-  // Get manager shifts for selected date
+  // Get manager shifts for selected date, sorted chronologically by start time
   const selectedDateShifts = useMemo(() => {
     if (!managerShifts) return [];
-    return managerShifts.filter(shift => 
-      isSameDay(parseISO(shift.shift_date), selectedDate)
-    );
+    return managerShifts
+      .filter(shift => isSameDay(parseISO(shift.shift_date), selectedDate))
+      .sort((a, b) => a.start_time.localeCompare(b.start_time));
   }, [managerShifts, selectedDate]);
 
   // Dates with interviews for calendar highlighting
@@ -245,32 +245,25 @@ export function InterviewCalendarDialog({
                       No managers scheduled
                     </p>
                   ) : (
-                    selectedDateShifts.map(shift => {
-                      const shiftUser = Array.isArray(shift.user) ? shift.user[0] : shift.user;
-                      return (
-                        <Card key={shift.id} className="bg-muted/50">
-                          <CardContent className="py-2 px-3">
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={shiftUser?.profile_photo_url} />
-                                <AvatarFallback>
-                                  <UserCircle className="h-5 w-5" />
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex-1">
-                                <p className="font-medium text-sm">
-                                  {shiftUser?.full_name || 'Unknown'}
-                                </p>
-                                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                  <Clock className="h-3 w-3" />
-                                  {formatTime12h(shift.start_time)} - {formatTime12h(shift.end_time)}
-                                </p>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })
+                    <div className="space-y-1 pl-6">
+                      {selectedDateShifts.map(shift => {
+                        const shiftUser = Array.isArray(shift.user) ? shift.user[0] : shift.user;
+                        return (
+                          <div key={shift.id} className="flex items-center gap-2 text-sm">
+                            <Avatar className="h-5 w-5">
+                              <AvatarImage src={shiftUser?.profile_photo_url} />
+                              <AvatarFallback className="text-[10px]">
+                                {shiftUser?.full_name?.charAt(0) || '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="font-medium">{shiftUser?.full_name || 'Unknown'}</span>
+                            <span className="text-muted-foreground">
+                              {formatTime12h(shift.start_time)} - {formatTime12h(shift.end_time)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               </div>
