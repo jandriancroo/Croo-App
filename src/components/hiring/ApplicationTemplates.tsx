@@ -17,11 +17,17 @@ import { useAuth } from '@/lib/auth';
 interface CustomQuestion {
   id?: string;
   question: string;
-  question_type: 'text' | 'textarea' | 'select' | 'checkbox' | 'radio';
+  question_type: 'text' | 'textarea' | 'select' | 'checkbox' | 'radio' | 'availability' | 'work_history' | 'references';
   options?: string[];
   is_required: boolean;
   display_order: number;
 }
+
+const BUILT_IN_FIELDS = [
+  { type: 'availability', label: 'Availability Grid', description: 'AM/PM availability for each day of the week' },
+  { type: 'work_history', label: 'Work History', description: 'Previous employment information' },
+  { type: 'references', label: 'References', description: 'Professional references' },
+] as const;
 
 interface ApplicationTemplatesProps {
   organizationId: string;
@@ -323,47 +329,77 @@ export function ApplicationTemplates({ organizationId }: ApplicationTemplatesPro
               </div>
             </div>
 
+            {/* Built-in Field Types */}
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-medium">Built-in Fields</h3>
+                <p className="text-sm text-muted-foreground">
+                  Add standard application sections
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {BUILT_IN_FIELDS.map(field => {
+                  const isAdded = customQuestions.some(q => q.question_type === field.type);
+                  return (
+                    <Button
+                      key={field.type}
+                      variant={isAdded ? 'secondary' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        if (isAdded) {
+                          setCustomQuestions(prev => prev.filter(q => q.question_type !== field.type));
+                        } else {
+                          setCustomQuestions(prev => [
+                            ...prev,
+                            {
+                              question: field.label,
+                              question_type: field.type as any,
+                              is_required: false,
+                              display_order: prev.length,
+                            },
+                          ]);
+                        }
+                      }}
+                    >
+                      {isAdded ? '✓ ' : '+ '}
+                      {field.label}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Custom Questions */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-medium">Custom Questions</h3>
                   <p className="text-sm text-muted-foreground">
-                    Add additional questions beyond the standard fields
+                    Add additional questions
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={addQuestion}>
                   <Plus className="h-4 w-4 mr-1" />
-                  Add
+                  Add Question
                 </Button>
               </div>
 
-              {customQuestions.map((q, index) => (
-                <Card key={index} className="p-4">
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-2">
-                      <GripVertical className="h-5 w-5 text-muted-foreground mt-2 cursor-move" />
-                      <div className="flex-1 space-y-3">
-                        <Input
-                          placeholder="Question"
-                          value={q.question}
-                          onChange={e => updateQuestion(index, 'question', e.target.value)}
-                        />
-                        <div className="flex gap-3 flex-wrap">
-                          <Select 
-                            value={q.question_type} 
-                            onValueChange={val => updateQuestion(index, 'question_type', val)}
-                          >
-                            <SelectTrigger className="w-[140px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="text">Short Text</SelectItem>
-                              <SelectItem value="textarea">Long Text</SelectItem>
-                              <SelectItem value="select">Dropdown</SelectItem>
-                              <SelectItem value="radio">Multiple Choice</SelectItem>
-                              <SelectItem value="checkbox">Checkboxes</SelectItem>
-                            </SelectContent>
-                          </Select>
+              {customQuestions.map((q, index) => {
+                // Skip built-in fields in this section
+                if (['availability', 'work_history', 'references'].includes(q.question_type)) {
+                  return (
+                    <Card key={index} className="p-4 bg-muted/30">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <GripVertical className="h-5 w-5 text-muted-foreground cursor-move" />
+                          <div>
+                            <p className="font-medium">{q.question}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {BUILT_IN_FIELDS.find(f => f.type === q.question_type)?.description}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
                           <div className="flex items-center gap-2">
                             <Switch
                               id={`required-${index}`}
@@ -372,22 +408,67 @@ export function ApplicationTemplates({ organizationId }: ApplicationTemplatesPro
                             />
                             <Label htmlFor={`required-${index}`} className="text-sm">Required</Label>
                           </div>
+                          <Button variant="ghost" size="icon" onClick={() => removeQuestion(index)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-                        {['select', 'radio', 'checkbox'].includes(q.question_type) && (
-                          <Input
-                            placeholder="Options (comma separated)"
-                            value={(q.options || []).join(', ')}
-                            onChange={e => updateQuestion(index, 'options', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
-                          />
-                        )}
                       </div>
-                      <Button variant="ghost" size="icon" onClick={() => removeQuestion(index)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    </Card>
+                  );
+                }
+
+                return (
+                  <Card key={index} className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-2">
+                        <GripVertical className="h-5 w-5 text-muted-foreground mt-2 cursor-move" />
+                        <div className="flex-1 space-y-3">
+                          <Input
+                            placeholder="Question"
+                            value={q.question}
+                            onChange={e => updateQuestion(index, 'question', e.target.value)}
+                          />
+                          <div className="flex gap-3 flex-wrap">
+                            <Select 
+                              value={q.question_type} 
+                              onValueChange={val => updateQuestion(index, 'question_type', val)}
+                            >
+                              <SelectTrigger className="w-[140px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="text">Short Text</SelectItem>
+                                <SelectItem value="textarea">Long Text</SelectItem>
+                                <SelectItem value="select">Dropdown</SelectItem>
+                                <SelectItem value="radio">Multiple Choice</SelectItem>
+                                <SelectItem value="checkbox">Checkboxes</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <div className="flex items-center gap-2">
+                              <Switch
+                                id={`required-${index}`}
+                                checked={q.is_required}
+                                onCheckedChange={checked => updateQuestion(index, 'is_required', checked)}
+                            />
+                              <Label htmlFor={`required-${index}`} className="text-sm">Required</Label>
+                            </div>
+                          </div>
+                          {['select', 'radio', 'checkbox'].includes(q.question_type) && (
+                            <Input
+                              placeholder="Options (comma separated)"
+                              value={(q.options || []).join(', ')}
+                              onChange={e => updateQuestion(index, 'options', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                            />
+                          )}
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => removeQuestion(index)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </div>
           </div>
 

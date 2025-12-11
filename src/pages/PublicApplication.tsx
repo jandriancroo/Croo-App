@@ -450,67 +450,74 @@ export default function PublicApplication() {
             </CardContent>
           </Card>
 
-          {/* Availability */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Availability</CardTitle>
-              <CardDescription>Select when you're available to work</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr>
-                      <th className="text-left py-2"></th>
-                      {DAYS.map(day => (
-                        <th key={day} className="text-center py-2 px-1 capitalize text-xs">
-                          {day.slice(0, 3)}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="py-2 font-medium">AM</td>
-                      {DAYS.map(day => (
-                        <td key={`${day}-am`} className="text-center py-2 px-1">
-                          <button
-                            type="button"
-                            onClick={() => toggleAvailability(day, 'am')}
-                            className={`w-8 h-8 rounded-md border-2 transition-colors ${
-                              availability[day].am 
-                                ? 'bg-primary border-primary text-primary-foreground' 
-                                : 'bg-muted border-border hover:border-primary/50'
-                            }`}
-                          >
-                            {availability[day].am && '✓'}
-                          </button>
-                        </td>
-                      ))}
-                    </tr>
-                    <tr>
-                      <td className="py-2 font-medium">PM</td>
-                      {DAYS.map(day => (
-                        <td key={`${day}-pm`} className="text-center py-2 px-1">
-                          <button
-                            type="button"
-                            onClick={() => toggleAvailability(day, 'pm')}
-                            className={`w-8 h-8 rounded-md border-2 transition-colors ${
-                              availability[day].pm 
-                                ? 'bg-primary border-primary text-primary-foreground' 
-                                : 'bg-muted border-border hover:border-primary/50'
-                            }`}
-                          >
-                            {availability[day].pm && '✓'}
-                          </button>
-                        </td>
-                      ))}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Availability - only show if included in template */}
+          {customQuestions?.some(q => q.question_type === 'availability') && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">
+                  Availability
+                  {customQuestions.find(q => q.question_type === 'availability')?.is_required && (
+                    <span className="text-destructive ml-1">*</span>
+                  )}
+                </CardTitle>
+                <CardDescription>Select when you're available to work</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr>
+                        <th className="text-left py-2"></th>
+                        {DAYS.map(day => (
+                          <th key={day} className="text-center py-2 px-1 capitalize text-xs">
+                            {day.slice(0, 3)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="py-2 font-medium">AM</td>
+                        {DAYS.map(day => (
+                          <td key={`${day}-am`} className="text-center py-2 px-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleAvailability(day, 'am')}
+                              className={`w-8 h-8 rounded-md border-2 transition-colors ${
+                                availability[day].am 
+                                  ? 'bg-primary border-primary text-primary-foreground' 
+                                  : 'bg-muted border-border hover:border-primary/50'
+                              }`}
+                            >
+                              {availability[day].am && '✓'}
+                            </button>
+                          </td>
+                        ))}
+                      </tr>
+                      <tr>
+                        <td className="py-2 font-medium">PM</td>
+                        {DAYS.map(day => (
+                          <td key={`${day}-pm`} className="text-center py-2 px-1">
+                            <button
+                              type="button"
+                              onClick={() => toggleAvailability(day, 'pm')}
+                              className={`w-8 h-8 rounded-md border-2 transition-colors ${
+                                availability[day].pm 
+                                  ? 'bg-primary border-primary text-primary-foreground' 
+                                  : 'bg-muted border-border hover:border-primary/50'
+                              }`}
+                            >
+                              {availability[day].pm && '✓'}
+                            </button>
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Resume Upload */}
           <Card>
@@ -558,127 +565,143 @@ export default function PublicApplication() {
             </CardContent>
           </Card>
 
-          {/* Work History */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Work History</CardTitle>
-              <CardDescription>List your previous employers (most recent first)</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {workHistory.map((work, index) => (
-                <div key={index} className="p-4 border rounded-lg space-y-3">
-                  <div className="flex justify-between items-start">
-                    <span className="text-sm font-medium text-muted-foreground">Employer {index + 1}</span>
-                    {workHistory.length > 1 && (
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removeWorkHistory(index)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Input
-                      placeholder="Company Name"
-                      value={work.employer_name}
-                      onChange={e => updateWorkHistory(index, 'employer_name', e.target.value)}
-                    />
-                    <Input
-                      placeholder="Job Title"
-                      value={work.job_title}
-                      onChange={e => updateWorkHistory(index, 'job_title', e.target.value)}
-                    />
-                    <Input
-                      type="date"
-                      placeholder="Start Date"
-                      value={work.start_date}
-                      onChange={e => updateWorkHistory(index, 'start_date', e.target.value)}
-                    />
-                    <div className="space-y-2">
+          {/* Work History - only show if included in template */}
+          {customQuestions?.some(q => q.question_type === 'work_history') && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">
+                  Work History
+                  {customQuestions.find(q => q.question_type === 'work_history')?.is_required && (
+                    <span className="text-destructive ml-1">*</span>
+                  )}
+                </CardTitle>
+                <CardDescription>List your previous employers (most recent first)</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {workHistory.map((work, index) => (
+                  <div key={index} className="p-4 border rounded-lg space-y-3">
+                    <div className="flex justify-between items-start">
+                      <span className="text-sm font-medium text-muted-foreground">Employer {index + 1}</span>
+                      {workHistory.length > 1 && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeWorkHistory(index)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Input
+                        placeholder="Company Name"
+                        value={work.employer_name}
+                        onChange={e => updateWorkHistory(index, 'employer_name', e.target.value)}
+                      />
+                      <Input
+                        placeholder="Job Title"
+                        value={work.job_title}
+                        onChange={e => updateWorkHistory(index, 'job_title', e.target.value)}
+                      />
                       <Input
                         type="date"
-                        placeholder="End Date"
-                        value={work.end_date}
-                        onChange={e => updateWorkHistory(index, 'end_date', e.target.value)}
-                        disabled={work.is_current}
+                        placeholder="Start Date"
+                        value={work.start_date}
+                        onChange={e => updateWorkHistory(index, 'start_date', e.target.value)}
                       />
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id={`current-${index}`}
-                          checked={work.is_current}
-                          onCheckedChange={checked => updateWorkHistory(index, 'is_current', checked as boolean)}
+                      <div className="space-y-2">
+                        <Input
+                          type="date"
+                          placeholder="End Date"
+                          value={work.end_date}
+                          onChange={e => updateWorkHistory(index, 'end_date', e.target.value)}
+                          disabled={work.is_current}
                         />
-                        <label htmlFor={`current-${index}`} className="text-sm">Currently employed here</label>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id={`current-${index}`}
+                            checked={work.is_current}
+                            onCheckedChange={checked => updateWorkHistory(index, 'is_current', checked as boolean)}
+                          />
+                          <label htmlFor={`current-${index}`} className="text-sm">Currently employed here</label>
+                        </div>
                       </div>
                     </div>
+                    <Input
+                      placeholder="Reason for leaving"
+                      value={work.reason_for_leaving}
+                      onChange={e => updateWorkHistory(index, 'reason_for_leaving', e.target.value)}
+                    />
                   </div>
-                  <Input
-                    placeholder="Reason for leaving"
-                    value={work.reason_for_leaving}
-                    onChange={e => updateWorkHistory(index, 'reason_for_leaving', e.target.value)}
-                  />
-                </div>
-              ))}
-              <Button type="button" variant="outline" onClick={addWorkHistory} className="w-full">
-                <Plus className="h-4 w-4 mr-2" /> Add Another Employer
-              </Button>
-            </CardContent>
-          </Card>
+                ))}
+                <Button type="button" variant="outline" onClick={addWorkHistory} className="w-full">
+                  <Plus className="h-4 w-4 mr-2" /> Add Another Employer
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* References */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">References</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {references.map((ref, index) => (
-                <div key={index} className="p-4 border rounded-lg space-y-3">
-                  <div className="flex justify-between items-start">
-                    <span className="text-sm font-medium text-muted-foreground">Reference {index + 1}</span>
-                    {references.length > 1 && (
-                      <Button type="button" variant="ghost" size="sm" onClick={() => removeReference(index)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
+          {/* References - only show if included in template */}
+          {customQuestions?.some(q => q.question_type === 'references') && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">
+                  References
+                  {customQuestions.find(q => q.question_type === 'references')?.is_required && (
+                    <span className="text-destructive ml-1">*</span>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {references.map((ref, index) => (
+                  <div key={index} className="p-4 border rounded-lg space-y-3">
+                    <div className="flex justify-between items-start">
+                      <span className="text-sm font-medium text-muted-foreground">Reference {index + 1}</span>
+                      {references.length > 1 && (
+                        <Button type="button" variant="ghost" size="sm" onClick={() => removeReference(index)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Input
+                        placeholder="Name"
+                        value={ref.name}
+                        onChange={e => updateReference(index, 'name', e.target.value)}
+                      />
+                      <Input
+                        placeholder="Relationship (e.g., Former Manager)"
+                        value={ref.relationship}
+                        onChange={e => updateReference(index, 'relationship', e.target.value)}
+                      />
+                      <Input
+                        type="tel"
+                        placeholder="Phone"
+                        value={ref.phone}
+                        onChange={e => updateReference(index, 'phone', e.target.value)}
+                      />
+                      <Input
+                        type="email"
+                        placeholder="Email"
+                        value={ref.email}
+                        onChange={e => updateReference(index, 'email', e.target.value)}
+                      />
+                    </div>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Input
-                      placeholder="Name"
-                      value={ref.name}
-                      onChange={e => updateReference(index, 'name', e.target.value)}
-                    />
-                    <Input
-                      placeholder="Relationship (e.g., Former Manager)"
-                      value={ref.relationship}
-                      onChange={e => updateReference(index, 'relationship', e.target.value)}
-                    />
-                    <Input
-                      type="tel"
-                      placeholder="Phone"
-                      value={ref.phone}
-                      onChange={e => updateReference(index, 'phone', e.target.value)}
-                    />
-                    <Input
-                      type="email"
-                      placeholder="Email"
-                      value={ref.email}
-                      onChange={e => updateReference(index, 'email', e.target.value)}
-                    />
-                  </div>
-                </div>
-              ))}
-              <Button type="button" variant="outline" onClick={addReference} className="w-full">
-                <Plus className="h-4 w-4 mr-2" /> Add Another Reference
-              </Button>
-            </CardContent>
-          </Card>
+                ))}
+                <Button type="button" variant="outline" onClick={addReference} className="w-full">
+                  <Plus className="h-4 w-4 mr-2" /> Add Another Reference
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Custom Questions */}
-          {customQuestions && customQuestions.length > 0 && (
+          {/* Custom Questions - filter out built-in field types */}
+          {customQuestions && customQuestions.filter(q => !['availability', 'work_history', 'references'].includes(q.question_type)).length > 0 && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Additional Questions</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {customQuestions.map(q => (
+                {customQuestions
+                  .filter(q => !['availability', 'work_history', 'references'].includes(q.question_type))
+                  .map(q => (
                   <div key={q.id} className="space-y-2">
                     <Label>
                       {q.question}
