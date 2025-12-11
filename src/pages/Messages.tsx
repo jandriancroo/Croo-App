@@ -585,6 +585,46 @@ export default function Messages() {
                 </div>
               </DrawerContent>
             </Drawer>
+
+            {/* Mobile Hiring Chat Drawer */}
+            <Drawer 
+              open={viewMode === 'hiring' && !!selectedHiringConversation} 
+              onOpenChange={(open) => {
+                if (!open) {
+                  setSelectedHiringConversation(null);
+                }
+              }}
+              modal={true}
+              dismissible={true}
+            >
+              <DrawerContent className="h-[95vh] pt-[env(safe-area-inset-top)] pb-safe">
+                <div className="flex flex-col h-full">
+                  <div className="flex items-center gap-2 p-4 border-b border-border">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedHiringConversation(null);
+                      }}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </Button>
+                    <h2 className="text-lg font-semibold truncate">
+                      {selectedHiringConversation?.application?.full_name || 'Applicant'}
+                    </h2>
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    {selectedHiringConversation && (
+                      <HiringChatPanel
+                        applicationId={selectedHiringConversation.application_id}
+                        applicantName={selectedHiringConversation.application?.full_name || 'Applicant'}
+                      />
+                    )}
+                  </div>
+                </div>
+              </DrawerContent>
+            </Drawer>
           </>
         )}
       </div>
