@@ -51,17 +51,17 @@ export function InterviewCalendarDialog({
     queryFn: async () => {
       if (!currentLocation?.id) return [];
 
-      // First get schedules for this location in the date range
+      // First get PUBLISHED schedules for this location in the date range
       const { data: schedules } = await supabase
         .from('schedules')
         .select('id')
         .eq('location_id', currentLocation.id)
+        .eq('is_published', true)
         .lte('week_start_date', format(weekEnd, 'yyyy-MM-dd'))
         .gte('week_end_date', format(weekStart, 'yyyy-MM-dd'));
 
       const scheduleIds = schedules?.map(s => s.id) || [];
       if (!scheduleIds.length) {
-        console.log('No schedules found for location', currentLocation.id);
         return [];
       }
 
@@ -83,7 +83,6 @@ export function InterviewCalendarDialog({
       }
 
       if (!shifts?.length) {
-        console.log('No shifts found for schedules', scheduleIds);
         return [];
       }
 
@@ -100,9 +99,7 @@ export function InterviewCalendarDialog({
       const managerUserIds = new Set(managerRoles?.map(r => r.user_id) || []);
       
       // Filter shifts to only managers
-      const managerShifts = shifts.filter(shift => managerUserIds.has(shift.user_id));
-      console.log('Manager shifts found:', managerShifts.length);
-      return managerShifts;
+      return shifts.filter(shift => managerUserIds.has(shift.user_id));
     },
     enabled: open && !!currentLocation?.id,
   });
