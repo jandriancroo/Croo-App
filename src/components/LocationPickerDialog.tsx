@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 interface Organization {
   id: string;
   name: string;
+  brand_name: string | null;
   logo_url: string | null;
 }
 
@@ -56,22 +57,22 @@ export function LocationPickerDialog({
       if (canSeeAllOrgs) {
         // Super admin: see all orgs and all locations
         const [orgsResult, locsResult] = await Promise.all([
-          supabase.from('organizations').select('*').eq('is_active', true).order('name'),
-          supabase.from('locations').select('*, organizations(name)').order('name'),
+          supabase.from('organizations').select('id, name, brand_name, logo_url').eq('is_active', true).order('name'),
+          supabase.from('locations').select('*, organizations(name, brand_name)').order('name'),
         ]);
 
-        setOrganizations(orgsResult.data || []);
+        setOrganizations((orgsResult.data || []) as Organization[]);
         setLocations(
           (locsResult.data || []).map((loc: any) => ({
             ...loc,
-            org_name: loc.organizations?.name,
+            org_name: loc.organizations?.brand_name || loc.organizations?.name,
           }))
         );
       } else if (isOrgLevel) {
         // Org admin: see their org's locations
         const { data: orgMemberships } = await supabase
           .from('organization_members')
-          .select('organization_id, organizations(id, name, logo_url)')
+          .select('organization_id, organizations(id, name, brand_name, logo_url)')
           .eq('user_id', user!.id)
           .eq('org_role', 'admin');
 
@@ -83,14 +84,14 @@ export function LocationPickerDialog({
         if (orgIds.length > 0) {
           const { data: locs } = await supabase
             .from('locations')
-            .select('*, organizations(name)')
+            .select('*, organizations(name, brand_name)')
             .in('organization_id', orgIds)
             .order('name');
 
           setLocations(
             (locs || []).map((loc: any) => ({
               ...loc,
-              org_name: loc.organizations?.name,
+              org_name: loc.organizations?.brand_name || loc.organizations?.name,
             }))
           );
         }
@@ -98,7 +99,7 @@ export function LocationPickerDialog({
         // Regular admin/user: see their assigned locations
         const { data: userLocs } = await supabase
           .from('user_locations')
-          .select('location_id, locations(*, organizations(name))')
+          .select('location_id, locations(*, organizations(name, brand_name))')
           .eq('user_id', user!.id);
 
         const locs = userLocs?.map((ul: any) => ul.locations).filter(Boolean) || [];
@@ -109,15 +110,15 @@ export function LocationPickerDialog({
         if (orgIds.length > 0) {
           const { data: orgs } = await supabase
             .from('organizations')
-            .select('*')
+            .select('id, name, brand_name, logo_url')
             .in('id', orgIds);
-          setOrganizations(orgs || []);
+          setOrganizations((orgs || []) as Organization[]);
         }
 
         setLocations(
           locs.map((loc: any) => ({
             ...loc,
-            org_name: loc.organizations?.name,
+            org_name: loc.organizations?.brand_name || loc.organizations?.name,
           }))
         );
       }
@@ -168,7 +169,14 @@ export function LocationPickerDialog({
                 <div key={org.id} className="space-y-2">
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                     <Building2 className="h-4 w-4" />
-                    {org.name}
+                    {org.brand_name ? (
+                      <span>
+                        <span className="text-foreground font-semibold">{org.brand_name}</span>
+                        <span className="text-muted-foreground"> — {org.name}</span>
+                      </span>
+                    ) : (
+                      org.name
+                    )}
                   </div>
                   <div className="space-y-1 pl-6">
                     {locationsByOrg[org.id]?.map((location) => (
