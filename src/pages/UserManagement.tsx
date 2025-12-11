@@ -87,6 +87,8 @@ export default function UserManagement() {
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [resetPasswordLink, setResetPasswordLink] = useState<string>('');
   const [resetPasswordUserName, setResetPasswordUserName] = useState<string>('');
+  const [isInviteLinkDialogOpen, setIsInviteLinkDialogOpen] = useState(false);
+  const [inviteResetLink, setInviteResetLink] = useState<string>('');
   const [viewingUser, setViewingUser] = useState<UserProfile | null>(null);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [isWageDialogOpen, setIsWageDialogOpen] = useState(false);
@@ -851,6 +853,22 @@ export default function UserManagement() {
     }
   };
 
+  const copyInviteLink = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteResetLink);
+      toast({
+        title: 'Copied!',
+        description: 'Invite link copied to clipboard',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to copy link',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleAddEmployeeNote = async () => {
     if (!viewingUser || !newEmployeeNote.trim()) {
       toast({
@@ -1054,23 +1072,22 @@ export default function UserManagement() {
       const response = data as { resetLink?: string | null } | null;
       const resetLink = response?.resetLink ?? null;
  
-      if (resetLink) {
-        console.log('Invite reset link:', resetLink);
-      }
- 
-      toast({
-        title: 'Success',
-        description: resetLink
-          ? 'User invited. Copy this password setup link and share it manually: ' + resetLink
-          : 'User invited successfully',
-      });
-
       setInviteDialogOpen(false);
       setInviteEmail('');
-      setInviteFullName('');
       setInviteRole('team_member');
       setInviteProfilePhoto(null);
       fetchUsers();
+
+      if (resetLink) {
+        setInviteResetLink(resetLink);
+        setIsInviteLinkDialogOpen(true);
+      } else {
+        toast({
+          title: 'Success',
+          description: `${inviteFullName} has been invited`,
+        });
+      }
+      setInviteFullName('');
     } catch (error: any) {
       console.error('Error inviting user:', error);
       toast({
@@ -1927,6 +1944,36 @@ export default function UserManagement() {
             <DialogFooter>
               <Button onClick={() => setIsResetPasswordDialogOpen(false)}>
                 Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Invite Link Dialog */}
+        <Dialog open={isInviteLinkDialogOpen} onOpenChange={setIsInviteLinkDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>User Invited Successfully</DialogTitle>
+              <DialogDescription>
+                Share this link with the new team member so they can set up their password and access the app.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <div className="flex-1 p-3 bg-muted rounded-md border font-mono text-xs break-all">
+                  {inviteResetLink}
+                </div>
+                <Button variant="outline" size="icon" onClick={copyInviteLink}>
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Send this link via text, email, or any method you prefer. The link allows them to set their password.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setIsInviteLinkDialogOpen(false)}>
+                Done
               </Button>
             </DialogFooter>
           </DialogContent>
