@@ -288,23 +288,30 @@ export default function PublicApplication() {
 
       // Insert work history
       const validWorkHistory = workHistory.filter(w => w.employer_name.trim());
+      console.log('Work history to submit:', workHistory);
+      console.log('Valid work history after filter:', validWorkHistory);
       if (validWorkHistory.length > 0) {
-        const { error: workError } = await supabase
+        const workHistoryPayload = validWorkHistory.map((w, i) => ({
+          application_id: application.id,
+          employer_name: w.employer_name.trim(),
+          job_title: w.job_title.trim(),
+          start_date: w.start_date || null,
+          end_date: w.is_current ? null : (w.end_date || null),
+          is_current: w.is_current,
+          reason_for_leaving: w.reason_for_leaving.trim(),
+          display_order: i,
+        }));
+        console.log('Work history payload:', workHistoryPayload);
+        
+        const { error: workError, data: workData } = await supabase
           .from('job_application_work_history')
-          .insert(
-            validWorkHistory.map((w, i) => ({
-              application_id: application.id,
-              employer_name: w.employer_name.trim(),
-              job_title: w.job_title.trim(),
-              start_date: w.start_date || null,
-              end_date: w.is_current ? null : (w.end_date || null),
-              is_current: w.is_current,
-              reason_for_leaving: w.reason_for_leaving.trim(),
-              display_order: i,
-            }))
-          );
+          .insert(workHistoryPayload)
+          .select();
 
+        console.log('Work history insert result:', { workData, workError });
         if (workError) console.error('Work history error:', workError);
+      } else {
+        console.log('No valid work history to insert');
       }
 
       // Insert references
