@@ -5,23 +5,26 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MapPin, ArrowLeft, Copy, RefreshCw, Save } from 'lucide-react';
+import { MapPin, ArrowLeft, Copy, RefreshCw, Save, Shield } from 'lucide-react';
 import { LocationMap } from '@/components/settings/LocationMap';
 import { LocationSettingsSection } from '@/components/settings/LocationSettingsSection';
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
 import { LocationAuditsSection } from '@/components/settings/LocationAuditsSection';
 import { useAuth } from '@/lib/auth';
+import { useUserRole } from '@/hooks/useUserRole';
 
 export default function LocationProfile() {
   const { locationId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { isSuperAdmin } = useUserRole();
   const isNew = locationId === 'new';
   const orgId = searchParams.get('org');
   
@@ -303,6 +306,48 @@ export default function LocationProfile() {
                   </Select>
                   <p className="text-xs text-muted-foreground">
                     Checklist Only locations have simplified navigation and features
+                  </p>
+                </div>
+              )}
+              
+              {/* Super Admin Only: Location Type Toggle for existing locations */}
+              {!isNew && isSuperAdmin && (
+                <div className="pt-4 border-t space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-primary" />
+                    <Label className="text-sm font-medium">Full Features Mode</Label>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-sm text-muted-foreground">
+                        {location?.location_type === 'standard' 
+                          ? 'This location has access to all features'
+                          : 'This location is limited to checklists only'}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={location?.location_type === 'standard'}
+                      onCheckedChange={async (checked) => {
+                        const newType = checked ? 'standard' : 'checklist_only';
+                        try {
+                          const { error } = await supabase
+                            .from('locations')
+                            .update({ location_type: newType })
+                            .eq('id', locationId);
+                          
+                          if (error) throw error;
+                          
+                          setLocation({ ...location, location_type: newType });
+                          toast.success(`Location ${checked ? 'upgraded to full features' : 'set to checklist only'}`);
+                        } catch (error: any) {
+                          console.error('Error updating location type:', error);
+                          toast.error('Failed to update location type');
+                        }
+                      }}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Super admin only setting
                   </p>
                 </div>
               )}
