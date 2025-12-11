@@ -470,26 +470,30 @@ export default function Messages() {
           <>
             <div className="flex-1 bg-card rounded-lg p-4 flex flex-col">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Chat</h2>
-                <div className="flex gap-2">
-                  {isAdmin && (
+                <h2 className="text-lg font-semibold">
+                  {viewMode === 'hiring' ? 'Hiring' : viewMode === 'marketplace' ? 'Shifts' : 'Chat'}
+                </h2>
+                {viewMode !== 'hiring' && viewMode !== 'marketplace' && (
+                  <div className="flex gap-2">
+                    {isAdmin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIsAnnouncementOpen(true)}
+                        className="gap-2"
+                      >
+                        <Megaphone className="h-4 w-4" />
+                      </Button>
+                    )}
                     <Button
                       size="sm"
-                      variant="outline"
-                      onClick={() => setIsAnnouncementOpen(true)}
+                      onClick={() => setIsNewChatOpen(true)}
                       className="gap-2"
                     >
-                      <Megaphone className="h-4 w-4" />
+                      <Plus className="h-4 w-4" />
                     </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    onClick={() => setIsNewChatOpen(true)}
-                    className="gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
+                  </div>
+                )}
               </div>
               
               <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
