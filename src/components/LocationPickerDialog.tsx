@@ -163,15 +163,15 @@ export function LocationPickerDialog({
             ))}
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {organizations.length > 0 ? (
               organizations.map((org) => (
-                <div key={org.id} className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <div key={org.id} className="space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground px-1">
                     {org.logo_url ? (
-                      <img src={org.logo_url} alt="" className="h-5 w-5 object-contain rounded" />
+                      <img src={org.logo_url} alt="" className="h-4 w-4 object-contain rounded" />
                     ) : (
-                      <Building2 className="h-4 w-4" />
+                      <Building2 className="h-3 w-3" />
                     )}
                     {org.brand_name ? (
                       <span>
@@ -182,24 +182,24 @@ export function LocationPickerDialog({
                       org.name
                     )}
                   </div>
-                  <div className="space-y-1 pl-6">
+                  <div className="space-y-0.5 pl-5">
                     {locationsByOrg[org.id]?.map((location) => (
                       <Button
                         key={location.id}
                         variant={location.id === currentLocationId ? 'secondary' : 'ghost'}
-                        className="w-full justify-between h-auto py-3"
+                        className="w-full justify-between h-auto py-2 px-2"
                         onClick={() => handleSelectLocation(location)}
                       >
                         <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
+                          <MapPin className="h-3.5 w-3.5" />
                           <div className="text-left">
-                            <div className="font-medium">{location.name}</div>
+                            <div className="text-sm font-medium">{location.name}</div>
                             {location.location_type === 'checklist_only' && (
                               <div className="text-xs text-muted-foreground">Checklist Only</div>
                             )}
                           </div>
                         </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                       </Button>
                     ))}
                   </div>
@@ -207,24 +207,24 @@ export function LocationPickerDialog({
               ))
             ) : (
               // No organizations, just show locations flat
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {locations.map((location) => (
                   <Button
                     key={location.id}
                     variant={location.id === currentLocationId ? 'secondary' : 'ghost'}
-                    className="w-full justify-between h-auto py-3"
+                    className="w-full justify-between h-auto py-2 px-2"
                     onClick={() => handleSelectLocation(location)}
                   >
                     <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
+                      <MapPin className="h-3.5 w-3.5" />
                       <div className="text-left">
-                        <div className="font-medium">{location.name}</div>
+                        <div className="text-sm font-medium">{location.name}</div>
                         {location.location_type === 'checklist_only' && (
                           <div className="text-xs text-muted-foreground">Checklist Only</div>
                         )}
                       </div>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   </Button>
                 ))}
               </div>
@@ -232,26 +232,26 @@ export function LocationPickerDialog({
 
             {/* Unassigned locations (no org) */}
             {locationsByOrg['unassigned']?.length > 0 && organizations.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground px-1">
+                  <MapPin className="h-3 w-3" />
                   Other Locations
                 </div>
-                <div className="space-y-1 pl-6">
+                <div className="space-y-0.5 pl-5">
                   {locationsByOrg['unassigned'].map((location) => (
                     <Button
                       key={location.id}
                       variant={location.id === currentLocationId ? 'secondary' : 'ghost'}
-                      className="w-full justify-between h-auto py-3"
+                      className="w-full justify-between h-auto py-2 px-2"
                       onClick={() => handleSelectLocation(location)}
                     >
                       <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
+                        <MapPin className="h-3.5 w-3.5" />
                         <div className="text-left">
-                          <div className="font-medium">{location.name}</div>
+                          <div className="text-sm font-medium">{location.name}</div>
                         </div>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                     </Button>
                   ))}
                 </div>
