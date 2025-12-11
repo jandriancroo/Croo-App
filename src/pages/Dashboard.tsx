@@ -489,53 +489,56 @@ export default function Dashboard() {
           {/* Catering Order Cards */}
           {todaysCateringOrders.map(order => {
             const isCompleted = order.status === "completed";
+            const ORANGE_COLOR = "#f97316";
+            const GREEN_COLOR = "#22c55e";
+            const accentColor = isCompleted ? GREEN_COLOR : ORANGE_COLOR;
+            
             return (
               <Card 
-                key={`catering-${order.id}`} 
-                className={`hover:shadow-lg transition-shadow overflow-hidden p-0 flex flex-col ${
-                  isCompleted ? "opacity-75" : ""
-                }`}
+                key={`catering-${order.id}`}
+                className={`overflow-hidden ${isCompleted ? "opacity-75" : ""}`}
+                style={{ borderLeft: `4px solid ${accentColor}` }}
               >
-                <CardHeader className="py-2 px-3">
-                  <div className="flex items-center gap-2">
-                    {isCompleted ? (
-                      <Check className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    ) : (
-                      <ChefHat className="h-4 w-4 text-orange-500 flex-shrink-0" />
-                    )}
-                    <CardTitle className="text-base font-semibold flex-1 truncate">{order.customer_name}</CardTitle>
-                    <Badge className={`text-xs px-2 py-0.5 flex-shrink-0 ${
-                      isCompleted ? "bg-green-500 text-white" : "bg-orange-500 text-white"
-                    }`}>
-                      catering
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="py-2 px-3 pt-0 pb-0 flex-1">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-base text-muted-foreground">
-                      <Clock className="h-4 w-4" />
-                      <span className={`font-medium ${isCompleted ? "text-green-500" : "text-orange-500"}`}>
-                        {formatCateringTime(order.pickup_time)}
-                      </span>
-                      {order.headcount && (
-                        <span className="flex items-center gap-1 text-base">
-                          <Users className="h-4 w-4" />
-                          {order.headcount}
-                        </span>
+                <CardContent className="p-3 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className="p-2 rounded-lg"
+                      style={{ backgroundColor: `${accentColor}20` }}
+                    >
+                      {isCompleted ? (
+                        <Check className="h-4 w-4" style={{ color: accentColor }} />
+                      ) : (
+                        <ChefHat className="h-4 w-4" style={{ color: accentColor }} />
                       )}
                     </div>
-                    <Badge variant="outline" className="text-xs">{order.items.length} items</Badge>
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm truncate">{order.customer_name}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-2">
+                        {formatCateringTime(order.pickup_time)}
+                        {order.headcount && (
+                          <span className="flex items-center gap-1">
+                            <Users className="h-3 w-3" />
+                            {order.headcount}
+                          </span>
+                        )}
+                        <span
+                          className="px-1.5 py-0.5 rounded text-[10px]"
+                          style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
+                        >
+                          {order.items.length} items
+                        </span>
+                      </p>
+                    </div>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => setSelectedCateringOrder(order)}
+                  >
+                    {isCompleted ? "View" : "View Order"}
+                  </Button>
                 </CardContent>
-                <Button 
-                  className={`w-full h-10 text-sm rounded-none rounded-b-lg text-white mt-auto ${
-                    isCompleted ? "bg-green-500 hover:bg-green-600" : "bg-orange-500 hover:bg-orange-600"
-                  }`}
-                  onClick={() => setSelectedCateringOrder(order)}
-                >
-                  {isCompleted ? "View Completed" : "View Order"}
-                </Button>
               </Card>
             );
           })}
