@@ -290,12 +290,7 @@ export default function Availability() {
       <div className="space-y-6">
         <div className="flex justify-between items-center flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold">
-              {isAdmin ? "Availability Requests" : "Availability"}
-            </h1>
-            {isAdmin && (
-              <p className="text-muted-foreground">Manage time off requests and employee accruals</p>
-            )}
+            <h1 className="text-3xl font-bold">Availability</h1>
           </div>
           <Button onClick={() => setRequestDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
