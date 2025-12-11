@@ -719,7 +719,7 @@ export default function Dashboard() {
   return <Layout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">{isChecklistOnlyLocation ? 'Checklists' : 'Dash'}</h1>
+          <h1 className="text-3xl font-bold">Dash</h1>
           <div className="flex gap-2 items-center">
             {/* Hide Croo Cash for checklist-only locations or when feature is disabled */}
             {FEATURE_FLAGS.CROO_CASH_ENABLED && !isChecklistOnlyLocation && (
