@@ -460,15 +460,15 @@ export default function PublicApplication() {
               <img src={organization.logo_url} alt={organization.name} className="h-14 w-14 object-contain rounded-lg" />
             )}
             <div className="text-left">
-              <h1 className="text-2xl font-jakarta font-semibold tracking-tight text-foreground">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
                 {organization.name}
               </h1>
               {selectedLocationName && (
-                <p className="text-sm font-jakarta text-muted-foreground">{selectedLocationName}</p>
+                <p className="text-sm text-muted-foreground font-normal">{selectedLocationName}</p>
               )}
             </div>
           </div>
-          <p className="text-center text-primary font-jakarta font-medium mt-4 text-lg">Join Our Team</p>
+          <p className="text-center text-primary font-medium mt-4 text-lg">Join Our Team</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
