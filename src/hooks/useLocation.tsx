@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface Location {
   id: string;
@@ -22,6 +23,7 @@ const LocationContext = createContext<LocationContextType | undefined>(undefined
 
 export const LocationProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [currentLocation, setCurrentLocationState] = useState<Location | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,16 +71,18 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   const setCurrentLocation = useCallback((location: Location) => {
-    // Show switching state for a brief moment to allow queries to refetch
     setSwitching(true);
     setCurrentLocationState(location);
     localStorage.setItem('currentLocationId', location.id);
     
-    // Clear switching state after a brief delay
+    // Invalidate all queries to force refetch with new location
+    queryClient.invalidateQueries();
+    
+    // Clear switching state after queries have time to refetch
     setTimeout(() => {
       setSwitching(false);
-    }, 300);
-  }, []);
+    }, 500);
+  }, [queryClient]);
 
   const isChecklistOnlyLocation = currentLocation?.location_type === 'checklist_only';
 
