@@ -85,8 +85,12 @@ serve(async (req) => {
       const tempMatch = extractedText.match(/[-+]?\d+\.?\d*/);
       if (tempMatch) {
         temperature = parseFloat(tempMatch[0]);
-        // Food safety temperatures: ≤41.9°F (cold) or ≥165°F (hot)
-        isValid = temperature <= 41.9 || temperature >= 165;
+        // Food safety temperatures: 
+        // Cold holding: ≤41.0°F (safe)
+        // Hot holding: ≥135.0°F (safe for standard items)
+        // Note: Items like meatballs require ≥165°F for cooking, but 135°F+ is safe for holding
+        // Danger zone: 41.1°F to 134.9°F
+        isValid = temperature <= 41.0 || temperature >= 135.0;
       }
     }
 

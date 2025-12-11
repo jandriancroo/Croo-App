@@ -173,7 +173,8 @@ export default function TemperatureValidation() {
     }
 
     try {
-      const isValid = temp <= 41.9 || temp >= 165;
+      // Food safety: ≤41.0°F (cold) or ≥135.0°F (hot holding)
+      const isValid = temp <= 41.0 || temp >= 135.0;
 
       const { error } = await supabase
         .from('checklist_responses')
@@ -328,7 +329,7 @@ export default function TemperatureValidation() {
                             </Button>
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            Safe zones: ≤41.9°F (cold) or ≥165°F (hot)
+                            Safe zones: ≤41.0°F (cold) or ≥135.0°F (hot holding)
                           </p>
                         </div>
                       ) : (
