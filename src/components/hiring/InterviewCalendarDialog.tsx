@@ -51,13 +51,36 @@ export function InterviewCalendarDialog({
     queryFn: async () => {
       if (!currentLocation?.id) return [];
 
+      // First get all schedules for this location in the date range
+      const { data: schedules } = await supabase
+        .from('schedules')
+        .select('id')
+        .eq('location_id', currentLocation.id)
+        .lte('week_start_date', format(weekEnd, 'yyyy-MM-dd'))
+        .gte('week_end_date', format(weekStart, 'yyyy-MM-dd'));
+
+      if (!schedules?.length) return [];
+
+      const scheduleIds = schedules.map(s => s.id);
+
+      // Get all shifts from those schedules
+      const { data: allShifts } = await supabase
+        .from('scheduled_shifts')
+        .select(`
+          *,
+          user:profiles(id, full_name, profile_photo_url)
+        `)
+        .in('schedule_id', scheduleIds)
+        .gte('shift_date', format(weekStart, 'yyyy-MM-dd'))
+        .lte('shift_date', format(weekEnd, 'yyyy-MM-dd'))
+        .eq('is_time_off', false);
+
+      if (!allShifts?.length) return [];
+
       // Get managers at this location (manager roles and above)
       const { data: managers } = await supabase
         .from('user_roles')
-        .select(`
-          user_id,
-          role
-        `)
+        .select('user_id, role')
         .in('role', ['super_admin', 'admin', 'general_manager', 'shift_manager']);
 
       if (!managers?.length) return [];
@@ -69,27 +92,18 @@ export function InterviewCalendarDialog({
         .eq('location_id', currentLocation.id);
 
       const locationUserIds = new Set(locationUsers?.map(u => u.user_id) || []);
-      const managerIds = managers
-        .filter(m => locationUserIds.has(m.user_id))
-        .map(m => m.user_id);
+      
+      // Include super_admins regardless of location assignment
+      const superAdminIds = new Set(managers.filter(m => m.role === 'super_admin').map(m => m.user_id));
+      
+      const managerIds = new Set(
+        managers
+          .filter(m => locationUserIds.has(m.user_id) || superAdminIds.has(m.user_id))
+          .map(m => m.user_id)
+      );
 
-      if (!managerIds.length) return [];
-
-      // Get shifts for these managers
-      const { data: shifts } = await supabase
-        .from('scheduled_shifts')
-        .select(`
-          *,
-          schedule:schedules!inner(location_id),
-          user:profiles(id, full_name, profile_photo_url)
-        `)
-        .in('user_id', managerIds)
-        .eq('schedule.location_id', currentLocation.id)
-        .gte('shift_date', format(weekStart, 'yyyy-MM-dd'))
-        .lte('shift_date', format(weekEnd, 'yyyy-MM-dd'))
-        .eq('is_time_off', false);
-
-      return shifts || [];
+      // Filter shifts to only include manager shifts
+      return allShifts.filter(shift => shift.user_id && managerIds.has(shift.user_id));
     },
     enabled: open && !!currentLocation?.id,
   });
