@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { Loader2, Plus, Trash2, Upload, CheckCircle, Sparkles } from 'lucide-react';
 import crooLogo from '@/assets/croo-logo.png';
+import { AddToHomeScreenButton } from '@/components/AddToHomeScreenButton';
 
 interface WorkHistoryEntry {
   employer_name: string;
@@ -50,6 +51,7 @@ export default function PublicApplication() {
   const { orgSlug } = useParams();
   const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
+  const [chatToken, setChatToken] = useState<string | null>(null);
   
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -333,6 +335,21 @@ export default function PublicApplication() {
         if (refError) console.error('References error:', refError);
       }
 
+      // Create hiring conversation for the applicant
+      const { data: conversation, error: convError } = await supabase
+        .from('hiring_conversations')
+        .insert({
+          application_id: application.id,
+        })
+        .select('access_token')
+        .single();
+      
+      if (convError) {
+        console.error('Error creating conversation:', convError);
+      } else if (conversation) {
+        setChatToken(conversation.access_token);
+      }
+      
       return application;
     },
     onSuccess: () => {
@@ -445,15 +462,46 @@ export default function PublicApplication() {
   }
 
   if (submitted) {
+    const chatUrl = chatToken ? `${window.location.origin}/hiring-chat/${chatToken}` : null;
+    
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
-          <CardContent className="pt-6 text-center">
-            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold mb-2">Application Submitted!</h2>
-            <p className="text-muted-foreground">
-              Thank you for applying to {organization.name}. We'll review your application and be in touch soon.
-            </p>
+          <CardContent className="pt-6 text-center space-y-6">
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+            <div>
+              <h2 className="text-2xl font-semibold mb-2">Application Submitted!</h2>
+              <p className="text-muted-foreground">
+                Thank you for applying to {organization.name}. We'll review your application and be in touch soon.
+              </p>
+            </div>
+            
+            {chatUrl && (
+              <div className="border-t border-border pt-6 space-y-4">
+                <div className="bg-primary/10 rounded-lg p-4">
+                  <h3 className="font-semibold text-foreground mb-2">💬 Stay Connected</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Add this app to your home screen to receive messages about your application.
+                  </p>
+                  <AddToHomeScreenButton 
+                    variant="default" 
+                    size="default"
+                    className="w-full"
+                  >
+                    Add to Home Screen
+                  </AddToHomeScreenButton>
+                </div>
+                
+                <div className="text-center">
+                  <a 
+                    href={chatUrl}
+                    className="text-primary hover:underline text-sm font-medium"
+                  >
+                    Open Messages →
+                  </a>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
