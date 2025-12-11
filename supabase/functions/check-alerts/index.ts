@@ -94,6 +94,15 @@ const handler = async (req: Request): Promise<Response> => {
   }
 };
 
+// Helper to format 24-hour time to 12-hour format
+function formatTime12Hour(time24: string): string {
+  if (!time24) return '--:--';
+  const [hours, minutes] = time24.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hours12 = hours % 12 || 12;
+  return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+}
+
 // Helper to get timezone-adjusted day boundaries in UTC
 function getTimezoneDayBoundariesInUTC(timezone: string): { startOfDayUTC: Date; endOfDayUTC: Date; localNow: Date; currentDay: number } {
   const utcNow = new Date();
@@ -538,7 +547,7 @@ async function checkLateArrivals(supabaseClient: any, timezone: string, location
             body: {
               user_ids: adminUsers.map((u: any) => u.user_id),
               title: `Late Arrival - ${locationName}`,
-              body: `${employee.name} has not clocked in (shift started ${employee.shift_start})`,
+              body: `${employee.name} has not clocked in (shift started ${formatTime12Hour(employee.shift_start)})`,
               notification_type: 'late_arrivals',
               data: {
                 user_id: employee.user_id,
