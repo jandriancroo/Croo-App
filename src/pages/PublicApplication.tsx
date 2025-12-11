@@ -158,31 +158,34 @@ export default function PublicApplication() {
   // Parse resume with AI
   const parseResumeWithAI = async (file: File) => {
     try {
-      // Read file as text for parsing
-      let resumeText = '';
-      
-      if (file.type === 'application/pdf') {
-        // For PDFs, we'll send the file name and let the user know
-        // AI parsing works best with text-based resumes
-        toast.info('PDF detected - parsing may be limited. For best results, use a text-based resume.');
-        return;
-      } else {
-        resumeText = await file.text();
-      }
-
-      if (!resumeText.trim()) {
-        return;
-      }
-
       toast.loading('Scanning resume...', { id: 'resume-parse' });
 
+      let requestBody: { resumeText?: string; resumeBase64?: string; mimeType?: string } = {};
+
+      if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
+        // Convert to base64 for PDFs and images
+        const arrayBuffer = await file.arrayBuffer();
+        const base64 = btoa(
+          new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
+        requestBody = { resumeBase64: base64, mimeType: file.type };
+      } else {
+        // For text files, read as text
+        const resumeText = await file.text();
+        if (!resumeText.trim()) {
+          toast.dismiss('resume-parse');
+          return;
+        }
+        requestBody = { resumeText };
+      }
+
       const { data, error } = await supabase.functions.invoke('parse-resume', {
-        body: { resumeText }
+        body: requestBody
       });
 
       if (error) {
         console.error('Parse error:', error);
-        toast.dismiss('resume-parse');
+        toast.error('Could not scan resume', { id: 'resume-parse' });
         return;
       }
 
@@ -209,11 +212,11 @@ export default function PublicApplication() {
 
         toast.success('Resume scanned! Fields auto-filled.', { id: 'resume-parse' });
       } else {
-        toast.dismiss('resume-parse');
+        toast.error('Could not extract info from resume', { id: 'resume-parse' });
       }
     } catch (error) {
       console.error('AI parse error:', error);
-      toast.dismiss('resume-parse');
+      toast.error('Resume scan failed', { id: 'resume-parse' });
     }
   };
 
