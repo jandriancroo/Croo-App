@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, UserPlus } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase } from 'lucide-react';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -226,7 +226,7 @@ export const Layout = ({
     }, {
       path: '/hiring',
       label: 'Hiring',
-      icon: UserPlus
+      icon: Briefcase
     }] : []), {
       path: '/settings',
       label: 'Settings',
@@ -351,7 +351,7 @@ export const Layout = ({
                       User Management
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate('/hiring')} className="gap-2 cursor-pointer">
-                      <UserPlus className="h-4 w-4" />
+                      <Briefcase className="h-4 w-4" />
                       Hiring
                     </DropdownMenuItem>
                   </>

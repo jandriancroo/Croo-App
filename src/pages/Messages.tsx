@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, ArrowLeft, Megaphone, ArrowLeftRight, UserPlus, MessageCircle } from 'lucide-react';
+import { Plus, Users, ArrowLeft, Megaphone, ArrowLeftRight, Briefcase, MessageCircle } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
@@ -400,7 +400,7 @@ export default function Messages() {
                 </TabsTrigger>
                 {(isAdmin || isManager) && (
                   <TabsTrigger value="hiring" className="gap-1">
-                    <UserPlus className="h-3 w-3" />
+                    <Briefcase className="h-3 w-3" />
                     Hiring
                   </TabsTrigger>
                 )}
@@ -505,7 +505,7 @@ export default function Messages() {
                   </TabsTrigger>
                   {(isAdmin || isManager) && (
                     <TabsTrigger value="hiring" className="px-2">
-                      <UserPlus className="h-4 w-4" />
+                      <Briefcase className="h-4 w-4" />
                     </TabsTrigger>
                   )}
                 </TabsList>
