@@ -19,6 +19,7 @@ import { Loader2, Plus, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkI
 import { format } from 'date-fns';
 import { ApplicationTemplates } from '@/components/hiring/ApplicationTemplates';
 import { ApplicantProfile } from '@/components/hiring/ApplicantProfile';
+import { HireApplicantDialog } from '@/components/hiring/HireApplicantDialog';
 import { QRCodeSVG } from 'qrcode.react';
 
 const STATUS_COLORS: Record<ApplicationStatus, string> = {
@@ -38,6 +39,8 @@ export default function Hiring() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedApplicant, setSelectedApplicant] = useState<string | null>(null);
   const [showQrDialog, setShowQrDialog] = useState(false);
+  const [showHireDialog, setShowHireDialog] = useState(false);
+  const [applicantToHire, setApplicantToHire] = useState<{ id: string; full_name: string; email: string; phone?: string } | null>(null);
 
   // Get organization for current location
   const { data: organization, isLoading: orgLoading } = useQuery({
@@ -384,7 +387,35 @@ export default function Hiring() {
           applicationId={selectedApplicant}
           open={!!selectedApplicant}
           onOpenChange={open => !open && setSelectedApplicant(null)}
-          onStatusChange={(id, status) => updateStatusMutation.mutate({ id, status })}
+          onStatusChange={(id, status) => {
+            // If status is "hired", open the hire dialog instead
+            if (status === 'hired') {
+              const app = applications?.find((a: any) => a.id === id);
+              if (app) {
+                setApplicantToHire({
+                  id: app.id,
+                  full_name: app.full_name,
+                  email: app.email,
+                  phone: app.phone,
+                });
+                setSelectedApplicant(null);
+                setShowHireDialog(true);
+              }
+            } else {
+              updateStatusMutation.mutate({ id, status });
+            }
+          }}
+        />
+
+        {/* Hire Applicant Dialog */}
+        <HireApplicantDialog
+          open={showHireDialog}
+          onOpenChange={setShowHireDialog}
+          applicant={applicantToHire}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['job-applications'] });
+            setApplicantToHire(null);
+          }}
         />
 
         {/* QR Code / Share Link Dialog */}

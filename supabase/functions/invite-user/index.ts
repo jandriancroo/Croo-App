@@ -10,9 +10,12 @@ const corsHeaders = {
 interface InviteUserRequest {
   email: string;
   fullName: string;
-  role: 'admin' | 'manager' | 'team_member';
+  role: 'admin' | 'general_manager' | 'shift_manager' | 'manager' | 'team_member';
   profilePhotoUrl?: string;
   locationId?: string;
+  phoneNumber?: string;
+  hourlyWage?: number;
+  birthday?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -72,7 +75,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log("User is admin, proceeding with invitation");
 
-    const { email, fullName, role, profilePhotoUrl, locationId }: InviteUserRequest = await req.json();
+    const { email, fullName, role, profilePhotoUrl, locationId, phoneNumber, hourlyWage, birthday }: InviteUserRequest = await req.json();
 
     // Validate input
     if (!email || !fullName || !role) {
@@ -112,10 +115,25 @@ const handler = async (req: Request): Promise<Response> => {
         email: email,
         full_name: fullName,
         profile_photo_url: profilePhotoUrl || null,
+        phone_number: phoneNumber || null,
+        hourly_wage: hourlyWage || null,
+        birthday: birthday || null,
       });
 
     if (profileError) {
       console.error("Profile creation error:", profileError);
+    }
+
+    // If hourly wage is set, also add to wage history
+    if (hourlyWage) {
+      const today = new Date().toISOString().split('T')[0];
+      await supabaseAdmin
+        .from('wage_history')
+        .upsert({
+          user_id: newUser.user.id,
+          hourly_wage: hourlyWage,
+          effective_date: today,
+        });
     }
 
     // Assign role (upsert to handle existing role from trigger)
