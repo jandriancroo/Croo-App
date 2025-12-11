@@ -22,6 +22,7 @@ export default function OrganizationProfile() {
   
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
+  const [brandName, setBrandName] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -61,6 +62,7 @@ export default function OrganizationProfile() {
     if (organization) {
       setName(organization.name || '');
       setSlug(organization.slug || '');
+      setBrandName((organization as any).brand_name || '');
       setLogoUrl(organization.logo_url || '');
     }
   }, [organization]);
@@ -155,8 +157,9 @@ export default function OrganizationProfile() {
           .insert({
             name: name.trim(),
             slug: slug.trim(),
+            brand_name: brandName.trim() || null,
             logo_url: logoUrl.trim() || null,
-          });
+          } as any);
         if (error) throw error;
         toast.success('Organization created');
         navigate('/settings');
@@ -166,8 +169,9 @@ export default function OrganizationProfile() {
           .update({
             name: name.trim(),
             slug: slug.trim(),
+            brand_name: brandName.trim() || null,
             logo_url: logoUrl.trim() || null,
-          })
+          } as any)
           .eq('id', id);
         if (error) throw error;
         toast.success('Organization updated');
@@ -256,6 +260,19 @@ export default function OrganizationProfile() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="brandName">Brand Name</Label>
+              <Input
+                id="brandName"
+                value={brandName}
+                onChange={(e) => setBrandName(e.target.value)}
+                placeholder="e.g., Blaze Pizza"
+              />
+              <p className="text-xs text-muted-foreground">
+                The customer-facing brand name (e.g., "Blaze Pizza" for "Jo Pizza LLC")
+              </p>
+            </div>
+            
             <div className="space-y-2">
               <Label>Organization Logo</Label>
               <input
