@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
 import { ChefHat, Clock, Users, Check, Eye } from "lucide-react";
-import { format, parseISO, isToday } from "date-fns";
+import { format } from "date-fns";
 import { useUserRole } from "@/hooks/useUserRole";
+import { TemporaryTaskCard } from "./TemporaryTaskCard";
 
 interface CateringOrder {
   id: string;
@@ -22,6 +21,8 @@ interface CateringOrder {
   source_url: string | null;
   status: string;
 }
+
+const ORANGE_COLOR = "#f97316";
 
 export function CateringOrdersAlert() {
   const { currentLocation } = useLocation();
@@ -104,42 +105,20 @@ export function CateringOrdersAlert() {
 
   return (
     <>
-      <Card className="p-4 border-primary/50 bg-primary/5">
-        <div className="flex items-center gap-2 mb-3">
-          <ChefHat className="h-5 w-5 text-primary" />
-          <h3 className="font-semibold">Today's Catering Orders</h3>
-          <Badge variant="secondary">{todaysOrders.length}</Badge>
-        </div>
-
-        <div className="space-y-2">
-          {todaysOrders.map((order) => (
-            <div
-              key={order.id}
-              className="p-3 bg-background border rounded-lg cursor-pointer hover:border-primary/50 transition-colors"
-              onClick={() => setSelectedOrder(order)}
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{order.customer_name}</p>
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1 text-primary font-medium">
-                      <Clock className="h-3 w-3" />
-                      {formatTime(order.pickup_time)}
-                    </span>
-                    {order.headcount && (
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {order.headcount}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <Badge>{order.items.length} items</Badge>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+      {todaysOrders.map((order) => (
+        <TemporaryTaskCard
+          key={order.id}
+          id={order.id}
+          title={order.customer_name}
+          subtitle={`Pickup: ${formatTime(order.pickup_time)}`}
+          icon={ChefHat}
+          accentColor={ORANGE_COLOR}
+          buttonLabel="View"
+          buttonVariant="view"
+          onAction={() => setSelectedOrder(order)}
+          badge={{ label: `${order.items.length} items` }}
+        />
+      ))}
 
       {/* Order Details Dialog */}
       <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>

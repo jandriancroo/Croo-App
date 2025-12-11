@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Check, CalendarCheck } from "lucide-react";
+import { CalendarCheck } from "lucide-react";
 import { toast } from "sonner";
 import { formatTime12Hour } from "@/lib/utils";
 import { format } from "date-fns";
+import { TemporaryTaskCard } from "./TemporaryTaskCard";
 
 interface EventTask {
   id: string;
@@ -145,60 +144,23 @@ export function EventDailyTasks({ locationId }: EventDailyTasksProps) {
     return null;
   }
 
+  const DEFAULT_COLOR = "#6366f1"; // Indigo as default
+
   return (
-    <div className="space-y-2">
+    <>
       {incompleteTasks.map((task) => (
-        <Card
+        <TemporaryTaskCard
           key={task.id}
-          className="overflow-hidden"
-          style={{
-            borderLeft: task.category?.color ? `4px solid ${task.category.color}` : undefined,
-          }}
-        >
-          <CardContent className="p-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div
-                className="p-2 rounded-lg"
-                style={{
-                  backgroundColor: task.category?.color ? `${task.category.color}20` : "hsl(var(--accent))",
-                }}
-              >
-                <CalendarCheck
-                  className="h-4 w-4"
-                  style={{ color: task.category?.color || "hsl(var(--accent-foreground))" }}
-                />
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-sm truncate">{task.event_name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatTime12Hour(task.event_time)}
-                  {task.category?.name && (
-                    <span
-                      className="ml-2 px-1.5 py-0.5 rounded text-[10px]"
-                      style={{
-                        backgroundColor: `${task.category.color}20`,
-                        color: task.category.color,
-                      }}
-                    >
-                      {task.category.name}
-                    </span>
-                  )}
-                </p>
-              </div>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="shrink-0 gap-1"
-              onClick={() => handleComplete(task.id)}
-              disabled={completing === task.id}
-            >
-              <Check className="h-3.5 w-3.5" />
-              Complete
-            </Button>
-          </CardContent>
-        </Card>
+          id={task.id}
+          title={task.event_name}
+          subtitle={formatTime12Hour(task.event_time)}
+          icon={CalendarCheck}
+          accentColor={task.category?.color || DEFAULT_COLOR}
+          isLoading={completing === task.id}
+          onAction={() => handleComplete(task.id)}
+          badge={task.category?.name ? { label: task.category.name, color: task.category.color } : undefined}
+        />
       ))}
-    </div>
+    </>
   );
 }

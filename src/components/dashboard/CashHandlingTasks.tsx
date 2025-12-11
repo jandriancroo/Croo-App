@@ -1,16 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Vault, Banknote, Check } from "lucide-react";
+import { Vault, Banknote } from "lucide-react";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useUserRole } from "@/hooks/useUserRole";
 import { format } from "date-fns";
+import { TemporaryTaskCard } from "./TemporaryTaskCard";
 
 interface CashHandlingTasksProps {
   locationHours: { hours_open: string | null; hours_close: string | null } | null;
 }
+
+const TEAL_COLOR = "#14b8a6";
 
 export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
   const navigate = useNavigate();
@@ -97,8 +98,17 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
   
-  // TEMPORARY: Show all for preview - remove time window checks
-  const showAmSafeCount = !amSafeCountSubmitted;
+  // Visibility logic
+  // AM Safe Count: 2 hours before open to 2 hours after open (or until submitted)
+  const amWindowStart = openMinutes !== null ? openMinutes - 120 : null;
+  const amWindowEnd = openMinutes !== null ? openMinutes + 120 : null;
+  const showAmSafeCount = !amSafeCountSubmitted && 
+    amWindowStart !== null && 
+    amWindowEnd !== null && 
+    currentMinutes >= amWindowStart && 
+    currentMinutes <= amWindowEnd;
+  
+  // TEMPORARY: Show PM and Deposit for preview - remove time window checks
   const showPmSafeCount = !pmSafeCountSubmitted;
   const showDeposit = !depositSubmitted;
   
@@ -112,8 +122,6 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
     }
     navigate(`/logbook?${params.toString()}`);
   };
-
-  const TEAL_COLOR = "#14b8a6";
   
   const tasks = [
     {
@@ -123,6 +131,7 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
       subtitle: "Opening count",
       icon: Vault,
       onClick: () => handleNavigate("safe", "AM"),
+      useTemporaryStyle: false, // AM uses different style
     },
     {
       id: "pm-safe",
@@ -131,6 +140,7 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
       subtitle: "Closing count",
       icon: Vault,
       onClick: () => handleNavigate("safe", "PM"),
+      useTemporaryStyle: true,
     },
     {
       id: "deposit",
@@ -139,6 +149,7 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
       subtitle: "Drawer count",
       icon: Banknote,
       onClick: () => handleNavigate("drawer"),
+      useTemporaryStyle: true,
     },
   ].filter(t => t.show);
   
@@ -146,36 +157,16 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
   
   return (
     <>
-      {tasks.map(task => (
-        <Card
+      {tasks.filter(t => t.useTemporaryStyle).map(task => (
+        <TemporaryTaskCard
           key={task.id}
-          className="overflow-hidden"
-          style={{ borderLeft: `4px solid ${TEAL_COLOR}` }}
-        >
-          <CardContent className="p-3 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div
-                className="p-2 rounded-lg"
-                style={{ backgroundColor: `${TEAL_COLOR}20` }}
-              >
-                <task.icon className="h-4 w-4" style={{ color: TEAL_COLOR }} />
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-sm truncate">{task.title}</p>
-                <p className="text-xs text-muted-foreground">{task.subtitle}</p>
-              </div>
-            </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="shrink-0 gap-1"
-              onClick={task.onClick}
-            >
-              <Check className="h-3.5 w-3.5" />
-              Complete
-            </Button>
-          </CardContent>
-        </Card>
+          id={task.id}
+          title={task.title}
+          subtitle={task.subtitle}
+          icon={task.icon}
+          accentColor={TEAL_COLOR}
+          onAction={task.onClick}
+        />
       ))}
     </>
   );
