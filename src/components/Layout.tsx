@@ -223,6 +223,10 @@ export const Layout = ({
       path: '/users',
       label: 'Users',
       icon: Users
+    }, {
+      path: '/hiring',
+      label: 'Hiring',
+      icon: UserPlus
     }] : []), {
       path: '/settings',
       label: 'Settings',
