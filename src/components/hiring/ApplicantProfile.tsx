@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Loader2, Mail, Phone, MapPin, FileText, ExternalLink, Briefcase, Users } from 'lucide-react';
+import { Loader2, Mail, Phone, MapPin, FileText, ExternalLink, Briefcase, Users, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -35,6 +35,7 @@ interface ApplicantProfileProps {
 export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusChange }: ApplicantProfileProps) {
   const queryClient = useQueryClient();
   const [internalNotes, setInternalNotes] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data: application, isLoading } = useQuery({
     queryKey: ['application-detail', applicationId],
@@ -75,6 +76,29 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
     },
     onError: () => {
       toast.error('Failed to save notes');
+    },
+  });
+
+  const deleteApplicationMutation = useMutation({
+    mutationFn: async () => {
+      if (!applicationId) return;
+      
+      // Delete related records first (work history, references)
+      await supabase.from('job_application_work_history').delete().eq('application_id', applicationId);
+      await supabase.from('job_application_references').delete().eq('application_id', applicationId);
+      
+      // Delete the application
+      const { error } = await supabase.from('job_applications').delete().eq('id', applicationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['job-applications'] });
+      toast.success('Application deleted');
+      setShowDeleteConfirm(false);
+      onOpenChange(false);
+    },
+    onError: () => {
+      toast.error('Failed to delete application');
     },
   });
 
@@ -338,6 +362,19 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
                   </Button>
                 </CardContent>
               </Card>
+
+              {/* Delete Application */}
+              <div className="pt-4 border-t">
+                <Button 
+                  variant="destructive" 
+                  size="sm"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="w-full sm:w-auto"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Application
+                </Button>
+              </div>
             </div>
           </>
         ) : (
@@ -346,6 +383,34 @@ export function ApplicantProfile({ applicationId, open, onOpenChange, onStatusCh
           </div>
         )}
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Application</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete this application from {application?.full_name}? 
+              This will remove all associated data including work history and references. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteApplicationMutation.mutate()}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteApplicationMutation.isPending}
+            >
+              {deleteApplicationMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete Permanently
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
