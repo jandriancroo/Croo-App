@@ -44,6 +44,7 @@ import OrganizationProfile from "./pages/OrganizationProfile";
 import Hiring from "./pages/Hiring";
 import PublicApplication from "./pages/PublicApplication";
 import HiringChat from "./pages/HiringChat";
+import ApplicantPortal from "./pages/ApplicantPortal";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ const AppContent = () => {
           <Route path="/install" element={<InstallGuide />} />
           <Route path="/apply/:orgSlug" element={<PublicApplication />} />
           <Route path="/hiring-chat/:token" element={<HiringChat />} />
+          <Route path="/my-applications" element={<ApplicantPortal />} />
           <Route path="/" element={<Navigate to="/auth" replace />} />
           <Route path="/welcome" element={<ProtectedRoute><WelcomeProfile /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
