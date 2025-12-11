@@ -831,6 +831,269 @@ export type Database = {
           },
         ]
       }
+      job_application_references: {
+        Row: {
+          application_id: string
+          created_at: string
+          display_order: number
+          email: string | null
+          id: string
+          name: string
+          phone: string | null
+          relationship: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          display_order?: number
+          email?: string | null
+          id?: string
+          name: string
+          phone?: string | null
+          relationship?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          display_order?: number
+          email?: string | null
+          id?: string
+          name?: string
+          phone?: string | null
+          relationship?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_application_references_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "job_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_application_template_questions: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          is_required: boolean
+          options: Json | null
+          question: string
+          question_type: string
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_required?: boolean
+          options?: Json | null
+          question: string
+          question_type?: string
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          is_required?: boolean
+          options?: Json | null
+          question?: string
+          question_type?: string
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_application_template_questions_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "job_application_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_application_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          organization_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          organization_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          organization_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_application_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_application_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_application_work_history: {
+        Row: {
+          application_id: string
+          created_at: string
+          display_order: number
+          employer_name: string
+          end_date: string | null
+          id: string
+          is_current: boolean | null
+          job_title: string | null
+          reason_for_leaving: string | null
+          start_date: string | null
+        }
+        Insert: {
+          application_id: string
+          created_at?: string
+          display_order?: number
+          employer_name: string
+          end_date?: string | null
+          id?: string
+          is_current?: boolean | null
+          job_title?: string | null
+          reason_for_leaving?: string | null
+          start_date?: string | null
+        }
+        Update: {
+          application_id?: string
+          created_at?: string
+          display_order?: number
+          employer_name?: string
+          end_date?: string | null
+          id?: string
+          is_current?: boolean | null
+          job_title?: string | null
+          reason_for_leaving?: string | null
+          start_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_application_work_history_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "job_applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_applications: {
+        Row: {
+          availability: Json
+          custom_responses: Json | null
+          email: string
+          full_name: string
+          id: string
+          internal_notes: string | null
+          location_id: string | null
+          organization_id: string
+          phone: string | null
+          resume_url: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["application_status"]
+          submitted_at: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          availability?: Json
+          custom_responses?: Json | null
+          email: string
+          full_name: string
+          id?: string
+          internal_notes?: string | null
+          location_id?: string | null
+          organization_id: string
+          phone?: string | null
+          resume_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["application_status"]
+          submitted_at?: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          availability?: Json
+          custom_responses?: Json | null
+          email?: string
+          full_name?: string
+          id?: string
+          internal_notes?: string | null
+          location_id?: string | null
+          organization_id?: string
+          phone?: string | null
+          resume_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["application_status"]
+          submitted_at?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_applications_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_applications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_applications_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_applications_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "job_application_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       labor_rules: {
         Row: {
           created_at: string | null
@@ -2347,6 +2610,12 @@ export type Database = {
         | "shift_manager"
         | "super_admin"
         | "org_admin"
+      application_status:
+        | "pending"
+        | "interested"
+        | "interviewing"
+        | "hired"
+        | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2482,6 +2751,13 @@ export const Constants = {
         "shift_manager",
         "super_admin",
         "org_admin",
+      ],
+      application_status: [
+        "pending",
+        "interested",
+        "interviewing",
+        "hired",
+        "rejected",
       ],
     },
   },

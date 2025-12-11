@@ -41,6 +41,8 @@ import MyWallet from "./pages/MyWallet";
 import RoleManagement from "./pages/RoleManagement";
 import CompletedStampPreview from "./pages/CompletedStampPreview";
 import OrganizationProfile from "./pages/OrganizationProfile";
+import Hiring from "./pages/Hiring";
+import PublicApplication from "./pages/PublicApplication";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +56,7 @@ const AppContent = () => {
           <Route path="/landing" element={<Index />} />
           <Route path="/stamp-preview" element={<CompletedStampPreview />} />
           <Route path="/install" element={<InstallGuide />} />
+          <Route path="/apply/:orgSlug" element={<PublicApplication />} />
           <Route path="/" element={<Navigate to="/auth" replace />} />
           <Route path="/welcome" element={<ProtectedRoute><WelcomeProfile /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -84,6 +87,7 @@ const AppContent = () => {
       <Route path="/temperature-validation" element={<ProtectedRoute><TemperatureValidation /></ProtectedRoute>} />
       <Route path="/my-wallet" element={<ProtectedRoute><MyWallet /></ProtectedRoute>} />
       <Route path="/role-management" element={<ProtectedRoute><RoleManagement /></ProtectedRoute>} />
+      <Route path="/hiring" element={<ProtectedRoute><Hiring /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
