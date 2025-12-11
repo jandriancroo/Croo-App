@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
@@ -13,6 +13,7 @@ interface LocationContextType {
   locations: Location[];
   setCurrentLocation: (location: Location) => void;
   loading: boolean;
+  switching: boolean;
   refetchLocations: () => Promise<void>;
   isChecklistOnlyLocation: boolean;
 }
@@ -24,6 +25,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   const [currentLocation, setCurrentLocationState] = useState<Location | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
+  const [switching, setSwitching] = useState(false);
 
   const fetchLocations = async () => {
     if (!user) {
@@ -66,10 +68,17 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     fetchLocations();
   }, [user]);
 
-  const setCurrentLocation = (location: Location) => {
+  const setCurrentLocation = useCallback((location: Location) => {
+    // Show switching state for a brief moment to allow queries to refetch
+    setSwitching(true);
     setCurrentLocationState(location);
     localStorage.setItem('currentLocationId', location.id);
-  };
+    
+    // Clear switching state after a brief delay
+    setTimeout(() => {
+      setSwitching(false);
+    }, 300);
+  }, []);
 
   const isChecklistOnlyLocation = currentLocation?.location_type === 'checklist_only';
 
@@ -80,6 +89,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         locations,
         setCurrentLocation,
         loading,
+        switching,
         refetchLocations: fetchLocations,
         isChecklistOnlyLocation,
       }}
