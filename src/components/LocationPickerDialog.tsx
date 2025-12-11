@@ -168,7 +168,11 @@ export function LocationPickerDialog({
               organizations.map((org) => (
                 <div key={org.id} className="space-y-2">
                   <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                    <Building2 className="h-4 w-4" />
+                    {org.logo_url ? (
+                      <img src={org.logo_url} alt="" className="h-5 w-5 object-contain rounded" />
+                    ) : (
+                      <Building2 className="h-4 w-4" />
+                    )}
                     {org.brand_name ? (
                       <span>
                         <span className="text-foreground font-semibold">{org.brand_name}</span>
