@@ -406,80 +406,54 @@ export default function Availability() {
           {filteredRequests.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">No requests found</p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {filteredRequests.map((request) => (
                 <div
                   key={request.id}
-                  className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  className="px-3 py-2 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3 flex-1">
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={request.profiles.profile_photo_url || undefined} />
-                        <AvatarFallback>{request.profiles.full_name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-3 flex-wrap">
-                          <div className="font-medium">{request.profiles.full_name}</div>
-                          <Badge variant={request.request_type === "paid" ? "default" : "secondary"}>
-                            {request.request_type === "paid" ? "Paid Sick Leave" : "Unpaid Time Off"}
-                          </Badge>
-                          <Badge
-                            variant={
-                              request.status === "approved"
-                                ? "default"
-                                : request.status === "denied"
-                                ? "destructive"
-                                : "outline"
-                            }
-                          >
-                            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                          </Badge>
-                        </div>
-
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            {formatTimeScope(request)}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="h-4 w-4" />
-                            {request.hours_requested} hours
-                          </div>
-                        </div>
-
-                        {request.notes && (
-                          <p className="text-sm text-muted-foreground italic">{request.notes}</p>
-                        )}
-
-                        {request.denial_reason && (
-                          <div className="text-sm p-2 bg-destructive/10 rounded">
-                            <strong>Denial Reason:</strong> {request.denial_reason}
-                          </div>
-                        )}
-                      </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="font-medium text-sm truncate">{request.profiles.full_name}</span>
+                      <Badge variant={request.request_type === "paid" ? "default" : "secondary"} className="text-xs flex-shrink-0">
+                        {request.request_type === "paid" ? "Paid" : "Unpaid"}
+                      </Badge>
+                      <Badge
+                        variant={
+                          request.status === "approved"
+                            ? "default"
+                            : request.status === "denied"
+                            ? "destructive"
+                            : "outline"
+                        }
+                        className="text-xs flex-shrink-0"
+                      >
+                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">
+                        {formatTimeScope(request)} • {request.hours_requested}h
+                      </span>
                     </div>
 
                     {isAdmin && request.status === "pending" && (
-                      <div className="flex gap-2">
+                      <div className="flex gap-1 flex-shrink-0">
                         <Button
                           size="sm"
                           variant="default"
+                          className="h-7 px-2"
                           onClick={() => handleApprove(request.id)}
                           disabled={processing}
                         >
-                          <Check className="h-4 w-4 mr-1" />
-                          Approve
+                          <Check className="h-3 w-3" />
                         </Button>
                         <Button
                           size="sm"
                           variant="destructive"
+                          className="h-7 px-2"
                           onClick={() => openDenyDialog(request.id)}
                           disabled={processing}
                         >
-                          <X className="h-4 w-4 mr-1" />
-                          Deny
+                          <X className="h-3 w-3" />
                         </Button>
                       </div>
                     )}
