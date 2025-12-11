@@ -238,12 +238,13 @@ export default function Schedule() {
           .select("*")
           .eq("schedule_id", scheduleData.id),
         
-        // Fetch recurring events (not tied to specific schedule)
+        // Fetch recurring events (not tied to specific schedule) for this location
         supabase
           .from("schedule_events")
           .select("*")
           .eq("is_recurring", true)
-          .is("schedule_id", null),
+          .is("schedule_id", null)
+          .eq("location_id", currentLocation.id),
         
         // Fetch user_locations for this location to get user IDs
         supabase
