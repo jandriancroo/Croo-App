@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { toast } from 'sonner';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Loader2, Plus, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink } from 'lucide-react';
+import { Loader2, Plus, Search, ThumbsUp, Users, FileText, QrCode, Link as LinkIcon, Copy, ExternalLink, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { ApplicationTemplates } from '@/components/hiring/ApplicationTemplates';
 import { ApplicantProfile } from '@/components/hiring/ApplicantProfile';
@@ -96,6 +96,36 @@ export default function Hiring() {
     },
     enabled: !!organization?.id,
   });
+
+  // Auto-analyze new applications that haven't been analyzed
+  useEffect(() => {
+    const analyzeUnanalyzed = async () => {
+      if (!applications) return;
+      
+      const unanalyzed = applications.filter(
+        (app: any) => app.ai_analyzed_at === null && app.work_history?.length > 0
+      );
+
+      for (const app of unanalyzed.slice(0, 5)) { // Limit to 5 at a time to avoid rate limits
+        try {
+          await supabase.functions.invoke('analyze-application', {
+            body: { applicationId: app.id }
+          });
+        } catch (error) {
+          console.error('Error analyzing application:', error);
+        }
+      }
+
+      if (unanalyzed.length > 0) {
+        // Refetch after analysis
+        setTimeout(() => {
+          queryClient.invalidateQueries({ queryKey: ['job-applications'] });
+        }, 2000);
+      }
+    };
+
+    analyzeUnanalyzed();
+  }, [applications, queryClient]);
 
   // Update application status
   const updateStatusMutation = useMutation({
@@ -252,13 +282,14 @@ export default function Hiring() {
               </Card>
             ) : (
               <div className="space-y-2">
-                {filteredApplicants?.map(app => {
+                {filteredApplicants?.map((app: any) => {
                   const mostRecentEmployer = app.work_history?.[0]?.employer_name;
+                  const isAiMatch = app.ai_match === true;
                   
                   return (
                     <Card 
                       key={app.id} 
-                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      className={`cursor-pointer hover:bg-muted/50 transition-colors ${isAiMatch ? 'ring-1 ring-primary/30' : ''}`}
                       onClick={() => setSelectedApplicant(app.id)}
                     >
                       <CardContent className="py-4">
@@ -269,6 +300,12 @@ export default function Hiring() {
                               <Badge className={STATUS_COLORS[app.status as ApplicationStatus]}>
                                 {app.status}
                               </Badge>
+                              {isAiMatch && (
+                                <Badge className="bg-gradient-to-r from-primary to-purple-500 text-white border-0 flex items-center gap-1">
+                                  <Sparkles className="h-3 w-3" />
+                                  Croo AI Match!
+                                </Badge>
+                              )}
                             </div>
                             {mostRecentEmployer && (
                               <p className="text-sm text-muted-foreground truncate">
@@ -278,6 +315,9 @@ export default function Hiring() {
                             <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground">
                               {app.location && <span>{app.location.name}</span>}
                               <span>{format(new Date(app.submitted_at), 'MMM d, yyyy')}</span>
+                              {isAiMatch && app.ai_match_reason && (
+                                <span className="text-primary">{app.ai_match_reason}</span>
+                              )}
                             </div>
                           </div>
                           {app.status === 'pending' && (

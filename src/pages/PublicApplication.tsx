@@ -653,7 +653,7 @@ export default function PublicApplication() {
                     {isScanning && (
                       <div className="flex items-center gap-2 px-3 py-2 bg-primary/10 border border-primary/20 rounded-lg animate-pulse">
                         <Sparkles className="h-4 w-4 text-primary animate-spin" />
-                        <span className="text-sm font-medium text-primary">AI Scanning Resume...</span>
+                        <span className="text-sm font-medium text-primary">Croo AI Scanning Resume...</span>
                       </div>
                     )}
                   </div>

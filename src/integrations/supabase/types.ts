@@ -1010,6 +1010,9 @@ export type Database = {
       }
       job_applications: {
         Row: {
+          ai_analyzed_at: string | null
+          ai_match: boolean | null
+          ai_match_reason: string | null
           availability: Json
           custom_responses: Json | null
           email: string
@@ -1028,6 +1031,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_analyzed_at?: string | null
+          ai_match?: boolean | null
+          ai_match_reason?: string | null
           availability?: Json
           custom_responses?: Json | null
           email: string
@@ -1046,6 +1052,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_analyzed_at?: string | null
+          ai_match?: boolean | null
+          ai_match_reason?: string | null
           availability?: Json
           custom_responses?: Json | null
           email?: string
