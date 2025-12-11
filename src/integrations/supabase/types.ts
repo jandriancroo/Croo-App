@@ -1093,6 +1093,9 @@ export type Database = {
           full_name: string
           id: string
           internal_notes: string | null
+          interview_date: string | null
+          interview_status: string | null
+          interview_time: string | null
           location_id: string | null
           organization_id: string
           phone: string | null
@@ -1114,6 +1117,9 @@ export type Database = {
           full_name: string
           id?: string
           internal_notes?: string | null
+          interview_date?: string | null
+          interview_status?: string | null
+          interview_time?: string | null
           location_id?: string | null
           organization_id: string
           phone?: string | null
@@ -1135,6 +1141,9 @@ export type Database = {
           full_name?: string
           id?: string
           internal_notes?: string | null
+          interview_date?: string | null
+          interview_status?: string | null
+          interview_time?: string | null
           location_id?: string | null
           organization_id?: string
           phone?: string | null
