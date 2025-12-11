@@ -1,5 +1,8 @@
 project_id = "lmodeiyrpwvgyqcvjkjr"
 
+[functions.analyze-application]
+verify_jwt = true
+
 [functions.extract-temperature]
 verify_jwt = true
 

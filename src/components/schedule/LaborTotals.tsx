@@ -355,7 +355,7 @@ export function LaborTotals({
                           <Sparkles className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 text-primary" />
                         </TooltipTrigger>
                         <TooltipContent side="top">
-                          <p className="text-xs">AI Projection</p>
+                          <p className="text-xs">Croo AI Projection</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>

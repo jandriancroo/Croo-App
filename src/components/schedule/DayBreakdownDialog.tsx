@@ -260,7 +260,7 @@ export function DayBreakdownDialog({
                   <h3 className="font-semibold text-sm">Daily Sales</h3>
                   {salesData.isProjection && (
                     <Badge variant="secondary" className="text-[10px] flex items-center gap-1">
-                      <Sparkles className="h-3 w-3" /> AI Projection
+                      <Sparkles className="h-3 w-3" /> Croo AI
                     </Badge>
                   )}
                 </div>
@@ -351,7 +351,7 @@ export function DayBreakdownDialog({
                   <h3 className="font-semibold text-sm">Daily Sales</h3>
                   {salesData.isProjection && (
                     <Badge variant="secondary" className="text-[10px] flex items-center gap-1">
-                      <Sparkles className="h-3 w-3" /> AI Projection
+                      <Sparkles className="h-3 w-3" /> Croo AI
                     </Badge>
                   )}
                   {isLoadingSales && <Loader2 className="h-3 w-3 animate-spin" />}
