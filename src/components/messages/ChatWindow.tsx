@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Paperclip, File, Settings, MessageSquare, Trash2, Megaphone, Users } from 'lucide-react';
+import { GifPicker } from './GifPicker';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ReactionPicker } from './ReactionPicker';
@@ -246,18 +247,92 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     if (!currentUserId) return;
 
     try {
-      const { error } = await supabase
+      // Check if user already has this reaction
+      const { data: existing } = await supabase
         .from('message_reactions')
+        .select('id')
+        .eq('message_id', messageId)
+        .eq('user_id', currentUserId)
+        .eq('reaction', reaction)
+        .maybeSingle();
+
+      if (existing) {
+        // Remove existing reaction
+        await supabase
+          .from('message_reactions')
+          .delete()
+          .eq('id', existing.id);
+      } else {
+        // Add new reaction
+        const { error } = await supabase
+          .from('message_reactions')
+          .insert({
+            message_id: messageId,
+            user_id: currentUserId,
+            reaction
+          });
+
+        if (error) throw error;
+      }
+    } catch (error: any) {
+      console.error('Error toggling reaction:', error);
+      toast.error('Failed to update reaction');
+    }
+  };
+
+  const handleGifSelect = async (gifUrl: string) => {
+    setSending(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const { error } = await supabase
+        .from('messages')
         .insert({
-          message_id: messageId,
-          user_id: currentUserId,
-          reaction
+          chat_id: chatId,
+          sender_id: user.id,
+          content: 'GIF',
+          attachment_url: gifUrl,
+          attachment_type: 'image/gif',
         });
 
       if (error) throw error;
+
+      // Send push notifications
+      try {
+        const { data: members } = await supabase
+          .from('chat_members')
+          .select('user_id')
+          .eq('chat_id', chatId)
+          .neq('user_id', user.id);
+
+        if (members && members.length > 0) {
+          const { data: senderProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              user_ids: members.map(m => m.user_id),
+              title: senderProfile?.full_name || 'New Message',
+              body: 'Sent a GIF',
+              notification_type: 'chat_messages',
+              data: { chat_id: chatId, type: 'message' }
+            }
+          });
+        }
+      } catch (notifError) {
+        console.error('Error sending push notification:', notifError);
+      }
+
+      scrollToBottom();
     } catch (error: any) {
-      console.error('Error adding reaction:', error);
-      toast.error('Failed to add reaction');
+      console.error('Error sending GIF:', error);
+      toast.error('Failed to send GIF');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -554,6 +629,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           >
             <Paperclip className="h-4 w-4" />
           </Button>
+          <GifPicker onSelect={handleGifSelect} />
           <Input
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Smile } from 'lucide-react';
@@ -16,8 +17,15 @@ const REACTIONS = [
 ];
 
 export function ReactionPicker({ onSelect }: ReactionPickerProps) {
+  const [open, setOpen] = useState(false);
+
+  const handleSelect = (reactionId: string) => {
+    onSelect(reactionId);
+    setOpen(false);
+  };
+
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm" className="h-6 px-2">
           <Smile className="h-4 w-4" />
@@ -31,7 +39,7 @@ export function ReactionPicker({ onSelect }: ReactionPickerProps) {
               variant="ghost"
               size="sm"
               className="h-8 w-8 p-0 text-lg hover:scale-125 transition-transform"
-              onClick={() => onSelect(reaction.id)}
+              onClick={() => handleSelect(reaction.id)}
               title={reaction.label}
             >
               {reaction.emoji}
