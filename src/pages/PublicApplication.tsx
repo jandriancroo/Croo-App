@@ -52,7 +52,8 @@ export default function PublicApplication() {
   const [submitted, setSubmitted] = useState(false);
   
   // Form state
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
@@ -195,7 +196,7 @@ export default function PublicApplication() {
           template_id: selectedTemplate,
           organization_id: organization.id,
           location_id: selectedLocation || null,
-          full_name: fullName.trim(),
+          full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
           email: email.trim(),
           phone: phone.trim(),
           availability,
@@ -295,8 +296,8 @@ export default function PublicApplication() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!fullName.trim()) {
-      toast.error('Please enter your full name');
+    if (!firstName.trim() || !lastName.trim()) {
+      toast.error('Please enter your first and last name');
       return;
     }
     if (!email.trim()) {
@@ -401,15 +402,27 @@ export default function PublicApplication() {
               <CardTitle className="text-lg">Personal Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name *</Label>
-                <Input
-                  id="fullName"
-                  value={fullName}
-                  onChange={e => setFullName(e.target.value)}
-                  placeholder="John Smith"
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input
+                    id="firstName"
+                    value={firstName}
+                    onChange={e => setFirstName(e.target.value)}
+                    placeholder="John"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input
+                    id="lastName"
+                    value={lastName}
+                    onChange={e => setLastName(e.target.value)}
+                    placeholder="Smith"
+                    required
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email *</Label>
