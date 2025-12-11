@@ -447,17 +447,28 @@ export default function PublicApplication() {
     );
   }
 
+  // Get selected location name
+  const selectedLocationName = locations?.find(l => l.id === selectedLocation)?.name;
+
   return (
     <div className="min-h-screen bg-background py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
-        <div className="text-center space-y-2">
-          {organization.logo_url ? (
-            <img src={organization.logo_url} alt={organization.name} className="h-16 mx-auto object-contain" />
-          ) : (
-            <h1 className="text-3xl font-bold">{organization.name}</h1>
-          )}
-          <p className="text-muted-foreground">Join Our Team</p>
+        <div className="border-b border-border pb-6">
+          <div className="flex items-center justify-center gap-4">
+            {organization.logo_url && (
+              <img src={organization.logo_url} alt={organization.name} className="h-14 w-14 object-contain rounded-lg" />
+            )}
+            <div className="text-left">
+              <h1 className="text-2xl font-jakarta font-semibold tracking-tight text-foreground">
+                {organization.name}
+              </h1>
+              {selectedLocationName && (
+                <p className="text-sm font-jakarta text-muted-foreground">{selectedLocationName}</p>
+              )}
+            </div>
+          </div>
+          <p className="text-center text-primary font-jakarta font-medium mt-4 text-lg">Join Our Team</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
