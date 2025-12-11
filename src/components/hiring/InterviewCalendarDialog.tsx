@@ -51,15 +51,28 @@ export function InterviewCalendarDialog({
     queryFn: async () => {
       if (!currentLocation?.id) return [];
 
-      // Get all shifts for this location's schedules in the date range
+      // First get schedules for this location in the date range
+      const { data: schedules } = await supabase
+        .from('schedules')
+        .select('id')
+        .eq('location_id', currentLocation.id)
+        .lte('week_start_date', format(weekEnd, 'yyyy-MM-dd'))
+        .gte('week_end_date', format(weekStart, 'yyyy-MM-dd'));
+
+      const scheduleIds = schedules?.map(s => s.id) || [];
+      if (!scheduleIds.length) {
+        console.log('No schedules found for location', currentLocation.id);
+        return [];
+      }
+
+      // Get shifts for these schedules
       const { data: shifts, error } = await supabase
         .from('scheduled_shifts')
         .select(`
           *,
-          user:profiles(id, full_name, profile_photo_url),
-          schedule:schedules!inner(location_id)
+          user:profiles(id, full_name, profile_photo_url)
         `)
-        .eq('schedule.location_id', currentLocation.id)
+        .in('schedule_id', scheduleIds)
         .gte('shift_date', format(weekStart, 'yyyy-MM-dd'))
         .lte('shift_date', format(weekEnd, 'yyyy-MM-dd'))
         .eq('is_time_off', false);
@@ -69,7 +82,10 @@ export function InterviewCalendarDialog({
         return [];
       }
 
-      if (!shifts?.length) return [];
+      if (!shifts?.length) {
+        console.log('No shifts found for schedules', scheduleIds);
+        return [];
+      }
 
       // Get user IDs from shifts
       const shiftUserIds = [...new Set(shifts.map(s => s.user_id).filter(Boolean))];
@@ -84,7 +100,9 @@ export function InterviewCalendarDialog({
       const managerUserIds = new Set(managerRoles?.map(r => r.user_id) || []);
       
       // Filter shifts to only managers
-      return shifts.filter(shift => managerUserIds.has(shift.user_id));
+      const managerShifts = shifts.filter(shift => managerUserIds.has(shift.user_id));
+      console.log('Manager shifts found:', managerShifts.length);
+      return managerShifts;
     },
     enabled: open && !!currentLocation?.id,
   });
