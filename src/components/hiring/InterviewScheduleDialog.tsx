@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
-import { useLocation } from '@/hooks/useLocation';
+
 import { format, addDays } from 'date-fns';
 import { Loader2, CalendarCheck, Clock, AlertCircle, CheckCircle2, RefreshCw, Users, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -18,6 +18,7 @@ interface InterviewScheduleDialogProps {
   onSchedule: (date: Date, time: string) => void;
   applicantName: string;
   isRescheduling?: boolean;
+  applicationId?: string;
 }
 
 export function InterviewScheduleDialog({ 
@@ -25,14 +26,15 @@ export function InterviewScheduleDialog({
   onOpenChange, 
   onSchedule,
   applicantName,
-  isRescheduling = false
+  isRescheduling = false,
+  applicationId
 }: InterviewScheduleDialogProps) {
   const { user } = useAuth();
-  const { currentLocation } = useLocation();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(addDays(new Date(), 1));
   const [selectedTime, setSelectedTime] = useState<string>('10:00');
   const [myShifts, setMyShifts] = useState<any[]>([]);
   const [managerShifts, setManagerShifts] = useState<any[]>([]);
+  const [locationId, setLocationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [checkingSchedule, setCheckingSchedule] = useState(false);
 
@@ -49,9 +51,26 @@ export function InterviewScheduleDialog({
     };
   });
 
+  // Fetch the application's location when dialog opens
+  useEffect(() => {
+    if (!open || !applicationId) return;
+    
+    const fetchApplicationLocation = async () => {
+      const { data } = await supabase
+        .from('job_applications')
+        .select('location_id')
+        .eq('id', applicationId)
+        .single();
+      
+      setLocationId(data?.location_id || null);
+    };
+    
+    fetchApplicationLocation();
+  }, [open, applicationId]);
+
   // Fetch all manager shifts when date changes
   useEffect(() => {
-    if (!selectedDate || !user || !currentLocation?.id) return;
+    if (!selectedDate || !user || !locationId) return;
     
     const fetchShifts = async () => {
       setCheckingSchedule(true);
@@ -61,7 +80,7 @@ export function InterviewScheduleDialog({
       const { data: schedules } = await supabase
         .from('schedules')
         .select('id')
-        .eq('location_id', currentLocation.id)
+        .eq('location_id', locationId)
         .eq('is_published', true)
         .lte('week_start_date', dateStr)
         .gte('week_end_date', dateStr);
@@ -116,7 +135,7 @@ export function InterviewScheduleDialog({
     };
     
     fetchShifts();
-  }, [selectedDate, user, currentLocation?.id]);
+  }, [selectedDate, user, locationId]);
 
   const handleSchedule = () => {
     if (!selectedDate || !selectedTime) return;

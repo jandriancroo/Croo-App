@@ -421,6 +421,7 @@ export function HiringChatPanel({ applicationId, applicantName }: HiringChatPane
         onSchedule={handleScheduleInterview}
         applicantName={applicantName}
         isRescheduling={isRescheduling}
+        applicationId={applicationId}
       />
 
       <AlertDialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
