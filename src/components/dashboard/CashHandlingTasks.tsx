@@ -108,9 +108,21 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
     currentMinutes >= amWindowStart && 
     currentMinutes <= amWindowEnd;
   
-  // TEMPORARY: Show PM and Deposit for preview - remove time window checks
-  const showPmSafeCount = !pmSafeCountSubmitted;
-  const showDeposit = !depositSubmitted;
+  // PM Safe Count: At close to 2 hours after close (or until submitted)
+  const pmWindowStart = closeMinutes;
+  const pmWindowEnd = closeMinutes !== null ? closeMinutes + 120 : null;
+  const showPmSafeCount = !pmSafeCountSubmitted && 
+    pmWindowStart !== null && 
+    pmWindowEnd !== null && 
+    currentMinutes >= pmWindowStart && 
+    currentMinutes <= pmWindowEnd;
+  
+  // Deposit: At close to 2 hours after close (or until submitted)
+  const showDeposit = !depositSubmitted && 
+    pmWindowStart !== null && 
+    pmWindowEnd !== null && 
+    currentMinutes >= pmWindowStart && 
+    currentMinutes <= pmWindowEnd;
   
   const handleNavigate = (categoryName: string, shift?: string) => {
     const params = new URLSearchParams();
