@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
-import { useLocation } from '@/hooks/useLocation';
+
 import { format, parseISO, isSameDay, startOfWeek, endOfWeek, addDays } from 'date-fns';
 import { Loader2, CalendarDays, Users, Clock, UserCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -23,7 +23,6 @@ export function InterviewCalendarDialog({
   onOpenChange,
   organizationId
 }: InterviewCalendarDialogProps) {
-  const { currentLocation } = useLocation();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   // Fetch interviews
@@ -32,7 +31,7 @@ export function InterviewCalendarDialog({
     queryFn: async () => {
       const { data } = await supabase
         .from('job_applications')
-        .select('id, full_name, interview_date, interview_time, interview_status, location:locations(name)')
+        .select('id, full_name, interview_date, interview_time, interview_status, location_id, location:locations(name)')
         .eq('organization_id', organizationId)
         .not('interview_date', 'is', null)
         .in('interview_status', ['pending', 'accepted']);
@@ -42,20 +41,29 @@ export function InterviewCalendarDialog({
     enabled: open && !!organizationId,
   });
 
-  // Fetch manager schedules for the week
+  // Fetch manager schedules for the week across ALL locations in the org
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
   
   const { data: managerShifts, isLoading: shiftsLoading } = useQuery({
-    queryKey: ['manager-shifts', currentLocation?.id, format(weekStart, 'yyyy-MM-dd')],
+    queryKey: ['manager-shifts-org', organizationId, format(weekStart, 'yyyy-MM-dd')],
     queryFn: async () => {
-      if (!currentLocation?.id) return [];
+      // Get all locations in this organization
+      const { data: orgLocations } = await supabase
+        .from('locations')
+        .select('id')
+        .eq('organization_id', organizationId);
 
-      // First get PUBLISHED schedules for this location in the date range
+      const locationIds = orgLocations?.map(l => l.id) || [];
+      if (!locationIds.length) {
+        return [];
+      }
+
+      // Get PUBLISHED schedules for these locations in the date range
       const { data: schedules } = await supabase
         .from('schedules')
-        .select('id')
-        .eq('location_id', currentLocation.id)
+        .select('id, location_id')
+        .in('location_id', locationIds)
         .eq('is_published', true)
         .lte('week_start_date', format(weekEnd, 'yyyy-MM-dd'))
         .gte('week_end_date', format(weekStart, 'yyyy-MM-dd'));
@@ -70,7 +78,8 @@ export function InterviewCalendarDialog({
         .from('scheduled_shifts')
         .select(`
           *,
-          user:profiles(id, full_name, profile_photo_url)
+          user:profiles(id, full_name, profile_photo_url),
+          schedule:schedules(location_id)
         `)
         .in('schedule_id', scheduleIds)
         .gte('shift_date', format(weekStart, 'yyyy-MM-dd'))
@@ -101,7 +110,7 @@ export function InterviewCalendarDialog({
       // Filter shifts to only managers
       return shifts.filter(shift => managerUserIds.has(shift.user_id));
     },
-    enabled: open && !!currentLocation?.id,
+    enabled: open && !!organizationId,
   });
 
   // Get interviews for selected date
