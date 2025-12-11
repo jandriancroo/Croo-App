@@ -76,11 +76,7 @@ export function InterviewCalendarDialog({
       // Get shifts for these schedules
       const { data: shifts, error } = await supabase
         .from('scheduled_shifts')
-        .select(`
-          *,
-          user:profiles(id, full_name, profile_photo_url),
-          schedule:schedules(location_id)
-        `)
+        .select('*')
         .in('schedule_id', scheduleIds)
         .gte('shift_date', format(weekStart, 'yyyy-MM-dd'))
         .lte('shift_date', format(weekEnd, 'yyyy-MM-dd'))
@@ -107,8 +103,21 @@ export function InterviewCalendarDialog({
 
       const managerUserIds = new Set(managerRoles?.map(r => r.user_id) || []);
       
-      // Filter shifts to only managers
-      return shifts.filter(shift => managerUserIds.has(shift.user_id));
+      // Get profile data for managers
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, profile_photo_url')
+        .in('id', Array.from(managerUserIds));
+
+      const profileMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      
+      // Filter shifts to only managers and attach profile data
+      return shifts
+        .filter(shift => managerUserIds.has(shift.user_id))
+        .map(shift => ({
+          ...shift,
+          user: profileMap.get(shift.user_id) || null
+        }));
     },
     enabled: open && !!organizationId,
   });
