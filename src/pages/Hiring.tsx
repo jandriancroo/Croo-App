@@ -236,8 +236,8 @@ export default function Hiring() {
 
           <TabsContent value="applicants" className="space-y-4 mt-4">
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
+            <div className="flex flex-col gap-3">
+              <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search by name, email, or phone..."
@@ -246,19 +246,45 @@ export default function Hiring() {
                   className="pl-9"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="interested">Interested</SelectItem>
-                  <SelectItem value="interviewing">Interviewing</SelectItem>
-                  <SelectItem value="hired">Hired</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
+              
+              {/* Mobile: Dropdown */}
+              <div className="sm:hidden">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="interested">Interested</SelectItem>
+                    <SelectItem value="interviewing">Interviewing</SelectItem>
+                    <SelectItem value="hired">Hired</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {/* Desktop/Tablet: Tab-style selectors */}
+              <div className="hidden sm:flex flex-wrap gap-2">
+                {[
+                  { value: 'all', label: 'All' },
+                  { value: 'pending', label: 'Pending' },
+                  { value: 'interested', label: 'Interested' },
+                  { value: 'interviewing', label: 'Interviewing' },
+                  { value: 'hired', label: 'Hired' },
+                  { value: 'rejected', label: 'Rejected' },
+                ].map(status => (
+                  <Button
+                    key={status.value}
+                    variant={statusFilter === status.value ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setStatusFilter(status.value)}
+                    className="min-w-[80px]"
+                  >
+                    {status.label}
+                  </Button>
+                ))}
+              </div>
             </div>
 
             {/* Applicants List */}
