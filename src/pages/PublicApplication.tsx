@@ -194,22 +194,28 @@ export default function PublicApplication() {
       if (data?.success && data?.data) {
         const parsed = data.data;
         
-        // Auto-fill form fields
-        if (parsed.firstName) setFirstName(parsed.firstName);
-        if (parsed.lastName) setLastName(parsed.lastName);
-        if (parsed.email) setEmail(parsed.email);
-        if (parsed.phone) setPhone(parsed.phone);
+        // Auto-fill form fields only if they're empty
+        if (parsed.firstName) setFirstName(prev => prev.trim() ? prev : parsed.firstName);
+        if (parsed.lastName) setLastName(prev => prev.trim() ? prev : parsed.lastName);
+        if (parsed.email) setEmail(prev => prev.trim() ? prev : parsed.email);
+        if (parsed.phone) setPhone(prev => prev.trim() ? prev : parsed.phone);
         
-        // Auto-fill work history if available
+        // Auto-fill work history only if user hasn't manually entered any
         if (parsed.workHistory && parsed.workHistory.length > 0) {
-          setWorkHistory(parsed.workHistory.map((w: any) => ({
-            employer_name: w.employer_name || '',
-            job_title: w.job_title || '',
-            start_date: w.start_date || '',
-            end_date: w.end_date || '',
-            is_current: w.is_current || false,
-            reason_for_leaving: ''
-          })));
+          setWorkHistory(prev => {
+            // Check if user has already entered work history manually
+            const hasManualData = prev.some(w => w.employer_name.trim());
+            if (hasManualData) return prev;
+            
+            return parsed.workHistory.map((w: any) => ({
+              employer_name: w.employer_name || '',
+              job_title: w.job_title || '',
+              start_date: w.start_date || '',
+              end_date: w.end_date || '',
+              is_current: w.is_current || false,
+              reason_for_leaving: ''
+            }));
+          });
         }
 
         toast.success('Resume scanned! Fields auto-filled.', { id: 'resume-parse' });
