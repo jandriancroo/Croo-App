@@ -11,11 +11,11 @@ serve(async (req) => {
   }
 
   try {
-    const { resumeText } = await req.json();
+    const { resumeText, resumeBase64, mimeType } = await req.json();
 
-    if (!resumeText) {
+    if (!resumeText && !resumeBase64) {
       return new Response(
-        JSON.stringify({ success: false, error: 'Resume text is required' }),
+        JSON.stringify({ success: false, error: 'Resume content is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -29,7 +29,31 @@ serve(async (req) => {
       );
     }
 
-    console.log('Parsing resume with AI...');
+    console.log('Parsing resume with AI...', resumeBase64 ? 'PDF/Image mode' : 'Text mode');
+
+    // Build the message content
+    let userContent: any;
+    
+    if (resumeBase64) {
+      // For PDFs/images, use vision capabilities
+      userContent = [
+        {
+          type: 'text',
+          text: `Parse this resume and extract the applicant's information. Return ONLY the extracted data using the provided function.`
+        },
+        {
+          type: 'image_url',
+          image_url: {
+            url: `data:${mimeType || 'application/pdf'};base64,${resumeBase64}`
+          }
+        }
+      ];
+    } else {
+      userContent = `Parse this resume and extract the following information. Return ONLY the extracted data using the provided function.
+
+Resume text:
+${resumeText}`;
+    }
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -42,20 +66,11 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a resume parser. Extract applicant information from resumes accurately.
-Always respond with valid JSON only, no markdown or explanation.`
+            content: `You are a resume parser. Extract applicant information from resumes accurately. Look for name, email, phone, and work history.`
           },
           {
             role: 'user',
-            content: `Parse this resume and extract the following information. Return ONLY a JSON object with these fields:
-- firstName: string (first name)
-- lastName: string (last name)  
-- email: string (email address, empty string if not found)
-- phone: string (phone number, empty string if not found)
-- workHistory: array of objects with: employer_name, job_title, start_date (YYYY-MM format or empty), end_date (YYYY-MM format or empty), is_current (boolean)
-
-Resume text:
-${resumeText}`
+            content: userContent
           }
         ],
         tools: [
@@ -117,7 +132,7 @@ ${resumeText}`
     }
 
     const data = await response.json();
-    console.log('AI response:', JSON.stringify(data));
+    console.log('AI response received');
 
     // Extract the tool call arguments
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
