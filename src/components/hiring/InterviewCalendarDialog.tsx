@@ -51,19 +51,29 @@ export function InterviewCalendarDialog({
     queryFn: async () => {
       if (!currentLocation?.id) return [];
 
-      // Get managers at this location
+      // Get managers at this location (manager roles and above)
       const { data: managers } = await supabase
         .from('user_roles')
         .select(`
           user_id,
-          role,
-          profile:profiles(id, full_name, profile_photo_url)
+          role
         `)
-        .in('role', ['admin', 'general_manager', 'shift_manager', 'manager']);
+        .in('role', ['super_admin', 'admin', 'general_manager', 'shift_manager']);
 
       if (!managers?.length) return [];
 
-      const managerIds = managers.map(m => m.user_id);
+      // Filter to managers who have access to this location
+      const { data: locationUsers } = await supabase
+        .from('user_locations')
+        .select('user_id')
+        .eq('location_id', currentLocation.id);
+
+      const locationUserIds = new Set(locationUsers?.map(u => u.user_id) || []);
+      const managerIds = managers
+        .filter(m => locationUserIds.has(m.user_id))
+        .map(m => m.user_id);
+
+      if (!managerIds.length) return [];
 
       // Get shifts for these managers
       const { data: shifts } = await supabase
