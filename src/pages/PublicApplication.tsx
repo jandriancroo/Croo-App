@@ -444,15 +444,32 @@ export default function PublicApplication() {
     );
   }
   if (submitted) {
+    // Save email for the applicant portal
+    localStorage.setItem('applicant_email', email.toLowerCase().trim());
+    
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-md w-full">
-          <CardContent className="pt-6 text-center">
-            <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold mb-2">Application Submitted!</h2>
-            <p className="text-muted-foreground">
-              Thank you for applying to {organization.name}. We'll review your application and be in touch soon.
-            </p>
+          <CardContent className="pt-6 text-center space-y-6">
+            <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+            <div>
+              <h2 className="text-2xl font-semibold mb-2">Application Submitted!</h2>
+              <p className="text-muted-foreground">
+                Thank you for applying to {organization.name}. We'll review your application and be in touch soon.
+              </p>
+            </div>
+            
+            <div className="border-t border-border pt-6 space-y-3">
+              <Button
+                className="w-full"
+                onClick={() => window.location.href = '/my-applications'}
+              >
+                View My Applications
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Add to your home screen to easily check your application status
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>
