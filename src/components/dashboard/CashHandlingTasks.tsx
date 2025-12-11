@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Vault, Banknote } from "lucide-react";
+import { Vault, Banknote, Check } from "lucide-react";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useUserRole } from "@/hooks/useUserRole";
 import { format } from "date-fns";
@@ -134,12 +133,15 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
     }
     navigate(`/logbook?${params.toString()}`);
   };
+
+  const TEAL_COLOR = "#14b8a6";
   
   const tasks = [
     {
       id: "am-safe",
       show: showAmSafeCount,
       title: "AM Safe Count",
+      subtitle: "Opening count",
       icon: Vault,
       onClick: () => handleNavigate("safe", "AM"),
     },
@@ -147,6 +149,7 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
       id: "pm-safe",
       show: showPmSafeCount,
       title: "PM Safe Count",
+      subtitle: "Closing count",
       icon: Vault,
       onClick: () => handleNavigate("safe", "PM"),
     },
@@ -154,6 +157,7 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
       id: "deposit",
       show: showDeposit,
       title: "Deposit",
+      subtitle: "Drawer count",
       icon: Banknote,
       onClick: () => handleNavigate("drawer"),
     },
@@ -164,28 +168,34 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
   return (
     <>
       {tasks.map(task => (
-        <Card 
+        <Card
           key={task.id}
-          className="hover:shadow-lg transition-shadow overflow-hidden p-0 flex flex-col border-teal-500/30 bg-teal-500/5"
+          className="overflow-hidden"
+          style={{ borderLeft: `4px solid ${TEAL_COLOR}` }}
         >
-          <CardHeader className="py-2 px-3">
-            <div className="flex items-center gap-2">
-              <task.icon className="h-5 w-5 text-teal-500 flex-shrink-0" />
-              <CardTitle className="text-base font-semibold flex-1 truncate">{task.title}</CardTitle>
-              <Badge className="text-xs px-2 py-0.5 flex-shrink-0 bg-teal-500 text-white">
-                action
-              </Badge>
+          <CardContent className="p-3 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div
+                className="p-2 rounded-lg"
+                style={{ backgroundColor: `${TEAL_COLOR}20` }}
+              >
+                <task.icon className="h-4 w-4" style={{ color: TEAL_COLOR }} />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-sm truncate">{task.title}</p>
+                <p className="text-xs text-muted-foreground">{task.subtitle}</p>
+              </div>
             </div>
-          </CardHeader>
-          <CardContent className="py-2 px-3 pt-0 flex-1">
-            <p className="text-sm text-muted-foreground">Required task</p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="shrink-0 gap-1"
+              onClick={task.onClick}
+            >
+              <Check className="h-3.5 w-3.5" />
+              Complete
+            </Button>
           </CardContent>
-          <Button 
-            className="w-full h-10 text-sm rounded-none rounded-b-lg mt-auto bg-teal-500 hover:bg-teal-600 text-white"
-            onClick={task.onClick}
-          >
-            Complete
-          </Button>
         </Card>
       ))}
     </>
