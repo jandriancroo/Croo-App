@@ -112,7 +112,7 @@ export default function Schedule() {
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [pendingShiftData, setPendingShiftData] = useState<any>(null);
   const [conflicts, setConflicts] = useState<any[]>([]);
-  const [publishedSnapshot, setPublishedSnapshot] = useState<any>(null);
+  const [publishedSnapshot, setPublishedSnapshot] = useState<any[]>([]);
   const [selectedDayForBreakdown, setSelectedDayForBreakdown] = useState<Date | null>(null);
   const [dayBreakdownOpen, setDayBreakdownOpen] = useState(false);
   const [clearScheduleDialogOpen, setClearScheduleDialogOpen] = useState(false);
@@ -207,7 +207,7 @@ export default function Schedule() {
 
       setScheduleId(scheduleData.id);
       setIsPublished(scheduleData.is_published || false);
-      setPublishedSnapshot(scheduleData.published_snapshot);
+      setPublishedSnapshot(Array.isArray(scheduleData.published_shifts_snapshot) ? scheduleData.published_shifts_snapshot : []);
 
       // Parallelize all independent data fetches
       const [
@@ -582,14 +582,9 @@ export default function Schedule() {
 
   const executeShiftOperation = async (active: any, userId: string, dayIndex: number, shiftDate: string) => {
     try {
-      // If schedule is published, unpublish it when making changes
-      if (isPublished && scheduleId) {
-        await supabase
-          .from('schedules')
-          .update({ is_published: false })
-          .eq('id', scheduleId);
-        setIsPublished(false);
-      }
+      // NOTE: We no longer unpublish the schedule when making changes
+      // The schedule stays "published" but changes are tracked as pending
+      // until the admin clicks "Update" to notify affected employees
 
       if (active.data?.current?.isTemplate || active.isTemplate) {
         // Dragging from template
@@ -655,11 +650,13 @@ export default function Schedule() {
 
       if (error) throw error;
 
-      // Unpublish the schedule after clearing
+      // Reset to unpublished state after clearing
       await supabase
         .from("schedules")
-        .update({ is_published: false, published_snapshot: null })
+        .update({ is_published: false, published_shifts_snapshot: null })
         .eq("id", scheduleId);
+      setIsPublished(false);
+      setPublishedSnapshot([]);
 
       toast.success("Schedule cleared successfully");
       setClearScheduleDialogOpen(false);
@@ -745,6 +742,39 @@ export default function Schedule() {
     setCurrentWeekStart(addWeeks(currentWeekStart, 1));
   };
 
+  // Compute if there are pending changes by comparing current shifts to snapshot
+  const hasPendingChanges = (() => {
+    if (!isPublished || publishedSnapshot.length === 0) return false;
+    
+    // Create maps for comparison
+    const snapshotMap = new Map(publishedSnapshot.map((s: any) => [s.id, s]));
+    const currentMap = new Map(shifts.map(s => [s.id, s]));
+    
+    // Check for removed shifts
+    for (const [id] of snapshotMap) {
+      if (!currentMap.has(id)) return true;
+    }
+    
+    // Check for added or modified shifts
+    for (const [id, shift] of currentMap) {
+      const snapshotShift = snapshotMap.get(id);
+      if (!snapshotShift) return true; // New shift
+      
+      // Check if any relevant fields changed
+      if (
+        snapshotShift.user_id !== shift.user_id ||
+        snapshotShift.start_time !== shift.start_time ||
+        snapshotShift.end_time !== shift.end_time ||
+        snapshotShift.shift_date !== shift.shift_date ||
+        snapshotShift.day_of_week !== shift.day_of_week
+      ) {
+        return true;
+      }
+    }
+    
+    return false;
+  })();
+
   const handleGoLive = async () => {
     if (!scheduleId) return;
     
@@ -768,15 +798,69 @@ export default function Schedule() {
       const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
       const dateRange = `${format(currentWeekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`;
 
-      // Always notify all users with shifts when going live
-      // This ensures no one is missed due to snapshot timing issues
+      // Notify ALL users with shifts for initial Go Live
       if (usersWithShifts.length > 0) {
-        // Detect changes for the toast message
-        const changes = publishedSnapshot 
-          ? detectScheduleChanges(publishedSnapshot, currentShifts || [])
-          : [];
+        await supabase.functions.invoke('send-push-notification', {
+          body: {
+            user_ids: usersWithShifts,
+            title: 'Weekly Schedule Published',
+            body: `Schedule for ${dateRange} is now live`,
+            notification_type: 'schedule_updates',
+            data: { type: 'schedule_update', schedule_id: scheduleId }
+          }
+        });
         
-        // Log changes if any
+        toast.success(`Schedule published! ${usersWithShifts.length} team member(s) notified.`);
+      } else {
+        toast.success("Schedule published!");
+      }
+
+      // Update schedule with new snapshot
+      const { error } = await supabase
+        .from('schedules')
+        .update({ 
+          is_published: true,
+          published_shifts_snapshot: currentShifts
+        })
+        .eq('id', scheduleId);
+
+      if (error) throw error;
+
+      setIsPublished(true);
+      setPublishedSnapshot(currentShifts || []);
+    } catch (error: any) {
+      console.error('Error publishing schedule:', error);
+      toast.error("Failed to publish schedule");
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!scheduleId) return;
+    
+    setIsPublishing(true);
+    try {
+      // Get current shifts
+      const { data: currentShifts, error: shiftsError } = await supabase
+        .from('scheduled_shifts')
+        .select('*')
+        .eq('schedule_id', scheduleId);
+
+      if (shiftsError) throw shiftsError;
+
+      // Format date range for notification
+      const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
+      const dateRange = `${format(currentWeekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`;
+
+      // Detect changes and only notify affected employees
+      const changes = detectScheduleChanges(publishedSnapshot, currentShifts || []);
+      
+      if (changes.length > 0) {
+        // Get unique affected user IDs
+        const affectedUserIds = [...new Set(changes.map(c => c.user_id).filter(Boolean))];
+        
+        // Log changes
         for (const change of changes) {
           await supabase
             .from('schedule_change_log')
@@ -789,41 +873,38 @@ export default function Schedule() {
             });
         }
         
-        // Notify ALL users with shifts
-        await supabase.functions.invoke('send-push-notification', {
-          body: {
-            user_ids: usersWithShifts,
-            title: 'Weekly Schedule Updated',
-            body: `Schedule for ${dateRange} has been updated`,
-            notification_type: 'schedule_updates',
-            data: { type: 'schedule_update', schedule_id: scheduleId }
-          }
-        });
+        // Notify only affected users
+        if (affectedUserIds.length > 0) {
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              user_ids: affectedUserIds,
+              title: 'Schedule Updated',
+              body: `Your schedule for ${dateRange} has been updated`,
+              notification_type: 'schedule_updates',
+              data: { type: 'schedule_update', schedule_id: scheduleId }
+            }
+          });
+        }
         
-        const changeText = changes.length > 0 
-          ? `${changes.length} change(s) logged.` 
-          : '';
-        toast.success(`Schedule published! ${usersWithShifts.length} team member(s) notified. ${changeText}`);
+        toast.success(`Schedule updated! ${affectedUserIds.length} affected team member(s) notified.`);
       } else {
-        toast.success("Schedule published!");
+        toast.success("Schedule updated!");
       }
 
-      // Update schedule with new snapshot
+      // Update snapshot
       const { error } = await supabase
         .from('schedules')
         .update({ 
-          is_published: true,
-          published_snapshot: currentShifts
+          published_shifts_snapshot: currentShifts
         })
         .eq('id', scheduleId);
 
       if (error) throw error;
 
-      setIsPublished(true);
-      setPublishedSnapshot(currentShifts);
+      setPublishedSnapshot(currentShifts || []);
     } catch (error: any) {
-      console.error('Error publishing schedule:', error);
-      toast.error("Failed to publish schedule");
+      console.error('Error updating schedule:', error);
+      toast.error("Failed to update schedule");
     } finally {
       setIsPublishing(false);
     }
@@ -979,7 +1060,9 @@ export default function Schedule() {
           scheduleId={scheduleId}
           templates={templates}
           onGoLive={handleGoLive}
+          onSendUpdate={handleUpdate}
           isPublishing={isPublishing}
+          hasPendingChanges={hasPendingChanges}
         />
       ) : (
         <div className="space-y-6 pb-20">
@@ -1037,7 +1120,9 @@ export default function Schedule() {
                   <LiveStatusBadge
                     isPublished={isPublished}
                     isPublishing={isPublishing}
+                    hasPendingChanges={hasPendingChanges}
                     onGoLive={handleGoLive}
+                    onUpdate={handleUpdate}
                   />
                 )}
               </>

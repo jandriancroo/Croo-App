@@ -3,7 +3,7 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks } from 'dat
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, ChevronLeft, Plus } from 'lucide-react';
+import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, ChevronLeft, Plus, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
@@ -62,7 +62,9 @@ interface MobileScheduleViewProps {
     color: string | null;
   }>;
   onGoLive?: () => void;
+  onSendUpdate?: () => void;
   isPublishing?: boolean;
+  hasPendingChanges?: boolean;
 }
 
 export function MobileScheduleView({
@@ -78,7 +80,9 @@ export function MobileScheduleView({
   scheduleId,
   templates = [],
   onGoLive,
-  isPublishing = false
+  onSendUpdate,
+  isPublishing = false,
+  hasPendingChanges = false
 }: MobileScheduleViewProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
@@ -191,17 +195,47 @@ export function MobileScheduleView({
               >
                 <Plus className="h-4 w-4" />
               </Button>
-              <Button
-                size="sm"
-                onClick={onGoLive}
-                disabled={isPublishing}
-                className={isPublished 
-                  ? "bg-red-600 hover:bg-red-700 text-white animate-pulse shadow-[0_0_15px_rgba(220,38,38,0.5)]" 
-                  : "bg-primary hover:bg-primary/90"
-                }
-              >
-                {isPublishing ? "Publishing..." : isPublished ? "LIVE" : "GO LIVE"}
-              </Button>
+              {/* Three states: Go Live (unpublished), Update (published with changes), LIVE (published, no changes) */}
+              {!isPublished ? (
+                <Button
+                  size="sm"
+                  onClick={onGoLive}
+                  disabled={isPublishing}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {isPublishing ? "Publishing..." : "GO LIVE"}
+                </Button>
+              ) : hasPendingChanges ? (
+                <Button
+                  size="sm"
+                  onClick={onSendUpdate}
+                  disabled={isPublishing}
+                  variant="outline"
+                  className="border-amber-500 text-amber-500 hover:bg-amber-500/10"
+                >
+                  {isPublishing ? (
+                    <>
+                      <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-3 w-3 mr-1" />
+                      Update
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-500/10 border-2 border-red-500 rounded-lg">
+                  <span className="relative flex items-end gap-[2px] h-3">
+                    <span className="w-0.5 bg-red-500 rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
+                    <span className="w-0.5 bg-red-500 rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
+                    <span className="w-0.5 bg-red-500 rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
+                    <span className="w-0.5 bg-red-500 rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
+                  </span>
+                  <span className="text-xs font-semibold text-red-500 uppercase tracking-wide">Live</span>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -249,15 +283,18 @@ export function MobileScheduleView({
 
               const isMyShift = shift.user_id === user?.id;
 
-              // A shift is a draft if schedule is unpublished AND (shift is new OR shift has been modified)
+              // A shift shows as "pending" if:
+              // - Schedule is unpublished (never went live), OR
+              // - Schedule is published but this specific shift differs from the snapshot
               const snapshotShift = publishedSnapshot?.find((s: any) => s.id === shift.id);
               const isShiftModified = snapshotShift && (
                 snapshotShift.user_id !== shift.user_id ||
                 snapshotShift.start_time !== shift.start_time ||
                 snapshotShift.end_time !== shift.end_time ||
-                snapshotShift.template_id !== shift.template_id
+                snapshotShift.shift_date !== shift.shift_date
               );
-              const isShiftDraft = !isPublished && (!snapshotShift || isShiftModified);
+              // Show as pending if schedule never published, or if this shift is new/modified since last publish
+              const isShiftPending = !isPublished || (!snapshotShift || isShiftModified);
 
               return (
               <Card 
@@ -267,7 +304,7 @@ export function MobileScheduleView({
                       ? 'border-2 border-accent ring-1 ring-accent/30' 
                       : ''
                   } ${
-                    isShiftDraft ? 'opacity-60 border-2 border-dashed border-muted-foreground/50' : ''
+                    isShiftPending && (isAdmin || isManager) ? 'opacity-60 border-2 border-dashed border-amber-500/50' : ''
                   }`}
                   onClick={() => {
                     setSelectedShift(shift);
@@ -304,7 +341,7 @@ export function MobileScheduleView({
                       )}
                     </div>
                     
-                    {!isShiftDraft && (isAdmin || shift.user_id === user?.id) && (
+                    {!isShiftPending && (isAdmin || shift.user_id === user?.id) && (
                       <Button
                         size="sm"
                         variant="outline"
