@@ -1317,11 +1317,24 @@ export default function PayrollReview() {
                                                   new Date(p.punch_time) > new Date(breakStart.punch_time)
                                                 );
                                                 const duration = breakStart.notes?.includes('30 minute') ? '30m' : '10m';
+                                                
+                                                // Calculate actual break duration if there's an end time
+                                                let isLongBreak = false;
+                                                if (breakEnd) {
+                                                  const actualDurationMins = (new Date(breakEnd.punch_time).getTime() - new Date(breakStart.punch_time).getTime()) / 60000;
+                                                  isLongBreak = actualDurationMins > 35; // Flag if over 35 mins (5 min buffer)
+                                                }
+                                                
                                                 return (
-                                                  <span key={idx} className="flex items-center gap-1">
+                                                  <span 
+                                                    key={idx} 
+                                                    className={`flex items-center gap-1 ${isLongBreak ? 'text-red-600 font-medium bg-red-50 px-1.5 py-0.5 rounded' : ''}`}
+                                                    title={isLongBreak ? 'Break exceeded 30 minutes - possible missed clock-in' : ''}
+                                                  >
                                                     <Coffee className="h-3 w-3" />
                                                     {duration}: {formatTimeDisplay(breakStart.punch_time, timezone)}
                                                     {breakEnd && ` → ${formatTimeDisplay(breakEnd.punch_time, timezone)}`}
+                                                    {isLongBreak && ' ⚠️'}
                                                   </span>
                                                 );
                                               })}
