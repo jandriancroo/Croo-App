@@ -288,8 +288,25 @@ export function MobileScheduleView({
               {new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}
             </h3>
             
+            {/* Today's Events */}
+            {todayEvents.length > 0 && (
+              <div className="mb-4 space-y-2">
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Events</h4>
+                {todayEvents.map(event => (
+                  <EventCard
+                    key={event.id}
+                    id={event.id}
+                    name={event.event_name}
+                    time={event.event_time}
+                    categoryName={event.category?.name}
+                    categoryColor={event.category?.color}
+                    notes={event.notes}
+                    showCompleteButton={false}
+                  />
+                ))}
+              </div>
+            )}
             
-            {/* Active Shifts Section */}
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
               Working Now ({activeShifts.length})
             </h4>
@@ -492,21 +509,21 @@ export function MobileScheduleView({
         </div>
       </div>
 
-      {/* Events Summary */}
+      {/* Events for selected day */}
       {dayEvents.length > 0 && (
-        <div className="px-4 pt-3">
-          <Card className="bg-accent/30 border-accent/40">
-            <div className="px-3 py-2">
-              <div className="text-xs font-medium text-accent-foreground truncate">
-                {dayEvents.map((e, i) => (
-                  <span key={e.id}>
-                    {i > 0 && ' • '}
-                    {e.event_name}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </Card>
+        <div className="px-4 pt-3 space-y-2">
+          {dayEvents.map(event => (
+            <EventCard
+              key={event.id}
+              id={event.id}
+              name={event.event_name}
+              time={event.event_time}
+              categoryName={event.category?.name}
+              categoryColor={event.category?.color}
+              notes={event.notes}
+              showCompleteButton={false}
+            />
+          ))}
         </div>
       )}
 
