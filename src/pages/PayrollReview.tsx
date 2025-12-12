@@ -1100,8 +1100,34 @@ export default function PayrollReview() {
                   {filteredCards.map((card) => {
                     const weekGroups = groupPunchesByWeek(card.punchesByDay);
                     
+                    // Check if this employee has any break violations
+                    const breakViolationDays = Object.entries(card.punchesByDay).filter(([day, dayPunches]: [string, any]) => {
+                      const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
+                      const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
+                      const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
+                      if (clockIn && clockOut) {
+                        const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+                        return hours > 5 && !mealBreakStart;
+                      }
+                      return false;
+                    });
+                    
                     return (
                       <Card key={card.profile.id} className="overflow-hidden">
+                        {/* Break Violation Warning Banner */}
+                        {breakViolationDays.length > 0 && (
+                          <div className="flex items-center gap-3 px-4 py-3 bg-amber-100 border-b border-amber-300">
+                            <Coffee className="h-5 w-5 text-amber-700" />
+                            <div className="flex-1">
+                              <p className="font-medium text-amber-900">Missing Meal Breaks</p>
+                              <p className="text-sm text-amber-700">
+                                {breakViolationDays.length} shift(s) over 5 hours without a recorded 30-minute meal break. 
+                                Please add breaks before approving.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        
                         {/* Employee Header */}
                         <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b">
                           <div className="flex items-center gap-2">
