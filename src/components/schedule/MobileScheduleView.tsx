@@ -3,12 +3,13 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks } from 'dat
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, ChevronLeft, Plus, RefreshCw } from 'lucide-react';
+import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, ChevronLeft, Plus, RefreshCw, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
 import { MobileShiftDialog } from './MobileShiftDialog';
+import { QuickPunchDialog } from './QuickPunchDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
 import { formatTime12Hour } from '@/lib/utils';
@@ -90,6 +91,7 @@ export function MobileScheduleView({
   const [shiftDialogOpen, setShiftDialogOpen] = useState(false);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [isCreatingShift, setIsCreatingShift] = useState(false);
+  const [quickPunchOpen, setQuickPunchOpen] = useState(false);
   const { isAdmin, isManager } = useUserRole();
   const { user } = useAuth();
   
@@ -177,6 +179,14 @@ export function MobileScheduleView({
           </div>
           {(isAdmin || isManager) && (
             <>
+              <Button 
+                size="sm" 
+                variant="ghost"
+                onClick={() => setQuickPunchOpen(true)}
+                title="Quick Punch"
+              >
+                <Clock className="h-4 w-4" />
+              </Button>
               <Button 
                 size="sm" 
                 variant="ghost"
@@ -390,6 +400,14 @@ export function MobileScheduleView({
           setShiftDialogOpen(false);
           setIsCreatingShift(false);
         }}
+      />
+
+      <QuickPunchDialog
+        open={quickPunchOpen}
+        onOpenChange={setQuickPunchOpen}
+        profiles={profiles}
+        selectedDate={selectedDate}
+        onPunchCreated={onUpdate}
       />
     </div>
   );
