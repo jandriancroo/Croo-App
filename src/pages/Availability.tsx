@@ -40,7 +40,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Check, X, Calendar, Clock, Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
@@ -360,11 +360,12 @@ export default function Availability() {
 
   const formatTimeScope = (request: AvailabilityRequest) => {
     if (request.time_scope === "partial_day") {
-      return `${format(new Date(`2000-01-01T${request.start_time}`), "h:mm a")} - ${format(new Date(`2000-01-01T${request.end_time}`), "h:mm a")}`;
+      const dateStr = format(parseISO(request.start_date), "MMM d, yyyy");
+      return `${format(new Date(`2000-01-01T${request.start_time}`), "h:mm a")} - ${format(new Date(`2000-01-01T${request.end_time}`), "h:mm a")} • ${dateStr}`;
     } else if (request.time_scope === "multi_day") {
-      return `${format(new Date(request.start_date), "MMM d")} - ${format(new Date(request.end_date!), "MMM d, yyyy")}`;
+      return `${format(parseISO(request.start_date), "MMM d")} - ${format(parseISO(request.end_date!), "MMM d, yyyy")}`;
     } else {
-      return format(new Date(request.start_date), "MMM d, yyyy");
+      return format(parseISO(request.start_date), "MMM d, yyyy");
     }
   };
 

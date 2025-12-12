@@ -3,7 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ShiftCard } from "./ShiftCard";
-import { addDays } from "date-fns";
+import { addDays, format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { GripVertical } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -126,14 +126,13 @@ export function EmployeeRow({
 
       {weekDays.map((day, dayIndex) => {
       const dayShifts = shifts.filter(s => s.day_of_week === dayIndex);
+      const cellDateStr = format(day, "yyyy-MM-dd");
       const dayAvailability = availabilityRequests.filter(r => {
-        const reqDate = new Date(r.start_date);
-        const cellDate = day;
+        // Compare date strings directly to avoid timezone issues
         if (r.time_scope === "multi_day" && r.end_date) {
-          const endDate = new Date(r.end_date);
-          return cellDate >= reqDate && cellDate <= endDate;
+          return cellDateStr >= r.start_date && cellDateStr <= r.end_date;
         }
-        return reqDate.toDateString() === cellDate.toDateString();
+        return r.start_date === cellDateStr;
       });
       return <DayCell key={dayIndex} userId={profile.id} dayIndex={dayIndex} shifts={dayShifts} availabilityRequests={dayAvailability} onUpdate={onUpdate} canTakeShifts={canTakeShifts} currentUserId={currentUserId} onEditShift={onEditShift} isPublished={isPublished} publishedSnapshot={publishedSnapshot} />;
     })}
