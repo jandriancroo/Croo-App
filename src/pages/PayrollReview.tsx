@@ -1240,6 +1240,8 @@ export default function PayrollReview() {
                                     const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
                                     const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
                                     const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
+                                    const allBreaks = dayPunches.filter((p: any) => p.punch_type === 'break_start' || p.punch_type === 'break_end');
+                                    const breakStarts = dayPunches.filter((p: any) => p.punch_type === 'break_start');
                                     const dayDate = new Date(day);
                                     const dayHours = calculateDayHours(dayPunches);
                                     const isApproved = dayPunches.every((p: any) => p.approved_at);
@@ -1271,38 +1273,60 @@ export default function PayrollReview() {
                                           <div className="font-semibold text-sm">{format(dayDate, 'd')}</div>
                                         </div>
 
-                                        {/* Time Range */}
-                                        <div className="flex-1 flex items-center gap-2">
-                                          <div className="flex items-center gap-1.5 text-sm">
-                                            <span className="text-green-600 font-medium">
-                                              {clockIn ? formatTimeDisplay(clockIn.punch_time, timezone) : '—'}
-                                            </span>
-                                            <span className="text-muted-foreground">→</span>
-                                            <span className="text-red-600 font-medium">
-                                              {clockOut ? formatTimeDisplay(clockOut.punch_time, timezone) : '—'}
-                                            </span>
-                                          </div>
+                                        {/* Time Range and Breaks */}
+                                        <div className="flex-1 flex flex-col gap-1">
+                                          <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1.5 text-sm">
+                                              <span className="text-green-600 font-medium">
+                                                {clockIn ? formatTimeDisplay(clockIn.punch_time, timezone) : '—'}
+                                              </span>
+                                              <span className="text-muted-foreground">→</span>
+                                              <span className="text-red-600 font-medium">
+                                                {clockOut ? formatTimeDisplay(clockOut.punch_time, timezone) : '—'}
+                                              </span>
+                                            </div>
 
-                                          {/* Status Badges */}
-                                          <div className="flex items-center gap-1">
-                                            {mealBreakStart && (
-                                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-amber-600 border-amber-300 gap-1">
-                                                <Coffee className="h-3 w-3" />
-                                                Break
-                                              </Badge>
-                                            )}
-                                            {hasAutoClockOut && (
-                                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-orange-600 border-orange-300 gap-1">
-                                                <img src={autoPunchIcon} alt="Auto" className="h-3.5 w-3.5" />
-                                                Auto
-                                              </Badge>
-                                            )}
-                                            {hasIssue && !hasBreakViolation && !clockOut && (
-                                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-destructive border-destructive/30">
-                                                Missing
-                                              </Badge>
-                                            )}
+                                            {/* Status Badges */}
+                                            <div className="flex items-center gap-1">
+                                              {hasBreakViolation && (
+                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-amber-600 border-amber-300 gap-1">
+                                                  <Coffee className="h-3 w-3" />
+                                                  No Break
+                                                </Badge>
+                                              )}
+                                              {hasAutoClockOut && (
+                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-orange-600 border-orange-300 gap-1">
+                                                  <img src={autoPunchIcon} alt="Auto" className="h-3.5 w-3.5" />
+                                                  Auto
+                                                </Badge>
+                                              )}
+                                              {hasIssue && !hasBreakViolation && !clockOut && (
+                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-destructive border-destructive/30">
+                                                  Missing
+                                                </Badge>
+                                              )}
+                                            </div>
                                           </div>
+                                          
+                                          {/* Break times display */}
+                                          {breakStarts.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                              {breakStarts.map((breakStart: any, idx: number) => {
+                                                const breakEnd = dayPunches.find((p: any) => 
+                                                  p.punch_type === 'break_end' && 
+                                                  new Date(p.punch_time) > new Date(breakStart.punch_time)
+                                                );
+                                                const duration = breakStart.notes?.includes('30 minute') ? '30m' : '10m';
+                                                return (
+                                                  <span key={idx} className="flex items-center gap-1">
+                                                    <Coffee className="h-3 w-3" />
+                                                    {duration}: {formatTimeDisplay(breakStart.punch_time, timezone)}
+                                                    {breakEnd && ` → ${formatTimeDisplay(breakEnd.punch_time, timezone)}`}
+                                                  </span>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
                                         </div>
 
                                         {/* Hours */}

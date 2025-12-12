@@ -366,6 +366,73 @@ export default function PunchClock() {
     }, 2000);
   };
 
+  // Check if user is currently on break and calculate time remaining
+  const getBreakStatus = () => {
+    if (!lastPunch || lastPunch.punch_type !== 'break_start') return null;
+    
+    const breakDuration = lastPunch.notes?.includes('30 minute') ? 30 : 10;
+    const breakStartTime = new Date(lastPunch.punch_time);
+    const breakEndTime = new Date(breakStartTime.getTime() + breakDuration * 60000);
+    const now = new Date();
+    const remainingMs = breakEndTime.getTime() - now.getTime();
+    
+    if (remainingMs <= 0) {
+      return { canEnd: true, remaining: 0, breakDuration };
+    }
+    
+    return {
+      canEnd: false,
+      remaining: Math.ceil(remainingMs / 1000),
+      breakDuration
+    };
+  };
+
+  const breakStatus = getBreakStatus();
+  const isOnBreak = lastPunch?.punch_type === 'break_start';
+
+  // Update break timer every second
+  const [, forceUpdate] = useState({});
+  useEffect(() => {
+    if (isOnBreak && breakStatus && !breakStatus.canEnd) {
+      const timer = setInterval(() => forceUpdate({}), 1000);
+      return () => clearInterval(timer);
+    }
+  }, [isOnBreak, breakStatus?.canEnd]);
+
+  const handleEndBreak = async () => {
+    if (!breakStatus?.canEnd) {
+      const mins = Math.floor(breakStatus!.remaining / 60);
+      const secs = breakStatus!.remaining % 60;
+      toast.error(`Please wait ${mins}:${secs.toString().padStart(2, '0')} before ending your break`);
+      return;
+    }
+
+    const { error } = await supabase
+      .from('time_punches')
+      .insert({
+        user_id: currentUser.id,
+        shift_id: todayShift?.id,
+        punch_type: 'break_end',
+        punch_time: new Date().toISOString(),
+        location_id: currentLocation?.id
+      });
+
+    if (error) {
+      toast.error('Failed to end break');
+      return;
+    }
+
+    toast.success('Break ended!');
+    
+    // Return to PIN screen after 2 seconds
+    setTimeout(() => {
+      setCurrentUser(null);
+      setPin('');
+      setTodayShift(null);
+      setLastPunch(null);
+    }, 2000);
+  };
+
   const handleClockOut = async () => {
     const { error } = await supabase
       .from('time_punches')
@@ -601,6 +668,40 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                   )}
                   <Button variant="outline" onClick={() => setCurrentUser(null)} className="w-full">
                     Cancel
+                  </Button>
+                </div>
+              ) : isOnBreak ? (
+                <div className="space-y-3">
+                  {/* On Break UI */}
+                  <div className="text-center py-4 bg-amber-500/10 rounded-lg border border-amber-500/20">
+                    <Coffee className="h-8 w-8 mx-auto mb-2 text-amber-600" />
+                    <p className="text-lg font-semibold text-amber-700 dark:text-amber-400">
+                      On {breakStatus?.breakDuration} Min Break
+                    </p>
+                    {!breakStatus?.canEnd ? (
+                      <div className="mt-2">
+                        <p className="text-2xl font-mono font-bold text-amber-600">
+                          {Math.floor(breakStatus!.remaining / 60)}:{(breakStatus!.remaining % 60).toString().padStart(2, '0')}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">until you can clock back in</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-green-600 font-medium mt-2">Ready to clock back in!</p>
+                    )}
+                  </div>
+                  
+                  <Button
+                    variant={breakStatus?.canEnd ? 'default' : 'outline'}
+                    className={`w-full h-14 ${!breakStatus?.canEnd ? 'opacity-50' : ''}`}
+                    onClick={handleEndBreak}
+                    disabled={!breakStatus?.canEnd}
+                  >
+                    <Coffee className="mr-2 h-5 w-5" />
+                    {breakStatus?.canEnd ? 'End Break & Clock Back In' : `Wait ${Math.floor(breakStatus!.remaining / 60)}:${(breakStatus!.remaining % 60).toString().padStart(2, '0')}`}
+                  </Button>
+                  
+                  <Button variant="ghost" onClick={() => setCurrentUser(null)} className="w-full">
+                    Back
                   </Button>
                 </div>
               ) : (
