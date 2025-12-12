@@ -1243,7 +1243,13 @@ export default function PayrollReview() {
                                           {/* Status Badges - only show non-button indicators */}
                                           <div className="flex items-center gap-1">
                                             {hasAutoClockOut && (
-                                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-orange-600 border-orange-300">
+                                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-orange-600 border-orange-300 gap-0.5">
+                                                <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                                  <path d="M21 12a9 9 0 11-9-9" strokeLinecap="round" />
+                                                  <path d="M3 12a9 9 0 019-9" strokeLinecap="round" />
+                                                  <path d="M21 12l-3-3m3 3l-3 3" strokeLinecap="round" strokeLinejoin="round" />
+                                                  <path d="M3 12l3 3m-3-3l3-3" strokeLinecap="round" strokeLinejoin="round" />
+                                                </svg>
                                                 Auto
                                               </Badge>
                                             )}
@@ -1286,16 +1292,21 @@ export default function PayrollReview() {
                                               variant="outline" 
                                               className="h-7 w-7 border-amber-400 bg-amber-50 hover:bg-amber-100" 
                                               onClick={() => handleApproveDay(dayPunches)}
+                                              title={hasBreakViolation ? 'Missing meal break' : 'Auto punched out'}
                                             >
-                                              <div className="relative">
-                                                <AlertTriangle className="h-4 w-4 text-amber-600" />
-                                                {hasBreakViolation && (
-                                                  <Coffee className="h-2.5 w-2.5 text-amber-700 absolute -bottom-0.5 -right-0.5" />
-                                                )}
-                                                {hasAutoClockOut && !hasBreakViolation && (
-                                                  <Clock className="h-2.5 w-2.5 text-orange-600 absolute -bottom-0.5 -right-0.5" />
-                                                )}
-                                              </div>
+                                              {hasBreakViolation ? (
+                                                <Coffee className="h-4 w-4 text-amber-600" />
+                                              ) : (
+                                                <div className="relative h-4 w-4 flex items-center justify-center">
+                                                  <svg viewBox="0 0 24 24" className="h-4 w-4 text-orange-600" fill="none" stroke="currentColor" strokeWidth="2">
+                                                    <path d="M21 12a9 9 0 11-9-9" strokeLinecap="round" />
+                                                    <path d="M3 12a9 9 0 019-9" strokeLinecap="round" />
+                                                    <path d="M21 12l-3-3m3 3l-3 3" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M3 12l3 3m-3-3l3-3" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <text x="12" y="15" textAnchor="middle" fontSize="8" fill="currentColor" stroke="none" fontWeight="bold">A</text>
+                                                  </svg>
+                                                </div>
+                                              )}
                                             </Button>
                                           ) : (
                                             <Button 
