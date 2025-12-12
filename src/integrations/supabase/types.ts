@@ -1282,6 +1282,8 @@ export type Database = {
           meal_break_duration: number | null
           meal_break_hours: number | null
           overtime_multiplier: number | null
+          pay_period_start_date: string | null
+          pay_period_type: string
           rest_break_duration: number | null
           rest_break_hours: number | null
           rule_name: string
@@ -1300,6 +1302,8 @@ export type Database = {
           meal_break_duration?: number | null
           meal_break_hours?: number | null
           overtime_multiplier?: number | null
+          pay_period_start_date?: string | null
+          pay_period_type?: string
           rest_break_duration?: number | null
           rest_break_hours?: number | null
           rule_name: string
@@ -1318,6 +1322,8 @@ export type Database = {
           meal_break_duration?: number | null
           meal_break_hours?: number | null
           overtime_multiplier?: number | null
+          pay_period_start_date?: string | null
+          pay_period_type?: string
           rest_break_duration?: number | null
           rest_break_hours?: number | null
           rule_name?: string

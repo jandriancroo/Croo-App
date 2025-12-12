@@ -201,12 +201,19 @@ export default function PayrollReview() {
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
   const [periodStatuses, setPeriodStatuses] = useState<Record<string, any>>({});
   const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all' } | null>(null);
+  const [laborRules, setLaborRules] = useState<any>(null);
 
   useEffect(() => {
-    if (isAdmin || isManager) {
+    if ((isAdmin || isManager) && currentLocation) {
+      fetchLaborRules();
+    }
+  }, [isAdmin, isManager, currentLocation]);
+
+  useEffect(() => {
+    if (laborRules) {
       generatePayPeriods();
     }
-  }, [isAdmin, isManager]);
+  }, [laborRules]);
 
   useEffect(() => {
     if (selectedPeriod) {
@@ -214,24 +221,109 @@ export default function PayrollReview() {
     }
   }, [selectedPeriod]);
 
-  const generatePayPeriods = async () => {
-    // Base period: Monday Nov 3, 2025 - Sunday Nov 16, 2025
-    const baseStart = new Date(2025, 10, 3);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0); // Reset time to start of day for comparison
-    const periods = [];
+  const fetchLaborRules = async () => {
+    if (!currentLocation) return;
     
-    for (let i = 0; i <= 9; i++) {
-      const periodStart = addWeeks(baseStart, i * 2);
-      const periodEnd = addDays(periodStart, 13);
+    const { data } = await supabase
+      .from('labor_rules')
+      .select('*')
+      .eq('location_id', currentLocation.id)
+      .limit(1)
+      .single();
+    
+    setLaborRules(data);
+  };
+
+  const generatePayPeriods = async () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const periods: any[] = [];
+    
+    const payPeriodType = laborRules?.pay_period_type || 'biweekly';
+    const baseStartDate = laborRules?.pay_period_start_date 
+      ? new Date(laborRules.pay_period_start_date) 
+      : new Date(2025, 10, 3); // Default: Nov 3, 2025
+    
+    if (payPeriodType === 'weekly') {
+      // Generate weekly periods
+      for (let i = 0; i <= 12; i++) {
+        const periodStart = addWeeks(baseStartDate, i);
+        const periodEnd = addDays(periodStart, 6);
+        
+        if (periodStart <= today) {
+          periods.push({
+            start: periodStart,
+            end: periodEnd,
+            label: `${format(periodStart, 'EEE MMM d')} - ${format(periodEnd, 'EEE MMM d, yyyy')}`
+          });
+        }
+      }
+    } else if (payPeriodType === 'biweekly') {
+      // Generate biweekly periods
+      for (let i = 0; i <= 9; i++) {
+        const periodStart = addWeeks(baseStartDate, i * 2);
+        const periodEnd = addDays(periodStart, 13);
+        
+        if (periodStart <= today) {
+          periods.push({
+            start: periodStart,
+            end: periodEnd,
+            label: `${format(periodStart, 'EEE MMM d')} - ${format(periodEnd, 'EEE MMM d, yyyy')}`
+          });
+        }
+      }
+    } else if (payPeriodType === 'semimonthly') {
+      // Generate semi-monthly periods (1st-15th, 16th-end of month)
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
       
-      // Only include periods that have already started (not in the future)
-      if (periodStart <= today) {
-        periods.push({
-          start: periodStart,
-          end: periodEnd,
-          label: `${format(periodStart, 'EEE MMM d')} - ${format(periodEnd, 'EEE MMM d, yyyy')}`
-        });
+      for (let monthOffset = -3; monthOffset <= 0; monthOffset++) {
+        const month = currentMonth + monthOffset;
+        const year = currentYear + Math.floor(month / 12);
+        const actualMonth = ((month % 12) + 12) % 12;
+        
+        // First half: 1st - 15th
+        const firstStart = new Date(year, actualMonth, 1);
+        const firstEnd = new Date(year, actualMonth, 15);
+        if (firstStart <= today) {
+          periods.push({
+            start: firstStart,
+            end: firstEnd,
+            label: `${format(firstStart, 'MMM d')} - ${format(firstEnd, 'MMM d, yyyy')}`
+          });
+        }
+        
+        // Second half: 16th - end of month
+        const secondStart = new Date(year, actualMonth, 16);
+        const secondEnd = new Date(year, actualMonth + 1, 0); // Last day of month
+        if (secondStart <= today) {
+          periods.push({
+            start: secondStart,
+            end: secondEnd,
+            label: `${format(secondStart, 'MMM d')} - ${format(secondEnd, 'MMM d, yyyy')}`
+          });
+        }
+      }
+    } else if (payPeriodType === 'monthly') {
+      // Generate monthly periods
+      const currentYear = today.getFullYear();
+      const currentMonth = today.getMonth();
+      
+      for (let monthOffset = -3; monthOffset <= 0; monthOffset++) {
+        const month = currentMonth + monthOffset;
+        const year = currentYear + Math.floor(month / 12);
+        const actualMonth = ((month % 12) + 12) % 12;
+        
+        const periodStart = new Date(year, actualMonth, 1);
+        const periodEnd = new Date(year, actualMonth + 1, 0); // Last day of month
+        
+        if (periodStart <= today) {
+          periods.push({
+            start: periodStart,
+            end: periodEnd,
+            label: `${format(periodStart, 'MMM d')} - ${format(periodEnd, 'MMM d, yyyy')}`
+          });
+        }
       }
     }
     

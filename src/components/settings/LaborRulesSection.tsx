@@ -3,10 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, Scale } from 'lucide-react';
+import { Plus, Edit, Trash2, Scale, Calendar } from 'lucide-react';
+import { format } from 'date-fns';
 
 interface LaborRulesSectionProps {
   locationId?: string;
@@ -27,6 +29,8 @@ interface LaborRule {
   rest_break_hours: number | null;
   rest_break_duration: number | null;
   auto_punch_out_time: string | null;
+  pay_period_type: string;
+  pay_period_start_date: string | null;
 }
 
 export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
@@ -48,6 +52,8 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
     rest_break_hours: null,
     rest_break_duration: null,
     auto_punch_out_time: null,
+    pay_period_type: 'biweekly',
+    pay_period_start_date: null,
   };
 
   const [formData, setFormData] = useState<LaborRule>(emptyRule);
@@ -113,6 +119,8 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             rest_break_hours: formData.rest_break_hours,
             rest_break_duration: formData.rest_break_duration,
             auto_punch_out_time: formData.auto_punch_out_time,
+            pay_period_type: formData.pay_period_type,
+            pay_period_start_date: formData.pay_period_start_date,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingRule.id);
@@ -137,6 +145,8 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             rest_break_hours: formData.rest_break_hours,
             rest_break_duration: formData.rest_break_duration,
             auto_punch_out_time: formData.auto_punch_out_time,
+            pay_period_type: formData.pay_period_type,
+            pay_period_start_date: formData.pay_period_start_date,
           });
 
         if (error) throw error;
@@ -358,6 +368,47 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                 </div>
 
                 <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-3 flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Pay Period Configuration
+                  </h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Define how pay periods are calculated for this location
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="pay-period-type">Pay Period Type</Label>
+                      <Select
+                        value={formData.pay_period_type}
+                        onValueChange={(value) => setFormData({...formData, pay_period_type: value})}
+                      >
+                        <SelectTrigger id="pay-period-type">
+                          <SelectValue placeholder="Select pay period type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="weekly">Weekly</SelectItem>
+                          <SelectItem value="biweekly">Biweekly (Every 2 Weeks)</SelectItem>
+                          <SelectItem value="semimonthly">Semi-Monthly (1st & 15th)</SelectItem>
+                          <SelectItem value="monthly">Monthly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {(formData.pay_period_type === 'weekly' || formData.pay_period_type === 'biweekly') && (
+                      <div className="space-y-2">
+                        <Label htmlFor="pay-period-start">Pay Period Start Date</Label>
+                        <Input
+                          id="pay-period-start"
+                          type="date"
+                          value={formData.pay_period_start_date || ''}
+                          onChange={(e) => setFormData({...formData, pay_period_start_date: e.target.value || null})}
+                        />
+                        <p className="text-xs text-muted-foreground">First day of a pay period</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
                   <h4 className="font-semibold mb-3">Auto Punch-Out (Optional)</h4>
                   <p className="text-sm text-muted-foreground mb-3">
                     Automatically clock out employees who forget to punch out
@@ -425,6 +476,19 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                 </div>
 
                 <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Pay Period:</span> {
+                      rule.pay_period_type === 'weekly' ? 'Weekly' :
+                      rule.pay_period_type === 'biweekly' ? 'Biweekly' :
+                      rule.pay_period_type === 'semimonthly' ? 'Semi-Monthly (1st & 15th)' :
+                      rule.pay_period_type === 'monthly' ? 'Monthly' : 'Biweekly'
+                    }
+                  </div>
+                  {rule.pay_period_start_date && (
+                    <div>
+                      <span className="text-muted-foreground">Start Date:</span> {format(new Date(rule.pay_period_start_date), 'MMM d, yyyy')}
+                    </div>
+                  )}
                   <div>
                     <span className="text-muted-foreground">Daily OT:</span> After {rule.daily_overtime_threshold}h at {rule.overtime_multiplier}x
                   </div>
