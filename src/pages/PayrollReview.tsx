@@ -226,7 +226,7 @@ export default function PayrollReview() {
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
   const [filterDay, setFilterDay] = useState<string>('all');
   const [periodStatuses, setPeriodStatuses] = useState<Record<string, any>>({});
-  const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all', hasBreakViolation?: boolean, hasAutoClockOut?: boolean } | null>(null);
+  const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all', hasBreakViolation?: boolean, hasAutoClockOut?: boolean, shiftInfo?: { dayPunches: any[], userId: string, locationId: string, shiftDate: string } } | null>(null);
   const [laborRules, setLaborRules] = useState<any>(null);
 
   useEffect(() => {
@@ -571,7 +571,19 @@ export default function PayrollReview() {
     }
     
     if (hasAutoClockOut || hasBreakViolation) {
-      setApprovalWarning({ punches: dayPunches, type: 'day', hasBreakViolation, hasAutoClockOut });
+      // Find the shift date from the punches
+      const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
+      const shiftDate = clockIn ? format(new Date(clockIn.punch_time), 'yyyy-MM-dd') : '';
+      const userId = clockIn?.user_id || '';
+      const locationId = currentLocation?.id || '';
+      
+      setApprovalWarning({ 
+        punches: dayPunches, 
+        type: 'day', 
+        hasBreakViolation, 
+        hasAutoClockOut,
+        shiftInfo: { dayPunches, userId, locationId, shiftDate }
+      });
       return;
     }
     await approvePunches(dayPunches.map(p => p.id));
@@ -1273,6 +1285,12 @@ export default function PayrollReview() {
 
                                           {/* Status Badges */}
                                           <div className="flex items-center gap-1">
+                                            {mealBreakStart && (
+                                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-amber-600 border-amber-300 gap-1">
+                                                <Coffee className="h-3 w-3" />
+                                                Break
+                                              </Badge>
+                                            )}
                                             {hasAutoClockOut && (
                                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-orange-600 border-orange-300 gap-1">
                                                 <img src={autoPunchIcon} alt="Auto" className="h-3.5 w-3.5" />
@@ -1410,9 +1428,17 @@ export default function PayrollReview() {
               </div>
             )}
             <DialogFooter className="flex gap-2">
-              <Button variant="outline" onClick={() => setApprovalWarning(null)}>
-                Cancel & Edit
-              </Button>
+              {approvalWarning?.shiftInfo && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setEditingShift(approvalWarning.shiftInfo!);
+                    setApprovalWarning(null);
+                  }}
+                >
+                  Fix Issues
+                </Button>
+              )}
               <Button 
                 variant="default"
                 onClick={() => approvalWarning && approvePunches(approvalWarning.punches.map((p: any) => p.id))}
