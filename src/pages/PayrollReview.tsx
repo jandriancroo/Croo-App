@@ -199,6 +199,7 @@ export default function PayrollReview() {
   const [showQuickEntry, setShowQuickEntry] = useState(false);
   const [includeApproved, setIncludeApproved] = useState(false);
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
+  const [filterDay, setFilterDay] = useState<string>('all');
   const [periodStatuses, setPeriodStatuses] = useState<Record<string, any>>({});
   const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all', hasBreakViolation?: boolean, hasAutoClockOut?: boolean } | null>(null);
   const [laborRules, setLaborRules] = useState<any>(null);
@@ -621,9 +622,31 @@ export default function PayrollReview() {
     fetchTimeCards();
   };
 
-  const filteredCards = filterEmployee === 'all' 
-    ? timeCards 
-    : timeCards.filter(card => card.profile.id === filterEmployee);
+  // Filter cards by employee and day
+  const filteredCards = useMemo(() => {
+    let cards = filterEmployee === 'all' 
+      ? timeCards 
+      : timeCards.filter(card => card.profile.id === filterEmployee);
+    
+    // If filtering by day, filter the punchesByDay within each card
+    if (filterDay !== 'all') {
+      cards = cards.map(card => {
+        const filteredPunchesByDay: { [key: string]: any[] } = {};
+        Object.entries(card.punchesByDay).forEach(([day, punches]) => {
+          const dayOfWeek = new Date(day).getDay().toString();
+          if (dayOfWeek === filterDay) {
+            filteredPunchesByDay[day] = punches as any[];
+          }
+        });
+        return {
+          ...card,
+          punchesByDay: filteredPunchesByDay
+        };
+      }).filter(card => Object.keys(card.punchesByDay).length > 0);
+    }
+    
+    return cards;
+  }, [timeCards, filterEmployee, filterDay]);
 
   // Count shifts (unique days) awaiting approval, not individual punch records
   const countShiftsAwaitingApproval = (cards: typeof timeCards) => {
@@ -987,40 +1010,20 @@ export default function PayrollReview() {
             </div>
 
             {/* Filters */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              <Select defaultValue="all">
-                <SelectTrigger>
-                  <SelectValue placeholder="All locations" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All locations</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select defaultValue="all">
-                <SelectTrigger>
-                  <SelectValue placeholder="All departments" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All departments</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select defaultValue="all">
-                <SelectTrigger>
-                  <SelectValue placeholder="All roles" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All roles</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select defaultValue="all">
+            <div className="grid grid-cols-2 gap-3">
+              <Select value={filterDay} onValueChange={setFilterDay}>
                 <SelectTrigger>
                   <SelectValue placeholder="All days" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All days</SelectItem>
+                  <SelectItem value="0">Sunday</SelectItem>
+                  <SelectItem value="1">Monday</SelectItem>
+                  <SelectItem value="2">Tuesday</SelectItem>
+                  <SelectItem value="3">Wednesday</SelectItem>
+                  <SelectItem value="4">Thursday</SelectItem>
+                  <SelectItem value="5">Friday</SelectItem>
+                  <SelectItem value="6">Saturday</SelectItem>
                 </SelectContent>
               </Select>
 
