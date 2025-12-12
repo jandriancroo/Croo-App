@@ -17,6 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import autoPunchIcon from '@/assets/auto-punch-icon.jpg';
 
 // Edit Shift Form Component - Full shift editing with clock in/out and breaks
 function EditShiftForm({ 
@@ -1244,16 +1245,7 @@ export default function PayrollReview() {
                                           <div className="flex items-center gap-1">
                                             {hasAutoClockOut && (
                                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-orange-600 border-orange-300 gap-1">
-                                                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none">
-                                                  {/* Circular arrow */}
-                                                  <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                                                  <path d="M22 12l-2.5-2.5M22 12l-2.5 2.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                  {/* Clock face */}
-                                                  <circle cx="12" cy="12" r="5" stroke="currentColor" strokeWidth="1.5" fill="none" />
-                                                  {/* Clock hands */}
-                                                  <path d="M12 12L12 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                                  <path d="M12 12L10 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                                                </svg>
+                                                <img src={autoPunchIcon} alt="Auto" className="h-3.5 w-3.5" />
                                                 Auto
                                               </Badge>
                                             )}
@@ -1300,18 +1292,7 @@ export default function PayrollReview() {
                                               {hasBreakViolation ? (
                                                 <Coffee className="h-5 w-5 text-amber-600" />
                                               ) : (
-                                                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none">
-                                                  {/* Circular arrow around the clock */}
-                                                  <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" />
-                                                  <path d="M22 12l-2.5-2.5M22 12l-2.5 2.5" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                  {/* Clock face */}
-                                                  <circle cx="12" cy="12" r="6" stroke="#ea580c" strokeWidth="1.5" fill="none" />
-                                                  {/* Clock hands - showing ~11 PM */}
-                                                  <path d="M12 12L12 8" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" />
-                                                  <path d="M12 12L10 10" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" />
-                                                  {/* Center dot */}
-                                                  <circle cx="12" cy="12" r="1" fill="#ea580c" />
-                                                </svg>
+                                                <img src={autoPunchIcon} alt="Auto punch out" className="h-5 w-5" />
                                               )}
                                             </Button>
                                           ) : (
