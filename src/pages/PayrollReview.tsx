@@ -1245,8 +1245,15 @@ export default function PayrollReview() {
                                             {hasAutoClockOut && (
                                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-orange-600 border-orange-300 gap-1">
                                                 <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none">
-                                                  <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2" strokeDasharray="12 12" />
-                                                  <path d="M18 7l1.5-1.5M18 17l1.5 1.5M6 7l-1.5-1.5M6 17l-1.5 1.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                                  {/* Two curved arrows forming a circle */}
+                                                  <path d="M20 12c0-4.4-3.6-8-8-8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                                  <path d="M4 12c0 4.4 3.6 8 8 8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                                                  {/* Top arrow */}
+                                                  <path d="M12 4l3 2.5L12 4l0 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                                                  {/* Bottom arrow */}
+                                                  <path d="M12 20l-3-2.5 3 2.5v-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                                                  {/* A letter */}
+                                                  <text x="12" y="15" textAnchor="middle" fontSize="9" fill="currentColor" fontWeight="bold" fontFamily="system-ui">A</text>
                                                 </svg>
                                                 Auto
                                               </Badge>
@@ -1296,9 +1303,15 @@ export default function PayrollReview() {
                                                 <Coffee className="h-5 w-5 text-amber-600" />
                                               ) : (
                                                 <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none">
-                                                  <circle cx="12" cy="12" r="9" stroke="#ea580c" strokeWidth="2" strokeDasharray="14 14" />
-                                                  <path d="M19 8l2-2M19 16l2 2M5 8l-2-2M5 16l-2 2" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" />
-                                                  <text x="12" y="16" textAnchor="middle" fontSize="10" fill="#ea580c" fontWeight="bold" fontFamily="system-ui">A</text>
+                                                  {/* Two curved arrows forming a circle like refresh icon */}
+                                                  <path d="M20 12c0-4.4-3.6-8-8-8" stroke="#ea580c" strokeWidth="2.5" strokeLinecap="round" />
+                                                  <path d="M4 12c0 4.4 3.6 8 8 8" stroke="#ea580c" strokeWidth="2.5" strokeLinecap="round" />
+                                                  {/* Top arrow pointing right */}
+                                                  <path d="M12 4l3 2-3-2v3" stroke="#ea580c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                  {/* Bottom arrow pointing left */}
+                                                  <path d="M12 20l-3-2 3 2v-3" stroke="#ea580c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                                                  {/* A letter */}
+                                                  <text x="12" y="15" textAnchor="middle" fontSize="9" fill="#ea580c" fontWeight="bold" fontFamily="system-ui">A</text>
                                                 </svg>
                                               )}
                                             </Button>
