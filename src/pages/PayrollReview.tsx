@@ -1143,12 +1143,14 @@ export default function PayrollReview() {
                 {/* Punches Awaiting Approval */}
                 <Card className="border-primary/20 bg-primary/5">
                   <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-sm font-bold">
+                        <div className="h-8 w-8 shrink-0 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-sm font-bold">
                           {totalPunchesAwaitingApproval}
                         </div>
                         <span className="font-medium text-sm">Shifts awaiting approval</span>
+                      </div>
+                      <div className="flex items-center justify-between sm:justify-end gap-3">
                         <div className="flex items-center gap-1.5">
                           <Checkbox
                             id="include-approved"
@@ -1156,14 +1158,14 @@ export default function PayrollReview() {
                             onCheckedChange={(checked) => setIncludeApproved(!checked as boolean)}
                             className="h-4 w-4"
                           />
-                          <label htmlFor="include-approved" className="text-xs text-muted-foreground cursor-pointer">
+                          <label htmlFor="include-approved" className="text-xs text-muted-foreground cursor-pointer whitespace-nowrap">
                             Hide approved
                           </label>
                         </div>
+                        <Button size="sm" onClick={handleApproveAll} disabled={filteredPunchesAwaitingApproval === 0}>
+                          Approve All ({filteredPunchesAwaitingApproval})
+                        </Button>
                       </div>
-                      <Button size="sm" onClick={handleApproveAll} disabled={filteredPunchesAwaitingApproval === 0}>
-                        Approve All ({filteredPunchesAwaitingApproval})
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
