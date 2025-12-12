@@ -5,12 +5,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronLeft, ChevronRight, ChevronDown, TrendingUp, TrendingDown, Package, Sparkles } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
+import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth, getWeek } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { formatTime12Hour } from '@/lib/utils';
 import { setCachedProjections, getCachedProjections } from '@/utils/salesCache';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SalesData {
   daily: number;
@@ -42,6 +43,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   const { currentLocation } = useAppLocation();
   const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [showProductMix, setShowProductMix] = useState(false);
+  const isMobile = useIsMobile();
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { 
@@ -166,6 +168,36 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     // If no business hours configured, don't show hourly breakdown
     return { ...rawSalesData, hourly: undefined };
   }, [rawSalesData, locationSettings]);
+
+  // Aggregate monthly breakdown into weekly buckets for mobile view
+  const monthlyWeeklyAggregated = useMemo(() => {
+    if (!salesData?.monthlyBreakdown) return [];
+    
+    const weeklyBuckets: { [key: number]: { sales: number; projected: number; dates: string[] } } = {};
+    
+    salesData.monthlyBreakdown.forEach(day => {
+      const date = new Date(day.date + 'T00:00:00');
+      const weekNum = getWeek(date, { weekStartsOn: 1 }); // Monday start
+      
+      if (!weeklyBuckets[weekNum]) {
+        weeklyBuckets[weekNum] = { sales: 0, projected: 0, dates: [] };
+      }
+      weeklyBuckets[weekNum].sales += day.sales;
+      weeklyBuckets[weekNum].projected += (day.projected || 0);
+      weeklyBuckets[weekNum].dates.push(day.date);
+    });
+    
+    return Object.entries(weeklyBuckets)
+      .sort(([a], [b]) => parseInt(a) - parseInt(b))
+      .map(([_, data], index) => ({
+        label: `Week ${index + 1}`,
+        sales: data.sales,
+        projected: data.projected,
+        dateRange: data.dates.length > 0 
+          ? `${format(new Date(data.dates[0] + 'T00:00:00'), 'MMM d')} - ${format(new Date(data.dates[data.dates.length - 1] + 'T00:00:00'), 'MMM d')}`
+          : ''
+      }));
+  }, [salesData?.monthlyBreakdown]);
 
   const navigateDay = (direction: 'prev' | 'next') => {
     setTargetDate(prev => direction === 'prev' ? subDays(prev, 1) : addDays(prev, 1));
@@ -551,41 +583,80 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 </div>
               )}
               
-              {salesData?.monthlyBreakdown && salesData.monthlyBreakdown.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                  <BarChart data={salesData.monthlyBreakdown.map(d => ({
-                    ...d,
-                    label: format(new Date(d.date + 'T00:00:00'), 'd')
-                  }))} barCategoryGap="5%">
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} interval={2} />
-                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
-                    <Tooltip 
-                      formatter={(value, name) => [formatCurrency(value as number), name === 'projected' ? 'Projected' : 'Actual']}
-                      labelFormatter={(label, payload) => {
-                        if (payload?.[0]?.payload?.date) {
-                          return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
-                        }
-                        return label;
-                      }}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '6px'
-                      }} 
-                    />
-                    <Legend 
-                      formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
-                      wrapperStyle={{ fontSize: '12px' }}
-                    />
-                    <Bar dataKey="projected" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.4} />
-                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+              {/* Mobile: Show weekly aggregated view, Desktop: Show daily view */}
+              {isMobile ? (
+                // Mobile weekly aggregated view
+                monthlyWeeklyAggregated.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={200}>
+                    <BarChart data={monthlyWeeklyAggregated} barCategoryGap="15%">
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
+                      <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
+                      <Tooltip 
+                        formatter={(value, name) => [formatCurrency(value as number), name === 'projected' ? 'Projected' : 'Actual']}
+                        labelFormatter={(label, payload) => {
+                          if (payload?.[0]?.payload?.dateRange) {
+                            return payload[0].payload.dateRange;
+                          }
+                          return label;
+                        }}
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '6px'
+                        }} 
+                      />
+                      <Legend 
+                        formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
+                        wrapperStyle={{ fontSize: '12px' }}
+                      />
+                      <Bar dataKey="projected" fill="hsl(var(--muted-foreground))" radius={[8, 8, 0, 0]} opacity={0.4} />
+                      <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[200px] flex items-center justify-center text-muted-foreground">
+                    No monthly data available
+                  </div>
+                )
               ) : (
-                <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
-                  No monthly data available
-                </div>
+                // Desktop daily view
+                salesData?.monthlyBreakdown && salesData.monthlyBreakdown.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={280}>
+                    <BarChart data={salesData.monthlyBreakdown.map(d => ({
+                      ...d,
+                      label: format(new Date(d.date + 'T00:00:00'), 'd')
+                    }))} barCategoryGap="5%">
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} interval={2} />
+                      <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
+                      <Tooltip 
+                        formatter={(value, name) => [formatCurrency(value as number), name === 'projected' ? 'Projected' : 'Actual']}
+                        labelFormatter={(label, payload) => {
+                          if (payload?.[0]?.payload?.date) {
+                            return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
+                          }
+                          return label;
+                        }}
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '6px'
+                        }} 
+                      />
+                      <Legend 
+                        formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
+                        wrapperStyle={{ fontSize: '12px' }}
+                      />
+                      <Bar dataKey="projected" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.4} />
+                      <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[280px] flex items-center justify-center text-muted-foreground">
+                    No monthly data available
+                  </div>
+                )
               )}
             </TabsContent>
           </Tabs>
