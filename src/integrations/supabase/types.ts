@@ -2352,6 +2352,7 @@ export type Database = {
           id: string
           is_published: boolean | null
           location_id: string | null
+          published_shifts_snapshot: Json | null
           published_snapshot: Json | null
           updated_at: string | null
           week_end_date: string
@@ -2363,6 +2364,7 @@ export type Database = {
           id?: string
           is_published?: boolean | null
           location_id?: string | null
+          published_shifts_snapshot?: Json | null
           published_snapshot?: Json | null
           updated_at?: string | null
           week_end_date: string
@@ -2374,6 +2376,7 @@ export type Database = {
           id?: string
           is_published?: boolean | null
           location_id?: string | null
+          published_shifts_snapshot?: Json | null
           published_snapshot?: Json | null
           updated_at?: string | null
           week_end_date?: string
