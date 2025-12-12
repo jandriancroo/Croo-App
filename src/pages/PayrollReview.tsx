@@ -617,7 +617,7 @@ export default function PayrollReview() {
       return;
     }
 
-    toast.success(`Approved ${punchIds.length} punch${punchIds.length !== 1 ? 'es' : ''}`);
+    
     setApprovalWarning(null);
     fetchTimeCards();
   };
