@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 
 interface ConflictWarningDialogProps {
   open: boolean;
@@ -56,7 +56,7 @@ export function ConflictWarningDialog({
                     <div className="text-sm space-y-1 mt-1">
                       <div className="flex items-center gap-2">
                         <span className="text-muted-foreground">Date:</span>
-                        <span>{format(new Date(conflict.date), "MMM d, yyyy")}</span>
+                        <span>{format(parseISO(conflict.date), "MMM d, yyyy")}</span>
                       </div>
                       {conflict.timeScope === "partial_day" && conflict.startTime && conflict.endTime && (
                         <div className="flex items-center gap-2">
