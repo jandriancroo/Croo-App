@@ -38,6 +38,7 @@ interface Event {
   event_name: string;
   event_time: string;
   day_of_week: number;
+  days_of_week?: number[] | null;
   notes: string | null;
   is_recurring: boolean;
 }
@@ -108,7 +109,12 @@ export function MobileScheduleView({
   const dayShifts = shifts.filter(
     s => s.day_of_week === selectedDayOfWeek && s.user_id && (isAdmin || isManager || isPublished)
   );
-  const dayEvents = events.filter(e => e.day_of_week === selectedDayOfWeek);
+  const dayEvents = events.filter(e => {
+    if (e.days_of_week && e.days_of_week.length > 0) {
+      return e.days_of_week.includes(selectedDayOfWeek);
+    }
+    return e.day_of_week === selectedDayOfWeek;
+  });
 
   const getProfileForShift = (shift: Shift) => {
     return profiles.find(p => p.id === shift.user_id);
