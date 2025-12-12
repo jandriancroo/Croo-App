@@ -112,6 +112,7 @@ export function MobileScheduleView({
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [quickPunchOpen, setQuickPunchOpen] = useState(false);
   const [activeShifts, setActiveShifts] = useState<ActiveShift[]>([]);
+  const [todayEvents, setTodayEvents] = useState<Event[]>([]);
   const [loadingActive, setLoadingActive] = useState(false);
   const { isAdmin, isManager } = useUserRole();
   const { user } = useAuth();
@@ -137,6 +138,7 @@ export function MobileScheduleView({
     
     // Use location's timezone to determine "today"
     const today = getTodayInTimezone(timezone);
+    const todayDayOfWeek = new Date().getDay();
     const offset = getTimezoneOffset(timezone);
     const startOfDay = new Date(`${today}T00:00:00${offset}`).toISOString();
     const endOfDay = new Date(`${today}T23:59:59${offset}`).toISOString();
@@ -155,6 +157,20 @@ export function MobileScheduleView({
       .from('scheduled_shifts')
       .select('user_id, start_time, end_time')
       .eq('shift_date', today);
+    
+    // Get today's events (recurring events for this location)
+    const { data: eventsData } = await supabase
+      .from('schedule_events')
+      .select('*')
+      .eq('location_id', currentLocation.id)
+      .eq('is_recurring', true)
+      .is('schedule_id', null);
+    
+    // Filter events for today's day of week
+    const filteredEvents = (eventsData || []).filter(event => 
+      event.days_of_week?.includes(todayDayOfWeek) || event.day_of_week === todayDayOfWeek
+    ).sort((a, b) => a.event_time.localeCompare(b.event_time));
+    setTodayEvents(filteredEvents);
     
     // Group by user and find those with unpaired clock-ins
     const userPunches: Record<string, Array<{id: string, punch_time: string, punch_type: string}>> = {};
@@ -259,35 +275,25 @@ export function MobileScheduleView({
             </h3>
             
             {/* Today's Events */}
-            {(() => {
-              const todayDayOfWeek = new Date().getDay();
-              const todayEvents = events.filter(event => 
-                event.days_of_week?.includes(todayDayOfWeek) || event.day_of_week === todayDayOfWeek
-              ).sort((a, b) => a.event_time.localeCompare(b.event_time));
-              
-              if (todayEvents.length > 0) {
-                return (
-                  <div className="mb-4 space-y-2">
-                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Events</h4>
-                    {todayEvents.map(event => (
-                      <Card key={event.id} className="p-3 border-l-4 border-l-primary/50">
-                        <div className="flex items-center gap-2">
-                          <CalendarIcon className="h-4 w-4 text-primary" />
-                          <span className="font-medium text-sm">{event.event_name}</span>
-                          <span className="text-xs text-muted-foreground ml-auto">
-                            {formatTime12Hour(event.event_time)}
-                          </span>
-                        </div>
-                        {event.notes && (
-                          <p className="text-xs text-muted-foreground mt-1 ml-6">{event.notes}</p>
-                        )}
-                      </Card>
-                    ))}
-                  </div>
-                );
-              }
-              return null;
-            })()}
+            {todayEvents.length > 0 && (
+              <div className="mb-4 space-y-2">
+                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Events</h4>
+                {todayEvents.map(event => (
+                  <Card key={event.id} className="p-3 border-l-4 border-l-primary/50">
+                    <div className="flex items-center gap-2">
+                      <CalendarIcon className="h-4 w-4 text-primary" />
+                      <span className="font-medium text-sm">{event.event_name}</span>
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        {formatTime12Hour(event.event_time)}
+                      </span>
+                    </div>
+                    {event.notes && (
+                      <p className="text-xs text-muted-foreground mt-1 ml-6">{event.notes}</p>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            )}
             
             {/* Active Shifts Section */}
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
@@ -338,7 +344,7 @@ export function MobileScheduleView({
                         variant="outline"
                         onClick={() => {
                           // Navigate to payroll review for editing
-                          window.location.href = '/payroll';
+                          window.location.href = '/payroll-review';
                         }}
                       >
                         <Pencil className="h-3 w-3" />
