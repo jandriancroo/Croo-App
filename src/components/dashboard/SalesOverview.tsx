@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronLeft, ChevronRight, ChevronDown, TrendingUp, TrendingDown, Package, Sparkles } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth, getWeek } from 'date-fns';
+import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -169,33 +169,42 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     return { ...rawSalesData, hourly: undefined };
   }, [rawSalesData, locationSettings]);
 
-  // Aggregate monthly breakdown into weekly buckets for mobile view
+  // Aggregate monthly breakdown into weekly buckets (Mon-Sun) for mobile view
   const monthlyWeeklyAggregated = useMemo(() => {
-    if (!salesData?.monthlyBreakdown) return [];
+    if (!salesData?.monthlyBreakdown || salesData.monthlyBreakdown.length === 0) return [];
     
-    const weeklyBuckets: { [key: number]: { sales: number; projected: number; dates: string[] } } = {};
+    // Group by Monday-Sunday weeks
+    const weeklyBuckets: Array<{ weekStart: Date; sales: number; projected: number; startDate: string; endDate: string }> = [];
     
     salesData.monthlyBreakdown.forEach(day => {
       const date = new Date(day.date + 'T00:00:00');
-      const weekNum = getWeek(date, { weekStartsOn: 1 }); // Monday start
+      const weekStart = startOfWeek(date, { weekStartsOn: 1 }); // Monday
       
-      if (!weeklyBuckets[weekNum]) {
-        weeklyBuckets[weekNum] = { sales: 0, projected: 0, dates: [] };
+      // Find existing bucket or create new one
+      let bucket = weeklyBuckets.find(b => b.weekStart.getTime() === weekStart.getTime());
+      if (!bucket) {
+        const weekEnd = endOfWeek(date, { weekStartsOn: 1 }); // Sunday
+        bucket = { 
+          weekStart, 
+          sales: 0, 
+          projected: 0, 
+          startDate: format(weekStart, 'MMM d'),
+          endDate: format(weekEnd, 'MMM d')
+        };
+        weeklyBuckets.push(bucket);
       }
-      weeklyBuckets[weekNum].sales += day.sales;
-      weeklyBuckets[weekNum].projected += (day.projected || 0);
-      weeklyBuckets[weekNum].dates.push(day.date);
+      bucket.sales += day.sales;
+      bucket.projected += (day.projected || 0);
     });
     
-    return Object.entries(weeklyBuckets)
-      .sort(([a], [b]) => parseInt(a) - parseInt(b))
-      .map(([_, data], index) => ({
+    // Sort by week start date
+    return weeklyBuckets
+      .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime())
+      .map((bucket, index) => ({
         label: `Week ${index + 1}`,
-        sales: data.sales,
-        projected: data.projected,
-        dateRange: data.dates.length > 0 
-          ? `${format(new Date(data.dates[0] + 'T00:00:00'), 'MMM d')} - ${format(new Date(data.dates[data.dates.length - 1] + 'T00:00:00'), 'MMM d')}`
-          : ''
+        sales: bucket.sales,
+        projected: bucket.projected,
+        dateRange: `${bucket.startDate} - ${bucket.endDate}`
       }));
   }, [salesData?.monthlyBreakdown]);
 
