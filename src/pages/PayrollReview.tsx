@@ -1018,33 +1018,33 @@ export default function PayrollReview() {
         ) : (
           <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <Button variant="ghost" onClick={() => setSelectedPeriod(null)} className="pl-0">
-                  <ChevronLeft className="mr-2 h-4 w-4" />
-                  Pay Periods
-                </Button>
+            <div className="space-y-4">
+              <Button variant="ghost" onClick={() => setSelectedPeriod(null)} className="pl-0">
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Pay Periods
+              </Button>
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
                 <div>
                   <h1 className="text-3xl font-bold">Payroll Period</h1>
                   <p className="text-muted-foreground">{selectedPeriod.label}</p>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                {isPeriodClosed ? (
-                  <Button variant="outline" onClick={handleReopenPeriod}>
-                    Re-Open Pay Period
-                  </Button>
-                ) : (
-                  <Button variant="outline" onClick={handleClosePeriod}>
-                    Close Pay Period
-                  </Button>
-                )}
-                {!isPeriodClosed && (
-                  <Button onClick={() => setShowQuickEntry(true)}>
-                    <Calendar className="mr-2 h-4 w-4" />
-                    Add punch
-                  </Button>
-                )}
+                <div className="flex gap-2">
+                  {isPeriodClosed ? (
+                    <Button variant="outline" onClick={handleReopenPeriod}>
+                      Re-Open Pay Period
+                    </Button>
+                  ) : (
+                    <Button variant="outline" onClick={handleClosePeriod}>
+                      Close Pay Period
+                    </Button>
+                  )}
+                  {!isPeriodClosed && (
+                    <Button onClick={() => setShowQuickEntry(true)}>
+                      <Calendar className="mr-2 h-4 w-4" />
+                      Add punch
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
 
