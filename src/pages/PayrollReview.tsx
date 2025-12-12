@@ -6,10 +6,10 @@ import { format, addDays, addWeeks } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { toast } from 'sonner';
-import { ChevronLeft, AlertTriangle, Camera, Edit, Trash2, Clock, Calendar, CheckCircle2, Lock } from 'lucide-react';
+import { ChevronLeft, AlertTriangle, Edit, Trash2, Clock, Calendar, CheckCircle2, Lock, AlertCircle, Coffee } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Layout } from '@/components/Layout';
 import { QuickPunchDialog } from '@/components/timeclock/QuickPunchDialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,6 +28,7 @@ export default function PayrollReview() {
   const [includeApproved, setIncludeApproved] = useState(false);
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
   const [periodStatuses, setPeriodStatuses] = useState<Record<string, any>>({});
+  const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all' } | null>(null);
 
   useEffect(() => {
     if (isAdmin || isManager) {
@@ -257,10 +258,37 @@ export default function PayrollReview() {
   };
 
   const handleApproveDay = async (dayPunches: any[]) => {
+    // Check for flagged punches
+    const hasFlaggedPunches = dayPunches.some((p: any) => p.is_auto_punched_out || p.has_break_violation);
+    if (hasFlaggedPunches) {
+      setApprovalWarning({ punches: dayPunches, type: 'day' });
+      return;
+    }
+    await approvePunches(dayPunches.map(p => p.id));
+  };
+
+  const handleApproveAll = async () => {
+    const allUnapprovedPunches = filteredCards.flatMap(card => 
+      card.punches.filter((p: any) => !p.approved_at)
+    );
+
+    if (allUnapprovedPunches.length === 0) {
+      toast.info('No punches to approve');
+      return;
+    }
+
+    // Check for flagged punches
+    const hasFlaggedPunches = allUnapprovedPunches.some((p: any) => p.is_auto_punched_out || p.has_break_violation);
+    if (hasFlaggedPunches) {
+      setApprovalWarning({ punches: allUnapprovedPunches, type: 'all' });
+      return;
+    }
+    await approvePunches(allUnapprovedPunches.map((p: any) => p.id));
+  };
+
+  const approvePunches = async (punchIds: string[]) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
-    const punchIds = dayPunches.map(p => p.id);
 
     const { error } = await supabase
       .from('time_punches')
@@ -275,37 +303,8 @@ export default function PayrollReview() {
       return;
     }
 
-    toast.success('Day approved');
-    fetchTimeCards();
-  };
-
-  const handleApproveAll = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const allPunchIds = filteredCards.flatMap(card => 
-      card.punches.filter((p: any) => !p.approved_at).map((p: any) => p.id)
-    );
-
-    if (allPunchIds.length === 0) {
-      toast.info('No punches to approve');
-      return;
-    }
-
-    const { error } = await supabase
-      .from('time_punches')
-      .update({ 
-        approved_by: user.id,
-        approved_at: new Date().toISOString()
-      })
-      .in('id', allPunchIds);
-
-    if (error) {
-      toast.error('Failed to approve all punches');
-      return;
-    }
-
-    toast.success(`Approved ${allPunchIds.length} punches`);
+    toast.success(`Approved ${punchIds.length} punch${punchIds.length !== 1 ? 'es' : ''}`);
+    setApprovalWarning(null);
     fetchTimeCards();
   };
 
@@ -313,15 +312,22 @@ export default function PayrollReview() {
     ? timeCards 
     : timeCards.filter(card => card.profile.id === filterEmployee);
 
+  // Count shifts (unique days) awaiting approval, not individual punch records
+  const countShiftsAwaitingApproval = (cards: typeof timeCards) => {
+    return cards.reduce((sum, card) => {
+      // Count days that have any unapproved punches
+      const daysWithUnapproved = Object.values(card.punchesByDay).filter(
+        (dayPunches: any[]) => dayPunches.some((p: any) => !p.approved_at)
+      );
+      return sum + daysWithUnapproved.length;
+    }, 0);
+  };
+
   // Total across all employees (for badge)
-  const totalPunchesAwaitingApproval = timeCards.reduce((sum, card) => {
-    return sum + card.punches.filter((p: any) => !p.approved_at).length;
-  }, 0);
+  const totalPunchesAwaitingApproval = countShiftsAwaitingApproval(timeCards);
 
   // Total for filtered view (for button)
-  const filteredPunchesAwaitingApproval = filteredCards.reduce((sum, card) => {
-    return sum + card.punches.filter((p: any) => !p.approved_at).length;
-  }, 0);
+  const filteredPunchesAwaitingApproval = countShiftsAwaitingApproval(filteredCards);
 
   const getPeriodStatus = (period: any) => {
     const key = `${format(period.start, 'yyyy-MM-dd')}_${format(period.end, 'yyyy-MM-dd')}`;
@@ -767,6 +773,12 @@ export default function PayrollReview() {
                                       <Clock className="h-3 w-3 text-red-600" />
                                       <span className="text-red-600">OUT</span>
                                       <span className="font-medium">{format(new Date(clockOut.punch_time), 'h:mm a')}</span>
+                                      {clockOut.is_auto_punched_out && (
+                                        <Badge variant="outline" className="ml-1 text-orange-600 border-orange-300 bg-orange-50">
+                                          <AlertCircle className="h-3 w-3 mr-1" />
+                                          Auto
+                                        </Badge>
+                                      )}
                                     </div>
                                   )}
                                   {!clockOut && clockIn && (
@@ -774,7 +786,21 @@ export default function PayrollReview() {
                                   )}
                                 </div>
 
-                                {hasIssues && (
+                                {/* Flags for auto punch-out and break violations */}
+                                {dayPunches.some((p: any) => p.is_auto_punched_out) && (
+                                  <div className="flex items-center gap-2 text-orange-600 text-sm bg-orange-50 p-2 rounded">
+                                    <AlertCircle className="h-4 w-4" />
+                                    <span>Auto clocked out - please verify hours</span>
+                                  </div>
+                                )}
+                                {dayPunches.some((p: any) => p.has_break_violation) && (
+                                  <div className="flex items-center gap-2 text-amber-600 text-sm bg-amber-50 p-2 rounded">
+                                    <Coffee className="h-4 w-4" />
+                                    <span>Break violation - no meal break recorded</span>
+                                  </div>
+                                )}
+
+                                {hasIssues && !dayPunches.some((p: any) => p.has_break_violation) && (
                                   <div className="flex items-center gap-2 text-amber-600 text-sm">
                                     <AlertTriangle className="h-4 w-4" />
                                     <span>1 possible exception</span>
@@ -828,6 +854,58 @@ export default function PayrollReview() {
                 />
               </div>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Approval Warning Dialog */}
+        <Dialog open={!!approvalWarning} onOpenChange={() => setApprovalWarning(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-amber-600">
+                <AlertTriangle className="h-5 w-5" />
+                Review Flagged Punches
+              </DialogTitle>
+              <DialogDescription>
+                The following issues were found with these punches. Please review before approving.
+              </DialogDescription>
+            </DialogHeader>
+            {approvalWarning && (
+              <div className="space-y-3">
+                {approvalWarning.punches.some((p: any) => p.is_auto_punched_out) && (
+                  <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                    <AlertCircle className="h-5 w-5 text-orange-600" />
+                    <div>
+                      <p className="font-medium text-orange-800">Auto Clock-Out Detected</p>
+                      <p className="text-sm text-orange-600">
+                        {approvalWarning.punches.filter((p: any) => p.is_auto_punched_out).length} punch(es) were automatically generated because employees forgot to clock out.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {approvalWarning.punches.some((p: any) => p.has_break_violation) && (
+                  <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                    <Coffee className="h-5 w-5 text-amber-600" />
+                    <div>
+                      <p className="font-medium text-amber-800">Break Violation</p>
+                      <p className="text-sm text-amber-600">
+                        {approvalWarning.punches.filter((p: any) => p.has_break_violation).length} shift(s) exceeded break threshold without a recorded meal break.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" onClick={() => setApprovalWarning(null)}>
+                Cancel & Edit
+              </Button>
+              <Button 
+                variant="default"
+                onClick={() => approvalWarning && approvePunches(approvalWarning.punches.map((p: any) => p.id))}
+              >
+                Approve Anyway
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
