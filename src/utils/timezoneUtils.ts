@@ -53,6 +53,21 @@ export const getTodayInTimezone = (timezone: string = DEFAULT_TIMEZONE): string 
 };
 
 /**
+ * Get the current day of week in specified timezone (0=Sunday, 6=Saturday)
+ */
+export const getDayOfWeekInTimezone = (timezone: string = DEFAULT_TIMEZONE): number => {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    weekday: 'short'
+  });
+  const dayName = formatter.format(new Date());
+  const dayMap: Record<string, number> = {
+    'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+  };
+  return dayMap[dayName] ?? 0;
+};
+
+/**
  * Convert any Date object to a date string in specified timezone (YYYY-MM-DD format)
  */
 export const getDateInTimezone = (date: Date, timezone: string = DEFAULT_TIMEZONE): string => {
