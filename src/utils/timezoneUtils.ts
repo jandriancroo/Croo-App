@@ -53,7 +53,8 @@ export const getTodayInTimezone = (timezone: string = DEFAULT_TIMEZONE): string 
 };
 
 /**
- * Get the current day of week in specified timezone (0=Sunday, 6=Saturday)
+ * Get the current day of week in specified timezone (0=Monday, 6=Sunday)
+ * This matches the Monday-through-Sunday week format used in the schedule
  */
 export const getDayOfWeekInTimezone = (timezone: string = DEFAULT_TIMEZONE): number => {
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -61,8 +62,9 @@ export const getDayOfWeekInTimezone = (timezone: string = DEFAULT_TIMEZONE): num
     weekday: 'short'
   });
   const dayName = formatter.format(new Date());
+  // Monday = 0, Tuesday = 1, ... Sunday = 6
   const dayMap: Record<string, number> = {
-    'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+    'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6
   };
   return dayMap[dayName] ?? 0;
 };
