@@ -476,6 +476,108 @@ function getSeededRandomFactor(seed: string): number {
 // Daily: (4-week avg for day + last year same day) / 2 * random factor
 // Weekly: (4-week avg + last year same week) / 2 * random factor
 // Monthly: last year same month * random factor
+// Generate hourly projections based on historical patterns
+function generateHourlyProjections(
+  hourlyActuals: { hour: string; sales: number }[],
+  hoursOpen: number,
+  hoursClose: number,
+  todayStr: string,
+  locationId: string,
+  todayProjectedTotal: number,
+  fourWeekHourlyPattern?: { hour: number; avgPercent: number }[]
+): { hour: string; sales: number; projected: number }[] {
+  const result: { hour: string; sales: number; projected: number }[] = [];
+  const totalActualSales = hourlyActuals.reduce((sum, h) => sum + h.sales, 0);
+  
+  // Default hourly distribution if no historical pattern (typical restaurant curve)
+  const defaultPattern: { [hour: number]: number } = {
+    10: 0.02, 11: 0.08, 12: 0.15, 13: 0.12, 14: 0.06, 15: 0.05,
+    16: 0.07, 17: 0.12, 18: 0.14, 19: 0.10, 20: 0.06, 21: 0.03
+  };
+  
+  for (let hour = hoursOpen; hour < hoursClose; hour++) {
+    const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+    const actual = hourlyActuals.find(h => parseInt(h.hour.split(':')[0]) === hour)?.sales || 0;
+    
+    // Calculate projected for this hour
+    let hourlyProjected = 0;
+    if (fourWeekHourlyPattern) {
+      const pattern = fourWeekHourlyPattern.find(p => p.hour === hour);
+      hourlyProjected = pattern ? todayProjectedTotal * pattern.avgPercent : 0;
+    } else {
+      const percent = defaultPattern[hour] || 0.05;
+      hourlyProjected = todayProjectedTotal * percent;
+    }
+    
+    result.push({ hour: hourStr, sales: actual, projected: Math.round(hourlyProjected) });
+  }
+  
+  return result;
+}
+
+// Generate daily projections for week view
+function generateDailyProjectionsForWeek(
+  weeklyBreakdown: { date: string; sales: number }[],
+  weekStartStr: string,
+  locationId: string,
+  fourWeekAverage?: { avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[] }
+): { date: string; sales: number; projected: number }[] {
+  const result: { date: string; sales: number; projected: number }[] = [];
+  const randomFactor = getSeededRandomFactor(`week-${weekStartStr}-${locationId}`);
+  
+  // Generate all 7 days of the week
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(weekStartStr + 'T12:00:00');
+    date.setDate(date.getDate() + i);
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const dayOfWeek = date.getDay();
+    
+    const actual = weeklyBreakdown.find(d => d.date === dateStr)?.sales || 0;
+    let projected = 0;
+    
+    if (fourWeekAverage) {
+      const avgForDay = fourWeekAverage.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek);
+      projected = avgForDay ? avgForDay.avgSales * randomFactor : 0;
+    }
+    
+    result.push({ date: dateStr, sales: actual, projected: Math.round(projected) });
+  }
+  
+  return result;
+}
+
+// Generate daily projections for month view
+function generateDailyProjectionsForMonth(
+  monthlyBreakdown: { date: string; sales: number }[],
+  monthStartStr: string,
+  locationId: string,
+  fourWeekAverage?: { avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[] }
+): { date: string; sales: number; projected: number }[] {
+  const result: { date: string; sales: number; projected: number }[] = [];
+  const randomFactor = getSeededRandomFactor(`month-${monthStartStr}-${locationId}`);
+  
+  const monthDate = new Date(monthStartStr + 'T12:00:00');
+  const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+  
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const dayOfWeek = date.getDay();
+    
+    const actual = monthlyBreakdown.find(d => d.date === dateStr)?.sales || 0;
+    let projected = 0;
+    
+    if (fourWeekAverage) {
+      const avgForDay = fourWeekAverage.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek);
+      projected = avgForDay ? avgForDay.avgSales * randomFactor : 0;
+    }
+    
+    result.push({ date: dateStr, sales: actual, projected: Math.round(projected) });
+  }
+  
+  return result;
+}
+
 function generateProjections(
   dailySales: number,
   weeklySales: number,
@@ -960,6 +1062,10 @@ serve(async (req) => {
 
     // Generate AI projections (skip if client already has cached projections)
     let projections = { todayProjected: 0, weekProjected: 0, monthProjected: 0 };
+    let hourlyWithProjections: { hour: string; sales: number; projected: number }[] = [];
+    let weeklyWithProjections: { date: string; sales: number; projected: number }[] = [];
+    let monthlyWithProjections: { date: string; sales: number; projected: number }[] = [];
+    
     if (!skipProjections) {
       console.log('Generating deterministic projections with 4-week average and last year data...');
       projections = generateProjections(
@@ -976,17 +1082,47 @@ serve(async (req) => {
         lastYearData,
         fourWeekAverage
       );
+      
+      // Generate hourly projections for today
+      hourlyWithProjections = generateHourlyProjections(
+        todayHourly,
+        hoursOpen,
+        hoursClose,
+        todayStr,
+        locationId || 'default',
+        projections.todayProjected
+      );
+      
+      // Generate daily projections for week
+      weeklyWithProjections = generateDailyProjectionsForWeek(
+        weeklyBreakdown,
+        weekStartStr,
+        locationId || 'default',
+        fourWeekAverage
+      );
+      
+      // Generate daily projections for month
+      monthlyWithProjections = generateDailyProjectionsForMonth(
+        monthlyBreakdown,
+        monthStartStr,
+        locationId || 'default',
+        fourWeekAverage
+      );
     } else {
       console.log('Skipping projections - client has cached values');
+      // Still provide basic structure without projections
+      hourlyWithProjections = todayHourly.map(h => ({ ...h, projected: 0 }));
+      weeklyWithProjections = weeklyBreakdown.map(d => ({ date: d.date, sales: d.sales, projected: 0 }));
+      monthlyWithProjections = monthlyBreakdown.map(d => ({ date: d.date, sales: d.sales, projected: 0 }));
     }
 
     const result = {
       daily: dailySales,
       weekly: weeklySales,
       monthly: monthlySales,
-      hourly: todayHourly,
-      weeklyBreakdown,
-      monthlyBreakdown,
+      hourly: hourlyWithProjections,
+      weeklyBreakdown: weeklyWithProjections,
+      monthlyBreakdown: monthlyWithProjections,
       guestCount: {
         daily: dailyGuestCount,
         weekly: weeklyGuestCount,
