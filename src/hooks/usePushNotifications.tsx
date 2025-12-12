@@ -52,7 +52,7 @@ export const usePushNotifications = () => {
       if (!userId) return;
 
       // VAPID public key for web push
-      const vapidPublicKey = 'BIVI5qxDjrdlBJxp_b8z2HJm4cpfh9roIYHAguvYRMtrYpopXAb8DXcCdGgIW4OVVIG2bSHU03-xwCyjhNGbLDk';
+      const vapidPublicKey = 'BMFAfiqavc1nPrnxT3UlNQ7QmxL3bZYpzbgmQiXs3WL0jcDEKMX-6VTVLeGodW2XVCfmaQTsbdCwkjXutsVXzKU';
 
       if (hasRegisteredRef.current) {
         console.log('[Push Web] ⚠️ Already registered, skipping duplicate setup');
