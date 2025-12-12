@@ -69,18 +69,41 @@ export const usePushNotifications = () => {
           return;
         }
 
-        // Request notification permission
-        console.log('[Push Web] Requesting notification permission...');
-        const permission = await Notification.requestPermission();
-        console.log('[Push Web] Permission result:', permission);
+        // Check current permission state first
+        const currentPermission = Notification.permission;
+        console.log('[Push Web] Current permission state:', currentPermission);
+        
+        let permission = currentPermission;
+        
+        if (currentPermission === 'denied') {
+          // On iOS Safari PWA, denied permission cannot be re-prompted
+          // User must manually enable in iOS Settings
+          console.log('[Push Web] ❌ Permission was previously denied - user must enable in iOS Settings');
+          console.log('[Push Web] iOS: Settings → Safari → [This Website] → Notifications');
+          console.log('[Push Web] Or: Settings → Notifications → Safari');
+          
+          // Only show toast once per session to avoid spam
+          if (!sessionStorage.getItem('push_denied_toast_shown')) {
+            sessionStorage.setItem('push_denied_toast_shown', 'true');
+            toast({
+              title: "Notifications Disabled",
+              description: "Go to iOS Settings → Safari → Notifications to enable",
+              variant: "destructive",
+            });
+          }
+          hasRegisteredRef.current = false;
+          return;
+        }
+        
+        if (currentPermission === 'default') {
+          // Permission hasn't been decided yet - we can request
+          console.log('[Push Web] Requesting notification permission...');
+          permission = await Notification.requestPermission();
+          console.log('[Push Web] Permission result:', permission);
+        }
 
         if (permission !== 'granted') {
-          console.log('[Push Web] ❌ Notification permission denied');
-          toast({
-            title: "Notifications Blocked",
-            description: "Please enable notifications in your browser settings.",
-            variant: "destructive",
-          });
+          console.log('[Push Web] ❌ Notification permission not granted:', permission);
           hasRegisteredRef.current = false;
           return;
         }
