@@ -16,7 +16,9 @@ import { useAuth } from '@/lib/auth';
 import { formatTime12Hour } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay } from '@/utils/timezoneUtils';
 
 interface Profile {
   id: string;
@@ -110,27 +112,30 @@ export function MobileScheduleView({
   const { isAdmin, isManager } = useUserRole();
   const { user } = useAuth();
   const { currentLocation } = useLocation();
+  const { timezone } = useLocationTimezone();
   
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   const selectedDayOfWeek = weekDays.findIndex(day => isSameDay(day, selectedDate));
 
   // Fetch active shifts (clocked in but not out)
   useEffect(() => {
-    if (activeTab === 'today' && currentLocation?.id) {
+    if (activeTab === 'today' && currentLocation?.id && timezone) {
       fetchActiveShifts();
       // Refresh every minute to update hours
       const interval = setInterval(fetchActiveShifts, 60000);
       return () => clearInterval(interval);
     }
-  }, [activeTab, currentLocation?.id]);
+  }, [activeTab, currentLocation?.id, timezone]);
 
   const fetchActiveShifts = async () => {
-    if (!currentLocation?.id) return;
+    if (!currentLocation?.id || !timezone) return;
     setLoadingActive(true);
     
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const startOfDay = `${today}T00:00:00`;
-    const endOfDay = `${today}T23:59:59`;
+    // Use location's timezone to determine "today"
+    const today = getTodayInTimezone(timezone);
+    const offset = getTimezoneOffset(timezone);
+    const startOfDay = new Date(`${today}T00:00:00${offset}`).toISOString();
+    const endOfDay = new Date(`${today}T23:59:59${offset}`).toISOString();
     
     // Get today's clock-ins
     const { data: clockIns } = await supabase
@@ -260,7 +265,7 @@ export function MobileScheduleView({
                       <div className="flex-1">
                         <h4 className="font-semibold">{activeShift.profile.full_name}</h4>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>In: {format(new Date(activeShift.punch_time), 'h:mm a')}</span>
+                          <span>In: {formatTimeDisplay(activeShift.punch_time, timezone)}</span>
                           <span>•</span>
                           <span className="text-green-600 font-medium">
                             {activeShift.hoursWorked.toFixed(1)}h
