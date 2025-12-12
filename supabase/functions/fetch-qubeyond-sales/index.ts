@@ -1156,12 +1156,12 @@ serve(async (req) => {
       fourWeekAverage
     );
 
-    // Add labor % to hourly data if we have labor data
+    // Add labor % to hourly data if we have labor data (use daily labor % for all hours as approximation)
     let hourlyWithLabor = hourlyWithProjections;
-    if (laborData && dailySales > 0) {
+    if (laborData && laborData.laborPercent > 0) {
       hourlyWithLabor = hourlyWithProjections.map(h => ({
         ...h,
-        laborPercent: h.sales > 0 ? (laborData.laborCost * (h.sales / dailySales) / h.sales) * 100 : 0
+        laborPercent: laborData.laborPercent
       }));
     }
     
