@@ -18,7 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay } from '@/utils/timezoneUtils';
+import { getTodayInTimezone, getTimezoneOffset, formatTimeDisplay, getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 
 interface Profile {
   id: string;
@@ -138,7 +138,7 @@ export function MobileScheduleView({
     
     // Use location's timezone to determine "today"
     const today = getTodayInTimezone(timezone);
-    const todayDayOfWeek = new Date().getDay();
+    const todayDayOfWeek = getDayOfWeekInTimezone(timezone);
     const offset = getTimezoneOffset(timezone);
     const startOfDay = new Date(`${today}T00:00:00${offset}`).toISOString();
     const endOfDay = new Date(`${today}T23:59:59${offset}`).toISOString();
@@ -271,7 +271,7 @@ export function MobileScheduleView({
         <div className="flex-1 overflow-auto">
           <div className="p-4">
             <h3 className="text-sm font-medium text-muted-foreground mb-3">
-              {format(new Date(), 'EEEE, MMMM d')}
+              {new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}
             </h3>
             
             {/* Today's Events */}
