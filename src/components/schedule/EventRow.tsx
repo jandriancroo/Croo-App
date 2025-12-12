@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, Trash2, Palette, ListTodo } from "lucide-react";
+import { Plus, Trash2, Palette, ClipboardCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { startOfWeek, addDays, format } from "date-fns";
@@ -564,7 +564,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
                       >
                         <div className="font-medium text-white flex items-center gap-1">
                           {event.is_daily_task && (
-                            <ListTodo className="h-3 w-3 flex-shrink-0 text-accent" />
+                            <ClipboardCheck className="h-4 w-4 flex-shrink-0 text-white" />
                           )}
                           <span className="truncate">
                             {formatTime12Hour(event.event_time)}
