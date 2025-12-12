@@ -87,8 +87,11 @@ interface ActiveShift {
   profile: Profile;
   hoursWorked: number;
   scheduledShift?: {
+    id: string;
     start_time: string;
     end_time: string;
+    day_of_week: number;
+    shift_date: string;
   } | null;
 }
 
@@ -161,7 +164,7 @@ export function MobileScheduleView({
     // Get today's scheduled shifts
     const { data: todayScheduledShifts } = await supabase
       .from('scheduled_shifts')
-      .select('user_id, start_time, end_time')
+      .select('id, user_id, start_time, end_time, day_of_week, shift_date')
       .eq('shift_date', today);
     
     // Get today's events (recurring events for this location)
@@ -214,7 +217,7 @@ export function MobileScheduleView({
         punch_time: punch.punch_time,
         profile: profile || { id: punch.user_id, full_name: 'Unknown', profile_photo_url: null },
         hoursWorked,
-        scheduledShift: scheduledShift ? { start_time: scheduledShift.start_time, end_time: scheduledShift.end_time } : null
+        scheduledShift: scheduledShift ? { id: scheduledShift.id, start_time: scheduledShift.start_time, end_time: scheduledShift.end_time, day_of_week: scheduledShift.day_of_week, shift_date: scheduledShift.shift_date } : null
       };
     }).filter(s => s.profile);
     
@@ -330,16 +333,26 @@ export function MobileScheduleView({
                         </div>
                       </div>
                       
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          // Navigate to payroll review for editing
-                          window.location.href = '/payroll-review';
-                        }}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
+                      {activeShift.scheduledShift && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedShift({
+                              id: activeShift.scheduledShift!.id,
+                              user_id: activeShift.user_id,
+                              day_of_week: activeShift.scheduledShift!.day_of_week,
+                              start_time: activeShift.scheduledShift!.start_time,
+                              end_time: activeShift.scheduledShift!.end_time,
+                              shift_date: activeShift.scheduledShift!.shift_date,
+                            });
+                            setIsCreatingShift(false);
+                            setShiftDialogOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
                   </Card>
                 ))}
