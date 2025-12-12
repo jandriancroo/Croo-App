@@ -18,6 +18,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
+// Edit Punch Form Component
+function EditPunchForm({ punch, onSave, onCancel }: { punch: any; onSave: (punch: any, newTime: string) => void; onCancel: () => void }) {
+  const [dateTime, setDateTime] = useState(format(new Date(punch.punch_time), "yyyy-MM-dd'T'HH:mm"));
+
+  const handleSave = () => {
+    const newTime = new Date(dateTime).toISOString();
+    onSave(punch, newTime);
+  };
+
+  return (
+    <div className="space-y-4">
+      <Input
+        type="datetime-local"
+        value={dateTime}
+        onChange={(e) => setDateTime(e.target.value)}
+      />
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={onCancel}>Cancel</Button>
+        <Button onClick={handleSave}>Save</Button>
+      </div>
+    </div>
+  );
+}
+
 export default function PayrollReview() {
   const { isAdmin, isManager } = useUserRole();
   const { currentLocation } = useAppLocation();
@@ -943,16 +967,11 @@ export default function PayrollReview() {
               <DialogTitle>Edit Punch Time</DialogTitle>
             </DialogHeader>
             {editingPunch && (
-              <div className="space-y-4">
-                <Input
-                  type="datetime-local"
-                  defaultValue={format(new Date(editingPunch.punch_time), "yyyy-MM-dd'T'HH:mm")}
-                  onChange={(e) => {
-                    const newTime = new Date(e.target.value).toISOString();
-                    handleEditPunch(editingPunch, newTime);
-                  }}
-                />
-              </div>
+              <EditPunchForm
+                punch={editingPunch}
+                onSave={handleEditPunch}
+                onCancel={() => setEditingPunch(null)}
+              />
             )}
           </DialogContent>
         </Dialog>
