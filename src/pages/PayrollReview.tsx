@@ -1279,16 +1279,15 @@ export default function PayrollReview() {
                                             <Trash2 className="h-3.5 w-3.5" />
                                           </Button>
                                           
-                                          {/* Approve button - always shows, changes appearance based on status/violations */}
                                           {isApproved ? (
                                             <Button 
                                               size="icon" 
                                               variant="ghost" 
-                                              className="h-7 w-7 text-green-600 hover:text-amber-600 hover:bg-amber-50" 
+                                              className="h-8 w-8 text-green-600 hover:text-amber-600 hover:bg-amber-50" 
                                               onClick={() => handleUnapproveDay(dayPunches)}
                                               title="Click to unapprove"
                                             >
-                                              <CheckCircle2 className="h-4 w-4" />
+                                              <CheckCircle2 className="h-5 w-5" />
                                             </Button>
                                           ) : (hasBreakViolation || hasAutoClockOut) ? (
                                             <Button 
@@ -1319,10 +1318,10 @@ export default function PayrollReview() {
                                             <Button 
                                               size="icon" 
                                               variant="outline" 
-                                              className="h-7 w-7" 
+                                              className="h-8 w-8" 
                                               onClick={() => handleApproveDay(dayPunches)}
                                             >
-                                              <CheckCircle2 className="h-4 w-4" />
+                                              <CheckCircle2 className="h-5 w-5" />
                                             </Button>
                                           )}
                                         </div>
