@@ -18,25 +18,172 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
-// Edit Punch Form Component
-function EditPunchForm({ punch, onSave, onCancel }: { punch: any; onSave: (punch: any, newTime: string) => void; onCancel: () => void }) {
-  const [dateTime, setDateTime] = useState(format(new Date(punch.punch_time), "yyyy-MM-dd'T'HH:mm"));
+// Edit Shift Form Component - Full shift editing with clock in/out and breaks
+function EditShiftForm({ 
+  dayPunches, 
+  userId,
+  locationId,
+  shiftDate,
+  onSave, 
+  onCancel 
+}: { 
+  dayPunches: any[]; 
+  userId: string;
+  locationId: string;
+  shiftDate: string;
+  onSave: () => void; 
+  onCancel: () => void;
+}) {
+  const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
+  const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
+  const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
+  const mealBreakEnd = dayPunches.find((p: any) => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
 
-  const handleSave = () => {
-    const newTime = new Date(dateTime).toISOString();
-    onSave(punch, newTime);
+  const [clockInTime, setClockInTime] = useState(clockIn ? format(new Date(clockIn.punch_time), 'HH:mm') : '');
+  const [clockOutTime, setClockOutTime] = useState(clockOut ? format(new Date(clockOut.punch_time), 'HH:mm') : '');
+  const [hasMealBreak, setHasMealBreak] = useState(!!mealBreakStart);
+  const [mealBreakStartTime, setMealBreakStartTime] = useState(mealBreakStart ? format(new Date(mealBreakStart.punch_time), 'HH:mm') : '12:00');
+  const [mealBreakEndTime, setMealBreakEndTime] = useState(mealBreakEnd ? format(new Date(mealBreakEnd.punch_time), 'HH:mm') : '12:30');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Update clock in
+      if (clockIn && clockInTime) {
+        const newClockInTime = new Date(`${shiftDate}T${clockInTime}`).toISOString();
+        await supabase.from('time_punches').update({ punch_time: newClockInTime }).eq('id', clockIn.id);
+      }
+
+      // Update clock out
+      if (clockOut && clockOutTime) {
+        const newClockOutTime = new Date(`${shiftDate}T${clockOutTime}`).toISOString();
+        await supabase.from('time_punches').update({ punch_time: newClockOutTime }).eq('id', clockOut.id);
+      } else if (!clockOut && clockOutTime) {
+        // Add missing clock out
+        const newClockOutTime = new Date(`${shiftDate}T${clockOutTime}`).toISOString();
+        await supabase.from('time_punches').insert({
+          user_id: userId,
+          location_id: locationId,
+          punch_type: 'clock_out',
+          punch_time: newClockOutTime
+        });
+      }
+
+      // Handle meal break
+      if (hasMealBreak) {
+        const breakStartTime = new Date(`${shiftDate}T${mealBreakStartTime}`).toISOString();
+        const breakEndTime = new Date(`${shiftDate}T${mealBreakEndTime}`).toISOString();
+
+        if (mealBreakStart) {
+          await supabase.from('time_punches').update({ punch_time: breakStartTime }).eq('id', mealBreakStart.id);
+        } else {
+          await supabase.from('time_punches').insert({
+            user_id: userId,
+            location_id: locationId,
+            punch_type: 'break_start',
+            punch_time: breakStartTime,
+            notes: '30 minute meal break'
+          });
+        }
+
+        if (mealBreakEnd) {
+          await supabase.from('time_punches').update({ punch_time: breakEndTime }).eq('id', mealBreakEnd.id);
+        } else {
+          await supabase.from('time_punches').insert({
+            user_id: userId,
+            location_id: locationId,
+            punch_type: 'break_end',
+            punch_time: breakEndTime,
+            notes: '30 minute meal break'
+          });
+        }
+      } else {
+        // Remove meal break if unchecked
+        if (mealBreakStart) await supabase.from('time_punches').delete().eq('id', mealBreakStart.id);
+        if (mealBreakEnd) await supabase.from('time_punches').delete().eq('id', mealBreakEnd.id);
+      }
+
+      toast.success('Shift updated');
+      onSave();
+    } catch (error) {
+      toast.error('Failed to update shift');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <div className="space-y-4">
-      <Input
-        type="datetime-local"
-        value={dateTime}
-        onChange={(e) => setDateTime(e.target.value)}
-      />
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={onCancel}>Cancel</Button>
-        <Button onClick={handleSave}>Save</Button>
+      <div className="text-sm text-muted-foreground mb-2">
+        {format(new Date(shiftDate), 'EEEE, MMMM d, yyyy')}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label className="text-sm font-medium flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-green-500" />
+            Clock In
+          </label>
+          <Input
+            type="time"
+            value={clockInTime}
+            onChange={(e) => setClockInTime(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-red-500" />
+            Clock Out
+          </label>
+          <Input
+            type="time"
+            value={clockOutTime}
+            onChange={(e) => setClockOutTime(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="border-t pt-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="meal-break"
+            checked={hasMealBreak}
+            onCheckedChange={(checked) => setHasMealBreak(checked as boolean)}
+          />
+          <label htmlFor="meal-break" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+            <Coffee className="h-4 w-4 text-amber-600" />
+            30-Minute Meal Break
+          </label>
+        </div>
+
+        {hasMealBreak && (
+          <div className="grid grid-cols-2 gap-4 pl-6">
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">Break Start</label>
+              <Input
+                type="time"
+                value={mealBreakStartTime}
+                onChange={(e) => setMealBreakStartTime(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs text-muted-foreground">Break End</label>
+              <Input
+                type="time"
+                value={mealBreakEndTime}
+                onChange={(e) => setMealBreakEndTime(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="flex justify-end gap-2 pt-2">
+        <Button variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button>
+        <Button onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving...' : 'Save Changes'}
+        </Button>
       </div>
     </div>
   );
@@ -48,7 +195,7 @@ export default function PayrollReview() {
   const [payPeriods, setPayPeriods] = useState<any[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
   const [timeCards, setTimeCards] = useState<any[]>([]);
-  const [editingPunch, setEditingPunch] = useState<any>(null);
+  const [editingShift, setEditingShift] = useState<{ dayPunches: any[], userId: string, locationId: string, shiftDate: string } | null>(null);
   const [showQuickEntry, setShowQuickEntry] = useState(false);
   const [includeApproved, setIncludeApproved] = useState(false);
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
@@ -245,21 +392,7 @@ export default function PayrollReview() {
     fetchTimeCards();
   };
 
-  const handleEditPunch = async (punch: any, newTime: string) => {
-    const { error } = await supabase
-      .from('time_punches')
-      .update({ punch_time: newTime })
-      .eq('id', punch.id);
-
-    if (error) {
-      toast.error('Failed to update punch time');
-      return;
-    }
-
-    toast.success('Punch time updated');
-    setEditingPunch(null);
-    fetchTimeCards();
-  };
+  // handleEditPunch moved to EditShiftForm component
 
   const handleApprovePunch = async (punchId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -927,7 +1060,7 @@ export default function PayrollReview() {
 
                                         {/* Actions */}
                                         <div className="flex items-center gap-1">
-                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingPunch(clockIn)}>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingShift({ dayPunches, userId: card.profile.id, locationId: currentLocation?.id || '', shiftDate: day })}>
                                             <Edit className="h-3.5 w-3.5" />
                                           </Button>
                                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => clockIn && handleDeletePunch(clockIn.id)}>
@@ -961,16 +1094,19 @@ export default function PayrollReview() {
           onSuccess={fetchTimeCards}
         />
 
-        <Dialog open={!!editingPunch} onOpenChange={() => setEditingPunch(null)}>
+        <Dialog open={!!editingShift} onOpenChange={() => setEditingShift(null)}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Edit Punch Time</DialogTitle>
+              <DialogTitle>Edit Shift</DialogTitle>
             </DialogHeader>
-            {editingPunch && (
-              <EditPunchForm
-                punch={editingPunch}
-                onSave={handleEditPunch}
-                onCancel={() => setEditingPunch(null)}
+            {editingShift && (
+              <EditShiftForm
+                dayPunches={editingShift.dayPunches}
+                userId={editingShift.userId}
+                locationId={editingShift.locationId}
+                shiftDate={editingShift.shiftDate}
+                onSave={() => { setEditingShift(null); fetchTimeCards(); }}
+                onCancel={() => setEditingShift(null)}
               />
             )}
           </DialogContent>
