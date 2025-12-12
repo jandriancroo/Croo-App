@@ -197,7 +197,7 @@ export default function PayrollReview() {
   const [timeCards, setTimeCards] = useState<any[]>([]);
   const [editingShift, setEditingShift] = useState<{ dayPunches: any[], userId: string, locationId: string, shiftDate: string } | null>(null);
   const [showQuickEntry, setShowQuickEntry] = useState(false);
-  const [includeApproved, setIncludeApproved] = useState(false);
+  const [includeApproved, setIncludeApproved] = useState(true);
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
   const [filterDay, setFilterDay] = useState<string>('all');
   const [periodStatuses, setPeriodStatuses] = useState<Record<string, any>>({});
@@ -1135,12 +1135,12 @@ export default function PayrollReview() {
                         <div className="flex items-center gap-1.5">
                           <Checkbox
                             id="include-approved"
-                            checked={includeApproved}
-                            onCheckedChange={(checked) => setIncludeApproved(checked as boolean)}
+                            checked={!includeApproved}
+                            onCheckedChange={(checked) => setIncludeApproved(!checked as boolean)}
                             className="h-4 w-4"
                           />
                           <label htmlFor="include-approved" className="text-xs text-muted-foreground cursor-pointer">
-                            Show approved
+                            Hide approved
                           </label>
                         </div>
                       </div>
