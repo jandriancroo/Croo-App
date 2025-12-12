@@ -118,7 +118,7 @@ export function DiagnosticMode() {
       { name: 'Location Access', status: 'pending' },
       { name: 'Push Token Registration', status: 'pending' },
       { name: 'Push Notification Delivery', status: 'pending' },
-      { name: 'Edge Function (check-alerts)', status: 'pending' },
+      { name: 'Edge Function (send-push)', status: 'pending' },
     ]);
 
     // Test 1: Database Connection
@@ -196,16 +196,22 @@ export function DiagnosticMode() {
       updateTest('Push Notification Delivery', 'error', err.message);
     }
 
-    // Test 6: Check-alerts Edge Function
-    updateTest('Edge Function (check-alerts)', 'running');
+    // Test 6: Edge Function (send-push-notification - since check-alerts requires cron secret)
+    updateTest('Edge Function (send-push)', 'running');
     try {
-      const { data, error } = await supabase.functions.invoke('check-alerts', {
-        body: {}
+      const { data, error } = await supabase.functions.invoke('send-push-notification', {
+        body: {
+          user_ids: [user.id],
+          title: '🔧 Edge Function Test',
+          body: 'Edge function connectivity verified',
+          notification_type: 'test',
+          data: { type: 'test' }
+        }
       });
       if (error) throw error;
-      updateTest('Edge Function (check-alerts)', 'success', 'Function executed successfully');
+      updateTest('Edge Function (send-push)', 'success', 'Function executed successfully');
     } catch (err: any) {
-      updateTest('Edge Function (check-alerts)', 'error', err.message);
+      updateTest('Edge Function (send-push)', 'error', err.message);
     }
 
     setIsRunning(false);
