@@ -7,7 +7,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { toast } from 'sonner';
-import { ChevronLeft, AlertTriangle, Edit, Trash2, Clock, CheckCircle2, Lock, AlertCircle, Coffee, Download, FileSpreadsheet, Calendar } from 'lucide-react';
+import { ChevronLeft, AlertTriangle, Trash2, Clock, CheckCircle2, Lock, AlertCircle, Coffee, Download, FileSpreadsheet, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -29,7 +29,8 @@ function EditShiftForm({
   shiftDate,
   timezone,
   onSave, 
-  onCancel 
+  onCancel,
+  onDelete
 }: { 
   dayPunches: any[]; 
   userId: string;
@@ -38,6 +39,7 @@ function EditShiftForm({
   timezone: string;
   onSave: () => void; 
   onCancel: () => void;
+  onDelete: () => void;
 }) {
   const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
   const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
@@ -195,11 +197,17 @@ function EditShiftForm({
         )}
       </div>
 
-      <div className="flex justify-end gap-2 pt-2">
-        <Button variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save Changes'}
+      <div className="flex justify-between gap-2 pt-4 border-t">
+        <Button variant="destructive" onClick={onDelete} disabled={saving} className="gap-2">
+          <Trash2 className="h-4 w-4" />
+          Delete Shift
         </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onCancel} disabled={saving}>Cancel</Button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -1240,7 +1248,11 @@ export default function PayrollReview() {
                                     if (!includeApproved && isApproved) return null;
 
                                     return (
-                                      <div key={day} className={`flex items-center gap-3 px-4 py-2 hover:bg-muted/20 transition-colors ${hasAutoClockOut || hasBreakViolation ? 'bg-amber-50/50' : ''}`}>
+                                      <div 
+                                        key={day} 
+                                        className={`flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer ${hasAutoClockOut || hasBreakViolation ? 'bg-amber-50/50' : ''}`}
+                                        onClick={() => setEditingShift({ dayPunches, userId: card.profile.id, locationId: currentLocation?.id || '', shiftDate: day })}
+                                      >
                                         {/* Day Badge */}
                                         <div className="w-12 text-center">
                                           <div className="text-xs text-muted-foreground">{format(dayDate, 'EEE')}</div>
@@ -1259,7 +1271,7 @@ export default function PayrollReview() {
                                             </span>
                                           </div>
 
-                                          {/* Status Badges - only show non-button indicators */}
+                                          {/* Status Badges */}
                                           <div className="flex items-center gap-1">
                                             {hasAutoClockOut && (
                                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-orange-600 border-orange-300 gap-1">
@@ -1280,48 +1292,35 @@ export default function PayrollReview() {
                                           {dayHours.toFixed(1)} hrs
                                         </div>
 
-                                        {/* Actions */}
-                                        <div className="flex items-center gap-1">
-                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingShift({ dayPunches, userId: card.profile.id, locationId: currentLocation?.id || '', shiftDate: day })}>
-                                            <Edit className="h-3.5 w-3.5" />
-                                          </Button>
-                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => clockIn && handleDeletePunch(clockIn.id)}>
-                                            <Trash2 className="h-3.5 w-3.5" />
-                                          </Button>
-                                          
+                                        {/* Approve Button - Large touch-friendly */}
+                                        <div onClick={(e) => e.stopPropagation()}>
                                           {isApproved ? (
-                                            <Button 
-                                              size="icon" 
-                                              variant="ghost" 
-                                              className="h-8 w-8 text-green-600 hover:text-amber-600 hover:bg-amber-50" 
+                                            <button 
+                                              className="h-12 w-12 rounded-xl flex items-center justify-center bg-green-100 border-2 border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors" 
                                               onClick={() => handleUnapproveDay(dayPunches)}
                                               title="Click to unapprove"
                                             >
-                                              <CheckCircle2 className="h-5 w-5" />
-                                            </Button>
+                                              <CheckCircle2 className="h-6 w-6" />
+                                            </button>
                                           ) : (hasBreakViolation || hasAutoClockOut) ? (
-                                            <Button 
-                                              size="icon" 
-                                              variant="outline" 
-                                              className="h-8 w-8 border-amber-400 bg-amber-50 hover:bg-amber-100" 
+                                            <button 
+                                              className="h-12 w-12 rounded-xl flex items-center justify-center bg-amber-50 border-2 border-amber-400 hover:bg-amber-100 transition-colors" 
                                               onClick={() => handleApproveDay(dayPunches)}
                                               title={hasBreakViolation ? 'Missing meal break' : 'Auto punched out'}
                                             >
                                               {hasBreakViolation ? (
-                                                <Coffee className="h-5 w-5 text-amber-600" />
+                                                <Coffee className="h-6 w-6 text-amber-600" />
                                               ) : (
-                                                <img src={autoPunchIcon} alt="Auto punch out" className="h-5 w-5" />
+                                                <img src={autoPunchIcon} alt="Auto punch out" className="h-6 w-6" />
                                               )}
-                                            </Button>
+                                            </button>
                                           ) : (
-                                            <Button 
-                                              size="icon" 
-                                              variant="outline" 
-                                              className="h-8 w-8" 
+                                            <button 
+                                              className="h-12 w-12 rounded-xl flex items-center justify-center bg-muted/50 border-2 border-border hover:bg-primary/10 hover:border-primary transition-colors" 
                                               onClick={() => handleApproveDay(dayPunches)}
                                             >
-                                              <CheckCircle2 className="h-5 w-5" />
-                                            </Button>
+                                              <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
+                                            </button>
                                           )}
                                         </div>
                                       </div>
@@ -1360,6 +1359,13 @@ export default function PayrollReview() {
                 timezone={timezone}
                 onSave={() => { setEditingShift(null); fetchTimeCards(); }}
                 onCancel={() => setEditingShift(null)}
+                onDelete={async () => {
+                  const clockIn = editingShift.dayPunches.find((p: any) => p.punch_type === 'clock_in');
+                  if (clockIn) {
+                    await handleDeletePunch(clockIn.id);
+                  }
+                  setEditingShift(null);
+                }}
               />
             )}
           </DialogContent>

@@ -8,7 +8,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight, Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown, AlertTriangle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -97,6 +97,7 @@ export default function Schedule() {
   const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
   const [scheduleId, setScheduleId] = useState<string | null>(null);
   const [isPublished, setIsPublished] = useState(false);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -910,6 +911,30 @@ export default function Schedule() {
     }
   };
 
+  const handleWithdrawSchedule = async () => {
+    if (!scheduleId) return;
+    
+    try {
+      const { error } = await supabase
+        .from('schedules')
+        .update({ 
+          is_published: false,
+          published_shifts_snapshot: null
+        })
+        .eq('id', scheduleId);
+
+      if (error) throw error;
+
+      setIsPublished(false);
+      setPublishedSnapshot([]);
+      setWithdrawDialogOpen(false);
+      toast.success("Schedule withdrawn. It will no longer be visible to team members until you Go Live again.");
+    } catch (error: any) {
+      console.error('Error withdrawing schedule:', error);
+      toast.error("Failed to withdraw schedule");
+    }
+  };
+
   const detectScheduleChanges = (oldShifts: any[], newShifts: any[]) => {
     const changes: any[] = [];
     const oldShiftsMap = new Map(oldShifts.map(s => [s.id, s]));
@@ -1114,6 +1139,12 @@ export default function Schedule() {
                       <Trash2 className="h-4 w-4" />
                       Clear Schedule
                     </DropdownMenuItem>
+                    {isPublished && (
+                      <DropdownMenuItem onClick={() => setWithdrawDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        Withdraw Schedule
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {scheduleId && (
@@ -1434,6 +1465,28 @@ export default function Schedule() {
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 <AlertDialogAction onClick={handleClearSchedule} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                   Clear Schedule
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
+        {(isAdmin || isManager) && (
+          <AlertDialog open={withdrawDialogOpen} onOpenChange={setWithdrawDialogOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                  <AlertTriangle className="h-5 w-5" />
+                  Withdraw Schedule
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will unpublish the schedule for this week. Team members will no longer see their shifts until you publish again. Use this if you published the schedule with mistakes that need to be corrected before anyone sees it.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleWithdrawSchedule} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  Withdraw Schedule
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
