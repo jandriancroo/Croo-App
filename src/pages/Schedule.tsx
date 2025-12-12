@@ -70,6 +70,8 @@ interface ScheduleEvent {
   is_recurring: boolean;
   category_id?: string | null;
   is_daily_task?: boolean;
+  event_categories?: { name: string; color: string } | null;
+  category?: { name: string; color: string } | null;
 }
 
 interface AvailabilityRequest {
@@ -236,13 +238,13 @@ export default function Schedule() {
         // Fetch events for this schedule
         supabase
           .from("schedule_events")
-          .select("*")
+          .select("*, event_categories(name, color)")
           .eq("schedule_id", scheduleData.id),
         
         // Fetch recurring events (not tied to specific schedule) for this location
         supabase
           .from("schedule_events")
-          .select("*")
+          .select("*, event_categories(name, color)")
           .eq("is_recurring", true)
           .is("schedule_id", null)
           .eq("location_id", currentLocation.id),
@@ -322,13 +324,15 @@ export default function Schedule() {
       const scheduleEvents = (eventsResult.data || []).map(event => ({
         ...event,
         tagged_roles: event.tagged_roles as string[] | null,
-        is_recurring: event.is_recurring ?? true
+        is_recurring: event.is_recurring ?? true,
+        category: event.event_categories || null
       }));
       
       const recurringEvents = (recurringEventsResult.data || []).map(event => ({
         ...event,
         tagged_roles: event.tagged_roles as string[] | null,
-        is_recurring: true
+        is_recurring: true,
+        category: event.event_categories || null
       }));
       
       // Merge and deduplicate (schedule-specific events take precedence)
