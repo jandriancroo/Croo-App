@@ -26,6 +26,7 @@ interface LaborRule {
   meal_break_duration: number | null;
   rest_break_hours: number | null;
   rest_break_duration: number | null;
+  auto_punch_out_time: string | null;
 }
 
 export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
@@ -46,6 +47,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
     meal_break_duration: null,
     rest_break_hours: null,
     rest_break_duration: null,
+    auto_punch_out_time: null,
   };
 
   const [formData, setFormData] = useState<LaborRule>(emptyRule);
@@ -110,6 +112,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             meal_break_duration: formData.meal_break_duration,
             rest_break_hours: formData.rest_break_hours,
             rest_break_duration: formData.rest_break_duration,
+            auto_punch_out_time: formData.auto_punch_out_time,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingRule.id);
@@ -133,6 +136,7 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             meal_break_duration: formData.meal_break_duration,
             rest_break_hours: formData.rest_break_hours,
             rest_break_duration: formData.rest_break_duration,
+            auto_punch_out_time: formData.auto_punch_out_time,
           });
 
         if (error) throw error;
@@ -352,6 +356,25 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                     </div>
                   </div>
                 </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-3">Auto Punch-Out (Optional)</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Automatically clock out employees who forget to punch out
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="auto-punch-out">Auto Punch-Out Time</Label>
+                      <Input
+                        id="auto-punch-out"
+                        type="time"
+                        value={formData.auto_punch_out_time || ''}
+                        onChange={(e) => setFormData({...formData, auto_punch_out_time: e.target.value || null})}
+                      />
+                      <p className="text-xs text-muted-foreground">e.g., 11:00 PM for closing</p>
+                    </div>
+                  </div>
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -422,6 +445,11 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                   {rule.rest_break_hours && (
                     <div>
                       <span className="text-muted-foreground">Rest Break:</span> {rule.rest_break_duration}min after {rule.rest_break_hours}h
+                    </div>
+                  )}
+                  {rule.auto_punch_out_time && (
+                    <div>
+                      <span className="text-muted-foreground">Auto Punch-Out:</span> {new Date(`2000-01-01T${rule.auto_punch_out_time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
                     </div>
                   )}
                 </div>

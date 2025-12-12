@@ -1272,6 +1272,7 @@ export type Database = {
       }
       labor_rules: {
         Row: {
+          auto_punch_out_time: string | null
           created_at: string | null
           daily_double_time_threshold: number | null
           daily_overtime_threshold: number | null
@@ -1289,6 +1290,7 @@ export type Database = {
           weekly_overtime_threshold: number | null
         }
         Insert: {
+          auto_punch_out_time?: string | null
           created_at?: string | null
           daily_double_time_threshold?: number | null
           daily_overtime_threshold?: number | null
@@ -1306,6 +1308,7 @@ export type Database = {
           weekly_overtime_threshold?: number | null
         }
         Update: {
+          auto_punch_out_time?: string | null
           created_at?: string | null
           daily_double_time_threshold?: number | null
           daily_overtime_threshold?: number | null
@@ -2523,7 +2526,9 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           created_at: string | null
+          has_break_violation: boolean
           id: string
+          is_auto_punched_out: boolean
           location_id: string | null
           notes: string | null
           punch_time: string
@@ -2535,7 +2540,9 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string | null
+          has_break_violation?: boolean
           id?: string
+          is_auto_punched_out?: boolean
           location_id?: string | null
           notes?: string | null
           punch_time?: string
@@ -2547,7 +2554,9 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           created_at?: string | null
+          has_break_violation?: boolean
           id?: string
+          is_auto_punched_out?: boolean
           location_id?: string | null
           notes?: string | null
           punch_time?: string
