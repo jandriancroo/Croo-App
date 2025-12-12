@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { Capacitor } from '@capacitor/core';
 import { toast } from '@/hooks/use-toast';
@@ -29,7 +29,6 @@ const hexToString = (hex: string): string => {
 
 export const usePushNotifications = () => {
   const { user, loading } = useAuth();
-  const hasRegisteredRef = useRef(false);
 
   useEffect(() => {
     const userId = user?.id;
@@ -54,12 +53,7 @@ export const usePushNotifications = () => {
       // VAPID public key for web push
       const vapidPublicKey = 'BMFAfiqavc1nPrnxT3UlNQ7QmxL3bZYpzbgmQiXs3WL0jcDEKMX-6VTVLeGodW2XVCfmaQTsbdCwkjXutsVXzKU';
 
-      if (hasRegisteredRef.current) {
-        console.log('[Push Web] ⚠️ Already registered, skipping duplicate setup');
-        return;
-      }
-
-      hasRegisteredRef.current = true;
+      console.log('[Push Web] ✅ Starting web push setup for user:', userId);
       console.log('[Push Web] ✅ Starting web push setup for user:', userId);
 
       try {
@@ -91,7 +85,6 @@ export const usePushNotifications = () => {
               variant: "destructive",
             });
           }
-          hasRegisteredRef.current = false;
           return;
         }
         
@@ -104,7 +97,6 @@ export const usePushNotifications = () => {
 
         if (permission !== 'granted') {
           console.log('[Push Web] ❌ Notification permission not granted:', permission);
-          hasRegisteredRef.current = false;
           return;
         }
 
@@ -113,8 +105,16 @@ export const usePushNotifications = () => {
         const registration = await navigator.serviceWorker.ready;
         console.log('[Push Web] ✅ Service worker ready');
 
-        // Subscribe to push notifications
-        console.log('[Push Web] Creating push subscription...');
+        // FORCE unsubscribe any existing subscription to get fresh keys
+        const existingSub = await registration.pushManager.getSubscription();
+        if (existingSub) {
+          console.log('[Push Web] Found existing subscription, unsubscribing to get fresh one...');
+          await existingSub.unsubscribe();
+          console.log('[Push Web] ✅ Unsubscribed from old subscription');
+        }
+
+        // Subscribe to push notifications with new keys
+        console.log('[Push Web] Creating FRESH push subscription...');
         
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
@@ -174,7 +174,6 @@ export const usePushNotifications = () => {
 
       } catch (error) {
         console.error('[Push Web] ❌ Error in web push setup:', error);
-        hasRegisteredRef.current = false;
         // Don't show error toast for expected failures (missing keys, denied permission, etc.)
         // Those are already handled with early returns above
       }
@@ -184,12 +183,6 @@ export const usePushNotifications = () => {
       // Auth check already done at top of effect
       if (!userId) return;
 
-      if (hasRegisteredRef.current) {
-        console.log('[Push Native] ⚠️ Already registered, skipping duplicate setup');
-        return;
-      }
-
-      hasRegisteredRef.current = true;
       console.log('[Push Native] ✅ Starting native push setup for user:', userId);
 
       try {
@@ -323,7 +316,6 @@ export const usePushNotifications = () => {
       } catch (error) {
         console.error('[Push] ❌ FATAL ERROR in setup:', error);
         console.error('[Push] Error stack:', error instanceof Error ? error.stack : 'No stack');
-        hasRegisteredRef.current = false; // Reset on error
       }
     };
 
