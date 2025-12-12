@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -19,11 +21,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Check, X, Calendar, Clock, Plus } from "lucide-react";
+import { Check, X, Calendar, Clock, Plus, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
 import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
@@ -43,10 +61,15 @@ interface AvailabilityRequest {
   denial_reason: string | null;
   notes: string | null;
   created_at: string;
+  edited_by: string | null;
+  edited_at: string | null;
   profiles: {
     full_name: string;
     profile_photo_url: string | null;
   };
+  editor?: {
+    full_name: string;
+  } | null;
 }
 
 interface EmployeeHours {
@@ -73,6 +96,13 @@ export default function Availability() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [filterType, setFilterType] = useState<string>("all");
   const [timeOffSort, setTimeOffSort] = useState<string>("lastName");
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingRequest, setEditingRequest] = useState<AvailabilityRequest | null>(null);
+  const [editHours, setEditHours] = useState("");
+  const [editStatus, setEditStatus] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingRequestId, setDeletingRequestId] = useState<string | null>(null);
 
   // Default PTO balance (can be configured per company/location later)
   const DEFAULT_PTO_HOURS = 40;
@@ -90,12 +120,13 @@ export default function Availability() {
       setLoading(true);
 
       if (isAdmin) {
-        // Admin view - fetch all requests for current location
+        // Admin view - fetch all requests for current location with editor info
         const { data: requestsData, error: requestsError } = await supabase
           .from("availability_requests")
           .select(`
             *,
-            profiles!availability_requests_user_id_fkey(full_name, profile_photo_url)
+            profiles!availability_requests_user_id_fkey(full_name, profile_photo_url),
+            editor:profiles!availability_requests_edited_by_fkey(full_name)
           `)
           .eq("location_id", currentLocation.id)
           .order("created_at", { ascending: false });
@@ -257,6 +288,74 @@ export default function Availability() {
   const openDenyDialog = (requestId: string) => {
     setSelectedRequest(requestId);
     setDenyDialogOpen(true);
+  };
+
+  const openEditDialog = (request: AvailabilityRequest) => {
+    setEditingRequest(request);
+    setEditHours(request.hours_requested.toString());
+    setEditStatus(request.status);
+    setEditNotes(request.notes || "");
+    setEditDialogOpen(true);
+  };
+
+  const handleEditRequest = async () => {
+    if (!editingRequest) return;
+
+    setProcessing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("availability_requests")
+        .update({
+          hours_requested: parseFloat(editHours),
+          status: editStatus,
+          notes: editNotes || null,
+          edited_by: user.id,
+          edited_at: new Date().toISOString(),
+        })
+        .eq("id", editingRequest.id);
+
+      if (error) throw error;
+      toast.success("Request updated");
+      setEditDialogOpen(false);
+      setEditingRequest(null);
+      fetchData();
+    } catch (error: any) {
+      console.error("Error updating request:", error);
+      toast.error("Failed to update request");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const openDeleteDialog = (requestId: string) => {
+    setDeletingRequestId(requestId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteRequest = async () => {
+    if (!deletingRequestId) return;
+
+    setProcessing(true);
+    try {
+      const { error } = await supabase
+        .from("availability_requests")
+        .delete()
+        .eq("id", deletingRequestId);
+
+      if (error) throw error;
+      toast.success("Request deleted");
+      setDeleteDialogOpen(false);
+      setDeletingRequestId(null);
+      fetchData();
+    } catch (error: any) {
+      console.error("Error deleting request:", error);
+      toast.error("Failed to delete request");
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const formatTimeScope = (request: AvailabilityRequest) => {
@@ -435,6 +534,13 @@ export default function Availability() {
                       </span>
                     </div>
 
+                    {/* Show editor info if edited */}
+                    {request.edited_by && request.editor && (
+                      <span className="text-xs text-muted-foreground italic flex-shrink-0">
+                        edited by {request.editor.full_name?.split(" ")[0]}
+                      </span>
+                    )}
+
                     {isAdmin && request.status === "pending" && (
                       <div className="flex gap-1 flex-shrink-0">
                         <Button
@@ -456,6 +562,29 @@ export default function Availability() {
                           <X className="h-3 w-3" />
                         </Button>
                       </div>
+                    )}
+
+                    {isAdmin && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => openEditDialog(request)}>
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => openDeleteDialog(request.id)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </div>
                 </div>
@@ -491,6 +620,78 @@ export default function Availability() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Edit Dialog */}
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Request</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Hours Requested</Label>
+                <Input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  value={editHours}
+                  onChange={(e) => setEditHours(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={editStatus} onValueChange={setEditStatus}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="denied">Denied</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Textarea
+                  placeholder="Add notes..."
+                  value={editNotes}
+                  onChange={(e) => setEditNotes(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleEditRequest} disabled={processing}>
+                {processing ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation */}
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Request</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to delete this time-off request? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteRequest}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {processing ? "Deleting..." : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <RequestAvailabilityDialog
           open={requestDialogOpen}
