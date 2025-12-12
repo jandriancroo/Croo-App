@@ -200,7 +200,7 @@ export default function PayrollReview() {
   const [includeApproved, setIncludeApproved] = useState(false);
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
   const [periodStatuses, setPeriodStatuses] = useState<Record<string, any>>({});
-  const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all' } | null>(null);
+  const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all', hasBreakViolation?: boolean, hasAutoClockOut?: boolean } | null>(null);
   const [laborRules, setLaborRules] = useState<any>(null);
 
   useEffect(() => {
@@ -508,29 +508,72 @@ export default function PayrollReview() {
   };
 
   const handleApproveDay = async (dayPunches: any[]) => {
-    // Check for flagged punches
-    const hasFlaggedPunches = dayPunches.some((p: any) => p.is_auto_punched_out || p.has_break_violation);
-    if (hasFlaggedPunches) {
-      setApprovalWarning({ punches: dayPunches, type: 'day' });
+    // Check for flagged punches - auto punch out
+    const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
+    
+    // Check for break violation - shift over 5 hours without meal break
+    const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
+    const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
+    const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
+    
+    let hasBreakViolation = false;
+    if (clockIn && clockOut) {
+      const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+      if (hours > 5 && !mealBreakStart) {
+        hasBreakViolation = true;
+      }
+    }
+    
+    if (hasAutoClockOut || hasBreakViolation) {
+      setApprovalWarning({ punches: dayPunches, type: 'day', hasBreakViolation, hasAutoClockOut });
       return;
     }
     await approvePunches(dayPunches.map(p => p.id));
   };
 
   const handleApproveAll = async () => {
-    const allUnapprovedPunches = filteredCards.flatMap(card => 
-      card.punches.filter((p: any) => !p.approved_at)
-    );
+    let hasAutoClockOut = false;
+    let hasBreakViolation = false;
+    
+    // Check all unapproved days across all filtered cards
+    const allUnapprovedPunches: any[] = [];
+    
+    filteredCards.forEach(card => {
+      Object.values(card.punchesByDay).forEach((dayPunches: any) => {
+        const hasUnapproved = dayPunches.some((p: any) => !p.approved_at);
+        if (!hasUnapproved) return;
+        
+        // Add punches to list
+        dayPunches.forEach((p: any) => {
+          if (!p.approved_at) allUnapprovedPunches.push(p);
+        });
+        
+        // Check for auto clock out
+        if (dayPunches.some((p: any) => p.is_auto_punched_out)) {
+          hasAutoClockOut = true;
+        }
+        
+        // Check for break violation
+        const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
+        const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
+        const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
+        
+        if (clockIn && clockOut) {
+          const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+          if (hours > 5 && !mealBreakStart) {
+            hasBreakViolation = true;
+          }
+        }
+      });
+    });
 
     if (allUnapprovedPunches.length === 0) {
       toast.info('No punches to approve');
       return;
     }
 
-    // Check for flagged punches
-    const hasFlaggedPunches = allUnapprovedPunches.some((p: any) => p.is_auto_punched_out || p.has_break_violation);
-    if (hasFlaggedPunches) {
-      setApprovalWarning({ punches: allUnapprovedPunches, type: 'all' });
+    if (hasAutoClockOut || hasBreakViolation) {
+      setApprovalWarning({ punches: allUnapprovedPunches, type: 'all', hasBreakViolation, hasAutoClockOut });
       return;
     }
     await approvePunches(allUnapprovedPunches.map((p: any) => p.id));
@@ -1218,24 +1261,24 @@ export default function PayrollReview() {
             </DialogHeader>
             {approvalWarning && (
               <div className="space-y-3">
-                {approvalWarning.punches.some((p: any) => p.is_auto_punched_out) && (
+                {approvalWarning.hasAutoClockOut && (
                   <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
                     <AlertCircle className="h-5 w-5 text-orange-600" />
                     <div>
                       <p className="font-medium text-orange-800">Auto Clock-Out Detected</p>
                       <p className="text-sm text-orange-600">
-                        {approvalWarning.punches.filter((p: any) => p.is_auto_punched_out).length} punch(es) were automatically generated because employees forgot to clock out.
+                        One or more punches were automatically generated because employees forgot to clock out.
                       </p>
                     </div>
                   </div>
                 )}
-                {approvalWarning.punches.some((p: any) => p.has_break_violation) && (
+                {approvalWarning.hasBreakViolation && (
                   <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
                     <Coffee className="h-5 w-5 text-amber-600" />
                     <div>
-                      <p className="font-medium text-amber-800">Break Violation</p>
+                      <p className="font-medium text-amber-800">Missing Meal Break</p>
                       <p className="text-sm text-amber-600">
-                        {approvalWarning.punches.filter((p: any) => p.has_break_violation).length} shift(s) exceeded break threshold without a recorded meal break.
+                        One or more shifts exceeded 5 hours without a recorded 30-minute meal break.
                       </p>
                     </div>
                   </div>
