@@ -949,7 +949,8 @@ serve(async (req) => {
 
     const avgTicket = dailyGuestCount > 0 ? dailySales / dailyGuestCount : 0;
 
-    // Fetch last year data and 4-week historical data for better projections (only if not skipping projections)
+    // Fetch last year data and 4-week historical data for better projections
+    // Always fetch this data - we need it for chart projections even when header projections are cached
     let lastYearData: { 
       sameDay: number; 
       sameWeek: number; 
@@ -963,8 +964,8 @@ serve(async (req) => {
       weeks: { weekStart: string; total: number }[];
     } | undefined;
     
-    if (!skipProjections) {
-      console.log('Fetching historical data for projections...');
+    // Always fetch historical data for chart projections
+    console.log('Fetching historical data for projections...');
       
       // Generate 4-week historical date ranges (past 4 complete weeks)
       const fourWeekRanges: { weekStart: string; weekEnd: string }[] = [];
@@ -1054,10 +1055,9 @@ serve(async (req) => {
         console.log(`4-week average weekly total: $${avgWeekTotal.toFixed(2)}`);
         console.log('Average by day of week:', avgDailyByDayOfWeek.map(d => `${d.dayOfWeek}: $${d.avgSales.toFixed(2)}`).join(', '));
         
-      } catch (error) {
-        console.error('Failed to fetch historical data:', error);
-        // Continue without historical data
-      }
+    } catch (error) {
+      console.error('Failed to fetch historical data:', error);
+      // Continue without historical data
     }
 
     // Generate AI projections
