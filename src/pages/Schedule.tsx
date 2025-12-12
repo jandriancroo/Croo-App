@@ -450,14 +450,12 @@ export default function Schedule() {
     const conflictingRequests = availabilityRequests.filter((request) => {
       if (request.user_id !== userId) return false;
 
-      const reqDate = new Date(request.start_date);
-      const cellDate = new Date(shiftDate);
-
+      // Compare date strings directly to avoid timezone issues
+      // shiftDate and start_date are both in "yyyy-MM-dd" format
       if (request.time_scope === "multi_day" && request.end_date) {
-        const endDate = new Date(request.end_date);
-        return cellDate >= reqDate && cellDate <= endDate;
+        return shiftDate >= request.start_date && shiftDate <= request.end_date;
       }
-      return reqDate.toDateString() === cellDate.toDateString();
+      return request.start_date === shiftDate;
     });
 
     return conflictingRequests.map((req) => ({
