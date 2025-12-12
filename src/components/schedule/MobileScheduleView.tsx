@@ -285,24 +285,6 @@ export function MobileScheduleView({
               {new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}
             </h3>
             
-            {/* Today's Events */}
-            {todayEvents.length > 0 && (
-              <div className="mb-4 space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Events</h4>
-                {todayEvents.map(event => (
-                  <EventCard
-                    key={event.id}
-                    id={event.id}
-                    name={event.event_name}
-                    time={event.event_time}
-                    categoryName={event.category?.name}
-                    categoryColor={event.category?.color}
-                    notes={event.notes}
-                    showCompleteButton={false}
-                  />
-                ))}
-              </div>
-            )}
             
             {/* Active Shifts Section */}
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
