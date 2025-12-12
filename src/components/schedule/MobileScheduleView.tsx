@@ -99,7 +99,7 @@ export function MobileScheduleView({
   isPublishing = false,
   hasPendingChanges = false
 }: MobileScheduleViewProps) {
-  const [activeTab, setActiveTab] = useState<'today' | 'schedule'>('schedule');
+  const [activeTab, setActiveTab] = useState<'today' | 'schedule'>('today');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
   const [selectedShiftForOffer, setSelectedShiftForOffer] = useState<Shift | null>(null);
@@ -137,28 +137,35 @@ export function MobileScheduleView({
     const startOfDay = new Date(`${today}T00:00:00${offset}`).toISOString();
     const endOfDay = new Date(`${today}T23:59:59${offset}`).toISOString();
     
-    // Get today's clock-ins
-    const { data: clockIns } = await supabase
+    // Get ALL punches for today ordered by time
+    const { data: allPunches } = await supabase
       .from('time_punches')
-      .select('id, user_id, punch_time')
+      .select('id, user_id, punch_time, punch_type')
       .eq('location_id', currentLocation.id)
-      .eq('punch_type', 'clock_in')
       .gte('punch_time', startOfDay)
-      .lte('punch_time', endOfDay);
+      .lte('punch_time', endOfDay)
+      .order('punch_time', { ascending: true });
     
-    // Get today's clock-outs
-    const { data: clockOuts } = await supabase
-      .from('time_punches')
-      .select('user_id')
-      .eq('location_id', currentLocation.id)
-      .eq('punch_type', 'clock_out')
-      .gte('punch_time', startOfDay)
-      .lte('punch_time', endOfDay);
+    // Group by user and find those with unpaired clock-ins
+    const userPunches: Record<string, Array<{id: string, punch_time: string, punch_type: string}>> = {};
+    allPunches?.forEach(p => {
+      if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
+      userPunches[p.user_id].push(p);
+    });
     
-    const clockedOutUserIds = new Set(clockOuts?.map(p => p.user_id) || []);
-    
-    // Filter to only those still clocked in
-    const activeClockIns = clockIns?.filter(p => !clockedOutUserIds.has(p.user_id)) || [];
+    // Find users currently clocked in (last punch is clock_in or break_start/break_end, not clock_out)
+    const activeClockIns: Array<{id: string, user_id: string, punch_time: string}> = [];
+    Object.entries(userPunches).forEach(([userId, punches]) => {
+      // Find most recent clock_in
+      const clockIns = punches.filter(p => p.punch_type === 'clock_in');
+      const clockOuts = punches.filter(p => p.punch_type === 'clock_out');
+      
+      // If more clock-ins than clock-outs, user is still clocked in
+      if (clockIns.length > clockOuts.length) {
+        const lastClockIn = clockIns[clockIns.length - 1];
+        activeClockIns.push({ id: lastClockIn.id, user_id: userId, punch_time: lastClockIn.punch_time });
+      }
+    });
     
     const activeWithProfiles: ActiveShift[] = activeClockIns.map(punch => {
       const profile = profiles.find(p => p.id === punch.user_id);
