@@ -163,13 +163,15 @@ export function MobileScheduleView({
       .from('schedule_events')
       .select('*')
       .eq('location_id', currentLocation.id)
-      .eq('is_recurring', true)
-      .is('schedule_id', null);
+      .eq('is_recurring', true);
     
     // Filter events for today's day of week
-    const filteredEvents = (eventsData || []).filter(event => 
-      event.days_of_week?.includes(todayDayOfWeek) || event.day_of_week === todayDayOfWeek
-    ).sort((a, b) => a.event_time.localeCompare(b.event_time));
+    const filteredEvents = (eventsData || []).filter(event => {
+      if (event.days_of_week && event.days_of_week.length > 0) {
+        return event.days_of_week.includes(todayDayOfWeek);
+      }
+      return event.day_of_week === todayDayOfWeek;
+    }).sort((a, b) => a.event_time.localeCompare(b.event_time));
     setTodayEvents(filteredEvents);
     
     // Group by user and find those with unpaired clock-ins
@@ -576,21 +578,22 @@ export function MobileScheduleView({
                     
                     <div className="flex-1 min-w-0 text-left">
                       <h4 className="font-semibold truncate">{profile.full_name}</h4>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground whitespace-nowrap">
                         {formatTime12Hour(shift.start_time)} – {formatTime12Hour(shift.end_time)}
                       </p>
                       {shift.template?.position && (
-                        <Badge variant="outline" className="text-xs mt-1 w-fit">
+                        <Badge variant="outline" className="text-xs mt-1 max-w-[100px] truncate">
                           {shift.template.position.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM|am|pm)?/g, '').trim()}
                         </Badge>
                       )}
                     </div>
                     
-                    <div className="flex flex-col items-center gap-1.5 shrink-0">
+                    <div className="flex flex-col items-center gap-1 shrink-0">
                       {!isShiftPending && (isAdmin || shift.user_id === user?.id) && (
                         <Button
                           size="sm"
                           variant="outline"
+                          className="text-xs px-2 h-7"
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedShiftForOffer(shift);
