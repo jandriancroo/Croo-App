@@ -11,6 +11,7 @@ import { shiftHasBreak } from '@/utils/shiftUtils';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
 import { MobileShiftDialog } from './MobileShiftDialog';
 import { QuickPunchDialog } from './QuickPunchDialog';
+import { EventCard } from './EventCard';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
 import { formatTime12Hour } from '@/lib/utils';
@@ -48,6 +49,11 @@ interface Event {
   days_of_week?: number[] | null;
   notes: string | null;
   is_recurring: boolean;
+  category_id?: string | null;
+  category?: {
+    name: string;
+    color: string;
+  } | null;
 }
 
 interface MobileScheduleViewProps {
@@ -161,7 +167,7 @@ export function MobileScheduleView({
     // Get today's events (recurring events for this location)
     const { data: eventsData } = await supabase
       .from('schedule_events')
-      .select('*')
+      .select('*, event_categories(name, color)')
       .eq('location_id', currentLocation.id)
       .eq('is_recurring', true);
     
@@ -171,7 +177,10 @@ export function MobileScheduleView({
         return event.days_of_week.includes(todayDayOfWeek);
       }
       return event.day_of_week === todayDayOfWeek;
-    }).sort((a, b) => a.event_time.localeCompare(b.event_time));
+    }).map(event => ({
+      ...event,
+      category: event.event_categories
+    })).sort((a, b) => a.event_time.localeCompare(b.event_time));
     setTodayEvents(filteredEvents);
     
     // Group by user and find those with unpaired clock-ins
@@ -281,18 +290,16 @@ export function MobileScheduleView({
               <div className="mb-4 space-y-2">
                 <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Events</h4>
                 {todayEvents.map(event => (
-                  <Card key={event.id} className="p-3 border-l-4 border-l-primary/50">
-                    <div className="flex items-center gap-2">
-                      <CalendarIcon className="h-4 w-4 text-primary" />
-                      <span className="font-medium text-sm">{event.event_name}</span>
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        {formatTime12Hour(event.event_time)}
-                      </span>
-                    </div>
-                    {event.notes && (
-                      <p className="text-xs text-muted-foreground mt-1 ml-6">{event.notes}</p>
-                    )}
-                  </Card>
+                  <EventCard
+                    key={event.id}
+                    id={event.id}
+                    name={event.event_name}
+                    time={event.event_time}
+                    categoryName={event.category?.name}
+                    categoryColor={event.category?.color}
+                    notes={event.notes}
+                    showCompleteButton={false}
+                  />
                 ))}
               </div>
             )}

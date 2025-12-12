@@ -1,10 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { CalendarCheck } from "lucide-react";
 import { toast } from "sonner";
-import { formatTime12Hour } from "@/lib/utils";
 import { format } from "date-fns";
-import { TemporaryTaskCard } from "./TemporaryTaskCard";
+import { EventCard } from "@/components/schedule/EventCard";
 
 interface EventTask {
   id: string;
@@ -144,21 +142,19 @@ export function EventDailyTasks({ locationId }: EventDailyTasksProps) {
     return null;
   }
 
-  const DEFAULT_COLOR = "#6366f1"; // Indigo as default
-
   return (
     <>
       {incompleteTasks.map((task) => (
-        <TemporaryTaskCard
+        <EventCard
           key={task.id}
           id={task.id}
-          title={task.event_name}
-          subtitle={formatTime12Hour(task.event_time)}
-          icon={CalendarCheck}
-          accentColor={task.category?.color || DEFAULT_COLOR}
+          name={task.event_name}
+          time={task.event_time}
+          categoryName={task.category?.name}
+          categoryColor={task.category?.color}
+          showCompleteButton={true}
           isLoading={completing === task.id}
-          onAction={() => handleComplete(task.id)}
-          badge={task.category?.name ? { label: task.category.name, color: task.category.color } : undefined}
+          onComplete={() => handleComplete(task.id)}
         />
       ))}
     </>
