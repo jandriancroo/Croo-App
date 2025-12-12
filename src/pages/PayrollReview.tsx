@@ -507,6 +507,26 @@ export default function PayrollReview() {
     fetchTimeCards();
   };
 
+  const handleUnapproveDay = async (dayPunches: any[]) => {
+    const punchIds = dayPunches.map(p => p.id);
+    
+    const { error } = await supabase
+      .from('time_punches')
+      .update({ 
+        approved_by: null,
+        approved_at: null
+      })
+      .in('id', punchIds);
+
+    if (error) {
+      toast.error('Failed to unapprove shift');
+      return;
+    }
+
+    toast.success('Shift unapproved');
+    fetchTimeCards();
+  };
+
   const handleApproveDay = async (dayPunches: any[]) => {
     // Check for flagged punches - auto punch out
     const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
@@ -1131,15 +1151,24 @@ export default function PayrollReview() {
                         </div>
 
                         <CardContent className="p-0">
-                          {weekGroups.map(([weekKey, weekData]) => (
+                          {weekGroups.map(([weekKey, weekData]) => {
+                            // Calculate week total hours
+                            const weekTotalHours = Object.values(weekData.days).reduce((sum: number, dayPunches: any) => {
+                              return sum + calculateDayHours(dayPunches);
+                            }, 0);
+                            
+                            return (
                             <div key={weekKey}>
-                              {/* Week Header - only show if multiple weeks */}
-                              {weekGroups.length > 1 && (
-                                <div className="px-4 py-2 bg-secondary/30 border-b text-xs font-medium text-muted-foreground flex items-center gap-2">
+                              {/* Week Header - always show with hours total */}
+                              <div className="px-4 py-2 bg-secondary/30 border-b text-xs font-medium text-muted-foreground flex items-center justify-between">
+                                <div className="flex items-center gap-2">
                                   <Calendar className="h-3 w-3" />
                                   Week of {format(weekData.start, 'MMM d')} - {format(weekData.end, 'MMM d')}
                                 </div>
-                              )}
+                                <div className="font-semibold text-foreground">
+                                  {weekTotalHours.toFixed(1)} hrs
+                                </div>
+                              </div>
                               
                               {/* Compact Day Rows */}
                               <div className="divide-y">
@@ -1219,7 +1248,13 @@ export default function PayrollReview() {
                                           
                                           {/* Approve button - always shows, changes appearance based on status/violations */}
                                           {isApproved ? (
-                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600" disabled>
+                                            <Button 
+                                              size="icon" 
+                                              variant="ghost" 
+                                              className="h-7 w-7 text-green-600 hover:text-amber-600 hover:bg-amber-50" 
+                                              onClick={() => handleUnapproveDay(dayPunches)}
+                                              title="Click to unapprove"
+                                            >
                                               <CheckCircle2 className="h-4 w-4" />
                                             </Button>
                                           ) : (hasBreakViolation || hasAutoClockOut) ? (
@@ -1255,7 +1290,7 @@ export default function PayrollReview() {
                                   })}
                               </div>
                             </div>
-                          ))}
+                          );})}
                         </CardContent>
                       </Card>
                     );
