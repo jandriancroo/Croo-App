@@ -561,29 +561,24 @@ export function MobileScheduleView({
                     setShiftDialogOpen(true);
                   }}
                 >
-                  <div className="flex items-center gap-3 p-4">
+                  <div className="flex items-center gap-3 p-3">
                     <div className="flex flex-col items-center gap-1">
                       {isMyShift && (
                         <div className="bg-accent text-accent-foreground text-[10px] font-semibold px-2 py-0.5 rounded mb-1">
                           My Shift
                         </div>
                       )}
-                      <Avatar className="h-12 w-12">
+                      <Avatar className="h-11 w-11">
                         <AvatarImage src={profile.profile_photo_url || undefined} />
                         <AvatarFallback>{profile.full_name.charAt(0)}</AvatarFallback>
                       </Avatar>
                     </div>
                     
-                    <div className="flex-1 text-left">
-                      <h4 className="font-semibold">{profile.full_name}</h4>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm text-muted-foreground">
-                          {formatTime12Hour(shift.start_time)} – {formatTime12Hour(shift.end_time)}
-                        </p>
-                        {shiftHasBreak(shift.start_time, shift.end_time) && (
-                          <BreakIndicator hasBreak={true} size="sm" />
-                        )}
-                      </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <h4 className="font-semibold truncate">{profile.full_name}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {formatTime12Hour(shift.start_time)} – {formatTime12Hour(shift.end_time)}
+                      </p>
                       {shift.template?.position && (
                         <Badge variant="outline" className="text-xs mt-1 w-fit">
                           {shift.template.position.replace(/\s*\d{1,2}:\d{2}\s*(AM|PM|am|pm)?/g, '').trim()}
@@ -591,19 +586,24 @@ export function MobileScheduleView({
                       )}
                     </div>
                     
-                    {!isShiftPending && (isAdmin || shift.user_id === user?.id) && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedShiftForOffer(shift);
-                          setOfferDialogOpen(true);
-                        }}
-                      >
-                        Offer Up
-                      </Button>
-                    )}
+                    <div className="flex flex-col items-center gap-1.5 shrink-0">
+                      {!isShiftPending && (isAdmin || shift.user_id === user?.id) && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedShiftForOffer(shift);
+                            setOfferDialogOpen(true);
+                          }}
+                        >
+                          Offer Up
+                        </Button>
+                      )}
+                      {shiftHasBreak(shift.start_time, shift.end_time) && (
+                        <BreakIndicator hasBreak={true} size="sm" />
+                      )}
+                    </div>
                   </div>
                 </Card>
               );
