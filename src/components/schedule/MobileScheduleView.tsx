@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, ChevronLeft, Plus, RefreshCw } from 'lucide-react';
-import { GiFist } from 'react-icons/gi';
+import { FaFistRaised } from 'react-icons/fa';
 import { Button } from '@/components/ui/button';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
@@ -187,7 +187,7 @@ export function MobileScheduleView({
                 title="Quick Punch"
                 className="group"
               >
-                <GiFist className="h-5 w-5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-active:scale-110" />
+                <FaFistRaised className="h-5 w-5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-active:scale-110" />
               </Button>
               <Button 
                 size="sm" 
