@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks } from 'date-fns';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, ChevronLeft, Plus, RefreshCw } from 'lucide-react';
+import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, ChevronLeft, Plus, RefreshCw, Circle, Pencil } from 'lucide-react';
 import { FaFistRaised } from 'react-icons/fa';
 import { Button } from '@/components/ui/button';
 import { BreakIndicator } from './BreakIndicator';
@@ -14,6 +14,9 @@ import { QuickPunchDialog } from './QuickPunchDialog';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
 import { formatTime12Hour } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useLocation } from '@/hooks/useLocation';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface Profile {
   id: string;
@@ -69,6 +72,14 @@ interface MobileScheduleViewProps {
   hasPendingChanges?: boolean;
 }
 
+interface ActiveShift {
+  id: string;
+  user_id: string;
+  punch_time: string;
+  profile: Profile;
+  hoursWorked: number;
+}
+
 export function MobileScheduleView({
   currentWeekStart,
   shifts,
@@ -86,6 +97,7 @@ export function MobileScheduleView({
   isPublishing = false,
   hasPendingChanges = false
 }: MobileScheduleViewProps) {
+  const [activeTab, setActiveTab] = useState<'today' | 'schedule'>('schedule');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
   const [selectedShiftForOffer, setSelectedShiftForOffer] = useState<Shift | null>(null);
@@ -93,11 +105,71 @@ export function MobileScheduleView({
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [quickPunchOpen, setQuickPunchOpen] = useState(false);
+  const [activeShifts, setActiveShifts] = useState<ActiveShift[]>([]);
+  const [loadingActive, setLoadingActive] = useState(false);
   const { isAdmin, isManager } = useUserRole();
   const { user } = useAuth();
+  const { currentLocation } = useLocation();
   
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   const selectedDayOfWeek = weekDays.findIndex(day => isSameDay(day, selectedDate));
+
+  // Fetch active shifts (clocked in but not out)
+  useEffect(() => {
+    if (activeTab === 'today' && currentLocation?.id) {
+      fetchActiveShifts();
+      // Refresh every minute to update hours
+      const interval = setInterval(fetchActiveShifts, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [activeTab, currentLocation?.id]);
+
+  const fetchActiveShifts = async () => {
+    if (!currentLocation?.id) return;
+    setLoadingActive(true);
+    
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const startOfDay = `${today}T00:00:00`;
+    const endOfDay = `${today}T23:59:59`;
+    
+    // Get today's clock-ins
+    const { data: clockIns } = await supabase
+      .from('time_punches')
+      .select('id, user_id, punch_time')
+      .eq('location_id', currentLocation.id)
+      .eq('punch_type', 'clock_in')
+      .gte('punch_time', startOfDay)
+      .lte('punch_time', endOfDay);
+    
+    // Get today's clock-outs
+    const { data: clockOuts } = await supabase
+      .from('time_punches')
+      .select('user_id')
+      .eq('location_id', currentLocation.id)
+      .eq('punch_type', 'clock_out')
+      .gte('punch_time', startOfDay)
+      .lte('punch_time', endOfDay);
+    
+    const clockedOutUserIds = new Set(clockOuts?.map(p => p.user_id) || []);
+    
+    // Filter to only those still clocked in
+    const activeClockIns = clockIns?.filter(p => !clockedOutUserIds.has(p.user_id)) || [];
+    
+    const activeWithProfiles: ActiveShift[] = activeClockIns.map(punch => {
+      const profile = profiles.find(p => p.id === punch.user_id);
+      const hoursWorked = (new Date().getTime() - new Date(punch.punch_time).getTime()) / 3600000;
+      return {
+        id: punch.id,
+        user_id: punch.user_id,
+        punch_time: punch.punch_time,
+        profile: profile || { id: punch.user_id, full_name: 'Unknown', profile_photo_url: null },
+        hoursWorked
+      };
+    }).filter(s => s.profile);
+    
+    setActiveShifts(activeWithProfiles);
+    setLoadingActive(false);
+  };
 
   const handlePreviousWeek = () => {
     const newWeekStart = subWeeks(currentWeekStart, 1);
@@ -134,16 +206,108 @@ export function MobileScheduleView({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      {/* Month Header - Condensed */}
-      <div className="flex items-center justify-between px-4 py-1 border-b">
-        <Button variant="ghost" size="icon" onClick={handlePreviousWeek}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <h2 className="text-sm font-semibold">{format(currentWeekStart, 'MMMM yyyy')}</h2>
-        <Button variant="ghost" size="icon" onClick={handleNextWeek}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
+      {/* Tabs */}
+      {(isAdmin || isManager) && (
+        <div className="px-4 pt-3 pb-2 border-b">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'today' | 'schedule')}>
+            <TabsList className="w-full">
+              <TabsTrigger value="today" className="flex-1 gap-2">
+                <Circle className="h-3 w-3 fill-green-500 text-green-500" />
+                Today
+                {activeShifts.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
+                    {activeShifts.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="schedule" className="flex-1">Schedule</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+      )}
+
+      {/* Today View - Active Shifts */}
+      {activeTab === 'today' && (isAdmin || isManager) ? (
+        <div className="flex-1 overflow-auto">
+          <div className="p-4">
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">
+              {format(new Date(), 'EEEE, MMMM d')} • {activeShifts.length} working now
+            </h3>
+            
+            {loadingActive ? (
+              <div className="text-center py-8 text-muted-foreground">Loading...</div>
+            ) : activeShifts.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Circle className="h-12 w-12 mx-auto mb-2 opacity-30" />
+                <p>No one clocked in right now</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activeShifts.map((activeShift) => (
+                  <Card 
+                    key={activeShift.id} 
+                    className="border-l-4 border-l-green-500"
+                  >
+                    <div className="flex items-center gap-3 p-4">
+                      <div className="relative">
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={activeShift.profile.profile_photo_url || undefined} />
+                          <AvatarFallback>{activeShift.profile.full_name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-background animate-pulse" />
+                      </div>
+                      
+                      <div className="flex-1">
+                        <h4 className="font-semibold">{activeShift.profile.full_name}</h4>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <span>In: {format(new Date(activeShift.punch_time), 'h:mm a')}</span>
+                          <span>•</span>
+                          <span className="text-green-600 font-medium">
+                            {activeShift.hoursWorked.toFixed(1)}h
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          // Navigate to payroll review for editing
+                          window.location.href = '/payroll';
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          {/* Quick Punch FAB for Today view */}
+          <div className="fixed bottom-20 right-4">
+            <Button 
+              size="lg" 
+              className="rounded-full h-14 w-14 shadow-lg"
+              onClick={() => setQuickPunchOpen(true)}
+            >
+              <FaFistRaised className="h-6 w-6" />
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* Month Header - Condensed */}
+          <div className="flex items-center justify-between px-4 py-1 border-b">
+            <Button variant="ghost" size="icon" onClick={handlePreviousWeek}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h2 className="text-sm font-semibold">{format(currentWeekStart, 'MMMM yyyy')}</h2>
+            <Button variant="ghost" size="icon" onClick={handleNextWeek}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
 
       {/* Week Calendar */}
       <div className="flex items-center justify-around p-3 border-b">
@@ -375,6 +539,8 @@ export function MobileScheduleView({
             })
         )}
       </div>
+        </>
+      )}
 
       <ShiftOfferDialog
         open={offerDialogOpen}
@@ -409,7 +575,12 @@ export function MobileScheduleView({
         onOpenChange={setQuickPunchOpen}
         profiles={profiles}
         selectedDate={selectedDate}
-        onPunchCreated={onUpdate}
+        onPunchCreated={() => {
+          onUpdate?.();
+          if (activeTab === 'today') {
+            fetchActiveShifts();
+          }
+        }}
       />
     </div>
   );
