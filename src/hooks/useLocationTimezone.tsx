@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { 
+  getTodayInTimezone as getTodayInTz,
+  getDateInTimezone as getDateInTz,
+  getStartOfTodayInTimezone as getStartOfTodayInTz,
+  getDateInTimezoneOffset as getDateInTzOffset,
+  toISOStringInTimezone,
+  formatTimeDisplay,
+  formatDateTimeDisplay,
+  getTimezoneOffset
+} from '@/utils/timezoneUtils';
 
 const DEFAULT_TIMEZONE = 'America/Los_Angeles';
 
@@ -42,42 +52,39 @@ export const useLocationTimezone = () => {
 
   // Date utilities using the location's timezone
   const getTodayInTimezone = (): string => {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).format(new Date());
+    return getTodayInTz(timezone);
   };
 
   const getDateInTimezone = (date: Date): string => {
-    return new Intl.DateTimeFormat('en-CA', {
-      timeZone: timezone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit'
-    }).format(date);
+    return getDateInTz(date, timezone);
   };
 
   const getStartOfTodayInTimezone = (): Date => {
-    const dateStr = getTodayInTimezone();
-    // Get UTC offset for this timezone
-    const offset = getTimezoneOffset(timezone);
-    return new Date(`${dateStr}T00:00:00${offset}`);
+    return getStartOfTodayInTz(timezone);
   };
 
   const getDateInTimezoneOffset = (daysOffset: number): string => {
-    // Get today's date string in the timezone first
-    const todayStr = getTodayInTimezone();
-    // Parse as a date and add/subtract days
-    const [year, month, day] = todayStr.split('-').map(Number);
-    const baseDate = new Date(year, month - 1, day);
-    baseDate.setDate(baseDate.getDate() + daysOffset);
-    // Format as YYYY-MM-DD
-    const yyyy = baseDate.getFullYear();
-    const mm = String(baseDate.getMonth() + 1).padStart(2, '0');
-    const dd = String(baseDate.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    return getDateInTzOffset(daysOffset, timezone);
+  };
+
+  // Convert a local date and time to ISO string for database storage
+  const toISO = (dateStr: string, timeStr: string): string => {
+    return toISOStringInTimezone(dateStr, timeStr, timezone);
+  };
+
+  // Format a timestamp for display
+  const formatTime = (timestamp: string | Date): string => {
+    return formatTimeDisplay(timestamp, timezone);
+  };
+
+  // Format a full datetime for display
+  const formatDateTime = (timestamp: string | Date): string => {
+    return formatDateTimeDisplay(timestamp, timezone);
+  };
+
+  // Get the timezone offset string
+  const getOffset = (): string => {
+    return getTimezoneOffset(timezone);
   };
 
   return {
@@ -87,19 +94,9 @@ export const useLocationTimezone = () => {
     getDateInTimezone,
     getStartOfTodayInTimezone,
     getDateInTimezoneOffset,
+    toISO,
+    formatTime,
+    formatDateTime,
+    getOffset,
   };
-};
-
-// Helper to get timezone offset string
-const getTimezoneOffset = (timezone: string): string => {
-  const offsets: Record<string, string> = {
-    'America/Los_Angeles': '-08:00',
-    'America/Denver': '-07:00',
-    'America/Phoenix': '-07:00',
-    'America/Chicago': '-06:00',
-    'America/New_York': '-05:00',
-    'America/Anchorage': '-09:00',
-    'Pacific/Honolulu': '-10:00',
-  };
-  return offsets[timezone] || '-08:00';
 };

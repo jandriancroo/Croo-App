@@ -21,6 +21,7 @@ import { DashboardSection } from '@/components/dashboard/DashboardSection';
 import { SalesOverview } from '@/components/dashboard/SalesOverview';
 import { format } from 'date-fns';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatTime12Hour } from '@/lib/utils';
 import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
@@ -92,6 +93,7 @@ export default function Dashboard() {
   } = useUserRole();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, isChecklistOnlyLocation } = useAppLocation();
+  const { getTodayInTimezone } = useLocationTimezone();
   const { animationAmount } = useCrooCashAnimation();
   const isMobile = useIsMobile();
   
@@ -150,9 +152,9 @@ export default function Dashboard() {
   const fetchTodaysCateringOrders = async () => {
     if (!currentLocation?.id) return;
     try {
-      const now = new Date();
-      const pstDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
-      const today = format(pstDate, "yyyy-MM-dd");
+      // Get today's date in location's timezone
+      const today = getTodayInTimezone();
+      
       
       const { data, error } = await supabase
         .from("catering_orders")
