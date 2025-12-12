@@ -80,6 +80,10 @@ interface ActiveShift {
   punch_time: string;
   profile: Profile;
   hoursWorked: number;
+  scheduledShift?: {
+    start_time: string;
+    end_time: string;
+  } | null;
 }
 
 export function MobileScheduleView({
@@ -146,6 +150,12 @@ export function MobileScheduleView({
       .lte('punch_time', endOfDay)
       .order('punch_time', { ascending: true });
     
+    // Get today's scheduled shifts
+    const { data: todayScheduledShifts } = await supabase
+      .from('scheduled_shifts')
+      .select('user_id, start_time, end_time')
+      .eq('shift_date', today);
+    
     // Group by user and find those with unpaired clock-ins
     const userPunches: Record<string, Array<{id: string, punch_time: string, punch_type: string}>> = {};
     allPunches?.forEach(p => {
@@ -170,12 +180,14 @@ export function MobileScheduleView({
     const activeWithProfiles: ActiveShift[] = activeClockIns.map(punch => {
       const profile = profiles.find(p => p.id === punch.user_id);
       const hoursWorked = (new Date().getTime() - new Date(punch.punch_time).getTime()) / 3600000;
+      const scheduledShift = todayScheduledShifts?.find(s => s.user_id === punch.user_id);
       return {
         id: punch.id,
         user_id: punch.user_id,
         punch_time: punch.punch_time,
         profile: profile || { id: punch.user_id, full_name: 'Unknown', profile_photo_url: null },
-        hoursWorked
+        hoursWorked,
+        scheduledShift: scheduledShift ? { start_time: scheduledShift.start_time, end_time: scheduledShift.end_time } : null
       };
     }).filter(s => s.profile);
     
@@ -307,6 +319,11 @@ export function MobileScheduleView({
                       
                       <div className="flex-1">
                         <h4 className="font-semibold">{activeShift.profile.full_name}</h4>
+                        {activeShift.scheduledShift && (
+                          <div className="text-xs text-muted-foreground mb-0.5">
+                            Scheduled: {formatTime12Hour(activeShift.scheduledShift.start_time)} - {formatTime12Hour(activeShift.scheduledShift.end_time)}
+                          </div>
+                        )}
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <span>In: {formatTimeDisplay(activeShift.punch_time, timezone)}</span>
                           <span>•</span>
