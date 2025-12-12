@@ -243,15 +243,51 @@ export function MobileScheduleView({
         <div className="flex-1 overflow-auto">
           <div className="p-4">
             <h3 className="text-sm font-medium text-muted-foreground mb-3">
-              {format(new Date(), 'EEEE, MMMM d')} • {activeShifts.length} working now
+              {format(new Date(), 'EEEE, MMMM d')}
             </h3>
+            
+            {/* Today's Events */}
+            {(() => {
+              const todayDayOfWeek = new Date().getDay();
+              const todayEvents = events.filter(event => 
+                event.days_of_week?.includes(todayDayOfWeek) || event.day_of_week === todayDayOfWeek
+              ).sort((a, b) => a.event_time.localeCompare(b.event_time));
+              
+              if (todayEvents.length > 0) {
+                return (
+                  <div className="mb-4 space-y-2">
+                    <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Events</h4>
+                    {todayEvents.map(event => (
+                      <Card key={event.id} className="p-3 border-l-4 border-l-primary/50">
+                        <div className="flex items-center gap-2">
+                          <CalendarIcon className="h-4 w-4 text-primary" />
+                          <span className="font-medium text-sm">{event.event_name}</span>
+                          <span className="text-xs text-muted-foreground ml-auto">
+                            {formatTime12Hour(event.event_time)}
+                          </span>
+                        </div>
+                        {event.notes && (
+                          <p className="text-xs text-muted-foreground mt-1 ml-6">{event.notes}</p>
+                        )}
+                      </Card>
+                    ))}
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            
+            {/* Active Shifts Section */}
+            <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+              Working Now ({activeShifts.length})
+            </h4>
             
             {loadingActive ? (
               <div className="text-center py-8 text-muted-foreground">Loading...</div>
             ) : activeShifts.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <Circle className="h-12 w-12 mx-auto mb-2 opacity-30" />
-                <p>No one clocked in right now</p>
+              <div className="text-center py-8 text-muted-foreground">
+                <Circle className="h-10 w-10 mx-auto mb-2 opacity-30" />
+                <p className="text-sm">No one clocked in right now</p>
               </div>
             ) : (
               <div className="space-y-3">
