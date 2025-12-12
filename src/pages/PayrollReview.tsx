@@ -1135,11 +1135,21 @@ export default function PayrollReview() {
                                   .map(([day, dayPunches]: [string, any]) => {
                                     const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
                                     const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
+                                    const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
                                     const dayDate = new Date(day);
                                     const dayHours = calculateDayHours(dayPunches);
                                     const isApproved = dayPunches.every((p: any) => p.approved_at);
                                     const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
-                                    const hasBreakViolation = dayPunches.some((p: any) => p.has_break_violation);
+                                    
+                                    // Calculate break violation: shift > 5 hours without meal break
+                                    let hasBreakViolation = false;
+                                    if (clockIn && clockOut) {
+                                      const shiftHours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+                                      if (shiftHours > 5 && !mealBreakStart) {
+                                        hasBreakViolation = true;
+                                      }
+                                    }
+                                    
                                     const hasIssue = hasDayIssues(dayPunches);
 
                                     // Skip approved if not showing
