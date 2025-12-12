@@ -457,6 +457,39 @@ async function fetchLaborData(
   }
 }
 
+// Fetch labor data for multiple dates (for weekly/period totals)
+async function fetchLaborDataForDates(
+  tokenGw: string,
+  dates: string[],
+  qbLocationId: string
+): Promise<{ laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] }> {
+  console.log(`Fetching labor data for ${dates.length} days`);
+  
+  let totalLaborCost = 0;
+  let totalHoursWorked = 0;
+  let totalRegularHours = 0;
+  let totalOvertimeHours = 0;
+  const dailyLabor: { date: string; laborPercent: number; laborCost: number }[] = [];
+  
+  // Fetch labor data for each date
+  for (const dateStr of dates) {
+    const labor = await fetchLaborData(tokenGw, dateStr, qbLocationId);
+    if (labor) {
+      totalLaborCost += labor.laborCost;
+      totalHoursWorked += labor.hoursWorked;
+      totalRegularHours += labor.regularHours;
+      totalOvertimeHours += labor.overtimeHours;
+      dailyLabor.push({
+        date: dateStr,
+        laborPercent: labor.laborPercent,
+        laborCost: labor.laborCost
+      });
+    }
+  }
+  
+  return { laborCost: totalLaborCost, hoursWorked: totalHoursWorked, regularHours: totalRegularHours, overtimeHours: totalOvertimeHours, dailyLabor };
+}
+
 // Generate deterministic seeded random factor between -2% and +3%
 // Uses a simple hash of date + locationId to ensure consistency for same inputs
 function getSeededRandomFactor(seed: string): number {
@@ -906,9 +939,17 @@ serve(async (req) => {
 
     // Fetch labor data if pull_labor is enabled
     let laborData = null;
+    let weeklyLaborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] } | null = null;
+    
     if (credentials.pull_labor) {
       console.log('Pull labor enabled - fetching labor data from Real Time Summary');
-      laborData = await fetchLaborData(tokenGw, todayStr, qbLocationId);
+      // Fetch today's labor and weekly labor in parallel
+      const [todayLabor, weekLabor] = await Promise.all([
+        fetchLaborData(tokenGw, todayStr, qbLocationId),
+        fetchLaborDataForDates(tokenGw, weekDates, qbLocationId)
+      ]);
+      laborData = todayLabor;
+      weeklyLaborData = weekLabor;
     }
 
     // Calculate today's metrics from hourly data
@@ -1115,12 +1156,43 @@ serve(async (req) => {
       fourWeekAverage
     );
 
+    // Add labor % to hourly data if we have labor data
+    let hourlyWithLabor = hourlyWithProjections;
+    if (laborData && dailySales > 0) {
+      hourlyWithLabor = hourlyWithProjections.map(h => ({
+        ...h,
+        laborPercent: h.sales > 0 ? (laborData.laborCost * (h.sales / dailySales) / h.sales) * 100 : 0
+      }));
+    }
+    
+    // Add labor % to weekly breakdown if we have weekly labor data
+    let weeklyWithLabor = weeklyWithProjections;
+    if (weeklyLaborData && weeklyLaborData.dailyLabor.length > 0) {
+      weeklyWithLabor = weeklyWithProjections.map(d => {
+        const dayLabor = weeklyLaborData.dailyLabor.find(l => l.date === d.date);
+        return {
+          ...d,
+          laborPercent: dayLabor?.laborPercent || 0,
+          laborCost: dayLabor?.laborCost || 0
+        };
+      });
+    }
+    
+    // Calculate weekly labor totals
+    const weeklyLaborTotals = weeklyLaborData && weeklySales > 0 ? {
+      laborPercent: (weeklyLaborData.laborCost / weeklySales) * 100,
+      laborCost: weeklyLaborData.laborCost,
+      hoursWorked: weeklyLaborData.hoursWorked,
+      regularHours: weeklyLaborData.regularHours,
+      overtimeHours: weeklyLaborData.overtimeHours
+    } : null;
+
     const result = {
       daily: dailySales,
       weekly: weeklySales,
       monthly: monthlySales,
-      hourly: hourlyWithProjections,
-      weeklyBreakdown: weeklyWithProjections,
+      hourly: hourlyWithLabor,
+      weeklyBreakdown: weeklyWithLabor,
       monthlyBreakdown: monthlyWithProjections,
       guestCount: {
         daily: dailyGuestCount,
@@ -1138,6 +1210,7 @@ serve(async (req) => {
       productMix,
       tills: tillsData, // Tills data for drawer count expected cash
       labor: laborData, // Labor data from Real Time Summary (if pull_labor enabled)
+      weeklyLabor: weeklyLaborTotals, // Weekly labor totals (if pull_labor enabled)
       authenticated: true,
       timestamp: new Date().toISOString(),
       currentHour,

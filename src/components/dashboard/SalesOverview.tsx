@@ -17,8 +17,8 @@ interface SalesData {
   daily: number;
   weekly?: number;
   monthly?: number;
-  hourly?: Array<{ hour: string; sales: number; projected?: number; checksCount?: number }>;
-  weeklyBreakdown?: Array<{ date: string; sales: number; projected?: number; guestCount?: number }>;
+  hourly?: Array<{ hour: string; sales: number; projected?: number; checksCount?: number; laborPercent?: number }>;
+  weeklyBreakdown?: Array<{ date: string; sales: number; projected?: number; guestCount?: number; laborPercent?: number; laborCost?: number }>;
   monthlyBreakdown?: Array<{ date: string; sales: number; projected?: number; guestCount?: number }>;
   guestCount?: { daily: number; weekly: number; monthly: number };
   avgTicket?: number;
@@ -28,6 +28,7 @@ interface SalesData {
   productMix?: Array<{ name: string; quantity: number; sales: number; category: string }>;
   dateRange?: { today: string; weekStart: string; monthStart: string };
   labor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number } | null;
+  weeklyLabor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number } | null;
 }
 
 interface LocationSettings {
@@ -387,12 +388,20 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     <XAxis dataKey="hour" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
                     <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
                     <Tooltip 
-                      formatter={(value, name) => [formatCurrency(value as number), name === 'projected' ? 'Projected' : 'Actual']} 
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '6px'
-                      }} 
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const data = payload[0]?.payload;
+                        return (
+                          <div className="bg-card border border-border rounded-md p-2 shadow-lg">
+                            <p className="font-medium">{label}</p>
+                            <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
+                            <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
+                            {hasLaborData && data?.laborPercent !== undefined && data.laborPercent > 0 && (
+                              <p className="text-orange-500">Labor: <span className="font-medium">{data.laborPercent.toFixed(1)}%</span></p>
+                            )}
+                          </div>
+                        );
+                      }}
                     />
                     <Legend 
                       formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
@@ -496,6 +505,31 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   </div>
                 </div>
               )}
+
+              {/* WTD Live Labor */}
+              {salesData?.weeklyLabor && salesData.weeklyLabor.laborPercent > 0 && (
+                <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex-shrink-0">
+                      <span className="text-xs font-bold text-white">%</span>
+                    </div>
+                    <span className="text-xs sm:text-sm text-muted-foreground">WTD Labor</span>
+                  </div>
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="text-right">
+                      <p className="text-lg sm:text-xl font-bold text-orange-500">{salesData.weeklyLabor.laborPercent.toFixed(1)}%</p>
+                    </div>
+                    <div className="text-right hidden sm:block">
+                      <p className="text-xs text-muted-foreground">Cost</p>
+                      <p className="text-sm font-medium">{formatCurrency(salesData.weeklyLabor.laborCost)}</p>
+                    </div>
+                    <div className="text-right hidden sm:block">
+                      <p className="text-xs text-muted-foreground">Hours</p>
+                      <p className="text-sm font-medium">{salesData.weeklyLabor.hoursWorked.toFixed(1)}h</p>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               {salesData?.weeklyBreakdown && salesData.weeklyBreakdown.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
@@ -507,18 +541,21 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
                     <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
                     <Tooltip 
-                      formatter={(value, name) => [formatCurrency(value as number), name === 'projected' ? 'Projected' : 'Actual']}
-                      labelFormatter={(label, payload) => {
-                        if (payload?.[0]?.payload?.date) {
-                          return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
-                        }
-                        return label;
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const data = payload[0]?.payload;
+                        const hasWeeklyLabor = salesData?.weeklyLabor && salesData.weeklyLabor.laborPercent > 0;
+                        return (
+                          <div className="bg-card border border-border rounded-md p-2 shadow-lg">
+                            <p className="font-medium">{format(new Date(data?.date + 'T00:00:00'), 'EEEE, MMM d')}</p>
+                            <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
+                            <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
+                            {hasWeeklyLabor && data?.laborPercent !== undefined && data.laborPercent > 0 && (
+                              <p className="text-orange-500">Labor: <span className="font-medium">{data.laborPercent.toFixed(1)}%</span></p>
+                            )}
+                          </div>
+                        );
                       }}
-                      contentStyle={{
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '6px'
-                      }} 
                     />
                     <Legend 
                       formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
