@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { toast } from "sonner";
 import { ChefHat, Clock, Users, Check, Eye } from "lucide-react";
 import { format } from "date-fns";
@@ -26,6 +27,7 @@ const ORANGE_COLOR = "#f97316";
 
 export function CateringOrdersAlert() {
   const { currentLocation } = useLocation();
+  const { getTodayInTimezone } = useLocationTimezone();
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
   const [todaysOrders, setTodaysOrders] = useState<CateringOrder[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<CateringOrder | null>(null);
@@ -41,10 +43,9 @@ export function CateringOrdersAlert() {
 
   const fetchTodaysOrders = async () => {
     try {
-      // Get today's date in PST timezone
-      const now = new Date();
-      const pstDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
-      const today = format(pstDate, "yyyy-MM-dd");
+      // Get today's date in location's timezone
+      const today = getTodayInTimezone();
+      
       
       const { data, error } = await supabase
         .from("catering_orders")

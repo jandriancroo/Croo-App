@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { format, addDays, addWeeks, startOfWeek, endOfWeek, isSameWeek } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { toast } from 'sonner';
 import { ChevronLeft, AlertTriangle, Edit, Trash2, Clock, CheckCircle2, Lock, AlertCircle, Coffee, Download, FileSpreadsheet, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import autoPunchIcon from '@/assets/auto-punch-icon.jpg';
+import { toISOStringInTimezone, formatTimeDisplay } from '@/utils/timezoneUtils';
 
 // Edit Shift Form Component - Full shift editing with clock in/out and breaks
 function EditShiftForm({ 
@@ -25,6 +27,7 @@ function EditShiftForm({
   userId,
   locationId,
   shiftDate,
+  timezone,
   onSave, 
   onCancel 
 }: { 
@@ -32,6 +35,7 @@ function EditShiftForm({
   userId: string;
   locationId: string;
   shiftDate: string;
+  timezone: string;
   onSave: () => void; 
   onCancel: () => void;
 }) {
@@ -40,29 +44,40 @@ function EditShiftForm({
   const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
   const mealBreakEnd = dayPunches.find((p: any) => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
 
-  const [clockInTime, setClockInTime] = useState(clockIn ? format(new Date(clockIn.punch_time), 'HH:mm') : '');
-  const [clockOutTime, setClockOutTime] = useState(clockOut ? format(new Date(clockOut.punch_time), 'HH:mm') : '');
+  // Format times in the location's timezone for display/editing
+  const formatTimeForEdit = (punch: any): string => {
+    if (!punch) return '';
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(new Date(punch.punch_time));
+  };
+
+  const [clockInTime, setClockInTime] = useState(formatTimeForEdit(clockIn) || '');
+  const [clockOutTime, setClockOutTime] = useState(formatTimeForEdit(clockOut) || '');
   const [hasMealBreak, setHasMealBreak] = useState(!!mealBreakStart);
-  const [mealBreakStartTime, setMealBreakStartTime] = useState(mealBreakStart ? format(new Date(mealBreakStart.punch_time), 'HH:mm') : '12:00');
-  const [mealBreakEndTime, setMealBreakEndTime] = useState(mealBreakEnd ? format(new Date(mealBreakEnd.punch_time), 'HH:mm') : '12:30');
+  const [mealBreakStartTime, setMealBreakStartTime] = useState(formatTimeForEdit(mealBreakStart) || '12:00');
+  const [mealBreakEndTime, setMealBreakEndTime] = useState(formatTimeForEdit(mealBreakEnd) || '12:30');
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Update clock in
+      // Update clock in - use timezone-aware conversion
       if (clockIn && clockInTime) {
-        const newClockInTime = new Date(`${shiftDate}T${clockInTime}`).toISOString();
+        const newClockInTime = toISOStringInTimezone(shiftDate, clockInTime, timezone);
         await supabase.from('time_punches').update({ punch_time: newClockInTime }).eq('id', clockIn.id);
       }
 
       // Update clock out
       if (clockOut && clockOutTime) {
-        const newClockOutTime = new Date(`${shiftDate}T${clockOutTime}`).toISOString();
+        const newClockOutTime = toISOStringInTimezone(shiftDate, clockOutTime, timezone);
         await supabase.from('time_punches').update({ punch_time: newClockOutTime }).eq('id', clockOut.id);
       } else if (!clockOut && clockOutTime) {
         // Add missing clock out
-        const newClockOutTime = new Date(`${shiftDate}T${clockOutTime}`).toISOString();
+        const newClockOutTime = toISOStringInTimezone(shiftDate, clockOutTime, timezone);
         await supabase.from('time_punches').insert({
           user_id: userId,
           location_id: locationId,
@@ -73,8 +88,8 @@ function EditShiftForm({
 
       // Handle meal break
       if (hasMealBreak) {
-        const breakStartTime = new Date(`${shiftDate}T${mealBreakStartTime}`).toISOString();
-        const breakEndTime = new Date(`${shiftDate}T${mealBreakEndTime}`).toISOString();
+        const breakStartTime = toISOStringInTimezone(shiftDate, mealBreakStartTime, timezone);
+        const breakEndTime = toISOStringInTimezone(shiftDate, mealBreakEndTime, timezone);
 
         if (mealBreakStart) {
           await supabase.from('time_punches').update({ punch_time: breakStartTime }).eq('id', mealBreakStart.id);
@@ -193,6 +208,7 @@ function EditShiftForm({
 export default function PayrollReview() {
   const { isAdmin, isManager } = useUserRole();
   const { currentLocation } = useAppLocation();
+  const { timezone } = useLocationTimezone();
   const [payPeriods, setPayPeriods] = useState<any[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<any>(null);
   const [timeCards, setTimeCards] = useState<any[]>([]);
@@ -1233,11 +1249,11 @@ export default function PayrollReview() {
                                         <div className="flex-1 flex items-center gap-2">
                                           <div className="flex items-center gap-1.5 text-sm">
                                             <span className="text-green-600 font-medium">
-                                              {clockIn ? format(new Date(clockIn.punch_time), 'h:mm a') : '—'}
+                                              {clockIn ? formatTimeDisplay(clockIn.punch_time, timezone) : '—'}
                                             </span>
                                             <span className="text-muted-foreground">→</span>
                                             <span className="text-red-600 font-medium">
-                                              {clockOut ? format(new Date(clockOut.punch_time), 'h:mm a') : '—'}
+                                              {clockOut ? formatTimeDisplay(clockOut.punch_time, timezone) : '—'}
                                             </span>
                                           </div>
 
@@ -1339,6 +1355,7 @@ export default function PayrollReview() {
                 userId={editingShift.userId}
                 locationId={editingShift.locationId}
                 shiftDate={editingShift.shiftDate}
+                timezone={timezone}
                 onSave={() => { setEditingShift(null); fetchTimeCards(); }}
                 onCancel={() => setEditingShift(null)}
               />
