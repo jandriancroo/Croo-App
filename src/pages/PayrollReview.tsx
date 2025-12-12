@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { format, addDays, addWeeks } from 'date-fns';
+import { format, addDays, addWeeks, startOfWeek, endOfWeek, isSameWeek } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { toast } from 'sonner';
-import { ChevronLeft, AlertTriangle, Edit, Trash2, Clock, Calendar, CheckCircle2, Lock, AlertCircle, Coffee } from 'lucide-react';
+import { ChevronLeft, AlertTriangle, Edit, Trash2, Clock, CheckCircle2, Lock, AlertCircle, Coffee, Download, FileSpreadsheet, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export default function PayrollReview() {
   const { isAdmin, isManager } = useUserRole();
@@ -452,6 +453,125 @@ export default function PayrollReview() {
     return { employees: summary, totals };
   };
 
+  // Group punches by week for display
+  const groupPunchesByWeek = (punchesByDay: { [key: string]: any[] }) => {
+    const weeks: { [weekKey: string]: { start: Date; end: Date; days: { [day: string]: any[] } } } = {};
+    
+    Object.entries(punchesByDay).forEach(([day, punches]) => {
+      const dayDate = new Date(day);
+      const weekStart = startOfWeek(dayDate, { weekStartsOn: 1 }); // Monday start
+      const weekEnd = endOfWeek(dayDate, { weekStartsOn: 1 });
+      const weekKey = format(weekStart, 'yyyy-MM-dd');
+      
+      if (!weeks[weekKey]) {
+        weeks[weekKey] = { start: weekStart, end: weekEnd, days: {} };
+      }
+      weeks[weekKey].days[day] = punches;
+    });
+    
+    return Object.entries(weeks).sort(([a], [b]) => a.localeCompare(b));
+  };
+
+  // Export functions
+  const exportToCSV = () => {
+    const summary = calculatePayrollSummary();
+    const headers = ['Employee', 'Hourly Wage', 'Regular Hours', 'Overtime Hours', 'PTO Hours', 'Gross Wages'];
+    const rows = summary.employees.map(emp => [
+      emp.name,
+      emp.wage.toFixed(2),
+      emp.regularHours.toFixed(2),
+      emp.overtimeHours.toFixed(2),
+      emp.ptoHours.toFixed(2),
+      emp.grossWages.toFixed(2)
+    ]);
+    rows.push(['TOTALS', '', summary.totals.regularHours.toFixed(2), summary.totals.overtimeHours.toFixed(2), summary.totals.ptoHours.toFixed(2), summary.totals.grossWages.toFixed(2)]);
+    
+    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `payroll-${format(selectedPeriod.start, 'yyyy-MM-dd')}-to-${format(selectedPeriod.end, 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('CSV exported');
+  };
+
+  const exportToPDF = () => {
+    // Create a printable version
+    const summary = calculatePayrollSummary();
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast.error('Please allow popups to export PDF');
+      return;
+    }
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Payroll Report - ${selectedPeriod.label}</title>
+          <style>
+            body { font-family: system-ui, sans-serif; padding: 40px; }
+            h1 { font-size: 24px; margin-bottom: 8px; }
+            h2 { font-size: 14px; color: #666; margin-bottom: 24px; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }
+            th { background: #f5f5f5; font-weight: 600; }
+            .right { text-align: right; }
+            .total { font-weight: bold; background: #f0f0f0; }
+            .summary { margin-top: 24px; padding: 16px; background: #f9f9f9; border-radius: 8px; }
+            .summary-row { display: flex; justify-content: space-between; padding: 4px 0; }
+            .summary-total { font-size: 18px; font-weight: bold; border-top: 2px solid #333; margin-top: 8px; padding-top: 8px; }
+          </style>
+        </head>
+        <body>
+          <h1>Payroll Report</h1>
+          <h2>${selectedPeriod.label}</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Employee</th>
+                <th class="right">Hourly Wage</th>
+                <th class="right">Regular Hours</th>
+                <th class="right">Overtime</th>
+                <th class="right">PTO</th>
+                <th class="right">Gross Wages</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${summary.employees.map(emp => `
+                <tr>
+                  <td>${emp.name}</td>
+                  <td class="right">$${emp.wage.toFixed(2)}</td>
+                  <td class="right">${emp.regularHours.toFixed(2)}</td>
+                  <td class="right">${emp.overtimeHours.toFixed(2)}</td>
+                  <td class="right">${emp.ptoHours.toFixed(2)}</td>
+                  <td class="right">$${emp.grossWages.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+              <tr class="total">
+                <td>TOTALS</td>
+                <td></td>
+                <td class="right">${summary.totals.regularHours.toFixed(2)}</td>
+                <td class="right">${summary.totals.overtimeHours.toFixed(2)}</td>
+                <td class="right">${summary.totals.ptoHours.toFixed(2)}</td>
+                <td class="right">$${summary.totals.grossWages.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="summary">
+            <div class="summary-row"><span>Total Regular Hours:</span><span>${summary.totals.regularHours.toFixed(2)}</span></div>
+            <div class="summary-row"><span>Total Overtime Hours:</span><span>${summary.totals.overtimeHours.toFixed(2)}</span></div>
+            <div class="summary-row"><span>Approved PTO Hours:</span><span>${summary.totals.ptoHours.toFixed(2)}</span></div>
+            <div class="summary-row summary-total"><span>Total Gross Wages:</span><span>$${summary.totals.grossWages.toFixed(2)}</span></div>
+          </div>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
+
   const currentPeriodStatus = selectedPeriod ? getPeriodStatus(selectedPeriod) : null;
   const isPeriodClosed = currentPeriodStatus?.status === 'closed';
 
@@ -597,234 +717,214 @@ export default function PayrollReview() {
             {isPeriodClosed ? (
               /* Payroll Summary */
               <Card>
-                <CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Payroll Summary</CardTitle>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Download className="h-4 w-4 mr-2" />
+                        Export
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={exportToCSV}>
+                        <FileSpreadsheet className="h-4 w-4 mr-2" />
+                        Export to CSV
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={exportToPDF}>
+                        <Download className="h-4 w-4 mr-2" />
+                        Export to PDF
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </CardHeader>
                 <CardContent>
                   <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Employee</TableHead>
-                        <TableHead className="text-right">Hourly Wage</TableHead>
-                        <TableHead className="text-right">Hours</TableHead>
-                        <TableHead className="text-right">Overtime</TableHead>
+                        <TableHead className="text-right">Rate</TableHead>
+                        <TableHead className="text-right">Reg</TableHead>
+                        <TableHead className="text-right">OT</TableHead>
                         <TableHead className="text-right">PTO</TableHead>
-                        <TableHead className="text-right">Gross Wages</TableHead>
+                        <TableHead className="text-right">Gross</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {calculatePayrollSummary().employees.map((emp, index) => (
                         <TableRow key={index}>
                           <TableCell className="font-medium">{emp.name}</TableCell>
-                          <TableCell className="text-right">${emp.wage.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">{emp.regularHours.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">{emp.overtimeHours.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">{emp.ptoHours.toFixed(2)}</TableCell>
-                          <TableCell className="text-right">${emp.grossWages.toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">${emp.wage.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">{emp.regularHours.toFixed(1)}</TableCell>
+                          <TableCell className="text-right">{emp.overtimeHours.toFixed(1)}</TableCell>
+                          <TableCell className="text-right">{emp.ptoHours.toFixed(1)}</TableCell>
+                          <TableCell className="text-right font-semibold">${emp.grossWages.toFixed(2)}</TableCell>
                         </TableRow>
                       ))}
-                      <TableRow className="font-bold border-t-2">
+                      <TableRow className="font-bold bg-muted/50">
                         <TableCell>TOTALS</TableCell>
                         <TableCell></TableCell>
-                        <TableCell className="text-right">{calculatePayrollSummary().totals.regularHours.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">{calculatePayrollSummary().totals.overtimeHours.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">{calculatePayrollSummary().totals.ptoHours.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${calculatePayrollSummary().totals.grossWages.toFixed(2)}</TableCell>
+                        <TableCell className="text-right">{calculatePayrollSummary().totals.regularHours.toFixed(1)}</TableCell>
+                        <TableCell className="text-right">{calculatePayrollSummary().totals.overtimeHours.toFixed(1)}</TableCell>
+                        <TableCell className="text-right">{calculatePayrollSummary().totals.ptoHours.toFixed(1)}</TableCell>
+                        <TableCell className="text-right text-lg">${calculatePayrollSummary().totals.grossWages.toFixed(2)}</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>
-                  <div className="mt-4 p-4 bg-muted rounded-lg space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Total Regular Hours:</span>
-                      <span className="font-semibold">{calculatePayrollSummary().totals.regularHours.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Overtime Hours:</span>
-                      <span className="font-semibold">{calculatePayrollSummary().totals.overtimeHours.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Double Overtime Hours:</span>
-                      <span className="font-semibold">{calculatePayrollSummary().totals.doubleOvertimeHours.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Approved PTO Hours:</span>
-                      <span className="font-semibold">{calculatePayrollSummary().totals.ptoHours.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between text-lg font-bold border-t pt-2 mt-2">
-                      <span>Total Gross Wages:</span>
-                      <span>${calculatePayrollSummary().totals.grossWages.toFixed(2)}</span>
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
             ) : (
               <>
                 {/* Punches Awaiting Approval */}
-                <Card className="bg-muted/50">
-                  <CardContent className="p-4">
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardContent className="p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <Badge variant="destructive" className="h-8 w-8 rounded-full flex items-center justify-center text-base">
+                        <div className="h-8 w-8 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center text-sm font-bold">
                           {totalPunchesAwaitingApproval}
-                        </Badge>
-                        <span className="font-semibold">Punches awaiting approval</span>
-                        <div className="flex items-center gap-2">
+                        </div>
+                        <span className="font-medium text-sm">Shifts awaiting approval</span>
+                        <div className="flex items-center gap-1.5">
                           <Checkbox
                             id="include-approved"
                             checked={includeApproved}
                             onCheckedChange={(checked) => setIncludeApproved(checked as boolean)}
+                            className="h-4 w-4"
                           />
-                          <label htmlFor="include-approved" className="text-sm text-muted-foreground cursor-pointer">
-                            Include approved
+                          <label htmlFor="include-approved" className="text-xs text-muted-foreground cursor-pointer">
+                            Show approved
                           </label>
                         </div>
                       </div>
-                      <Button onClick={handleApproveAll} disabled={filteredPunchesAwaitingApproval === 0}>
-                        Approve All [{filteredPunchesAwaitingApproval}]
+                      <Button size="sm" onClick={handleApproveAll} disabled={filteredPunchesAwaitingApproval === 0}>
+                        Approve All ({filteredPunchesAwaitingApproval})
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Employee Punch Cards */}
-                <div className="space-y-6">
-              {filteredCards.map((card) => (
-                <Card key={card.profile.id}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage src={card.profile.profile_photo_url || undefined} />
-                          <AvatarFallback>{card.profile.full_name?.[0] || 'U'}</AvatarFallback>
-                        </Avatar>
-                        <span className="font-semibold text-lg">{card.profile.full_name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-semibold">{card.totalHours.toFixed(2)} hrs</span>
-                        <Button variant="ghost" size="icon">
-                          <Clock className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                {/* Employee Punch Cards - Grouped by Week */}
+                <div className="space-y-4">
+                  {filteredCards.map((card) => {
+                    const weekGroups = groupPunchesByWeek(card.punchesByDay);
+                    
+                    return (
+                      <Card key={card.profile.id} className="overflow-hidden">
+                        {/* Employee Header */}
+                        <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b">
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={card.profile.profile_photo_url || undefined} />
+                              <AvatarFallback className="text-xs">{card.profile.full_name?.[0] || 'U'}</AvatarFallback>
+                            </Avatar>
+                            <span className="font-semibold">{card.profile.full_name}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold text-lg">{card.totalHours.toFixed(1)}</span>
+                            <span className="text-muted-foreground text-sm ml-1">hrs</span>
+                          </div>
+                        </div>
 
-                    <div className="space-y-3">
-                      {Object.entries(card.punchesByDay).map(([day, dayPunches]: [string, any]) => {
-                        const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
-                        const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
-                        const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
-                        const mealBreakEnd = dayPunches.find((p: any) => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
-                        const dayDate = new Date(day);
-                        const hasIssues = hasDayIssues(dayPunches);
-                        const dayHours = calculateDayHours(dayPunches);
-
-                        return (
-                          <div key={day} className="border rounded-lg overflow-hidden">
-                            <div className="flex">
-                              {/* Day Sidebar */}
-                              <div className="bg-destructive text-destructive-foreground w-20 flex flex-col items-center justify-center p-2">
-                                <span className="text-xs font-medium">{format(dayDate, 'EEE')}</span>
-                                <span className="text-sm font-bold">{format(dayDate, 'MMM d')}</span>
-                              </div>
-
-                              {/* Punch Details */}
-                              <div className="flex-1 p-4 space-y-3">
-                                 <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-sm">
-                                      {clockIn && clockOut ? (
-                                        `${format(new Date(clockIn.punch_time), 'h:mm a')} - ${format(new Date(clockOut.punch_time), 'h:mm a')}`
-                                      ) : (
-                                        'Incomplete'
-                                      )}
-                                    </span>
-                                    {dayPunches.every((p: any) => p.approved_at) && (
-                                      <Badge variant="secondary" className="text-xs">
-                                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                                        Approved
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Button variant="ghost" size="icon" onClick={() => setEditingPunch(clockIn)}>
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" onClick={() => clockIn && handleDeletePunch(clockIn.id)}>
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                    {!dayPunches.every((p: any) => p.approved_at) && (
-                                      <Button size="sm" onClick={() => handleApproveDay(dayPunches)}>
-                                        Approve
-                                      </Button>
-                                    )}
-                                  </div>
+                        <CardContent className="p-0">
+                          {weekGroups.map(([weekKey, weekData]) => (
+                            <div key={weekKey}>
+                              {/* Week Header - only show if multiple weeks */}
+                              {weekGroups.length > 1 && (
+                                <div className="px-4 py-2 bg-secondary/30 border-b text-xs font-medium text-muted-foreground flex items-center gap-2">
+                                  <Calendar className="h-3 w-3" />
+                                  Week of {format(weekData.start, 'MMM d')} - {format(weekData.end, 'MMM d')}
                                 </div>
+                              )}
+                              
+                              {/* Compact Day Rows */}
+                              <div className="divide-y">
+                                {Object.entries(weekData.days)
+                                  .sort(([a], [b]) => a.localeCompare(b))
+                                  .map(([day, dayPunches]: [string, any]) => {
+                                    const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
+                                    const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
+                                    const dayDate = new Date(day);
+                                    const dayHours = calculateDayHours(dayPunches);
+                                    const isApproved = dayPunches.every((p: any) => p.approved_at);
+                                    const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
+                                    const hasBreakViolation = dayPunches.some((p: any) => p.has_break_violation);
+                                    const hasIssue = hasDayIssues(dayPunches);
 
-                                <div className="flex items-center gap-4 text-sm">
-                                  {clockIn && (
-                                    <div className="flex items-center gap-1">
-                                      <Clock className="h-3 w-3 text-green-600" />
-                                      <span className="text-green-600">IN</span>
-                                      <span className="font-medium">{format(new Date(clockIn.punch_time), 'h:mm a')}</span>
-                                    </div>
-                                  )}
-                                  {clockOut && (
-                                    <div className="flex items-center gap-1">
-                                      <Clock className="h-3 w-3 text-red-600" />
-                                      <span className="text-red-600">OUT</span>
-                                      <span className="font-medium">{format(new Date(clockOut.punch_time), 'h:mm a')}</span>
-                                      {clockOut.is_auto_punched_out && (
-                                        <Badge variant="outline" className="ml-1 text-orange-600 border-orange-300 bg-orange-50">
-                                          <AlertCircle className="h-3 w-3 mr-1" />
-                                          Auto
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  )}
-                                  {!clockOut && clockIn && (
-                                    <Badge variant="outline">Late</Badge>
-                                  )}
-                                </div>
+                                    // Skip approved if not showing
+                                    if (!includeApproved && isApproved) return null;
 
-                                {/* Flags for auto punch-out and break violations */}
-                                {dayPunches.some((p: any) => p.is_auto_punched_out) && (
-                                  <div className="flex items-center gap-2 text-orange-600 text-sm bg-orange-50 p-2 rounded">
-                                    <AlertCircle className="h-4 w-4" />
-                                    <span>Auto clocked out - please verify hours</span>
-                                  </div>
-                                )}
-                                {dayPunches.some((p: any) => p.has_break_violation) && (
-                                  <div className="flex items-center gap-2 text-amber-600 text-sm bg-amber-50 p-2 rounded">
-                                    <Coffee className="h-4 w-4" />
-                                    <span>Break violation - no meal break recorded</span>
-                                  </div>
-                                )}
+                                    return (
+                                      <div key={day} className={`flex items-center gap-3 px-4 py-2 hover:bg-muted/20 transition-colors ${hasAutoClockOut || hasBreakViolation ? 'bg-amber-50/50' : ''}`}>
+                                        {/* Day Badge */}
+                                        <div className="w-12 text-center">
+                                          <div className="text-xs text-muted-foreground">{format(dayDate, 'EEE')}</div>
+                                          <div className="font-semibold text-sm">{format(dayDate, 'd')}</div>
+                                        </div>
 
-                                {hasIssues && !dayPunches.some((p: any) => p.has_break_violation) && (
-                                  <div className="flex items-center gap-2 text-amber-600 text-sm">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    <span>1 possible exception</span>
-                                  </div>
-                                )}
+                                        {/* Time Range */}
+                                        <div className="flex-1 flex items-center gap-2">
+                                          <div className="flex items-center gap-1.5 text-sm">
+                                            <span className="text-green-600 font-medium">
+                                              {clockIn ? format(new Date(clockIn.punch_time), 'h:mm a') : '—'}
+                                            </span>
+                                            <span className="text-muted-foreground">→</span>
+                                            <span className="text-red-600 font-medium">
+                                              {clockOut ? format(new Date(clockOut.punch_time), 'h:mm a') : '—'}
+                                            </span>
+                                          </div>
 
-                                {mealBreakStart && mealBreakEnd && (
-                                  <div className="text-sm text-muted-foreground">
-                                    <span className="font-medium">Break:</span> {format(new Date(mealBreakStart.punch_time), 'h:mm a')} - {format(new Date(mealBreakEnd.punch_time), 'h:mm a')} (30 min unpaid)
-                                  </div>
-                                )}
+                                          {/* Status Badges */}
+                                          <div className="flex items-center gap-1">
+                                            {isApproved && (
+                                              <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                            )}
+                                            {hasAutoClockOut && (
+                                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-orange-600 border-orange-300">
+                                                Auto
+                                              </Badge>
+                                            )}
+                                            {hasBreakViolation && (
+                                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-amber-600 border-amber-300">
+                                                <Coffee className="h-3 w-3" />
+                                              </Badge>
+                                            )}
+                                            {hasIssue && !hasBreakViolation && !clockOut && (
+                                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-destructive border-destructive/30">
+                                                Missing
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </div>
 
-                                <div className="text-right">
-                                  <span className="text-sm font-semibold">{dayHours.toFixed(2)} hrs</span>
-                                </div>
+                                        {/* Hours */}
+                                        <div className="w-16 text-right font-medium text-sm">
+                                          {dayHours.toFixed(1)} hrs
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="flex items-center gap-1">
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingPunch(clockIn)}>
+                                            <Edit className="h-3.5 w-3.5" />
+                                          </Button>
+                                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => clockIn && handleDeletePunch(clockIn.id)}>
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                          {!isApproved && (
+                                            <Button size="sm" variant="secondary" className="h-7 text-xs px-2" onClick={() => handleApproveDay(dayPunches)}>
+                                              Approve
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                               </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                          ))}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </>
             )}
