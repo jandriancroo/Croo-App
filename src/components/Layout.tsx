@@ -314,8 +314,8 @@ export const Layout = ({
                 className="gap-2 h-9"
                 onClick={() => setLocationDialogOpen(true)}
               >
-                <MapPin className="h-4 w-4" />
-                <span className="hidden lg:inline max-w-[120px] truncate">{currentLocation.name}</span>
+                <MapPin className="h-4 w-4 flex-shrink-0" />
+                <span className="max-w-[120px] truncate">{currentLocation.name}</span>
               </Button>
             )}
 
