@@ -745,12 +745,25 @@ export default function PayrollReview() {
     return { employees: summary, totals };
   };
 
-  // Group punches by week for display
+  // Group punches by week for display - ONLY include days within the selected pay period
   const groupPunchesByWeek = (punchesByDay: { [key: string]: any[] }) => {
     const weeks: { [weekKey: string]: { start: Date; end: Date; days: { [day: string]: any[] } } } = {};
     
     Object.entries(punchesByDay).forEach(([day, punches]) => {
       const dayDate = new Date(day);
+      
+      // Filter out days outside the selected pay period
+      if (selectedPeriod) {
+        const periodStart = new Date(selectedPeriod.start);
+        periodStart.setHours(0, 0, 0, 0);
+        const periodEnd = new Date(selectedPeriod.end);
+        periodEnd.setHours(23, 59, 59, 999);
+        
+        if (dayDate < periodStart || dayDate > periodEnd) {
+          return; // Skip days outside the pay period
+        }
+      }
+      
       const weekStart = startOfWeek(dayDate, { weekStartsOn: 1 }); // Monday start
       const weekEnd = endOfWeek(dayDate, { weekStartsOn: 1 });
       const weekKey = format(weekStart, 'yyyy-MM-dd');
@@ -1100,34 +1113,8 @@ export default function PayrollReview() {
                   {filteredCards.map((card) => {
                     const weekGroups = groupPunchesByWeek(card.punchesByDay);
                     
-                    // Check if this employee has any break violations
-                    const breakViolationDays = Object.entries(card.punchesByDay).filter(([day, dayPunches]: [string, any]) => {
-                      const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
-                      const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
-                      const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
-                      if (clockIn && clockOut) {
-                        const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
-                        return hours > 5 && !mealBreakStart;
-                      }
-                      return false;
-                    });
-                    
                     return (
                       <Card key={card.profile.id} className="overflow-hidden">
-                        {/* Break Violation Warning Banner */}
-                        {breakViolationDays.length > 0 && (
-                          <div className="flex items-center gap-3 px-4 py-3 bg-amber-100 border-b border-amber-300">
-                            <Coffee className="h-5 w-5 text-amber-700" />
-                            <div className="flex-1">
-                              <p className="font-medium text-amber-900">Missing Meal Breaks</p>
-                              <p className="text-sm text-amber-700">
-                                {breakViolationDays.length} shift(s) over 5 hours without a recorded 30-minute meal break. 
-                                Please add breaks before approving.
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                        
                         {/* Employee Header */}
                         <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b">
                           <div className="flex items-center gap-2">
@@ -1201,19 +1188,11 @@ export default function PayrollReview() {
                                             </span>
                                           </div>
 
-                                          {/* Status Badges */}
+                                          {/* Status Badges - only show non-button indicators */}
                                           <div className="flex items-center gap-1">
-                                            {isApproved && (
-                                              <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                            )}
                                             {hasAutoClockOut && (
                                               <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-orange-600 border-orange-300">
                                                 Auto
-                                              </Badge>
-                                            )}
-                                            {hasBreakViolation && (
-                                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-amber-600 border-amber-300">
-                                                <Coffee className="h-3 w-3" />
                                               </Badge>
                                             )}
                                             {hasIssue && !hasBreakViolation && !clockOut && (
@@ -1237,9 +1216,37 @@ export default function PayrollReview() {
                                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => clockIn && handleDeletePunch(clockIn.id)}>
                                             <Trash2 className="h-3.5 w-3.5" />
                                           </Button>
-                                          {!isApproved && (
-                                            <Button size="sm" variant="secondary" className="h-7 text-xs px-2" onClick={() => handleApproveDay(dayPunches)}>
-                                              Approve
+                                          
+                                          {/* Approve button - always shows, changes appearance based on status/violations */}
+                                          {isApproved ? (
+                                            <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600" disabled>
+                                              <CheckCircle2 className="h-4 w-4" />
+                                            </Button>
+                                          ) : (hasBreakViolation || hasAutoClockOut) ? (
+                                            <Button 
+                                              size="icon" 
+                                              variant="outline" 
+                                              className="h-7 w-7 border-amber-400 bg-amber-50 hover:bg-amber-100" 
+                                              onClick={() => handleApproveDay(dayPunches)}
+                                            >
+                                              <div className="relative">
+                                                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                                                {hasBreakViolation && (
+                                                  <Coffee className="h-2.5 w-2.5 text-amber-700 absolute -bottom-0.5 -right-0.5" />
+                                                )}
+                                                {hasAutoClockOut && !hasBreakViolation && (
+                                                  <Clock className="h-2.5 w-2.5 text-orange-600 absolute -bottom-0.5 -right-0.5" />
+                                                )}
+                                              </div>
+                                            </Button>
+                                          ) : (
+                                            <Button 
+                                              size="icon" 
+                                              variant="outline" 
+                                              className="h-7 w-7" 
+                                              onClick={() => handleApproveDay(dayPunches)}
+                                            >
+                                              <CheckCircle2 className="h-4 w-4" />
                                             </Button>
                                           )}
                                         </div>
