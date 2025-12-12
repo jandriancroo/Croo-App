@@ -462,15 +462,19 @@ export default function PayrollReview() {
     setTimeCards(cards);
   };
 
-  const calculateDayHours = (dayPunches: any[]) => {
+  const calculateDayHours = (dayPunches: any[], showLive = true) => {
     const clockIn = dayPunches.find(p => p.punch_type === 'clock_in');
     const clockOut = dayPunches.find(p => p.punch_type === 'clock_out');
     const mealBreakStart = dayPunches.find(p => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
     const mealBreakEnd = dayPunches.find(p => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
     
-    if (!clockIn || !clockOut) return 0;
+    if (!clockIn) return 0;
     
-    const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+    // If no clock out, use current time for live shifts
+    const endTime = clockOut ? new Date(clockOut.punch_time) : (showLive ? new Date() : null);
+    if (!endTime) return 0;
+    
+    const hours = (endTime.getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
     
     if (mealBreakStart && mealBreakEnd) {
       const breakHours = (new Date(mealBreakEnd.punch_time).getTime() - new Date(mealBreakStart.punch_time).getTime()) / 3600000;
