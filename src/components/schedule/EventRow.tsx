@@ -44,7 +44,8 @@ interface ScheduleEvent {
   is_recurring: boolean;
   category_id?: string | null;
   is_daily_task?: boolean;
-  category?: EventCategory | null;
+  category?: { name: string; color: string } | null;
+  event_categories?: { name: string; color: string } | null;
 }
 
 interface EventCategory {
