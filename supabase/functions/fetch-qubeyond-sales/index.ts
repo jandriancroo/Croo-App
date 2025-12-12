@@ -1060,11 +1060,9 @@ serve(async (req) => {
       }
     }
 
-    // Generate AI projections (skip if client already has cached projections)
+    // Generate AI projections
+    // Note: We always generate hourly/daily projections, but may use cached totals for the header projections
     let projections = { todayProjected: 0, weekProjected: 0, monthProjected: 0 };
-    let hourlyWithProjections: { hour: string; sales: number; projected: number }[] = [];
-    let weeklyWithProjections: { date: string; sales: number; projected: number }[] = [];
-    let monthlyWithProjections: { date: string; sales: number; projected: number }[] = [];
     
     if (!skipProjections) {
       console.log('Generating deterministic projections with 4-week average and last year data...');
@@ -1082,39 +1080,40 @@ serve(async (req) => {
         lastYearData,
         fourWeekAverage
       );
-      
-      // Generate hourly projections for today
-      hourlyWithProjections = generateHourlyProjections(
-        todayHourly,
-        hoursOpen,
-        hoursClose,
-        todayStr,
-        locationId || 'default',
-        projections.todayProjected
-      );
-      
-      // Generate daily projections for week
-      weeklyWithProjections = generateDailyProjectionsForWeek(
-        weeklyBreakdown,
-        weekStartStr,
-        locationId || 'default',
-        fourWeekAverage
-      );
-      
-      // Generate daily projections for month
-      monthlyWithProjections = generateDailyProjectionsForMonth(
-        monthlyBreakdown,
-        monthStartStr,
-        locationId || 'default',
-        fourWeekAverage
-      );
     } else {
-      console.log('Skipping projections - client has cached values');
-      // Still provide basic structure without projections
-      hourlyWithProjections = todayHourly.map(h => ({ ...h, projected: 0 }));
-      weeklyWithProjections = weeklyBreakdown.map(d => ({ date: d.date, sales: d.sales, projected: 0 }));
-      monthlyWithProjections = monthlyBreakdown.map(d => ({ date: d.date, sales: d.sales, projected: 0 }));
+      console.log('Skipping projection totals - client has cached values');
+      // projections will remain 0, client will use cached values
     }
+    
+    // Always generate hourly/daily projections for charts (use projected total or estimate)
+    const effectiveTodayProjected = projections.todayProjected > 0 
+      ? projections.todayProjected 
+      : dailySales * 1.3; // Fallback estimate if no projection
+    
+    const hourlyWithProjections = generateHourlyProjections(
+      todayHourly,
+      hoursOpen,
+      hoursClose,
+      todayStr,
+      locationId || 'default',
+      effectiveTodayProjected
+    );
+    
+    // Generate daily projections for week (uses 4-week average if available, otherwise estimate)
+    const weeklyWithProjections = generateDailyProjectionsForWeek(
+      weeklyBreakdown,
+      weekStartStr,
+      locationId || 'default',
+      fourWeekAverage
+    );
+    
+    // Generate daily projections for month
+    const monthlyWithProjections = generateDailyProjectionsForMonth(
+      monthlyBreakdown,
+      monthStartStr,
+      locationId || 'default',
+      fourWeekAverage
+    );
 
     const result = {
       daily: dailySales,
