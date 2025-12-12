@@ -23,3 +23,6 @@ verify_jwt = true
 
 [functions.parse-catering-order]
 verify_jwt = true
+
+[functions.send-push-notification]
+verify_jwt = true
