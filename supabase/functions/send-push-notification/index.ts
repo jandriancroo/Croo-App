@@ -512,13 +512,26 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Get push tokens
+    // Get push tokens WITH user info for detailed logging
     const { data: tokens, error: tokensError } = await supabaseClient
       .from('push_notification_tokens')
-      .select('token, platform')
+      .select('token, platform, user_id')
       .in('user_id', enabledUserIds);
 
+    // Get user names for logging
+    const { data: userProfiles } = await supabaseClient
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', enabledUserIds);
+
+    const userNameMap = new Map(userProfiles?.map(u => [u.id, u.full_name || u.email]) || []);
+
     console.log('Push tokens found:', tokens?.length || 0);
+    tokens?.forEach(t => {
+      const userName = userNameMap.get(t.user_id) || 'Unknown';
+      const tokenPreview = typeof t.token === 'string' ? t.token.substring(0, 50) : JSON.stringify(t.token).substring(0, 50);
+      console.log(`  - ${userName} (${t.platform}): ${tokenPreview}...`);
+    });
 
     if (tokensError) {
       console.error('Error fetching tokens:', tokensError);
@@ -557,24 +570,37 @@ const handler = async (req: Request): Promise<Response> => {
         });
 
         const webResults = await Promise.allSettled(
-          webTokens.map(async ({ token }) => {
+          webTokens.map(async ({ token, user_id }) => {
+            const userName = userNameMap.get(user_id) || 'Unknown';
             try {
               const subscription = JSON.parse(token);
+              const endpoint = subscription.endpoint || 'unknown';
+              const pushService = endpoint.includes('apple') ? 'Apple' : 
+                                  endpoint.includes('fcm.googleapis') ? 'FCM' : 
+                                  endpoint.includes('mozilla') ? 'Mozilla' : 'Unknown';
+              
+              console.log(`[${userName}] Sending web push via ${pushService}...`);
+              console.log(`[${userName}] Endpoint: ${endpoint.substring(0, 80)}...`);
+              
               const response = await sendWebPushNotification(
                 subscription,
                 webPayload,
                 vapidPublicKey,
                 vapidPrivateKey
               );
+              
+              console.log(`[${userName}] Response status: ${response.status} ${response.statusText}`);
+              
               if (!response.ok) {
                 const errorText = await response.text();
-                console.error('Web push error:', response.status, errorText);
-                throw new Error(`Web push failed: ${response.status}`);
+                console.error(`[${userName}] Web push FAILED: ${response.status} - ${errorText}`);
+                throw new Error(`Web push failed: ${response.status} - ${errorText}`);
               }
-              console.log('Web push sent successfully');
-              return { success: true };
+              
+              console.log(`[${userName}] ✅ Web push sent successfully`);
+              return { success: true, user: userName };
             } catch (err) {
-              console.error('Web push error:', err);
+              console.error(`[${userName}] ❌ Web push error:`, err);
               throw err;
             }
           })
