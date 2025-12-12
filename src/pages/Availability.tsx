@@ -361,7 +361,8 @@ export default function Availability() {
   const formatTimeScope = (request: AvailabilityRequest) => {
     if (request.time_scope === "partial_day") {
       const dateStr = format(parseISO(request.start_date), "MMM d, yyyy");
-      return `${format(new Date(`2000-01-01T${request.start_time}`), "h:mm a")} - ${format(new Date(`2000-01-01T${request.end_time}`), "h:mm a")} • ${dateStr}`;
+      const timeRange = `${format(new Date(`2000-01-01T${request.start_time}`), "h:mm a")} - ${format(new Date(`2000-01-01T${request.end_time}`), "h:mm a")}`;
+      return `${dateStr} • ${timeRange}`;
     } else if (request.time_scope === "multi_day") {
       return `${format(parseISO(request.start_date), "MMM d")} - ${format(parseISO(request.end_date!), "MMM d, yyyy")}`;
     } else {
