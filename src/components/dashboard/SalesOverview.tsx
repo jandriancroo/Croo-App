@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronLeft, ChevronRight, ChevronDown, TrendingUp, TrendingDown, Package, Sparkles } from 'lucide-react';
-import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -16,9 +16,9 @@ interface SalesData {
   daily: number;
   weekly?: number;
   monthly?: number;
-  hourly?: Array<{ hour: string; sales: number; checksCount?: number }>;
-  weeklyBreakdown?: Array<{ date: string; sales: number; guestCount: number }>;
-  monthlyBreakdown?: Array<{ date: string; sales: number; guestCount: number }>;
+  hourly?: Array<{ hour: string; sales: number; projected?: number; checksCount?: number }>;
+  weeklyBreakdown?: Array<{ date: string; sales: number; projected?: number; guestCount?: number }>;
+  monthlyBreakdown?: Array<{ date: string; sales: number; projected?: number; guestCount?: number }>;
   guestCount?: { daily: number; weekly: number; monthly: number };
   avgTicket?: number;
   comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevMonth: number };
@@ -142,7 +142,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       const openHour = parseInt(locationSettings.hours_open.split(':')[0]);
       const closeHour = parseInt(locationSettings.hours_close.split(':')[0]);
       
-      const completeHourly = [];
+      const completeHourly: Array<{ hour: string; sales: number; projected?: number }> = [];
       for (let hour = openHour; hour < closeHour; hour++) {
         const hourStr24 = `${hour.toString().padStart(2, '0')}:00`;
         const existingData = rawSalesData.hourly?.find(item => {
@@ -155,7 +155,8 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
         
         completeHourly.push({
           hour: formatTime12Hour(hourStr24),
-          sales: existingData?.sales || 0
+          sales: existingData?.sales || 0,
+          projected: existingData?.projected || 0
         });
       }
 
@@ -340,18 +341,23 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               
               {salesData?.hourly ? (
                 <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                  <BarChart data={salesData.hourly}>
+                  <BarChart data={salesData.hourly} barCategoryGap="15%">
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="hour" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
                     <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
                     <Tooltip 
-                      formatter={value => formatCurrency(value as number)} 
+                      formatter={(value, name) => [formatCurrency(value as number), name === 'projected' ? 'Projected' : 'Actual']} 
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '6px'
                       }} 
                     />
+                    <Legend 
+                      formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
+                      wrapperStyle={{ fontSize: '12px' }}
+                    />
+                    <Bar dataKey="projected" fill="hsl(var(--muted-foreground))" radius={[8, 8, 0, 0]} opacity={0.4} />
                     <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -455,12 +461,12 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   <BarChart data={salesData.weeklyBreakdown.map(d => ({
                     ...d,
                     label: format(new Date(d.date + 'T00:00:00'), 'EEE')
-                  }))}>
+                  }))} barCategoryGap="15%">
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
                     <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
                     <Tooltip 
-                      formatter={(value, name) => name === 'sales' ? formatCurrency(value as number) : value}
+                      formatter={(value, name) => [formatCurrency(value as number), name === 'projected' ? 'Projected' : 'Actual']}
                       labelFormatter={(label, payload) => {
                         if (payload?.[0]?.payload?.date) {
                           return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
@@ -473,6 +479,11 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                         borderRadius: '6px'
                       }} 
                     />
+                    <Legend 
+                      formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
+                      wrapperStyle={{ fontSize: '12px' }}
+                    />
+                    <Bar dataKey="projected" fill="hsl(var(--muted-foreground))" radius={[8, 8, 0, 0]} opacity={0.4} />
                     <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -545,12 +556,12 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   <BarChart data={salesData.monthlyBreakdown.map(d => ({
                     ...d,
                     label: format(new Date(d.date + 'T00:00:00'), 'd')
-                  }))}>
+                  }))} barCategoryGap="5%">
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
+                    <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} interval={2} />
                     <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
                     <Tooltip 
-                      formatter={(value, name) => name === 'sales' ? formatCurrency(value as number) : value}
+                      formatter={(value, name) => [formatCurrency(value as number), name === 'projected' ? 'Projected' : 'Actual']}
                       labelFormatter={(label, payload) => {
                         if (payload?.[0]?.payload?.date) {
                           return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
@@ -563,7 +574,12 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                         borderRadius: '6px'
                       }} 
                     />
-                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                    <Legend 
+                      formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
+                      wrapperStyle={{ fontSize: '12px' }}
+                    />
+                    <Bar dataKey="projected" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.4} />
+                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
