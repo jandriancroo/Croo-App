@@ -1264,53 +1264,49 @@ export default function PayrollReview() {
                                     return (
                                       <div 
                                         key={day} 
-                                        className={`flex items-center gap-3 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer ${hasAutoClockOut || hasBreakViolation ? 'bg-amber-50/50' : ''}`}
+                                        className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/30 transition-colors cursor-pointer ${hasAutoClockOut || hasBreakViolation ? 'bg-amber-50/50' : ''}`}
                                         onClick={() => setEditingShift({ dayPunches, userId: card.profile.id, locationId: currentLocation?.id || '', shiftDate: day })}
                                       >
                                         {/* Day Badge */}
-                                        <div className="w-12 text-center">
-                                          <div className="text-xs text-muted-foreground">{format(dayDate, 'EEE')}</div>
-                                          <div className="font-semibold text-sm">{format(dayDate, 'd')}</div>
+                                        <div className="w-9 sm:w-12 text-center shrink-0">
+                                          <div className="text-[10px] sm:text-xs text-muted-foreground">{format(dayDate, 'EEE')}</div>
+                                          <div className="font-semibold text-xs sm:text-sm">{format(dayDate, 'd')}</div>
                                         </div>
 
                                         {/* Time Range and Breaks */}
-                                        <div className="flex-1 flex flex-col gap-1">
-                                          <div className="flex items-center gap-2">
-                                            <div className="flex items-center gap-1.5 text-sm">
-                                              <span className="text-green-600 font-medium">
-                                                {clockIn ? formatTimeDisplay(clockIn.punch_time, timezone) : '—'}
-                                              </span>
-                                              <span className="text-muted-foreground">→</span>
-                                              <span className="text-red-600 font-medium">
-                                                {clockOut ? formatTimeDisplay(clockOut.punch_time, timezone) : '—'}
-                                              </span>
-                                            </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-1.5 text-sm">
+                                            <span className="text-green-600 font-medium whitespace-nowrap">
+                                              {clockIn ? formatTimeDisplay(clockIn.punch_time, timezone) : '—'}
+                                            </span>
+                                            <span className="text-muted-foreground">→</span>
+                                            <span className="text-red-600 font-medium whitespace-nowrap">
+                                              {clockOut ? formatTimeDisplay(clockOut.punch_time, timezone) : '—'}
+                                            </span>
 
-                                            {/* Status Badges */}
-                                            <div className="flex items-center gap-1">
-                                              {hasBreakViolation && (
-                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-amber-600 border-amber-300 gap-1">
-                                                  <Coffee className="h-3 w-3" />
-                                                  No Break
-                                                </Badge>
-                                              )}
-                                              {hasAutoClockOut && (
-                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-orange-600 border-orange-300 gap-1">
-                                                  <img src={autoPunchIcon} alt="Auto" className="h-3.5 w-3.5" />
-                                                  Auto
-                                                </Badge>
-                                              )}
-                                              {hasIssue && !hasBreakViolation && !clockOut && (
-                                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 text-destructive border-destructive/30">
-                                                  Missing
-                                                </Badge>
-                                              )}
-                                            </div>
+                                            {/* Status Badges - inline with times */}
+                                            {hasBreakViolation && (
+                                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-300 gap-0.5 shrink-0">
+                                                <Coffee className="h-2.5 w-2.5" />
+                                                <span className="hidden sm:inline">No Break</span>
+                                              </Badge>
+                                            )}
+                                            {hasAutoClockOut && (
+                                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-orange-600 border-orange-300 gap-0.5 shrink-0">
+                                                <img src={autoPunchIcon} alt="Auto" className="h-3 w-3" />
+                                                <span className="hidden sm:inline">Auto</span>
+                                              </Badge>
+                                            )}
+                                            {hasIssue && !hasBreakViolation && !clockOut && (
+                                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-destructive border-destructive/30 shrink-0">
+                                                !
+                                              </Badge>
+                                            )}
                                           </div>
                                           
                                           {/* Break times display */}
                                           {breakStarts.length > 0 && (
-                                            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                            <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
                                               {breakStarts.map((breakStart: any, idx: number) => {
                                                 const breakEnd = dayPunches.find((p: any) => 
                                                   p.punch_type === 'break_end' && 
@@ -1328,10 +1324,10 @@ export default function PayrollReview() {
                                                 return (
                                                   <span 
                                                     key={idx} 
-                                                    className={`flex items-center gap-1 ${isLongBreak ? 'text-red-600 font-medium bg-red-50 px-1.5 py-0.5 rounded' : ''}`}
+                                                    className={`flex items-center gap-0.5 ${isLongBreak ? 'text-red-600 font-medium bg-red-50 px-1 py-0 rounded' : ''}`}
                                                     title={isLongBreak ? 'Break exceeded 30 minutes - possible missed clock-in' : ''}
                                                   >
-                                                    <Coffee className="h-3 w-3" />
+                                                    <Coffee className="h-2.5 w-2.5" />
                                                     {duration}: {formatTimeDisplay(breakStart.punch_time, timezone)}
                                                     {breakEnd && ` → ${formatTimeDisplay(breakEnd.punch_time, timezone)}`}
                                                     {isLongBreak && ' ⚠️'}
@@ -1343,38 +1339,39 @@ export default function PayrollReview() {
                                         </div>
 
                                         {/* Hours */}
-                                        <div className="w-16 text-right font-medium text-sm">
-                                          {dayHours.toFixed(1)} hrs
+                                        <div className="w-12 sm:w-14 text-right font-medium text-xs sm:text-sm shrink-0">
+                                          {dayHours.toFixed(1)}
+                                          <span className="hidden sm:inline"> hrs</span>
                                         </div>
 
-                                        {/* Approve Button - Large touch-friendly */}
-                                        <div onClick={(e) => e.stopPropagation()}>
+                                        {/* Approve Button - Touch-friendly */}
+                                        <div onClick={(e) => e.stopPropagation()} className="shrink-0">
                                           {isApproved ? (
                                             <button 
-                                              className="h-12 w-12 rounded-xl flex items-center justify-center bg-green-100 border-2 border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors" 
+                                              className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center bg-green-100 border-2 border-green-500 text-green-600 hover:bg-amber-50 hover:border-amber-400 hover:text-amber-600 transition-colors" 
                                               onClick={() => handleUnapproveDay(dayPunches)}
                                               title="Click to unapprove"
                                             >
-                                              <CheckCircle2 className="h-6 w-6" />
+                                              <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6" />
                                             </button>
                                           ) : (hasBreakViolation || hasAutoClockOut) ? (
                                             <button 
-                                              className="h-12 w-12 rounded-xl flex items-center justify-center bg-amber-50 border-2 border-amber-400 hover:bg-amber-100 transition-colors" 
+                                              className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center bg-amber-50 border-2 border-amber-400 hover:bg-amber-100 transition-colors" 
                                               onClick={() => handleApproveDay(dayPunches)}
                                               title={hasBreakViolation ? 'Missing meal break' : 'Auto punched out'}
                                             >
                                               {hasBreakViolation ? (
-                                                <Coffee className="h-6 w-6 text-amber-600" />
+                                                <Coffee className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600" />
                                               ) : (
-                                                <img src={autoPunchIcon} alt="Auto punch out" className="h-6 w-6" />
+                                                <img src={autoPunchIcon} alt="Auto punch out" className="h-5 w-5 sm:h-6 sm:w-6" />
                                               )}
                                             </button>
                                           ) : (
                                             <button 
-                                              className="h-12 w-12 rounded-xl flex items-center justify-center bg-muted/50 border-2 border-border hover:bg-primary/10 hover:border-primary transition-colors" 
+                                              className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center bg-muted/50 border-2 border-border hover:bg-primary/10 hover:border-primary transition-colors" 
                                               onClick={() => handleApproveDay(dayPunches)}
                                             >
-                                              <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
+                                              <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
                                             </button>
                                           )}
                                         </div>
