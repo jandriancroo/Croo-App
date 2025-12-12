@@ -54,6 +54,8 @@ export type Database = {
         Row: {
           created_at: string
           denial_reason: string | null
+          edited_at: string | null
+          edited_by: string | null
           end_date: string | null
           end_time: string | null
           hours_requested: number
@@ -73,6 +75,8 @@ export type Database = {
         Insert: {
           created_at?: string
           denial_reason?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
           end_date?: string | null
           end_time?: string | null
           hours_requested?: number
@@ -92,6 +96,8 @@ export type Database = {
         Update: {
           created_at?: string
           denial_reason?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
           end_date?: string | null
           end_time?: string | null
           hours_requested?: number
@@ -109,6 +115,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "availability_requests_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "availability_requests_location_id_fkey"
             columns: ["location_id"]
