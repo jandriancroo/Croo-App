@@ -285,16 +285,19 @@ export function MobileScheduleView({
 
               // A shift shows as "pending" if:
               // - Schedule is unpublished (never went live), OR
-              // - Schedule is published but this specific shift differs from the snapshot
-              const snapshotShift = publishedSnapshot?.find((s: any) => s.id === shift.id);
+              // - Schedule is published WITH a snapshot but this specific shift differs from or is not in the snapshot
+              const hasSnapshot = publishedSnapshot && publishedSnapshot.length > 0;
+              const snapshotShift = hasSnapshot ? publishedSnapshot.find((s: any) => s.id === shift.id) : null;
               const isShiftModified = snapshotShift && (
                 snapshotShift.user_id !== shift.user_id ||
                 snapshotShift.start_time !== shift.start_time ||
                 snapshotShift.end_time !== shift.end_time ||
                 snapshotShift.shift_date !== shift.shift_date
               );
-              // Show as pending if schedule never published, or if this shift is new/modified since last publish
-              const isShiftPending = !isPublished || (!snapshotShift || isShiftModified);
+              // Show as pending only if:
+              // 1. Schedule is not published, OR
+              // 2. Schedule is published WITH a snapshot AND (shift is new or modified)
+              const isShiftPending = !isPublished || (hasSnapshot && (!snapshotShift || isShiftModified));
 
               return (
               <Card 

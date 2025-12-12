@@ -744,8 +744,11 @@ export default function Schedule() {
   };
 
   // Compute if there are pending changes by comparing current shifts to snapshot
+  // Only show pending changes if there IS a snapshot to compare against
   const hasPendingChanges = (() => {
-    if (!isPublished || publishedSnapshot.length === 0) return false;
+    if (!isPublished) return false;
+    // If no snapshot exists (legacy published schedule), no pending changes
+    if (!publishedSnapshot || publishedSnapshot.length === 0) return false;
     
     // Create maps for comparison
     const snapshotMap = new Map(publishedSnapshot.map((s: any) => [s.id, s]));
