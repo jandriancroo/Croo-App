@@ -622,19 +622,35 @@ export default function PayrollReview() {
     fetchTimeCards();
   };
 
+  // Generate list of dates in selected period for the filter
+  const periodDates = useMemo(() => {
+    if (!selectedPeriod) return [];
+    const dates: { value: string; label: string }[] = [];
+    let currentDate = new Date(selectedPeriod.start);
+    const endDate = new Date(selectedPeriod.end);
+    
+    while (currentDate <= endDate) {
+      dates.push({
+        value: format(currentDate, 'yyyy-MM-dd'),
+        label: format(currentDate, 'EEE, MMM d')
+      });
+      currentDate = addDays(currentDate, 1);
+    }
+    return dates;
+  }, [selectedPeriod]);
+
   // Filter cards by employee and day
   const filteredCards = useMemo(() => {
     let cards = filterEmployee === 'all' 
       ? timeCards 
       : timeCards.filter(card => card.profile.id === filterEmployee);
     
-    // If filtering by day, filter the punchesByDay within each card
+    // If filtering by specific date
     if (filterDay !== 'all') {
       cards = cards.map(card => {
         const filteredPunchesByDay: { [key: string]: any[] } = {};
         Object.entries(card.punchesByDay).forEach(([day, punches]) => {
-          const dayOfWeek = new Date(day).getDay().toString();
-          if (dayOfWeek === filterDay) {
+          if (day === filterDay) {
             filteredPunchesByDay[day] = punches as any[];
           }
         });
@@ -672,6 +688,12 @@ export default function PayrollReview() {
 
   const handleClosePeriod = async () => {
     if (!selectedPeriod) return;
+    
+    // Check if all shifts are approved
+    if (totalPunchesAwaitingApproval > 0) {
+      toast.error(`Cannot close pay period: ${totalPunchesAwaitingApproval} shift(s) still need approval`);
+      return;
+    }
     
     const startDate = format(selectedPeriod.start, 'yyyy-MM-dd');
     const endDate = format(selectedPeriod.end, 'yyyy-MM-dd');
@@ -1017,13 +1039,11 @@ export default function PayrollReview() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All days</SelectItem>
-                  <SelectItem value="0">Sunday</SelectItem>
-                  <SelectItem value="1">Monday</SelectItem>
-                  <SelectItem value="2">Tuesday</SelectItem>
-                  <SelectItem value="3">Wednesday</SelectItem>
-                  <SelectItem value="4">Thursday</SelectItem>
-                  <SelectItem value="5">Friday</SelectItem>
-                  <SelectItem value="6">Saturday</SelectItem>
+                  {periodDates.map(date => (
+                    <SelectItem key={date.value} value={date.value}>
+                      {date.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
 
