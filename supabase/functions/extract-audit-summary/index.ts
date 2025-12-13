@@ -49,31 +49,38 @@ serve(async (req) => {
             content: `You are an expert at reading Food Safety Audit documents.
 Analyze the document and extract the following information:
 
-1. VISIT SCORE: Look for "This Visit" score (usually a percentage like 95.00% or a number). This is the main audit score.
+1. VISIT SCORE (REQUIRED - you MUST find this):
+   - Look for "This Visit" followed by a percentage score (e.g., "This Visit: 95.00%" or "This Visit 95.00%")
+   - This is the MAIN audit score and is ALWAYS present on food safety audit reports
+   - It may appear near the top of the document, often in a summary section
+   - Look for patterns like "This Visit: XX.XX%" or "This Visit XX%" or just a percentage near "This Visit"
+   - If you see multiple scores, the "This Visit" score is the one we need
+   - DO NOT return null for visit_score - keep looking until you find it
 
 2. PRIORITY ITEMS: Extract ALL items listed under each priority category:
-   - First Priority Items: Critical violations that need immediate attention
-   - Second Priority Items: Important issues that need to be addressed
-   - Third Priority Items: Minor issues or recommendations
+   - First Priority Items: Critical violations that need immediate attention (often marked in red)
+   - Second Priority Items: Important issues that need to be addressed (often marked in yellow/orange)
+   - Third Priority Items: Minor issues or recommendations (often marked in blue/green)
 
 For each priority item, extract just the description/violation text.
 
 IMPORTANT: Return ONLY a JSON object with no other text. Format:
 {
-  "visit_score": "95.00%" or null if not found,
+  "visit_score": "95.00%",
   "first_priority_items": ["Item 1 description", "Item 2 description"],
   "second_priority_items": ["Item 1 description", "Item 2 description"],
   "third_priority_items": ["Item 1 description", "Item 2 description"],
   "audit_date": "YYYY-MM-DD" or null
 }
 
-If a category has no items, return an empty array [].
+If a priority category has no items, return an empty array [].
+The visit_score MUST be a string like "95.00%" - never return null for this field.
 Be thorough - extract ALL items from each priority section.`
           },
           {
             role: 'user',
             content: [
-              { type: 'text', text: 'Please analyze this food safety audit document and extract the visit score and all priority items.' },
+              { type: 'text', text: 'Please analyze this food safety audit document. Find the "This Visit" percentage score and extract all priority items. The visit score is required.' },
               imageContent
             ]
           }
