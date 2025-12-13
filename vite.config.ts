@@ -39,7 +39,9 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ['**/*.{css,html,ico,png,svg}'],
         navigateFallback: null,
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-        runtimeCaching: []
+        runtimeCaching: [],
+        // Import the push notification handler into the service worker
+        importScripts: ['/sw-push.js']
       },
       devOptions: {
         enabled: false
