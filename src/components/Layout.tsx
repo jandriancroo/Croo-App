@@ -430,12 +430,22 @@ export const Layout = ({
                   </>
                 )}
                 <DropdownMenuItem 
-                  onClick={updateAvailable ? handleRefreshApp : undefined} 
-                  disabled={!updateAvailable}
+                  onClick={(e) => {
+                    if (!updateAvailable) {
+                      e.preventDefault();
+                      return;
+                    }
+                    handleRefreshApp();
+                  }}
+                  onSelect={(e) => {
+                    if (!updateAvailable) {
+                      e.preventDefault();
+                    }
+                  }}
                   className={`gap-2 rounded-md ${
                     updateAvailable 
                       ? 'bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70 cursor-pointer' 
-                      : 'bg-green-200 text-green-900 dark:bg-green-900/50 dark:text-green-100 cursor-default'
+                      : 'bg-green-200 text-green-900 dark:bg-green-900/50 dark:text-green-100 cursor-default pointer-events-none opacity-90'
                   }`}
                 >
                   <Download className="h-4 w-4" />
