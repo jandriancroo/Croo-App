@@ -7,8 +7,10 @@ import { VitePWA } from 'vite-plugin-pwa';
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   define: {
-    __APP_VERSION__: JSON.stringify(new Date().toISOString().slice(0, 16).replace('T', ' ')),
-    __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+    // Auto version: YY.MM.DD format (e.g., "24.12.13")
+    __APP_VERSION__: JSON.stringify(
+      new Date().toISOString().slice(2, 10).replace(/-/g, '.')
+    ),
   },
   server: {
     host: "::",
