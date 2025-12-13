@@ -47,6 +47,7 @@ import Hiring from "./pages/Hiring";
 import PublicApplication from "./pages/PublicApplication";
 import HiringChat from "./pages/HiringChat";
 import ApplicantPortal from "./pages/ApplicantPortal";
+import Changelog from "./pages/Changelog";
 
 const queryClient = new QueryClient();
 
@@ -94,6 +95,7 @@ const AppContent = () => {
       <Route path="/my-wallet" element={<ProtectedRoute><MyWallet /></ProtectedRoute>} />
       <Route path="/role-management" element={<ProtectedRoute><RoleManagement /></ProtectedRoute>} />
       <Route path="/hiring" element={<ProtectedRoute><Hiring /></ProtectedRoute>} />
+      <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
       <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>

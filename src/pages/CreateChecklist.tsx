@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Plus, Trash2, Upload, Link as LinkIcon, Video, FileText, Loader2, FileInput } from 'lucide-react';
+import { Plus, Trash2, Upload, Link as LinkIcon, Video, FileText, Loader2, FileInput, ArrowLeft } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
 import { compressImage } from '@/utils/imageCompression';
@@ -294,9 +294,14 @@ export default function CreateChecklist() {
   return (
     <Layout>
       <div className="max-w-3xl mx-auto space-y-6">
-        <div>
-          <h2 className="text-3xl font-bold">Create Checklist</h2>
-          <p className="text-muted-foreground">Build a new line check checklist</p>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/tasks')}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h2 className="text-3xl font-bold">Create Checklist</h2>
+            <p className="text-muted-foreground">Build a new line check checklist</p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
