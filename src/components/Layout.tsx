@@ -429,13 +429,19 @@ export const Layout = ({
                     <DropdownMenuSeparator />
                   </>
                 )}
-                <DropdownMenuItem onClick={handleRefreshApp} className="gap-2 cursor-pointer">
+                <DropdownMenuItem 
+                  onClick={handleRefreshApp} 
+                  className={`gap-2 cursor-pointer rounded-md ${
+                    updateAvailable 
+                      ? 'bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70' 
+                      : 'bg-green-200 text-green-900 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-100 dark:hover:bg-green-900/70'
+                  }`}
+                >
                   <Download className="h-4 w-4" />
-                  <span className="flex-1">Update App</span>
-                  <span className="text-[10px] text-muted-foreground font-mono">{__APP_VERSION__}</span>
-                  {updateAvailable && (
-                    <span className="h-2 w-2 bg-primary rounded-full animate-pulse ml-1" />
-                  )}
+                  <span className="flex-1">{updateAvailable ? 'Needs Update' : 'Up to Date'}</span>
+                  <span className={`text-[10px] font-mono ${updateAvailable ? 'text-red-700 dark:text-red-200' : 'text-green-700 dark:text-green-200'}`}>
+                    {__APP_VERSION__}
+                  </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
                   <SettingsIcon className="h-4 w-4" />
@@ -558,16 +564,23 @@ export const Layout = ({
                       <span className="text-base">{item.label}</span>
                     </Button>;
               })}
-                <Button variant="outline" onClick={() => {
-                  handleRefreshApp();
-                  setMenuOpen(false);
-                }} className="justify-start gap-3 h-12">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    handleRefreshApp();
+                    setMenuOpen(false);
+                  }} 
+                  className={`justify-start gap-3 h-12 border-0 ${
+                    updateAvailable 
+                      ? 'bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70' 
+                      : 'bg-green-200 text-green-900 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-100 dark:hover:bg-green-900/70'
+                  }`}
+                >
                   <Download className="h-5 w-5" />
-                  <span className="text-base flex-1 text-left">Update App</span>
-                  <span className="text-[10px] text-muted-foreground font-mono">{__APP_VERSION__}</span>
-                  {updateAvailable && (
-                    <span className="h-2.5 w-2.5 bg-primary rounded-full animate-pulse ml-1" />
-                  )}
+                  <span className="text-base flex-1 text-left">{updateAvailable ? 'Needs Update' : 'Up to Date'}</span>
+                  <span className={`text-[10px] font-mono ${updateAvailable ? 'text-red-700 dark:text-red-200' : 'text-green-700 dark:text-green-200'}`}>
+                    {__APP_VERSION__}
+                  </span>
                 </Button>
                 <Button variant="outline" onClick={() => {
                 signOut();
