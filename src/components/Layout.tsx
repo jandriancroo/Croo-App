@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, RefreshCw } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -46,6 +46,37 @@ export const Layout = ({
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation } = useAppLocation();
   const canAccessLogs = isAdmin || isManager;
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+
+  // Listen for service worker updates (new version available)
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((registration) => {
+        // Check for updates periodically
+        registration.update();
+        
+        // Listen for new service worker
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New version available
+                setUpdateAvailable(true);
+              }
+            });
+          }
+        });
+      });
+
+      // Also check if there's already a waiting worker
+      navigator.serviceWorker.getRegistration().then((registration) => {
+        if (registration?.waiting) {
+          setUpdateAvailable(true);
+        }
+      });
+    }
+  }, []);
 
   // Check if user is super_admin
   useEffect(() => {
@@ -393,9 +424,12 @@ export const Layout = ({
                     <DropdownMenuSeparator />
                   </>
                 )}
-                <DropdownMenuItem onClick={handleRefreshApp} className="gap-2 cursor-pointer">
-                  <RefreshCw className="h-4 w-4" />
-                  Refresh App
+                <DropdownMenuItem onClick={handleRefreshApp} className="gap-2 cursor-pointer relative">
+                  <Download className="h-4 w-4" />
+                  Update App
+                  {updateAvailable && (
+                    <span className="absolute right-2 h-2 w-2 bg-primary rounded-full animate-pulse" />
+                  )}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
                   <SettingsIcon className="h-4 w-4" />
@@ -521,9 +555,12 @@ export const Layout = ({
                 <Button variant="outline" onClick={() => {
                   handleRefreshApp();
                   setMenuOpen(false);
-                }} className="justify-start gap-3 h-12">
-                  <RefreshCw className="h-5 w-5" />
-                  <span className="text-base">Refresh App</span>
+                }} className="justify-start gap-3 h-12 relative">
+                  <Download className="h-5 w-5" />
+                  <span className="text-base">Update App</span>
+                  {updateAvailable && (
+                    <span className="absolute right-3 h-2.5 w-2.5 bg-primary rounded-full animate-pulse" />
+                  )}
                 </Button>
                 <Button variant="outline" onClick={() => {
                 signOut();
