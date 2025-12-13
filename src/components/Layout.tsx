@@ -41,6 +41,7 @@ export const Layout = ({
   } = useUserRole();
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [timeMenuExpanded, setTimeMenuExpanded] = useState(false);
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const { unreadCount } = useUnreadMessages();
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation } = useAppLocation();
@@ -292,11 +293,8 @@ export const Layout = ({
     }
   ];
 
-  const mobileMenuItems = isChecklistOnlyLocation ? checklistOnlyMobileMenuItems : [...(canAccessLogs ? [{
-    path: '/logbook',
-    label: 'Logs',
-    icon: Scroll
-  }] : []),
+  // Time-related items for mobile collapsible section
+  const mobileTimeItems = isChecklistOnlyLocation ? [] : [
     ...(FEATURE_FLAGS.CROO_CASH_ENABLED ? [{
       path: '/my-wallet',
       label: 'My Wallet',
@@ -306,7 +304,8 @@ export const Layout = ({
       path: '/availability',
       label: 'Availability',
       icon: CalendarCheck
-    }, ...(isAdmin ? [{
+    },
+    ...(isAdmin ? [{
       path: '/punch-clock',
       label: 'Punch Clock',
       icon: Clock
@@ -314,7 +313,17 @@ export const Layout = ({
       path: '/payroll-review',
       label: 'Payroll Review',
       icon: DollarSign
-    }, {
+    }] : [])
+  ];
+
+  // Other menu items (non-Time)
+  const mobileMenuItems = isChecklistOnlyLocation ? checklistOnlyMobileMenuItems : [
+    ...(canAccessLogs ? [{
+      path: '/logbook',
+      label: 'Logs',
+      icon: Scroll
+    }] : []),
+    ...(isAdmin ? [{
       path: '/users',
       label: 'Users',
       icon: Users
@@ -571,18 +580,58 @@ export const Layout = ({
                   <Button variant="outline" onClick={() => {
                     openDiagnosticMode();
                     setMenuOpen(false);
-                  }} className="justify-start gap-3 h-12">
+                  }} className="justify-start gap-3 h-11">
                     <FlaskConical className="h-5 w-5" />
                     <span className="text-base">Diagnostics</span>
                   </Button>
                 )}
+
+                {/* Time collapsible section */}
+                {mobileTimeItems.length > 0 && (
+                  <div className="space-y-1">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setTimeMenuExpanded(!timeMenuExpanded)}
+                      className="justify-between w-full h-11"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Clock className="h-5 w-5" />
+                        <span className="text-base">Time</span>
+                      </div>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${timeMenuExpanded ? 'rotate-180' : ''}`} />
+                    </Button>
+                    {timeMenuExpanded && (
+                      <div className="pl-4 space-y-1">
+                        {mobileTimeItems.map(item => {
+                          const Icon = item.icon;
+                          const isActive = location.pathname === item.path;
+                          return (
+                            <Button 
+                              key={item.path} 
+                              variant={isActive ? 'secondary' : 'ghost'} 
+                              onClick={() => {
+                                navigate(item.path);
+                                setMenuOpen(false);
+                              }} 
+                              className="justify-start gap-3 h-10 w-full"
+                            >
+                              <Icon className="h-4 w-4" />
+                              <span className="text-sm">{item.label}</span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {mobileMenuItems.map(item => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
                 return <Button key={item.path} variant={isActive ? 'secondary' : 'outline'} onClick={() => {
                   navigate(item.path);
                   setMenuOpen(false);
-                }} className="justify-start gap-3 h-12">
+                }} className="justify-start gap-3 h-11">
                       <Icon className="h-5 w-5" />
                       <span className="text-base">{item.label}</span>
                     </Button>;
@@ -594,7 +643,7 @@ export const Layout = ({
                       handleRefreshApp();
                       setMenuOpen(false);
                     }} 
-                    className="justify-start gap-3 h-12 border-0 bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70"
+                    className="justify-start gap-3 h-11 border-0 bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70"
                   >
                     <Download className="h-5 w-5" />
                     <span className="text-base flex-1 text-left">Install Update</span>
@@ -609,7 +658,7 @@ export const Layout = ({
                       checkForUpdate();
                     }}
                     disabled={isCheckingUpdate}
-                    className={`justify-start gap-3 h-12 border-0 ${
+                    className={`justify-start gap-3 h-11 border-0 ${
                       updateAvailable === false 
                         ? 'bg-green-200 text-green-900 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-100 dark:hover:bg-green-900/70' 
                         : 'hover:bg-muted'
@@ -628,7 +677,7 @@ export const Layout = ({
                 <Button variant="outline" onClick={() => {
                 signOut();
                 setMenuOpen(false);
-              }} className="justify-start gap-3 h-12 text-destructive hover:text-destructive">
+              }} className="justify-start gap-3 h-11 text-destructive hover:text-destructive">
                   <DoorOpen className="h-5 w-5" />
                   <span className="text-base">Sign Out</span>
                 </Button>
