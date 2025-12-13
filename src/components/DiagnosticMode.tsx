@@ -77,34 +77,6 @@ export function DiagnosticMode() {
     setTests(prev => prev.map(t => t.name === name ? { ...t, status, message } : t));
   }, []);
 
-  const sendTestToUsers = async (userIds: string[], label: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('send-push-notification', {
-        body: {
-          user_ids: userIds,
-          title: '🧪 Test Notification',
-          body: `Diagnostic test at ${new Date().toLocaleTimeString()} - if you see this, push is working!`,
-          notification_type: 'test',
-          data: { type: 'test' }
-        }
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      toast.success(`Sent to ${label}: ${data?.successful || 0} success, ${data?.failed || 0} failed`);
-    } catch (err: any) {
-      toast.error(`Failed: ${err.message}`);
-    }
-  };
-
-  const sendTestToJordanAndJosh = async () => {
-    // Jordan Andrian and Joshua Haro user IDs
-    const userIds = [
-      'a2e81a39-0e0b-47b1-a1aa-0e53f3869d37', // Jordan
-      '43341bf3-b1b9-4b59-9213-142a79006016'  // Josh Haro
-    ];
-    await sendTestToUsers(userIds, 'Jordan & Josh');
-  };
-
   // Send all notification types to test each one
   const sendAllNotificationTypes = async () => {
     if (!user) {
@@ -319,15 +291,6 @@ export function DiagnosticMode() {
                 ) : (
                   'Run All Tests'
                 )}
-              </Button>
-              <Button 
-                onClick={sendTestToJordanAndJosh} 
-                disabled={!user}
-                variant="outline"
-                className="w-full"
-              >
-                <Bell className="w-4 h-4 mr-2" />
-                Test Jordan & Josh
               </Button>
             </div>
             
