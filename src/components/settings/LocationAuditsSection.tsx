@@ -23,6 +23,7 @@ interface FoodSafetyAudit {
   notes: string | null;
   created_at: string;
   visit_score: string | null;
+  manager_name: string | null;
   first_priority_items: string[] | null;
   second_priority_items: string[] | null;
   third_priority_items: string[] | null;
@@ -30,9 +31,6 @@ interface FoodSafetyAudit {
   second_priority_corrected: number[] | null;
   third_priority_corrected: number[] | null;
   summary_extracted_at: string | null;
-  profiles?: {
-    full_name: string;
-  };
 }
 
 interface LocationAuditsSectionProps {
@@ -77,10 +75,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
       setLoading(true);
       const { data, error } = await supabase
         .from("food_safety_audits")
-        .select(`
-          *,
-          profiles!food_safety_audits_uploaded_by_fkey(full_name)
-        `)
+        .select("*")
         .eq("location_id", locationId)
         .order("audit_date", { ascending: false });
 
@@ -167,6 +162,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
         const { error: updateError } = await supabase
           .from('food_safety_audits')
           .update({
+            manager_name: data.manager_name,
             visit_score: data.visit_score,
             first_priority_items: data.first_priority_items,
             second_priority_items: data.second_priority_items,
@@ -182,6 +178,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
           a.id === audit.id 
             ? { 
                 ...a, 
+                manager_name: data.manager_name,
                 visit_score: data.visit_score,
                 first_priority_items: data.first_priority_items,
                 second_priority_items: data.second_priority_items,
@@ -471,8 +468,9 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            Manager: {audit.profiles?.full_name || "Unknown"}
-                            {audit.notes && ` • ${audit.notes}`}
+                            {audit.manager_name ? `Manager: ${audit.manager_name}` : null}
+                            {audit.manager_name && audit.notes && ' • '}
+                            {audit.notes}
                           </p>
                         </div>
                         <div className="flex gap-1 flex-shrink-0 items-center">
