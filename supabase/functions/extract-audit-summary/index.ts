@@ -49,7 +49,12 @@ serve(async (req) => {
             content: `You are an expert at reading Food Safety Audit documents.
 Analyze the document and extract the following information:
 
-1. VISIT SCORE (REQUIRED - you MUST find this):
+1. MANAGER NAME (REQUIRED):
+   - Look for "Manager" field on the first page - it contains the name of the restaurant manager
+   - This is typically near the top with Location information
+   - Extract just the name (e.g., "Alle Rowe" or "John Smith")
+
+2. VISIT SCORE (REQUIRED - you MUST find this):
    - Look for "THIS VISIT" or "This Visit" section - it contains the main audit score
    - For Steritech audits: The score is a plain NUMBER (like "14" or "7") displayed prominently under "THIS VISIT", often with "PASS" or "FAIL" below it
    - For other audits: May be a percentage like "95.00%"
@@ -58,7 +63,7 @@ Analyze the document and extract the following information:
    - DO NOT return null for visit_score - keep looking until you find it
    - RETURN ONLY THE NUMBER as a string (e.g., "14" or "95.00") - no % symbol or other text
 
-2. PRIORITY ITEMS: Extract ALL items listed under each priority category:
+3. PRIORITY ITEMS: Extract ALL items listed under each priority category:
    - First Priority Items: Critical violations that need immediate attention (often marked in red)
    - Second Priority Items: Important issues that need to be addressed (often marked in yellow/orange)
    - Third Priority Items: Minor issues or recommendations (often marked in blue/green)
@@ -67,6 +72,7 @@ For each priority item, extract just the description/violation text.
 
 IMPORTANT: Return ONLY a JSON object with no other text. Format:
 {
+  "manager_name": "Manager Name",
   "visit_score": "95.00",
   "first_priority_items": ["Item 1 description", "Item 2 description"],
   "second_priority_items": ["Item 1 description", "Item 2 description"],
@@ -126,6 +132,7 @@ Be thorough - extract ALL items from each priority section.`
         return new Response(
           JSON.stringify({
             success: true,
+            manager_name: parsed.manager_name || null,
             visit_score: parsed.visit_score || null,
             first_priority_items: parsed.first_priority_items || [],
             second_priority_items: parsed.second_priority_items || [],

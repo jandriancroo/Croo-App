@@ -825,6 +825,7 @@ export type Database = {
           first_priority_items: Json | null
           id: string
           location_id: string
+          manager_name: string | null
           notes: string | null
           second_priority_corrected: number[] | null
           second_priority_items: Json | null
@@ -843,6 +844,7 @@ export type Database = {
           first_priority_items?: Json | null
           id?: string
           location_id: string
+          manager_name?: string | null
           notes?: string | null
           second_priority_corrected?: number[] | null
           second_priority_items?: Json | null
@@ -861,6 +863,7 @@ export type Database = {
           first_priority_items?: Json | null
           id?: string
           location_id?: string
+          manager_name?: string | null
           notes?: string | null
           second_priority_corrected?: number[] | null
           second_priority_items?: Json | null
