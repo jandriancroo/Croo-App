@@ -14,6 +14,11 @@ import { compressImage } from '@/utils/imageCompression';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
+interface ItemCorrection {
+  completed_by_name: string;
+  completed_at: string;
+}
+
 interface FoodSafetyAudit {
   id: string;
   location_id: string;
@@ -30,6 +35,7 @@ interface FoodSafetyAudit {
   first_priority_corrected: number[] | null;
   second_priority_corrected: number[] | null;
   third_priority_corrected: number[] | null;
+  item_corrections: Record<string, ItemCorrection> | null;
   summary_extracted_at: string | null;
 }
 
@@ -52,12 +58,30 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
   const [previewOpen, setPreviewOpen] = useState(false);
   const [expandedAudits, setExpandedAudits] = useState<Set<string>>(new Set());
   const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
+  const [userName, setUserName] = useState<string>("");
 
   useEffect(() => {
     if (locationId) {
       fetchAudits();
     }
   }, [locationId]);
+
+  // Fetch current user's name
+  useEffect(() => {
+    const fetchUserName = async () => {
+      if (!user) return;
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+      if (data?.full_name) {
+        const firstName = data.full_name.split(' ')[0];
+        setUserName(firstName);
+      }
+    };
+    fetchUserName();
+  }, [user]);
 
   // Auto-scan unscanned audits
   useEffect(() => {
@@ -315,28 +339,43 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
 
     const columnName = `${priority}_priority_corrected` as const;
     const currentCorrected = audit[columnName] || [];
+    const correctionKey = `${priority}_${itemIndex}`;
+    const currentCorrections = audit.item_corrections || {};
     
     let newCorrected: number[];
+    let newCorrections: Record<string, ItemCorrection>;
+    
     if (currentCorrected.includes(itemIndex)) {
+      // Uncorrecting - remove from both
       newCorrected = currentCorrected.filter(i => i !== itemIndex);
+      newCorrections = { ...currentCorrections };
+      delete newCorrections[correctionKey];
     } else {
+      // Correcting - add to both with tracking info
       newCorrected = [...currentCorrected, itemIndex];
+      newCorrections = {
+        ...currentCorrections,
+        [correctionKey]: {
+          completed_by_name: userName || 'Unknown',
+          completed_at: new Date().toISOString()
+        }
+      };
     }
 
     // Optimistic update
     setAudits(prev => prev.map(a => 
-      a.id === auditId ? { ...a, [columnName]: newCorrected } : a
+      a.id === auditId ? { ...a, [columnName]: newCorrected, item_corrections: newCorrections } : a
     ));
 
     const { error } = await supabase
       .from('food_safety_audits')
-      .update({ [columnName]: newCorrected })
+      .update({ [columnName]: newCorrected, item_corrections: newCorrections as any })
       .eq('id', auditId);
 
     if (error) {
       // Revert on error
       setAudits(prev => prev.map(a => 
-        a.id === auditId ? { ...a, [columnName]: currentCorrected } : a
+        a.id === auditId ? { ...a, [columnName]: currentCorrected, item_corrections: currentCorrections } : a
       ));
       toast.error('Failed to update item');
     }
@@ -355,32 +394,41 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
   }) => {
     const correctedArray = audit[`${priority}_priority_corrected`] || [];
     const isCorrected = correctedArray.includes(index);
+    const correctionKey = `${priority}_${index}`;
+    const correction = audit.item_corrections?.[correctionKey];
     
     return (
       <li 
         className={cn(
-          "text-xs flex items-start gap-2 py-1 px-2 rounded-md transition-colors cursor-pointer",
+          "text-xs flex flex-col gap-0.5 py-1.5 px-2 rounded-md transition-colors cursor-pointer",
           isCorrected 
             ? "bg-green-500/20 text-green-700 dark:text-green-400" 
             : "hover:bg-muted/50"
         )}
         onClick={() => toggleItemCorrected(audit.id, priority, index)}
       >
-        <button 
-          className={cn(
-            "flex-shrink-0 mt-0.5 w-4 h-4 rounded-full flex items-center justify-center transition-colors",
-            isCorrected 
-              ? "bg-green-500 text-white" 
-              : "bg-muted-foreground/20 text-muted-foreground hover:bg-muted-foreground/30"
-          )}
-        >
-          {isCorrected ? (
-            <Check className="w-3 h-3" />
-          ) : (
-            <X className="w-3 h-3" />
-          )}
-        </button>
-        <span className={cn(isCorrected && "line-through opacity-70")}>{item}</span>
+        <div className="flex items-start gap-2">
+          <button 
+            className={cn(
+              "flex-shrink-0 mt-0.5 w-4 h-4 rounded-full flex items-center justify-center transition-colors",
+              isCorrected 
+                ? "bg-green-500 text-white" 
+                : "bg-muted-foreground/20 text-muted-foreground hover:bg-muted-foreground/30"
+            )}
+          >
+            {isCorrected ? (
+              <Check className="w-3 h-3" />
+            ) : (
+              <X className="w-3 h-3" />
+            )}
+          </button>
+          <span className={cn(isCorrected && "line-through opacity-70")}>{item}</span>
+        </div>
+        {isCorrected && correction && (
+          <div className="ml-6 text-[10px] text-green-600 dark:text-green-500 italic">
+            Completed by {correction.completed_by_name} • {format(new Date(correction.completed_at), "MMM d, yyyy")}
+          </div>
+        )}
       </li>
     );
   };
