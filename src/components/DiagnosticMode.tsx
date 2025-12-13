@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
-import { Check, X, Loader2, Bell, Database, Wifi, User, MapPin } from 'lucide-react';
+import { Check, X, Loader2, Bell, Database, Wifi, User, MapPin, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 // Export a hook for other components to open diagnostic mode
 let openDiagnosticFn: (() => void) | null = null;
@@ -25,6 +26,7 @@ export function DiagnosticMode() {
   const [isRunning, setIsRunning] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // Register the open function for external use
   useEffect(() => {
@@ -302,6 +304,15 @@ export function DiagnosticMode() {
             >
               <Bell className="w-4 h-4 mr-2" />
               Send All Notification Types (10)
+            </Button>
+            
+            <Button 
+              onClick={() => { setIsOpen(false); navigate('/changelog'); }}
+              variant="outline"
+              className="w-full"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              View Changelog
             </Button>
 
             {tests.length > 0 && (
