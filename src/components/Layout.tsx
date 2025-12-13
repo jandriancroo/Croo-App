@@ -555,8 +555,9 @@ export const Layout = ({
                 {/* Profile Section - clickable to change location */}
                 <button 
                   onClick={() => {
-                    setLocationDialogOpen(true);
                     setMenuOpen(false);
+                    // Delay opening location dialog for smooth transition
+                    setTimeout(() => setLocationDialogOpen(true), 300);
                   }}
                   className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2 w-full text-left hover:bg-muted/50 transition-colors"
                 >
