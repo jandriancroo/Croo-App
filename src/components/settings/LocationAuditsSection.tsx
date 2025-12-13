@@ -162,17 +162,20 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
     }
   };
 
-  const extractAuditSummary = async (audit: FoodSafetyAudit) => {
+  const extractAuditSummary = async (audit: FoodSafetyAudit, showToast = false) => {
     setExtractingIds(prev => new Set([...prev, audit.id]));
     try {
-      // For PDFs, we need to fetch and convert to base64
+      // For PDFs and images, we need to fetch and convert to base64
       const response = await fetch(audit.audit_url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch document: ${response.status}`);
+      }
       const blob = await response.blob();
       const base64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(blob);
         reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
+        reader.onerror = () => reject(new Error('Failed to read file'));
       });
 
       const { data, error } = await supabase.functions.invoke('extract-audit-summary', {
@@ -214,9 +217,20 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
         
         // Auto-expand the audit after extraction
         setExpandedAudits(prev => new Set([...prev, audit.id]));
+        
+        if (showToast) {
+          toast.success('Audit scanned successfully');
+        }
+      } else {
+        if (showToast) {
+          toast.error('Could not extract audit data');
+        }
       }
     } catch (error: any) {
       console.error('Extract summary error:', error);
+      if (showToast) {
+        toast.error(`Scan failed: ${error.message || 'Unknown error'}`);
+      }
     } finally {
       setExtractingIds(prev => {
         const next = new Set(prev);
@@ -224,6 +238,10 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
         return next;
       });
     }
+  };
+
+  const handleManualRescan = (audit: FoodSafetyAudit) => {
+    extractAuditSummary(audit, true);
   };
 
   const handleAuditUpload = async () => {
@@ -529,7 +547,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                               className="h-7 text-xs gap-1"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                extractAuditSummary(audit);
+                                handleManualRescan(audit);
                               }}
                               disabled={isExtracting}
                             >
@@ -539,6 +557,25 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                                 <Sparkles className="w-3 h-3" />
                               )}
                               {isExtracting ? 'Croo AI Scanning...' : 'Croo AI Scan'}
+                            </Button>
+                          )}
+                          {hasData && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 text-xs gap-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleManualRescan(audit);
+                              }}
+                              disabled={isExtracting}
+                            >
+                              {isExtracting ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Sparkles className="w-3 h-3" />
+                              )}
+                              Rescan
                             </Button>
                           )}
                           {hasData && (
