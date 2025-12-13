@@ -202,9 +202,9 @@ export function DiagnosticMode() {
       const { data, error } = await supabase.functions.invoke('send-push-notification', {
         body: {
           user_ids: [user.id],
-          title: '🔧 Edge Function Test',
-          body: 'Edge function connectivity verified',
-          notification_type: 'test',
+          title: '🔧 Diagnostic Test',
+          body: 'Push notification test successful!',
+          notification_type: 'chat_messages',
           data: { type: 'test' }
         }
       });
