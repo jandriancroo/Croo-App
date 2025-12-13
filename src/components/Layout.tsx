@@ -429,31 +429,30 @@ export const Layout = ({
                     <DropdownMenuSeparator />
                   </>
                 )}
-                <DropdownMenuItem 
-                  onClick={(e) => {
-                    if (!updateAvailable) {
-                      e.preventDefault();
-                      return;
-                    }
-                    handleRefreshApp();
-                  }}
-                  onSelect={(e) => {
-                    if (!updateAvailable) {
-                      e.preventDefault();
-                    }
-                  }}
-                  className={`gap-2 rounded-md ${
-                    updateAvailable 
-                      ? 'bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70 cursor-pointer' 
-                      : 'bg-green-200 text-green-900 dark:bg-green-900/50 dark:text-green-100 cursor-default pointer-events-none opacity-90'
-                  }`}
-                >
-                  <Download className="h-4 w-4" />
-                  <span className="flex-1">{updateAvailable ? 'Needs Update' : 'Up to Date'}</span>
-                  <span className={`text-[10px] font-mono ${updateAvailable ? 'text-red-700 dark:text-red-200' : 'text-green-700 dark:text-green-200'}`}>
-                    v{__APP_VERSION__}
-                  </span>
-                </DropdownMenuItem>
+                {updateAvailable ? (
+                  <DropdownMenuItem 
+                    onClick={handleRefreshApp}
+                    className="gap-2 rounded-md bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70 cursor-pointer"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span className="flex-1">Needs Update</span>
+                    <span className="text-[10px] font-mono text-red-700 dark:text-red-200">
+                      v{__APP_VERSION__}
+                    </span>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    disabled
+                    className="gap-2 rounded-md bg-green-200 text-green-900 dark:bg-green-900/50 dark:text-green-100 cursor-default pointer-events-none opacity-90"
+                  >
+                    <Download className="h-4 w-4" />
+                    <span className="flex-1">Up to Date</span>
+                    <span className="text-[10px] font-mono text-green-700 dark:text-green-200">
+                      v{__APP_VERSION__}
+                    </span>
+                  </DropdownMenuItem>
+                )}
+
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
                   <SettingsIcon className="h-4 w-4" />
                   Settings
