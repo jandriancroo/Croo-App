@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -46,37 +46,48 @@ export const Layout = ({
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation } = useAppLocation();
   const canAccessLogs = isAdmin || isManager;
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
 
-  // Listen for service worker updates (new version available)
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.ready.then((registration) => {
-        // Check for updates periodically
-        registration.update();
-        
-        // Listen for new service worker
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                // New version available
-                setUpdateAvailable(true);
-              }
-            });
+  // Manual check for updates - forces service worker to check against server
+  const checkForUpdate = async () => {
+    setIsCheckingUpdate(true);
+    try {
+      if ('serviceWorker' in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          // Force the browser to check for a new service worker
+          await registration.update();
+          
+          // Wait a moment for the update check to complete
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Re-fetch registration to get latest state
+          const updatedRegistration = await navigator.serviceWorker.getRegistration();
+          
+          if (updatedRegistration?.waiting || updatedRegistration?.installing) {
+            setUpdateAvailable(true);
+            toast.success('Update available! Tap to install.');
+          } else {
+            setUpdateAvailable(false);
+            toast.success('You\'re on the latest version!');
           }
-        });
-      });
-
-      // Also check if there's already a waiting worker
-      navigator.serviceWorker.getRegistration().then((registration) => {
-        if (registration?.waiting) {
-          setUpdateAvailable(true);
+        } else {
+          setUpdateAvailable(false);
+          toast.info('No service worker registered.');
         }
-      });
+      } else {
+        setUpdateAvailable(false);
+        toast.info('Service workers not supported.');
+      }
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+      toast.error('Failed to check for updates.');
+      setUpdateAvailable(null);
+    } finally {
+      setIsCheckingUpdate(false);
     }
-  }, []);
+  };
 
   // Check if user is super_admin
   useEffect(() => {
@@ -429,25 +440,32 @@ export const Layout = ({
                     <DropdownMenuSeparator />
                   </>
                 )}
-                {updateAvailable ? (
+                {updateAvailable === true ? (
                   <DropdownMenuItem 
                     onClick={handleRefreshApp}
                     className="gap-2 rounded-md bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70 cursor-pointer"
                   >
                     <Download className="h-4 w-4" />
-                    <span className="flex-1">Needs Update</span>
+                    <span className="flex-1">Install Update</span>
                     <span className="text-[10px] font-mono text-red-700 dark:text-red-200">
                       v{__APP_VERSION__}
                     </span>
                   </DropdownMenuItem>
                 ) : (
                   <DropdownMenuItem
-                    disabled
-                    className="gap-2 rounded-md bg-green-200 text-green-900 dark:bg-green-900/50 dark:text-green-100 cursor-default pointer-events-none opacity-90"
+                    onClick={checkForUpdate}
+                    disabled={isCheckingUpdate}
+                    className={`gap-2 rounded-md cursor-pointer ${
+                      updateAvailable === false 
+                        ? 'bg-green-200 text-green-900 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-100 dark:hover:bg-green-900/70' 
+                        : 'hover:bg-muted'
+                    }`}
                   >
-                    <Download className="h-4 w-4" />
-                    <span className="flex-1">Up to Date</span>
-                    <span className="text-[10px] font-mono text-green-700 dark:text-green-200">
+                    <RefreshCw className={`h-4 w-4 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+                    <span className="flex-1">
+                      {isCheckingUpdate ? 'Checking...' : updateAvailable === false ? 'Up to Date' : 'Check for Update'}
+                    </span>
+                    <span className={`text-[10px] font-mono ${updateAvailable === false ? 'text-green-700 dark:text-green-200' : 'text-muted-foreground'}`}>
                       v{__APP_VERSION__}
                     </span>
                   </DropdownMenuItem>
@@ -574,7 +592,7 @@ export const Layout = ({
                       <span className="text-base">{item.label}</span>
                     </Button>;
               })}
-                {updateAvailable ? (
+                {updateAvailable === true ? (
                   <Button 
                     variant="outline" 
                     onClick={() => {
@@ -584,7 +602,7 @@ export const Layout = ({
                     className="justify-start gap-3 h-12 border-0 bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70"
                   >
                     <Download className="h-5 w-5" />
-                    <span className="text-base flex-1 text-left">Needs Update</span>
+                    <span className="text-base flex-1 text-left">Install Update</span>
                     <span className="text-[10px] font-mono text-red-700 dark:text-red-200">
                       v{__APP_VERSION__}
                     </span>
@@ -592,12 +610,21 @@ export const Layout = ({
                 ) : (
                   <Button 
                     variant="outline" 
-                    disabled
-                    className="justify-start gap-3 h-12 border-0 bg-green-200 text-green-900 dark:bg-green-900/50 dark:text-green-100 cursor-default pointer-events-none opacity-90"
+                    onClick={() => {
+                      checkForUpdate();
+                    }}
+                    disabled={isCheckingUpdate}
+                    className={`justify-start gap-3 h-12 border-0 ${
+                      updateAvailable === false 
+                        ? 'bg-green-200 text-green-900 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-100 dark:hover:bg-green-900/70' 
+                        : 'hover:bg-muted'
+                    }`}
                   >
-                    <Download className="h-5 w-5" />
-                    <span className="text-base flex-1 text-left">Up to Date</span>
-                    <span className="text-[10px] font-mono text-green-700 dark:text-green-200">
+                    <RefreshCw className={`h-5 w-5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+                    <span className="text-base flex-1 text-left">
+                      {isCheckingUpdate ? 'Checking...' : updateAvailable === false ? 'Up to Date' : 'Check for Update'}
+                    </span>
+                    <span className={`text-[10px] font-mono ${updateAvailable === false ? 'text-green-700 dark:text-green-200' : 'text-muted-foreground'}`}>
                       v{__APP_VERSION__}
                     </span>
                   </Button>
