@@ -49,13 +49,22 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [expandedAudits, setExpandedAudits] = useState<Set<string>>(new Set());
-  const [extractingId, setExtractingId] = useState<string | null>(null);
+  const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (locationId) {
       fetchAudits();
     }
   }, [locationId]);
+
+  // Auto-scan unscanned audits
+  useEffect(() => {
+    const unscannedAudits = audits.filter(a => !a.summary_extracted_at && !extractingIds.has(a.id));
+    if (unscannedAudits.length > 0) {
+      // Scan one at a time to avoid rate limits
+      extractAuditSummary(unscannedAudits[0]);
+    }
+  }, [audits]);
 
   const fetchAudits = async () => {
     if (!locationId) return;
@@ -131,7 +140,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
   };
 
   const extractAuditSummary = async (audit: FoodSafetyAudit) => {
-    setExtractingId(audit.id);
+    setExtractingIds(prev => new Set([...prev, audit.id]));
     try {
       // For PDFs, we need to fetch and convert to base64
       const response = await fetch(audit.audit_url);
@@ -164,19 +173,31 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
 
         if (updateError) throw updateError;
 
-        toast.success('Audit summary extracted successfully');
-        fetchAudits();
+        // Update local state immediately
+        setAudits(prev => prev.map(a => 
+          a.id === audit.id 
+            ? { 
+                ...a, 
+                visit_score: data.visit_score,
+                first_priority_items: data.first_priority_items,
+                second_priority_items: data.second_priority_items,
+                third_priority_items: data.third_priority_items,
+                summary_extracted_at: new Date().toISOString()
+              } 
+            : a
+        ));
         
         // Auto-expand the audit after extraction
         setExpandedAudits(prev => new Set([...prev, audit.id]));
-      } else {
-        toast.error('Could not extract audit summary');
       }
     } catch (error: any) {
       console.error('Extract summary error:', error);
-      toast.error('Failed to extract audit summary');
     } finally {
-      setExtractingId(null);
+      setExtractingIds(prev => {
+        const next = new Set(prev);
+        next.delete(audit.id);
+        return next;
+      });
     }
   };
 
@@ -323,7 +344,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                   : 'Unknown';
                 const isExpanded = expandedAudits.has(audit.id);
                 const hasData = hasSummary(audit);
-                const isExtracting = extractingId === audit.id;
+                const isExtracting = extractingIds.has(audit.id);
 
                 return (
                   <Collapsible key={audit.id} open={isExpanded} onOpenChange={() => toggleExpanded(audit.id)}>
