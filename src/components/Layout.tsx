@@ -574,24 +574,35 @@ export const Layout = ({
                       <span className="text-base">{item.label}</span>
                     </Button>;
               })}
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    handleRefreshApp();
-                    setMenuOpen(false);
-                  }} 
-                  className={`justify-start gap-3 h-12 border-0 ${
-                    updateAvailable 
-                      ? 'bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70' 
-                      : 'bg-green-200 text-green-900 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-100 dark:hover:bg-green-900/70'
-                  }`}
-                >
-                  <Download className="h-5 w-5" />
-                  <span className="text-base flex-1 text-left">{updateAvailable ? 'Needs Update' : 'Up to Date'}</span>
-                  <span className={`text-[10px] font-mono ${updateAvailable ? 'text-red-700 dark:text-red-200' : 'text-green-700 dark:text-green-200'}`}>
-                    v{__APP_VERSION__}
-                  </span>
-                </Button>
+                {updateAvailable ? (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      handleRefreshApp();
+                      setMenuOpen(false);
+                    }} 
+                    className="justify-start gap-3 h-12 border-0 bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70"
+                  >
+                    <Download className="h-5 w-5" />
+                    <span className="text-base flex-1 text-left">Needs Update</span>
+                    <span className="text-[10px] font-mono text-red-700 dark:text-red-200">
+                      v{__APP_VERSION__}
+                    </span>
+                  </Button>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    disabled
+                    className="justify-start gap-3 h-12 border-0 bg-green-200 text-green-900 dark:bg-green-900/50 dark:text-green-100 cursor-default pointer-events-none opacity-90"
+                  >
+                    <Download className="h-5 w-5" />
+                    <span className="text-base flex-1 text-left">Up to Date</span>
+                    <span className="text-[10px] font-mono text-green-700 dark:text-green-200">
+                      v{__APP_VERSION__}
+                    </span>
+                  </Button>
+                )}
+
                 <Button variant="outline" onClick={() => {
                 signOut();
                 setMenuOpen(false);
