@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -520,7 +520,7 @@ export const Layout = ({
           const isActive = location.pathname === item.path;
           const showBadge = item.path === '/messages' && unreadCount > 0;
           return <Button key={item.path} variant={isActive ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate(item.path)} className="flex-col gap-1.5 h-auto py-2 px-3 min-w-0 relative">
-                <Icon className="h-10 w-10 flex-shrink-0" />
+                <Icon className="h-12 w-12 flex-shrink-0" />
                 <span className="text-sm font-medium truncate max-w-[70px]">{item.label}</span>
                 {showBadge && (
                   <Badge variant="destructive" className="absolute -top-0.5 -right-0.5 h-5 min-w-5 flex items-center justify-center p-0 text-[9px] rounded-full">
@@ -534,7 +534,7 @@ export const Layout = ({
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="sm" className="flex-col gap-1.5 h-auto py-2 px-3 min-w-0">
-                <Menu className="h-10 w-10 flex-shrink-0" />
+                <Menu className="h-12 w-12 flex-shrink-0" />
                 <span className="text-sm font-medium truncate max-w-[70px]">More</span>
               </Button>
             </SheetTrigger>
@@ -543,8 +543,14 @@ export const Layout = ({
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <div className="grid gap-2 py-4">
-                {/* Profile Section at top of mobile menu */}
-                <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2">
+                {/* Profile Section - clickable to change location */}
+                <button 
+                  onClick={() => {
+                    setLocationDialogOpen(true);
+                    setMenuOpen(false);
+                  }}
+                  className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2 w-full text-left hover:bg-muted/50 transition-colors"
+                >
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={userProfile?.profile_photo_url || ''} />
                     <AvatarFallback>{initials}</AvatarFallback>
@@ -552,25 +558,14 @@ export const Layout = ({
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{userProfile?.full_name || 'User'}</p>
                     {currentLocation && (
-                      <p className="text-xs text-muted-foreground truncate">{currentLocation.name}</p>
+                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
+                        {currentLocation.name}
+                      </p>
                     )}
                   </div>
-                </div>
-
-                {/* Location Selector */}
-                {currentLocation && (
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      setLocationDialogOpen(true);
-                      setMenuOpen(false);
-                    }} 
-                    className="justify-start gap-3 h-12"
-                  >
-                    <MapPin className="h-5 w-5" />
-                    <span className="text-base">Change Location</span>
-                  </Button>
-                )}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
 
                 {isSuperAdmin && (
                   <Button variant="outline" onClick={() => {
