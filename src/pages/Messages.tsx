@@ -14,7 +14,7 @@ import { ChatSearch } from '@/components/messages/ChatSearch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Drawer, DrawerContent } from '@/components/ui/drawer';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { HiringChatList } from '@/components/messages/HiringChatList';
 import { HiringChatPanel } from '@/components/hiring/HiringChatPanel';
 
@@ -535,7 +535,7 @@ export default function Messages() {
             </div>
             
             {/* Mobile Slide-Over Chat Window */}
-            <Drawer 
+            <Sheet 
               open={!!selectedChatId || viewMode === 'marketplace'} 
               onOpenChange={(open) => {
                 if (!open) {
@@ -545,10 +545,8 @@ export default function Messages() {
                   }
                 }
               }}
-              modal={true}
-              dismissible={true}
             >
-              <DrawerContent className="h-[95vh] pt-[env(safe-area-inset-top)] pb-safe">
+              <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-safe">
                 <div className="flex flex-col h-full">
                   <div className="flex items-center gap-2 p-4 border-b border-border">
                     <Button
@@ -585,21 +583,19 @@ export default function Messages() {
                     )}
                   </div>
                 </div>
-              </DrawerContent>
-            </Drawer>
+              </SheetContent>
+            </Sheet>
 
-            {/* Mobile Hiring Chat Drawer */}
-            <Drawer 
+            {/* Mobile Hiring Chat Sheet */}
+            <Sheet 
               open={viewMode === 'hiring' && !!selectedHiringConversation} 
               onOpenChange={(open) => {
                 if (!open) {
                   setSelectedHiringConversation(null);
                 }
               }}
-              modal={true}
-              dismissible={true}
             >
-              <DrawerContent className="h-[95vh] pt-[env(safe-area-inset-top)] pb-safe">
+              <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-safe">
                 <div className="flex flex-col h-full">
                   <div className="flex items-center gap-2 p-4 border-b border-border">
                     <Button
@@ -625,8 +621,8 @@ export default function Messages() {
                     )}
                   </div>
                 </div>
-              </DrawerContent>
-            </Drawer>
+              </SheetContent>
+            </Sheet>
           </>
         )}
       </div>
