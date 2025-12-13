@@ -105,6 +105,55 @@ export function DiagnosticMode() {
     await sendTestToUsers(userIds, 'Jordan & Josh');
   };
 
+  // Send all notification types to test each one
+  const sendAllNotificationTypes = async () => {
+    if (!user) {
+      toast.error('Must be logged in');
+      return;
+    }
+
+    const notificationTypes = [
+      { type: 'chat_messages', title: 'Chat Message Test', body: 'Testing chat message notifications' },
+      { type: 'announcements', title: 'Announcement Test', body: 'Testing announcement notifications' },
+      { type: 'overdue_checklists', title: 'Overdue Checklist Test', body: 'Testing overdue checklist notifications' },
+      { type: 'late_arrivals', title: 'Late Arrival Test', body: 'Testing late arrival notifications' },
+      { type: 'schedule_updates', title: 'Schedule Update Test', body: 'Testing schedule update notifications' },
+      { type: 'shift_approvals', title: 'Shift Approval Test', body: 'Testing shift approval notifications' },
+      { type: 'certification_expiring', title: 'Cert Expiring Test', body: 'Testing certification expiring notifications' },
+      { type: 'logbook_entry', title: 'Logbook Entry Test', body: 'Testing logbook entry notifications' },
+      { type: 'drawer_count', title: 'Drawer Count Test', body: 'Testing drawer count notifications' },
+      { type: 'safe_count', title: 'Safe Count Test', body: 'Testing safe count notifications' },
+    ];
+
+    toast.info(`Sending ${notificationTypes.length} notification types...`);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const notif of notificationTypes) {
+      try {
+        const { error } = await supabase.functions.invoke('send-push-notification', {
+          body: {
+            user_ids: [user.id],
+            title: notif.title,
+            body: notif.body,
+            notification_type: notif.type,
+            data: { type: 'test' }
+          }
+        });
+        if (error) throw error;
+        successCount++;
+        // Small delay between notifications to avoid overwhelming
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (err) {
+        failCount++;
+        console.error(`Failed to send ${notif.type}:`, err);
+      }
+    }
+
+    toast.success(`Sent ${successCount} notifications (${failCount} failed)`);
+  };
+
   const runTests = async () => {
     if (!user) {
       toast.error('Must be logged in to run tests');
@@ -281,6 +330,16 @@ export function DiagnosticMode() {
                 Test Jordan & Josh
               </Button>
             </div>
+            
+            <Button 
+              onClick={sendAllNotificationTypes} 
+              disabled={!user}
+              variant="secondary"
+              className="w-full"
+            >
+              <Bell className="w-4 h-4 mr-2" />
+              Send All Notification Types (10)
+            </Button>
 
             {tests.length > 0 && (
               <div className="space-y-2 mt-4">
