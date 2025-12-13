@@ -197,15 +197,19 @@ export function DiagnosticMode() {
     }
 
     // Test 6: Edge Function (send-push-notification - since check-alerts requires cron secret)
+    // Match EXACTLY what a real chat notification sends - plain text title, no emojis
     updateTest('Edge Function (send-push)', 'running');
     try {
       const { data, error } = await supabase.functions.invoke('send-push-notification', {
         body: {
           user_ids: [user.id],
-          title: '🔧 Diagnostic Test',
-          body: 'Push notification test successful!',
+          title: 'Diagnostic Test',  // Plain text - edge function will add 💬
+          body: 'If you see this, push notifications work!',
           notification_type: 'chat_messages',
-          data: { type: 'test' }
+          data: { 
+            chat_id: 'diagnostic-test',  // Match real chat structure
+            type: 'message'  // Match real chat type
+          }
         }
       });
       if (error) throw error;
