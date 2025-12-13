@@ -5,13 +5,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ClipboardCheck, Plus, Trash2, ExternalLink, FileText, Loader2, ChevronDown, ChevronRight, AlertTriangle, AlertCircle, Info, Sparkles } from 'lucide-react';
+import { ClipboardCheck, Plus, Trash2, ExternalLink, FileText, Loader2, ChevronDown, ChevronRight, AlertTriangle, AlertCircle, Info, Sparkles, X, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { compressImage } from '@/utils/imageCompression';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface FoodSafetyAudit {
   id: string;
@@ -25,6 +26,9 @@ interface FoodSafetyAudit {
   first_priority_items: string[] | null;
   second_priority_items: string[] | null;
   third_priority_items: string[] | null;
+  first_priority_corrected: number[] | null;
+  second_priority_corrected: number[] | null;
+  third_priority_corrected: number[] | null;
   summary_extracted_at: string | null;
   profiles?: {
     full_name: string;
@@ -297,6 +301,86 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
            (audit.third_priority_items && audit.third_priority_items.length > 0);
   };
 
+  const toggleItemCorrected = async (
+    auditId: string, 
+    priority: 'first' | 'second' | 'third', 
+    itemIndex: number
+  ) => {
+    const audit = audits.find(a => a.id === auditId);
+    if (!audit) return;
+
+    const columnName = `${priority}_priority_corrected` as const;
+    const currentCorrected = audit[columnName] || [];
+    
+    let newCorrected: number[];
+    if (currentCorrected.includes(itemIndex)) {
+      newCorrected = currentCorrected.filter(i => i !== itemIndex);
+    } else {
+      newCorrected = [...currentCorrected, itemIndex];
+    }
+
+    // Optimistic update
+    setAudits(prev => prev.map(a => 
+      a.id === auditId ? { ...a, [columnName]: newCorrected } : a
+    ));
+
+    const { error } = await supabase
+      .from('food_safety_audits')
+      .update({ [columnName]: newCorrected })
+      .eq('id', auditId);
+
+    if (error) {
+      // Revert on error
+      setAudits(prev => prev.map(a => 
+        a.id === auditId ? { ...a, [columnName]: currentCorrected } : a
+      ));
+      toast.error('Failed to update item');
+    }
+  };
+
+  const PriorityItem = ({ 
+    audit, 
+    priority, 
+    item, 
+    index 
+  }: { 
+    audit: FoodSafetyAudit; 
+    priority: 'first' | 'second' | 'third'; 
+    item: string; 
+    index: number;
+  }) => {
+    const correctedArray = audit[`${priority}_priority_corrected`] || [];
+    const isCorrected = correctedArray.includes(index);
+    
+    return (
+      <li 
+        className={cn(
+          "text-xs flex items-start gap-2 py-1 px-2 rounded-md transition-colors cursor-pointer",
+          isCorrected 
+            ? "bg-green-500/20 text-green-700 dark:text-green-400" 
+            : "hover:bg-muted/50"
+        )}
+        onClick={() => toggleItemCorrected(audit.id, priority, index)}
+      >
+        <button 
+          className={cn(
+            "flex-shrink-0 mt-0.5 w-4 h-4 rounded-full flex items-center justify-center transition-colors",
+            isCorrected 
+              ? "bg-green-500 text-white" 
+              : "bg-muted-foreground/20 text-muted-foreground hover:bg-muted-foreground/30"
+          )}
+        >
+          {isCorrected ? (
+            <Check className="w-3 h-3" />
+          ) : (
+            <X className="w-3 h-3" />
+          )}
+        </button>
+        <span className={cn(isCorrected && "line-through opacity-70")}>{item}</span>
+      </li>
+    );
+  };
+
   if (loading) {
     return (
       <Card>
@@ -460,9 +544,9 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                                 <AlertTriangle className="w-4 h-4 text-destructive" />
                                 <span className="text-xs font-medium text-destructive">First Priority ({audit.first_priority_items.length})</span>
                               </div>
-                              <ul className="space-y-1 pl-5">
+                              <ul className="space-y-0.5">
                                 {audit.first_priority_items.map((item, idx) => (
-                                  <li key={idx} className="text-xs text-foreground list-disc">{item}</li>
+                                  <PriorityItem key={idx} audit={audit} priority="first" item={item} index={idx} />
                                 ))}
                               </ul>
                             </div>
@@ -474,9 +558,9 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                                 <AlertCircle className="w-4 h-4 text-amber-500" />
                                 <span className="text-xs font-medium text-amber-500">Second Priority ({audit.second_priority_items.length})</span>
                               </div>
-                              <ul className="space-y-1 pl-5">
+                              <ul className="space-y-0.5">
                                 {audit.second_priority_items.map((item, idx) => (
-                                  <li key={idx} className="text-xs text-foreground list-disc">{item}</li>
+                                  <PriorityItem key={idx} audit={audit} priority="second" item={item} index={idx} />
                                 ))}
                               </ul>
                             </div>
@@ -488,9 +572,9 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                                 <Info className="w-4 h-4 text-blue-500" />
                                 <span className="text-xs font-medium text-blue-500">Third Priority ({audit.third_priority_items.length})</span>
                               </div>
-                              <ul className="space-y-1 pl-5">
+                              <ul className="space-y-0.5">
                                 {audit.third_priority_items.map((item, idx) => (
-                                  <li key={idx} className="text-xs text-foreground list-disc">{item}</li>
+                                  <PriorityItem key={idx} audit={audit} priority="third" item={item} index={idx} />
                                 ))}
                               </ul>
                             </div>
