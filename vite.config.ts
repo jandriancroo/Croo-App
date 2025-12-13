@@ -7,11 +7,23 @@ import { VitePWA } from 'vite-plugin-pwa';
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   define: {
-    // Auto version: YY.MM.DD.HHMM format (e.g., "24.12.13.1530")
-    __APP_VERSION__: JSON.stringify(
-      new Date().toISOString().slice(2, 10).replace(/-/g, '.') + '.' +
-      new Date().toISOString().slice(11, 16).replace(':', '')
-    ),
+    // Auto version: YY.MM.DD.HHMM format in PST (e.g., "24.12.13.1530")
+    __APP_VERSION__: JSON.stringify((() => {
+      const pst = new Date().toLocaleString('en-US', { 
+        timeZone: 'America/Los_Angeles',
+        year: '2-digit',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      });
+      // Format: "12/13/24, 15:30" -> "24.12.13.1530"
+      const [datePart, timePart] = pst.split(', ');
+      const [month, day, year] = datePart.split('/');
+      const time = timePart.replace(':', '');
+      return `${year}.${month}.${day}.${time}`;
+    })()),
   },
   server: {
     host: "::",
