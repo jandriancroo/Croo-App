@@ -327,6 +327,11 @@ export const Layout = ({
               className={`${isMobile ? 'h-8' : 'h-10'} w-auto max-w-[100px] object-contain rounded-lg`}
               style={{ background: 'transparent' }}
             />
+            {isSuperAdmin && !isMobile && (
+              <span className="text-[10px] text-muted-foreground font-mono bg-muted/50 px-1.5 py-0.5 rounded">
+                v{__APP_VERSION__}
+              </span>
+            )}
           </button>
           <nav className="hidden items-center gap-1 md:flex flex-1">
             {mainNavItems.map(item => {
@@ -424,11 +429,12 @@ export const Layout = ({
                     <DropdownMenuSeparator />
                   </>
                 )}
-                <DropdownMenuItem onClick={handleRefreshApp} className="gap-2 cursor-pointer relative">
+                <DropdownMenuItem onClick={handleRefreshApp} className="gap-2 cursor-pointer">
                   <Download className="h-4 w-4" />
-                  Update App
+                  <span className="flex-1">Update App</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">{__APP_VERSION__}</span>
                   {updateAvailable && (
-                    <span className="absolute right-2 h-2 w-2 bg-primary rounded-full animate-pulse" />
+                    <span className="h-2 w-2 bg-primary rounded-full animate-pulse ml-1" />
                   )}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
@@ -555,11 +561,12 @@ export const Layout = ({
                 <Button variant="outline" onClick={() => {
                   handleRefreshApp();
                   setMenuOpen(false);
-                }} className="justify-start gap-3 h-12 relative">
+                }} className="justify-start gap-3 h-12">
                   <Download className="h-5 w-5" />
-                  <span className="text-base">Update App</span>
+                  <span className="text-base flex-1 text-left">Update App</span>
+                  <span className="text-[10px] text-muted-foreground font-mono">{__APP_VERSION__}</span>
                   {updateAvailable && (
-                    <span className="absolute right-3 h-2.5 w-2.5 bg-primary rounded-full animate-pulse" />
+                    <span className="h-2.5 w-2.5 bg-primary rounded-full animate-pulse ml-1" />
                   )}
                 </Button>
                 <Button variant="outline" onClick={() => {
