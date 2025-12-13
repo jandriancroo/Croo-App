@@ -56,6 +56,7 @@ Analyze the document and extract the following information:
    - Look for patterns like "This Visit: XX.XX%" or "This Visit XX%" or just a percentage near "This Visit"
    - If you see multiple scores, the "This Visit" score is the one we need
    - DO NOT return null for visit_score - keep looking until you find it
+   - RETURN ONLY THE NUMBER without the % symbol (e.g., "95.00" not "95.00%")
 
 2. PRIORITY ITEMS: Extract ALL items listed under each priority category:
    - First Priority Items: Critical violations that need immediate attention (often marked in red)
@@ -66,7 +67,7 @@ For each priority item, extract just the description/violation text.
 
 IMPORTANT: Return ONLY a JSON object with no other text. Format:
 {
-  "visit_score": "95.00%",
+  "visit_score": "95.00",
   "first_priority_items": ["Item 1 description", "Item 2 description"],
   "second_priority_items": ["Item 1 description", "Item 2 description"],
   "third_priority_items": ["Item 1 description", "Item 2 description"],
@@ -74,7 +75,7 @@ IMPORTANT: Return ONLY a JSON object with no other text. Format:
 }
 
 If a priority category has no items, return an empty array [].
-The visit_score MUST be a string like "95.00%" - never return null for this field.
+The visit_score MUST be a number as a string like "95.00" (no % symbol) - never return null for this field.
 Be thorough - extract ALL items from each priority section.`
           },
           {
