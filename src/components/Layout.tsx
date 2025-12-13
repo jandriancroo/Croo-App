@@ -538,8 +538,8 @@ export const Layout = ({
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              <Icon className="h-6 w-6" strokeWidth={isActive ? 2.5 : 2} />
-              <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
+              <Icon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
+              <span className={`text-[11px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
               {showBadge && (
                 <span className="absolute top-1 right-2 h-2 w-2 bg-destructive rounded-full" />
               )}
@@ -557,8 +557,8 @@ export const Layout = ({
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                <Menu className="h-6 w-6" strokeWidth={menuOpen ? 2.5 : 2} />
-                <span className={`text-xs ${menuOpen ? 'font-semibold' : 'font-medium'}`}>More</span>
+                <Menu className="h-7 w-7" strokeWidth={menuOpen ? 2.5 : 2} />
+                <span className={`text-[11px] ${menuOpen ? 'font-semibold' : 'font-medium'}`}>More</span>
               </button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-auto">
