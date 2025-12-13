@@ -535,14 +535,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                       </div>
                       
                       <CollapsibleContent>
-                        <div className="px-3 pb-3 pt-0 space-y-3 border-t bg-background/50">
-                          {audit.visit_score && (
-                            <div className="pt-3">
-                              <div className="text-xs font-medium text-muted-foreground mb-1">Visit Score</div>
-                              <div className="text-lg font-semibold text-primary">{audit.visit_score}</div>
-                            </div>
-                          )}
-                          
+                        <div className="px-3 pb-3 pt-3 space-y-3 border-t bg-background/50">
                           {audit.first_priority_items && audit.first_priority_items.length > 0 && (
                             <div>
                               <div className="flex items-center gap-1.5 mb-1.5">
