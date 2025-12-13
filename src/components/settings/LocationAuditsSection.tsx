@@ -211,6 +211,13 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
       return;
     }
 
+    // Check for duplicate audit date
+    const existingAudit = audits.find(a => a.audit_date === auditDate);
+    if (existingAudit) {
+      toast.error("An audit for this date already exists");
+      return;
+    }
+
     try {
       setAuditUploading(true);
 
@@ -464,7 +471,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            Uploaded by {audit.profiles?.full_name || "Unknown"}
+                            Manager: {audit.profiles?.full_name || "Unknown"}
                             {audit.notes && ` • ${audit.notes}`}
                           </p>
                         </div>
