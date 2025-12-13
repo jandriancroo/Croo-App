@@ -143,7 +143,9 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     // Only show hourly breakdown if business hours are configured
     if (locationSettings?.hours_open && locationSettings?.hours_close && rawSalesData.hourly) {
       const openHour = parseInt(locationSettings.hours_open.split(':')[0]);
-      const closeHour = parseInt(locationSettings.hours_close.split(':')[0]);
+      let closeHour = parseInt(locationSettings.hours_close.split(':')[0]);
+      // Handle midnight (00:00) as end of day - treat as 24
+      if (closeHour === 0) closeHour = 24;
       
       const completeHourly: Array<{ hour: string; sales: number; projected?: number }> = [];
       for (let hour = openHour; hour < closeHour; hour++) {
