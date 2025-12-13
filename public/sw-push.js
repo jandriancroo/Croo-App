@@ -19,11 +19,8 @@ self.addEventListener('push', function(event) {
   const options = {
     body: data.body || 'You have a new notification',
     icon: '/favicon.png',
-    badge: '/favicon.png',
     tag: data.tag || 'croo-notification',
-    data: data.data || {},
-    requireInteraction: true,
-    vibrate: [200, 100, 200]
+    data: data.data || {}
   };
   
   console.log('[SW] Showing notification:', title, options);
