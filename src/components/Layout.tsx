@@ -2,7 +2,8 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -105,6 +106,36 @@ export const Layout = ({
 
   const firstName = userProfile?.full_name?.split(' ')[0] || 'User';
   const initials = userProfile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
+
+  // Force refresh PWA - clears cache and reloads
+  const handleRefreshApp = async () => {
+    try {
+      toast.loading('Refreshing app...');
+      
+      // Unregister all service workers
+      if ('serviceWorker' in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const registration of registrations) {
+          await registration.unregister();
+        }
+      }
+      
+      // Clear all caches
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        for (const cacheName of cacheNames) {
+          await caches.delete(cacheName);
+        }
+      }
+      
+      // Force reload from server
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to refresh app:', error);
+      // Still reload even if cache clearing fails
+      window.location.reload();
+    }
+  };
 
   // Checklist-only location navigation (Tasks, Chat, Logs, Settings)
   const checklistOnlyNavItems = [{
@@ -341,6 +372,10 @@ export const Layout = ({
                     <DropdownMenuSeparator />
                   </>
                 )}
+                <DropdownMenuItem onClick={handleRefreshApp} className="gap-2 cursor-pointer">
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh App
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
                   <SettingsIcon className="h-4 w-4" />
                   Settings
@@ -462,6 +497,13 @@ export const Layout = ({
                       <span className="text-base">{item.label}</span>
                     </Button>;
               })}
+                <Button variant="outline" onClick={() => {
+                  handleRefreshApp();
+                  setMenuOpen(false);
+                }} className="justify-start gap-3 h-12">
+                  <RefreshCw className="h-5 w-5" />
+                  <span className="text-base">Refresh App</span>
+                </Button>
                 <Button variant="outline" onClick={() => {
                 signOut();
                 setMenuOpen(false);
