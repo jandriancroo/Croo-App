@@ -107,8 +107,11 @@ export const Layout = ({
   const firstName = userProfile?.full_name?.split(' ')[0] || 'User';
   const initials = userProfile?.full_name?.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || 'U';
 
-  // Force refresh PWA - clears cache and reloads
+  // Force refresh PWA - clears all caches, storage, and reloads (complete reset)
   const handleRefreshApp = async () => {
+    const confirmed = window.confirm('This will refresh the app and log you out. Continue?');
+    if (!confirmed) return;
+    
     try {
       toast.loading('Refreshing app...');
       
@@ -128,12 +131,30 @@ export const Layout = ({
         }
       }
       
+      // Clear localStorage and sessionStorage
+      localStorage.clear();
+      sessionStorage.clear();
+      
+      // Clear IndexedDB databases
+      if ('indexedDB' in window) {
+        const databases = await indexedDB.databases?.();
+        if (databases) {
+          for (const db of databases) {
+            if (db.name) {
+              indexedDB.deleteDatabase(db.name);
+            }
+          }
+        }
+      }
+      
       // Force reload from server
-      window.location.reload();
+      window.location.href = '/';
     } catch (error) {
       console.error('Failed to refresh app:', error);
-      // Still reload even if cache clearing fails
-      window.location.reload();
+      // Still clear what we can and reload
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/';
     }
   };
 
