@@ -519,9 +519,9 @@ export const Layout = ({
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
           const showBadge = item.path === '/messages' && unreadCount > 0;
-          return <Button key={item.path} variant={isActive ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate(item.path)} className="flex-col gap-1 h-auto py-2 px-3 min-w-0 relative">
+          return <Button key={item.path} variant={isActive ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate(item.path)} className="flex-col gap-1.5 h-auto py-2 px-3 min-w-0 relative">
                 <Icon className="h-9 w-9 flex-shrink-0" />
-                <span className="text-xs font-medium truncate max-w-[70px]">{item.label}</span>
+                <span className="text-sm font-medium truncate max-w-[70px]">{item.label}</span>
                 {showBadge && (
                   <Badge variant="destructive" className="absolute -top-0.5 -right-0.5 h-5 min-w-5 flex items-center justify-center p-0 text-[9px] rounded-full">
                     {unreadCount > 99 ? '99+' : unreadCount}
@@ -533,9 +533,9 @@ export const Layout = ({
           {/* Hamburger Menu for Additional Items */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="flex-col gap-1 h-auto py-2 px-3 min-w-0">
+              <Button variant="ghost" size="sm" className="flex-col gap-1.5 h-auto py-2 px-3 min-w-0">
                 <Menu className="h-9 w-9 flex-shrink-0" />
-                <span className="text-xs font-medium truncate max-w-[70px]">More</span>
+                <span className="text-sm font-medium truncate max-w-[70px]">More</span>
               </Button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-auto">
