@@ -401,7 +401,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                               ) : (
                                 <Sparkles className="w-3 h-3" />
                               )}
-                              {isExtracting ? 'Scanning...' : 'AI Scan'}
+                              {isExtracting ? 'Croo AI Scanning...' : 'Croo AI Scan'}
                             </Button>
                           )}
                           {hasData && (
@@ -515,7 +515,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                             ) : (
                               <Sparkles className="w-3 h-3" />
                             )}
-                            Re-scan with AI
+                            Re-scan with Croo AI
                           </Button>
                         </div>
                       </CollapsibleContent>
