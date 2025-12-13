@@ -522,30 +522,44 @@ export const Layout = ({
         <span className="text-base">Powered by</span>
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
-      <nav className="fixed bottom-0 left-0 right-0 z-50 glass border-t border-border/20 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex items-center justify-around py-3 px-2">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-lg border-t border-border/30 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+        <div className="flex items-center justify-around py-2 px-4">
           {mobileMainNavItems.map(item => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
           const showBadge = item.path === '/messages' && unreadCount > 0;
-          return <Button key={item.path} variant={isActive ? 'secondary' : 'ghost'} size="sm" onClick={() => navigate(item.path)} className="flex-col gap-1.5 h-auto py-2 px-3 min-w-0 relative">
-                <Icon className="h-12 w-12 flex-shrink-0" />
-                <span className="text-sm font-medium truncate max-w-[70px]">{item.label}</span>
-                {showBadge && (
-                  <Badge variant="destructive" className="absolute -top-0.5 -right-0.5 h-5 min-w-5 flex items-center justify-center p-0 text-[9px] rounded-full">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Badge>
-                )}
-              </Button>;
+          return (
+            <button
+              key={item.path}
+              onClick={() => navigate(item.path)}
+              className={`flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-colors relative ${
+                isActive 
+                  ? 'bg-primary/10 text-primary' 
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Icon className="h-6 w-6" strokeWidth={isActive ? 2.5 : 2} />
+              <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
+              {showBadge && (
+                <span className="absolute top-1 right-2 h-2 w-2 bg-destructive rounded-full" />
+              )}
+            </button>
+          );
         })}
           
           {/* Hamburger Menu for Additional Items */}
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="flex-col gap-1.5 h-auto py-2 px-3 min-w-0">
-                <Menu className="h-12 w-12 flex-shrink-0" />
-                <span className="text-sm font-medium truncate max-w-[70px]">More</span>
-              </Button>
+              <button
+                className={`flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-colors ${
+                  menuOpen 
+                    ? 'bg-primary/10 text-primary' 
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                <Menu className="h-6 w-6" strokeWidth={menuOpen ? 2.5 : 2} />
+                <span className={`text-xs ${menuOpen ? 'font-semibold' : 'font-medium'}`}>More</span>
+              </button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-auto">
               <SheetHeader>
