@@ -48,6 +48,7 @@ import PublicApplication from "./pages/PublicApplication";
 import HiringChat from "./pages/HiringChat";
 import ApplicantPortal from "./pages/ApplicantPortal";
 import Changelog from "./pages/Changelog";
+import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
 
@@ -108,6 +109,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <ScrollToTop />
         <AuthProvider>
           <LocationProvider>
             <CrooCashAnimationProvider>
