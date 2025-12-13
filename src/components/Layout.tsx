@@ -20,7 +20,6 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
-import { APP_VERSION } from '@/config/version';
 import { PullToRefresh } from './PullToRefresh';
 
 interface LayoutProps {
@@ -330,7 +329,7 @@ export const Layout = ({
             />
             {isSuperAdmin && !isMobile && (
               <span className="text-[10px] text-muted-foreground font-mono bg-muted/50 px-1.5 py-0.5 rounded">
-                v{APP_VERSION}
+                v{__APP_VERSION__}
               </span>
             )}
           </button>
@@ -441,7 +440,7 @@ export const Layout = ({
                   <Download className="h-4 w-4" />
                   <span className="flex-1">{updateAvailable ? 'Needs Update' : 'Up to Date'}</span>
                   <span className={`text-[10px] font-mono ${updateAvailable ? 'text-red-700 dark:text-red-200' : 'text-green-700 dark:text-green-200'}`}>
-                    v{APP_VERSION}
+                    v{__APP_VERSION__}
                   </span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
@@ -580,7 +579,7 @@ export const Layout = ({
                   <Download className="h-5 w-5" />
                   <span className="text-base flex-1 text-left">{updateAvailable ? 'Needs Update' : 'Up to Date'}</span>
                   <span className={`text-[10px] font-mono ${updateAvailable ? 'text-red-700 dark:text-red-200' : 'text-green-700 dark:text-green-200'}`}>
-                    v{APP_VERSION}
+                    v{__APP_VERSION__}
                   </span>
                 </Button>
                 <Button variant="outline" onClick={() => {
