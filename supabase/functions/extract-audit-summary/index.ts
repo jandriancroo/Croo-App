@@ -50,13 +50,13 @@ serve(async (req) => {
 Analyze the document and extract the following information:
 
 1. VISIT SCORE (REQUIRED - you MUST find this):
-   - Look for "This Visit" followed by a percentage score (e.g., "This Visit: 95.00%" or "This Visit 95.00%")
-   - This is the MAIN audit score and is ALWAYS present on food safety audit reports
-   - It may appear near the top of the document, often in a summary section
-   - Look for patterns like "This Visit: XX.XX%" or "This Visit XX%" or just a percentage near "This Visit"
-   - If you see multiple scores, the "This Visit" score is the one we need
+   - Look for "THIS VISIT" or "This Visit" section - it contains the main audit score
+   - For Steritech audits: The score is a plain NUMBER (like "14" or "7") displayed prominently under "THIS VISIT", often with "PASS" or "FAIL" below it
+   - For other audits: May be a percentage like "95.00%"
+   - This is the MAIN audit score and is ALWAYS present on the first page of food safety audit reports
+   - It may appear near the top of the document in a summary/score section
    - DO NOT return null for visit_score - keep looking until you find it
-   - RETURN ONLY THE NUMBER without the % symbol (e.g., "95.00" not "95.00%")
+   - RETURN ONLY THE NUMBER as a string (e.g., "14" or "95.00") - no % symbol or other text
 
 2. PRIORITY ITEMS: Extract ALL items listed under each priority category:
    - First Priority Items: Critical violations that need immediate attention (often marked in red)
