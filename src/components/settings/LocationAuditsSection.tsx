@@ -4,12 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ClipboardCheck, Plus, Trash2, ExternalLink, FileText, Loader2 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ClipboardCheck, Plus, Trash2, ExternalLink, FileText, Loader2, ChevronDown, ChevronRight, AlertTriangle, AlertCircle, Info, Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { compressImage } from '@/utils/imageCompression';
+import { Badge } from '@/components/ui/badge';
 
 interface FoodSafetyAudit {
   id: string;
@@ -19,6 +21,11 @@ interface FoodSafetyAudit {
   uploaded_by: string;
   notes: string | null;
   created_at: string;
+  visit_score: string | null;
+  first_priority_items: string[] | null;
+  second_priority_items: string[] | null;
+  third_priority_items: string[] | null;
+  summary_extracted_at: string | null;
   profiles?: {
     full_name: string;
   };
@@ -41,6 +48,8 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
   const [auditScanning, setAuditScanning] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [expandedAudits, setExpandedAudits] = useState<Set<string>>(new Set());
+  const [extractingId, setExtractingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (locationId) {
@@ -121,6 +130,56 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
     }
   };
 
+  const extractAuditSummary = async (audit: FoodSafetyAudit) => {
+    setExtractingId(audit.id);
+    try {
+      // For PDFs, we need to fetch and convert to base64
+      const response = await fetch(audit.audit_url);
+      const blob = await response.blob();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+      });
+
+      const { data, error } = await supabase.functions.invoke('extract-audit-summary', {
+        body: { imageBase64: base64 }
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        // Update the audit in database
+        const { error: updateError } = await supabase
+          .from('food_safety_audits')
+          .update({
+            visit_score: data.visit_score,
+            first_priority_items: data.first_priority_items,
+            second_priority_items: data.second_priority_items,
+            third_priority_items: data.third_priority_items,
+            summary_extracted_at: new Date().toISOString()
+          })
+          .eq('id', audit.id);
+
+        if (updateError) throw updateError;
+
+        toast.success('Audit summary extracted successfully');
+        fetchAudits();
+        
+        // Auto-expand the audit after extraction
+        setExpandedAudits(prev => new Set([...prev, audit.id]));
+      } else {
+        toast.error('Could not extract audit summary');
+      }
+    } catch (error: any) {
+      console.error('Extract summary error:', error);
+      toast.error('Failed to extract audit summary');
+    } finally {
+      setExtractingId(null);
+    }
+  };
+
   const handleAuditUpload = async () => {
     if (!user || !auditFile || !auditDate || !locationId) {
       toast.error("Please fill in all fields");
@@ -197,6 +256,26 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
     }
   };
 
+  const toggleExpanded = (auditId: string) => {
+    setExpandedAudits(prev => {
+      const next = new Set(prev);
+      if (next.has(auditId)) {
+        next.delete(auditId);
+      } else {
+        next.add(auditId);
+      }
+      return next;
+    });
+  };
+
+  const hasSummary = (audit: FoodSafetyAudit) => {
+    return audit.summary_extracted_at || 
+           audit.visit_score || 
+           (audit.first_priority_items && audit.first_priority_items.length > 0) ||
+           (audit.second_priority_items && audit.second_priority_items.length > 0) ||
+           (audit.third_priority_items && audit.third_priority_items.length > 0);
+  };
+
   if (loading) {
     return (
       <Card>
@@ -242,58 +321,185 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                 const auditDateDisplay = audit.audit_date 
                   ? format(new Date(audit.audit_date + 'T12:00:00'), "MMM d, yyyy") 
                   : 'Unknown';
+                const isExpanded = expandedAudits.has(audit.id);
+                const hasData = hasSummary(audit);
+                const isExtracting = extractingId === audit.id;
+
                 return (
-                  <div key={audit.id} className="flex items-center gap-3 p-3 border rounded-md bg-muted/30">
-                    <button 
-                      onClick={() => {
-                        setPreviewUrl(audit.audit_url);
-                        setPreviewOpen(true);
-                      }}
-                      className="w-12 h-12 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80 flex items-center justify-center"
-                    >
-                      {isPdf ? (
-                        <FileText className="w-6 h-6 text-muted-foreground" />
-                      ) : (
-                        <img 
-                          src={audit.audit_url} 
-                          alt="Food Safety Audit"
-                          className="w-full h-full object-cover"
-                        />
-                      )}
-                    </button>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">
-                          Audit - {auditDateDisplay}
-                        </span>
+                  <Collapsible key={audit.id} open={isExpanded} onOpenChange={() => toggleExpanded(audit.id)}>
+                    <div className="border rounded-md bg-muted/30 overflow-hidden">
+                      <div className="flex items-center gap-3 p-3">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPreviewUrl(audit.audit_url);
+                            setPreviewOpen(true);
+                          }}
+                          className="w-12 h-12 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80 flex items-center justify-center"
+                        >
+                          {isPdf ? (
+                            <FileText className="w-6 h-6 text-muted-foreground" />
+                          ) : (
+                            <img 
+                              src={audit.audit_url} 
+                              alt="Food Safety Audit"
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">
+                              Audit - {auditDateDisplay}
+                            </span>
+                            {audit.visit_score && (
+                              <Badge variant="secondary" className="text-xs">
+                                Score: {audit.visit_score}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Uploaded by {audit.profiles?.full_name || "Unknown"}
+                            {audit.notes && ` • ${audit.notes}`}
+                          </p>
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0 items-center">
+                          {!hasData && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs gap-1"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                extractAuditSummary(audit);
+                              }}
+                              disabled={isExtracting}
+                            >
+                              {isExtracting ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Sparkles className="w-3 h-3" />
+                              )}
+                              {isExtracting ? 'Scanning...' : 'AI Scan'}
+                            </Button>
+                          )}
+                          {hasData && (
+                            <CollapsibleTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7"
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="w-4 h-4" />
+                                ) : (
+                                  <ChevronRight className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </CollapsibleTrigger>
+                          )}
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewUrl(audit.audit_url);
+                              setPreviewOpen(true);
+                            }}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAuditDelete(audit.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Uploaded by {audit.profiles?.full_name || "Unknown"}
-                        {audit.notes && ` • ${audit.notes}`}
-                      </p>
+                      
+                      <CollapsibleContent>
+                        <div className="px-3 pb-3 pt-0 space-y-3 border-t bg-background/50">
+                          {audit.visit_score && (
+                            <div className="pt-3">
+                              <div className="text-xs font-medium text-muted-foreground mb-1">Visit Score</div>
+                              <div className="text-lg font-semibold text-primary">{audit.visit_score}</div>
+                            </div>
+                          )}
+                          
+                          {audit.first_priority_items && audit.first_priority_items.length > 0 && (
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <AlertTriangle className="w-4 h-4 text-destructive" />
+                                <span className="text-xs font-medium text-destructive">First Priority ({audit.first_priority_items.length})</span>
+                              </div>
+                              <ul className="space-y-1 pl-5">
+                                {audit.first_priority_items.map((item, idx) => (
+                                  <li key={idx} className="text-xs text-foreground list-disc">{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          
+                          {audit.second_priority_items && audit.second_priority_items.length > 0 && (
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <AlertCircle className="w-4 h-4 text-amber-500" />
+                                <span className="text-xs font-medium text-amber-500">Second Priority ({audit.second_priority_items.length})</span>
+                              </div>
+                              <ul className="space-y-1 pl-5">
+                                {audit.second_priority_items.map((item, idx) => (
+                                  <li key={idx} className="text-xs text-foreground list-disc">{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          
+                          {audit.third_priority_items && audit.third_priority_items.length > 0 && (
+                            <div>
+                              <div className="flex items-center gap-1.5 mb-1.5">
+                                <Info className="w-4 h-4 text-blue-500" />
+                                <span className="text-xs font-medium text-blue-500">Third Priority ({audit.third_priority_items.length})</span>
+                              </div>
+                              <ul className="space-y-1 pl-5">
+                                {audit.third_priority_items.map((item, idx) => (
+                                  <li key={idx} className="text-xs text-foreground list-disc">{item}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {hasData && !audit.visit_score && 
+                           (!audit.first_priority_items || audit.first_priority_items.length === 0) &&
+                           (!audit.second_priority_items || audit.second_priority_items.length === 0) &&
+                           (!audit.third_priority_items || audit.third_priority_items.length === 0) && (
+                            <p className="text-xs text-muted-foreground pt-2">No priority items found in this audit.</p>
+                          )}
+                          
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1 mt-2"
+                            onClick={() => extractAuditSummary(audit)}
+                            disabled={isExtracting}
+                          >
+                            {isExtracting ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-3 h-3" />
+                            )}
+                            Re-scan with AI
+                          </Button>
+                        </div>
+                      </CollapsibleContent>
                     </div>
-                    <div className="flex gap-1 flex-shrink-0">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => {
-                          setPreviewUrl(audit.audit_url);
-                          setPreviewOpen(true);
-                        }}
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-destructive"
-                        onClick={() => handleAuditDelete(audit.id)}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  </Collapsible>
                 );
               })}
             </div>

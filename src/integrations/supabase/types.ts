@@ -821,31 +821,46 @@ export type Database = {
           audit_date: string
           audit_url: string
           created_at: string
+          first_priority_items: Json | null
           id: string
           location_id: string
           notes: string | null
+          second_priority_items: Json | null
+          summary_extracted_at: string | null
+          third_priority_items: Json | null
           updated_at: string
           uploaded_by: string
+          visit_score: string | null
         }
         Insert: {
           audit_date: string
           audit_url: string
           created_at?: string
+          first_priority_items?: Json | null
           id?: string
           location_id: string
           notes?: string | null
+          second_priority_items?: Json | null
+          summary_extracted_at?: string | null
+          third_priority_items?: Json | null
           updated_at?: string
           uploaded_by: string
+          visit_score?: string | null
         }
         Update: {
           audit_date?: string
           audit_url?: string
           created_at?: string
+          first_priority_items?: Json | null
           id?: string
           location_id?: string
           notes?: string | null
+          second_priority_items?: Json | null
+          summary_extracted_at?: string | null
+          third_priority_items?: Json | null
           updated_at?: string
           uploaded_by?: string
+          visit_score?: string | null
         }
         Relationships: [
           {
