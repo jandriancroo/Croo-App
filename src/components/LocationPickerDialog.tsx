@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
 import { Building2, MapPin, ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Organization {
   id: string;
@@ -37,6 +39,7 @@ export function LocationPickerDialog({
 }: LocationPickerDialogProps) {
   const { user } = useAuth();
   const { role } = useUserRole();
+  const isMobile = useIsMobile();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -146,99 +149,36 @@ export function LocationPickerDialog({
     return acc;
   }, {} as Record<string, Location[]>);
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
-            Select Location
-          </DialogTitle>
-        </DialogHeader>
-
-        {loading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-16 w-full" />
-            ))}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {organizations.length > 0 ? (
-              organizations.map((org) => (
-                <div key={org.id} className="space-y-1">
-                  <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground px-1">
-                    {org.logo_url ? (
-                      <img src={org.logo_url} alt="" className="h-4 w-4 object-contain rounded" />
-                    ) : (
-                      <Building2 className="h-3 w-3" />
-                    )}
-                    {org.brand_name ? (
-                      <span>
-                        <span className="text-foreground font-semibold">{org.brand_name}</span>
-                        <span className="text-muted-foreground"> — {org.name}</span>
-                      </span>
-                    ) : (
-                      org.name
-                    )}
-                  </div>
-                  <div className="space-y-0.5 pl-5">
-                    {locationsByOrg[org.id]?.map((location) => (
-                      <Button
-                        key={location.id}
-                        variant={location.id === currentLocationId ? 'secondary' : 'ghost'}
-                        className="w-full justify-between h-auto py-2 px-2"
-                        onClick={() => handleSelectLocation(location)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-3.5 w-3.5" />
-                          <div className="text-left">
-                            <div className="text-sm font-medium">{location.name}</div>
-                            {location.location_type === 'checklist_only' && (
-                              <div className="text-xs text-muted-foreground">Checklist Only</div>
-                            )}
-                          </div>
-                        </div>
-                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              ))
-            ) : (
-              // No organizations, just show locations flat
-              <div className="space-y-0.5">
-                {locations.map((location) => (
-                  <Button
-                    key={location.id}
-                    variant={location.id === currentLocationId ? 'secondary' : 'ghost'}
-                    className="w-full justify-between h-auto py-2 px-2"
-                    onClick={() => handleSelectLocation(location)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-3.5 w-3.5" />
-                      <div className="text-left">
-                        <div className="text-sm font-medium">{location.name}</div>
-                        {location.location_type === 'checklist_only' && (
-                          <div className="text-xs text-muted-foreground">Checklist Only</div>
-                        )}
-                      </div>
-                    </div>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  </Button>
-                ))}
-              </div>
-            )}
-
-            {/* Unassigned locations (no org) */}
-            {locationsByOrg['unassigned']?.length > 0 && organizations.length > 0 && (
-              <div className="space-y-1">
+  const content = (
+    <>
+      {loading ? (
+        <div className="space-y-4 p-4">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-16 w-full" />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4 p-4">
+          {organizations.length > 0 ? (
+            organizations.map((org) => (
+              <div key={org.id} className="space-y-1">
                 <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground px-1">
-                  <MapPin className="h-3 w-3" />
-                  Other Locations
+                  {org.logo_url ? (
+                    <img src={org.logo_url} alt="" className="h-4 w-4 object-contain rounded" />
+                  ) : (
+                    <Building2 className="h-3 w-3" />
+                  )}
+                  {org.brand_name ? (
+                    <span>
+                      <span className="text-foreground font-semibold">{org.brand_name}</span>
+                      <span className="text-muted-foreground"> — {org.name}</span>
+                    </span>
+                  ) : (
+                    org.name
+                  )}
                 </div>
                 <div className="space-y-0.5 pl-5">
-                  {locationsByOrg['unassigned'].map((location) => (
+                  {locationsByOrg[org.id]?.map((location) => (
                     <Button
                       key={location.id}
                       variant={location.id === currentLocationId ? 'secondary' : 'ghost'}
@@ -249,6 +189,9 @@ export function LocationPickerDialog({
                         <MapPin className="h-3.5 w-3.5" />
                         <div className="text-left">
                           <div className="text-sm font-medium">{location.name}</div>
+                          {location.location_type === 'checklist_only' && (
+                            <div className="text-xs text-muted-foreground">Checklist Only</div>
+                          )}
                         </div>
                       </div>
                       <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
@@ -256,9 +199,93 @@ export function LocationPickerDialog({
                   ))}
                 </div>
               </div>
-            )}
+            ))
+          ) : (
+            // No organizations, just show locations flat
+            <div className="space-y-0.5">
+              {locations.map((location) => (
+                <Button
+                  key={location.id}
+                  variant={location.id === currentLocationId ? 'secondary' : 'ghost'}
+                  className="w-full justify-between h-auto py-2 px-2"
+                  onClick={() => handleSelectLocation(location)}
+                >
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-3.5 w-3.5" />
+                    <div className="text-left">
+                      <div className="text-sm font-medium">{location.name}</div>
+                      {location.location_type === 'checklist_only' && (
+                        <div className="text-xs text-muted-foreground">Checklist Only</div>
+                      )}
+                    </div>
+                  </div>
+                  <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                </Button>
+              ))}
+            </div>
+          )}
+
+          {/* Unassigned locations (no org) */}
+          {locationsByOrg['unassigned']?.length > 0 && organizations.length > 0 && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground px-1">
+                <MapPin className="h-3 w-3" />
+                Other Locations
+              </div>
+              <div className="space-y-0.5 pl-5">
+                {locationsByOrg['unassigned'].map((location) => (
+                  <Button
+                    key={location.id}
+                    variant={location.id === currentLocationId ? 'secondary' : 'ghost'}
+                    className="w-full justify-between h-auto py-2 px-2"
+                    onClick={() => handleSelectLocation(location)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-3.5 w-3.5" />
+                      <div className="text-left">
+                        <div className="text-sm font-medium">{location.name}</div>
+                      </div>
+                    </div>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+
+  // Use Drawer on mobile for smooth vertical slide transition
+  if (isMobile) {
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent className="max-h-[85vh]">
+          <DrawerHeader className="text-left">
+            <DrawerTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Select Location
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto pb-8">
+            {content}
           </div>
-        )}
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <MapPin className="h-5 w-5" />
+            Select Location
+          </DialogTitle>
+        </DialogHeader>
+        {content}
       </DialogContent>
     </Dialog>
   );
