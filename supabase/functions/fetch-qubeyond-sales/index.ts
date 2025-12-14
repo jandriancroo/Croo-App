@@ -802,16 +802,37 @@ serve(async (req) => {
       
       credentials = integration.credentials as QuBeyondCredentials;
       
-      // Fetch location hours
-      const { data: locationSettings } = await supabase
-        .from('location_settings')
-        .select('hours_open, hours_close')
+      // Fetch location hours for today's day of week
+      const now = new Date();
+      const timezone = 'America/Los_Angeles'; // Default timezone
+      const localDate = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+      const dayOfWeek = localDate.getDay(); // 0 = Sunday, 6 = Saturday
+      
+      const { data: locationHours } = await supabase
+        .from('location_hours')
+        .select('open_time, close_time, is_closed')
         .eq('location_id', locationId)
+        .eq('day_of_week', dayOfWeek)
         .single();
       
-      if (locationSettings) {
-        hoursOpen = parseInt(locationSettings.hours_open?.split(':')[0] || '11');
-        hoursClose = parseInt(locationSettings.hours_close?.split(':')[0] || '22');
+      if (locationHours && !locationHours.is_closed) {
+        hoursOpen = parseInt(locationHours.open_time?.split(':')[0] || '11');
+        // Handle midnight (00:00) as 24 for calculation purposes
+        const closeHour = parseInt(locationHours.close_time?.split(':')[0] || '22');
+        hoursClose = closeHour === 0 ? 24 : closeHour;
+        console.log(`Location hours for day ${dayOfWeek}: ${hoursOpen}:00 - ${hoursClose === 24 ? '00' : hoursClose}:00`);
+      } else {
+        // Fallback to location_settings if no day-specific hours
+        const { data: locationSettings } = await supabase
+          .from('location_settings')
+          .select('hours_open, hours_close')
+          .eq('location_id', locationId)
+          .single();
+        
+        if (locationSettings) {
+          hoursOpen = parseInt(locationSettings.hours_open?.split(':')[0] || '11');
+          hoursClose = parseInt(locationSettings.hours_close?.split(':')[0] || '22');
+        }
       }
     } else {
       credentials = {
