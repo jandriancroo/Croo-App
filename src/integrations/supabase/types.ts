@@ -2799,6 +2799,90 @@ export type Database = {
           },
         ]
       }
+      week_template_assignments: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          id: string
+          shift_template_id: string
+          week_template_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          id?: string
+          shift_template_id: string
+          week_template_id: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          shift_template_id?: string
+          week_template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "week_template_assignments_shift_template_id_fkey"
+            columns: ["shift_template_id"]
+            isOneToOne: false
+            referencedRelation: "shift_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "week_template_assignments_week_template_id_fkey"
+            columns: ["week_template_id"]
+            isOneToOne: false
+            referencedRelation: "week_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      week_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          location_id: string | null
+          template_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          location_id?: string | null
+          template_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          location_id?: string | null
+          template_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "week_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "week_templates_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

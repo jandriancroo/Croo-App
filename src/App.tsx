@@ -22,6 +22,8 @@ import UserManagement from "./pages/UserManagement";
 import Settings from "./pages/Settings";
 import Schedule from "./pages/Schedule";
 import ShiftTemplates from "./pages/ShiftTemplates";
+import ScheduleTemplates from "./pages/ScheduleTemplates";
+import WeekTemplateBuilder from "./pages/WeekTemplateBuilder";
 import TestingChecklist from "./pages/TestingChecklist";
 import Availability from "./pages/Availability";
 import Messages from "./pages/Messages";
@@ -82,6 +84,8 @@ const AppContent = () => {
       <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
       <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
       <Route path="/shift-templates" element={<ProtectedRoute><ShiftTemplates /></ProtectedRoute>} />
+      <Route path="/schedule-templates" element={<ProtectedRoute><ScheduleTemplates /></ProtectedRoute>} />
+      <Route path="/week-template/:id" element={<ProtectedRoute><WeekTemplateBuilder /></ProtectedRoute>} />
       <Route path="/availability" element={<ProtectedRoute><Availability /></ProtectedRoute>} />
       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
       <Route path="/punch-clock" element={<PunchClock />} />
