@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,10 +7,10 @@ import { ChevronLeft, ChevronRight, ChevronDown, TrendingUp, TrendingDown, Packa
 import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { formatTime12Hour } from '@/lib/utils';
-import { setCachedProjections, getCachedProjections } from '@/utils/salesCache';
+import { setCachedProjections, getCachedProjections, getCachedLiveSales, setCachedLiveSales } from '@/utils/salesCache';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SalesData {
@@ -45,6 +45,8 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [showProductMix, setShowProductMix] = useState(false);
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
+  const isBackgroundRefreshing = useRef(false);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { 
@@ -73,71 +75,108 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
   const isToday = isSameDay(targetDate, new Date());
 
+  // Fetch fresh data from API
+  const fetchSalesData = async () => {
+    const dateStr = getDateString(targetDate);
+    const isTodayCheck = isSameDay(targetDate, new Date());
+    
+    // Check cache INSIDE the query function to get fresh values
+    const cachedProjections = isTodayCheck && currentLocation?.id 
+      ? getCachedProjections(currentLocation.id) 
+      : null;
+    
+    const hasValidDailyCache = cachedProjections?.todayProjected !== undefined;
+    const hasValidWeeklyMonthlyCache = cachedProjections?.weekProjected !== undefined && cachedProjections?.monthProjected !== undefined;
+    const skipProjections = isTodayCheck && hasValidDailyCache && hasValidWeeklyMonthlyCache;
+    
+    const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
+      body: { 
+        locationId: currentLocation?.id,
+        targetDate: dateStr,
+        skipProjections
+      }
+    });
+    if (error) {
+      console.error("Error fetching sales data:", error);
+      return null;
+    }
+    
+    const salesData = data as SalesData;
+    
+    // If we skipped projections but have cached ones, merge them in
+    if (skipProjections && cachedProjections && salesData) {
+      salesData.projections = {
+        todayProjected: cachedProjections.todayProjected || 0,
+        todayPaceAdjusted: cachedProjections.todayPaceAdjusted,
+        weekProjected: cachedProjections.weekProjected,
+        monthProjected: cachedProjections.monthProjected
+      };
+    }
+    
+    // Cache new projections if we fetched them fresh
+    if (isTodayCheck && !skipProjections && salesData?.projections && currentLocation?.id) {
+      const todayProjected = salesData.projections.todayProjected;
+      const todayPaceAdjusted = salesData.projections.todayPaceAdjusted;
+      const weekProjected = salesData.projections.weekProjected;
+      const monthProjected = salesData.projections.monthProjected;
+      const weeklySales = salesData?.weekly || 0;
+      const monthlySales = salesData?.monthly || 0;
+      
+      // Sanity check: projections must be >= actual sales
+      if (weekProjected >= weeklySales && monthProjected >= monthlySales && weekProjected > 0 && monthProjected > 0) {
+        setCachedProjections(currentLocation.id, { 
+          todayProjected: todayProjected > 0 ? todayProjected : undefined,
+          todayPaceAdjusted: todayPaceAdjusted && todayPaceAdjusted > 0 ? todayPaceAdjusted : undefined,
+          weekProjected, 
+          monthProjected 
+        });
+      }
+    }
+    
+    // Cache live sales for stale-while-revalidate
+    if (isTodayCheck && salesData && currentLocation?.id) {
+      setCachedLiveSales(currentLocation.id, salesData);
+    }
+    
+    return salesData;
+  };
+
+  // Get initial data from cache for instant render
+  const getInitialData = (): SalesData | null => {
+    if (!currentLocation?.id || !isSameDay(targetDate, new Date())) return null;
+    const cached = getCachedLiveSales(currentLocation.id);
+    return cached?.data || null;
+  };
+
   const { data: rawSalesData, isLoading, refetch } = useQuery({
     queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
-    queryFn: async () => {
-      const dateStr = getDateString(targetDate);
-      const isTodayCheck = isSameDay(targetDate, new Date());
-      
-      // Check cache INSIDE the query function to get fresh values
-      const cachedProjections = isTodayCheck && currentLocation?.id 
-        ? getCachedProjections(currentLocation.id) 
-        : null;
-      
-      const hasValidDailyCache = cachedProjections?.todayProjected !== undefined;
-      const hasValidWeeklyMonthlyCache = cachedProjections?.weekProjected !== undefined && cachedProjections?.monthProjected !== undefined;
-      const skipProjections = isTodayCheck && hasValidDailyCache && hasValidWeeklyMonthlyCache;
-      
-      const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
-        body: { 
-          locationId: currentLocation?.id,
-          targetDate: dateStr,
-          skipProjections
-        }
-      });
-      if (error) {
-        console.error("Error fetching sales data:", error);
-        return null;
-      }
-      
-      const salesData = data as SalesData;
-      
-      // If we skipped projections but have cached ones, merge them in
-      if (skipProjections && cachedProjections && salesData) {
-        salesData.projections = {
-          todayProjected: cachedProjections.todayProjected || 0,
-          todayPaceAdjusted: cachedProjections.todayPaceAdjusted,
-          weekProjected: cachedProjections.weekProjected,
-          monthProjected: cachedProjections.monthProjected
-        };
-      }
-      
-      // Cache new projections if we fetched them fresh
-      if (isTodayCheck && !skipProjections && salesData?.projections && currentLocation?.id) {
-        const todayProjected = salesData.projections.todayProjected;
-        const todayPaceAdjusted = salesData.projections.todayPaceAdjusted;
-        const weekProjected = salesData.projections.weekProjected;
-        const monthProjected = salesData.projections.monthProjected;
-        const weeklySales = salesData?.weekly || 0;
-        const monthlySales = salesData?.monthly || 0;
-        
-        // Sanity check: projections must be >= actual sales
-        if (weekProjected >= weeklySales && monthProjected >= monthlySales && weekProjected > 0 && monthProjected > 0) {
-          setCachedProjections(currentLocation.id, { 
-            todayProjected: todayProjected > 0 ? todayProjected : undefined,
-            todayPaceAdjusted: todayPaceAdjusted && todayPaceAdjusted > 0 ? todayPaceAdjusted : undefined,
-            weekProjected, 
-            monthProjected 
-          });
-        }
-      }
-      
-      return salesData;
-    },
+    queryFn: fetchSalesData,
     enabled: !!currentLocation?.id,
-    staleTime: 60000, // Consider data fresh for 1 minute to reduce refetches
-    refetchOnWindowFocus: false // Don't refetch just because user switched tabs
+    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
+    refetchOnWindowFocus: false, // Don't refetch just because user switched tabs
+    initialData: getInitialData, // Show cached data instantly
+    initialDataUpdatedAt: () => {
+      // Tell React Query when the initial data was fetched
+      if (!currentLocation?.id) return 0;
+      const cached = getCachedLiveSales(currentLocation.id);
+      if (!cached) return 0;
+      // Return timestamp to let React Query know if it should background refresh
+      return cached.isStale ? 0 : Date.now();
+    }
   });
+
+  // Background refresh when cache is stale but we have data to show
+  useEffect(() => {
+    if (!currentLocation?.id || !isSameDay(targetDate, new Date())) return;
+    
+    const cached = getCachedLiveSales(currentLocation.id);
+    if (cached?.isStale && !isBackgroundRefreshing.current) {
+      isBackgroundRefreshing.current = true;
+      refetch().finally(() => {
+        isBackgroundRefreshing.current = false;
+      });
+    }
+  }, [currentLocation?.id, targetDate, refetch]);
 
   // Convert hourly data to 12-hour format and filter to business hours only
   const salesData = useMemo(() => {
