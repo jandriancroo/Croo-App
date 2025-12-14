@@ -348,44 +348,48 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
               {/* Croo AI Projections & Live Labor for Today */}
               <div className="flex flex-col gap-2 mb-2">
-                {/* Historical-based starting projection */}
+                {/* Combined Target EOD and Pacing row */}
                 {salesData?.projections?.todayProjected !== undefined && salesData.projections.todayProjected > 0 && (
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 border border-primary/20">
-                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
-                      <Sparkles className="h-3.5 w-3.5 text-white" />
+                  <div className="flex items-stretch gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 via-purple-500/10 to-amber-500/10 border border-primary/20">
+                    {/* Target EOD - Left */}
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
+                        <Sparkles className="h-3.5 w-3.5 text-white" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">Target EOD</span>
+                        <span className="text-sm sm:text-base font-semibold text-primary">
+                          {formatCurrency(salesData.projections.todayProjected)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 flex-wrap flex-1">
-                      <span className="text-xs sm:text-sm text-muted-foreground">Target EOD:</span>
-                      <span className="text-sm sm:text-base font-semibold text-primary">
-                        {formatCurrency(salesData.projections.todayProjected)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Pace-adjusted projection - only show if we have data and it's different */}
-                {salesData?.projections?.todayPaceAdjusted !== undefined && 
-                 salesData.projections.todayPaceAdjusted > 0 && 
-                 isToday && (
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20">
-                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
-                      <TrendingUp className="h-3.5 w-3.5 text-white" />
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap flex-1">
-                      <span className="text-xs sm:text-sm text-muted-foreground">Pacing to:</span>
-                      <span className="text-sm sm:text-base font-semibold text-amber-500">
-                        {formatCurrency(salesData.projections.todayPaceAdjusted)}
-                      </span>
-                    </div>
-                    {/* Show variance from target */}
-                    {salesData.projections.todayPaceAdjusted !== salesData.projections.todayProjected && (
-                      <div className={`text-xs font-medium ${
-                        salesData.projections.todayPaceAdjusted >= salesData.projections.todayProjected 
-                          ? 'text-green-500' 
-                          : 'text-red-500'
-                      }`}>
-                        {salesData.projections.todayPaceAdjusted >= salesData.projections.todayProjected ? '+' : ''}
-                        {formatCurrency(salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected)}
+                    
+                    {/* Pacing to - Right */}
+                    {salesData.projections.todayPaceAdjusted !== undefined && 
+                     salesData.projections.todayPaceAdjusted > 0 && 
+                     isToday && (
+                      <div className="flex items-center gap-2 flex-1 justify-end">
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs text-muted-foreground">Pacing to</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm sm:text-base font-semibold text-amber-500">
+                              {formatCurrency(salesData.projections.todayPaceAdjusted)}
+                            </span>
+                            {salesData.projections.todayPaceAdjusted !== salesData.projections.todayProjected && (
+                              <span className={`text-xs font-medium ${
+                                salesData.projections.todayPaceAdjusted >= salesData.projections.todayProjected 
+                                  ? 'text-green-500' 
+                                  : 'text-red-500'
+                              }`}>
+                                {salesData.projections.todayPaceAdjusted >= salesData.projections.todayProjected ? '+' : ''}
+                                {formatCurrency(salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
+                          <TrendingUp className="h-3.5 w-3.5 text-white" />
+                        </div>
                       </div>
                     )}
                   </div>
