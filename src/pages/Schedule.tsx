@@ -1134,7 +1134,7 @@ export default function Schedule() {
                       <Calendar className="h-4 w-4" />
                       View Availability
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/shift-templates")} className="gap-2 cursor-pointer">
+                    <DropdownMenuItem onClick={() => navigate("/schedule-templates")} className="gap-2 cursor-pointer">
                       <Settings className="h-4 w-4" />
                       Manage Templates
                     </DropdownMenuItem>
