@@ -5,6 +5,7 @@ import { CheckCircle2, XCircle } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getDateInPST } from "@/utils/dateUtils";
+import { Skeleton } from "@/components/ui/skeleton";
 interface ChecklistDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -88,7 +89,11 @@ export function ChecklistDetailsDialog({ open, onOpenChange, checklistId, date }
         </DialogHeader>
         <ScrollArea className="h-[60vh] pr-4">
           {isLoading ? (
-            <div className="text-center py-8 text-muted-foreground">Loading...</div>
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <Skeleton key={i} className="h-16 rounded-lg" />
+              ))}
+            </div>
           ) : (
             <div className="space-y-3">
               {checklistDetails?.items.map((item: any, index: number) => (

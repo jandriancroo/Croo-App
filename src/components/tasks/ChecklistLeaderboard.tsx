@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import { Trophy } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfDay, endOfDay } from "date-fns";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 
@@ -281,8 +282,16 @@ export function ChecklistLeaderboard() {
           </CardTitle>
         <CardDescription>Monthly checklist completion during shifts</CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="text-center text-muted-foreground py-4">Loading...</div>
+        <CardContent className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-10 w-10 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-2 w-full" />
+              </div>
+            </div>
+          ))}
         </CardContent>
       </Card>
     );

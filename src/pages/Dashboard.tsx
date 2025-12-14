@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users } from 'lucide-react';
@@ -100,6 +101,7 @@ export default function Dashboard() {
   // Fetch location hours for current day of week
   const { data: locationSettings } = useQuery({
     queryKey: ["location-hours-today", currentLocation?.id],
+    staleTime: 5 * 60 * 1000, // 5 min cache - show instantly
     queryFn: async () => {
       if (!currentLocation) return null;
       const today = new Date();
@@ -132,6 +134,7 @@ export default function Dashboard() {
   // Check if location has active QuBeyond integration
   const { data: hasQuBeyondIntegration } = useQuery({
     queryKey: ["qubeyond-integration-check", currentLocation?.id],
+    staleTime: 10 * 60 * 1000, // 10 min cache - rarely changes
     queryFn: async () => {
       if (!currentLocation) return false;
       const { data, error } = await supabase
@@ -763,7 +766,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {loading ? <div className="text-center text-muted-foreground">Loading checklists...</div> : checklists.length === 0 ? <Card className="text-center py-12">
+        {loading ? <PageSkeleton variant="grid" /> : checklists.length === 0 ? <Card className="text-center py-12">
             <CardContent>
               <ClipboardCheck className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No checklists yet</h3>

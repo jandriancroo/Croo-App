@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
+import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
@@ -110,6 +111,7 @@ export default function Tasks() {
   // Fetch checklists for user's role (location-filtered)
   const { data: checklists = [], isLoading: checklistsLoading } = useQuery({
     queryKey: ['user-checklists', user?.id, isAdmin, currentLocation?.id],
+    staleTime: 2 * 60 * 1000, // 2 min - show cached instantly, refresh in background
     queryFn: async () => {
       if (!currentLocation?.id) return [];
       
@@ -171,6 +173,7 @@ export default function Tasks() {
   // Fetch submission stats (location-filtered)
   const { data: submissionStats, isLoading: statsLoading } = useQuery({
     queryKey: ['submission-stats', user?.id, currentLocation?.id],
+    staleTime: 2 * 60 * 1000, // 2 min cache
     queryFn: async () => {
       if (!currentLocation?.id) return { today: 0, thisWeek: 0, thisMonth: 0 };
       
@@ -330,7 +333,7 @@ export default function Tasks() {
     return (
       <Layout>
         <div className="container max-w-6xl mx-auto p-6">
-          <div className="text-center py-8">Loading...</div>
+          <PageSkeleton variant="grid" />
         </div>
       </Layout>
     );
