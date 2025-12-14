@@ -1,7 +1,12 @@
 // Cache for QuBeyond sales data - historical data won't change
 const CACHE_KEY_PREFIX = 'qu_sales_cache_';
 const PROJECTION_CACHE_KEY = 'qu_projections_cache_';
-const CACHE_VERSION = 8;
+const LIVE_SALES_CACHE_KEY = 'qu_live_sales_';
+const HOURLY_PATTERN_CACHE_KEY = 'qu_hourly_pattern_';
+const CACHE_VERSION = 9;
+
+// 5-minute TTL for live sales data
+const LIVE_SALES_TTL_MS = 5 * 60 * 1000;
 
 interface CachedSalesData {
   version: number;
@@ -27,12 +32,33 @@ interface CachedProjections {
   };
 }
 
+interface CachedLiveSales {
+  version: number;
+  cachedAt: string;
+  data: any; // Full sales response from QuBeyond
+}
+
+interface CachedHourlyPattern {
+  version: number;
+  cachedAt: string;
+  validForDate: string; // The date this pattern is valid for
+  pattern: { hour: number; avgPercent: number }[];
+}
+
 function getCacheKey(locationId: string, date: string): string {
   return `${CACHE_KEY_PREFIX}${locationId}_${date}`;
 }
 
 function getProjectionCacheKey(locationId: string): string {
   return `${PROJECTION_CACHE_KEY}${locationId}`;
+}
+
+function getLiveSalesCacheKey(locationId: string): string {
+  return `${LIVE_SALES_CACHE_KEY}${locationId}`;
+}
+
+function getHourlyPatternCacheKey(locationId: string): string {
+  return `${HOURLY_PATTERN_CACHE_KEY}${locationId}`;
 }
 
 function isDateInPast(dateStr: string): boolean {
@@ -97,6 +123,87 @@ export function setCachedSalesData(
       version: CACHE_VERSION,
       fetchedAt: new Date().toISOString(),
       data
+    };
+    localStorage.setItem(key, JSON.stringify(cacheEntry));
+  } catch {
+    // localStorage might be full - ignore
+  }
+}
+
+// === LIVE SALES CACHE (5-minute TTL for stale-while-revalidate) ===
+
+export function getCachedLiveSales(locationId: string): { data: any; isStale: boolean } | null {
+  try {
+    const key = getLiveSalesCacheKey(locationId);
+    const cached = localStorage.getItem(key);
+    
+    if (!cached) return null;
+    
+    const parsed: CachedLiveSales = JSON.parse(cached);
+    
+    // Check version
+    if (parsed.version !== CACHE_VERSION) return null;
+    
+    const cachedTime = new Date(parsed.cachedAt).getTime();
+    const now = Date.now();
+    const isStale = (now - cachedTime) > LIVE_SALES_TTL_MS;
+    
+    return { data: parsed.data, isStale };
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedLiveSales(locationId: string, data: any): void {
+  try {
+    const key = getLiveSalesCacheKey(locationId);
+    const cacheEntry: CachedLiveSales = {
+      version: CACHE_VERSION,
+      cachedAt: new Date().toISOString(),
+      data
+    };
+    localStorage.setItem(key, JSON.stringify(cacheEntry));
+  } catch {
+    // localStorage might be full - ignore
+  }
+}
+
+// === HOURLY PATTERN CACHE (valid for entire day) ===
+
+export function getCachedHourlyPattern(locationId: string): { hour: number; avgPercent: number }[] | null {
+  try {
+    const key = getHourlyPatternCacheKey(locationId);
+    const cached = localStorage.getItem(key);
+    
+    if (!cached) return null;
+    
+    const parsed: CachedHourlyPattern = JSON.parse(cached);
+    
+    // Check version
+    if (parsed.version !== CACHE_VERSION) return null;
+    
+    // Only valid for today
+    const { date: currentDate } = getPSTDate();
+    if (parsed.validForDate !== currentDate) {
+      localStorage.removeItem(key);
+      return null;
+    }
+    
+    return parsed.pattern;
+  } catch {
+    return null;
+  }
+}
+
+export function setCachedHourlyPattern(locationId: string, pattern: { hour: number; avgPercent: number }[]): void {
+  try {
+    const key = getHourlyPatternCacheKey(locationId);
+    const { date: currentDate } = getPSTDate();
+    const cacheEntry: CachedHourlyPattern = {
+      version: CACHE_VERSION,
+      cachedAt: new Date().toISOString(),
+      validForDate: currentDate,
+      pattern
     };
     localStorage.setItem(key, JSON.stringify(cacheEntry));
   } catch {
