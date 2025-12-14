@@ -135,8 +135,9 @@ export default function Tasks() {
 
       if (error) throw error;
 
-      // Filter checklists based on role tags and current day
-      const currentDay = new Date().getDay();
+      // Convert JS getDay() (Sun=0..Sat=6) to calendar index (Mon=0..Sun=6)
+      const jsDay = new Date().getDay();
+      const currentDay = jsDay === 0 ? 6 : jsDay - 1;
       const today = new Date();
       
       return data.filter(checklist => {
@@ -227,7 +228,9 @@ export default function Tasks() {
       const endOfDay = new Date(historyDate);
       endOfDay.setHours(23, 59, 59, 999);
       
-      const currentDay = historyDate.getDay();
+      // Convert JS getDay() (Sun=0..Sat=6) to calendar index (Mon=0..Sun=6)
+      const jsDay = historyDate.getDay();
+      const currentDay = jsDay === 0 ? 6 : jsDay - 1;
 
       // Get all checklists for this location
       const { data: checklistsData } = await supabase
