@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -10,12 +10,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { ArrowLeft, Save, GripVertical } from "lucide-react";
+import { ArrowLeft, Save, GripVertical, ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
 import { formatTime12Hour } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-interface ShiftTemplate {
+export interface ShiftTemplate {
   id: string;
   template_name: string;
   start_time: string;
@@ -25,11 +35,43 @@ interface ShiftTemplate {
   position: string | null;
 }
 
-interface Assignment {
+export interface Assignment {
   id?: string;
   shift_template_id: string;
   day_of_week: number;
   shift_template?: ShiftTemplate;
+}
+
+interface DaySPLHGoals {
+  am: string;
+  pm: string;
+}
+
+function calculateShiftHours(startTime: string, endTime: string): number {
+  const [startHour, startMin] = startTime.split(':').map(Number);
+  const [endHour, endMin] = endTime.split(':').map(Number);
+  
+  let hours = endHour - startHour;
+  let minutes = endMin - startMin;
+  
+  if (minutes < 0) {
+    hours -= 1;
+    minutes += 60;
+  }
+  
+  // Handle overnight shifts
+  if (hours < 0) {
+    hours += 24;
+  }
+  
+  let totalHours = hours + minutes / 60;
+  
+  // Deduct 30 minutes for shifts over 5 hours
+  if (totalHours > 5) {
+    totalHours -= 0.5;
+  }
+  
+  return Math.max(0, totalHours);
 }
 
 function DraggableShiftTemplate({ template }: { template: ShiftTemplate }) {
@@ -119,12 +161,26 @@ function DroppableDay({
   dayIndex, 
   dayName, 
   assignments,
-  onRemoveAssignment 
+  onRemoveAssignment,
+  onCopyToPrevious,
+  onCopyToNext,
+  splhGoals,
+  onSplhChange,
+  totalHours,
+  isFirst,
+  isLast
 }: { 
   dayIndex: number; 
   dayName: string; 
   assignments: Assignment[];
   onRemoveAssignment: (index: number) => void;
+  onCopyToPrevious: () => void;
+  onCopyToNext: () => void;
+  splhGoals: DaySPLHGoals;
+  onSplhChange: (field: 'am' | 'pm', value: string) => void;
+  totalHours: number;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${dayIndex}`,
@@ -134,11 +190,34 @@ function DroppableDay({
   return (
     <div
       ref={setNodeRef}
-      className={`p-3 border-2 rounded-lg min-h-[200px] flex flex-col ${
+      className={`p-3 border-2 rounded-lg min-h-[280px] flex flex-col ${
         isOver ? "border-primary bg-accent/50" : "border-border"
       }`}
     >
-      <h3 className="font-semibold text-sm mb-2 text-center">{dayName}</h3>
+      {/* Header with copy buttons */}
+      <div className="flex items-center justify-between mb-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={onCopyToPrevious}
+          disabled={isFirst}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <h3 className="font-semibold text-sm text-center">{dayName}</h3>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={onCopyToNext}
+          disabled={isLast}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Assignments */}
       <div className="flex-1 space-y-2">
         {assignments.map((assignment, index) => (
           <AssignedShiftCard
@@ -152,6 +231,39 @@ function DroppableDay({
             Drop shifts here
           </p>
         )}
+      </div>
+
+      {/* Footer: Labor Hours & SPLH Goals */}
+      <div className="mt-3 pt-3 border-t border-border space-y-2">
+        {/* Labor Hours */}
+        <div className="flex items-center justify-center gap-1 text-xs">
+          <Clock className="h-3 w-3 text-muted-foreground" />
+          <span className="font-medium">{totalHours.toFixed(1)}h</span>
+        </div>
+
+        {/* SPLH Goals */}
+        <div className="grid grid-cols-2 gap-1">
+          <div>
+            <label className="text-[10px] text-muted-foreground block text-center">AM $/LH</label>
+            <Input
+              type="number"
+              value={splhGoals.am}
+              onChange={(e) => onSplhChange('am', e.target.value)}
+              className="h-7 text-xs text-center px-1"
+              placeholder="--"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] text-muted-foreground block text-center">PM $/LH</label>
+            <Input
+              type="number"
+              value={splhGoals.pm}
+              onChange={(e) => onSplhChange('pm', e.target.value)}
+              className="h-7 text-xs text-center px-1"
+              placeholder="--"
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -167,9 +279,15 @@ export default function WeekTemplateBuilder() {
   const [description, setDescription] = useState("");
   const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
   const [assignmentsByDay, setAssignmentsByDay] = useState<Map<number, Assignment[]>>(new Map());
+  const [splhGoalsByDay, setSplhGoalsByDay] = useState<Map<number, DaySPLHGoals>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTemplate, setActiveTemplate] = useState<ShiftTemplate | null>(null);
+  
+  // Copy dialog state
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [copyDirection, setCopyDirection] = useState<'prev' | 'next'>('next');
+  const [copyFromDay, setCopyFromDay] = useState(0);
 
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const isNew = id === 'new';
@@ -182,6 +300,30 @@ export default function WeekTemplateBuilder() {
       activationConstraint: { delay: 200, tolerance: 8 },
     })
   );
+
+  // Calculate daily labor hours
+  const dailyHours = useMemo(() => {
+    const hours = new Map<number, number>();
+    assignmentsByDay.forEach((assignments, dayIndex) => {
+      let total = 0;
+      assignments.forEach(a => {
+        if (a.shift_template) {
+          total += calculateShiftHours(a.shift_template.start_time, a.shift_template.end_time);
+        }
+      });
+      hours.set(dayIndex, total);
+    });
+    return hours;
+  }, [assignmentsByDay]);
+
+  // Calculate weekly total hours
+  const weeklyTotalHours = useMemo(() => {
+    let total = 0;
+    dailyHours.forEach(hours => {
+      total += hours;
+    });
+    return total;
+  }, [dailyHours]);
 
   useEffect(() => {
     if (!roleLoading && !isAdmin && !isManager) {
@@ -233,8 +375,10 @@ export default function WeekTemplateBuilder() {
 
         if (assignError) throw assignError;
 
-        // Group by day
+        // Group by day and extract SPLH goals
         const byDay = new Map<number, Assignment[]>();
+        const splhByDay = new Map<number, DaySPLHGoals>();
+        
         (assignments || []).forEach((a: any) => {
           const dayAssignments = byDay.get(a.day_of_week) || [];
           dayAssignments.push({
@@ -244,8 +388,18 @@ export default function WeekTemplateBuilder() {
             shift_template: a.shift_templates,
           });
           byDay.set(a.day_of_week, dayAssignments);
+          
+          // Set SPLH goals from first assignment of each day (they should be same for all)
+          if (!splhByDay.has(a.day_of_week)) {
+            splhByDay.set(a.day_of_week, {
+              am: a.am_splh_goal?.toString() || '',
+              pm: a.pm_splh_goal?.toString() || ''
+            });
+          }
         });
+        
         setAssignmentsByDay(byDay);
+        setSplhGoalsByDay(splhByDay);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -303,6 +457,49 @@ export default function WeekTemplateBuilder() {
     });
   };
 
+  const handleSplhChange = (dayIndex: number, field: 'am' | 'pm', value: string) => {
+    setSplhGoalsByDay(prev => {
+      const newMap = new Map(prev);
+      const goals = newMap.get(dayIndex) || { am: '', pm: '' };
+      newMap.set(dayIndex, { ...goals, [field]: value });
+      return newMap;
+    });
+  };
+
+  const handleCopyClick = (fromDay: number, direction: 'prev' | 'next') => {
+    setCopyFromDay(fromDay);
+    setCopyDirection(direction);
+    setCopyDialogOpen(true);
+  };
+
+  const handleCopyConfirm = () => {
+    const targetDay = copyDirection === 'prev' ? copyFromDay - 1 : copyFromDay + 1;
+    const sourceAssignments = assignmentsByDay.get(copyFromDay) || [];
+    const sourceSplh = splhGoalsByDay.get(copyFromDay) || { am: '', pm: '' };
+    
+    // Copy assignments
+    setAssignmentsByDay(prev => {
+      const newMap = new Map(prev);
+      const copiedAssignments = sourceAssignments.map(a => ({
+        ...a,
+        id: undefined,
+        day_of_week: targetDay,
+      }));
+      newMap.set(targetDay, copiedAssignments);
+      return newMap;
+    });
+
+    // Copy SPLH goals
+    setSplhGoalsByDay(prev => {
+      const newMap = new Map(prev);
+      newMap.set(targetDay, { ...sourceSplh });
+      return newMap;
+    });
+
+    setCopyDialogOpen(false);
+    toast.success(`Copied ${dayNames[copyFromDay]} to ${dayNames[targetDay]}`);
+  };
+
   const handleSave = async () => {
     if (!templateName.trim()) {
       toast.error('Please enter a template name');
@@ -331,6 +528,7 @@ export default function WeekTemplateBuilder() {
             description: description.trim() || null,
             location_id: currentLocation.id,
             created_by: user.id,
+            target_weekly_hours: weeklyTotalHours,
           })
           .select()
           .single();
@@ -344,6 +542,7 @@ export default function WeekTemplateBuilder() {
           .update({
             template_name: templateName.trim(),
             description: description.trim() || null,
+            target_weekly_hours: weeklyTotalHours,
           })
           .eq("id", id);
 
@@ -358,14 +557,24 @@ export default function WeekTemplateBuilder() {
         if (deleteError) throw deleteError;
       }
 
-      // Insert all assignments
-      const allAssignments: { week_template_id: string; shift_template_id: string; day_of_week: number }[] = [];
+      // Insert all assignments with SPLH goals
+      const allAssignments: { 
+        week_template_id: string; 
+        shift_template_id: string; 
+        day_of_week: number;
+        am_splh_goal: number | null;
+        pm_splh_goal: number | null;
+      }[] = [];
+      
       assignmentsByDay.forEach((assignments, dayIndex) => {
+        const splhGoals = splhGoalsByDay.get(dayIndex) || { am: '', pm: '' };
         assignments.forEach(a => {
           allAssignments.push({
             week_template_id: weekTemplateId!,
             shift_template_id: a.shift_template_id,
             day_of_week: dayIndex,
+            am_splh_goal: splhGoals.am ? parseFloat(splhGoals.am) : null,
+            pm_splh_goal: splhGoals.pm ? parseFloat(splhGoals.pm) : null,
           });
         });
       });
@@ -412,10 +621,18 @@ export default function WeekTemplateBuilder() {
               {isNew ? 'Create Week Template' : 'Edit Week Template'}
             </h1>
           </div>
-          <Button onClick={handleSave} disabled={saving}>
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? 'Saving...' : 'Save Template'}
-          </Button>
+          <div className="flex items-center gap-4">
+            {/* Weekly Total Hours */}
+            <div className="flex items-center gap-2 bg-muted px-4 py-2 rounded-lg">
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">Weekly Hours:</span>
+              <span className="text-lg font-bold">{weeklyTotalHours.toFixed(1)}h</span>
+            </div>
+            <Button onClick={handleSave} disabled={saving}>
+              <Save className="h-4 w-4 mr-2" />
+              {saving ? 'Saving...' : 'Save Template'}
+            </Button>
+          </div>
         </div>
 
         {/* Template Info */}
@@ -484,6 +701,13 @@ export default function WeekTemplateBuilder() {
                     dayName={dayName}
                     assignments={assignmentsByDay.get(index) || []}
                     onRemoveAssignment={(assignmentIndex) => handleRemoveAssignment(index, assignmentIndex)}
+                    onCopyToPrevious={() => handleCopyClick(index, 'prev')}
+                    onCopyToNext={() => handleCopyClick(index, 'next')}
+                    splhGoals={splhGoalsByDay.get(index) || { am: '', pm: '' }}
+                    onSplhChange={(field, value) => handleSplhChange(index, field, value)}
+                    totalHours={dailyHours.get(index) || 0}
+                    isFirst={index === 0}
+                    isLast={index === 6}
                   />
                 ))}
               </div>
@@ -498,6 +722,13 @@ export default function WeekTemplateBuilder() {
                       dayName={dayName}
                       assignments={assignmentsByDay.get(index) || []}
                       onRemoveAssignment={(assignmentIndex) => handleRemoveAssignment(index, assignmentIndex)}
+                      onCopyToPrevious={() => handleCopyClick(index, 'prev')}
+                      onCopyToNext={() => handleCopyClick(index, 'next')}
+                      splhGoals={splhGoalsByDay.get(index) || { am: '', pm: '' }}
+                      onSplhChange={(field, value) => handleSplhChange(index, field, value)}
+                      totalHours={dailyHours.get(index) || 0}
+                      isFirst={index === 0}
+                      isLast={index === 6}
                     />
                   );
                 })}
@@ -525,6 +756,23 @@ export default function WeekTemplateBuilder() {
           </DragOverlay>
         </DndContext>
       </div>
+
+      {/* Copy Day Dialog */}
+      <AlertDialog open={copyDialogOpen} onOpenChange={setCopyDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Copy Day</AlertDialogTitle>
+            <AlertDialogDescription>
+              Copy all shifts and SPLH goals from {dayNames[copyFromDay]} to {dayNames[copyDirection === 'prev' ? copyFromDay - 1 : copyFromDay + 1]}?
+              This will replace any existing shifts on {dayNames[copyDirection === 'prev' ? copyFromDay - 1 : copyFromDay + 1]}.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCopyConfirm}>Copy</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }

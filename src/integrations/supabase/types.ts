@@ -2801,23 +2801,29 @@ export type Database = {
       }
       week_template_assignments: {
         Row: {
+          am_splh_goal: number | null
           created_at: string
           day_of_week: number
           id: string
+          pm_splh_goal: number | null
           shift_template_id: string
           week_template_id: string
         }
         Insert: {
+          am_splh_goal?: number | null
           created_at?: string
           day_of_week: number
           id?: string
+          pm_splh_goal?: number | null
           shift_template_id: string
           week_template_id: string
         }
         Update: {
+          am_splh_goal?: number | null
           created_at?: string
           day_of_week?: number
           id?: string
+          pm_splh_goal?: number | null
           shift_template_id?: string
           week_template_id?: string
         }
@@ -2845,6 +2851,7 @@ export type Database = {
           description: string | null
           id: string
           location_id: string | null
+          target_weekly_hours: number | null
           template_name: string
           updated_at: string
         }
@@ -2854,6 +2861,7 @@ export type Database = {
           description?: string | null
           id?: string
           location_id?: string | null
+          target_weekly_hours?: number | null
           template_name: string
           updated_at?: string
         }
@@ -2863,6 +2871,7 @@ export type Database = {
           description?: string | null
           id?: string
           location_id?: string | null
+          target_weekly_hours?: number | null
           template_name?: string
           updated_at?: string
         }
