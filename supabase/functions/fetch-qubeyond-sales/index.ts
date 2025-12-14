@@ -655,9 +655,12 @@ function calculatePaceAdjustedProjection(
   // Pace-adjusted = actual sales + sum of remaining hourly projections
   const paceAdjusted = actualSales + remainingProjected;
   
-  console.log(`Pace calculation: $${actualSales.toFixed(0)} actual + $${remainingProjected.toFixed(0)} remaining (hours ${currentHour + 1}-${hoursClose - 1}) = $${paceAdjusted.toFixed(0)}`);
+  // CRITICAL: Pacing should NEVER be below actual sales - clamp to floor
+  const clampedPace = Math.max(paceAdjusted, actualSales);
   
-  return Math.round(paceAdjusted);
+  console.log(`Pace calculation: $${actualSales.toFixed(0)} actual + $${remainingProjected.toFixed(0)} remaining (hours ${currentHour + 1}-${hoursClose - 1}) = $${clampedPace.toFixed(0)}`);
+  
+  return Math.round(clampedPace);
 }
 
 function generateProjections(
