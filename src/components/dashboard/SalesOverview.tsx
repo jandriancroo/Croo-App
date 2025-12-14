@@ -568,7 +568,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
               <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">WTD</p>
-                  <p className="text-lg sm:text-2xl font-bold">
+                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
                     {salesData?.weekly !== undefined ? formatCurrency(salesData.weekly) : "--"}
                   </p>
                   {salesData?.comparison?.prevWeek !== undefined && salesData.weekly !== undefined && (
@@ -581,13 +581,13 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 </div>
                 <div className="text-center min-w-0">
                   <p className="text-xs text-muted-foreground">Guests</p>
-                  <p className="text-lg sm:text-2xl font-bold">
+                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
                     {salesData?.guestCount?.weekly ?? "--"}
                   </p>
                 </div>
                 <div className="text-right min-w-0">
                   <p className="text-xs text-muted-foreground">Avg Ticket</p>
-                  <p className="text-lg sm:text-2xl font-bold">
+                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
                     {salesData?.guestCount?.weekly && salesData?.weekly 
                       ? formatCurrencyDecimal(salesData.weekly / salesData.guestCount.weekly) 
                       : "--"}
@@ -603,7 +603,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">Croo AI Projected Week Total:</span>
-                    <span className="text-sm font-semibold text-primary">
+                    <span className="text-sm font-semibold text-primary transition-all duration-300 ease-out">
                       {formatCurrency(salesData.projections.weekProjected)}
                     </span>
                   </div>
@@ -621,15 +621,15 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   </div>
                   <div className="flex items-center gap-3 sm:gap-4">
                     <div className="text-right">
-                      <p className="text-lg sm:text-xl font-bold text-orange-500">{salesData.weeklyLabor.laborPercent.toFixed(1)}%</p>
+                      <p className="text-lg sm:text-xl font-bold text-orange-500 transition-all duration-300 ease-out">{salesData.weeklyLabor.laborPercent.toFixed(1)}%</p>
                     </div>
                     <div className="text-right hidden sm:block">
                       <p className="text-xs text-muted-foreground">Cost</p>
-                      <p className="text-sm font-medium">{formatCurrency(salesData.weeklyLabor.laborCost)}</p>
+                      <p className="text-sm font-medium transition-all duration-300 ease-out">{formatCurrency(salesData.weeklyLabor.laborCost)}</p>
                     </div>
                     <div className="text-right hidden sm:block">
                       <p className="text-xs text-muted-foreground">Hours</p>
-                      <p className="text-sm font-medium">{salesData.weeklyLabor.hoursWorked.toFixed(1)}h</p>
+                      <p className="text-sm font-medium transition-all duration-300 ease-out">{salesData.weeklyLabor.hoursWorked.toFixed(1)}h</p>
                     </div>
                   </div>
                 </div>
@@ -691,7 +691,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
               <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">MTD</p>
-                  <p className="text-lg sm:text-2xl font-bold">
+                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
                     {salesData?.monthly !== undefined ? formatCurrency(salesData.monthly) : "--"}
                   </p>
                   {salesData?.comparison?.prevMonth !== undefined && salesData.monthly !== undefined && (
@@ -704,13 +704,13 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 </div>
                 <div className="text-center min-w-0">
                   <p className="text-xs text-muted-foreground">Guests</p>
-                  <p className="text-lg sm:text-2xl font-bold">
+                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
                     {salesData?.guestCount?.monthly ?? "--"}
                   </p>
                 </div>
                 <div className="text-right min-w-0">
                   <p className="text-xs text-muted-foreground">Avg Ticket</p>
-                  <p className="text-lg sm:text-2xl font-bold">
+                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
                     {salesData?.guestCount?.monthly && salesData?.monthly 
                       ? formatCurrencyDecimal(salesData.monthly / salesData.guestCount.monthly) 
                       : "--"}
@@ -726,7 +726,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">Croo AI Projected Month Total:</span>
-                    <span className="text-sm font-semibold text-primary">
+                    <span className="text-sm font-semibold text-primary transition-all duration-300 ease-out">
                       {formatCurrency(salesData.projections.monthProjected)}
                     </span>
                   </div>
