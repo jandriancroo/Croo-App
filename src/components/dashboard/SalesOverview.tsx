@@ -359,7 +359,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                       <span className="text-sm sm:text-base font-semibold text-primary">
                         {formatCurrency(salesData.projections.todayProjected)}
                       </span>
-                      <span className="text-[10px] text-muted-foreground/70">(based on history)</span>
                     </div>
                   </div>
                   
@@ -376,7 +375,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                         <span className="text-sm sm:text-base font-semibold text-amber-500">
                           {formatCurrency(salesData.projections.todayPaceAdjusted)}
                         </span>
-                        <span className="text-[10px] text-muted-foreground/70">(current run rate)</span>
                       </div>
                       {/* Show variance from target */}
                       {salesData.projections.todayPaceAdjusted !== salesData.projections.todayProjected && (
