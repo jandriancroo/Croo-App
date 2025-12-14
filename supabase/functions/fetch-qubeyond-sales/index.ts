@@ -66,6 +66,21 @@ function adjustDate(dateStr: string, days: number): string {
   return getDateStringForTimezone(date, 'America/Los_Angeles');
 }
 
+// Get dates for the last N same-day-of-weeks (e.g., last 4 Fridays if today is Friday)
+function getSameDayOfWeekDates(todayStr: string, count: number): string[] {
+  const dates: string[] = [];
+  const today = new Date(todayStr + 'T12:00:00');
+  for (let i = 1; i <= count; i++) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - (7 * i)); // Go back i weeks
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    dates.push(`${year}-${month}-${day}`);
+  }
+  return dates;
+}
+
 // Get current hour in location timezone (0-23)
 function getCurrentHourInTimezone(timezone: string): number {
   const now = new Date();
@@ -1163,6 +1178,54 @@ serve(async (req) => {
       // Continue without historical data
     }
 
+    // Fetch hourly data for the last 4 same-day-of-weeks to build hourly pattern
+    let fourWeekHourlyPattern: { hour: number; avgPercent: number }[] | undefined;
+    
+    try {
+      const sameDayDates = getSameDayOfWeekDates(todayStr, 4);
+      console.log('Fetching hourly data for same-day-of-weeks:', sameDayDates.join(', '));
+      
+      // Fetch hourly data for all 4 same-day-of-week dates in parallel
+      const hourlyDataPromises = sameDayDates.map(dateStr => fetchHourlySales(tokenGw, dateStr, qbLocationId));
+      const hourlyDataResults = await Promise.all(hourlyDataPromises);
+      
+      // Aggregate hourly sales across all 4 days
+      const hourlyTotals: { [hour: number]: number[] } = {};
+      const dailyTotals: number[] = [];
+      
+      hourlyDataResults.forEach(dayData => {
+        const dayTotal = dayData.reduce((sum, h) => sum + h.sales, 0);
+        if (dayTotal > 0) {
+          dailyTotals.push(dayTotal);
+          dayData.forEach(h => {
+            const hourNum = parseInt(h.hour.split(':')[0]);
+            if (!hourlyTotals[hourNum]) hourlyTotals[hourNum] = [];
+            hourlyTotals[hourNum].push(h.sales);
+          });
+        }
+      });
+      
+      // Calculate average percentage for each hour
+      if (dailyTotals.length > 0) {
+        const avgDailyTotal = dailyTotals.reduce((sum, t) => sum + t, 0) / dailyTotals.length;
+        
+        fourWeekHourlyPattern = Object.entries(hourlyTotals).map(([hourStr, sales]) => {
+          const avgHourlySales = sales.reduce((sum, s) => sum + s, 0) / sales.length;
+          return {
+            hour: parseInt(hourStr),
+            avgPercent: avgDailyTotal > 0 ? avgHourlySales / avgDailyTotal : 0
+          };
+        }).sort((a, b) => a.hour - b.hour);
+        
+        console.log('Hourly pattern calculated:', fourWeekHourlyPattern.map(p => 
+          `${p.hour}:00 = ${(p.avgPercent * 100).toFixed(1)}%`
+        ).join(', '));
+      }
+    } catch (error) {
+      console.error('Failed to fetch hourly pattern data:', error);
+      // Continue with default pattern
+    }
+
     // First, calculate preliminary daily projection for hourly distribution
     // This is needed before we can calculate pace-adjusted projection
     let preliminaryTodayProjected = dailySales * 1.3; // Default fallback
@@ -1189,7 +1252,8 @@ serve(async (req) => {
       hoursClose,
       todayStr,
       locationId || 'default',
-      preliminaryTodayProjected
+      preliminaryTodayProjected,
+      fourWeekHourlyPattern
     );
     
     // Now generate full projections including pace-adjusted (using hourly projections)

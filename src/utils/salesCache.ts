@@ -1,7 +1,7 @@
 // Cache for QuBeyond sales data - historical data won't change
 const CACHE_KEY_PREFIX = 'qu_sales_cache_';
 const PROJECTION_CACHE_KEY = 'qu_projections_cache_';
-const CACHE_VERSION = 5;
+const CACHE_VERSION = 6;
 
 interface CachedSalesData {
   version: number;
