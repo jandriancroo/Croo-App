@@ -88,6 +88,13 @@ function getCurrentHourInTimezone(timezone: string): number {
   return tzTime.getHours();
 }
 
+// Get current minutes in location timezone (0-59)
+function getCurrentMinutesInTimezone(timezone: string): number {
+  const now = new Date();
+  const tzTime = new Date(now.toLocaleString('en-US', { timeZone: timezone }));
+  return tzTime.getMinutes();
+}
+
 // Fetch sales for dates with detailed logging
 async function fetchSalesForDates(
   tokenGw: string, 
@@ -632,6 +639,7 @@ function generateDailyProjectionsForMonth(
 function calculatePaceAdjustedProjection(
   actualSales: number,
   currentHour: number,
+  currentMinutes: number,
   hoursOpen: number,
   hoursClose: number,
   hourlyProjections: { hour: string; projected: number }[]
@@ -641,24 +649,37 @@ function calculatePaceAdjustedProjection(
     return actualSales;
   }
   
-  // Sum up projections for FUTURE hours only (starting from next hour through close)
-  // We don't include current hour since actual sales already reflect partial current hour
-  let remainingProjected = 0;
+  // Calculate fraction of current hour remaining
+  const minutesRemainingInCurrentHour = 60 - currentMinutes;
+  const fractionOfCurrentHourRemaining = minutesRemainingInCurrentHour / 60;
+  
+  // Get current hour's projection and add fractional remaining portion
+  const currentHourStr = `${currentHour.toString().padStart(2, '0')}:00`;
+  const currentHourProjection = hourlyProjections.find(h => h.hour === currentHourStr);
+  const currentHourRemainingProjection = currentHourProjection 
+    ? currentHourProjection.projected * fractionOfCurrentHourRemaining 
+    : 0;
+  
+  // Sum up projections for FUTURE hours (starting from next hour through close)
+  let futureHoursProjected = 0;
   for (let hour = currentHour + 1; hour < hoursClose; hour++) {
     const hourStr = `${hour.toString().padStart(2, '0')}:00`;
     const projection = hourlyProjections.find(h => h.hour === hourStr);
     if (projection) {
-      remainingProjected += projection.projected;
+      futureHoursProjected += projection.projected;
     }
   }
   
-  // Pace-adjusted = actual sales + sum of remaining hourly projections
-  const paceAdjusted = actualSales + remainingProjected;
+  // Total remaining = fractional current hour + all future hours
+  const totalRemainingProjected = currentHourRemainingProjection + futureHoursProjected;
+  
+  // Pace-adjusted = actual sales + total remaining projections
+  const paceAdjusted = actualSales + totalRemainingProjected;
   
   // CRITICAL: Pacing should NEVER be below actual sales - clamp to floor
   const clampedPace = Math.max(paceAdjusted, actualSales);
   
-  console.log(`Pace calculation: $${actualSales.toFixed(0)} actual + $${remainingProjected.toFixed(0)} remaining (hours ${currentHour + 1}-${hoursClose - 1}) = $${clampedPace.toFixed(0)}`);
+  console.log(`Pace calculation: $${actualSales.toFixed(0)} actual + $${currentHourRemainingProjection.toFixed(0)} (${minutesRemainingInCurrentHour}min left in hr ${currentHour}) + $${futureHoursProjected.toFixed(0)} future = $${clampedPace.toFixed(0)}`);
   
   return Math.round(clampedPace);
 }
@@ -670,6 +691,7 @@ function generateProjections(
   weeklyBreakdown: { date: string; sales: number }[],
   monthlyBreakdown: { date: string; sales: number }[],
   currentHour: number,
+  currentMinutes: number,
   hoursOpen: number,
   hoursClose: number,
   todayStr: string,
@@ -728,6 +750,7 @@ function generateProjections(
   const todayPaceAdjusted = calculatePaceAdjustedProjection(
     dailySales,
     currentHour,
+    currentMinutes,
     hoursOpen,
     hoursClose,
     hourlyProjections
@@ -948,6 +971,7 @@ serve(async (req) => {
     const weekStartStr = getWeekStartDate(todayStr);
     const monthStartStr = getMonthStartDate(todayStr);
     const currentHour = getCurrentHourInTimezone(timezone);
+    const currentMinutes = getCurrentMinutesInTimezone(timezone);
     
     // Previous period dates - FULL historical periods (not real-time)
     // Today comparison: same weekday last week, real-time comparison
@@ -1271,6 +1295,7 @@ serve(async (req) => {
         weeklyBreakdown,
         monthlyBreakdown,
         currentHour,
+        currentMinutes,
         hoursOpen,
         hoursClose,
         todayStr,
