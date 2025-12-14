@@ -611,35 +611,33 @@ function generateDailyProjectionsForMonth(
   return result;
 }
 
-// Calculate pace-adjusted projection based on current run rate
+// Calculate pace-adjusted projection: actual sales + remaining hourly projections
 function calculatePaceAdjustedProjection(
   actualSales: number,
   currentHour: number,
   hoursOpen: number,
   hoursClose: number,
-  hourlyActuals: { hour: string; sales: number }[]
+  hourlyProjections: { hour: string; projected: number }[]
 ): number {
-  // If store is closed or hasn't opened yet, return 0
+  // If store is closed or hasn't opened yet, return actual sales
   if (currentHour < hoursOpen || currentHour >= hoursClose) {
-    return actualSales; // Just return actual sales if outside business hours
+    return actualSales;
   }
   
-  const hoursElapsed = currentHour - hoursOpen;
-  const totalBusinessHours = hoursClose - hoursOpen;
-  const hoursRemaining = hoursClose - currentHour;
-  
-  // Need at least 1 hour of data to calculate run rate
-  if (hoursElapsed < 1) {
-    return 0; // Not enough data yet
+  // Sum up projections for remaining hours (current hour through close)
+  let remainingProjected = 0;
+  for (let hour = currentHour; hour < hoursClose; hour++) {
+    const hourStr = `${hour.toString().padStart(2, '0')}:00`;
+    const projection = hourlyProjections.find(h => h.hour === hourStr);
+    if (projection) {
+      remainingProjected += projection.projected;
+    }
   }
   
-  // Calculate hourly run rate from actual sales
-  const hourlyRunRate = actualSales / hoursElapsed;
+  // Pace-adjusted = actual sales + sum of remaining hourly projections
+  const paceAdjusted = actualSales + remainingProjected;
   
-  // Pace-adjusted = actual sales + (remaining hours × hourly run rate)
-  const paceAdjusted = actualSales + (hoursRemaining * hourlyRunRate);
-  
-  console.log(`Pace calculation: ${actualSales.toFixed(0)} actual + (${hoursRemaining}h × $${hourlyRunRate.toFixed(0)}/h) = $${paceAdjusted.toFixed(0)}`);
+  console.log(`Pace calculation: $${actualSales.toFixed(0)} actual + $${remainingProjected.toFixed(0)} remaining projected = $${paceAdjusted.toFixed(0)}`);
   
   return Math.round(paceAdjusted);
 }
@@ -655,7 +653,7 @@ function generateProjections(
   hoursClose: number,
   todayStr: string,
   locationId: string,
-  hourlyActuals: { hour: string; sales: number }[],
+  hourlyProjections: { hour: string; projected: number }[],
   lastYearData?: { 
     sameDay: number; 
     sameWeek: number; 
@@ -705,13 +703,13 @@ function generateProjections(
     todayProjected = dailySales;
   }
   
-  // === PACE-ADJUSTED PROJECTION (Run-rate based) ===
+  // === PACE-ADJUSTED PROJECTION (Actual sales + remaining hourly projections) ===
   const todayPaceAdjusted = calculatePaceAdjustedProjection(
     dailySales,
     currentHour,
     hoursOpen,
     hoursClose,
-    hourlyActuals
+    hourlyProjections
   );
   
   // === WEEKLY PROJECTION ===
@@ -1141,8 +1139,36 @@ serve(async (req) => {
       // Continue without historical data
     }
 
-    // Generate AI projections
-    // Note: We always generate hourly/daily projections, but may use cached totals for the header projections
+    // First, calculate preliminary daily projection for hourly distribution
+    // This is needed before we can calculate pace-adjusted projection
+    let preliminaryTodayProjected = dailySales * 1.3; // Default fallback
+    
+    if (fourWeekAverage || lastYearData) {
+      const today = new Date(todayStr + 'T12:00:00');
+      const dayOfWeek = today.getDay();
+      const fourWeekDayAvg = fourWeekAverage?.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0;
+      const lastYearSameDay = lastYearData?.sameDay || 0;
+      
+      if (fourWeekDayAvg > 0 && lastYearSameDay > 0) {
+        preliminaryTodayProjected = (fourWeekDayAvg + lastYearSameDay) / 2;
+      } else if (fourWeekDayAvg > 0) {
+        preliminaryTodayProjected = fourWeekDayAvg;
+      } else if (lastYearSameDay > 0) {
+        preliminaryTodayProjected = lastYearSameDay;
+      }
+    }
+    
+    // Generate hourly projections first (needed for pace calculation)
+    const hourlyWithProjections = generateHourlyProjections(
+      todayHourly,
+      hoursOpen,
+      hoursClose,
+      todayStr,
+      locationId || 'default',
+      preliminaryTodayProjected
+    );
+    
+    // Now generate full projections including pace-adjusted (using hourly projections)
     let projections = { todayProjected: 0, todayPaceAdjusted: 0, weekProjected: 0, monthProjected: 0 };
     
     if (!skipProjections) {
@@ -1158,7 +1184,7 @@ serve(async (req) => {
         hoursClose,
         todayStr,
         locationId || 'default',
-        todayHourly,
+        hourlyWithProjections,
         lastYearData,
         fourWeekAverage
       );
@@ -1166,20 +1192,6 @@ serve(async (req) => {
       console.log('Skipping projection totals - client has cached values');
       // projections will remain 0, client will use cached values
     }
-    
-    // Always generate hourly/daily projections for charts (use projected total or estimate)
-    const effectiveTodayProjected = projections.todayProjected > 0 
-      ? projections.todayProjected 
-      : dailySales * 1.3; // Fallback estimate if no projection
-    
-    const hourlyWithProjections = generateHourlyProjections(
-      todayHourly,
-      hoursOpen,
-      hoursClose,
-      todayStr,
-      locationId || 'default',
-      effectiveTodayProjected
-    );
     
     // Generate daily projections for week (uses 4-week average if available, otherwise estimate)
     const weeklyWithProjections = generateDailyProjectionsForWeek(
