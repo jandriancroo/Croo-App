@@ -394,7 +394,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
               {/* Live Labor from Qu */}
               {hasLaborData && salesData?.labor && (
-                <div className="flex items-center justify-between p-3 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20 mb-2">
+                <div className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20 mb-2">
                   <div className="flex items-center gap-2">
                     <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex-shrink-0">
                       <span className="text-xs font-bold text-white">%</span>
