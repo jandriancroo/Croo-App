@@ -12,6 +12,7 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { formatTime12Hour } from '@/lib/utils';
 import { setCachedProjections, getCachedProjections, getCachedLiveSales, setCachedLiveSales } from '@/utils/salesCache';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface SalesData {
   daily: number;
@@ -317,15 +318,39 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     </div>
   );
 
-  if (isLoading) {
+  // Show skeleton shimmer only on first load with no cached data
+  // If we have cached data, show it immediately (stale-while-revalidate)
+  if (isLoading && !salesData) {
     return (
       <div>
         <h3 className="text-xl font-semibold mb-4">Sales Overview</h3>
         <Card>
           <CardContent className="pt-4">
-            <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-              Loading sales data...
+            {/* Skeleton shimmer for tabs */}
+            <div className="flex gap-2 mb-4">
+              <Skeleton className="h-9 flex-1 rounded-md" />
+              <Skeleton className="h-9 flex-1 rounded-md" />
+              <Skeleton className="h-9 flex-1 rounded-md" />
             </div>
+            {/* Skeleton shimmer for stats row */}
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-12" />
+                <Skeleton className="h-8 w-20" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-3 w-12 mx-auto" />
+                <Skeleton className="h-8 w-16 mx-auto" />
+              </div>
+              <div className="space-y-2 flex flex-col items-end">
+                <Skeleton className="h-3 w-16" />
+                <Skeleton className="h-8 w-20" />
+              </div>
+            </div>
+            {/* Skeleton for projections */}
+            <Skeleton className="h-16 w-full rounded-lg mb-4" />
+            {/* Skeleton for chart area */}
+            <Skeleton className="h-[200px] w-full rounded-lg" />
           </CardContent>
         </Card>
       </div>
@@ -360,7 +385,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
               <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">Sales</p>
-                  <p className="text-lg sm:text-2xl font-bold">
+                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
                     {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
                   </p>
                   {salesData?.comparison?.prevDay !== undefined && salesData.daily !== undefined && (
@@ -373,13 +398,13 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 </div>
                 <div className="text-center min-w-0">
                   <p className="text-xs text-muted-foreground">Guests</p>
-                  <p className="text-lg sm:text-2xl font-bold">
+                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
                     {salesData?.guestCount?.daily ?? "--"}
                   </p>
                 </div>
                 <div className="text-right min-w-0">
                   <p className="text-xs text-muted-foreground">Avg Ticket</p>
-                  <p className="text-lg sm:text-2xl font-bold">
+                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
                     {salesData?.avgTicket ? formatCurrencyDecimal(salesData.avgTicket) : "--"}
                   </p>
                 </div>
@@ -397,7 +422,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                       </div>
                       <div className="flex flex-col">
                         <span className="text-xs text-muted-foreground">Target EOD</span>
-                        <span className="text-sm sm:text-base font-semibold text-primary">
+                        <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
                           {formatCurrency(salesData.projections.todayProjected)}
                         </span>
                       </div>
@@ -411,7 +436,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                         <div className="flex flex-col items-end">
                           <span className="text-xs text-muted-foreground">Pacing to</span>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-sm sm:text-base font-semibold text-amber-500">
+                            <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
                               {formatCurrency(salesData.projections.todayPaceAdjusted)}
                             </span>
                             {salesData.projections.todayPaceAdjusted !== salesData.projections.todayProjected && (
@@ -445,15 +470,15 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     </div>
                     <div className="flex items-center gap-3 sm:gap-4">
                       <div className="text-right">
-                        <p className="text-lg sm:text-xl font-bold text-orange-500">{salesData.labor.laborPercent.toFixed(1)}%</p>
+                        <p className="text-lg sm:text-xl font-bold text-orange-500 transition-all duration-300 ease-out">{salesData.labor.laborPercent.toFixed(1)}%</p>
                       </div>
                       <div className="text-right hidden sm:block">
                         <p className="text-xs text-muted-foreground">Cost</p>
-                        <p className="text-sm font-medium">{formatCurrency(salesData.labor.laborCost)}</p>
+                        <p className="text-sm font-medium transition-all duration-300 ease-out">{formatCurrency(salesData.labor.laborCost)}</p>
                       </div>
                       <div className="text-right hidden sm:block">
                         <p className="text-xs text-muted-foreground">Hours</p>
-                        <p className="text-sm font-medium">{salesData.labor.hoursWorked.toFixed(1)}h</p>
+                        <p className="text-sm font-medium transition-all duration-300 ease-out">{salesData.labor.hoursWorked.toFixed(1)}h</p>
                       </div>
                     </div>
                   </div>
