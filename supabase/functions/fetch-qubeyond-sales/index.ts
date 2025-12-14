@@ -624,9 +624,10 @@ function calculatePaceAdjustedProjection(
     return actualSales;
   }
   
-  // Sum up projections for remaining hours (current hour through close)
+  // Sum up projections for FUTURE hours only (starting from next hour through close)
+  // We don't include current hour since actual sales already reflect partial current hour
   let remainingProjected = 0;
-  for (let hour = currentHour; hour < hoursClose; hour++) {
+  for (let hour = currentHour + 1; hour < hoursClose; hour++) {
     const hourStr = `${hour.toString().padStart(2, '0')}:00`;
     const projection = hourlyProjections.find(h => h.hour === hourStr);
     if (projection) {
@@ -637,7 +638,7 @@ function calculatePaceAdjustedProjection(
   // Pace-adjusted = actual sales + sum of remaining hourly projections
   const paceAdjusted = actualSales + remainingProjected;
   
-  console.log(`Pace calculation: $${actualSales.toFixed(0)} actual + $${remainingProjected.toFixed(0)} remaining projected = $${paceAdjusted.toFixed(0)}`);
+  console.log(`Pace calculation: $${actualSales.toFixed(0)} actual + $${remainingProjected.toFixed(0)} remaining (hours ${currentHour + 1}-${hoursClose - 1}) = $${paceAdjusted.toFixed(0)}`);
   
   return Math.round(paceAdjusted);
 }
