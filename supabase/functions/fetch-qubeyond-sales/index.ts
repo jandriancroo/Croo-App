@@ -523,9 +523,11 @@ function generateHourlyProjections(
   const totalActualSales = hourlyActuals.reduce((sum, h) => sum + h.sales, 0);
   
   // Default hourly distribution if no historical pattern (typical restaurant curve)
+  // Extended to cover stores open late (until midnight)
   const defaultPattern: { [hour: number]: number } = {
-    10: 0.02, 11: 0.08, 12: 0.15, 13: 0.12, 14: 0.06, 15: 0.05,
-    16: 0.07, 17: 0.12, 18: 0.14, 19: 0.10, 20: 0.06, 21: 0.03
+    10: 0.02, 11: 0.07, 12: 0.14, 13: 0.11, 14: 0.05, 15: 0.04,
+    16: 0.06, 17: 0.11, 18: 0.13, 19: 0.10, 20: 0.07, 21: 0.05,
+    22: 0.03, 23: 0.02
   };
   
   for (let hour = hoursOpen; hour < hoursClose; hour++) {
