@@ -473,10 +473,11 @@ export default function WeekTemplateBuilder() {
               )}
             </Card>
 
-            {/* Days Grid */}
-            <div className="lg:col-span-3">
-              <div className="grid grid-cols-7 gap-2">
-                {dayNames.map((dayName, index) => (
+            {/* Days Grid - Two Rows */}
+            <div className="lg:col-span-3 space-y-4">
+              {/* Row 1: Mon-Thu */}
+              <div className="grid grid-cols-4 gap-3">
+                {dayNames.slice(0, 4).map((dayName, index) => (
                   <DroppableDay
                     key={index}
                     dayIndex={index}
@@ -485,6 +486,21 @@ export default function WeekTemplateBuilder() {
                     onRemoveAssignment={(assignmentIndex) => handleRemoveAssignment(index, assignmentIndex)}
                   />
                 ))}
+              </div>
+              {/* Row 2: Fri-Sun */}
+              <div className="grid grid-cols-3 gap-3">
+                {dayNames.slice(4).map((dayName, sliceIndex) => {
+                  const index = sliceIndex + 4;
+                  return (
+                    <DroppableDay
+                      key={index}
+                      dayIndex={index}
+                      dayName={dayName}
+                      assignments={assignmentsByDay.get(index) || []}
+                      onRemoveAssignment={(assignmentIndex) => handleRemoveAssignment(index, assignmentIndex)}
+                    />
+                  );
+                })}
               </div>
             </div>
           </div>
