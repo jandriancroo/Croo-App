@@ -20,6 +20,8 @@ interface CachedProjections {
   data: {
     todayProjected?: number;
     todayProjectedAt?: string; // ISO timestamp for 30-min expiry check
+    todayPaceAdjusted?: number;
+    todayPaceAdjustedAt?: string; // ISO timestamp for 30-min expiry check
     weekProjected: number;
     monthProjected: number;
   };
@@ -123,16 +125,25 @@ export function getCachedProjections(locationId: string): CachedProjections['dat
     if (currentDate === validUntilDate && currentHour < 22) {
       // Check if daily projection is still valid (30-min expiry)
       const result = { ...parsed.data };
+      const now = Date.now();
+      const thirtyMinutes = 30 * 60 * 1000;
       
       if (result.todayProjectedAt) {
         const projectedTime = new Date(result.todayProjectedAt).getTime();
-        const now = Date.now();
-        const thirtyMinutes = 30 * 60 * 1000;
         
         // If daily projection is older than 30 minutes, clear it
         if (now - projectedTime > thirtyMinutes) {
           result.todayProjected = undefined;
           result.todayProjectedAt = undefined;
+        }
+      }
+      
+      // Also expire pace-adjusted projection after 30 minutes
+      if (result.todayPaceAdjustedAt) {
+        const paceTime = new Date(result.todayPaceAdjustedAt).getTime();
+        if (now - paceTime > thirtyMinutes) {
+          result.todayPaceAdjusted = undefined;
+          result.todayPaceAdjustedAt = undefined;
         }
       }
       
@@ -151,19 +162,21 @@ export function getCachedProjections(locationId: string): CachedProjections['dat
 // Cache projections - valid until close of business today
 export function setCachedProjections(
   locationId: string,
-  data: { todayProjected?: number; weekProjected: number; monthProjected: number }
+  data: { todayProjected?: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number }
 ): void {
   try {
     const key = getProjectionCacheKey(locationId);
     const { date: currentDate } = getPSTDate();
+    const now = new Date().toISOString();
     
     const cacheEntry: CachedProjections = {
       version: CACHE_VERSION,
-      cachedAt: new Date().toISOString(),
+      cachedAt: now,
       validUntil: currentDate, // Valid until close of business today
       data: {
         ...data,
-        todayProjectedAt: data.todayProjected ? new Date().toISOString() : undefined
+        todayProjectedAt: data.todayProjected ? now : undefined,
+        todayPaceAdjustedAt: data.todayPaceAdjusted ? now : undefined
       }
     };
     localStorage.setItem(key, JSON.stringify(cacheEntry));

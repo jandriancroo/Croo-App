@@ -23,7 +23,7 @@ interface SalesData {
   guestCount?: { daily: number; weekly: number; monthly: number };
   avgTicket?: number;
   comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevMonth: number };
-  projections?: { todayProjected: number; weekProjected: number; monthProjected: number };
+  projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number };
   currentHour?: number;
   productMix?: Array<{ name: string; quantity: number; sales: number; category: string }>;
   dateRange?: { today: string; weekStart: string; monthStart: string };
@@ -106,6 +106,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       if (skipProjections && cachedProjections && salesData) {
         salesData.projections = {
           todayProjected: cachedProjections.todayProjected || 0,
+          todayPaceAdjusted: cachedProjections.todayPaceAdjusted,
           weekProjected: cachedProjections.weekProjected,
           monthProjected: cachedProjections.monthProjected
         };
@@ -114,6 +115,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       // Cache new projections if we fetched them fresh
       if (isTodayCheck && !skipProjections && salesData?.projections && currentLocation?.id) {
         const todayProjected = salesData.projections.todayProjected;
+        const todayPaceAdjusted = salesData.projections.todayPaceAdjusted;
         const weekProjected = salesData.projections.weekProjected;
         const monthProjected = salesData.projections.monthProjected;
         const weeklySales = salesData?.weekly || 0;
@@ -123,6 +125,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
         if (weekProjected >= weeklySales && monthProjected >= monthlySales && weekProjected > 0 && monthProjected > 0) {
           setCachedProjections(currentLocation.id, { 
             todayProjected: todayProjected > 0 ? todayProjected : undefined,
+            todayPaceAdjusted: todayPaceAdjusted && todayPaceAdjusted > 0 ? todayPaceAdjusted : undefined,
             weekProjected, 
             monthProjected 
           });
@@ -343,18 +346,51 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 </div>
               </div>
 
-              {/* Croo AI Projection for Today */}
+              {/* Croo AI Projections for Today */}
               {salesData?.projections?.todayProjected !== undefined && salesData.projections.todayProjected > 0 && (
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 border border-primary/20 mb-2">
-                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
-                    <Sparkles className="h-3.5 w-3.5 text-white" />
+                <div className="flex flex-col gap-2 mb-2">
+                  {/* Historical-based starting projection */}
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 border border-primary/20">
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
+                      <Sparkles className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-wrap flex-1">
+                      <span className="text-xs sm:text-sm text-muted-foreground">Target EOD:</span>
+                      <span className="text-sm sm:text-base font-semibold text-primary">
+                        {formatCurrency(salesData.projections.todayProjected)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/70">(based on history)</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs sm:text-sm text-muted-foreground">Croo AI Projected EOD:</span>
-                    <span className="text-sm sm:text-base font-semibold text-primary">
-                      {formatCurrency(salesData.projections.todayProjected)}
-                    </span>
-                  </div>
+                  
+                  {/* Pace-adjusted projection - only show if we have data and it's different */}
+                  {salesData.projections.todayPaceAdjusted !== undefined && 
+                   salesData.projections.todayPaceAdjusted > 0 && 
+                   isToday && (
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20">
+                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
+                        <TrendingUp className="h-3.5 w-3.5 text-white" />
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap flex-1">
+                        <span className="text-xs sm:text-sm text-muted-foreground">Pacing to:</span>
+                        <span className="text-sm sm:text-base font-semibold text-amber-500">
+                          {formatCurrency(salesData.projections.todayPaceAdjusted)}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground/70">(current run rate)</span>
+                      </div>
+                      {/* Show variance from target */}
+                      {salesData.projections.todayPaceAdjusted !== salesData.projections.todayProjected && (
+                        <div className={`text-xs font-medium ${
+                          salesData.projections.todayPaceAdjusted >= salesData.projections.todayProjected 
+                            ? 'text-green-500' 
+                            : 'text-red-500'
+                        }`}>
+                          {salesData.projections.todayPaceAdjusted >= salesData.projections.todayProjected ? '+' : ''}
+                          {formatCurrency(salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected)}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 

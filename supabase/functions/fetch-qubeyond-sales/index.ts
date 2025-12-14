@@ -611,6 +611,39 @@ function generateDailyProjectionsForMonth(
   return result;
 }
 
+// Calculate pace-adjusted projection based on current run rate
+function calculatePaceAdjustedProjection(
+  actualSales: number,
+  currentHour: number,
+  hoursOpen: number,
+  hoursClose: number,
+  hourlyActuals: { hour: string; sales: number }[]
+): number {
+  // If store is closed or hasn't opened yet, return 0
+  if (currentHour < hoursOpen || currentHour >= hoursClose) {
+    return actualSales; // Just return actual sales if outside business hours
+  }
+  
+  const hoursElapsed = currentHour - hoursOpen;
+  const totalBusinessHours = hoursClose - hoursOpen;
+  const hoursRemaining = hoursClose - currentHour;
+  
+  // Need at least 1 hour of data to calculate run rate
+  if (hoursElapsed < 1) {
+    return 0; // Not enough data yet
+  }
+  
+  // Calculate hourly run rate from actual sales
+  const hourlyRunRate = actualSales / hoursElapsed;
+  
+  // Pace-adjusted = actual sales + (remaining hours × hourly run rate)
+  const paceAdjusted = actualSales + (hoursRemaining * hourlyRunRate);
+  
+  console.log(`Pace calculation: ${actualSales.toFixed(0)} actual + (${hoursRemaining}h × $${hourlyRunRate.toFixed(0)}/h) = $${paceAdjusted.toFixed(0)}`);
+  
+  return Math.round(paceAdjusted);
+}
+
 function generateProjections(
   dailySales: number,
   weeklySales: number,
@@ -622,6 +655,7 @@ function generateProjections(
   hoursClose: number,
   todayStr: string,
   locationId: string,
+  hourlyActuals: { hour: string; sales: number }[],
   lastYearData?: { 
     sameDay: number; 
     sameWeek: number; 
@@ -633,7 +667,7 @@ function generateProjections(
     avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[];
     weeks: { weekStart: string; total: number }[];
   }
-): { todayProjected: number; weekProjected: number; monthProjected: number } {
+): { todayProjected: number; todayPaceAdjusted: number; weekProjected: number; monthProjected: number } {
   const today = new Date(todayStr + 'T12:00:00');
   const dayOfWeek = today.getDay();
   
@@ -641,7 +675,7 @@ function generateProjections(
   const randomFactor = getSeededRandomFactor(`${todayStr}-${locationId}`);
   console.log(`Projection random factor for ${todayStr}/${locationId}: ${randomFactor.toFixed(4)} (${((randomFactor - 1) * 100).toFixed(2)}%)`);
   
-  // === DAILY PROJECTION ===
+  // === DAILY PROJECTION (Historical-based starting projection) ===
   // (4-week avg for this day of week + last year same day) / 2 * random factor
   let todayProjected = 0;
   const fourWeekDayAvg = fourWeekAverage?.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0;
@@ -666,13 +700,19 @@ function generateProjections(
     }
   }
   
-  // If after close, use actual sales
+  // If after close, use actual sales for historical projection
   if (currentHour >= hoursClose) {
     todayProjected = dailySales;
   }
   
-  // Ensure at least actual sales
-  todayProjected = Math.max(todayProjected, dailySales);
+  // === PACE-ADJUSTED PROJECTION (Run-rate based) ===
+  const todayPaceAdjusted = calculatePaceAdjustedProjection(
+    dailySales,
+    currentHour,
+    hoursOpen,
+    hoursClose,
+    hourlyActuals
+  );
   
   // === WEEKLY PROJECTION ===
   // (4-week avg week + last year same week) / 2 * random factor
@@ -717,10 +757,10 @@ function generateProjections(
   // Ensure at least actual monthly sales
   monthProjected = Math.max(monthProjected, monthlySales);
   
-  console.log(`Deterministic projections: daily=${todayProjected.toFixed(2)}, weekly=${weekProjected.toFixed(2)}, monthly=${monthProjected.toFixed(2)}`);
+  console.log(`Deterministic projections: daily=${todayProjected.toFixed(2)}, pace=${todayPaceAdjusted}, weekly=${weekProjected.toFixed(2)}, monthly=${monthProjected.toFixed(2)}`);
   console.log(`  Inputs: 4wkDayAvg=${fourWeekDayAvg.toFixed(2)}, lastYrDay=${lastYearSameDay.toFixed(2)}, 4wkWeekAvg=${fourWeekAvgWeek.toFixed(2)}, lastYrWeek=${lastYearSameWeek.toFixed(2)}, lastYrMonth=${lastYearSameMonth.toFixed(2)}`);
   
-  return { todayProjected, weekProjected, monthProjected };
+  return { todayProjected, todayPaceAdjusted, weekProjected, monthProjected };
 }
 
 serve(async (req) => {
@@ -1103,7 +1143,7 @@ serve(async (req) => {
 
     // Generate AI projections
     // Note: We always generate hourly/daily projections, but may use cached totals for the header projections
-    let projections = { todayProjected: 0, weekProjected: 0, monthProjected: 0 };
+    let projections = { todayProjected: 0, todayPaceAdjusted: 0, weekProjected: 0, monthProjected: 0 };
     
     if (!skipProjections) {
       console.log('Generating deterministic projections with 4-week average and last year data...');
@@ -1118,6 +1158,7 @@ serve(async (req) => {
         hoursClose,
         todayStr,
         locationId || 'default',
+        todayHourly,
         lastYearData,
         fourWeekAverage
       );
