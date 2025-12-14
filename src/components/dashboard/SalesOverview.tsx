@@ -346,10 +346,10 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 </div>
               </div>
 
-              {/* Croo AI Projections for Today */}
-              {salesData?.projections?.todayProjected !== undefined && salesData.projections.todayProjected > 0 && (
-                <div className="flex flex-col gap-2 mb-2">
-                  {/* Historical-based starting projection */}
+              {/* Croo AI Projections & Live Labor for Today */}
+              <div className="flex flex-col gap-2 mb-2">
+                {/* Historical-based starting projection */}
+                {salesData?.projections?.todayProjected !== undefined && salesData.projections.todayProjected > 0 && (
                   <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 border border-primary/20">
                     <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
                       <Sparkles className="h-3.5 w-3.5 text-white" />
@@ -361,61 +361,61 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                       </span>
                     </div>
                   </div>
-                  
-                  {/* Pace-adjusted projection - only show if we have data and it's different */}
-                  {salesData.projections.todayPaceAdjusted !== undefined && 
-                   salesData.projections.todayPaceAdjusted > 0 && 
-                   isToday && (
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20">
-                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
-                        <TrendingUp className="h-3.5 w-3.5 text-white" />
-                      </div>
-                      <div className="flex items-center gap-1.5 flex-wrap flex-1">
-                        <span className="text-xs sm:text-sm text-muted-foreground">Pacing to:</span>
-                        <span className="text-sm sm:text-base font-semibold text-amber-500">
-                          {formatCurrency(salesData.projections.todayPaceAdjusted)}
-                        </span>
-                      </div>
-                      {/* Show variance from target */}
-                      {salesData.projections.todayPaceAdjusted !== salesData.projections.todayProjected && (
-                        <div className={`text-xs font-medium ${
-                          salesData.projections.todayPaceAdjusted >= salesData.projections.todayProjected 
-                            ? 'text-green-500' 
-                            : 'text-red-500'
-                        }`}>
-                          {salesData.projections.todayPaceAdjusted >= salesData.projections.todayProjected ? '+' : ''}
-                          {formatCurrency(salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected)}
-                        </div>
-                      )}
+                )}
+                
+                {/* Pace-adjusted projection - only show if we have data and it's different */}
+                {salesData?.projections?.todayPaceAdjusted !== undefined && 
+                 salesData.projections.todayPaceAdjusted > 0 && 
+                 isToday && (
+                  <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20">
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
+                      <TrendingUp className="h-3.5 w-3.5 text-white" />
                     </div>
-                  )}
-                </div>
-              )}
+                    <div className="flex items-center gap-1.5 flex-wrap flex-1">
+                      <span className="text-xs sm:text-sm text-muted-foreground">Pacing to:</span>
+                      <span className="text-sm sm:text-base font-semibold text-amber-500">
+                        {formatCurrency(salesData.projections.todayPaceAdjusted)}
+                      </span>
+                    </div>
+                    {/* Show variance from target */}
+                    {salesData.projections.todayPaceAdjusted !== salesData.projections.todayProjected && (
+                      <div className={`text-xs font-medium ${
+                        salesData.projections.todayPaceAdjusted >= salesData.projections.todayProjected 
+                          ? 'text-green-500' 
+                          : 'text-red-500'
+                      }`}>
+                        {salesData.projections.todayPaceAdjusted >= salesData.projections.todayProjected ? '+' : ''}
+                        {formatCurrency(salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected)}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-              {/* Live Labor from Qu */}
-              {hasLaborData && salesData?.labor && (
-                <div className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20 mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex-shrink-0">
-                      <span className="text-xs font-bold text-white">%</span>
+                {/* Live Labor from Qu */}
+                {hasLaborData && salesData?.labor && (
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex-shrink-0">
+                        <span className="text-xs font-bold text-white">%</span>
+                      </div>
+                      <span className="text-xs sm:text-sm text-muted-foreground">Live Labor</span>
                     </div>
-                    <span className="text-xs sm:text-sm text-muted-foreground">Live Labor</span>
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <div className="text-right">
+                        <p className="text-lg sm:text-xl font-bold text-orange-500">{salesData.labor.laborPercent.toFixed(1)}%</p>
+                      </div>
+                      <div className="text-right hidden sm:block">
+                        <p className="text-xs text-muted-foreground">Cost</p>
+                        <p className="text-sm font-medium">{formatCurrency(salesData.labor.laborCost)}</p>
+                      </div>
+                      <div className="text-right hidden sm:block">
+                        <p className="text-xs text-muted-foreground">Hours</p>
+                        <p className="text-sm font-medium">{salesData.labor.hoursWorked.toFixed(1)}h</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <div className="text-right">
-                      <p className="text-lg sm:text-xl font-bold text-orange-500">{salesData.labor.laborPercent.toFixed(1)}%</p>
-                    </div>
-                    <div className="text-right hidden sm:block">
-                      <p className="text-xs text-muted-foreground">Cost</p>
-                      <p className="text-sm font-medium">{formatCurrency(salesData.labor.laborCost)}</p>
-                    </div>
-                    <div className="text-right hidden sm:block">
-                      <p className="text-xs text-muted-foreground">Hours</p>
-                      <p className="text-sm font-medium">{salesData.labor.hoursWorked.toFixed(1)}h</p>
-                    </div>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
               
               {salesData?.hourly ? (
                 <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
