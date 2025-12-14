@@ -339,21 +339,23 @@ export const Layout = ({
 
   return <div className="flex min-h-screen flex-col bg-background overflow-x-hidden">
       <header className="sticky top-0 z-50 glass border-b border-border/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className={`container flex items-center ${isMobile ? 'h-14' : 'h-16'}`}>
-          <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity mr-4 flex-shrink-0">
-            <img 
-              src={headerLogo} 
-              alt={headerLogoAlt} 
-              className={`${isMobile ? 'h-8' : 'h-10'} w-auto max-w-[100px] object-contain rounded-lg`}
-              style={{ background: 'transparent' }}
-            />
+        <div className={`container max-w-7xl mx-auto flex items-center ${isMobile ? 'h-14' : 'h-16'}`}>
+          <div className="flex items-center gap-2 mr-4 flex-shrink-0 min-w-[120px] md:min-w-[150px]">
+            <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <img 
+                src={headerLogo} 
+                alt={headerLogoAlt} 
+                className={`${isMobile ? 'h-8' : 'h-10'} w-auto max-w-[100px] object-contain rounded-lg`}
+                style={{ background: 'transparent' }}
+              />
+            </button>
             {isSuperAdmin && !isMobile && (
-              <span className="text-[10px] text-muted-foreground font-mono bg-muted/50 px-1.5 py-0.5 rounded">
+              <span className="text-[10px] text-muted-foreground font-mono bg-muted/50 px-1.5 py-0.5 rounded whitespace-nowrap">
                 v{__APP_VERSION__}
               </span>
             )}
-          </button>
-          <nav className="hidden items-center gap-1 md:flex flex-1">
+          </div>
+          <nav className="hidden items-center gap-1 md:flex flex-1 min-w-0">
             {mainNavItems.map(item => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
@@ -507,7 +509,7 @@ export const Layout = ({
 
         </div>
       </header>
-      <main className="container flex-1 py-3 md:py-8 pb-24 md:pb-8 overflow-x-hidden relative">
+      <main className="container max-w-7xl mx-auto flex-1 py-3 md:py-8 pb-24 md:pb-8 overflow-x-hidden relative">
         {isMobile ? (
           <PullToRefresh>
             {children}
