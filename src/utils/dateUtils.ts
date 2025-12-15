@@ -68,6 +68,21 @@ export const getDateInTimezoneOffset = (daysOffset: number, timezone: string = D
   return getDateInTimezone(date, timezone);
 };
 
+/**
+ * Get the current day of week (0 = Sunday, 6 = Saturday) in specified timezone
+ */
+export const getDayOfWeekInTimezone = (timezone: string = DEFAULT_TIMEZONE): number => {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    weekday: 'short'
+  });
+  const dayName = formatter.format(new Date());
+  const dayMap: Record<string, number> = {
+    'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+  };
+  return dayMap[dayName] ?? 0;
+};
+
 // Legacy aliases for backward compatibility (default to PST)
 export const getTodayInPST = (): string => getTodayInTimezone(DEFAULT_TIMEZONE);
 export const getDateInPST = (date: Date): string => getDateInTimezone(date, DEFAULT_TIMEZONE);
