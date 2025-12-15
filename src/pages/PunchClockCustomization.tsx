@@ -6,18 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, X, Plus, Clock, Trash2, Edit, Image, Cake, Sparkles, Mountain, Landmark, ArrowLeft, Eye, Calendar } from "lucide-react";
+import { Upload, X, Plus, Trash2, Edit, Image, Cake, Sparkles, ArrowLeft, Eye, Calendar, Check } from "lucide-react";
 import { compressImage } from "@/utils/imageCompression";
 import { format, addDays, addHours } from "date-fns";
 import crooLogo from "@/assets/croo-logo.png";
-
-// Built-in theme IDs
-const BUILT_IN_THEME_IDS = ["nature_facts", "historical_quotes"];
 
 interface ThemeSlide {
   imageUrl: string;
@@ -34,7 +32,28 @@ interface PunchClockTheme {
   start_at: string | null;
   end_at: string | null;
   is_active: boolean;
+  is_builtin?: boolean;
 }
+
+// Default built-in themes (seeded if not in DB)
+const BUILTIN_THEMES: Omit<PunchClockTheme, 'id' | 'start_at' | 'end_at' | 'is_active'>[] = [
+  {
+    name: "Nature & Random Facts",
+    background_urls: ["https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80"],
+    overlay_texts: ["Did you know? Honey never spoils."],
+    text_color: "#FFFFFF",
+    text_shadow: false,
+    is_builtin: true,
+  },
+  {
+    name: "Historical & Wise Quotes",
+    background_urls: ["https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=800&q=80"],
+    overlay_texts: ['"The only way to do great work is to love what you do." - Steve Jobs'],
+    text_color: "#FFFFFF",
+    text_shadow: false,
+    is_builtin: true,
+  },
+];
 
 export default function PunchClockCustomization() {
   const { locationId } = useParams();
@@ -50,14 +69,23 @@ export default function PunchClockCustomization() {
   const [uploading, setUploading] = useState<number | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState<string>("themes");
 
   // Themes list
   const [themes, setThemes] = useState<PunchClockTheme[]>([]);
   const [themesLoading, setThemesLoading] = useState(true);
-  const [selectedThemeId, setSelectedThemeId] = useState<string>("nature_facts");
-  const [savedThemeId, setSavedThemeId] = useState<string>("nature_facts");
+  const [selectedThemeId, setSelectedThemeId] = useState<string | null>(null);
+  const [savedThemeId, setSavedThemeId] = useState<string | null>(null);
   
-  // Theme editor state
+  // Timing settings for selected theme (in Themes tab)
+  const [timingMode, setTimingMode] = useState<"always" | "scheduled">("always");
+  const [timingStartDate, setTimingStartDate] = useState("");
+  const [timingStartTime, setTimingStartTime] = useState("00:00");
+  const [timingEndDate, setTimingEndDate] = useState("");
+  const [timingEndTime, setTimingEndTime] = useState("23:59");
+  const [timingDuration, setTimingDuration] = useState<string>("custom");
+  
+  // Theme editor state (Edit tab)
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTheme, setEditingTheme] = useState<PunchClockTheme | null>(null);
   
@@ -66,12 +94,6 @@ export default function PunchClockCustomization() {
   const [formSlides, setFormSlides] = useState<ThemeSlide[]>([{ imageUrl: "", text: "" }]);
   const [formTextColor, setFormTextColor] = useState("#FFFFFF");
   const [formTextShadow, setFormTextShadow] = useState(false);
-  const [isScheduled, setIsScheduled] = useState(false);
-  const [formStartDate, setFormStartDate] = useState("");
-  const [formStartTime, setFormStartTime] = useState("00:00");
-  const [formDuration, setFormDuration] = useState<string>("custom");
-  const [formEndDate, setFormEndDate] = useState("");
-  const [formEndTime, setFormEndTime] = useState("23:59");
 
   useEffect(() => {
     if (locationId) {
@@ -105,11 +127,9 @@ export default function PunchClockCustomization() {
       if (data) {
         setSettingsId(data.id);
         setBirthdayEventsEnabled(data.birthday_events_enabled ?? true);
-        
-        // Determine selected theme from stored value
-        const themeId = data.punch_clock_background_url || "nature_facts";
-        setSelectedThemeId(themeId);
-        setSavedThemeId(themeId);
+        if (data.punch_clock_background_url) {
+          setSavedThemeId(data.punch_clock_background_url);
+        }
       }
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -124,11 +144,35 @@ export default function PunchClockCustomization() {
         .from("punch_clock_templates")
         .select("*")
         .eq("location_id", locationId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: true });
 
       if (error) throw error;
       
-      const formattedThemes: PunchClockTheme[] = (data || []).map(t => ({
+      let themesData = data || [];
+      
+      // Check if we need to seed built-in themes
+      const hasBuiltins = themesData.some(t => (t as any).is_builtin === true);
+      if (!hasBuiltins && themesData.length === 0) {
+        // Seed built-in themes
+        const seedPromises = BUILTIN_THEMES.map(theme => 
+          supabase.from("punch_clock_templates").insert({
+            location_id: locationId,
+            name: theme.name,
+            background_urls: theme.background_urls,
+            overlay_texts: theme.overlay_texts,
+            text_color: theme.text_color,
+            text_shadow: theme.text_shadow,
+            start_at: new Date('2000-01-01T00:00:00').toISOString(),
+            end_at: new Date('2099-12-31T23:59:59').toISOString(),
+            created_by: user?.id,
+          }).select().single()
+        );
+        
+        const results = await Promise.all(seedPromises);
+        themesData = results.map(r => r.data).filter(Boolean) as any[];
+      }
+      
+      const formattedThemes: PunchClockTheme[] = themesData.map(t => ({
         id: t.id,
         name: t.name,
         background_urls: (t.background_urls as string[]) || [],
@@ -138,14 +182,53 @@ export default function PunchClockCustomization() {
         start_at: t.start_at,
         end_at: t.end_at,
         is_active: t.is_active ?? true,
+        is_builtin: (t as any).is_builtin || false,
       }));
       
       setThemes(formattedThemes);
+      
+      // Auto-select the saved theme or first theme
+      if (formattedThemes.length > 0 && !selectedThemeId) {
+        const toSelect = savedThemeId && formattedThemes.find(t => t.id === savedThemeId)
+          ? savedThemeId
+          : formattedThemes[0].id;
+        setSelectedThemeId(toSelect);
+        loadTimingFromTheme(formattedThemes.find(t => t.id === toSelect));
+      }
     } catch (error) {
       console.error("Error fetching themes:", error);
     } finally {
       setThemesLoading(false);
     }
+  };
+
+  const loadTimingFromTheme = (theme: PunchClockTheme | undefined) => {
+    if (!theme) return;
+    
+    // Check if it's an "always" theme (dates span 2000-2099)
+    const start = theme.start_at ? new Date(theme.start_at) : null;
+    const end = theme.end_at ? new Date(theme.end_at) : null;
+    
+    const isAlways = start && end && 
+      start.getFullYear() <= 2001 && end.getFullYear() >= 2098;
+    
+    if (isAlways) {
+      setTimingMode("always");
+      setTimingStartDate("");
+      setTimingEndDate("");
+    } else if (start && end) {
+      setTimingMode("scheduled");
+      setTimingStartDate(format(start, "yyyy-MM-dd"));
+      setTimingStartTime(format(start, "HH:mm"));
+      setTimingEndDate(format(end, "yyyy-MM-dd"));
+      setTimingEndTime(format(end, "HH:mm"));
+    }
+  };
+
+  const handleThemeSelect = (themeId: string) => {
+    setSelectedThemeId(themeId);
+    const theme = themes.find(t => t.id === themeId);
+    loadTimingFromTheme(theme);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, slideIndex: number) => {
@@ -181,11 +264,35 @@ export default function PunchClockCustomization() {
     }
   };
 
-  const handleSaveDefaultTheme = async () => {
-    if (!locationId) return;
+  const handleApplyTheme = async () => {
+    if (!locationId || !selectedThemeId) return;
     
     setLoading(true);
     try {
+      // Update timing on the theme itself
+      let startAt: string;
+      let endAt: string;
+      
+      if (timingMode === "always") {
+        startAt = new Date('2000-01-01T00:00:00').toISOString();
+        endAt = new Date('2099-12-31T23:59:59').toISOString();
+      } else {
+        if (!timingStartDate || !timingEndDate) {
+          toast({ title: "Please set start and end dates", variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+        startAt = new Date(`${timingStartDate}T${timingStartTime}`).toISOString();
+        endAt = new Date(`${timingEndDate}T${timingEndTime}`).toISOString();
+      }
+      
+      // Update theme timing
+      await supabase
+        .from("punch_clock_templates")
+        .update({ start_at: startAt, end_at: endAt })
+        .eq("id", selectedThemeId);
+      
+      // Save as the active theme in location settings
       const settingsData = {
         punch_clock_background_url: selectedThemeId,
         birthday_events_enabled: birthdayEventsEnabled,
@@ -197,37 +304,33 @@ export default function PunchClockCustomization() {
           .from("location_settings")
           .update(settingsData)
           .eq("location_id", locationId);
-
         if (error) throw error;
       } else {
         const { data, error } = await supabase
           .from("location_settings")
-          .insert({
-            location_id: locationId,
-            ...settingsData,
-          })
+          .insert({ location_id: locationId, ...settingsData })
           .select()
           .single();
-
         if (error) throw error;
         setSettingsId(data.id);
       }
 
       setSavedThemeId(selectedThemeId);
-      toast({ title: "Settings saved" });
+      toast({ title: "Theme applied!" });
+      fetchThemes();
     } catch (error) {
-      console.error("Error saving settings:", error);
-      toast({ title: "Failed to save settings", variant: "destructive" });
+      console.error("Error applying theme:", error);
+      toast({ title: "Failed to apply theme", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
   const handleDurationChange = (duration: string) => {
-    setFormDuration(duration);
+    setTimingDuration(duration);
     
-    if (duration !== "custom" && formStartDate && formStartTime) {
-      const startDateTime = new Date(`${formStartDate}T${formStartTime}`);
+    if (duration !== "custom" && timingStartDate && timingStartTime) {
+      const startDateTime = new Date(`${timingStartDate}T${timingStartTime}`);
       let endDateTime: Date;
       
       switch (duration) {
@@ -244,8 +347,8 @@ export default function PunchClockCustomization() {
           return;
       }
       
-      setFormEndDate(format(endDateTime, "yyyy-MM-dd"));
-      setFormEndTime(format(endDateTime, "HH:mm"));
+      setTimingEndDate(format(endDateTime, "yyyy-MM-dd"));
+      setTimingEndTime(format(endDateTime, "HH:mm"));
     }
   };
 
@@ -254,12 +357,6 @@ export default function PunchClockCustomization() {
     setFormSlides([{ imageUrl: "", text: "" }]);
     setFormTextColor("#FFFFFF");
     setFormTextShadow(false);
-    setIsScheduled(false);
-    setFormStartDate("");
-    setFormStartTime("00:00");
-    setFormDuration("custom");
-    setFormEndDate("");
-    setFormEndTime("23:59");
     setEditingTheme(null);
   };
 
@@ -274,7 +371,6 @@ export default function PunchClockCustomization() {
     setFormTextColor(theme.text_color);
     setFormTextShadow(theme.text_shadow);
     
-    // Build slides from arrays
     const slides: ThemeSlide[] = [];
     const maxLen = Math.max(theme.background_urls.length, theme.overlay_texts.length, 1);
     for (let i = 0; i < maxLen; i++) {
@@ -284,19 +380,6 @@ export default function PunchClockCustomization() {
       });
     }
     setFormSlides(slides);
-    
-    // Check if scheduled
-    if (theme.start_at && theme.end_at) {
-      setIsScheduled(true);
-      setFormStartDate(format(new Date(theme.start_at), "yyyy-MM-dd"));
-      setFormStartTime(format(new Date(theme.start_at), "HH:mm"));
-      setFormEndDate(format(new Date(theme.end_at), "yyyy-MM-dd"));
-      setFormEndTime(format(new Date(theme.end_at), "HH:mm"));
-    } else {
-      setIsScheduled(false);
-    }
-    
-    setFormDuration("custom");
     setDialogOpen(true);
   };
 
@@ -324,7 +407,6 @@ export default function PunchClockCustomization() {
       return;
     }
 
-    // Filter out empty slides (no image and no text)
     const validSlides = formSlides.filter(s => s.imageUrl || s.text);
     if (validSlides.length === 0) {
       toast({ title: "Please add at least one slide with an image or text", variant: "destructive" });
@@ -333,22 +415,6 @@ export default function PunchClockCustomization() {
 
     const backgroundUrls = validSlides.map(s => s.imageUrl).filter(Boolean);
     const overlayTexts = validSlides.map(s => s.text);
-
-    let startAt: string;
-    let endAt: string;
-
-    if (isScheduled) {
-      if (!formStartDate || !formEndDate) {
-        toast({ title: "Please set start and end dates for scheduled theme", variant: "destructive" });
-        return;
-      }
-      startAt = new Date(`${formStartDate}T${formStartTime}`).toISOString();
-      endAt = new Date(`${formEndDate}T${formEndTime}`).toISOString();
-    } else {
-      // For non-scheduled themes, set to always active (far past start, far future end)
-      startAt = new Date('2000-01-01T00:00:00').toISOString();
-      endAt = new Date('2099-12-31T23:59:59').toISOString();
-    }
 
     try {
       if (editingTheme) {
@@ -360,8 +426,6 @@ export default function PunchClockCustomization() {
             overlay_texts: overlayTexts,
             text_color: formTextColor,
             text_shadow: formTextShadow,
-            start_at: startAt,
-            end_at: endAt,
           })
           .eq("id", editingTheme.id);
 
@@ -377,8 +441,8 @@ export default function PunchClockCustomization() {
             overlay_texts: overlayTexts,
             text_color: formTextColor,
             text_shadow: formTextShadow,
-            start_at: startAt,
-            end_at: endAt,
+            start_at: new Date('2000-01-01T00:00:00').toISOString(),
+            end_at: new Date('2099-12-31T23:59:59').toISOString(),
             created_by: user?.id,
           });
 
@@ -406,9 +470,11 @@ export default function PunchClockCustomization() {
 
       if (error) throw error;
       
-      // If deleted theme was selected, revert to default
       if (selectedThemeId === id) {
-        setSelectedThemeId("nature_facts");
+        setSelectedThemeId(themes.find(t => t.id !== id)?.id || null);
+      }
+      if (savedThemeId === id) {
+        setSavedThemeId(null);
       }
       
       toast({ title: "Theme deleted" });
@@ -419,40 +485,8 @@ export default function PunchClockCustomization() {
     }
   };
 
-  const getThemeStatus = (theme: PunchClockTheme) => {
-    if (!theme.start_at || !theme.end_at) {
-      return { label: "Always", color: "bg-primary" };
-    }
-    
-    const now = new Date();
-    const start = new Date(theme.start_at);
-    const end = new Date(theme.end_at);
-
-    if (now < start) return { label: "Scheduled", color: "bg-blue-500" };
-    if (now >= start && now <= end) return { label: "Active", color: "bg-green-500" };
-    return { label: "Expired", color: "bg-muted-foreground" };
-  };
-
   // Get preview data based on current selection
   const getPreviewData = () => {
-    if (selectedThemeId === "nature_facts") {
-      return {
-        backgroundImage: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80",
-        overlayText: "Did you know? Honey never spoils.",
-        textColor: "#FFFFFF",
-        textShadow: false,
-      };
-    }
-    if (selectedThemeId === "historical_quotes") {
-      return {
-        backgroundImage: "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=800&q=80",
-        overlayText: '"The only way to do great work is to love what you do." - Steve Jobs',
-        textColor: "#FFFFFF",
-        textShadow: false,
-      };
-    }
-    
-    // Custom theme
     const theme = themes.find(t => t.id === selectedThemeId);
     if (theme) {
       const validUrls = theme.background_urls.filter(url => url && url.trim() !== "");
@@ -506,100 +540,235 @@ export default function PunchClockCustomization() {
               {locationName} • Customize how the punch clock looks for employees
             </p>
           </div>
-          <Button variant="outline" onClick={() => setShowPreview(true)}>
+          <Button variant="outline" onClick={() => setShowPreview(true)} disabled={!selectedThemeId}>
             <Eye className="h-4 w-4 mr-2" />
             Preview
           </Button>
         </div>
 
-        {/* Themes Card */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Themes</CardTitle>
-                <CardDescription>
-                  Select a theme or create custom themes. Scheduled themes override the default.
-                </CardDescription>
-              </div>
-              <Button onClick={openCreateDialog} size="sm">
-                <Plus className="h-4 w-4 mr-1" />
-                New Theme
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Theme Selector with Preview */}
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex-1 space-y-2">
-                  <Label>Select Theme</Label>
-                  <Select value={selectedThemeId} onValueChange={setSelectedThemeId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a theme" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="nature_facts">
-                        <div className="flex items-center gap-2">
-                          <Mountain className="h-4 w-4" />
-                          Nature & Random Facts
-                        </div>
-                      </SelectItem>
-                      <SelectItem value="historical_quotes">
-                        <div className="flex items-center gap-2">
-                          <Landmark className="h-4 w-4" />
-                          Historical & Wise Quotes
-                        </div>
-                      </SelectItem>
-                      {themes.map(theme => (
-                        <SelectItem key={theme.id} value={theme.id}>
-                          <div className="flex items-center gap-2">
-                            <Image className="h-4 w-4" />
-                            {theme.name}
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-primary/20 text-primary">Custom</span>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button 
-                  variant="outline" 
-                  onClick={() => setShowPreview(true)}
-                  className="mt-6"
-                  disabled={!selectedThemeId}
-                >
-                  <Eye className="h-4 w-4 mr-1" />
-                  Preview
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                This theme is used when no scheduled theme is active
-              </p>
-            </div>
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="themes">Themes</TabsTrigger>
+            <TabsTrigger value="edit">Edit</TabsTrigger>
+          </TabsList>
 
-            {/* Custom Themes List */}
-            {themesLoading ? (
-              <p className="text-sm text-muted-foreground">Loading themes...</p>
-            ) : themes.length > 0 && (
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Your Themes</Label>
-                {themes.map((theme) => {
-                  const status = getThemeStatus(theme);
-                  return (
+          {/* Themes Tab - Select and Apply */}
+          <TabsContent value="themes" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Select Theme</CardTitle>
+                <CardDescription>
+                  Choose a theme and set when it should be active
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {themesLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading themes...</p>
+                ) : themes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No themes yet. Go to Edit tab to create one.</p>
+                ) : (
+                  <>
+                    {/* Theme Grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {themes.map((theme) => (
+                        <div
+                          key={theme.id}
+                          onClick={() => handleThemeSelect(theme.id)}
+                          className={`relative cursor-pointer rounded-lg border-2 transition-all overflow-hidden ${
+                            selectedThemeId === theme.id 
+                              ? "border-primary ring-2 ring-primary/20" 
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          {/* Thumbnail */}
+                          <div
+                            className="aspect-video bg-cover bg-center"
+                            style={{ 
+                              backgroundImage: theme.background_urls[0] 
+                                ? `url(${theme.background_urls[0]})` 
+                                : 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.7) 100%)'
+                            }}
+                          >
+                            <div className="absolute inset-0 bg-black/30" />
+                          </div>
+                          
+                          {/* Name */}
+                          <div className="p-2 bg-card">
+                            <p className="text-sm font-medium truncate">{theme.name}</p>
+                            {theme.background_urls.length > 1 && (
+                              <p className="text-xs text-muted-foreground">
+                                {theme.background_urls.length} slides
+                              </p>
+                            )}
+                          </div>
+                          
+                          {/* Active badge */}
+                          {savedThemeId === theme.id && (
+                            <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <Check className="h-3 w-3" />
+                              Active
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Timing Settings */}
+                    {selectedThemeId && (
+                      <div className="space-y-4 p-4 rounded-lg bg-muted/30">
+                        <Label className="text-base font-medium">Timing</Label>
+                        
+                        <div className="flex gap-2">
+                          <Button
+                            variant={timingMode === "always" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setTimingMode("always")}
+                          >
+                            Always Active
+                          </Button>
+                          <Button
+                            variant={timingMode === "scheduled" ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setTimingMode("scheduled")}
+                          >
+                            <Calendar className="h-4 w-4 mr-1" />
+                            Scheduled
+                          </Button>
+                        </div>
+
+                        {timingMode === "scheduled" && (
+                          <div className="space-y-3 pl-4 border-l-2 border-primary/30">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-xs">Start Date</Label>
+                                <Input
+                                  type="date"
+                                  value={timingStartDate}
+                                  onChange={(e) => {
+                                    setTimingStartDate(e.target.value);
+                                    if (timingDuration !== "custom") handleDurationChange(timingDuration);
+                                  }}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">Start Time</Label>
+                                <Input
+                                  type="time"
+                                  value={timingStartTime}
+                                  onChange={(e) => {
+                                    setTimingStartTime(e.target.value);
+                                    if (timingDuration !== "custom") handleDurationChange(timingDuration);
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <Label className="text-xs">Duration</Label>
+                              <Select value={timingDuration} onValueChange={handleDurationChange}>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="24h">Next 24 hours</SelectItem>
+                                  <SelectItem value="3d">Next 3 days</SelectItem>
+                                  <SelectItem value="5d">Next 5 days</SelectItem>
+                                  <SelectItem value="custom">Custom end date</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <Label className="text-xs">End Date</Label>
+                                <Input
+                                  type="date"
+                                  value={timingEndDate}
+                                  onChange={(e) => setTimingEndDate(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs">End Time</Label>
+                                <Input
+                                  type="time"
+                                  value={timingEndTime}
+                                  onChange={(e) => setTimingEndTime(e.target.value)}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Birthday Events Toggle */}
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+                      <div className="flex items-center gap-3">
+                        <Cake className="h-5 w-5 text-primary" />
+                        <div>
+                          <Label>Birthday Events</Label>
+                          <p className="text-xs text-muted-foreground">
+                            Birthday messages override all themes when active
+                          </p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={birthdayEventsEnabled}
+                        onCheckedChange={setBirthdayEventsEnabled}
+                      />
+                    </div>
+
+                    {/* Apply Button */}
+                    <Button 
+                      onClick={handleApplyTheme} 
+                      disabled={loading || !selectedThemeId}
+                      className="w-full"
+                      size="lg"
+                    >
+                      {loading ? "Applying..." : "Apply Theme"}
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Edit Tab - Create/Edit/Delete themes */}
+          <TabsContent value="edit" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Manage Themes</CardTitle>
+                    <CardDescription>
+                      Create, edit, or delete themes
+                    </CardDescription>
+                  </div>
+                  <Button onClick={openCreateDialog} size="sm">
+                    <Plus className="h-4 w-4 mr-1" />
+                    New Theme
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {themesLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading themes...</p>
+                ) : themes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No themes yet. Create your first theme.</p>
+                ) : (
+                  themes.map((theme) => (
                     <div
                       key={theme.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg border bg-card ${
-                        selectedThemeId === theme.id ? "border-primary" : ""
-                      }`}
+                      className="flex items-center gap-3 p-3 rounded-lg border bg-card"
                     >
                       {theme.background_urls[0] ? (
                         <div
-                          className="w-16 h-10 rounded bg-cover bg-center flex-shrink-0"
+                          className="w-20 h-12 rounded bg-cover bg-center flex-shrink-0"
                           style={{ backgroundImage: `url(${theme.background_urls[0]})` }}
                         />
                       ) : (
-                        <div className="w-16 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                        <div className="w-20 h-12 rounded bg-muted flex items-center justify-center flex-shrink-0">
                           <Image className="h-4 w-4 text-muted-foreground" />
                         </div>
                       )}
@@ -613,20 +782,10 @@ export default function PunchClockCustomization() {
                           )}
                           {savedThemeId === theme.id && (
                             <span className="text-xs px-2 py-0.5 rounded-full text-white bg-green-500">
-                              Saved
-                            </span>
-                          )}
-                          {theme.start_at && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full text-white ${status.color}`}>
-                              {status.label}
+                              Active
                             </span>
                           )}
                         </div>
-                        {theme.start_at && theme.end_at && (
-                          <p className="text-xs text-muted-foreground">
-                            {format(new Date(theme.start_at), "MMM d, h:mm a")} - {format(new Date(theme.end_at), "MMM d, h:mm a")}
-                          </p>
-                        )}
                       </div>
                       <div className="flex gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEditDialog(theme)}>
@@ -637,33 +796,12 @@ export default function PunchClockCustomization() {
                         </Button>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Birthday Events Toggle */}
-            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
-              <div className="flex items-center gap-3">
-                <Cake className="h-5 w-5 text-primary" />
-                <div>
-                  <Label>Birthday Events</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Birthday messages override all themes when active
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={birthdayEventsEnabled}
-                onCheckedChange={setBirthdayEventsEnabled}
-              />
-            </div>
-
-            <Button onClick={handleSaveDefaultTheme} disabled={loading}>
-              {loading ? "Saving..." : "Save Settings"}
-            </Button>
-          </CardContent>
-        </Card>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Preview Dialog */}
@@ -894,87 +1032,6 @@ export default function PunchClockCustomization() {
                 onCheckedChange={setFormTextShadow}
               />
             </div>
-
-            {/* Schedule Toggle */}
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-primary" />
-                <div>
-                  <Label>Schedule This Theme</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Set specific dates when this theme is active
-                  </p>
-                </div>
-              </div>
-              <Switch
-                checked={isScheduled}
-                onCheckedChange={setIsScheduled}
-              />
-            </div>
-
-            {/* Schedule Options */}
-            {isScheduled && (
-              <div className="space-y-3 pl-4 border-l-2 border-primary/30">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Start Date *</Label>
-                    <Input
-                      type="date"
-                      value={formStartDate}
-                      onChange={(e) => {
-                        setFormStartDate(e.target.value);
-                        if (formDuration !== "custom") handleDurationChange(formDuration);
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Start Time</Label>
-                    <Input
-                      type="time"
-                      value={formStartTime}
-                      onChange={(e) => {
-                        setFormStartTime(e.target.value);
-                        if (formDuration !== "custom") handleDurationChange(formDuration);
-                      }}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs">Duration</Label>
-                  <Select value={formDuration} onValueChange={handleDurationChange}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="24h">Next 24 hours</SelectItem>
-                      <SelectItem value="3d">Next 3 days</SelectItem>
-                      <SelectItem value="5d">Next 5 days</SelectItem>
-                      <SelectItem value="custom">Custom end date</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">End Date *</Label>
-                    <Input
-                      type="date"
-                      value={formEndDate}
-                      onChange={(e) => setFormEndDate(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">End Time</Label>
-                    <Input
-                      type="time"
-                      value={formEndTime}
-                      onChange={(e) => setFormEndTime(e.target.value)}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
 
             <div className="flex justify-end gap-2 pt-4">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
