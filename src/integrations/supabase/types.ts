@@ -1452,52 +1452,64 @@ export type Database = {
       }
       location_settings: {
         Row: {
+          am_safe_count_window_minutes: number
           birthday_events_enabled: boolean | null
           blackout_dates: string[] | null
           created_at: string
           drawer_bank: number
+          drawer_count_notifications_enabled: boolean
           hours_close: string | null
           hours_open: string | null
           id: string
           location_id: string
+          pm_safe_count_window_minutes: number
           punch_clock_background_url: string | null
           punch_clock_overlay_text: string | null
           punch_clock_text_color: string | null
           punch_clock_text_shadow: boolean | null
+          safe_count_notifications_enabled: boolean
           safe_target: number
           timezone: string
           updated_at: string
         }
         Insert: {
+          am_safe_count_window_minutes?: number
           birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null
           created_at?: string
           drawer_bank?: number
+          drawer_count_notifications_enabled?: boolean
           hours_close?: string | null
           hours_open?: string | null
           id?: string
           location_id: string
+          pm_safe_count_window_minutes?: number
           punch_clock_background_url?: string | null
           punch_clock_overlay_text?: string | null
           punch_clock_text_color?: string | null
           punch_clock_text_shadow?: boolean | null
+          safe_count_notifications_enabled?: boolean
           safe_target?: number
           timezone?: string
           updated_at?: string
         }
         Update: {
+          am_safe_count_window_minutes?: number
           birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null
           created_at?: string
           drawer_bank?: number
+          drawer_count_notifications_enabled?: boolean
           hours_close?: string | null
           hours_open?: string | null
           id?: string
           location_id?: string
+          pm_safe_count_window_minutes?: number
           punch_clock_background_url?: string | null
           punch_clock_overlay_text?: string | null
           punch_clock_text_color?: string | null
           punch_clock_text_shadow?: boolean | null
+          safe_count_notifications_enabled?: boolean
           safe_target?: number
           timezone?: string
           updated_at?: string

@@ -169,6 +169,10 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
   const [isCopying, setIsCopying] = useState(false);
   const [safeTarget, setSafeTarget] = useState<number>(300);
   const [drawerBank, setDrawerBank] = useState<number>(200);
+  const [amSafeCountWindow, setAmSafeCountWindow] = useState<number>(120);
+  const [pmSafeCountWindow, setPmSafeCountWindow] = useState<number>(120);
+  const [drawerCountNotifications, setDrawerCountNotifications] = useState<boolean>(true);
+  const [safeCountNotifications, setSafeCountNotifications] = useState<boolean>(true);
 
   // Fetch location settings for cash handling values
   const { data: locationSettings } = useQuery({
@@ -177,13 +181,17 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
       if (!currentLocation) return null;
       const { data, error } = await supabase
         .from('location_settings')
-        .select('safe_target, drawer_bank')
+        .select('safe_target, drawer_bank, am_safe_count_window_minutes, pm_safe_count_window_minutes, drawer_count_notifications_enabled, safe_count_notifications_enabled')
         .eq('location_id', currentLocation.id)
         .maybeSingle();
       if (error) throw error;
       if (data) {
         setSafeTarget(data.safe_target ?? 300);
         setDrawerBank(data.drawer_bank ?? 200);
+        setAmSafeCountWindow(data.am_safe_count_window_minutes ?? 120);
+        setPmSafeCountWindow(data.pm_safe_count_window_minutes ?? 120);
+        setDrawerCountNotifications(data.drawer_count_notifications_enabled ?? true);
+        setSafeCountNotifications(data.safe_count_notifications_enabled ?? true);
       }
       return data;
     },
@@ -525,41 +533,98 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
               if (!isSafeCount && !isDrawerCount) return null;
               
               return (
-                <div className="border rounded-lg p-4 bg-muted/30 space-y-3">
+                <div className="border rounded-lg p-4 bg-muted/30 space-y-4">
                   <Label className="text-sm font-medium">Cash Handling Settings</Label>
+                  
                   {isSafeCount && (
-                    <div className="space-y-2">
-                      <Label htmlFor="safe-target" className="text-xs">Safe Target Amount ($)</Label>
-                      <Input
-                        id="safe-target"
-                        type="number"
-                        min="0"
-                        step="50"
-                        value={safeTarget}
-                        onChange={(e) => setSafeTarget(parseFloat(e.target.value) || 0)}
-                        className="max-w-[200px]"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Amount to keep in safe after balancing
-                      </p>
-                    </div>
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="safe-target" className="text-xs">Safe Target Amount ($)</Label>
+                        <Input
+                          id="safe-target"
+                          type="number"
+                          min="0"
+                          step="50"
+                          value={safeTarget}
+                          onChange={(e) => setSafeTarget(parseFloat(e.target.value) || 0)}
+                          className="max-w-[200px]"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Amount to keep in safe after balancing
+                        </p>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="am-window" className="text-xs">AM Count Window (minutes)</Label>
+                          <Input
+                            id="am-window"
+                            type="number"
+                            min="30"
+                            max="480"
+                            step="15"
+                            value={amSafeCountWindow}
+                            onChange={(e) => setAmSafeCountWindow(parseInt(e.target.value) || 120)}
+                            className="max-w-[150px]"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Before/after open time
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="pm-window" className="text-xs">PM Count Window (minutes)</Label>
+                          <Input
+                            id="pm-window"
+                            type="number"
+                            min="30"
+                            max="480"
+                            step="15"
+                            value={pmSafeCountWindow}
+                            onChange={(e) => setPmSafeCountWindow(parseInt(e.target.value) || 120)}
+                            className="max-w-[150px]"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            After close time
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 pt-2">
+                        <Switch
+                          checked={safeCountNotifications}
+                          onCheckedChange={setSafeCountNotifications}
+                        />
+                        <Label className="text-xs">Send push notifications on submission</Label>
+                      </div>
+                    </>
                   )}
+                  
                   {isDrawerCount && (
-                    <div className="space-y-2">
-                      <Label htmlFor="drawer-bank" className="text-xs">Drawer Bank Amount ($)</Label>
-                      <Input
-                        id="drawer-bank"
-                        type="number"
-                        min="0"
-                        step="50"
-                        value={drawerBank}
-                        onChange={(e) => setDrawerBank(parseFloat(e.target.value) || 0)}
-                        className="max-w-[200px]"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Starting drawer amount to keep after deposit
-                      </p>
-                    </div>
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="drawer-bank" className="text-xs">Drawer Bank Amount ($)</Label>
+                        <Input
+                          id="drawer-bank"
+                          type="number"
+                          min="0"
+                          step="50"
+                          value={drawerBank}
+                          onChange={(e) => setDrawerBank(parseFloat(e.target.value) || 0)}
+                          className="max-w-[200px]"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Starting drawer amount to keep after deposit
+                        </p>
+                      </div>
+                      
+                      <div className="flex items-center gap-2 pt-2">
+                        <Switch
+                          checked={drawerCountNotifications}
+                          onCheckedChange={setDrawerCountNotifications}
+                        />
+                        <Label className="text-xs">Send push notifications on submission</Label>
+                      </div>
+                    </>
                   )}
                 </div>
               );
@@ -584,8 +649,12 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                     const updateData: any = {};
                     if (categoryName === 'safe count') {
                       updateData.safe_target = safeTarget;
+                      updateData.am_safe_count_window_minutes = amSafeCountWindow;
+                      updateData.pm_safe_count_window_minutes = pmSafeCountWindow;
+                      updateData.safe_count_notifications_enabled = safeCountNotifications;
                     } else {
                       updateData.drawer_bank = drawerBank;
+                      updateData.drawer_count_notifications_enabled = drawerCountNotifications;
                     }
                     
                     if (existingSettings) {
@@ -602,6 +671,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                         });
                     }
                     queryClient.invalidateQueries({ queryKey: ['location-settings'] });
+                    queryClient.invalidateQueries({ queryKey: ['location-settings-cash'] });
                   } catch (error) {
                     console.error('Error saving cash handling settings:', error);
                   }
