@@ -648,47 +648,97 @@ export default function PunchClockCustomization() {
 
       {/* Preview Dialog */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden">
-          <div 
-            className="relative w-full aspect-video bg-cover bg-center transition-all duration-500"
-            style={{ 
-              backgroundImage: previewData.backgroundImage 
-                ? `url(${previewData.backgroundImage})` 
-                : 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.7) 100%)'
-            }}
-          >
-            <div className="absolute inset-0 bg-black/40" />
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-8">
-              <img 
-                src={crooLogo} 
-                alt="Logo" 
-                className="h-16 mb-4 transition-all duration-500"
-                style={{ filter: 'brightness(0) invert(1)' }}
-              />
-              <div className="text-6xl font-bold mb-2">
-                {format(new Date(), "h:mm:ss a")}
-              </div>
-              <div className="text-xl mb-8 opacity-80">
-                {format(new Date(), "EEEE, MMMM d, yyyy")}
-              </div>
-              {previewData.overlayText && (
-                <div 
-                  className={`text-2xl font-medium text-center max-w-2xl ${previewData.textShadow ? '' : 'drop-shadow-lg'}`}
-                  style={{ 
-                    color: previewData.textColor,
-                    textShadow: previewData.textShadow ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
-                  }}
-                >
-                  {previewData.overlayText}
+        <DialogContent className="max-w-5xl p-0 overflow-hidden">
+          <div className="grid md:grid-cols-2">
+            {/* Left Side - Theme Preview */}
+            <div 
+              className="relative min-h-[500px] bg-cover bg-center transition-all duration-500"
+              style={{ 
+                backgroundImage: previewData.backgroundImage 
+                  ? `url(${previewData.backgroundImage})` 
+                  : 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.7) 100%)'
+              }}
+            >
+              <div className="absolute inset-0 bg-black/40" />
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-8">
+                <img 
+                  src={crooLogo} 
+                  alt="Logo" 
+                  className="h-16 mb-4 transition-all duration-500"
+                  style={{ filter: 'brightness(0) invert(1)' }}
+                />
+                <div className="text-5xl font-bold mb-2">
+                  {format(new Date(), "h:mm:ss a")}
                 </div>
-              )}
-              <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
-                <div className="text-lg opacity-70">Enter PIN to clock in/out</div>
-                <div className="flex justify-center gap-2 mt-3">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="w-4 h-4 rounded-full bg-white/30" />
+                <div className="text-lg mb-6 opacity-80">
+                  {format(new Date(), "EEEE, MMMM d, yyyy")}
+                </div>
+                {previewData.overlayText && (
+                  <div 
+                    className={`text-xl font-medium text-center max-w-sm ${previewData.textShadow ? '' : 'drop-shadow-lg'}`}
+                    style={{ 
+                      color: previewData.textColor,
+                      textShadow: previewData.textShadow ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                    }}
+                  >
+                    {previewData.overlayText}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Side - Number Pad Preview */}
+            <div className="p-8 flex flex-col justify-center bg-card">
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-xl font-semibold mb-4 text-center">Enter Your PIN</h3>
+                  <div className="text-center mb-6">
+                    <div className="text-3xl font-mono tracking-widest h-16 flex items-center justify-center border-2 border-primary/20 rounded-lg bg-muted/50">
+                      {'••••'}
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-3">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                    <Button
+                      key={num}
+                      variant="outline"
+                      size="lg"
+                      className="h-14 text-xl font-semibold pointer-events-none"
+                    >
+                      {num}
+                    </Button>
                   ))}
+                  <Button
+                    variant="ghost"
+                    size="lg"
+                    className="h-14 text-sm pointer-events-none"
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    className="h-14 text-xl font-semibold pointer-events-none"
+                  >
+                    0
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="lg"
+                    className="h-14 text-sm pointer-events-none"
+                  >
+                    ←
+                  </Button>
                 </div>
+
+                <Button
+                  className="w-full h-12 text-lg pointer-events-none"
+                  disabled
+                >
+                  Enter
+                </Button>
               </div>
             </div>
           </div>
