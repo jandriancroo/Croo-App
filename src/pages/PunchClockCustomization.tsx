@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,33 +9,39 @@ import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, X, Plus, Calendar, Clock, Trash2, Edit, Image, Cake, Sparkles, Mountain, Landmark, Quote } from "lucide-react";
+import { Upload, X, Plus, Calendar, Clock, Trash2, Edit, Image, Cake, Sparkles, Mountain, Landmark, ArrowLeft, Eye } from "lucide-react";
 import { compressImage } from "@/utils/imageCompression";
 import { format, addDays, addHours } from "date-fns";
+import crooLogo from "@/assets/croo-logo.png";
 
 // Built-in theme definitions
-export const BUILT_IN_THEMES = {
+const BUILT_IN_THEMES = {
   nature_facts: {
     id: "nature_facts",
     name: "Nature & Random Facts",
     description: "Beautiful nature landscapes with interesting random facts",
     icon: Mountain,
+    previewImage: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80",
+    previewText: "Did you know? Honey never spoils.",
   },
   historical_quotes: {
     id: "historical_quotes",
     name: "Historical & Wise Quotes",
     description: "Historical landscapes with inspirational quotes",
     icon: Landmark,
+    previewImage: "https://images.unsplash.com/photo-1461360370896-922624d12a74?w=800&q=80",
+    previewText: '"The only way to do great work is to love what you do." - Steve Jobs',
   },
   custom: {
     id: "custom",
     name: "Custom Theme",
     description: "Upload your own background and message",
     icon: Image,
+    previewImage: null,
+    previewText: null,
   },
 } as const;
 
@@ -48,18 +56,14 @@ interface PunchClockTemplate {
   is_active: boolean;
 }
 
-interface PunchClockSettingsSectionProps {
-  locationId?: string;
-}
-
-export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSectionProps) => {
-  const { currentLocation } = useLocation();
+export default function PunchClockCustomization() {
+  const { locationId } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const effectiveLocationId = locationId || currentLocation?.id;
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Settings state
+  const [locationName, setLocationName] = useState("");
   const [loading, setLoading] = useState(false);
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [selectedTheme, setSelectedTheme] = useState<string>("nature_facts");
@@ -68,6 +72,7 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
   const [customTextColor, setCustomTextColor] = useState("#FFFFFF");
   const [birthdayEventsEnabled, setBirthdayEventsEnabled] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Scheduled templates state
   const [templates, setTemplates] = useState<PunchClockTemplate[]>([]);
@@ -87,18 +92,30 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
   const [formEndTime, setFormEndTime] = useState("23:59");
 
   useEffect(() => {
-    fetchSettings();
-    fetchTemplates();
-  }, [effectiveLocationId]);
+    if (locationId) {
+      fetchLocation();
+      fetchSettings();
+      fetchTemplates();
+    }
+  }, [locationId]);
+
+  const fetchLocation = async () => {
+    const { data } = await supabase
+      .from("locations")
+      .select("name")
+      .eq("id", locationId)
+      .single();
+    if (data) setLocationName(data.name);
+  };
 
   const fetchSettings = async () => {
-    if (!effectiveLocationId) return;
+    if (!locationId) return;
 
     try {
       const { data, error } = await supabase
         .from("location_settings")
         .select("id, punch_clock_background_url, punch_clock_overlay_text, punch_clock_text_color, birthday_events_enabled")
-        .eq("location_id", effectiveLocationId)
+        .eq("location_id", locationId)
         .maybeSingle();
 
       if (error) throw error;
@@ -107,7 +124,6 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
         setSettingsId(data.id);
         setBirthdayEventsEnabled(data.birthday_events_enabled ?? true);
         
-        // Determine which theme is selected based on stored values
         if (data.punch_clock_background_url === "historical_quotes") {
           setSelectedTheme("historical_quotes");
         } else if (data.punch_clock_background_url && data.punch_clock_background_url !== "nature_facts") {
@@ -120,18 +136,18 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
         }
       }
     } catch (error) {
-      console.error("Error fetching punch clock settings:", error);
+      console.error("Error fetching settings:", error);
     }
   };
 
   const fetchTemplates = async () => {
-    if (!effectiveLocationId) return;
+    if (!locationId) return;
 
     try {
       const { data, error } = await supabase
         .from("punch_clock_templates")
         .select("*")
-        .eq("location_id", effectiveLocationId)
+        .eq("location_id", locationId)
         .order("start_at", { ascending: true });
 
       if (error) throw error;
@@ -145,12 +161,12 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, forTemplate = false) => {
     const file = e.target.files?.[0];
-    if (!file || !effectiveLocationId) return;
+    if (!file || !locationId) return;
 
     setUploading(true);
     try {
       const compressedFile = await compressImage(file, 1920, 1080, 0.85);
-      const fileName = `${effectiveLocationId}/punch-clock-${Date.now()}.jpg`;
+      const fileName = `${locationId}/punch-clock-${Date.now()}.jpg`;
       
       const { error: uploadError } = await supabase.storage
         .from("organization-branding")
@@ -177,11 +193,10 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
   };
 
   const handleSaveSettings = async () => {
-    if (!effectiveLocationId) return;
+    if (!locationId) return;
     
     setLoading(true);
     try {
-      // Store the theme identifier for built-in themes, or the actual URL for custom
       let backgroundValue: string | null = null;
       let overlayValue: string | null = null;
       let colorValue = "#FFFFFF";
@@ -208,14 +223,14 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
         const { error } = await supabase
           .from("location_settings")
           .update(settingsData)
-          .eq("location_id", effectiveLocationId);
+          .eq("location_id", locationId);
 
         if (error) throw error;
       } else {
         const { data, error } = await supabase
           .from("location_settings")
           .insert({
-            location_id: effectiveLocationId,
+            location_id: locationId,
             ...settingsData,
           })
           .select()
@@ -296,7 +311,7 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
   };
 
   const handleSaveTemplate = async () => {
-    if (!effectiveLocationId || !formName.trim() || !formStartDate || !formEndDate) {
+    if (!locationId || !formName.trim() || !formStartDate || !formEndDate) {
       toast({ title: "Please fill in all required fields", variant: "destructive" });
       return;
     }
@@ -324,7 +339,7 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
         const { error } = await supabase
           .from("punch_clock_templates")
           .insert({
-            location_id: effectiveLocationId,
+            location_id: locationId,
             name: formName.trim(),
             background_url: formBackgroundUrl,
             overlay_text: formOverlayText || null,
@@ -375,24 +390,62 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
     return { label: "Expired", color: "bg-muted-foreground" };
   };
 
-  if (!effectiveLocationId) return null;
+  // Get preview data based on current selection
+  const getPreviewData = () => {
+    if (selectedTheme === "custom") {
+      return {
+        backgroundImage: customBackgroundUrl,
+        overlayText: customOverlayText,
+        textColor: customTextColor,
+      };
+    }
+    const theme = BUILT_IN_THEMES[selectedTheme as keyof typeof BUILT_IN_THEMES];
+    return {
+      backgroundImage: theme?.previewImage || null,
+      overlayText: theme?.previewText || null,
+      textColor: "#FFFFFF",
+    };
+  };
+
+  const previewData = getPreviewData();
 
   return (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5" />
-            Punch Clock Customization
-          </CardTitle>
-          <CardDescription>
-            Choose a default theme and schedule special themes for holidays or events
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Default Theme Selection */}
-          <div className="space-y-3">
-            <Label className="text-base font-medium">Default Theme</Label>
+    <Layout>
+      <div className="space-y-6 max-w-3xl mx-auto">
+        {/* Header */}
+        <div className="flex items-start gap-3">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={() => navigate(`/location/${locationId}`)} 
+            className="mt-1 flex-shrink-0"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
+              <Sparkles className="h-6 w-6 sm:h-8 sm:w-8 text-primary flex-shrink-0" />
+              Punch Clock Customization
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {locationName} • Customize how the punch clock looks for employees
+            </p>
+          </div>
+          <Button variant="outline" onClick={() => setShowPreview(true)}>
+            <Eye className="h-4 w-4 mr-2" />
+            Preview
+          </Button>
+        </div>
+
+        {/* Default Theme Selection */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Default Theme</CardTitle>
+            <CardDescription>
+              Choose how the punch clock looks when no scheduled theme is active
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
             <RadioGroup value={selectedTheme} onValueChange={setSelectedTheme} className="space-y-3">
               {Object.values(BUILT_IN_THEMES).map((theme) => {
                 const IconComponent = theme.icon;
@@ -414,133 +467,143 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">{theme.description}</p>
                     </div>
+                    {theme.previewImage && (
+                      <div 
+                        className="w-20 h-12 rounded bg-cover bg-center flex-shrink-0"
+                        style={{ backgroundImage: `url(${theme.previewImage})` }}
+                      />
+                    )}
                   </div>
                 );
               })}
             </RadioGroup>
-          </div>
 
-          {/* Custom Theme Options */}
-          {selectedTheme === "custom" && (
-            <div className="space-y-4 pl-4 border-l-2 border-primary/30">
-              <div className="space-y-2">
-                <Label>Background Image</Label>
-                {customBackgroundUrl ? (
-                  <div className="relative">
+            {/* Custom Theme Options */}
+            {selectedTheme === "custom" && (
+              <div className="space-y-4 pl-4 border-l-2 border-primary/30">
+                <div className="space-y-2">
+                  <Label>Background Image</Label>
+                  {customBackgroundUrl ? (
+                    <div className="relative">
+                      <div
+                        className="w-full h-40 rounded-lg bg-cover bg-center border"
+                        style={{ backgroundImage: `url(${customBackgroundUrl})` }}
+                      >
+                        {customOverlayText && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <span className="text-xl font-bold drop-shadow-lg" style={{ color: customTextColor }}>
+                              {customOverlayText}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={() => setCustomBackgroundUrl(null)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : (
                     <div
-                      className="w-full h-32 rounded-lg bg-cover bg-center border"
-                      style={{ backgroundImage: `url(${customBackgroundUrl})` }}
+                      className="w-full h-40 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
+                      onClick={() => fileInputRef.current?.click()}
                     >
-                      {customOverlayText && (
-                        <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="text-lg font-bold drop-shadow-lg" style={{ color: customTextColor }}>
-                            {customOverlayText}
-                          </span>
-                        </div>
-                      )}
+                      <div className="text-center text-muted-foreground">
+                        <Upload className="h-8 w-8 mx-auto mb-2" />
+                        <p className="text-sm">Click to upload background image</p>
+                        <p className="text-xs">Recommended: 1920x1080</p>
+                      </div>
                     </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      className="absolute top-2 right-2"
-                      onClick={() => setCustomBackgroundUrl(null)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div
-                    className="w-full h-32 rounded-lg border-2 border-dashed border-muted-foreground/30 flex items-center justify-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <div className="text-center text-muted-foreground">
-                      <Upload className="h-6 w-6 mx-auto mb-1" />
-                      <p className="text-sm">Upload image</p>
-                    </div>
-                  </div>
-                )}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => handleImageUpload(e, false)}
-                  disabled={uploading}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Text Overlay</Label>
-                <Input
-                  value={customOverlayText}
-                  onChange={(e) => setCustomOverlayText(e.target.value)}
-                  placeholder="e.g., Welcome to Our Team!"
-                  maxLength={50}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Text Color</Label>
-                <div className="flex items-center gap-3">
+                  )}
                   <input
-                    type="color"
-                    value={customTextColor}
-                    onChange={(e) => setCustomTextColor(e.target.value)}
-                    className="w-10 h-10 rounded border cursor-pointer"
-                  />
-                  <Input
-                    value={customTextColor}
-                    onChange={(e) => setCustomTextColor(e.target.value)}
-                    className="w-28"
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleImageUpload(e, false)}
+                    disabled={uploading}
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Text Overlay</Label>
+                  <Input
+                    value={customOverlayText}
+                    onChange={(e) => setCustomOverlayText(e.target.value)}
+                    placeholder="e.g., Welcome to Our Team!"
+                    maxLength={50}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Text Color</Label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={customTextColor}
+                      onChange={(e) => setCustomTextColor(e.target.value)}
+                      className="w-10 h-10 rounded border cursor-pointer"
+                    />
+                    <Input
+                      value={customTextColor}
+                      onChange={(e) => setCustomTextColor(e.target.value)}
+                      className="w-28"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Birthday Events Toggle */}
-          <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
-            <div className="flex items-center gap-3">
-              <Cake className="h-5 w-5 text-primary" />
-              <div>
-                <Label>Birthday Events</Label>
-                <p className="text-xs text-muted-foreground">
-                  Show employee birthdays on schedule
-                </p>
+            {/* Birthday Events Toggle */}
+            <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30">
+              <div className="flex items-center gap-3">
+                <Cake className="h-5 w-5 text-primary" />
+                <div>
+                  <Label>Birthday Events</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Show employee birthdays on the punch clock
+                  </p>
+                </div>
               </div>
+              <Switch
+                checked={birthdayEventsEnabled}
+                onCheckedChange={setBirthdayEventsEnabled}
+              />
             </div>
-            <Switch
-              checked={birthdayEventsEnabled}
-              onCheckedChange={setBirthdayEventsEnabled}
-            />
-          </div>
 
-          <Button onClick={handleSaveSettings} disabled={loading}>
-            {loading ? "Saving..." : "Save Settings"}
-          </Button>
+            <Button onClick={handleSaveSettings} disabled={loading}>
+              {loading ? "Saving..." : "Save Settings"}
+            </Button>
+          </CardContent>
+        </Card>
 
-          {/* Scheduled Themes Section */}
-          <div className="pt-6 border-t space-y-4">
+        {/* Scheduled Themes */}
+        <Card>
+          <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <Label className="text-base font-medium flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
+                <CardTitle className="flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
                   Scheduled Themes
-                </Label>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Override the default theme for specific dates (holidays, events, etc.)
-                </p>
+                </CardTitle>
+                <CardDescription>
+                  Override the default theme for holidays, events, or promotions
+                </CardDescription>
               </div>
-              <Button onClick={openCreateDialog} size="sm" variant="outline">
+              <Button onClick={openCreateDialog} size="sm">
                 <Plus className="h-4 w-4 mr-1" />
                 Schedule
               </Button>
             </div>
-
+          </CardHeader>
+          <CardContent>
             {templatesLoading ? (
               <p className="text-sm text-muted-foreground">Loading...</p>
             ) : templates.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-6 bg-muted/20 rounded-lg">
+              <p className="text-sm text-muted-foreground text-center py-8 bg-muted/20 rounded-lg">
                 No scheduled themes. Schedule one to override the default during special occasions.
               </p>
             ) : (
@@ -554,17 +617,17 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
                     >
                       {template.background_url ? (
                         <div
-                          className="w-14 h-9 rounded bg-cover bg-center flex-shrink-0"
+                          className="w-16 h-10 rounded bg-cover bg-center flex-shrink-0"
                           style={{ backgroundImage: `url(${template.background_url})` }}
                         />
                       ) : (
-                        <div className="w-14 h-9 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                        <div className="w-16 h-10 rounded bg-muted flex items-center justify-center flex-shrink-0">
                           <Image className="h-4 w-4 text-muted-foreground" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium truncate text-sm">{template.name}</span>
+                          <span className="font-medium truncate">{template.name}</span>
                           <span className={`text-xs px-2 py-0.5 rounded-full text-white ${status.color}`}>
                             {status.label}
                           </span>
@@ -586,9 +649,62 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
                 })}
               </div>
             )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Preview Dialog */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+          <div 
+            className="relative w-full aspect-video bg-cover bg-center"
+            style={{ 
+              backgroundImage: previewData.backgroundImage 
+                ? `url(${previewData.backgroundImage})` 
+                : 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.7) 100%)'
+            }}
+          >
+            {/* Dark overlay */}
+            <div className="absolute inset-0 bg-black/40" />
+            
+            {/* Content */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-8">
+              {/* Logo */}
+              <img src={crooLogo} alt="Logo" className="h-12 mb-4" />
+              
+              {/* Time */}
+              <div className="text-6xl font-bold mb-2">
+                {format(new Date(), "h:mm:ss a")}
+              </div>
+              
+              {/* Date */}
+              <div className="text-xl mb-8 opacity-80">
+                {format(new Date(), "EEEE, MMMM d, yyyy")}
+              </div>
+
+              {/* Overlay Text or Fact */}
+              {previewData.overlayText && (
+                <div 
+                  className="text-2xl font-medium text-center max-w-2xl drop-shadow-lg"
+                  style={{ color: previewData.textColor }}
+                >
+                  {previewData.overlayText}
+                </div>
+              )}
+
+              {/* PIN Indicator */}
+              <div className="absolute bottom-8 left-1/2 -translate-x-1/2">
+                <div className="text-lg opacity-70">Enter PIN to clock in/out</div>
+                <div className="flex justify-center gap-2 mt-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="w-4 h-4 rounded-full bg-white/30" />
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </DialogContent>
+      </Dialog>
 
       {/* Create/Edit Template Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -755,6 +871,6 @@ export const PunchClockSettingsSection = ({ locationId }: PunchClockSettingsSect
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </Layout>
   );
-};
+}

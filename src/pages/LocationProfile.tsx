@@ -10,13 +10,12 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { MapPin, ArrowLeft, Copy, RefreshCw, Save, Shield } from 'lucide-react';
+import { MapPin, ArrowLeft, Copy, RefreshCw, Save, Shield, Sparkles, ChevronRight } from 'lucide-react';
 import { LocationMap } from '@/components/settings/LocationMap';
 import { LocationSettingsSection } from '@/components/settings/LocationSettingsSection';
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
 import { LocationAuditsSection } from '@/components/settings/LocationAuditsSection';
-import { PunchClockSettingsSection } from '@/components/settings/PunchClockSettingsSection';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 
@@ -394,9 +393,27 @@ export default function LocationProfile() {
           {/* Location Settings (hours and blackout dates) - only for existing locations */}
           {!isNew && <LocationSettingsSection locationId={locationId} />}
 
-          {/* Punch Clock Customization - only for existing standard locations */}
+          {/* Punch Clock Customization Link - only for existing standard locations */}
           {!isNew && location?.location_type !== 'checklist_only' && (
-            <PunchClockSettingsSection locationId={locationId} />
+            <Card 
+              className="cursor-pointer hover:border-primary/50 transition-colors"
+              onClick={() => navigate(`/location/${locationId}/punch-clock`)}
+            >
+              <CardContent className="flex items-center justify-between p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-medium">Punch Clock Customization</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Customize themes, backgrounds, and scheduled displays
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </CardContent>
+            </Card>
           )}
 
           {/* Labor Rules - only for existing standard locations */}
