@@ -10,7 +10,9 @@ import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.png';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
+import { PostClockInTasks } from '@/components/punchclock/PostClockInTasks';
 
 // Function to calculate average brightness of an image
 const getImageBrightness = (imageUrl: string): Promise<number> => {
@@ -135,6 +137,7 @@ const DAILY_FACTS = getDailyFacts();
 
 export default function PunchClock() {
   const { currentLocation } = useAppLocation();
+  const { timezone } = useLocationTimezone();
   const [pin, setPin] = useState('');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [todayShift, setTodayShift] = useState<any>(null);
@@ -145,6 +148,9 @@ export default function PunchClock() {
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
   const [birthdayEmployees, setBirthdayEmployees] = useState<any[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  // Post clock-in task display
+  const [showPostClockInTasks, setShowPostClockInTasks] = useState(false);
   
   // Custom punch clock settings
   const [customBackground, setCustomBackground] = useState<string | null>(null);
@@ -570,13 +576,16 @@ export default function PunchClock() {
 
     toast.success('Clocked in successfully!');
     
-    // Return to PIN screen after 2 seconds
-    setTimeout(() => {
-      setCurrentUser(null);
-      setPin('');
-      setTodayShift(null);
-      setLastPunch(null);
-    }, 2000);
+    // Show post clock-in tasks instead of immediately returning to PIN screen
+    setShowPostClockInTasks(true);
+  };
+
+  const handlePostClockInDismiss = () => {
+    setShowPostClockInTasks(false);
+    setCurrentUser(null);
+    setPin('');
+    setTodayShift(null);
+    setLastPunch(null);
   };
 
   const handleBreak = async (type: 'break_start' | 'break_end', duration: number) => {
@@ -998,7 +1007,14 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
               )}
             </CardHeader>
             <CardContent className="space-y-4">
-              {!isClockedIn ? (
+              {showPostClockInTasks ? (
+                <PostClockInTasks
+                  userId={currentUser.id}
+                  locationId={currentLocation?.id || ''}
+                  timezone={timezone}
+                  onDismiss={handlePostClockInDismiss}
+                />
+              ) : !isClockedIn ? (
                 <div className="space-y-4">
                   <Button
                     className="w-full h-16 text-lg"
