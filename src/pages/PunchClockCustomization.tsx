@@ -339,8 +339,8 @@ export default function PunchClockCustomization() {
     const backgroundUrls = validSlides.map(s => s.imageUrl).filter(Boolean);
     const overlayTexts = validSlides.map(s => s.text);
 
-    let startAt: string | null = null;
-    let endAt: string | null = null;
+    let startAt: string;
+    let endAt: string;
 
     if (isScheduled) {
       if (!formStartDate || !formEndDate) {
@@ -349,6 +349,10 @@ export default function PunchClockCustomization() {
       }
       startAt = new Date(`${formStartDate}T${formStartTime}`).toISOString();
       endAt = new Date(`${formEndDate}T${formEndTime}`).toISOString();
+    } else {
+      // For non-scheduled themes, set to always active (far past start, far future end)
+      startAt = new Date('2000-01-01T00:00:00').toISOString();
+      endAt = new Date('2099-12-31T23:59:59').toISOString();
     }
 
     try {
