@@ -284,7 +284,7 @@ export default function LogBook() {
           created_by: user!.id,
           location_id: currentLocation?.id,
         }, {
-          onConflict: 'category_id,entry_date'
+          onConflict: 'category_id,entry_date,location_id'
         })
         .select()
         .single();
