@@ -472,57 +472,73 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
               </Button>
             </div>
 
-            <div className="space-y-3">
-              {editingFields.map((field) => (
-                <div key={field.tempId} className="flex items-start gap-3 p-3 border rounded-lg">
-                  <GripVertical className="h-4 w-4 text-muted-foreground mt-2" />
-                  
-                  <div className="flex-1 grid grid-cols-2 gap-3">
-                    <div>
-                      <Label className="text-xs">Field Name</Label>
-                      <Input
-                        placeholder="e.g., Customer Name"
-                        value={field.field_name}
-                        onChange={(e) => handleUpdateField(field.tempId, { field_name: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Field Type</Label>
-                      <Select
-                        value={field.field_type}
-                        onValueChange={(value) => handleUpdateField(field.tempId, { field_type: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="text">Text (short)</SelectItem>
-                          <SelectItem value="textarea">Text Area (long)</SelectItem>
-                          <SelectItem value="number">Number</SelectItem>
-                          <SelectItem value="date">Date</SelectItem>
-                          <SelectItem value="attachment">File Attachment</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={field.is_required}
-                        onCheckedChange={(checked) => handleUpdateField(field.tempId, { is_required: checked })}
-                      />
-                      <Label className="text-xs">Required Field</Label>
-                    </div>
+            {/* Only show field editor for non-cash-handling categories */}
+            {(() => {
+              const categoryName = displayCategories.find(c => c.id === editingCategoryId)?.name?.toLowerCase();
+              const isCashHandling = categoryName === 'safe count' || categoryName === 'drawer count';
+              
+              if (isCashHandling) {
+                return (
+                  <div className="text-sm text-muted-foreground p-3 border rounded-lg bg-muted/30">
+                    This category uses a specialized form and fields cannot be modified.
                   </div>
+                );
+              }
+              
+              return (
+                <div className="space-y-3">
+                  {editingFields.map((field) => (
+                    <div key={field.tempId} className="flex items-start gap-3 p-3 border rounded-lg">
+                      <GripVertical className="h-4 w-4 text-muted-foreground mt-2" />
+                      
+                      <div className="flex-1 grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Field Name</Label>
+                          <Input
+                            placeholder="e.g., Customer Name"
+                            value={field.field_name}
+                            onChange={(e) => handleUpdateField(field.tempId, { field_name: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Field Type</Label>
+                          <Select
+                            value={field.field_type}
+                            onValueChange={(value) => handleUpdateField(field.tempId, { field_type: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="text">Text (short)</SelectItem>
+                              <SelectItem value="textarea">Text Area (long)</SelectItem>
+                              <SelectItem value="number">Number</SelectItem>
+                              <SelectItem value="date">Date</SelectItem>
+                              <SelectItem value="attachment">File Attachment</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={field.is_required}
+                            onCheckedChange={(checked) => handleUpdateField(field.tempId, { is_required: checked })}
+                          />
+                          <Label className="text-xs">Required Field</Label>
+                        </div>
+                      </div>
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemoveField(field.tempId)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveField(field.tempId)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
 
             {/* Cash Handling Settings - only for Safe Count and Drawer Count categories */}
             {(() => {
@@ -631,55 +647,71 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
             })()}
 
             <div className="flex gap-2">
-              <Button onClick={handleAddField} variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Add Field
-              </Button>
-              <Button onClick={async () => {
-                // Save cash handling settings if applicable
+              {(() => {
                 const categoryName = displayCategories.find(c => c.id === editingCategoryId)?.name?.toLowerCase();
-                if ((categoryName === 'safe count' || categoryName === 'drawer count') && currentLocation) {
-                  try {
-                    const { data: existingSettings } = await supabase
-                      .from('location_settings')
-                      .select('id')
-                      .eq('location_id', currentLocation.id)
-                      .maybeSingle();
-                    
-                    const updateData: any = {};
-                    if (categoryName === 'safe count') {
-                      updateData.safe_target = safeTarget;
-                      updateData.am_safe_count_window_minutes = amSafeCountWindow;
-                      updateData.pm_safe_count_window_minutes = pmSafeCountWindow;
-                      updateData.safe_count_notifications_enabled = safeCountNotifications;
-                    } else {
-                      updateData.drawer_bank = drawerBank;
-                      updateData.drawer_count_notifications_enabled = drawerCountNotifications;
-                    }
-                    
-                    if (existingSettings) {
-                      await supabase
-                        .from('location_settings')
-                        .update(updateData)
-                        .eq('location_id', currentLocation.id);
-                    } else {
-                      await supabase
-                        .from('location_settings')
-                        .insert({
-                          location_id: currentLocation.id,
-                          ...updateData,
-                        });
-                    }
-                    queryClient.invalidateQueries({ queryKey: ['location-settings'] });
-                    queryClient.invalidateQueries({ queryKey: ['location-settings-cash'] });
-                  } catch (error) {
-                    console.error('Error saving cash handling settings:', error);
-                  }
-                }
-                handleSaveFields();
-              }}>
-                Save Fields
-              </Button>
+                const isCashHandling = categoryName === 'safe count' || categoryName === 'drawer count';
+                
+                return (
+                  <>
+                    {!isCashHandling && (
+                      <Button onClick={handleAddField} variant="outline">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Field
+                      </Button>
+                    )}
+                    <Button onClick={async () => {
+                      // Save cash handling settings if applicable
+                      if (isCashHandling && currentLocation) {
+                        try {
+                          const { data: existingSettings } = await supabase
+                            .from('location_settings')
+                            .select('id')
+                            .eq('location_id', currentLocation.id)
+                            .maybeSingle();
+                          
+                          const updateData: any = {};
+                          if (categoryName === 'safe count') {
+                            updateData.safe_target = safeTarget;
+                            updateData.am_safe_count_window_minutes = amSafeCountWindow;
+                            updateData.pm_safe_count_window_minutes = pmSafeCountWindow;
+                            updateData.safe_count_notifications_enabled = safeCountNotifications;
+                          } else {
+                            updateData.drawer_bank = drawerBank;
+                            updateData.drawer_count_notifications_enabled = drawerCountNotifications;
+                          }
+                          
+                          if (existingSettings) {
+                            await supabase
+                              .from('location_settings')
+                              .update(updateData)
+                              .eq('location_id', currentLocation.id);
+                          } else {
+                            await supabase
+                              .from('location_settings')
+                              .insert({
+                                location_id: currentLocation.id,
+                                ...updateData,
+                              });
+                          }
+                          queryClient.invalidateQueries({ queryKey: ['location-settings'] });
+                          queryClient.invalidateQueries({ queryKey: ['location-settings-cash'] });
+                        } catch (error) {
+                          console.error('Error saving cash handling settings:', error);
+                        }
+                      }
+                      if (!isCashHandling) {
+                        handleSaveFields();
+                      } else {
+                        toast({ title: "Settings saved successfully" });
+                        setEditingCategoryId(null);
+                        setEditingFields([]);
+                      }
+                    }}>
+                      {isCashHandling ? 'Save Settings' : 'Save Fields'}
+                    </Button>
+                  </>
+                );
+              })()}
             </div>
           </div>
         ) : (
