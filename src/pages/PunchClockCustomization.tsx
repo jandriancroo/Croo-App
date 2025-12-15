@@ -17,22 +17,27 @@ import { compressImage } from "@/utils/imageCompression";
 import { format, addDays, addHours } from "date-fns";
 import crooLogo from "@/assets/croo-logo.png";
 
+// Nature landscapes - high resolution beautiful nature images
+const NATURE_PREVIEW_IMAGE = "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80";
+// Historical landmarks preview image  
+const HISTORICAL_PREVIEW_IMAGE = "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=800&q=80";
+
 // Built-in theme definitions
 const BUILT_IN_THEMES = {
   nature_facts: {
     id: "nature_facts",
     name: "Nature & Random Facts",
-    description: "Beautiful nature landscapes with interesting random facts",
+    description: "10 rotating beautiful nature landscapes with interesting random facts",
     icon: Mountain,
-    previewImage: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&q=80",
+    previewImage: NATURE_PREVIEW_IMAGE,
     previewText: "Did you know? Honey never spoils.",
   },
   historical_quotes: {
     id: "historical_quotes",
     name: "Historical & Wise Quotes",
-    description: "Historical landscapes with inspirational quotes",
+    description: "10 rotating historical landmarks with inspirational quotes",
     icon: Landmark,
-    previewImage: "https://images.unsplash.com/photo-1461360370896-922624d12a74?w=800&q=80",
+    previewImage: HISTORICAL_PREVIEW_IMAGE,
     previewText: '"The only way to do great work is to love what you do." - Steve Jobs',
   },
   custom: {
@@ -70,6 +75,7 @@ export default function PunchClockCustomization() {
   const [customBackgroundUrl, setCustomBackgroundUrl] = useState<string | null>(null);
   const [customOverlayText, setCustomOverlayText] = useState("");
   const [customTextColor, setCustomTextColor] = useState("#FFFFFF");
+  const [customTextShadow, setCustomTextShadow] = useState(false);
   const [birthdayEventsEnabled, setBirthdayEventsEnabled] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -114,7 +120,7 @@ export default function PunchClockCustomization() {
     try {
       const { data, error } = await supabase
         .from("location_settings")
-        .select("id, punch_clock_background_url, punch_clock_overlay_text, punch_clock_text_color, birthday_events_enabled")
+        .select("id, punch_clock_background_url, punch_clock_overlay_text, punch_clock_text_color, birthday_events_enabled, punch_clock_text_shadow")
         .eq("location_id", locationId)
         .maybeSingle();
 
@@ -123,6 +129,7 @@ export default function PunchClockCustomization() {
       if (data) {
         setSettingsId(data.id);
         setBirthdayEventsEnabled(data.birthday_events_enabled ?? true);
+        setCustomTextShadow((data as any).punch_clock_text_shadow ?? false);
         
         if (data.punch_clock_background_url === "historical_quotes") {
           setSelectedTheme("historical_quotes");
@@ -215,6 +222,7 @@ export default function PunchClockCustomization() {
         punch_clock_background_url: backgroundValue,
         punch_clock_overlay_text: overlayValue,
         punch_clock_text_color: colorValue,
+        punch_clock_text_shadow: selectedTheme === "custom" ? customTextShadow : false,
         birthday_events_enabled: birthdayEventsEnabled,
         updated_at: new Date().toISOString(),
       };
@@ -397,6 +405,7 @@ export default function PunchClockCustomization() {
         backgroundImage: customBackgroundUrl,
         overlayText: customOverlayText,
         textColor: customTextColor,
+        textShadow: customTextShadow,
       };
     }
     const theme = BUILT_IN_THEMES[selectedTheme as keyof typeof BUILT_IN_THEMES];
@@ -404,6 +413,7 @@ export default function PunchClockCustomization() {
       backgroundImage: theme?.previewImage || null,
       overlayText: theme?.previewText || null,
       textColor: "#FFFFFF",
+      textShadow: false,
     };
   };
 
@@ -554,6 +564,19 @@ export default function PunchClockCustomization() {
                     />
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                  <div>
+                    <Label>Text Shadow Outline</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Add shadow outline so text pops off the image
+                    </p>
+                  </div>
+                  <Switch
+                    checked={customTextShadow}
+                    onCheckedChange={setCustomTextShadow}
+                  />
+                </div>
               </div>
             )}
 
@@ -685,8 +708,11 @@ export default function PunchClockCustomization() {
               {/* Overlay Text or Fact */}
               {previewData.overlayText && (
                 <div 
-                  className="text-2xl font-medium text-center max-w-2xl drop-shadow-lg"
-                  style={{ color: previewData.textColor }}
+                  className={`text-2xl font-medium text-center max-w-2xl ${previewData.textShadow ? '' : 'drop-shadow-lg'}`}
+                  style={{ 
+                    color: previewData.textColor,
+                    textShadow: previewData.textShadow ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                  }}
                 >
                   {previewData.overlayText}
                 </div>
