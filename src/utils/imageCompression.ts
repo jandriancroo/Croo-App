@@ -1,31 +1,43 @@
 /**
  * Compress and resize an image file to reduce memory usage
- * Particularly important for Android devices with high-resolution cameras
+ * Optimized for low-memory Android devices like Samsung Galaxy A14
  */
 export async function compressImage(
   file: File,
-  maxWidth: number = 1200,
-  maxHeight: number = 1200,
-  quality: number = 0.8
+  maxWidth: number = 800,
+  maxHeight: number = 800,
+  quality: number = 0.6
 ): Promise<File> {
   return new Promise((resolve, reject) => {
+    // For very large files, use even more aggressive compression
+    const fileSize = file.size;
+    const isLargeFile = fileSize > 3 * 1024 * 1024; // > 3MB
+    
+    const targetMaxWidth = isLargeFile ? 600 : maxWidth;
+    const targetMaxHeight = isLargeFile ? 600 : maxHeight;
+    const targetQuality = isLargeFile ? 0.5 : quality;
+
     const img = new Image();
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const objectUrl = URL.createObjectURL(file);
 
     img.onload = () => {
+      // Immediately revoke to free memory
+      URL.revokeObjectURL(objectUrl);
+
       // Calculate new dimensions maintaining aspect ratio
       let { width, height } = img;
       
-      if (width > maxWidth || height > maxHeight) {
-        const ratio = Math.min(maxWidth / width, maxHeight / height);
+      if (width > targetMaxWidth || height > targetMaxHeight) {
+        const ratio = Math.min(targetMaxWidth / width, targetMaxHeight / height);
         width = Math.round(width * ratio);
         height = Math.round(height * ratio);
       }
 
+      const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
-
+      
+      const ctx = canvas.getContext('2d');
       if (!ctx) {
         reject(new Error('Failed to get canvas context'));
         return;
@@ -37,6 +49,10 @@ export async function compressImage(
       // Convert canvas to blob
       canvas.toBlob(
         (blob) => {
+          // Clear canvas to free memory
+          canvas.width = 0;
+          canvas.height = 0;
+          
           if (!blob) {
             reject(new Error('Failed to compress image'));
             return;
@@ -48,22 +64,21 @@ export async function compressImage(
             lastModified: Date.now(),
           });
           
-          // Clean up
-          URL.revokeObjectURL(img.src);
+          console.log(`Image compressed: ${(fileSize / 1024).toFixed(0)}KB -> ${(blob.size / 1024).toFixed(0)}KB`);
           
           resolve(compressedFile);
         },
         'image/jpeg',
-        quality
+        targetQuality
       );
     };
 
     img.onerror = () => {
-      URL.revokeObjectURL(img.src);
+      URL.revokeObjectURL(objectUrl);
       reject(new Error('Failed to load image'));
     };
 
     // Load image from file
-    img.src = URL.createObjectURL(file);
+    img.src = objectUrl;
   });
 }
