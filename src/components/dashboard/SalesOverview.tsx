@@ -595,22 +595,55 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 </div>
               </div>
 
-              {/* Croo AI Projection & WTD Labor for Week */}
+              {/* Croo AI Projection & Pacing & WTD Labor for Week */}
               <div className="flex flex-col gap-2 mb-2">
-                {/* Week Projection */}
+                {/* Week Projection with Pacing */}
                 {salesData?.projections?.weekProjected && salesData.projections.weekProjected > 0 && (
-                  <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 via-purple-500/10 to-amber-500/10 border border-primary/20">
+                  <div className="flex items-stretch gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 via-purple-500/10 to-amber-500/10 border border-primary/20">
+                    {/* Target EOW - Left */}
                     <div className="flex items-center gap-2 flex-1">
                       <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
                         <Sparkles className="h-3.5 w-3.5 text-white" />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground">Projected Week Total</span>
+                        <span className="text-xs text-muted-foreground">Target EOW</span>
                         <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
                           {formatCurrency(salesData.projections.weekProjected)}
                         </span>
                       </div>
                     </div>
+                    
+                    {/* Divider */}
+                    <div className="w-px bg-border/50 self-stretch" />
+                    
+                    {/* Pacing To - Right (only show if we have daily pacing data) */}
+                    {salesData?.projections?.todayPaceAdjusted !== undefined && 
+                     salesData?.projections?.todayProjected !== undefined && 
+                     salesData.projections.todayProjected > 0 && (
+                      <div className="flex items-center gap-2 flex-1 justify-end">
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs text-muted-foreground">Pacing To</span>
+                          {(() => {
+                            const pacingDelta = salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected;
+                            const weekPacing = salesData.projections.weekProjected + pacingDelta;
+                            const isPositive = pacingDelta >= 0;
+                            return (
+                              <>
+                                <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
+                                  {formatCurrency(weekPacing)}
+                                </span>
+                                <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                                  ({isPositive ? '+' : ''}{formatCurrency(pacingDelta)})
+                                </span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
+                          <TrendingUp className="h-3.5 w-3.5 text-white" />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -723,18 +756,53 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 </div>
               </div>
 
-              {/* Croo AI Projection for Month */}
+              {/* Croo AI Projection & Pacing for Month */}
               {salesData?.projections?.monthProjected && salesData.projections.monthProjected > 0 && (
-                <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 to-purple-500/10 border border-primary/20 mb-2">
-                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500">
-                    <Sparkles className="h-3.5 w-3.5 text-white" />
+                <div className="flex items-stretch gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 via-purple-500/10 to-amber-500/10 border border-primary/20 mb-2">
+                  {/* Target EOM - Left */}
+                  <div className="flex items-center gap-2 flex-1">
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
+                      <Sparkles className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-xs text-muted-foreground">Target EOM</span>
+                      <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
+                        {formatCurrency(salesData.projections.monthProjected)}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">Croo AI Projected Month Total:</span>
-                    <span className="text-sm font-semibold text-primary transition-all duration-300 ease-out">
-                      {formatCurrency(salesData.projections.monthProjected)}
-                    </span>
-                  </div>
+                  
+                  {/* Divider */}
+                  <div className="w-px bg-border/50 self-stretch" />
+                  
+                  {/* Pacing To - Right (only show if we have daily pacing data) */}
+                  {salesData?.projections?.todayPaceAdjusted !== undefined && 
+                   salesData?.projections?.todayProjected !== undefined && 
+                   salesData.projections.todayProjected > 0 && (
+                    <div className="flex items-center gap-2 flex-1 justify-end">
+                      <div className="flex flex-col items-end">
+                        <span className="text-xs text-muted-foreground">Pacing To</span>
+                        {(() => {
+                          const pacingDelta = salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected;
+                          const monthPacing = salesData.projections.monthProjected + pacingDelta;
+                          const isPositive = pacingDelta >= 0;
+                          return (
+                            <>
+                              <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
+                                {formatCurrency(monthPacing)}
+                              </span>
+                              <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                                ({isPositive ? '+' : ''}{formatCurrency(pacingDelta)})
+                              </span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
+                        <TrendingUp className="h-3.5 w-3.5 text-white" />
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               
