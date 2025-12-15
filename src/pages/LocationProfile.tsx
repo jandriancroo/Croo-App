@@ -17,6 +17,7 @@ import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
 import { LocationAuditsSection } from '@/components/settings/LocationAuditsSection';
 import { PunchClockSettingsSection } from '@/components/settings/PunchClockSettingsSection';
+import { PunchClockTemplatesSection } from '@/components/settings/PunchClockTemplatesSection';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 
@@ -397,6 +398,11 @@ export default function LocationProfile() {
           {/* Punch Clock Customization - only for existing standard locations */}
           {!isNew && location?.location_type !== 'checklist_only' && (
             <PunchClockSettingsSection locationId={locationId} />
+          )}
+
+          {/* Punch Clock Scheduled Themes - only for existing standard locations */}
+          {!isNew && location?.location_type !== 'checklist_only' && (
+            <PunchClockTemplatesSection locationId={locationId} />
           )}
 
           {/* Labor Rules - only for existing standard locations */}
