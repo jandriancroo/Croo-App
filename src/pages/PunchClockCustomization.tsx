@@ -459,10 +459,12 @@ export default function PunchClockCustomization() {
     
     // Custom theme
     const theme = themes.find(t => t.id === selectedThemeId);
-    if (theme && theme.background_urls.length > 0) {
-      const slideIdx = previewSlideIndex % Math.max(theme.background_urls.length, theme.overlay_texts.length);
+    if (theme) {
+      const validUrls = theme.background_urls.filter(url => url && url.trim() !== "");
+      const slideCount = Math.max(validUrls.length, theme.overlay_texts.length, 1);
+      const slideIdx = previewSlideIndex % slideCount;
       return {
-        backgroundImage: theme.background_urls[slideIdx] || theme.background_urls[0],
+        backgroundImage: validUrls[slideIdx] || validUrls[0] || null,
         overlayText: theme.overlay_texts[slideIdx] || "",
         textColor: theme.text_color,
         textShadow: theme.text_shadow,
@@ -652,10 +654,13 @@ export default function PunchClockCustomization() {
 
       {/* Preview Dialog */}
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
-        <DialogContent className="max-w-5xl p-0 overflow-hidden">
+        <DialogContent className="max-w-5xl p-0 overflow-hidden" aria-describedby={undefined}>
+          <DialogHeader className="sr-only">
+            <DialogTitle>Punch Clock Preview</DialogTitle>
+          </DialogHeader>
           <div className="grid md:grid-cols-2">
             {/* Left Side - Theme Preview */}
-            <div 
+            <div
               className="relative min-h-[500px] bg-cover bg-center transition-all duration-500"
               style={{ 
                 backgroundImage: previewData.backgroundImage 
