@@ -16,6 +16,7 @@ import { LocationSettingsSection } from '@/components/settings/LocationSettingsS
 import { LaborRulesSection } from '@/components/settings/LaborRulesSection';
 import { IntegrationsSection } from '@/components/settings/IntegrationsSection';
 import { LocationAuditsSection } from '@/components/settings/LocationAuditsSection';
+import { PunchClockSettingsSection } from '@/components/settings/PunchClockSettingsSection';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 
@@ -392,6 +393,11 @@ export default function LocationProfile() {
 
           {/* Location Settings (hours and blackout dates) - only for existing locations */}
           {!isNew && <LocationSettingsSection locationId={locationId} />}
+
+          {/* Punch Clock Customization - only for existing standard locations */}
+          {!isNew && location?.location_type !== 'checklist_only' && (
+            <PunchClockSettingsSection locationId={locationId} />
+          )}
 
           {/* Labor Rules - only for existing standard locations */}
           {!isNew && location?.location_type !== 'checklist_only' && (

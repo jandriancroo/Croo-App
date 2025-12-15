@@ -62,6 +62,12 @@ export default function PunchClock() {
   const [expiringCerts, setExpiringCerts] = useState<any[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
   const [birthdayEmployees, setBirthdayEmployees] = useState<any[]>([]);
+  
+  // Custom punch clock settings
+  const [customBackground, setCustomBackground] = useState<string | null>(null);
+  const [customOverlayText, setCustomOverlayText] = useState<string | null>(null);
+  const [customTextColor, setCustomTextColor] = useState("#FFFFFF");
+  const [birthdayEventsEnabled, setBirthdayEventsEnabled] = useState(true);
 
   const currentFact = DAILY_FACTS[currentFactIndex];
 
@@ -95,10 +101,41 @@ export default function PunchClock() {
     return () => clearInterval(factTimer);
   }, []);
 
-  // Check for birthdays on mount
+  // Fetch punch clock settings and check birthdays on mount
   useEffect(() => {
-    checkAllBirthdays();
-  }, []);
+    fetchPunchClockSettings();
+  }, [currentLocation?.id]);
+
+  useEffect(() => {
+    if (birthdayEventsEnabled) {
+      checkAllBirthdays();
+    } else {
+      setBirthdayEmployees([]);
+    }
+  }, [birthdayEventsEnabled]);
+
+  const fetchPunchClockSettings = async () => {
+    if (!currentLocation?.id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("location_settings")
+        .select("punch_clock_background_url, punch_clock_overlay_text, punch_clock_text_color, birthday_events_enabled")
+        .eq("location_id", currentLocation.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setCustomBackground(data.punch_clock_background_url);
+        setCustomOverlayText(data.punch_clock_overlay_text);
+        setCustomTextColor(data.punch_clock_text_color || "#FFFFFF");
+        setBirthdayEventsEnabled(data.birthday_events_enabled ?? true);
+      }
+    } catch (error) {
+      console.error("Error fetching punch clock settings:", error);
+    }
+  };
 
   // Enter fullscreen on mount, exit on unmount
   useEffect(() => {
@@ -511,7 +548,29 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     </p>
                   </div>
                 </div>
+              ) : customBackground ? (
+                // Custom background from location settings
+                <div className="relative h-full min-h-[500px] bg-cover bg-center" style={{ backgroundImage: `url(${customBackground})` }}>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
+                  <div className="absolute inset-0 flex flex-col justify-center items-center p-8">
+                    {customOverlayText && (
+                      <h2 
+                        className="text-4xl font-bold mb-6 text-center drop-shadow-lg"
+                        style={{ color: customTextColor }}
+                      >
+                        {customOverlayText}
+                      </h2>
+                    )}
+                    <div 
+                      className="text-5xl font-bold drop-shadow-lg"
+                      style={{ color: customTextColor }}
+                    >
+                      {format(currentTime, 'h:mm:ss a')}
+                    </div>
+                  </div>
+                </div>
               ) : (
+                // Default: Fun facts
                 <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentFact.image})` }}>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                   <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">

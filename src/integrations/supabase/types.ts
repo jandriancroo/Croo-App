@@ -1452,6 +1452,7 @@ export type Database = {
       }
       location_settings: {
         Row: {
+          birthday_events_enabled: boolean | null
           blackout_dates: string[] | null
           created_at: string
           drawer_bank: number
@@ -1459,11 +1460,15 @@ export type Database = {
           hours_open: string | null
           id: string
           location_id: string
+          punch_clock_background_url: string | null
+          punch_clock_overlay_text: string | null
+          punch_clock_text_color: string | null
           safe_target: number
           timezone: string
           updated_at: string
         }
         Insert: {
+          birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null
           created_at?: string
           drawer_bank?: number
@@ -1471,11 +1476,15 @@ export type Database = {
           hours_open?: string | null
           id?: string
           location_id: string
+          punch_clock_background_url?: string | null
+          punch_clock_overlay_text?: string | null
+          punch_clock_text_color?: string | null
           safe_target?: number
           timezone?: string
           updated_at?: string
         }
         Update: {
+          birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null
           created_at?: string
           drawer_bank?: number
@@ -1483,6 +1492,9 @@ export type Database = {
           hours_open?: string | null
           id?: string
           location_id?: string
+          punch_clock_background_url?: string | null
+          punch_clock_overlay_text?: string | null
+          punch_clock_text_color?: string | null
           safe_target?: number
           timezone?: string
           updated_at?: string
