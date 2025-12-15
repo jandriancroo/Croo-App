@@ -1463,6 +1463,7 @@ export type Database = {
           punch_clock_background_url: string | null
           punch_clock_overlay_text: string | null
           punch_clock_text_color: string | null
+          punch_clock_text_shadow: boolean | null
           safe_target: number
           timezone: string
           updated_at: string
@@ -1479,6 +1480,7 @@ export type Database = {
           punch_clock_background_url?: string | null
           punch_clock_overlay_text?: string | null
           punch_clock_text_color?: string | null
+          punch_clock_text_shadow?: boolean | null
           safe_target?: number
           timezone?: string
           updated_at?: string
@@ -1495,6 +1497,7 @@ export type Database = {
           punch_clock_background_url?: string | null
           punch_clock_overlay_text?: string | null
           punch_clock_text_color?: string | null
+          punch_clock_text_shadow?: boolean | null
           safe_target?: number
           timezone?: string
           updated_at?: string

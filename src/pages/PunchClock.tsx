@@ -12,27 +12,69 @@ import crooLogo from '@/assets/croo-logo.png';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
 
+// Nature landscapes - high resolution beautiful nature images
+const NATURE_IMAGES = [
+  "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1920&q=90", // Swiss Alps
+  "https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=1920&q=90", // Mountain lake
+  "https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=1920&q=90", // Misty mountains
+  "https://images.unsplash.com/photo-1433086966358-54859d0ed716?w=1920&q=90", // Waterfall
+  "https://images.unsplash.com/photo-1518837695005-2083093ee35b?w=1920&q=90", // Ocean sunset
+  "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1920&q=90", // Tropical beach
+  "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1920&q=90", // Foggy forest
+  "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=1920&q=90", // Sunlit forest
+  "https://images.unsplash.com/photo-1472214103451-9374bd1c798e?w=1920&q=90", // Green valley
+  "https://images.unsplash.com/photo-1504893524553-b855bce32c67?w=1920&q=90", // River canyon
+];
+
+// Historical landmarks - high resolution images
+const HISTORICAL_IMAGES = [
+  "https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=1920&q=90", // Eiffel Tower
+  "https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=1920&q=90", // Colosseum
+  "https://images.unsplash.com/photo-1564507592333-c60657eea523?w=1920&q=90", // Taj Mahal
+  "https://images.unsplash.com/photo-1548013146-72479768bada?w=1920&q=90", // Great Wall
+  "https://images.unsplash.com/photo-1526711657229-e7e080ed7aa1?w=1920&q=90", // Machu Picchu
+  "https://images.unsplash.com/photo-1555921015-5532091f6026?w=1920&q=90", // Parthenon
+  "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?w=1920&q=90", // Pyramids
+  "https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=1920&q=90", // Tower Bridge
+  "https://images.unsplash.com/photo-1518509562904-e7ef99cdbc86?w=1920&q=90", // Stonehenge
+  "https://images.unsplash.com/photo-1583417267826-aebc4d1542e1?w=1920&q=90", // Angkor Wat
+];
+
+// Wise quotes for historical theme
+const WISE_QUOTES = [
+  '"The only way to do great work is to love what you do." - Steve Jobs',
+  '"In the middle of difficulty lies opportunity." - Albert Einstein',
+  '"Success is not final, failure is not fatal: it is the courage to continue that counts." - Winston Churchill',
+  '"The future belongs to those who believe in the beauty of their dreams." - Eleanor Roosevelt',
+  '"It does not matter how slowly you go as long as you do not stop." - Confucius',
+  '"The best time to plant a tree was 20 years ago. The second best time is now." - Chinese Proverb',
+  '"Be the change you wish to see in the world." - Mahatma Gandhi',
+  '"The only thing we have to fear is fear itself." - Franklin D. Roosevelt',
+  '"To improve is to change; to be perfect is to change often." - Winston Churchill',
+  '"What lies behind us and what lies before us are tiny matters compared to what lies within us." - Ralph Waldo Emerson',
+];
+
 const ALL_FACTS = [
-  { fact: "Honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still perfectly edible.", category: "Nature", image: "https://images.unsplash.com/photo-1587049352846-4a222e784d38?w=800&q=80" },
-  { fact: "Octopuses have three hearts, blue blood, and can taste with their arms.", category: "Animals", image: "https://images.unsplash.com/photo-1545671913-b89ac1b4ac10?w=800&q=80" },
-  { fact: "A day on Venus is longer than a year on Venus. It takes 243 Earth days to rotate once but only 225 Earth days to orbit the Sun.", category: "Space", image: "https://images.unsplash.com/photo-1614732414444-096e5f1122d5?w=800&q=80" },
-  { fact: "Bananas are berries, but strawberries are not. Botanically speaking, a berry has seeds inside the flesh.", category: "Science", image: "https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=800&q=80" },
-  { fact: "The shortest war in history lasted 38 to 45 minutes between Britain and Zanzibar on August 27, 1896.", category: "History", image: "https://images.unsplash.com/photo-1461360370896-922624d12a74?w=800&q=80" },
-  { fact: "A group of flamingos is called a 'flamboyance'.", category: "Animals", image: "https://images.unsplash.com/photo-1497206365907-f5e630693df0?w=800&q=80" },
-  { fact: "The Eiffel Tower can grow more than 6 inches during summer due to thermal expansion of the iron.", category: "Engineering", image: "https://images.unsplash.com/photo-1511739001486-6bfe10ce65f4?w=800&q=80" },
-  { fact: "Cows have best friends and get stressed when they are separated from them.", category: "Animals", image: "https://images.unsplash.com/photo-1527153857715-3908f2bae5e8?w=800&q=80" },
-  { fact: "There are more possible iterations of a game of chess than there are atoms in the known universe.", category: "Math", image: "https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=800&q=80" },
-  { fact: "The inventor of the Pringles can is buried in one. Fredric Baur requested his ashes be stored in a Pringles can.", category: "Quirky", image: "https://images.unsplash.com/photo-1621447504864-d8686e12698c?w=800&q=80" },
-  { fact: "Scotland's national animal is the unicorn. It has been a Scottish heraldic symbol since the 12th century.", category: "Culture", image: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=800&q=80" },
-  { fact: "The heart of a blue whale is so big that a small child could swim through its arteries.", category: "Animals", image: "https://images.unsplash.com/photo-1568430462989-44163eb1752f?w=800&q=80" },
-  { fact: "There's a species of jellyfish that is biologically immortal. Turritopsis dohrnii can revert to its juvenile form.", category: "Nature", image: "https://images.unsplash.com/photo-1545671913-b89ac1b4ac10?w=800&q=80" },
-  { fact: "The moon is slowly drifting away from Earth at about 1.5 inches per year.", category: "Space", image: "https://images.unsplash.com/photo-1532693322450-2cb5c511067d?w=800&q=80" },
-  { fact: "A single strand of spaghetti is called a 'spaghetto'.", category: "Language", image: "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=800&q=80" },
-  { fact: "Hot water freezes faster than cold water in certain conditions. This is called the Mpemba effect.", category: "Science", image: "https://images.unsplash.com/photo-1489549132488-d00b7eee80f1?w=800&q=80" },
-  { fact: "Nintendo was founded in 1889 as a playing card company, over 100 years before video games.", category: "History", image: "https://images.unsplash.com/photo-1612287230202-1ff1d85d1bdf?w=800&q=80" },
-  { fact: "A cloud can weigh more than a million pounds. They float because the droplets are spread over a huge area.", category: "Nature", image: "https://images.unsplash.com/photo-1517483000871-1dbf64a6e1c6?w=800&q=80" },
-  { fact: "Cleopatra lived closer in time to the Moon landing than to the construction of the Great Pyramid.", category: "History", image: "https://images.unsplash.com/photo-1539768942893-daf53e448371?w=800&q=80" },
-  { fact: "Your brain uses about 20% of your total energy and oxygen intake, despite being only 2% of your body weight.", category: "Science", image: "https://images.unsplash.com/photo-1559757175-5700dde675bc?w=800&q=80" },
+  { fact: "Honey never spoils. Archaeologists have found 3,000-year-old honey in Egyptian tombs that was still perfectly edible.", category: "Nature" },
+  { fact: "Octopuses have three hearts, blue blood, and can taste with their arms.", category: "Animals" },
+  { fact: "A day on Venus is longer than a year on Venus. It takes 243 Earth days to rotate once but only 225 Earth days to orbit the Sun.", category: "Space" },
+  { fact: "Bananas are berries, but strawberries are not. Botanically speaking, a berry has seeds inside the flesh.", category: "Science" },
+  { fact: "The shortest war in history lasted 38 to 45 minutes between Britain and Zanzibar on August 27, 1896.", category: "History" },
+  { fact: "A group of flamingos is called a 'flamboyance'.", category: "Animals" },
+  { fact: "The Eiffel Tower can grow more than 6 inches during summer due to thermal expansion of the iron.", category: "Engineering" },
+  { fact: "Cows have best friends and get stressed when they are separated from them.", category: "Animals" },
+  { fact: "There are more possible iterations of a game of chess than there are atoms in the known universe.", category: "Math" },
+  { fact: "The inventor of the Pringles can is buried in one. Fredric Baur requested his ashes be stored in a Pringles can.", category: "Quirky" },
+  { fact: "Scotland's national animal is the unicorn. It has been a Scottish heraldic symbol since the 12th century.", category: "Culture" },
+  { fact: "The heart of a blue whale is so big that a small child could swim through its arteries.", category: "Animals" },
+  { fact: "There's a species of jellyfish that is biologically immortal. Turritopsis dohrnii can revert to its juvenile form.", category: "Nature" },
+  { fact: "The moon is slowly drifting away from Earth at about 1.5 inches per year.", category: "Space" },
+  { fact: "A single strand of spaghetti is called a 'spaghetto'.", category: "Language" },
+  { fact: "Hot water freezes faster than cold water in certain conditions. This is called the Mpemba effect.", category: "Science" },
+  { fact: "Nintendo was founded in 1889 as a playing card company, over 100 years before video games.", category: "History" },
+  { fact: "A cloud can weigh more than a million pounds. They float because the droplets are spread over a huge area.", category: "Nature" },
+  { fact: "Cleopatra lived closer in time to the Moon landing than to the construction of the Great Pyramid.", category: "History" },
+  { fact: "Your brain uses about 20% of your total energy and oxygen intake, despite being only 2% of your body weight.", category: "Science" },
 ];
 
 // Select 5 facts for today based on the day of year
@@ -62,14 +104,19 @@ export default function PunchClock() {
   const [expiringCerts, setExpiringCerts] = useState<any[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
   const [birthdayEmployees, setBirthdayEmployees] = useState<any[]>([]);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   // Custom punch clock settings
   const [customBackground, setCustomBackground] = useState<string | null>(null);
   const [customOverlayText, setCustomOverlayText] = useState<string | null>(null);
   const [customTextColor, setCustomTextColor] = useState("#FFFFFF");
   const [birthdayEventsEnabled, setBirthdayEventsEnabled] = useState(true);
+  const [textShadowEnabled, setTextShadowEnabled] = useState(false);
 
   const currentFact = DAILY_FACTS[currentFactIndex];
+  const currentNatureImage = NATURE_IMAGES[currentImageIndex % NATURE_IMAGES.length];
+  const currentHistoricalImage = HISTORICAL_IMAGES[currentImageIndex % HISTORICAL_IMAGES.length];
+  const currentQuote = WISE_QUOTES[currentImageIndex % WISE_QUOTES.length];
 
   const MASTER_EXIT_CODE = '0223';
 
@@ -97,6 +144,7 @@ export default function PunchClock() {
   useEffect(() => {
     const factTimer = setInterval(() => {
       setCurrentFactIndex((prev) => (prev + 1) % DAILY_FACTS.length);
+      setCurrentImageIndex((prev) => (prev + 1) % 10);
     }, 30000);
     return () => clearInterval(factTimer);
   }, []);
@@ -142,7 +190,7 @@ export default function PunchClock() {
         // Otherwise, fall back to default location settings
         const { data, error } = await supabase
           .from("location_settings")
-          .select("punch_clock_background_url, punch_clock_overlay_text, punch_clock_text_color, birthday_events_enabled")
+          .select("punch_clock_background_url, punch_clock_overlay_text, punch_clock_text_color, birthday_events_enabled, punch_clock_text_shadow")
           .eq("location_id", currentLocation.id)
           .maybeSingle();
 
@@ -153,6 +201,7 @@ export default function PunchClock() {
           setCustomOverlayText(data.punch_clock_overlay_text);
           setCustomTextColor(data.punch_clock_text_color || "#FFFFFF");
           setBirthdayEventsEnabled(data.birthday_events_enabled ?? true);
+          setTextShadowEnabled((data as any).punch_clock_text_shadow ?? false);
         }
       }
 
@@ -582,39 +631,58 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     </p>
                   </div>
                 </div>
-              ) : customBackground ? (
+              ) : customBackground === "historical_quotes" ? (
+                // Historical theme with rotating landmarks and quotes
+                <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentHistoricalImage})` }}>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                  <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
+                    <div className="text-5xl font-bold mb-4 drop-shadow-lg">
+                      {format(currentTime, 'h:mm:ss a')}
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xl font-medium italic drop-shadow-lg">{currentQuote}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : customBackground === "nature_facts" || !customBackground ? (
+                // Nature theme with rotating landscapes and facts (default)
+                <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentNatureImage})` }}>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                  <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
+                    <div className="text-5xl font-bold mb-4 drop-shadow-lg">
+                      {format(currentTime, 'h:mm:ss a')}
+                    </div>
+                    <h2 className="text-3xl font-bold mb-4 drop-shadow-lg">Did You Know?</h2>
+                    <div className="space-y-2">
+                      <p className="text-xl font-medium drop-shadow-lg">{currentFact.fact}</p>
+                      <p className="text-sm opacity-90 drop-shadow">📚 {currentFact.category}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 // Custom background from location settings
                 <div className="relative h-full min-h-[500px] bg-cover bg-center" style={{ backgroundImage: `url(${customBackground})` }}>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
                   <div className="absolute inset-0 flex flex-col justify-center items-center p-8">
                     {customOverlayText && (
                       <h2 
-                        className="text-4xl font-bold mb-6 text-center drop-shadow-lg"
-                        style={{ color: customTextColor }}
+                        className={`text-4xl font-bold mb-6 text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                        style={{ 
+                          color: customTextColor,
+                          textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                        }}
                       >
                         {customOverlayText}
                       </h2>
                     )}
                     <div 
-                      className="text-5xl font-bold drop-shadow-lg"
-                      style={{ color: customTextColor }}
+                      className={`text-5xl font-bold ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                      style={{ 
+                        color: customTextColor,
+                        textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                      }}
                     >
                       {format(currentTime, 'h:mm:ss a')}
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                // Default: Fun facts
-                <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentFact.image})` }}>
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
-                    <div className="text-5xl font-bold mb-4">
-                      {format(currentTime, 'h:mm:ss a')}
-                    </div>
-                    <h2 className="text-3xl font-bold mb-4">Did You Know?</h2>
-                    <div className="space-y-2">
-                      <p className="text-xl font-medium">{currentFact.fact}</p>
-                      <p className="text-sm opacity-90">📚 {currentFact.category}</p>
                     </div>
                   </div>
                 </div>
