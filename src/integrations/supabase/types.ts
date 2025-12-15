@@ -2096,6 +2096,66 @@ export type Database = {
         }
         Relationships: []
       }
+      punch_clock_templates: {
+        Row: {
+          background_url: string | null
+          created_at: string
+          created_by: string | null
+          end_at: string
+          id: string
+          is_active: boolean | null
+          location_id: string
+          name: string
+          overlay_text: string | null
+          start_at: string
+          text_color: string | null
+          updated_at: string
+        }
+        Insert: {
+          background_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_at: string
+          id?: string
+          is_active?: boolean | null
+          location_id: string
+          name: string
+          overlay_text?: string | null
+          start_at: string
+          text_color?: string | null
+          updated_at?: string
+        }
+        Update: {
+          background_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_at?: string
+          id?: string
+          is_active?: boolean | null
+          location_id?: string
+          name?: string
+          overlay_text?: string | null
+          start_at?: string
+          text_color?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "punch_clock_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "punch_clock_templates_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_notification_tokens: {
         Row: {
           created_at: string

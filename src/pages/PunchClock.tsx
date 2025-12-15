@@ -118,19 +118,53 @@ export default function PunchClock() {
     if (!currentLocation?.id) return;
 
     try {
-      const { data, error } = await supabase
-        .from("location_settings")
-        .select("punch_clock_background_url, punch_clock_overlay_text, punch_clock_text_color, birthday_events_enabled")
+      // First check for any active scheduled template
+      const now = new Date().toISOString();
+      const { data: activeTemplate, error: templateError } = await supabase
+        .from("punch_clock_templates")
+        .select("background_url, overlay_text, text_color")
         .eq("location_id", currentLocation.id)
+        .eq("is_active", true)
+        .lte("start_at", now)
+        .gte("end_at", now)
+        .order("start_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
-      if (error) throw error;
+      if (templateError) throw templateError;
 
-      if (data) {
-        setCustomBackground(data.punch_clock_background_url);
-        setCustomOverlayText(data.punch_clock_overlay_text);
-        setCustomTextColor(data.punch_clock_text_color || "#FFFFFF");
-        setBirthdayEventsEnabled(data.birthday_events_enabled ?? true);
+      // If active template exists, use it
+      if (activeTemplate) {
+        setCustomBackground(activeTemplate.background_url);
+        setCustomOverlayText(activeTemplate.overlay_text);
+        setCustomTextColor(activeTemplate.text_color || "#FFFFFF");
+      } else {
+        // Otherwise, fall back to default location settings
+        const { data, error } = await supabase
+          .from("location_settings")
+          .select("punch_clock_background_url, punch_clock_overlay_text, punch_clock_text_color, birthday_events_enabled")
+          .eq("location_id", currentLocation.id)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        if (data) {
+          setCustomBackground(data.punch_clock_background_url);
+          setCustomOverlayText(data.punch_clock_overlay_text);
+          setCustomTextColor(data.punch_clock_text_color || "#FFFFFF");
+          setBirthdayEventsEnabled(data.birthday_events_enabled ?? true);
+        }
+      }
+
+      // Always fetch birthday setting from location_settings
+      const { data: locationSettings } = await supabase
+        .from("location_settings")
+        .select("birthday_events_enabled")
+        .eq("location_id", currentLocation.id)
+        .maybeSingle();
+      
+      if (locationSettings) {
+        setBirthdayEventsEnabled(locationSettings.birthday_events_enabled ?? true);
       }
     } catch (error) {
       console.error("Error fetching punch clock settings:", error);
