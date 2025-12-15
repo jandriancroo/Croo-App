@@ -2102,6 +2102,7 @@ export type Database = {
       punch_clock_templates: {
         Row: {
           background_url: string | null
+          background_urls: Json | null
           created_at: string
           created_by: string | null
           end_at: string
@@ -2110,12 +2111,15 @@ export type Database = {
           location_id: string
           name: string
           overlay_text: string | null
+          overlay_texts: Json | null
           start_at: string
           text_color: string | null
+          text_shadow: boolean | null
           updated_at: string
         }
         Insert: {
           background_url?: string | null
+          background_urls?: Json | null
           created_at?: string
           created_by?: string | null
           end_at: string
@@ -2124,12 +2128,15 @@ export type Database = {
           location_id: string
           name: string
           overlay_text?: string | null
+          overlay_texts?: Json | null
           start_at: string
           text_color?: string | null
+          text_shadow?: boolean | null
           updated_at?: string
         }
         Update: {
           background_url?: string | null
+          background_urls?: Json | null
           created_at?: string
           created_by?: string | null
           end_at?: string
@@ -2138,8 +2145,10 @@ export type Database = {
           location_id?: string
           name?: string
           overlay_text?: string | null
+          overlay_texts?: Json | null
           start_at?: string
           text_color?: string | null
+          text_shadow?: boolean | null
           updated_at?: string
         }
         Relationships: [

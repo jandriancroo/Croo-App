@@ -153,11 +153,24 @@ export default function PunchClock() {
   const [birthdayEventsEnabled, setBirthdayEventsEnabled] = useState(true);
   const [textShadowEnabled, setTextShadowEnabled] = useState(false);
   const [isImageDark, setIsImageDark] = useState(true); // Track if current background is dark
+  
+  // Multi-slide custom theme support
+  const [customBackgroundUrls, setCustomBackgroundUrls] = useState<string[]>([]);
+  const [customOverlayTexts, setCustomOverlayTexts] = useState<string[]>([]);
+  const [customSlideIndex, setCustomSlideIndex] = useState(0);
 
   const currentFact = DAILY_FACTS[currentFactIndex];
   const currentNatureImage = NATURE_IMAGES[currentImageIndex % NATURE_IMAGES.length];
   const currentHistoricalImage = HISTORICAL_IMAGES[currentImageIndex % HISTORICAL_IMAGES.length];
   const currentQuote = WISE_QUOTES[currentImageIndex % WISE_QUOTES.length];
+  
+  // Current custom slide based on rotation
+  const currentCustomImage = customBackgroundUrls.length > 0 
+    ? customBackgroundUrls[customSlideIndex % customBackgroundUrls.length] 
+    : customBackground;
+  const currentCustomText = customOverlayTexts.length > 0 
+    ? customOverlayTexts[customSlideIndex % customOverlayTexts.length] 
+    : customOverlayText;
 
   const MASTER_EXIT_CODE = '0223';
 
@@ -181,11 +194,12 @@ export default function PunchClock() {
     return () => clearInterval(timer);
   }, []);
 
-  // Rotate facts every 30 seconds
+  // Rotate facts and custom slides every 30 seconds
   useEffect(() => {
     const factTimer = setInterval(() => {
       setCurrentFactIndex((prev) => (prev + 1) % DAILY_FACTS.length);
       setCurrentImageIndex((prev) => (prev + 1) % 10);
+      setCustomSlideIndex((prev) => prev + 1);
     }, 30000);
     return () => clearInterval(factTimer);
   }, []);
@@ -199,6 +213,8 @@ export default function PunchClock() {
         imageUrl = currentHistoricalImage;
       } else if (customBackground === "nature_facts" || !customBackground) {
         imageUrl = currentNatureImage;
+      } else if (customBackgroundUrls.length > 0) {
+        imageUrl = currentCustomImage;
       } else if (customBackground) {
         imageUrl = customBackground;
       }
@@ -210,7 +226,7 @@ export default function PunchClock() {
     };
     
     detectBrightness();
-  }, [customBackground, currentImageIndex, currentNatureImage, currentHistoricalImage]);
+  }, [customBackground, currentImageIndex, customSlideIndex, currentNatureImage, currentHistoricalImage, currentCustomImage, customBackgroundUrls.length]);
 
   // Fetch punch clock settings and check birthdays on mount
   useEffect(() => {
@@ -233,9 +249,10 @@ export default function PunchClock() {
       const now = new Date().toISOString();
       const { data: activeTemplate, error: templateError } = await supabase
         .from("punch_clock_templates")
-        .select("background_url, overlay_text, text_color")
+        .select("background_url, overlay_text, text_color, background_urls, overlay_texts, text_shadow, start_at, end_at")
         .eq("location_id", currentLocation.id)
         .eq("is_active", true)
+        .not("start_at", "is", null)
         .lte("start_at", now)
         .gte("end_at", now)
         .order("start_at", { ascending: false })
@@ -244,13 +261,23 @@ export default function PunchClock() {
 
       if (templateError) throw templateError;
 
-      // If active template exists, use it
+      // If active scheduled template exists, use it
       if (activeTemplate) {
-        setCustomBackground(activeTemplate.background_url);
-        setCustomOverlayText(activeTemplate.overlay_text);
+        const bgUrls = (activeTemplate.background_urls as string[]) || [];
+        const texts = (activeTemplate.overlay_texts as string[]) || [];
+        
+        if (bgUrls.length > 0) {
+          setCustomBackgroundUrls(bgUrls);
+          setCustomOverlayTexts(texts);
+          setCustomBackground("custom_multi");
+        } else {
+          setCustomBackground(activeTemplate.background_url);
+          setCustomOverlayText(activeTemplate.overlay_text);
+        }
         setCustomTextColor(activeTemplate.text_color || "#FFFFFF");
+        setTextShadowEnabled((activeTemplate as any).text_shadow ?? false);
       } else {
-        // Otherwise, fall back to default location settings
+        // Otherwise, check for default theme from location settings
         const { data, error } = await supabase
           .from("location_settings")
           .select("punch_clock_background_url, punch_clock_overlay_text, punch_clock_text_color, birthday_events_enabled, punch_clock_text_shadow")
@@ -260,11 +287,42 @@ export default function PunchClock() {
         if (error) throw error;
 
         if (data) {
-          setCustomBackground(data.punch_clock_background_url);
-          setCustomOverlayText(data.punch_clock_overlay_text);
-          setCustomTextColor(data.punch_clock_text_color || "#FFFFFF");
+          const selectedThemeId = data.punch_clock_background_url;
+          
+          // Check if it's a custom theme ID (not a built-in theme)
+          if (selectedThemeId && !["nature_facts", "historical_quotes"].includes(selectedThemeId)) {
+            // Fetch the custom theme
+            const { data: customTheme } = await supabase
+              .from("punch_clock_templates")
+              .select("background_url, overlay_text, text_color, background_urls, overlay_texts, text_shadow")
+              .eq("id", selectedThemeId)
+              .maybeSingle();
+            
+            if (customTheme) {
+              const bgUrls = (customTheme.background_urls as string[]) || [];
+              const texts = (customTheme.overlay_texts as string[]) || [];
+              
+              if (bgUrls.length > 0) {
+                setCustomBackgroundUrls(bgUrls);
+                setCustomOverlayTexts(texts);
+                setCustomBackground("custom_multi");
+              } else {
+                setCustomBackground(customTheme.background_url);
+                setCustomOverlayText(customTheme.overlay_text);
+              }
+              setCustomTextColor(customTheme.text_color || "#FFFFFF");
+              setTextShadowEnabled((customTheme as any).text_shadow ?? false);
+            } else {
+              // Theme not found, fall back to nature
+              setCustomBackground("nature_facts");
+            }
+          } else {
+            setCustomBackground(selectedThemeId);
+            setCustomOverlayText(data.punch_clock_overlay_text);
+            setCustomTextColor(data.punch_clock_text_color || "#FFFFFF");
+            setTextShadowEnabled((data as any).punch_clock_text_shadow ?? false);
+          }
           setBirthdayEventsEnabled(data.birthday_events_enabled ?? true);
-          setTextShadowEnabled((data as any).punch_clock_text_shadow ?? false);
         }
       }
 
@@ -743,8 +801,44 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     </div>
                   </div>
                 </div>
+              ) : customBackground === "custom_multi" && customBackgroundUrls.length > 0 ? (
+                // Multi-slide custom theme
+                <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentCustomImage})` }}>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
+                  {/* Large Logo */}
+                  <div className="absolute top-6 left-1/2 -translate-x-1/2">
+                    <img 
+                      src={crooLogo} 
+                      alt="Croo" 
+                      className="h-20 w-auto transition-all duration-500"
+                      style={{ filter: isImageDark ? 'brightness(0) invert(1)' : 'brightness(0) invert(0.15)' }}
+                    />
+                  </div>
+                  <div className="absolute inset-0 flex flex-col justify-center items-center p-8">
+                    {currentCustomText && (
+                      <h2 
+                        className={`text-4xl font-bold mb-6 text-center ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                        style={{ 
+                          color: customTextColor,
+                          textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                        }}
+                      >
+                        {currentCustomText}
+                      </h2>
+                    )}
+                    <div 
+                      className={`text-5xl font-bold ${textShadowEnabled ? '' : 'drop-shadow-lg'}`}
+                      style={{ 
+                        color: customTextColor,
+                        textShadow: textShadowEnabled ? '2px 2px 4px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.8)' : undefined
+                      }}
+                    >
+                      {format(currentTime, 'h:mm:ss a')}
+                    </div>
+                  </div>
+                </div>
               ) : (
-                // Custom background from location settings
+                // Single image custom background (legacy)
                 <div className="relative h-full min-h-[500px] bg-cover bg-center" style={{ backgroundImage: `url(${customBackground})` }}>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
                   {/* Large Logo */}
