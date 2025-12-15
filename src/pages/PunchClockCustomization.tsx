@@ -55,6 +55,7 @@ export default function PunchClockCustomization() {
   const [themes, setThemes] = useState<PunchClockTheme[]>([]);
   const [themesLoading, setThemesLoading] = useState(true);
   const [selectedThemeId, setSelectedThemeId] = useState<string>("nature_facts");
+  const [savedThemeId, setSavedThemeId] = useState<string>("nature_facts");
   
   // Theme editor state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -106,16 +107,9 @@ export default function PunchClockCustomization() {
         setBirthdayEventsEnabled(data.birthday_events_enabled ?? true);
         
         // Determine selected theme from stored value
-        if (data.punch_clock_background_url) {
-          if (BUILT_IN_THEME_IDS.includes(data.punch_clock_background_url)) {
-            setSelectedThemeId(data.punch_clock_background_url);
-          } else {
-            // It's a custom theme ID
-            setSelectedThemeId(data.punch_clock_background_url);
-          }
-        } else {
-          setSelectedThemeId("nature_facts");
-        }
+        const themeId = data.punch_clock_background_url || "nature_facts";
+        setSelectedThemeId(themeId);
+        setSavedThemeId(themeId);
       }
     } catch (error) {
       console.error("Error fetching settings:", error);
@@ -219,6 +213,7 @@ export default function PunchClockCustomization() {
         setSettingsId(data.id);
       }
 
+      setSavedThemeId(selectedThemeId);
       toast({ title: "Settings saved" });
     } catch (error) {
       console.error("Error saving settings:", error);
@@ -614,6 +609,11 @@ export default function PunchClockCustomization() {
                           {theme.background_urls.length > 1 && (
                             <span className="text-xs text-muted-foreground">
                               ({theme.background_urls.length} slides)
+                            </span>
+                          )}
+                          {savedThemeId === theme.id && (
+                            <span className="text-xs px-2 py-0.5 rounded-full text-white bg-green-500">
+                              Saved
                             </span>
                           )}
                           {theme.start_at && (
