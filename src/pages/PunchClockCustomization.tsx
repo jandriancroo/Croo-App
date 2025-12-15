@@ -556,7 +556,7 @@ export default function PunchClockCustomization() {
                           Historical & Wise Quotes
                         </div>
                       </SelectItem>
-                      {themes.filter(t => !t.start_at).map(theme => (
+                      {themes.map(theme => (
                         <SelectItem key={theme.id} value={theme.id}>
                           <div className="flex items-center gap-2">
                             <Image className="h-4 w-4" />
