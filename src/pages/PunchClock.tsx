@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +11,46 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import crooLogo from '@/assets/croo-logo.png';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
+
+// Function to calculate average brightness of an image
+const getImageBrightness = (imageUrl: string): Promise<number> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(128); // Default to middle brightness
+        return;
+      }
+      
+      // Sample at smaller size for performance
+      canvas.width = 50;
+      canvas.height = 50;
+      ctx.drawImage(img, 0, 0, 50, 50);
+      
+      try {
+        const imageData = ctx.getImageData(0, 0, 50, 50);
+        const data = imageData.data;
+        let totalBrightness = 0;
+        
+        for (let i = 0; i < data.length; i += 4) {
+          // Calculate perceived brightness using standard formula
+          const brightness = (data[i] * 299 + data[i + 1] * 587 + data[i + 2] * 114) / 1000;
+          totalBrightness += brightness;
+        }
+        
+        const avgBrightness = totalBrightness / (data.length / 4);
+        resolve(avgBrightness);
+      } catch (e) {
+        resolve(128); // Default on CORS or other errors
+      }
+    };
+    img.onerror = () => resolve(128);
+    img.src = imageUrl;
+  });
+};
 
 // Nature landscapes - high resolution beautiful nature images
 const NATURE_IMAGES = [
@@ -112,6 +152,7 @@ export default function PunchClock() {
   const [customTextColor, setCustomTextColor] = useState("#FFFFFF");
   const [birthdayEventsEnabled, setBirthdayEventsEnabled] = useState(true);
   const [textShadowEnabled, setTextShadowEnabled] = useState(false);
+  const [isImageDark, setIsImageDark] = useState(true); // Track if current background is dark
 
   const currentFact = DAILY_FACTS[currentFactIndex];
   const currentNatureImage = NATURE_IMAGES[currentImageIndex % NATURE_IMAGES.length];
@@ -148,6 +189,28 @@ export default function PunchClock() {
     }, 30000);
     return () => clearInterval(factTimer);
   }, []);
+
+  // Detect brightness of current background image
+  useEffect(() => {
+    const detectBrightness = async () => {
+      let imageUrl: string | null = null;
+      
+      if (customBackground === "historical_quotes") {
+        imageUrl = currentHistoricalImage;
+      } else if (customBackground === "nature_facts" || !customBackground) {
+        imageUrl = currentNatureImage;
+      } else if (customBackground) {
+        imageUrl = customBackground;
+      }
+      
+      if (imageUrl) {
+        const brightness = await getImageBrightness(imageUrl);
+        setIsImageDark(brightness < 128); // Below 128 is considered dark
+      }
+    };
+    
+    detectBrightness();
+  }, [customBackground, currentImageIndex, currentNatureImage, currentHistoricalImage]);
 
   // Fetch punch clock settings and check birthdays on mount
   useEffect(() => {
@@ -601,17 +664,20 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
 
       {!currentUser ? (
         <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 overflow-hidden touch-none" style={{ touchAction: 'none' }}>
-          {/* Logo */}
-          <div className="mb-8">
-            <img src={crooLogo} alt="Croo" className="h-24 w-auto" />
-          </div>
-          
-          
           <Card className="w-full max-w-5xl overflow-hidden">
             <div className="grid md:grid-cols-2">
               {/* Left Side - Image and Quote or Birthday Message */}
               {birthdayEmployees.length > 0 ? (
                 <div className="relative h-full min-h-[500px] bg-gradient-to-br from-primary via-accent to-primary">
+                  {/* Large Logo */}
+                  <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
+                    <img 
+                      src={crooLogo} 
+                      alt="Croo" 
+                      className="h-20 w-auto transition-all duration-500"
+                      style={{ filter: 'brightness(0) invert(1)' }}
+                    />
+                  </div>
                   <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-white">
                     <div className="text-9xl mb-6 animate-bounce">🎂</div>
                     <h2 className="text-6xl font-bold mb-4 text-center">Happy Birthday!</h2>
@@ -635,6 +701,15 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                 // Historical theme with rotating landmarks and quotes
                 <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentHistoricalImage})` }}>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                  {/* Large Logo */}
+                  <div className="absolute top-6 left-1/2 -translate-x-1/2">
+                    <img 
+                      src={crooLogo} 
+                      alt="Croo" 
+                      className="h-20 w-auto transition-all duration-500"
+                      style={{ filter: isImageDark ? 'brightness(0) invert(1)' : 'brightness(0) invert(0.15)' }}
+                    />
+                  </div>
                   <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
                     <div className="text-5xl font-bold mb-4 drop-shadow-lg">
                       {format(currentTime, 'h:mm:ss a')}
@@ -648,6 +723,15 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                 // Nature theme with rotating landscapes and facts (default)
                 <div className="relative h-full min-h-[500px] bg-cover bg-center transition-all duration-1000" style={{ backgroundImage: `url(${currentNatureImage})` }}>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+                  {/* Large Logo */}
+                  <div className="absolute top-6 left-1/2 -translate-x-1/2">
+                    <img 
+                      src={crooLogo} 
+                      alt="Croo" 
+                      className="h-20 w-auto transition-all duration-500"
+                      style={{ filter: isImageDark ? 'brightness(0) invert(1)' : 'brightness(0) invert(0.15)' }}
+                    />
+                  </div>
                   <div className="absolute inset-0 flex flex-col justify-end p-8 text-white">
                     <div className="text-5xl font-bold mb-4 drop-shadow-lg">
                       {format(currentTime, 'h:mm:ss a')}
@@ -663,6 +747,15 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                 // Custom background from location settings
                 <div className="relative h-full min-h-[500px] bg-cover bg-center" style={{ backgroundImage: `url(${customBackground})` }}>
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent" />
+                  {/* Large Logo */}
+                  <div className="absolute top-6 left-1/2 -translate-x-1/2">
+                    <img 
+                      src={crooLogo} 
+                      alt="Croo" 
+                      className="h-20 w-auto transition-all duration-500"
+                      style={{ filter: isImageDark ? 'brightness(0) invert(1)' : 'brightness(0) invert(0.15)' }}
+                    />
+                  </div>
                   <div className="absolute inset-0 flex flex-col justify-center items-center p-8">
                     {customOverlayText && (
                       <h2 
@@ -752,11 +845,10 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
         </div>
       ) : (
         <div className="min-h-screen flex flex-col items-center justify-center bg-background p-4 overflow-hidden touch-none" style={{ touchAction: 'none' }}>
-          {/* Logo */}
+          {/* Logo - larger size */}
           <div className="mb-8">
-            <img src={crooLogo} alt="Croo" className="h-24 w-auto" />
+            <img src={crooLogo} alt="Croo" className="h-32 w-auto" />
           </div>
-          
           
           <Card className="w-full max-w-md">
             <CardHeader className="text-center space-y-2">
