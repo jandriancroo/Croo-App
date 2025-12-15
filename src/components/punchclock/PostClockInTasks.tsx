@@ -158,7 +158,7 @@ export function PostClockInTasks({ userId, locationId, timezone, onDismiss }: Po
           // Fetch location hours to determine which tasks to show
           const { data: locationSettings } = await supabase
             .from('location_settings')
-            .select('hours_open, hours_close')
+            .select('hours_open, hours_close, am_safe_count_window_minutes, pm_safe_count_window_minutes')
             .eq('location_id', locationId)
             .single();
 
@@ -171,6 +171,10 @@ export function PostClockInTasks({ userId, locationId, timezone, onDismiss }: Po
 
           const openTime = locationHours?.open_time || locationSettings?.hours_open;
           const closeTime = locationHours?.close_time || locationSettings?.hours_close;
+          
+          // Use location-specific timing settings or defaults
+          const amWindowMinutes = locationSettings?.am_safe_count_window_minutes ?? 120;
+          const pmWindowMinutes = locationSettings?.pm_safe_count_window_minutes ?? 120;
 
           const parseTime = (timeStr: string | null): number | null => {
             if (!timeStr) return null;
@@ -183,10 +187,10 @@ export function PostClockInTasks({ userId, locationId, timezone, onDismiss }: Po
           const now = new Date();
           const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-          // AM Safe Count window: 2 hours before open to 2 hours after open
+          // AM Safe Count window: configurable minutes before/after open
           if (!amSafeCountSubmitted && openMinutes !== null) {
-            const amWindowStart = openMinutes - 120;
-            const amWindowEnd = openMinutes + 120;
+            const amWindowStart = openMinutes - amWindowMinutes;
+            const amWindowEnd = openMinutes + amWindowMinutes;
             if (currentMinutes >= amWindowStart && currentMinutes <= amWindowEnd) {
               allTasks.push({
                 id: 'safe-am',
@@ -199,10 +203,10 @@ export function PostClockInTasks({ userId, locationId, timezone, onDismiss }: Po
             }
           }
 
-          // PM Safe Count & Deposit window: at close to 2 hours after close
+          // PM Safe Count & Deposit window: at close to configurable minutes after close
           if (closeMinutes !== null) {
             const pmWindowStart = closeMinutes;
-            const pmWindowEnd = closeMinutes + 120;
+            const pmWindowEnd = closeMinutes + pmWindowMinutes;
             if (currentMinutes >= pmWindowStart && currentMinutes <= pmWindowEnd) {
               if (!pmSafeCountSubmitted) {
                 allTasks.push({

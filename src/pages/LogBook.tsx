@@ -74,14 +74,14 @@ export default function LogBook() {
     enabled: !!currentLocation,
   });
 
-  // Fetch location settings for safe/drawer targets
+  // Fetch location settings for safe/drawer targets and notification settings
   const { data: locationSettings } = useQuery({
     queryKey: ['location-settings', currentLocation?.id],
     queryFn: async () => {
       if (!currentLocation) return null;
       const { data, error } = await supabase
         .from('location_settings')
-        .select('safe_target, drawer_bank')
+        .select('safe_target, drawer_bank, drawer_count_notifications_enabled, safe_count_notifications_enabled')
         .eq('location_id', currentLocation.id)
         .maybeSingle();
       if (error) throw error;
@@ -604,25 +604,27 @@ export default function LogBook() {
                           // Navigate to search tab to show submission
                           setActiveTab('search');
 
-                          // Send push notification to managers/admins
-                          try {
-                            const overUnderText = data.variance > 0 
-                              ? `OVER $${data.variance.toFixed(2)}` 
-                              : data.variance < 0 
-                                ? `SHORT $${Math.abs(data.variance).toFixed(2)}`
-                                : 'BALANCED';
-                            
-                            await supabase.functions.invoke('send-push-notification', {
-                              body: {
-                                notification_type: 'drawer_count',
-                                title: `Drawer Count - ${currentLocation?.name || 'Location'}`,
-                                body: `Deposit: $${data.actualDeposit.toFixed(2)} | ${overUnderText}`,
-                                location_id: currentLocation?.id,
-                                roles: ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin'],
-                              }
-                            });
-                          } catch (notifError) {
-                            console.error('Error sending drawer count notification:', notifError);
+                          // Send push notification to managers/admins (if enabled for location)
+                          if (locationSettings?.drawer_count_notifications_enabled !== false) {
+                            try {
+                              const overUnderText = data.variance > 0 
+                                ? `OVER $${data.variance.toFixed(2)}` 
+                                : data.variance < 0 
+                                  ? `SHORT $${Math.abs(data.variance).toFixed(2)}`
+                                  : 'BALANCED';
+                              
+                              await supabase.functions.invoke('send-push-notification', {
+                                body: {
+                                  notification_type: 'drawer_count',
+                                  title: `Drawer Count - ${currentLocation?.name || 'Location'}`,
+                                  body: `Deposit: $${data.actualDeposit.toFixed(2)} | ${overUnderText}`,
+                                  location_id: currentLocation?.id,
+                                  roles: ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin'],
+                                }
+                              });
+                            } catch (notifError) {
+                              console.error('Error sending drawer count notification:', notifError);
+                            }
                           }
                         } catch (error: any) {
                           toast({
@@ -729,19 +731,21 @@ export default function LogBook() {
                           // Navigate to search tab to show submission
                           setActiveTab('search');
 
-                          // Send push notification to managers/admins
-                          try {
-                            await supabase.functions.invoke('send-push-notification', {
-                              body: {
-                                notification_type: 'safe_count',
-                                title: `Safe Count - ${currentLocation?.name || 'Location'}`,
-                                body: `${data.shift} Safe Count Complete - $${data.totalSafe.toFixed(2)} balanced`,
-                                location_id: currentLocation?.id,
-                                roles: ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin'],
-                              }
-                            });
-                          } catch (notifError) {
-                            console.error('Error sending safe count notification:', notifError);
+                          // Send push notification to managers/admins (if enabled for location)
+                          if (locationSettings?.safe_count_notifications_enabled !== false) {
+                            try {
+                              await supabase.functions.invoke('send-push-notification', {
+                                body: {
+                                  notification_type: 'safe_count',
+                                  title: `Safe Count - ${currentLocation?.name || 'Location'}`,
+                                  body: `${data.shift} Safe Count Complete - $${data.totalSafe.toFixed(2)} balanced`,
+                                  location_id: currentLocation?.id,
+                                  roles: ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin'],
+                                }
+                              });
+                            } catch (notifError) {
+                              console.error('Error sending safe count notification:', notifError);
+                            }
                           }
                         } catch (error: any) {
                           toast({
