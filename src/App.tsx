@@ -50,6 +50,7 @@ import PublicApplication from "./pages/PublicApplication";
 import HiringChat from "./pages/HiringChat";
 import ApplicantPortal from "./pages/ApplicantPortal";
 import Changelog from "./pages/Changelog";
+import PunchClockCustomization from "./pages/PunchClockCustomization";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
@@ -92,6 +93,7 @@ const AppContent = () => {
       <Route path="/payroll-review" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/location/:locationId" element={<ProtectedRoute><LocationProfile /></ProtectedRoute>} />
+      <Route path="/location/:locationId/punch-clock" element={<ProtectedRoute><PunchClockCustomization /></ProtectedRoute>} />
       <Route path="/organization/:id" element={<ProtectedRoute><OrganizationProfile /></ProtectedRoute>} />
       <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
       <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
