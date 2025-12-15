@@ -150,11 +150,13 @@ export default function PunchClockCustomization() {
       
       let themesData = data || [];
       
-      // Check if we need to seed built-in themes
-      const hasBuiltins = themesData.some(t => (t as any).is_builtin === true);
-      if (!hasBuiltins && themesData.length === 0) {
-        // Seed built-in themes
-        const seedPromises = BUILTIN_THEMES.map(theme => 
+      // Check if we need to seed built-in themes (by name)
+      const existingNames = themesData.map(t => t.name);
+      const missingBuiltins = BUILTIN_THEMES.filter(bt => !existingNames.includes(bt.name));
+      
+      if (missingBuiltins.length > 0) {
+        // Seed missing built-in themes
+        const seedPromises = missingBuiltins.map(theme => 
           supabase.from("punch_clock_templates").insert({
             location_id: locationId,
             name: theme.name,
@@ -169,7 +171,8 @@ export default function PunchClockCustomization() {
         );
         
         const results = await Promise.all(seedPromises);
-        themesData = results.map(r => r.data).filter(Boolean) as any[];
+        const newThemes = results.map(r => r.data).filter(Boolean) as any[];
+        themesData = [...themesData, ...newThemes];
       }
       
       const formattedThemes: PunchClockTheme[] = themesData.map(t => ({
