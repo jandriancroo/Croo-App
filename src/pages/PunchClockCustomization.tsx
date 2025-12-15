@@ -534,36 +534,50 @@ export default function PunchClockCustomization() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Theme Selector */}
-            <div className="space-y-2">
-              <Label>Default Theme</Label>
-              <Select value={selectedThemeId} onValueChange={setSelectedThemeId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a theme" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="nature_facts">
-                    <div className="flex items-center gap-2">
-                      <Mountain className="h-4 w-4" />
-                      Nature & Random Facts
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="historical_quotes">
-                    <div className="flex items-center gap-2">
-                      <Landmark className="h-4 w-4" />
-                      Historical & Wise Quotes
-                    </div>
-                  </SelectItem>
-                  {themes.filter(t => !t.start_at).map(theme => (
-                    <SelectItem key={theme.id} value={theme.id}>
-                      <div className="flex items-center gap-2">
-                        <Image className="h-4 w-4" />
-                        {theme.name}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Theme Selector with Preview */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 space-y-2">
+                  <Label>Select Theme</Label>
+                  <Select value={selectedThemeId} onValueChange={setSelectedThemeId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a theme" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nature_facts">
+                        <div className="flex items-center gap-2">
+                          <Mountain className="h-4 w-4" />
+                          Nature & Random Facts
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="historical_quotes">
+                        <div className="flex items-center gap-2">
+                          <Landmark className="h-4 w-4" />
+                          Historical & Wise Quotes
+                        </div>
+                      </SelectItem>
+                      {themes.filter(t => !t.start_at).map(theme => (
+                        <SelectItem key={theme.id} value={theme.id}>
+                          <div className="flex items-center gap-2">
+                            <Image className="h-4 w-4" />
+                            {theme.name}
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-primary/20 text-primary">Custom</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowPreview(true)}
+                  className="mt-6"
+                  disabled={!selectedThemeId}
+                >
+                  <Eye className="h-4 w-4 mr-1" />
+                  Preview
+                </Button>
+              </div>
               <p className="text-xs text-muted-foreground">
                 This theme is used when no scheduled theme is active
               </p>
