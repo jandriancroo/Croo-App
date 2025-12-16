@@ -28,11 +28,11 @@ import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { DrawerCountForm, DrawerCountData } from "@/components/logbook/DrawerCountForm";
 import { DrawerCountEntry, parseDrawerCountData } from "@/components/logbook/DrawerCountEntry";
 import { SafeCountForm, SafeCountData } from "@/components/logbook/SafeCountForm";
-import { SafeCountEntry, parseSafeCountData } from "@/components/logbook/SafeCountEntry";
+import { SafeCountEntry, parseSafeCountData, checkBankRunCompleted } from "@/components/logbook/SafeCountEntry";
 import { WeeklySummaryEntry, parseWeeklySummaryData } from "@/components/logbook/WeeklySummaryEntry";
 import { CateringOrdersSection } from "@/components/logbook/CateringOrdersSection";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
-import { startOfWeek, endOfWeek, getDay } from "date-fns";
+import { startOfWeek, endOfWeek, getDay, subDays, addDays } from "date-fns";
 import crooLogo from "@/assets/croo-logo.png";
 
 export default function LogBook() {
@@ -445,6 +445,31 @@ export default function LogBook() {
     
     return [entry];
   });
+
+  // Build a map of dates to their safe counts for bank run completion tracking
+  // Key: date string, Value: array of safe count data for that day
+  const safeCountsByDate: Record<string, SafeCountData[]> = {};
+  expandedEntries.forEach((entry: any) => {
+    if (entry.logbook_categories?.name?.toLowerCase() === 'safe count') {
+      const dateKey = entry.entry_date;
+      const safeData = entry.logbook_entry_values?.[0]?.value_text 
+        ? parseSafeCountData(entry.logbook_entry_values[0].value_text) 
+        : null;
+      if (safeData) {
+        if (!safeCountsByDate[dateKey]) {
+          safeCountsByDate[dateKey] = [];
+        }
+        safeCountsByDate[dateKey].push(safeData);
+      }
+    }
+  });
+
+  // Helper to check if previous day had a bank run (>$100 in $1 bills and >$50 in quarters)
+  const checkPreviousDayBankRun = (entryDate: string): boolean => {
+    const prevDate = format(subDays(new Date(entryDate + 'T12:00:00'), 1), 'yyyy-MM-dd');
+    const prevDaySafeCounts = safeCountsByDate[prevDate] || [];
+    return prevDaySafeCounts.some(sc => checkBankRunCompleted(sc));
+  };
 
   // Group entries by day - use entry_date directly as it's already YYYY-MM-DD
   const entriesByDay = expandedEntries.reduce((acc: any, entry: any) => {
@@ -901,12 +926,48 @@ export default function LogBook() {
       <div className="container max-w-6xl mx-auto p-4 md:p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
           <h1 className="text-3xl font-bold">Logs</h1>
-          {isAdmin && (
-            <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>
-              <Settings className="h-4 w-4 mr-2" />
-              Categories
-            </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={async () => {
+                    if (!currentLocation?.id || !user?.id) return;
+                    // Generate summary for previous week (Mon-Sun)
+                    const lastSunday = subDays(new Date(), getDay(new Date()) || 7);
+                    const lastMonday = subDays(lastSunday, 6);
+                    const weekStart = format(lastMonday, 'yyyy-MM-dd');
+                    const weekEnd = format(lastSunday, 'yyyy-MM-dd');
+                    
+                    toast({ title: "Generating weekly summary...", description: `Week of ${format(lastMonday, 'MMM d')} - ${format(lastSunday, 'MMM d')}` });
+                    
+                    try {
+                      await supabase.functions.invoke('generate-weekly-summary', {
+                        body: {
+                          location_id: currentLocation.id,
+                          week_start: weekStart,
+                          week_end: weekEnd,
+                          user_id: user.id,
+                        }
+                      });
+                      toast({ title: "Weekly summary generated!" });
+                      queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                    } catch (err) {
+                      console.error('Error generating weekly summary:', err);
+                      toast({ title: "Error generating summary", variant: "destructive" });
+                    }
+                  }}
+                >
+                  Generate Last Week Summary
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Categories
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -1062,11 +1123,14 @@ export default function LogBook() {
                                   // Check if this is safe count data
                                   const safeData = val.value_text ? parseSafeCountData(val.value_text) : null;
                                   if (safeData) {
+                                    // Check if previous day had a bank run for AM safe counts
+                                    const bankRunCompleted = safeData.shift === 'AM' && checkPreviousDayBankRun(entry.entry_date);
                                     return (
                                       <SafeCountEntry 
                                         key={val.id} 
                                         data={safeData} 
-                                        createdAt={entry.created_at} 
+                                        createdAt={entry.created_at}
+                                        bankRunCompleted={bankRunCompleted}
                                       />
                                     );
                                   }
