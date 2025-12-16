@@ -85,10 +85,39 @@ export function TemporaryTaskDetailsDialog({
 
       if (error) throw error;
       
-      await refetchSubtasks();
+      const { data: refreshedSubtasks } = await refetchSubtasks();
+      
+      // Auto-complete task when all subtasks are done
+      if (completed && refreshedSubtasks && refreshedSubtasks.length > 0) {
+        const allComplete = refreshedSubtasks.every((s: any) => s.completed_at);
+        if (allComplete) {
+          await autoCompleteTask();
+        }
+      }
     } catch (error) {
       console.error("Error toggling subtask:", error);
       toast.error("Failed to update subtask");
+    }
+  };
+
+  const autoCompleteTask = async () => {
+    try {
+      const { error } = await supabase
+        .from('temporary_tasks')
+        .update({ 
+          completed_at: new Date().toISOString(),
+          completed_by: user!.id,
+          is_active: false
+        })
+        .eq('id', task.id);
+
+      if (error) throw error;
+
+      toast.success("Task completed!");
+      onComplete();
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error auto-completing task:", error);
     }
   };
 
@@ -124,7 +153,15 @@ export function TemporaryTaskDetailsDialog({
       if (updateError) throw updateError;
 
       toast.success("Photo uploaded");
-      await refetchSubtasks();
+      const { data: refreshedSubtasks } = await refetchSubtasks();
+      
+      // Auto-complete task when all subtasks are done
+      if (refreshedSubtasks && refreshedSubtasks.length > 0) {
+        const allComplete = refreshedSubtasks.every((s: any) => s.completed_at);
+        if (allComplete) {
+          await autoCompleteTask();
+        }
+      }
     } catch (error) {
       console.error("Error uploading photo:", error);
       toast.error("Failed to upload photo");
