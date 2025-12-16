@@ -1,0 +1,225 @@
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
+import { Check, Clock, User, Users } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { format, formatDistanceToNow } from "date-fns";
+
+interface TemporaryTaskDetailsDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  task: any;
+  onComplete: () => void;
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  admin: "Admin",
+  general_manager: "General Manager",
+  shift_manager: "Shift Manager",
+  team_member: "Team Member",
+};
+
+export function TemporaryTaskDetailsDialog({ 
+  open, 
+  onOpenChange, 
+  task,
+  onComplete 
+}: TemporaryTaskDetailsDialogProps) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [isCompleting, setIsCompleting] = useState(false);
+
+  // Fetch subtasks
+  const { data: subtasks = [], refetch: refetchSubtasks } = useQuery({
+    queryKey: ['temp-task-subtasks', task?.id],
+    queryFn: async () => {
+      if (!task?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('temporary_task_subtasks')
+        .select('*, completed_by_profile:profiles!temporary_task_subtasks_completed_by_fkey(full_name)')
+        .eq('task_id', task.id)
+        .order('order_index');
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open && !!task?.id,
+  });
+
+  // Fetch assignments
+  const { data: assignments = [] } = useQuery({
+    queryKey: ['temp-task-assignments', task?.id],
+    queryFn: async () => {
+      if (!task?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('temporary_task_assignments')
+        .select('*, user:profiles(full_name)')
+        .eq('task_id', task.id);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open && !!task?.id,
+  });
+
+  const handleToggleSubtask = async (subtaskId: string, completed: boolean) => {
+    try {
+      const updateData = completed 
+        ? { completed_at: new Date().toISOString(), completed_by: user!.id }
+        : { completed_at: null, completed_by: null };
+
+      const { error } = await supabase
+        .from('temporary_task_subtasks')
+        .update(updateData)
+        .eq('id', subtaskId);
+
+      if (error) throw error;
+      
+      await refetchSubtasks();
+    } catch (error) {
+      console.error("Error toggling subtask:", error);
+      toast.error("Failed to update subtask");
+    }
+  };
+
+  const handleCompleteTask = async () => {
+    // Check if all subtasks are complete
+    const incompleteSubtasks = subtasks.filter(s => !s.completed_at);
+    if (incompleteSubtasks.length > 0) {
+      toast.error("Please complete all subtasks first");
+      return;
+    }
+
+    setIsCompleting(true);
+    try {
+      const { error } = await supabase
+        .from('temporary_tasks')
+        .update({ 
+          completed_at: new Date().toISOString(),
+          completed_by: user!.id,
+          is_active: false
+        })
+        .eq('id', task.id);
+
+      if (error) throw error;
+
+      toast.success("Task completed!");
+      onComplete();
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error completing task:", error);
+      toast.error("Failed to complete task");
+    } finally {
+      setIsCompleting(false);
+    }
+  };
+
+  const allSubtasksComplete = subtasks.length === 0 || subtasks.every(s => s.completed_at);
+  const completedCount = subtasks.filter(s => s.completed_at).length;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <div 
+              className="w-3 h-3 rounded-full" 
+              style={{ backgroundColor: task?.accent_color || "#8B5CF6" }}
+            />
+            {task?.title}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* Description */}
+          {task?.description && (
+            <p className="text-sm text-muted-foreground">{task.description}</p>
+          )}
+
+          {/* Assignment Info */}
+          <div className="flex flex-wrap gap-2">
+            {assignments.map((assignment: any) => (
+              <Badge key={assignment.id} variant="secondary" className="gap-1">
+                {assignment.user_id ? (
+                  <>
+                    <User className="h-3 w-3" />
+                    {assignment.user?.full_name || "Unknown"}
+                  </>
+                ) : (
+                  <>
+                    <Users className="h-3 w-3" />
+                    {ROLE_LABELS[assignment.role] || assignment.role}
+                  </>
+                )}
+              </Badge>
+            ))}
+          </div>
+
+          {/* Expiry Info */}
+          {task?.expires_at && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Clock className="h-4 w-4" />
+              <span>
+                Expires {formatDistanceToNow(new Date(task.expires_at), { addSuffix: true })}
+              </span>
+            </div>
+          )}
+
+          {/* Subtasks */}
+          {subtasks.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">
+                  Subtasks ({completedCount}/{subtasks.length})
+                </span>
+                {completedCount > 0 && completedCount < subtasks.length && (
+                  <Badge variant="outline" className="text-xs">
+                    {Math.round((completedCount / subtasks.length) * 100)}% Complete
+                  </Badge>
+                )}
+              </div>
+              <div className="border rounded-lg p-3 space-y-3">
+                {subtasks.map((subtask: any) => (
+                  <div key={subtask.id} className="flex items-start gap-3">
+                    <Checkbox
+                      checked={!!subtask.completed_at}
+                      onCheckedChange={(checked) => handleToggleSubtask(subtask.id, !!checked)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${subtask.completed_at ? "line-through text-muted-foreground" : ""}`}>
+                        {subtask.title}
+                      </p>
+                      {subtask.completed_at && subtask.completed_by_profile && (
+                        <p className="text-xs text-muted-foreground">
+                          Completed by {subtask.completed_by_profile.full_name} · {format(new Date(subtask.completed_at), "h:mm a")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Complete Task Button */}
+        <Button 
+          onClick={handleCompleteTask}
+          disabled={!allSubtasksComplete || isCompleting}
+          className="w-full gap-2"
+        >
+          <Check className="h-4 w-4" />
+          {isCompleting ? "Completing..." : "Complete Task"}
+        </Button>
+      </DialogContent>
+    </Dialog>
+  );
+}
