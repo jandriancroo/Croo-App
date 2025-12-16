@@ -90,6 +90,10 @@ export default function UserManagement() {
   const [isInviteLinkDialogOpen, setIsInviteLinkDialogOpen] = useState(false);
   const [inviteResetLink, setInviteResetLink] = useState<string>('');
   const [viewingUser, setViewingUser] = useState<UserProfile | null>(null);
+  const [isTempPasswordDialogOpen, setIsTempPasswordDialogOpen] = useState(false);
+  const [tempPasswordUser, setTempPasswordUser] = useState<UserProfile | null>(null);
+  const [tempPassword, setTempPassword] = useState<string>('');
+  const [settingTempPassword, setSettingTempPassword] = useState(false);
   const [isProfileDialogOpen, setIsProfileDialogOpen] = useState(false);
   const [isWageDialogOpen, setIsWageDialogOpen] = useState(false);
   const [editingWageUser, setEditingWageUser] = useState<UserProfile | null>(null);
@@ -834,6 +838,50 @@ export default function UserManagement() {
         description: error.message || 'Failed to generate password reset link',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handleSetTempPassword = async () => {
+    if (!tempPasswordUser || !tempPassword.trim()) return;
+    
+    if (tempPassword.length < 6) {
+      toast({
+        title: 'Error',
+        description: 'Password must be at least 6 characters',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setSettingTempPassword(true);
+      
+      const { data, error } = await supabase.functions.invoke('set-user-password', {
+        body: { 
+          userId: tempPasswordUser.id, 
+          password: tempPassword 
+        },
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'Temporary password set. User can now log in and change it.',
+      });
+      
+      setIsTempPasswordDialogOpen(false);
+      setTempPassword('');
+      setTempPasswordUser(null);
+    } catch (error: any) {
+      console.error('Error setting password:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to set password',
+        variant: 'destructive',
+      });
+    } finally {
+      setSettingTempPassword(false);
     }
   };
 
@@ -1641,6 +1689,18 @@ export default function UserManagement() {
                     <Key className="h-4 w-4 mr-2" />
                     Reset Password
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setTempPasswordUser(viewingUser);
+                      setTempPassword('');
+                      setIsTempPasswordDialogOpen(true);
+                    }}
+                  >
+                    <Key className="h-4 w-4 mr-2" />
+                    Set Temp Password
+                  </Button>
                 </div>
                 )}
 
@@ -2148,6 +2208,54 @@ export default function UserManagement() {
           onConfirm={handleBulkWageUpdate}
           updating={bulkUpdating}
         />
+
+        {/* Set Temporary Password Dialog */}
+        <Dialog open={isTempPasswordDialogOpen} onOpenChange={(open) => {
+          setIsTempPasswordDialogOpen(open);
+          if (!open) {
+            setTempPassword('');
+            setTempPasswordUser(null);
+          }
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Set Temporary Password</DialogTitle>
+              <DialogDescription>
+                Set a temporary password for {tempPasswordUser?.full_name || tempPasswordUser?.email}. They can change it after logging in.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="temp-password">Temporary Password</Label>
+                <Input
+                  id="temp-password"
+                  type="text"
+                  value={tempPassword}
+                  onChange={(e) => setTempPassword(e.target.value)}
+                  placeholder="Enter temporary password"
+                  minLength={6}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Password must be at least 6 characters. Share this password with the employee so they can log in.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsTempPasswordDialogOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSetTempPassword}
+                disabled={settingTempPassword || tempPassword.length < 6}
+              >
+                {settingTempPassword ? 'Setting...' : 'Set Password'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
