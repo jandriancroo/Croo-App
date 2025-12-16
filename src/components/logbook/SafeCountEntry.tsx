@@ -60,14 +60,15 @@ export function SafeCountEntry({ data, createdAt, bankRunCompleted }: SafeCountE
             <CheckCircle2 className="h-4 w-4 text-green-600" />
             <span className="font-medium">{formatCurrency(data.totalSafe)}</span>
           </div>
-          {/* Bank run indicators only for AM shifts */}
+          {/* Bank Run Completed - only shows on AM when previous night PM needed run AND current AM has > $100 */}
           {data.shift === 'AM' && bankRunCompleted && (
             <Badge className="text-xs bg-green-100 text-green-800 border-green-300">
               <Banknote className="h-3 w-3 mr-1" />
               Bank Run Completed
             </Badge>
           )}
-          {data.shift === 'AM' && needsBankRun && !bankRunCompleted && (
+          {/* Bank Run Needed - shows on ANY shift (AM or PM) when < $30 in $1 bills, but not on AM if completed */}
+          {needsBankRun && !(data.shift === 'AM' && bankRunCompleted) && (
             <Badge variant="destructive" className="text-xs">
               Bank Run Needed
             </Badge>
