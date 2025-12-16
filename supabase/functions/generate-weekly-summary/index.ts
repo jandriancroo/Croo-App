@@ -135,7 +135,7 @@ serve(async (req) => {
     // 4. Generate AI summary of sales trends
     let aiSummary = "Weekly sales data unavailable.";
     
-    if (dailySales.length > 0) {
+    if (totalSales > 0) {
       const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
       
       if (LOVABLE_API_KEY) {
