@@ -395,8 +395,8 @@ export const Layout = ({
             
             {/* Alerts button - hidden for checklist-only locations */}
             {!isChecklistOnlyLocation && (
-              <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="relative hover:bg-muted ml-1 rounded-none font-extrabold">
-                <div className="relative flex items-center justify-center h-5 w-5">
+              <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="relative hover:bg-muted ml-1 rounded-none font-extrabold overflow-hidden">
+                <div className="relative flex items-center justify-center h-5 w-5 overflow-hidden">
                   <div className="absolute h-5 w-5 bg-destructive rounded-full opacity-75"></div>
                   <div className="absolute h-5 w-5 bg-destructive rounded-full animate-ping"></div>
                   <div className="absolute h-3 w-3 bg-destructive rounded-full"></div>
@@ -407,8 +407,8 @@ export const Layout = ({
           
           {/* Mobile Alerts Button - hidden for checklist-only locations */}
           {!isChecklistOnlyLocation && (
-            <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative hover:bg-muted rounded-none font-extrabold ml-auto">
-              <div className="relative flex items-center justify-center h-5 w-5">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative hover:bg-muted rounded-none font-extrabold ml-auto overflow-hidden">
+              <div className="relative flex items-center justify-center h-5 w-5 overflow-hidden">
                 <div className="absolute h-5 w-5 bg-destructive rounded-full opacity-75"></div>
                 <div className="absolute h-5 w-5 bg-destructive rounded-full animate-ping"></div>
                 <div className="absolute h-3 w-3 bg-destructive rounded-full"></div>
@@ -441,12 +441,12 @@ export const Layout = ({
                   <ChevronDown className="h-3 w-3 flex-shrink-0" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-56">
                 {isSuperAdmin && (
                   <>
                     <DropdownMenuItem onClick={() => openDiagnosticMode()} className="gap-2 cursor-pointer">
-                      <FlaskConical className="h-4 w-4" />
-                      Diagnostics
+                      <FlaskConical className="h-4 w-4 flex-shrink-0" />
+                      <span className="whitespace-nowrap">Diagnostics</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                   </>
@@ -456,9 +456,9 @@ export const Layout = ({
                     onClick={handleRefreshApp}
                     className="gap-2 rounded-md bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70 cursor-pointer"
                   >
-                    <Download className="h-4 w-4" />
-                    <span className="flex-1">Install Update</span>
-                    <span className="text-[10px] font-mono text-red-700 dark:text-red-200">
+                    <Download className="h-4 w-4 flex-shrink-0" />
+                    <span className="flex-1 whitespace-nowrap">Install Update</span>
+                    <span className="text-[10px] font-mono text-red-700 dark:text-red-200 whitespace-nowrap">
                       v{__APP_VERSION__}
                     </span>
                   </DropdownMenuItem>
@@ -472,11 +472,11 @@ export const Layout = ({
                         : 'hover:bg-muted'
                     }`}
                   >
-                    <RefreshCw className={`h-4 w-4 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
-                    <span className="flex-1">
+                    <RefreshCw className={`h-4 w-4 flex-shrink-0 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+                    <span className="flex-1 whitespace-nowrap">
                       {isCheckingUpdate ? 'Checking...' : updateAvailable === false ? 'Up to Date' : 'Check for Update'}
                     </span>
-                    <span className={`text-[10px] font-mono ${updateAvailable === false ? 'text-green-700 dark:text-green-200' : 'text-muted-foreground'}`}>
+                    <span className={`text-[10px] font-mono whitespace-nowrap ${updateAvailable === false ? 'text-green-700 dark:text-green-200' : 'text-muted-foreground'}`}>
                       v{__APP_VERSION__}
                     </span>
                   </DropdownMenuItem>
