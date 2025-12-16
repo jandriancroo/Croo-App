@@ -135,27 +135,54 @@ serve(async (req) => {
     // 4. Generate AI summary of sales trends
     let aiSummary = "Weekly sales data unavailable.";
     
-    // Get comparison data (last year same week) from sales response
-    let prevYearWeekSales = 0;
+    // Get same week last year for YoY comparison
+    let lastYearWeekSales = 0;
     let yoyChange = 0;
     
     try {
-      // Fetch comparison data for YOY
-      const compResponse = await supabase.functions.invoke('fetch-qubeyond-sales', {
-        body: {
-          locationId: location_id,
-          targetDate: week_end,
-        }
-      });
+      // Calculate same week last year (52 weeks back to align on same day of week)
+      const lastYearStart = new Date(week_start + 'T12:00:00');
+      lastYearStart.setDate(lastYearStart.getDate() - 364); // 52 weeks = 364 days
+      const lastYearEnd = new Date(week_end + 'T12:00:00');
+      lastYearEnd.setDate(lastYearEnd.getDate() - 364);
       
-      if (compResponse.data?.comparison?.prevWeek) {
-        prevYearWeekSales = compResponse.data.comparison.prevWeek;
-        if (prevYearWeekSales > 0) {
-          yoyChange = ((totalSales - prevYearWeekSales) / prevYearWeekSales) * 100;
+      const lyStartStr = lastYearStart.toISOString().split('T')[0];
+      const lyEndStr = lastYearEnd.toISOString().split('T')[0];
+      
+      console.log(`Fetching same week last year: ${lyStartStr} to ${lyEndStr}`);
+      
+      // Fetch each day of last year's week and sum
+      const lyDates: string[] = [];
+      const current = new Date(lastYearStart);
+      while (current <= lastYearEnd) {
+        lyDates.push(current.toISOString().split('T')[0]);
+        current.setDate(current.getDate() + 1);
+      }
+      
+      for (const dateStr of lyDates) {
+        try {
+          const dayResponse = await supabase.functions.invoke('fetch-qubeyond-sales', {
+            body: {
+              locationId: location_id,
+              targetDate: dateStr,
+              skipProjections: true,
+            }
+          });
+          if (dayResponse.data?.daily) {
+            lastYearWeekSales += dayResponse.data.daily;
+          }
+        } catch (e) {
+          console.log(`No data for ${dateStr}`);
         }
       }
+      
+      console.log(`Last year same week total: $${lastYearWeekSales}`);
+      
+      if (lastYearWeekSales > 0) {
+        yoyChange = ((totalSales - lastYearWeekSales) / lastYearWeekSales) * 100;
+      }
     } catch (e) {
-      console.error('Error fetching comparison data:', e);
+      console.error('Error fetching YoY comparison data:', e);
     }
     
     if (totalSales > 0) {
@@ -163,8 +190,8 @@ serve(async (req) => {
       const yoyDirection = yoyChange >= 0 ? 'up' : 'down';
       const yoyAbs = Math.abs(yoyChange).toFixed(1);
       
-      if (prevYearWeekSales > 0) {
-        aiSummary = `Weekly sales ${yoyDirection} ${yoyAbs}% vs last week ($${totalSales.toLocaleString()} vs $${prevYearWeekSales.toLocaleString()}).`;
+      if (lastYearWeekSales > 0) {
+        aiSummary = `Weekly sales ${yoyDirection} ${yoyAbs}% YoY ($${totalSales.toLocaleString()} vs $${lastYearWeekSales.toLocaleString()} same week last year).`;
       } else {
         aiSummary = `Total weekly sales: $${totalSales.toLocaleString()}.`;
       }
