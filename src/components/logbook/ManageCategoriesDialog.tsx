@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -419,6 +420,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
         field_type: field.field_type,
         is_required: field.is_required,
         display_order: index,
+        options: field.options ? field.options : null,
       }));
 
       const { error } = await supabase
@@ -502,21 +504,36 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                         </div>
                         <div>
                           <Label className="text-xs">Field Type</Label>
-                          <Select
-                            value={field.field_type}
-                            onValueChange={(value) => handleUpdateField(field.tempId, { field_type: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="text">Text (short)</SelectItem>
-                              <SelectItem value="textarea">Text Area (long)</SelectItem>
-                              <SelectItem value="number">Number</SelectItem>
-                              <SelectItem value="date">Date</SelectItem>
-                              <SelectItem value="attachment">File Attachment</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        <Select
+                          value={field.field_type}
+                          onValueChange={(value) => handleUpdateField(field.tempId, { field_type: value, options: value === 'dropdown' || value === 'radio' ? [] : undefined })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="text">Text (short)</SelectItem>
+                            <SelectItem value="textarea">Text Area (long)</SelectItem>
+                            <SelectItem value="number">Number</SelectItem>
+                            <SelectItem value="date">Date</SelectItem>
+                            <SelectItem value="attachment">File Attachment</SelectItem>
+                            <SelectItem value="radio">Radio Buttons</SelectItem>
+                            <SelectItem value="dropdown">Dropdown List</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {(field.field_type === 'radio' || field.field_type === 'dropdown') && (
+                          <div className="col-span-2 space-y-2">
+                            <Label className="text-xs">Options (one per line)</Label>
+                            <Textarea
+                              placeholder="Option 1&#10;Option 2&#10;Option 3"
+                              value={(field.options || []).join('\n')}
+                              onChange={(e) => handleUpdateField(field.tempId, { 
+                                options: e.target.value.split('\n').filter(o => o.trim()) 
+                              })}
+                              rows={3}
+                            />
+                          </div>
+                        )}
                         </div>
                         <div className="flex items-center gap-2">
                           <Switch

@@ -101,6 +101,8 @@ serve(async (req) => {
                   pickup_date: { type: "string", description: "Pickup date in YYYY-MM-DD format" },
                   pickup_time: { type: "string", description: "Pickup time in HH:MM format (24-hour)" },
                   headcount: { type: "number", description: "Number of people/headcount if mentioned" },
+                  contact_phone: { type: "string", description: "Customer contact phone number if visible" },
+                  total_price: { type: "number", description: "Total order price/amount if visible" },
                   items: {
                     type: "array",
                     items: {

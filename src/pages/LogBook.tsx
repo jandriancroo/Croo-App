@@ -11,7 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil } from "lucide-react";
+import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
@@ -45,7 +46,8 @@ export default function LogBook() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
-  const [activeTab, setActiveTab] = useState<string>("entry");
+  const [activeTab, setActiveTab] = useState<string>("search");
+  const [showNewEntrySheet, setShowNewEntrySheet] = useState(false);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const navigate = useNavigate();
 
@@ -437,6 +439,408 @@ export default function LogBook() {
 
   const sortedDays = Object.keys(entriesByDay).sort((a, b) => b.localeCompare(a));
 
+  // Render new entry content - extracted for reuse in sheet
+  const renderNewEntryContent = () => {
+    const currentCategoryName = categories.find((c: any) => c.id === selectedCategory)?.name?.toLowerCase();
+    const isDrawerCount = currentCategoryName === 'drawer count';
+    const isSafeCount = currentCategoryName === 'safe count';
+    
+    if (isDrawerCount) {
+      return (
+        <div className="space-y-4">
+          <div className="flex flex-col justify-between items-start gap-3">
+            <h2 className="text-lg font-semibold">Drawer Count</h2>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full">
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  <span className="text-xs sm:text-sm">{format(selectedDate, 'PPP')}</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          {entry && (
+            <p className="text-xs text-muted-foreground">
+              Last entry by {entry.profiles?.full_name} at {format(new Date(entry.created_at), 'PPp')}
+            </p>
+          )}
+          <DrawerCountForm
+            key={getDateInTimezone(selectedDate)}
+            onSave={async (data: DrawerCountData) => {
+              try {
+                const dateStr = getDateInTimezone(selectedDate);
+                let fieldId = fields[0]?.id;
+                
+                if (!fieldId) {
+                  const { data: newField, error: fieldError } = await supabase
+                    .from('logbook_fields')
+                    .insert({
+                      category_id: selectedCategory,
+                      field_name: 'drawer_data',
+                      field_type: 'text',
+                      display_order: 0,
+                      is_required: false,
+                    })
+                    .select()
+                    .single();
+                  
+                  if (fieldError) throw fieldError;
+                  fieldId = newField.id;
+                  queryClient.invalidateQueries({ queryKey: ['logbook-fields', selectedCategory] });
+                }
+                
+                const { data: entryData, error: entryError } = await supabase
+                  .from('logbook_entries')
+                  .upsert({
+                    category_id: selectedCategory,
+                    entry_date: dateStr,
+                    created_by: user!.id,
+                    location_id: currentLocation?.id,
+                  }, { onConflict: 'category_id,entry_date,location_id' })
+                  .select()
+                  .single();
+
+                if (entryError) throw entryError;
+
+                await supabase
+                  .from('logbook_entry_values')
+                  .delete()
+                  .eq('entry_id', entryData.id);
+
+                const { error: valuesError } = await supabase
+                  .from('logbook_entry_values')
+                  .insert({
+                    entry_id: entryData.id,
+                    field_id: fieldId,
+                    value_text: JSON.stringify(data),
+                  });
+
+                if (valuesError) throw valuesError;
+
+                toast({ title: "Drawer count saved successfully" });
+                queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
+                queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                queryClient.invalidateQueries({ queryKey: ['drawer-count-entries'] });
+                setShowNewEntrySheet(false);
+                setActiveTab('search');
+
+                if (locationSettings?.drawer_count_notifications_enabled !== false) {
+                  try {
+                    const overUnderText = data.variance > 0 
+                      ? `OVER $${data.variance.toFixed(2)}` 
+                      : data.variance < 0 
+                        ? `SHORT $${Math.abs(data.variance).toFixed(2)}`
+                        : 'BALANCED';
+                    
+                    await supabase.functions.invoke('send-push-notification', {
+                      body: {
+                        notification_type: 'drawer_count',
+                        title: `Drawer Count - ${currentLocation?.name || 'Location'}`,
+                        body: `Deposit: $${data.actualDeposit.toFixed(2)} | ${overUnderText}`,
+                        location_id: currentLocation?.id,
+                        roles: ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin'],
+                      }
+                    });
+                  } catch (notifError) {
+                    console.error('Error sending drawer count notification:', notifError);
+                  }
+                }
+              } catch (error: any) {
+                toast({ title: "Error saving drawer count", description: error.message, variant: "destructive" });
+              }
+            }}
+            isSaving={saveEntryMutation.isPending}
+            existingData={entry?.logbook_entry_values?.[0]?.value_text 
+              ? JSON.parse(entry.logbook_entry_values[0].value_text) 
+              : null}
+            entryCount={drawerCountEntries.length}
+            drawerBank={locationSettings?.drawer_bank ?? 200}
+          />
+        </div>
+      );
+    }
+
+    if (isSafeCount) {
+      return (
+        <div className="space-y-4">
+          <div className="flex flex-col justify-between items-start gap-3">
+            <h2 className="text-lg font-semibold">Safe Count</h2>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full">
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  <span className="text-xs sm:text-sm">{format(selectedDate, 'PPP')}</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          {entry && (
+            <p className="text-xs text-muted-foreground">
+              Last entry by {entry.profiles?.full_name} at {format(new Date(entry.created_at), 'PPp')}
+            </p>
+          )}
+          <SafeCountForm
+            key={`${getDateInTimezone(selectedDate)}`}
+            onSave={async (data: SafeCountData) => {
+              try {
+                const dateStr = getDateInTimezone(selectedDate);
+                let fieldId = fields[0]?.id;
+                
+                if (!fieldId) {
+                  const { data: newField, error: fieldError } = await supabase
+                    .from('logbook_fields')
+                    .insert({
+                      category_id: selectedCategory,
+                      field_name: 'safe_data',
+                      field_type: 'text',
+                      display_order: 0,
+                      is_required: false,
+                    })
+                    .select()
+                    .single();
+                  
+                  if (fieldError) throw fieldError;
+                  fieldId = newField.id;
+                  queryClient.invalidateQueries({ queryKey: ['logbook-fields', selectedCategory] });
+                }
+                
+                const { data: entryData, error: entryError } = await supabase
+                  .from('logbook_entries')
+                  .upsert({
+                    category_id: selectedCategory,
+                    entry_date: dateStr,
+                    created_by: user!.id,
+                    location_id: currentLocation?.id,
+                  }, { onConflict: 'category_id,entry_date,location_id' })
+                  .select()
+                  .single();
+
+                if (entryError) throw entryError;
+
+                const { data: existingValues } = await supabase
+                  .from('logbook_entry_values')
+                  .select('id, value_text')
+                  .eq('entry_id', entryData.id)
+                  .eq('field_id', fieldId);
+                
+                if (existingValues && existingValues.length > 0) {
+                  const valueIdsToDelete = existingValues
+                    .filter(v => {
+                      try {
+                        const parsed = JSON.parse(v.value_text || '{}');
+                        return parsed.shift === data.shift;
+                      } catch {
+                        return false;
+                      }
+                    })
+                    .map(v => v.id);
+                  
+                  if (valueIdsToDelete.length > 0) {
+                    await supabase
+                      .from('logbook_entry_values')
+                      .delete()
+                      .in('id', valueIdsToDelete);
+                  }
+                }
+
+                const { error: valuesError } = await supabase
+                  .from('logbook_entry_values')
+                  .insert({
+                    entry_id: entryData.id,
+                    field_id: fieldId,
+                    value_text: JSON.stringify(data),
+                  });
+
+                if (valuesError) throw valuesError;
+
+                toast({ title: "Safe count saved successfully" });
+                queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
+                queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                queryClient.invalidateQueries({ queryKey: ['safe-count-entries'] });
+                setShowNewEntrySheet(false);
+                setActiveTab('search');
+
+                if (locationSettings?.safe_count_notifications_enabled !== false) {
+                  try {
+                    await supabase.functions.invoke('send-push-notification', {
+                      body: {
+                        notification_type: 'safe_count',
+                        title: `Safe Count - ${currentLocation?.name || 'Location'}`,
+                        body: `${data.shift} Safe Count Complete - $${data.totalSafe.toFixed(2)} balanced`,
+                        location_id: currentLocation?.id,
+                        roles: ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin'],
+                      }
+                    });
+                  } catch (notifError) {
+                    console.error('Error sending safe count notification:', notifError);
+                  }
+                }
+              } catch (error: any) {
+                toast({ title: "Error saving safe count", description: error.message, variant: "destructive" });
+              }
+            }}
+            isSaving={saveEntryMutation.isPending}
+            existingShifts={existingSafeCountShifts}
+            safeTarget={locationSettings?.safe_target ?? 300}
+          />
+        </div>
+      );
+    }
+    
+    // Default generic form
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-col justify-between items-start gap-3">
+          <h2 className="text-lg font-semibold">
+            {categories.find((c: any) => c.id === selectedCategory)?.name}
+          </h2>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="w-full">
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                <span className="text-xs sm:text-sm">{format(selectedDate, 'PPP')}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => date && setSelectedDate(date)}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+        {entry && (
+          <p className="text-xs text-muted-foreground">
+            Entry by {entry.profiles?.full_name} at {format(new Date(entry.created_at), 'PPp')}
+          </p>
+        )}
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          saveEntryMutation.mutate();
+          setShowNewEntrySheet(false);
+        }} className="space-y-4">
+          {fields.map((field: any) => (
+            <div key={field.id} className="space-y-2">
+              <Label>
+                {field.field_name}
+                {field.is_required && <span className="text-destructive ml-1">*</span>}
+              </Label>
+              {field.field_type === 'text' && (
+                <Input
+                  value={formData[field.id] || ''}
+                  onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
+                  required={field.is_required}
+                />
+              )}
+              {field.field_type === 'textarea' && (
+                <Textarea
+                  value={formData[field.id] || ''}
+                  onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
+                  required={field.is_required}
+                />
+              )}
+              {field.field_type === 'number' && (
+                <Input
+                  type="number"
+                  value={formData[field.id] || ''}
+                  onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
+                  required={field.is_required}
+                />
+              )}
+              {field.field_type === 'date' && (
+                <Input
+                  type="date"
+                  value={formData[field.id] || ''}
+                  onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
+                  required={field.is_required}
+                />
+              )}
+              {field.field_type === 'attachment' && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileUpload(field.id, file);
+                      }}
+                      disabled={uploadingFiles[field.id]}
+                    />
+                    <Paperclip className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  {uploadingFiles[field.id] && (
+                    <p className="text-xs text-muted-foreground">Uploading...</p>
+                  )}
+                  {formData[field.id] && !uploadingFiles[field.id] && (
+                    <a 
+                      href={formData[field.id]} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      View uploaded file
+                    </a>
+                  )}
+                </div>
+              )}
+              {field.field_type === 'radio' && field.options && (
+                <div className="space-y-2">
+                  {(field.options as string[]).map((option: string) => (
+                    <label key={option} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name={field.id}
+                        value={option}
+                        checked={formData[field.id] === option}
+                        onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
+                        required={field.is_required}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm">{option}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {field.field_type === 'dropdown' && field.options && (
+                <Select
+                  value={formData[field.id] || ''}
+                  onValueChange={(value) => setFormData({ ...formData, [field.id]: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an option" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(field.options as string[]).map((option: string) => (
+                      <SelectItem key={option} value={option}>{option}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          ))}
+          <Button type="submit" disabled={saveEntryMutation.isPending} className="w-full">
+            {saveEntryMutation.isPending ? 'Saving...' : 'Add Entry'}
+          </Button>
+        </form>
+      </div>
+    );
+  };
+
   // Don't render if role is still loading or user doesn't have access
   if (roleLoading || (!isAdmin && !isManager)) {
     return (
@@ -463,10 +867,41 @@ export default function LogBook() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-            <TabsList>
-              <TabsTrigger value="entry">New Entry</TabsTrigger>
-              <TabsTrigger value="search">Search Entries</TabsTrigger>
-            </TabsList>
+            <div className="flex items-center gap-2">
+              <TabsList>
+                <TabsTrigger value="search">Recent Logs</TabsTrigger>
+              </TabsList>
+              <Sheet open={showNewEntrySheet} onOpenChange={setShowNewEntrySheet}>
+                <SheetTrigger asChild>
+                  <Button size="icon" variant="default">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>New Log Entry</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-4 space-y-4">
+                    {/* Category Selection */}
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category: any) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* New Entry Form Content */}
+                    {renderNewEntryContent()}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
             <Button 
               variant={activeTab === 'catering' ? 'default' : 'outline'}
               onClick={() => setActiveTab('catering')}
@@ -476,432 +911,6 @@ export default function LogBook() {
             </Button>
           </div>
 
-          <TabsContent value="entry" className="space-y-4">
-            {/* Category Selection - Dropdown on mobile/tablet, Tabs on desktop */}
-            {isMobile ? (
-              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category: any) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-                <TabsList className="w-full justify-start overflow-x-auto flex-nowrap">
-                  {categories.map((category: any) => (
-                    <TabsTrigger key={category.id} value={category.id} className="text-xs sm:text-sm whitespace-nowrap">
-                      {category.name}
-                    </TabsTrigger>
-                  ))}
-                </TabsList>
-              </Tabs>
-            )}
-
-            {/* Check if this is a specialized category */}
-            {(() => {
-              const currentCategoryName = categories.find((c: any) => c.id === selectedCategory)?.name?.toLowerCase();
-              const isDrawerCount = currentCategoryName === 'drawer count';
-              const isSafeCount = currentCategoryName === 'safe count';
-              
-              if (isDrawerCount) {
-                return (
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                      <h2 className="text-lg font-semibold">Drawer Count</h2>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                            <CalendarIcon className="h-4 w-4 mr-2" />
-                            <span className="text-xs sm:text-sm">{format(selectedDate, 'PPP')}</span>
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                          <Calendar
-                            mode="single"
-                            selected={selectedDate}
-                            onSelect={(date) => date && setSelectedDate(date)}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    {entry && (
-                      <p className="text-xs text-muted-foreground">
-                        Last entry by {entry.profiles?.full_name} at {format(new Date(entry.created_at), 'PPp')}
-                      </p>
-                    )}
-                    <DrawerCountForm
-                      key={getDateInTimezone(selectedDate)}
-                      onSave={async (data: DrawerCountData) => {
-                        try {
-                          const dateStr = getDateInTimezone(selectedDate);
-                          
-                          // Ensure a field exists for drawer count data
-                          let fieldId = fields[0]?.id;
-                          
-                          if (!fieldId) {
-                            // Auto-create a field for drawer count if none exists
-                            const { data: newField, error: fieldError } = await supabase
-                              .from('logbook_fields')
-                              .insert({
-                                category_id: selectedCategory,
-                                field_name: 'drawer_data',
-                                field_type: 'text',
-                                display_order: 0,
-                                is_required: false,
-                              })
-                              .select()
-                              .single();
-                            
-                            if (fieldError) throw fieldError;
-                            fieldId = newField.id;
-                            
-                            // Invalidate fields query to refresh
-                            queryClient.invalidateQueries({ queryKey: ['logbook-fields', selectedCategory] });
-                          }
-                          
-                          // Create or get existing entry (upsert to handle re-submissions same day)
-                          const { data: entryData, error: entryError } = await supabase
-                            .from('logbook_entries')
-                            .upsert({
-                              category_id: selectedCategory,
-                              entry_date: dateStr,
-                              created_by: user!.id,
-                              location_id: currentLocation?.id,
-                            }, {
-                              onConflict: 'category_id,entry_date,location_id'
-                            })
-                            .select()
-                            .single();
-
-                          if (entryError) throw entryError;
-
-                          // Delete existing values (drawer count overwrites previous for the day)
-                          await supabase
-                            .from('logbook_entry_values')
-                            .delete()
-                            .eq('entry_id', entryData.id);
-
-                          // Store drawer count data as JSON in a single text value
-                          const { error: valuesError } = await supabase
-                            .from('logbook_entry_values')
-                            .insert({
-                              entry_id: entryData.id,
-                              field_id: fieldId,
-                              value_text: JSON.stringify(data),
-                            });
-
-                          if (valuesError) throw valuesError;
-
-                          toast({ title: "Drawer count saved successfully" });
-                          queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
-                          queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
-                          queryClient.invalidateQueries({ queryKey: ['drawer-count-entries'] });
-                          
-                          // Navigate to search tab to show submission
-                          setActiveTab('search');
-
-                          // Send push notification to managers/admins (if enabled for location)
-                          if (locationSettings?.drawer_count_notifications_enabled !== false) {
-                            try {
-                              const overUnderText = data.variance > 0 
-                                ? `OVER $${data.variance.toFixed(2)}` 
-                                : data.variance < 0 
-                                  ? `SHORT $${Math.abs(data.variance).toFixed(2)}`
-                                  : 'BALANCED';
-                              
-                              await supabase.functions.invoke('send-push-notification', {
-                                body: {
-                                  notification_type: 'drawer_count',
-                                  title: `Drawer Count - ${currentLocation?.name || 'Location'}`,
-                                  body: `Deposit: $${data.actualDeposit.toFixed(2)} | ${overUnderText}`,
-                                  location_id: currentLocation?.id,
-                                  roles: ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin'],
-                                }
-                              });
-                            } catch (notifError) {
-                              console.error('Error sending drawer count notification:', notifError);
-                            }
-                          }
-                        } catch (error: any) {
-                          toast({
-                            title: "Error saving drawer count",
-                            description: error.message,
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      isSaving={saveEntryMutation.isPending}
-                      existingData={entry?.logbook_entry_values?.[0]?.value_text 
-                        ? JSON.parse(entry.logbook_entry_values[0].value_text) 
-                        : null}
-                      entryCount={drawerCountEntries.length}
-                      drawerBank={locationSettings?.drawer_bank ?? 200}
-                    />
-                  </div>
-                );
-              }
-
-              if (isSafeCount) {
-                return (
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                      <h2 className="text-lg font-semibold">Safe Count</h2>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                            <CalendarIcon className="h-4 w-4 mr-2" />
-                            <span className="text-xs sm:text-sm">{format(selectedDate, 'PPP')}</span>
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                          <Calendar
-                            mode="single"
-                            selected={selectedDate}
-                            onSelect={(date) => date && setSelectedDate(date)}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    {entry && (
-                      <p className="text-xs text-muted-foreground">
-                        Last entry by {entry.profiles?.full_name} at {format(new Date(entry.created_at), 'PPp')}
-                      </p>
-                    )}
-                    <SafeCountForm
-                      key={`${getDateInTimezone(selectedDate)}`}
-                      onSave={async (data: SafeCountData) => {
-                        try {
-                          const dateStr = getDateInTimezone(selectedDate);
-                          
-                          // Ensure a field exists for safe count data
-                          let fieldId = fields[0]?.id;
-                          
-                          if (!fieldId) {
-                            const { data: newField, error: fieldError } = await supabase
-                              .from('logbook_fields')
-                              .insert({
-                                category_id: selectedCategory,
-                                field_name: 'safe_data',
-                                field_type: 'text',
-                                display_order: 0,
-                                is_required: false,
-                              })
-                              .select()
-                              .single();
-                            
-                            if (fieldError) throw fieldError;
-                            fieldId = newField.id;
-                            queryClient.invalidateQueries({ queryKey: ['logbook-fields', selectedCategory] });
-                          }
-                          
-                          // Create or get existing entry (upsert to handle AM/PM separate submissions)
-                          const { data: entryData, error: entryError } = await supabase
-                            .from('logbook_entries')
-                            .upsert({
-                              category_id: selectedCategory,
-                              entry_date: dateStr,
-                              created_by: user!.id,
-                              location_id: currentLocation?.id,
-                            }, {
-                              onConflict: 'category_id,entry_date,location_id'
-                            })
-                            .select()
-                            .single();
-
-                          if (entryError) throw entryError;
-
-                          // Check if there's already a value for this shift and delete it (to allow re-submission)
-                          const { data: existingValues } = await supabase
-                            .from('logbook_entry_values')
-                            .select('id, value_text')
-                            .eq('entry_id', entryData.id)
-                            .eq('field_id', fieldId);
-                          
-                          // Delete any existing value for the same shift
-                          if (existingValues && existingValues.length > 0) {
-                            const valueIdsToDelete = existingValues
-                              .filter(v => {
-                                try {
-                                  const parsed = JSON.parse(v.value_text || '{}');
-                                  return parsed.shift === data.shift;
-                                } catch {
-                                  return false;
-                                }
-                              })
-                              .map(v => v.id);
-                            
-                            if (valueIdsToDelete.length > 0) {
-                              await supabase
-                                .from('logbook_entry_values')
-                                .delete()
-                                .in('id', valueIdsToDelete);
-                            }
-                          }
-
-                          // Store safe count data as JSON
-                          const { error: valuesError } = await supabase
-                            .from('logbook_entry_values')
-                            .insert({
-                              entry_id: entryData.id,
-                              field_id: fieldId,
-                              value_text: JSON.stringify(data),
-                            });
-
-                          if (valuesError) throw valuesError;
-
-                          toast({ title: "Safe count saved successfully" });
-                          queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
-                          queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
-                          queryClient.invalidateQueries({ queryKey: ['safe-count-entries'] });
-                          
-                          // Navigate to search tab to show submission
-                          setActiveTab('search');
-
-                          // Send push notification to managers/admins (if enabled for location)
-                          if (locationSettings?.safe_count_notifications_enabled !== false) {
-                            try {
-                              await supabase.functions.invoke('send-push-notification', {
-                                body: {
-                                  notification_type: 'safe_count',
-                                  title: `Safe Count - ${currentLocation?.name || 'Location'}`,
-                                  body: `${data.shift} Safe Count Complete - $${data.totalSafe.toFixed(2)} balanced`,
-                                  location_id: currentLocation?.id,
-                                  roles: ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin'],
-                                }
-                              });
-                            } catch (notifError) {
-                              console.error('Error sending safe count notification:', notifError);
-                            }
-                          }
-                        } catch (error: any) {
-                          toast({
-                            title: "Error saving safe count",
-                            description: error.message,
-                            variant: "destructive",
-                          });
-                        }
-                      }}
-                      isSaving={saveEntryMutation.isPending}
-                      existingShifts={existingSafeCountShifts}
-                      safeTarget={locationSettings?.safe_target ?? 300}
-                    />
-                  </div>
-                );
-              }
-              
-              // Default generic form
-              return (
-                <Card>
-                  <CardHeader>
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                      <CardTitle className="text-base sm:text-lg">
-                        {categories.find((c: any) => c.id === selectedCategory)?.name}
-                      </CardTitle>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                            <CalendarIcon className="h-4 w-4 mr-2" />
-                            <span className="text-xs sm:text-sm">{format(selectedDate, 'PPP')}</span>
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="end">
-                          <Calendar
-                            mode="single"
-                            selected={selectedDate}
-                            onSelect={(date) => date && setSelectedDate(date)}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                    <CardDescription className="text-xs sm:text-sm">
-                      {entry ? `Entry by ${entry.profiles?.full_name} at ${format(new Date(entry.created_at), 'PPp')}` : 'No entry for this date'}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      {fields.map((field: any) => (
-                        <div key={field.id} className="space-y-2">
-                          <Label>
-                            {field.field_name}
-                            {field.is_required && <span className="text-destructive ml-1">*</span>}
-                          </Label>
-                          {field.field_type === 'text' && (
-                            <Input
-                              value={formData[field.id] || ''}
-                              onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
-                              required={field.is_required}
-                            />
-                          )}
-                          {field.field_type === 'textarea' && (
-                            <Textarea
-                              value={formData[field.id] || ''}
-                              onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
-                              required={field.is_required}
-                            />
-                          )}
-                          {field.field_type === 'number' && (
-                            <Input
-                              type="number"
-                              value={formData[field.id] || ''}
-                              onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
-                              required={field.is_required}
-                            />
-                          )}
-                          {field.field_type === 'date' && (
-                            <Input
-                              type="date"
-                              value={formData[field.id] || ''}
-                              onChange={(e) => setFormData({ ...formData, [field.id]: e.target.value })}
-                              required={field.is_required}
-                            />
-                          )}
-                          {field.field_type === 'attachment' && (
-                            <div className="space-y-2">
-                              <div className="flex items-center gap-2">
-                                <Input
-                                  type="file"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) {
-                                      handleFileUpload(field.id, file);
-                                    }
-                                  }}
-                                  disabled={uploadingFiles[field.id]}
-                                />
-                                <Paperclip className="h-4 w-4 text-muted-foreground" />
-                              </div>
-                              {uploadingFiles[field.id] && (
-                                <p className="text-xs text-muted-foreground">Uploading...</p>
-                              )}
-                              {formData[field.id] && !uploadingFiles[field.id] && (
-                                <a 
-                                  href={formData[field.id]} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-primary hover:underline"
-                                >
-                                  View uploaded file
-                                </a>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                      <Button type="submit" disabled={saveEntryMutation.isPending}>
-                        {saveEntryMutation.isPending ? 'Saving...' : 'Add Entry'}
-                      </Button>
-                    </form>
-                  </CardContent>
-                </Card>
-              );
-            })()}
-          </TabsContent>
 
           <TabsContent value="search" className="space-y-4">
             <div className="flex items-center gap-2">
