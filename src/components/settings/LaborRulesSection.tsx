@@ -197,6 +197,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
             <CardDescription>
               Define overtime, breaks, and labor calculation rules for this location
             </CardDescription>
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-2 italic">
+              ⚠️ Labor rules are customized by the user and should be confirmed with local jurisdiction before applying.
+            </p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>

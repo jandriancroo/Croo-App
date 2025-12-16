@@ -351,6 +351,9 @@ export default function Tasks() {
               <h1 className="text-3xl font-bold">Tasks</h1>
               <TabsList>
                 <TabsTrigger value="history">History</TabsTrigger>
+                {currentLocation?.location_type !== 'checklist_only' && (
+                  <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+                )}
                 {(isAdmin || isManager) && (
                   <TabsTrigger value="edit">Edit</TabsTrigger>
                 )}
@@ -359,10 +362,6 @@ export default function Tasks() {
           </div>
 
           <TabsContent value="history" className="space-y-6">
-            {/* Leaderboard - only show for standard locations */}
-            {currentLocation?.location_type !== 'checklist_only' && (
-              <ChecklistLeaderboard />
-            )}
 
             {/* Completion History */}
             <Card>
@@ -472,6 +471,13 @@ export default function Tasks() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* Leaderboard Tab */}
+          {currentLocation?.location_type !== 'checklist_only' && (
+            <TabsContent value="leaderboard" className="space-y-6">
+              <ChecklistLeaderboard />
+            </TabsContent>
+          )}
 
           <TabsContent value="edit" className="space-y-6">
             {/* Checklist Templates */}
