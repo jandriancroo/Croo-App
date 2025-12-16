@@ -2,14 +2,14 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Clock, User, Users, Trash2, Check } from "lucide-react";
+import { Plus, Clock, User, Users, Trash2, Eye } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreateTemporaryTaskDialog } from "./CreateTemporaryTaskDialog";
-import { TemporaryTaskDetailsDialog } from "./TemporaryTaskDetailsDialog";
-import { formatDistanceToNow, isPast } from "date-fns";
+import { formatDistanceToNow, isPast, format } from "date-fns";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,7 +52,7 @@ export function TemporaryTasksSection() {
             role,
             user:profiles(full_name)
           ),
-          subtasks:temporary_task_subtasks(id, completed_at)
+          subtasks:temporary_task_subtasks(id, title, completed_at, completed_by_profile:profiles(full_name))
         `)
         .eq('location_id', currentLocation.id)
         .eq('is_active', true)
@@ -182,7 +182,7 @@ export function TemporaryTasksSection() {
                           className="h-7 w-7"
                           onClick={() => setSelectedTask(task)}
                         >
-                          <Check className="h-3.5 w-3.5" />
+                          <Eye className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                           size="icon"
@@ -208,14 +208,91 @@ export function TemporaryTasksSection() {
         onSuccess={handleRefresh}
       />
 
-      {selectedTask && (
-        <TemporaryTaskDetailsDialog
-          open={!!selectedTask}
-          onOpenChange={(open) => !open && setSelectedTask(null)}
-          task={selectedTask}
-          onComplete={handleRefresh}
-        />
-      )}
+      {/* View-only Task Details Dialog (no completion) */}
+      <Dialog open={!!selectedTask} onOpenChange={(open) => !open && setSelectedTask(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <div 
+                className="w-3 h-3 rounded-full" 
+                style={{ backgroundColor: selectedTask?.accent_color || "#8B5CF6" }}
+              />
+              {selectedTask?.title}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Description */}
+            {selectedTask?.description && (
+              <p className="text-sm text-muted-foreground">{selectedTask.description}</p>
+            )}
+
+            {/* Assignment Info */}
+            <div>
+              <p className="text-xs font-medium text-muted-foreground mb-2">Assigned to:</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedTask?.assignments?.map((assignment: any) => (
+                  <Badge key={assignment.id} variant="secondary" className="gap-1">
+                    {assignment.user_id ? (
+                      <>
+                        <User className="h-3 w-3" />
+                        {assignment.user?.full_name || "Unknown"}
+                      </>
+                    ) : (
+                      <>
+                        <Users className="h-3 w-3" />
+                        {ROLE_LABELS[assignment.role] || assignment.role}
+                      </>
+                    )}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            {/* Expiry Info */}
+            {selectedTask?.expires_at && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Clock className="h-4 w-4" />
+                <span>
+                  Expires {formatDistanceToNow(new Date(selectedTask.expires_at), { addSuffix: true })}
+                </span>
+              </div>
+            )}
+
+            {/* Subtasks (view only) */}
+            {selectedTask?.subtasks && selectedTask.subtasks.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Subtasks ({selectedTask.subtasks.filter((s: any) => s.completed_at).length}/{selectedTask.subtasks.length})
+                </p>
+                <div className="border rounded-lg p-3 space-y-2">
+                  {selectedTask.subtasks.map((subtask: any) => (
+                    <div key={subtask.id} className="flex items-start gap-2">
+                      <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 ${subtask.completed_at ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
+                        {subtask.completed_at && <span className="text-primary-foreground text-xs">✓</span>}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm ${subtask.completed_at ? "line-through text-muted-foreground" : ""}`}>
+                          {subtask.title}
+                        </p>
+                        {subtask.completed_at && subtask.completed_by_profile && (
+                          <p className="text-xs text-muted-foreground">
+                            by {subtask.completed_by_profile.full_name} · {format(new Date(subtask.completed_at), "h:mm a")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground text-center pt-2">
+              Employees complete this task from their Dashboard
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!deleteTaskId} onOpenChange={(open) => !open && setDeleteTaskId(null)}>
         <AlertDialogContent>
