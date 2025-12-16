@@ -41,39 +41,39 @@ export function WeeklySummaryEntry({ data, createdAt }: WeeklySummaryEntryProps)
   const maxSales = Math.max(...(data.daily_sales?.map(d => d.sales) || [1]));
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-col gap-3">
+    <div className="space-y-2 sm:space-y-3">
+      <div className="flex flex-col gap-2 sm:gap-3">
         {/* AI Summary Card */}
-        <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-3 border border-primary/20">
+        <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-lg p-2 sm:p-3 border border-primary/20">
           <div className="flex items-start gap-2">
             <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-            <p className="text-sm italic text-foreground">{data.ai_summary}</p>
+            <p className="text-xs sm:text-sm italic text-foreground">{data.ai_summary}</p>
           </div>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-2 text-center">
-          <div className="bg-muted/50 rounded-lg p-2">
-            <div className="text-xs text-muted-foreground">Total Sales</div>
-            <div className="font-semibold text-sm">{formatCurrency(data.total_sales)}</div>
+        {/* Quick Stats - more compact on mobile */}
+        <div className="grid grid-cols-3 gap-1.5 text-center">
+          <div className="bg-muted/50 rounded-lg p-1.5 sm:p-2">
+            <div className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">Total Sales</div>
+            <div className="font-semibold text-xs sm:text-sm">{formatCurrency(data.total_sales)}</div>
           </div>
           <div className={cn(
-            "rounded-lg p-2",
+            "rounded-lg p-1.5 sm:p-2",
             isOverShortPositive ? "bg-green-500/10" : "bg-destructive/10"
           )}>
-            <div className="text-xs text-muted-foreground">Over/Short</div>
+            <div className="text-[10px] sm:text-xs text-muted-foreground whitespace-nowrap">Over/Short</div>
             <div className={cn(
-              "font-semibold text-sm flex items-center justify-center gap-1",
+              "font-semibold text-xs sm:text-sm flex items-center justify-center gap-0.5",
               isOverShortPositive ? "text-green-600" : "text-destructive"
             )}>
-              {isOverShortPositive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {formatCurrency(Math.abs(data.total_over_short))}
+              {isOverShortPositive ? <TrendingUp className="h-3 w-3 flex-shrink-0" /> : <TrendingDown className="h-3 w-3 flex-shrink-0" />}
+              <span className="whitespace-nowrap">{formatCurrency(Math.abs(data.total_over_short))}</span>
             </div>
           </div>
-          <div className="bg-muted/50 rounded-lg p-2">
-            <div className="text-xs text-muted-foreground">Tasks</div>
-            <div className="font-semibold text-sm flex items-center justify-center gap-1">
-              <CheckCircle2 className="h-3 w-3 text-green-600" />
+          <div className="bg-muted/50 rounded-lg p-1.5 sm:p-2">
+            <div className="text-[10px] sm:text-xs text-muted-foreground">Tasks</div>
+            <div className="font-semibold text-xs sm:text-sm flex items-center justify-center gap-0.5">
+              <CheckCircle2 className="h-3 w-3 text-green-600 flex-shrink-0" />
               {data.task_completion_rate}%
             </div>
           </div>
@@ -81,17 +81,17 @@ export function WeeklySummaryEntry({ data, createdAt }: WeeklySummaryEntryProps)
 
         {/* Mini Bar Chart */}
         {data.daily_sales && data.daily_sales.length > 0 && (
-          <div className="flex items-end gap-1 h-12">
+          <div className="flex items-end gap-1 h-10 sm:h-12">
             {data.daily_sales.map((day, idx) => {
               const height = maxSales > 0 ? (day.sales / maxSales) * 100 : 0;
               const dayName = format(new Date(day.date + 'T12:00:00'), 'EEE')[0];
               return (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-1">
+                <div key={idx} className="flex-1 flex flex-col items-center gap-0.5">
                   <div 
                     className="w-full bg-primary/60 rounded-t transition-all"
                     style={{ height: `${Math.max(height, 4)}%` }}
                   />
-                  <span className="text-[10px] text-muted-foreground">{dayName}</span>
+                  <span className="text-[9px] sm:text-[10px] text-muted-foreground">{dayName}</span>
                 </div>
               );
             })}
