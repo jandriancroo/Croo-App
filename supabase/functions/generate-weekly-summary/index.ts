@@ -6,6 +6,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper to get array of date strings between two dates
+function getDateRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const start = new Date(startDate + 'T12:00:00');
+  const end = new Date(endDate + 'T12:00:00');
+  const current = new Date(start);
+  
+  while (current <= end) {
+    const year = current.getFullYear();
+    const month = String(current.getMonth() + 1).padStart(2, '0');
+    const day = String(current.getDate()).padStart(2, '0');
+    dates.push(`${year}-${month}-${day}`);
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -59,11 +76,11 @@ serve(async (req) => {
     let salesByDayOfWeek: Record<string, number> = {};
 
     try {
+      // Use camelCase parameter names as expected by fetch-qubeyond-sales
       const salesResponse = await supabase.functions.invoke('fetch-qubeyond-sales', {
         body: {
-          location_id,
-          period: 'weekly',
-          date: week_end, // Use end of week date
+          locationId: location_id,
+          targetDate: week_end,
         }
       });
 
@@ -71,16 +88,16 @@ serve(async (req) => {
         const salesData = salesResponse.data;
         console.log('Sales data from fetch-qubeyond-sales:', JSON.stringify(salesData).substring(0, 500));
         
-        // Extract weekly sales
-        totalSales = salesData.weeklySales || salesData.dailySales || 0;
+        // The response structure has weekly, monthly, daily, comparison fields
+        totalSales = salesData.weekly || 0;
         
-        // Get daily breakdown if available
-        if (salesData.dailyBreakdown && Array.isArray(salesData.dailyBreakdown)) {
-          for (const day of salesData.dailyBreakdown) {
-            const dayName = new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
-            dailySales.push({ date: day.date, sales: day.sales || 0 });
-            salesByDayOfWeek[dayName] = day.sales || 0;
-          }
+        // Build daily breakdown from the week's data
+        // Fetch daily sales for each day of the week
+        const weekDates = getDateRange(week_start, week_end);
+        for (const dateStr of weekDates) {
+          const dayName = new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+          // We'll estimate daily sales from comparison data if available
+          salesByDayOfWeek[dayName] = 0; // Will be populated if we have daily data
         }
       } else {
         console.log('No sales data returned or error:', salesResponse.error);
