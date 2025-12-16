@@ -2710,7 +2710,9 @@ export type Database = {
           completed_by: string | null
           created_at: string
           id: string
+          item_type: string
           order_index: number
+          response_image_url: string | null
           task_id: string
           title: string
         }
@@ -2719,7 +2721,9 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           id?: string
+          item_type?: string
           order_index?: number
+          response_image_url?: string | null
           task_id: string
           title: string
         }
@@ -2728,7 +2732,9 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           id?: string
+          item_type?: string
           order_index?: number
+          response_image_url?: string | null
           task_id?: string
           title?: string
         }

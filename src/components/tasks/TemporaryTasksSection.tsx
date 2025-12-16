@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Clock, User, Users, Trash2, Eye } from "lucide-react";
+import { Plus, Clock, User, Users, Trash2, Eye, Camera, CheckSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -52,7 +52,7 @@ export function TemporaryTasksSection() {
             role,
             user:profiles(full_name)
           ),
-          subtasks:temporary_task_subtasks(id, title, completed_at, completed_by_profile:profiles(full_name))
+          subtasks:temporary_task_subtasks(id, title, item_type, response_image_url, completed_at, completed_by_profile:profiles(full_name))
         `)
         .eq('location_id', currentLocation.id)
         .eq('is_active', true)
@@ -265,22 +265,41 @@ export function TemporaryTasksSection() {
                 <p className="text-xs font-medium text-muted-foreground">
                   Subtasks ({selectedTask.subtasks.filter((s: any) => s.completed_at).length}/{selectedTask.subtasks.length})
                 </p>
-                <div className="border rounded-lg p-3 space-y-2">
+                <div className="border rounded-lg p-3 space-y-3">
                   {selectedTask.subtasks.map((subtask: any) => (
-                    <div key={subtask.id} className="flex items-start gap-2">
-                      <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 ${subtask.completed_at ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
-                        {subtask.completed_at && <span className="text-primary-foreground text-xs">✓</span>}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm ${subtask.completed_at ? "line-through text-muted-foreground" : ""}`}>
-                          {subtask.title}
-                        </p>
-                        {subtask.completed_at && subtask.completed_by_profile && (
-                          <p className="text-xs text-muted-foreground">
-                            by {subtask.completed_by_profile.full_name} · {format(new Date(subtask.completed_at), "h:mm a")}
-                          </p>
+                    <div key={subtask.id} className="space-y-2">
+                      <div className="flex items-start gap-2">
+                        {subtask.item_type === 'photo' ? (
+                          <Camera className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                        ) : (
+                          <div className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 mt-0.5 ${subtask.completed_at ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
+                            {subtask.completed_at && <span className="text-primary-foreground text-xs">✓</span>}
+                          </div>
                         )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className={`text-sm ${subtask.completed_at ? "line-through text-muted-foreground" : ""}`}>
+                              {subtask.title}
+                            </p>
+                            <Badge variant="outline" className="text-[10px] px-1.5">
+                              {subtask.item_type === 'photo' ? 'Photo' : 'Check'}
+                            </Badge>
+                          </div>
+                          {subtask.completed_at && subtask.completed_by_profile && (
+                            <p className="text-xs text-muted-foreground">
+                              by {subtask.completed_by_profile.full_name} · {format(new Date(subtask.completed_at), "h:mm a")}
+                            </p>
+                          )}
+                        </div>
                       </div>
+                      {/* Show photo if uploaded */}
+                      {subtask.item_type === 'photo' && subtask.response_image_url && (
+                        <img 
+                          src={subtask.response_image_url} 
+                          alt="Completion photo"
+                          className="w-full h-24 object-cover rounded-lg border ml-6"
+                        />
+                      )}
                     </div>
                   ))}
                 </div>
