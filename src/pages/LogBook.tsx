@@ -1042,16 +1042,18 @@ export default function LogBook() {
                                     <DropdownMenuContent align="end">
                                       <DropdownMenuItem 
                                         onClick={() => {
-                                          // Set up for editing: switch to entry tab, select category and date
+                                          // Set up for editing: select category and date, then open sheet
                                           setSelectedCategory(entry.category_id);
-                                          setSelectedDate(new Date(entry.entry_date));
-                                          // Pre-fill form data from existing values
+                                          // Parse date properly to avoid timezone issues - add T12:00:00 to ensure same day
+                                          setSelectedDate(new Date(entry.entry_date + 'T12:00:00'));
+                                          // Pre-fill form data from existing values (for regular entries)
                                           const existingData: Record<string, any> = {};
                                           entry.logbook_entry_values?.forEach((val: any) => {
                                             existingData[val.field_id] = val.value_text || val.value_number || val.value_date || val.attachment_url;
                                           });
                                           setFormData(existingData);
-                                          setActiveTab('entry');
+                                          // Open the sheet for editing
+                                          setShowNewEntrySheet(true);
                                           toast({ title: "Edit mode", description: "Update the entry and save" });
                                         }}
                                       >
