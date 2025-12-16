@@ -22,23 +22,24 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-// Helper to check if a safe count indicates a bank run was made (>$100 in $1 bills and >$50 in quarters)
+// Helper to check if a safe count needs a bank run (< $30 in $1 bills)
+export function checkNeedsBankRun(data: SafeCountData): boolean {
+  const onesCount = data.counts?.['$1'] || 0;
+  return onesCount < 30;
+}
+
+// Helper to check if AM safe count shows bank run was completed (> $100 in $1 bills)
+// This is only meaningful when previous night's PM had needsBankRun
 export function checkBankRunCompleted(data: SafeCountData): boolean {
   const onesCount = data.counts?.['$1'] || 0;
-  const looseQuarters = data.counts?.['Quarters'] || 0;
-  const quarterRolls = data.rolls?.['Quarters'] || 0;
-  // Each quarter roll is $10 (40 quarters), loose quarters are $0.25 each
-  const totalQuarterValue = (looseQuarters * 0.25) + (quarterRolls * 10);
-  
-  return onesCount > 100 && totalQuarterValue > 50;
+  return onesCount > 100;
 }
 
 export function SafeCountEntry({ data, createdAt, bankRunCompleted }: SafeCountEntryProps) {
   const [open, setOpen] = useState(false);
   
-  // Check if $1 bills count is less than 20
-  const onesCount = data.counts?.['$1'] || 0;
-  const needsBankRun = onesCount < 20;
+  // Check if safe count needs bank run (< $30 in $1 bills)
+  const needsBankRun = checkNeedsBankRun(data);
 
   return (
     <div className="space-y-3">

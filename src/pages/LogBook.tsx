@@ -28,7 +28,7 @@ import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { DrawerCountForm, DrawerCountData } from "@/components/logbook/DrawerCountForm";
 import { DrawerCountEntry, parseDrawerCountData } from "@/components/logbook/DrawerCountEntry";
 import { SafeCountForm, SafeCountData } from "@/components/logbook/SafeCountForm";
-import { SafeCountEntry, parseSafeCountData, checkBankRunCompleted } from "@/components/logbook/SafeCountEntry";
+import { SafeCountEntry, parseSafeCountData, checkBankRunCompleted, checkNeedsBankRun } from "@/components/logbook/SafeCountEntry";
 import { WeeklySummaryEntry, parseWeeklySummaryData } from "@/components/logbook/WeeklySummaryEntry";
 import { CateringOrdersSection } from "@/components/logbook/CateringOrdersSection";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
@@ -464,11 +464,12 @@ export default function LogBook() {
     }
   });
 
-  // Helper to check if previous day had a bank run (>$100 in $1 bills and >$50 in quarters)
-  const checkPreviousDayBankRun = (entryDate: string): boolean => {
+  // Helper to check if previous night's PM safe count needed a bank run (< $30 in $1 bills)
+  const checkPreviousNightNeededBankRun = (entryDate: string): boolean => {
     const prevDate = format(subDays(new Date(entryDate + 'T12:00:00'), 1), 'yyyy-MM-dd');
     const prevDaySafeCounts = safeCountsByDate[prevDate] || [];
-    return prevDaySafeCounts.some(sc => checkBankRunCompleted(sc));
+    // Check if ANY PM safe count from previous day needed a bank run
+    return prevDaySafeCounts.some(sc => sc.shift === 'PM' && checkNeedsBankRun(sc));
   };
 
   // Group entries by day - use entry_date directly as it's already YYYY-MM-DD
@@ -1089,8 +1090,8 @@ export default function LogBook() {
                                   // Check if this is safe count data
                                   const safeData = val.value_text ? parseSafeCountData(val.value_text) : null;
                                   if (safeData) {
-                                    // Check if previous day had a bank run for AM safe counts
-                                    const bankRunCompleted = safeData.shift === 'AM' && checkPreviousDayBankRun(entry.entry_date);
+                                    // Bank run completed shows on AM only when: previous night PM needed bank run AND current AM has > $100 in $1s
+                                    const bankRunCompleted = safeData.shift === 'AM' && checkPreviousNightNeededBankRun(entry.entry_date) && checkBankRunCompleted(safeData);
                                     return (
                                       <SafeCountEntry 
                                         key={val.id} 
