@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus } from "lucide-react";
+import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus, Upload } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -52,6 +52,7 @@ export default function LogBook() {
   const [activeTab, setActiveTab] = useState<string>("search");
   const [showNewEntrySheet, setShowNewEntrySheet] = useState(false);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
+  const [showCateringUpload, setShowCateringUpload] = useState(false);
   const navigate = useNavigate();
 
   // Redirect team members away from logs page
@@ -936,11 +937,13 @@ export default function LogBook() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-            <div className="flex items-center gap-2">
-              <TabsList>
-                <TabsTrigger value="search">Recent Logs</TabsTrigger>
-              </TabsList>
+          <div className="flex items-center gap-2">
+            <TabsList>
+              <TabsTrigger value="search">Recent Logs</TabsTrigger>
+              <TabsTrigger value="catering">Catering Orders</TabsTrigger>
+            </TabsList>
+            
+            {activeTab === 'search' && (
               <Sheet open={showNewEntrySheet} onOpenChange={setShowNewEntrySheet}>
                 <SheetTrigger asChild>
                   <Button size="icon" variant="default">
@@ -971,14 +974,13 @@ export default function LogBook() {
                   </div>
                 </SheetContent>
               </Sheet>
-            </div>
-            <Button 
-              variant={activeTab === 'catering' ? 'default' : 'outline'}
-              onClick={() => setActiveTab('catering')}
-              className={activeTab === 'catering' ? 'bg-orange-500 hover:bg-orange-600 text-white' : 'border-orange-500 text-orange-500 hover:bg-orange-500/10'}
-            >
-              🍽️ Catering Orders
-            </Button>
+            )}
+            
+            {activeTab === 'catering' && (
+              <Button size="icon" variant="default" onClick={() => setShowCateringUpload(true)}>
+                <Upload className="h-4 w-4" />
+              </Button>
+            )}
           </div>
 
 
@@ -1209,7 +1211,11 @@ export default function LogBook() {
           </TabsContent>
 
           <TabsContent value="catering">
-            <CateringOrdersSection />
+            <CateringOrdersSection 
+              showHeader={false} 
+              externalUploadOpen={showCateringUpload}
+              onExternalUploadChange={setShowCateringUpload}
+            />
           </TabsContent>
         </Tabs>
 

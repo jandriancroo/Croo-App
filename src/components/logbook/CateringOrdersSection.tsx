@@ -29,7 +29,13 @@ interface CateringOrder {
   total_price: number | null;
 }
 
-export function CateringOrdersSection() {
+interface CateringOrdersSectionProps {
+  showHeader?: boolean;
+  externalUploadOpen?: boolean;
+  onExternalUploadChange?: (open: boolean) => void;
+}
+
+export function CateringOrdersSection({ showHeader = true, externalUploadOpen, onExternalUploadChange }: CateringOrdersSectionProps) {
   const { currentLocation } = useLocation();
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
   const [orders, setOrders] = useState<CateringOrder[]>([]);
@@ -37,6 +43,20 @@ export function CateringOrdersSection() {
   const [uploading, setUploading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<CateringOrder | null>(null);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
+
+  // Handle external upload control
+  useEffect(() => {
+    if (externalUploadOpen !== undefined) {
+      setShowUploadDialog(externalUploadOpen);
+    }
+  }, [externalUploadOpen]);
+
+  // Sync internal state back to parent
+  useEffect(() => {
+    if (onExternalUploadChange) {
+      onExternalUploadChange(showUploadDialog);
+    }
+  }, [showUploadDialog, onExternalUploadChange]);
 
   const canComplete = isShiftManager || isGeneralManager || isManager || isAdmin;
 
@@ -226,16 +246,18 @@ export function CateringOrdersSection() {
   return (
     <>
       <Card className="p-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <ChefHat className="h-5 w-5 text-primary" />
-            <h3 className="font-semibold">Catering Orders</h3>
+        {showHeader && (
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <ChefHat className="h-5 w-5 text-primary" />
+              <h3 className="font-semibold">Catering Orders</h3>
+            </div>
+            <Button size="sm" onClick={() => setShowUploadDialog(true)}>
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Order
+            </Button>
           </div>
-          <Button size="sm" onClick={() => setShowUploadDialog(true)}>
-            <Upload className="h-4 w-4 mr-2" />
-            Upload Order
-          </Button>
-        </div>
+        )}
 
         {upcomingOrders.length === 0 && pastDueOrders.length === 0 && completedOrders.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
