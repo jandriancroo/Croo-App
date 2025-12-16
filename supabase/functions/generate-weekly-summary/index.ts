@@ -41,59 +41,52 @@ serve(async (req) => {
         entry.logbook_entry_values?.forEach((val: any) => {
           try {
             const data = JSON.parse(val.value_text || '{}');
-            if (data.overUnder !== undefined) {
-              totalOverShort += data.overUnder;
+            // Check for variance field (current format) or overUnder (legacy)
+            const varianceAmount = data.variance ?? data.overUnder ?? null;
+            if (varianceAmount !== null && varianceAmount !== undefined) {
+              totalOverShort += varianceAmount;
               drawerCountDays++;
-              dailyOverShort.push({ date: entry.entry_date, amount: data.overUnder });
+              dailyOverShort.push({ date: entry.entry_date, amount: varianceAmount });
             }
           } catch {}
         });
       }
     });
 
-    // 2. Get sales data for the week from location_integrations (QuBeyond)
-    const { data: integration } = await supabase
-      .from('location_integrations')
-      .select('credentials')
-      .eq('location_id', location_id)
-      .eq('integration_type', 'qubeyond')
-      .eq('is_active', true)
-      .maybeSingle();
-
+    // 2. Get sales data for the week via fetch-qubeyond-sales edge function
     let totalSales = 0;
     let dailySales: { date: string; sales: number }[] = [];
     let salesByDayOfWeek: Record<string, number> = {};
 
-    if (integration?.credentials) {
-      // Fetch sales from QuBeyond for each day of the week
-      const credentials = integration.credentials as { sid: string; cid: string; username: string; password: string };
-      
-      const startDate = new Date(week_start);
-      const endDate = new Date(week_end);
-      
-      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-        const dateStr = d.toISOString().split('T')[0];
-        const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
-        
-        try {
-          const authHeader = 'Basic ' + btoa(`${credentials.username}:${credentials.password}`);
-          const url = `https://api.qubeyond.com/v2/data/net-sales?sid=${credentials.sid}&cid=${credentials.cid}&date=${dateStr}`;
-          
-          const response = await fetch(url, {
-            headers: { 'Authorization': authHeader }
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            const daySales = data?.data?.[0]?.net_sales || 0;
-            totalSales += daySales;
-            dailySales.push({ date: dateStr, sales: daySales });
-            salesByDayOfWeek[dayName] = daySales;
-          }
-        } catch (e) {
-          console.error('Error fetching sales for', dateStr, e);
+    try {
+      const salesResponse = await supabase.functions.invoke('fetch-qubeyond-sales', {
+        body: {
+          location_id,
+          period: 'weekly',
+          date: week_end, // Use end of week date
         }
+      });
+
+      if (salesResponse.data && !salesResponse.error) {
+        const salesData = salesResponse.data;
+        console.log('Sales data from fetch-qubeyond-sales:', JSON.stringify(salesData).substring(0, 500));
+        
+        // Extract weekly sales
+        totalSales = salesData.weeklySales || salesData.dailySales || 0;
+        
+        // Get daily breakdown if available
+        if (salesData.dailyBreakdown && Array.isArray(salesData.dailyBreakdown)) {
+          for (const day of salesData.dailyBreakdown) {
+            const dayName = new Date(day.date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' });
+            dailySales.push({ date: day.date, sales: day.sales || 0 });
+            salesByDayOfWeek[dayName] = day.sales || 0;
+          }
+        }
+      } else {
+        console.log('No sales data returned or error:', salesResponse.error);
       }
+    } catch (e) {
+      console.error('Error fetching sales from edge function:', e);
     }
 
     // 3. Get task completion stats for the week
