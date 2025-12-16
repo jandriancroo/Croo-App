@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from '@/hooks/useLocation';
-import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { MessageCircle, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { MessageCircle, Trash2 } from 'lucide-react';
 import { format, isToday } from 'date-fns';
+import { toast } from 'sonner';
 
 interface HiringConversation {
   id: string;
@@ -35,6 +37,8 @@ export function HiringChatList({ onSelectConversation, selectedId }: HiringChatL
   const { currentLocation } = useLocation();
   const [conversations, setConversations] = useState<HiringConversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<HiringConversation | null>(null);
 
   useEffect(() => {
     if (currentLocation?.id) {
@@ -129,6 +133,46 @@ export function HiringChatList({ onSelectConversation, selectedId }: HiringChatL
     }
   };
 
+  const handleDeleteClick = (e: React.MouseEvent, conv: HiringConversation) => {
+    e.stopPropagation();
+    setConversationToDelete(conv);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!conversationToDelete) return;
+
+    try {
+      // Delete messages first
+      await supabase
+        .from('hiring_messages')
+        .delete()
+        .eq('conversation_id', conversationToDelete.id);
+
+      // Then delete the conversation
+      const { error } = await supabase
+        .from('hiring_conversations')
+        .delete()
+        .eq('id', conversationToDelete.id);
+
+      if (error) throw error;
+
+      toast.success('Conversation deleted');
+      setConversations(prev => prev.filter(c => c.id !== conversationToDelete.id));
+      
+      // If we deleted the selected conversation, clear selection
+      if (selectedId === conversationToDelete.id) {
+        onSelectConversation(null as any);
+      }
+    } catch (err) {
+      console.error('Error deleting conversation:', err);
+      toast.error('Failed to delete conversation');
+    } finally {
+      setDeleteDialogOpen(false);
+      setConversationToDelete(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-2 p-2">
@@ -158,30 +202,57 @@ export function HiringChatList({ onSelectConversation, selectedId }: HiringChatL
   }
 
   return (
-    <div className="divide-y overflow-y-auto flex-1">
-      {conversations.map((conv) => (
-        <button
-          key={conv.id}
-          onClick={() => onSelectConversation(conv)}
-          className={`w-full text-left p-3 hover:bg-muted/50 transition-colors ${
-            selectedId === conv.id ? 'bg-muted' : ''
-          }`}
-        >
-          <div className="flex items-center gap-3">
-            <Avatar className="h-10 w-10">
-              <AvatarFallback className="bg-primary/10 text-primary">
-                {conv.application.full_name.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1 min-w-0">
-              <span className="font-medium truncate block">{conv.application.full_name}</span>
-              <Badge variant="secondary" className={`text-xs mt-1 ${getStatusColor(conv.application.status)}`}>
-                {conv.application.status}
-              </Badge>
+    <>
+      <div className="divide-y overflow-y-auto flex-1">
+        {conversations.map((conv) => (
+          <div
+            key={conv.id}
+            onClick={() => onSelectConversation(conv)}
+            className={`w-full text-left p-3 hover:bg-muted/50 transition-colors cursor-pointer ${
+              selectedId === conv.id ? 'bg-muted' : ''
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
+                <AvatarFallback className="bg-primary/10 text-primary">
+                  {conv.application.full_name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <span className="font-medium truncate block">{conv.application.full_name}</span>
+                <Badge variant="secondary" className={`text-xs mt-1 ${getStatusColor(conv.application.status)}`}>
+                  {conv.application.status}
+                </Badge>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                onClick={(e) => handleDeleteClick(e, conv)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-        </button>
-      ))}
-    </div>
+        ))}
+      </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Conversation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this hiring conversation with {conversationToDelete?.application.full_name}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
