@@ -395,25 +395,23 @@ export const Layout = ({
             
             {/* Alerts button - hidden for checklist-only locations */}
             {!isChecklistOnlyLocation && (
-              <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="relative hover:bg-muted ml-1 rounded-none font-extrabold overflow-hidden">
-                <div className="relative flex items-center justify-center h-5 w-5 overflow-hidden">
-                  <div className="absolute h-5 w-5 bg-destructive rounded-full opacity-75"></div>
-                  <div className="absolute h-5 w-5 bg-destructive rounded-full animate-ping"></div>
-                  <div className="absolute h-3 w-3 bg-destructive rounded-full"></div>
-                </div>
-              </Button>
+              <button onClick={() => navigate('/alerts')} title="Live Alerts" className="relative ml-1 p-2 hover:opacity-80 transition-opacity">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+                </span>
+              </button>
             )}
           </nav>
           
           {/* Mobile Alerts Button - hidden for checklist-only locations */}
           {!isChecklistOnlyLocation && (
-            <Button variant="ghost" size="icon" onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative hover:bg-muted rounded-none font-extrabold ml-auto overflow-hidden">
-              <div className="relative flex items-center justify-center h-5 w-5 overflow-hidden">
-                <div className="absolute h-5 w-5 bg-destructive rounded-full opacity-75"></div>
-                <div className="absolute h-5 w-5 bg-destructive rounded-full animate-ping"></div>
-                <div className="absolute h-3 w-3 bg-destructive rounded-full"></div>
-              </div>
-            </Button>
+            <button onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative p-2 ml-auto hover:opacity-80 transition-opacity">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+              </span>
+            </button>
           )}
           
           <div className="hidden md:flex items-center gap-2">
