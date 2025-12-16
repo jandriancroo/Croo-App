@@ -22,16 +22,21 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
+// Helper to get $1 bill count (handles both "$1" and "$1 Bill" keys)
+function getOnesBillCount(data: SafeCountData): number {
+  return data.counts?.['$1 Bill'] || data.counts?.['$1'] || 0;
+}
+
 // Helper to check if a safe count needs a bank run (< $30 in $1 bills)
 export function checkNeedsBankRun(data: SafeCountData): boolean {
-  const onesCount = data.counts?.['$1'] || 0;
+  const onesCount = getOnesBillCount(data);
   return onesCount < 30;
 }
 
 // Helper to check if AM safe count shows bank run was completed (> $100 in $1 bills)
 // This is only meaningful when previous night's PM had needsBankRun
 export function checkBankRunCompleted(data: SafeCountData): boolean {
-  const onesCount = data.counts?.['$1'] || 0;
+  const onesCount = getOnesBillCount(data);
   return onesCount > 100;
 }
 

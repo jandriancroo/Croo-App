@@ -135,46 +135,38 @@ serve(async (req) => {
     // 4. Generate AI summary of sales trends
     let aiSummary = "Weekly sales data unavailable.";
     
-    if (totalSales > 0) {
-      const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-      
-      if (LOVABLE_API_KEY) {
-        const weekendSales = (salesByDayOfWeek['Saturday'] || 0) + (salesByDayOfWeek['Sunday'] || 0);
-        const weekdaySales = totalSales - weekendSales;
-        const avgDailySales = totalSales / dailySales.length;
-        
-        const prompt = `Analyze this week's restaurant sales data and provide ONE short sentence summary (under 15 words):
-- Total sales: $${totalSales.toFixed(2)}
-- Daily breakdown: ${dailySales.map(d => `${d.date}: $${d.sales.toFixed(2)}`).join(', ')}
-- Weekend (Sat+Sun): $${weekendSales.toFixed(2)}
-- Weekdays: $${weekdaySales.toFixed(2)}
-- Average daily: $${avgDailySales.toFixed(2)}
-
-Describe the trend: was it a busy/slow week, strong/weak weekend, etc. Be concise.`;
-
-        try {
-          const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              model: 'google/gemini-2.5-flash',
-              messages: [
-                { role: 'system', content: 'You are a concise restaurant business analyst. Respond with exactly one short sentence.' },
-                { role: 'user', content: prompt }
-              ],
-            }),
-          });
-
-          if (aiResponse.ok) {
-            const aiData = await aiResponse.json();
-            aiSummary = aiData.choices?.[0]?.message?.content?.trim() || aiSummary;
-          }
-        } catch (e) {
-          console.error('AI summary error:', e);
+    // Get comparison data (last year same week) from sales response
+    let prevYearWeekSales = 0;
+    let yoyChange = 0;
+    
+    try {
+      // Fetch comparison data for YOY
+      const compResponse = await supabase.functions.invoke('fetch-qubeyond-sales', {
+        body: {
+          locationId: location_id,
+          targetDate: week_end,
         }
+      });
+      
+      if (compResponse.data?.comparison?.prevWeek) {
+        prevYearWeekSales = compResponse.data.comparison.prevWeek;
+        if (prevYearWeekSales > 0) {
+          yoyChange = ((totalSales - prevYearWeekSales) / prevYearWeekSales) * 100;
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching comparison data:', e);
+    }
+    
+    if (totalSales > 0) {
+      // Build a simple, data-driven summary
+      const yoyDirection = yoyChange >= 0 ? 'up' : 'down';
+      const yoyAbs = Math.abs(yoyChange).toFixed(1);
+      
+      if (prevYearWeekSales > 0) {
+        aiSummary = `Weekly sales ${yoyDirection} ${yoyAbs}% vs last week ($${totalSales.toLocaleString()} vs $${prevYearWeekSales.toLocaleString()}).`;
+      } else {
+        aiSummary = `Total weekly sales: $${totalSales.toLocaleString()}.`;
       }
     }
 
