@@ -29,6 +29,10 @@ const formatCurrency = (value: number) => {
 
 export function SafeCountEntry({ data, createdAt }: SafeCountEntryProps) {
   const [open, setOpen] = useState(false);
+  
+  // Check if $1 bills count is less than 20
+  const onesCount = data.counts?.['$1'] || 0;
+  const needsBankRun = onesCount < 20;
 
   return (
     <div className="space-y-3">
@@ -49,6 +53,11 @@ export function SafeCountEntry({ data, createdAt }: SafeCountEntryProps) {
             <CheckCircle2 className="h-4 w-4 text-green-600" />
             <span className="font-medium">{formatCurrency(data.totalSafe)}</span>
           </div>
+          {needsBankRun && (
+            <Badge variant="destructive" className="text-xs">
+              Bank Run Needed
+            </Badge>
+          )}
         </div>
         
         <Dialog open={open} onOpenChange={setOpen}>
