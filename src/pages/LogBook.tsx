@@ -565,21 +565,23 @@ export default function LogBook() {
                             queryClient.invalidateQueries({ queryKey: ['logbook-fields', selectedCategory] });
                           }
                           
-                          // Create new entry (drawer counts allow multiple per day)
+                          // Create or get existing entry (upsert to handle re-submissions same day)
                           const { data: entryData, error: entryError } = await supabase
                             .from('logbook_entries')
-                            .insert({
+                            .upsert({
                               category_id: selectedCategory,
                               entry_date: dateStr,
                               created_by: user!.id,
                               location_id: currentLocation?.id,
+                            }, {
+                              onConflict: 'category_id,entry_date,location_id'
                             })
                             .select()
                             .single();
 
                           if (entryError) throw entryError;
 
-                          // Delete existing values
+                          // Delete existing values (drawer count overwrites previous for the day)
                           await supabase
                             .from('logbook_entry_values')
                             .delete()
@@ -698,19 +700,49 @@ export default function LogBook() {
                             queryClient.invalidateQueries({ queryKey: ['logbook-fields', selectedCategory] });
                           }
                           
-                          // Create entry
+                          // Create or get existing entry (upsert to handle AM/PM separate submissions)
                           const { data: entryData, error: entryError } = await supabase
                             .from('logbook_entries')
-                            .insert({
+                            .upsert({
                               category_id: selectedCategory,
                               entry_date: dateStr,
                               created_by: user!.id,
                               location_id: currentLocation?.id,
+                            }, {
+                              onConflict: 'category_id,entry_date,location_id'
                             })
                             .select()
                             .single();
 
                           if (entryError) throw entryError;
+
+                          // Check if there's already a value for this shift and delete it (to allow re-submission)
+                          const { data: existingValues } = await supabase
+                            .from('logbook_entry_values')
+                            .select('id, value_text')
+                            .eq('entry_id', entryData.id)
+                            .eq('field_id', fieldId);
+                          
+                          // Delete any existing value for the same shift
+                          if (existingValues && existingValues.length > 0) {
+                            const valueIdsToDelete = existingValues
+                              .filter(v => {
+                                try {
+                                  const parsed = JSON.parse(v.value_text || '{}');
+                                  return parsed.shift === data.shift;
+                                } catch {
+                                  return false;
+                                }
+                              })
+                              .map(v => v.id);
+                            
+                            if (valueIdsToDelete.length > 0) {
+                              await supabase
+                                .from('logbook_entry_values')
+                                .delete()
+                                .in('id', valueIdsToDelete);
+                            }
+                          }
 
                           // Store safe count data as JSON
                           const { error: valuesError } = await supabase
