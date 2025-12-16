@@ -2,22 +2,17 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Sun, Moon, CheckCircle2 } from "lucide-react";
+import { Eye, Sun, Moon, CheckCircle2, Banknote } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { SafeCountData } from "@/components/logbook/SafeCountForm";
 
-interface SafeCountData {
-  shift: 'AM' | 'PM';
-  counts: Record<string, number>;
-  rolls?: Record<string, number>;
-  totalSafe: number;
-  difference: number;
-  adjustmentSuggestions: { denomination: string; count: number; value: number; action: 'add' | 'remove' }[];
-}
+export type { SafeCountData };
 
 interface SafeCountEntryProps {
   data: SafeCountData;
   createdAt: string;
+  bankRunCompleted?: boolean;
 }
 
 const formatCurrency = (value: number) => {
@@ -27,7 +22,18 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export function SafeCountEntry({ data, createdAt }: SafeCountEntryProps) {
+// Helper to check if a safe count indicates a bank run was made (>$100 in $1 bills and >$50 in quarters)
+export function checkBankRunCompleted(data: SafeCountData): boolean {
+  const onesCount = data.counts?.['$1'] || 0;
+  const looseQuarters = data.counts?.['Quarters'] || 0;
+  const quarterRolls = data.rolls?.['Quarters'] || 0;
+  // Each quarter roll is $10 (40 quarters), loose quarters are $0.25 each
+  const totalQuarterValue = (looseQuarters * 0.25) + (quarterRolls * 10);
+  
+  return onesCount > 100 && totalQuarterValue > 50;
+}
+
+export function SafeCountEntry({ data, createdAt, bankRunCompleted }: SafeCountEntryProps) {
   const [open, setOpen] = useState(false);
   
   // Check if $1 bills count is less than 20
@@ -53,7 +59,13 @@ export function SafeCountEntry({ data, createdAt }: SafeCountEntryProps) {
             <CheckCircle2 className="h-4 w-4 text-green-600" />
             <span className="font-medium">{formatCurrency(data.totalSafe)}</span>
           </div>
-          {needsBankRun && (
+          {bankRunCompleted && data.shift === 'AM' && (
+            <Badge className="text-xs bg-green-100 text-green-800 border-green-300">
+              <Banknote className="h-3 w-3 mr-1" />
+              Bank Run Completed
+            </Badge>
+          )}
+          {needsBankRun && !bankRunCompleted && (
             <Badge variant="destructive" className="text-xs">
               Bank Run Needed
             </Badge>
