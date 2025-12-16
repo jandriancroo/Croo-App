@@ -22,6 +22,7 @@ import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-ki
 import { SortableChecklistItem } from '@/components/tasks/SortableChecklistItem';
 import { ChecklistLeaderboard } from '@/components/tasks/ChecklistLeaderboard';
 import { CopyChecklistDialog } from '@/components/tasks/CopyChecklistDialog';
+import { TemporaryTasksSection } from '@/components/tasks/TemporaryTasksSection';
 import { getTodayInPST, getDateInPST, getStartOfDatePST } from '@/utils/dateUtils';
 export default function Tasks() {
   const navigate = useNavigate();
@@ -480,6 +481,9 @@ export default function Tasks() {
           )}
 
           <TabsContent value="edit" className="space-y-6">
+            {/* Quick Tasks Section */}
+            <TemporaryTasksSection />
+
             {/* Checklist Templates */}
             <Card>
               <CardHeader className="py-3">
