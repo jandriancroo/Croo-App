@@ -32,7 +32,7 @@ import { SafeCountEntry, parseSafeCountData, checkBankRunCompleted } from "@/com
 import { WeeklySummaryEntry, parseWeeklySummaryData } from "@/components/logbook/WeeklySummaryEntry";
 import { CateringOrdersSection } from "@/components/logbook/CateringOrdersSection";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
-import { startOfWeek, endOfWeek, getDay, subDays, addDays } from "date-fns";
+import { startOfWeek, endOfWeek, getDay, subDays } from "date-fns";
 import crooLogo from "@/assets/croo-logo.png";
 
 export default function LogBook() {
@@ -926,48 +926,12 @@ export default function LogBook() {
       <div className="container max-w-6xl mx-auto p-4 md:p-6">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
           <h1 className="text-3xl font-bold">Logs</h1>
-          <div className="flex items-center gap-2">
-            {isAdmin && (
-              <>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={async () => {
-                    if (!currentLocation?.id || !user?.id) return;
-                    // Generate summary for previous week (Mon-Sun)
-                    const lastSunday = subDays(new Date(), getDay(new Date()) || 7);
-                    const lastMonday = subDays(lastSunday, 6);
-                    const weekStart = format(lastMonday, 'yyyy-MM-dd');
-                    const weekEnd = format(lastSunday, 'yyyy-MM-dd');
-                    
-                    toast({ title: "Generating weekly summary...", description: `Week of ${format(lastMonday, 'MMM d')} - ${format(lastSunday, 'MMM d')}` });
-                    
-                    try {
-                      await supabase.functions.invoke('generate-weekly-summary', {
-                        body: {
-                          location_id: currentLocation.id,
-                          week_start: weekStart,
-                          week_end: weekEnd,
-                          user_id: user.id,
-                        }
-                      });
-                      toast({ title: "Weekly summary generated!" });
-                      queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
-                    } catch (err) {
-                      console.error('Error generating weekly summary:', err);
-                      toast({ title: "Error generating summary", variant: "destructive" });
-                    }
-                  }}
-                >
-                  Generate Last Week Summary
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>
-                  <Settings className="h-4 w-4 mr-2" />
-                  Categories
-                </Button>
-              </>
-            )}
-          </div>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>
+              <Settings className="h-4 w-4 mr-2" />
+              Categories
+            </Button>
+          )}
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
