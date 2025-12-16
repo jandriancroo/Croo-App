@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { Upload, ChefHat, Clock, Users, Check, Loader2, Trash2, Eye } from "lucide-react";
+import { Upload, ChefHat, Clock, Users, Check, Loader2, Trash2, Eye, Phone, DollarSign } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { compressImage } from "@/utils/imageCompression";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -19,13 +19,15 @@ interface CateringOrder {
   pickup_date: string;
   pickup_time: string;
   headcount: number | null;
-  items: { quantity: number; item: string; notes?: string }[];
+  items: { quantity: number; item: string; notes?: string; price?: number }[];
   notes: string | null;
   source_url: string | null;
   status: string;
   completed_at: string | null;
   completed_by: string | null;
   created_at: string;
+  contact_phone: string | null;
+  total_price: number | null;
 }
 
 export function CateringOrdersSection() {
@@ -122,6 +124,8 @@ export function CateringOrdersSection() {
           notes: orderData.notes || null,
           source_url: urlData.publicUrl,
           created_by: user.id,
+          contact_phone: orderData.contact_phone || null,
+          total_price: orderData.total_price || null,
         });
 
       if (insertError) throw insertError;
@@ -247,24 +251,34 @@ export function CateringOrdersSection() {
                     className="p-3 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
                     onClick={() => setSelectedOrder(order)}
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{order.customer_name}</p>
-                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                          <span>{format(parseISO(order.pickup_date), "MMM d")}</span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {formatTime(order.pickup_time)}
-                          </span>
-                          {order.headcount && (
-                            <span className="flex items-center gap-1">
-                              <Users className="h-3 w-3" />
-                              {order.headcount}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-medium">{order.customer_name}</p>
                       <Badge variant="outline">{order.items.length} items</Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                      <span>{format(parseISO(order.pickup_date), "MMM d")}</span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatTime(order.pickup_time)}
+                      </span>
+                      {order.headcount && (
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {order.headcount}
+                        </span>
+                      )}
+                      {order.total_price && (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <DollarSign className="h-3 w-3" />
+                          {order.total_price.toFixed(2)}
+                        </span>
+                      )}
+                      {order.contact_phone && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {order.contact_phone}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -356,6 +370,20 @@ export function CateringOrdersSection() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-muted-foreground">Headcount</span>
                     <span>{selectedOrder.headcount}</span>
+                  </div>
+                )}
+                {selectedOrder.total_price && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Total Price</span>
+                    <span className="font-medium text-green-600">${selectedOrder.total_price.toFixed(2)}</span>
+                  </div>
+                )}
+                {selectedOrder.contact_phone && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Contact</span>
+                    <a href={`tel:${selectedOrder.contact_phone}`} className="text-primary hover:underline">
+                      {selectedOrder.contact_phone}
+                    </a>
                   </div>
                 )}
               </div>

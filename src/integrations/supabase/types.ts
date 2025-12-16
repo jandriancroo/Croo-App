@@ -149,6 +149,7 @@ export type Database = {
         Row: {
           completed_at: string | null
           completed_by: string | null
+          contact_phone: string | null
           created_at: string
           created_by: string
           customer_name: string
@@ -162,11 +163,13 @@ export type Database = {
           pickup_time: string
           source_url: string | null
           status: string
+          total_price: number | null
           updated_at: string
         }
         Insert: {
           completed_at?: string | null
           completed_by?: string | null
+          contact_phone?: string | null
           created_at?: string
           created_by: string
           customer_name: string
@@ -180,11 +183,13 @@ export type Database = {
           pickup_time: string
           source_url?: string | null
           status?: string
+          total_price?: number | null
           updated_at?: string
         }
         Update: {
           completed_at?: string | null
           completed_by?: string | null
+          contact_phone?: string | null
           created_at?: string
           created_by?: string
           customer_name?: string
@@ -198,6 +203,7 @@ export type Database = {
           pickup_time?: string
           source_url?: string | null
           status?: string
+          total_price?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -1743,6 +1749,7 @@ export type Database = {
           field_type: string
           id: string
           is_required: boolean
+          options: Json | null
         }
         Insert: {
           category_id: string
@@ -1752,6 +1759,7 @@ export type Database = {
           field_type: string
           id?: string
           is_required?: boolean
+          options?: Json | null
         }
         Update: {
           category_id?: string
@@ -1761,6 +1769,7 @@ export type Database = {
           field_type?: string
           id?: string
           is_required?: boolean
+          options?: Json | null
         }
         Relationships: [
           {
