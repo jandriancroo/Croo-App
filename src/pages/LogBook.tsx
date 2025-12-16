@@ -29,8 +29,11 @@ import { DrawerCountForm, DrawerCountData } from "@/components/logbook/DrawerCou
 import { DrawerCountEntry, parseDrawerCountData } from "@/components/logbook/DrawerCountEntry";
 import { SafeCountForm, SafeCountData } from "@/components/logbook/SafeCountForm";
 import { SafeCountEntry, parseSafeCountData } from "@/components/logbook/SafeCountEntry";
+import { WeeklySummaryEntry, parseWeeklySummaryData } from "@/components/logbook/WeeklySummaryEntry";
 import { CateringOrdersSection } from "@/components/logbook/CateringOrdersSection";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { startOfWeek, endOfWeek, getDay } from "date-fns";
+import crooLogo from "@/assets/croo-logo.png";
 
 export default function LogBook() {
   const { user } = useAuth();
@@ -568,6 +571,31 @@ export default function LogBook() {
                     console.error('Error sending drawer count notification:', notifError);
                   }
                 }
+
+                // Trigger weekly summary generation if this is a Sunday deposit
+                const dayOfWeek = getDay(selectedDate);
+                if (dayOfWeek === 0 && currentLocation?.id) { // 0 = Sunday
+                  try {
+                    const weekStart = format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+                    const weekEnd = format(endOfWeek(selectedDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+                    
+                    toast({ title: "Generating weekly summary...", description: "Please wait" });
+                    
+                    await supabase.functions.invoke('generate-weekly-summary', {
+                      body: {
+                        location_id: currentLocation.id,
+                        week_start: weekStart,
+                        week_end: weekEnd,
+                        user_id: user!.id,
+                      }
+                    });
+                    
+                    toast({ title: "Weekly summary generated!" });
+                    queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                  } catch (summaryError) {
+                    console.error('Error generating weekly summary:', summaryError);
+                  }
+                }
               } catch (error: any) {
                 toast({ title: "Error saving drawer count", description: error.message, variant: "destructive" });
               }
@@ -946,20 +974,31 @@ export default function LogBook() {
                     {format(new Date(dateKey + 'T12:00:00'), 'EEEE, MMMM d, yyyy')}
                   </h3>
                   <div className="space-y-2">
-                    {entriesByDay[dateKey].map((entry: any) => (
-                      <Card key={entry._virtualId || entry.id}>
+                    {entriesByDay[dateKey].map((entry: any) => {
+                      const isWeeklySummary = entry.logbook_categories?.name === 'Weekly Summary';
+                      return (
+                      <Card key={entry._virtualId || entry.id} className={isWeeklySummary ? "border-primary/30 bg-gradient-to-br from-primary/5 to-transparent" : ""}>
                         <CardContent className="p-4">
                           <div className="flex items-start gap-3">
-                            <Avatar>
-                              <AvatarImage src={entry.profiles?.profile_photo_url} />
-                              <AvatarFallback>
-                                <User className="h-4 w-4" />
-                              </AvatarFallback>
-                            </Avatar>
+                            {isWeeklySummary ? (
+                              <Avatar className="border-2 border-primary/30">
+                                <AvatarImage src={crooLogo} />
+                                <AvatarFallback className="bg-primary/10">AI</AvatarFallback>
+                              </Avatar>
+                            ) : (
+                              <Avatar>
+                                <AvatarImage src={entry.profiles?.profile_photo_url} />
+                                <AvatarFallback>
+                                  <User className="h-4 w-4" />
+                                </AvatarFallback>
+                              </Avatar>
+                            )}
                             <div className="flex-1">
                               <div className="flex justify-between items-start">
                                 <div>
-                                  <div className="font-medium">{entry.profiles?.full_name}</div>
+                                  <div className="font-medium">
+                                    {isWeeklySummary ? "Croo AI" : entry.profiles?.full_name}
+                                  </div>
                                   <div className="text-sm text-muted-foreground">
                                     {entry.logbook_categories?.name}
                                   </div>
@@ -1027,6 +1066,18 @@ export default function LogBook() {
                                       <SafeCountEntry 
                                         key={val.id} 
                                         data={safeData} 
+                                        createdAt={entry.created_at} 
+                                      />
+                                    );
+                                  }
+
+                                  // Check if this is weekly summary data
+                                  const summaryData = val.value_text ? parseWeeklySummaryData(val.value_text) : null;
+                                  if (summaryData) {
+                                    return (
+                                      <WeeklySummaryEntry 
+                                        key={val.id} 
+                                        data={summaryData} 
                                         createdAt={entry.created_at} 
                                       />
                                     );
@@ -1115,7 +1166,8 @@ export default function LogBook() {
                           </div>
                         </CardContent>
                       </Card>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
