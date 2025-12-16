@@ -427,8 +427,24 @@ export default function LogBook() {
     );
   });
 
+  // Expand safe count entries so AM and PM appear as separate cards
+  const expandedEntries = filteredEntries.flatMap((entry: any) => {
+    const isSafeCount = entry.logbook_categories?.name?.toLowerCase() === 'safe count';
+    
+    if (isSafeCount && entry.logbook_entry_values?.length > 1) {
+      // Create separate "virtual" entries for each safe count value (AM and PM)
+      return entry.logbook_entry_values.map((val: any) => ({
+        ...entry,
+        logbook_entry_values: [val],
+        _virtualId: `${entry.id}-${val.id}`, // Unique key for rendering
+      }));
+    }
+    
+    return [entry];
+  });
+
   // Group entries by day - use entry_date directly as it's already YYYY-MM-DD
-  const entriesByDay = filteredEntries.reduce((acc: any, entry: any) => {
+  const entriesByDay = expandedEntries.reduce((acc: any, entry: any) => {
     const dateKey = entry.entry_date;
     if (!acc[dateKey]) {
       acc[dateKey] = [];
@@ -931,7 +947,7 @@ export default function LogBook() {
                   </h3>
                   <div className="space-y-2">
                     {entriesByDay[dateKey].map((entry: any) => (
-                      <Card key={entry.id}>
+                      <Card key={entry._virtualId || entry.id}>
                         <CardContent className="p-4">
                           <div className="flex items-start gap-3">
                             <Avatar>
