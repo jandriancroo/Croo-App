@@ -1032,7 +1032,7 @@ export default function LogBook() {
                                   </div>
                                 </div>
                               <div className="flex items-center gap-2">
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-xs text-muted-foreground whitespace-nowrap">
                                   {format(new Date(entry.created_at), 'h:mm a')}
                                 </div>
                                 {(isAdmin || isManager || entry.created_by === user?.id) && (
