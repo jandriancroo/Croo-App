@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, Trash2 } from "lucide-react";
+import { Plus, X, Trash2, Camera, CheckSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
@@ -18,6 +18,11 @@ interface CreateTemporaryTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+}
+
+interface Subtask {
+  title: string;
+  item_type: "checkbox" | "photo";
 }
 
 const DURATION_OPTIONS = [
@@ -57,8 +62,9 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
   const [assignmentType, setAssignmentType] = useState<"employees" | "roles">("employees");
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-  const [subtasks, setSubtasks] = useState<string[]>([]);
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [newSubtask, setNewSubtask] = useState("");
+  const [newSubtaskType, setNewSubtaskType] = useState<"checkbox" | "photo">("checkbox");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch employees at the location
@@ -98,6 +104,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
     setSelectedRoles([]);
     setSubtasks([]);
     setNewSubtask("");
+    setNewSubtaskType("checkbox");
   };
 
   useEffect(() => {
@@ -108,7 +115,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
 
   const handleAddSubtask = () => {
     if (newSubtask.trim()) {
-      setSubtasks([...subtasks, newSubtask.trim()]);
+      setSubtasks([...subtasks, { title: newSubtask.trim(), item_type: newSubtaskType }]);
       setNewSubtask("");
     }
   };
@@ -172,9 +179,10 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
 
       // Create subtasks
       if (subtasks.length > 0) {
-        const subtaskRecords = subtasks.map((title, index) => ({
+        const subtaskRecords = subtasks.map((subtask, index) => ({
           task_id: task.id,
-          title,
+          title: subtask.title,
+          item_type: subtask.item_type,
           order_index: index,
         }));
 
@@ -389,8 +397,28 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
                 value={newSubtask}
                 onChange={(e) => setNewSubtask(e.target.value)}
                 placeholder="Add a subtask"
+                className="flex-1"
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddSubtask())}
               />
+              <Select value={newSubtaskType} onValueChange={(v) => setNewSubtaskType(v as "checkbox" | "photo")}>
+                <SelectTrigger className="w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="checkbox">
+                    <div className="flex items-center gap-2">
+                      <CheckSquare className="h-3.5 w-3.5" />
+                      Check
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="photo">
+                    <div className="flex items-center gap-2">
+                      <Camera className="h-3.5 w-3.5" />
+                      Photo
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
               <Button 
                 type="button" 
                 size="icon" 
@@ -404,7 +432,17 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
               <div className="border rounded-lg p-3 space-y-2">
                 {subtasks.map((subtask, index) => (
                   <div key={index} className="flex items-center justify-between gap-2">
-                    <span className="text-sm">{index + 1}. {subtask}</span>
+                    <div className="flex items-center gap-2">
+                      {subtask.item_type === "photo" ? (
+                        <Camera className="h-3.5 w-3.5 text-muted-foreground" />
+                      ) : (
+                        <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                      <span className="text-sm">{subtask.title}</span>
+                      <Badge variant="outline" className="text-[10px] px-1.5">
+                        {subtask.item_type === "photo" ? "Photo" : "Check"}
+                      </Badge>
+                    </div>
                     <Button
                       type="button"
                       size="icon"

@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Check, Clock, User, Users } from "lucide-react";
+import { Check, Clock, User, Users, Camera, Image, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -33,6 +33,9 @@ export function TemporaryTaskDetailsDialog({
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isCompleting, setIsCompleting] = useState(false);
+  const [uploadingSubtaskId, setUploadingSubtaskId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [activeSubtaskId, setActiveSubtaskId] = useState<string | null>(null);
 
   // Fetch subtasks
   const { data: subtasks = [], refetch: refetchSubtasks } = useQuery({
@@ -73,7 +76,7 @@ export function TemporaryTaskDetailsDialog({
     try {
       const updateData = completed 
         ? { completed_at: new Date().toISOString(), completed_by: user!.id }
-        : { completed_at: null, completed_by: null };
+        : { completed_at: null, completed_by: null, response_image_url: null };
 
       const { error } = await supabase
         .from('temporary_task_subtasks')
@@ -89,9 +92,64 @@ export function TemporaryTaskDetailsDialog({
     }
   };
 
+  const handlePhotoUpload = async (subtaskId: string, file: File) => {
+    setUploadingSubtaskId(subtaskId);
+    
+    try {
+      // Upload to storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${task.id}/${subtaskId}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('checklist-images')
+        .upload(fileName, file);
+      
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('checklist-images')
+        .getPublicUrl(fileName);
+
+      // Update subtask
+      const { error: updateError } = await supabase
+        .from('temporary_task_subtasks')
+        .update({
+          response_image_url: publicUrl,
+          completed_at: new Date().toISOString(),
+          completed_by: user!.id,
+        })
+        .eq('id', subtaskId);
+
+      if (updateError) throw updateError;
+
+      toast.success("Photo uploaded");
+      await refetchSubtasks();
+    } catch (error) {
+      console.error("Error uploading photo:", error);
+      toast.error("Failed to upload photo");
+    } finally {
+      setUploadingSubtaskId(null);
+      setActiveSubtaskId(null);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && activeSubtaskId) {
+      handlePhotoUpload(activeSubtaskId, file);
+    }
+    e.target.value = '';
+  };
+
+  const triggerFileInput = (subtaskId: string) => {
+    setActiveSubtaskId(subtaskId);
+    fileInputRef.current?.click();
+  };
+
   const handleCompleteTask = async () => {
     // Check if all subtasks are complete
-    const incompleteSubtasks = subtasks.filter(s => !s.completed_at);
+    const incompleteSubtasks = subtasks.filter((s: any) => !s.completed_at);
     if (incompleteSubtasks.length > 0) {
       toast.error("Please complete all subtasks first");
       return;
@@ -121,8 +179,8 @@ export function TemporaryTaskDetailsDialog({
     }
   };
 
-  const allSubtasksComplete = subtasks.length === 0 || subtasks.every(s => s.completed_at);
-  const completedCount = subtasks.filter(s => s.completed_at).length;
+  const allSubtasksComplete = subtasks.length === 0 || subtasks.every((s: any) => s.completed_at);
+  const completedCount = subtasks.filter((s: any) => s.completed_at).length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -136,6 +194,15 @@ export function TemporaryTaskDetailsDialog({
             {task?.title}
           </DialogTitle>
         </DialogHeader>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleFileChange}
+        />
 
         <div className="space-y-4 py-2">
           {/* Description */}
@@ -187,20 +254,82 @@ export function TemporaryTaskDetailsDialog({
               </div>
               <div className="border rounded-lg p-3 space-y-3">
                 {subtasks.map((subtask: any) => (
-                  <div key={subtask.id} className="flex items-start gap-3">
-                    <Checkbox
-                      checked={!!subtask.completed_at}
-                      onCheckedChange={(checked) => handleToggleSubtask(subtask.id, !!checked)}
-                      className="mt-0.5"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${subtask.completed_at ? "line-through text-muted-foreground" : ""}`}>
-                        {subtask.title}
-                      </p>
-                      {subtask.completed_at && subtask.completed_by_profile && (
-                        <p className="text-xs text-muted-foreground">
-                          Completed by {subtask.completed_by_profile.full_name} · {format(new Date(subtask.completed_at), "h:mm a")}
-                        </p>
+                  <div key={subtask.id} className="space-y-2">
+                    <div className="flex items-start gap-3">
+                      {subtask.item_type === 'photo' ? (
+                        // Photo type subtask
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Camera className="h-4 w-4 text-muted-foreground" />
+                            <p className={`text-sm ${subtask.completed_at ? "line-through text-muted-foreground" : ""}`}>
+                              {subtask.title}
+                            </p>
+                            <Badge variant="outline" className="text-[10px]">Photo</Badge>
+                          </div>
+                          
+                          {subtask.response_image_url ? (
+                            // Show uploaded image
+                            <div className="relative">
+                              <img 
+                                src={subtask.response_image_url} 
+                                alt="Completion photo"
+                                className="w-full h-32 object-cover rounded-lg border"
+                              />
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                className="absolute top-2 right-2 h-7 text-xs"
+                                onClick={() => handleToggleSubtask(subtask.id, false)}
+                              >
+                                Remove
+                              </Button>
+                              {subtask.completed_by_profile && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  by {subtask.completed_by_profile.full_name} · {format(new Date(subtask.completed_at), "h:mm a")}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            // Show upload button
+                            <Button
+                              variant="outline"
+                              className="w-full gap-2"
+                              onClick={() => triggerFileInput(subtask.id)}
+                              disabled={uploadingSubtaskId === subtask.id}
+                            >
+                              {uploadingSubtaskId === subtask.id ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                  Uploading...
+                                </>
+                              ) : (
+                                <>
+                                  <Camera className="h-4 w-4" />
+                                  Take Photo
+                                </>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      ) : (
+                        // Checkbox type subtask
+                        <>
+                          <Checkbox
+                            checked={!!subtask.completed_at}
+                            onCheckedChange={(checked) => handleToggleSubtask(subtask.id, !!checked)}
+                            className="mt-0.5"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm ${subtask.completed_at ? "line-through text-muted-foreground" : ""}`}>
+                              {subtask.title}
+                            </p>
+                            {subtask.completed_at && subtask.completed_by_profile && (
+                              <p className="text-xs text-muted-foreground">
+                                by {subtask.completed_by_profile.full_name} · {format(new Date(subtask.completed_at), "h:mm a")}
+                              </p>
+                            )}
+                          </div>
+                        </>
                       )}
                     </div>
                   </div>
