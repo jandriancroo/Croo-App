@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users } from 'lucide-react';
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
+import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -482,6 +483,9 @@ export default function Dashboard() {
     'checklists-grid': <div>
         <h3 className="text-xl font-semibold mb-4">Tasks</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {/* Assigned Temporary Tasks */}
+          <AssignedTemporaryTasks />
+          
           {/* Event Daily Task Cards */}
           {currentLocation?.id && <EventDailyTasks locationId={currentLocation.id} />}
           
