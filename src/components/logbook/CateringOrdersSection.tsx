@@ -8,10 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
 import { Upload, ChefHat, Clock, Users, Check, Loader2, Trash2, Eye, Phone, DollarSign } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isBefore, startOfDay } from "date-fns";
 import { compressImage } from "@/utils/imageCompression";
 import { useUserRole } from "@/hooks/useUserRole";
-
 interface CateringOrder {
   id: string;
   order_number: string | null;
@@ -209,7 +208,9 @@ export function CateringOrdersSection() {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  const pendingOrders = orders.filter(o => o.status === "pending");
+  const today = startOfDay(new Date());
+  const upcomingOrders = orders.filter(o => o.status === "pending" && !isBefore(parseISO(o.pickup_date), today));
+  const pastDueOrders = orders.filter(o => o.status === "pending" && isBefore(parseISO(o.pickup_date), today));
   const completedOrders = orders.filter(o => o.status === "completed");
 
   if (loading) {
@@ -236,16 +237,59 @@ export function CateringOrdersSection() {
           </Button>
         </div>
 
-        {pendingOrders.length === 0 && completedOrders.length === 0 ? (
+        {upcomingOrders.length === 0 && pastDueOrders.length === 0 && completedOrders.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
             No catering orders. Upload a PDF or screenshot to get started.
           </p>
         ) : (
           <div className="space-y-4">
-            {pendingOrders.length > 0 && (
+            {pastDueOrders.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-destructive">Past Due</h4>
+                {pastDueOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="p-3 border border-destructive/50 rounded-lg cursor-pointer hover:bg-destructive/10 transition-colors bg-destructive/5"
+                    onClick={() => setSelectedOrder(order)}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-medium">{order.customer_name}</p>
+                      <Badge variant="destructive">{order.items.length} items</Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                      <span className="text-destructive">{format(parseISO(order.pickup_date), "MMM d")}</span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatTime(order.pickup_time)}
+                      </span>
+                      {order.headcount && (
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {order.headcount}
+                        </span>
+                      )}
+                      {order.total_price && (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <DollarSign className="h-3 w-3" />
+                          {order.total_price.toFixed(2)}
+                        </span>
+                      )}
+                      {order.contact_phone && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {order.contact_phone}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {upcomingOrders.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-sm font-medium text-muted-foreground">Upcoming</h4>
-                {pendingOrders.map((order) => (
+                {upcomingOrders.map((order) => (
                   <div
                     key={order.id}
                     className="p-3 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
