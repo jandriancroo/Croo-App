@@ -743,10 +743,9 @@ function generateProjections(
     }
   }
   
-  // If after close, use actual sales for historical projection
-  if (currentHour >= hoursClose) {
-    todayProjected = dailySales;
-  }
+  // NOTE: todayProjected stays as the original historical-based target
+  // It should NOT be overwritten with actual sales after close
+  // The "Target EOD" is what we were aiming for, "Pacing To" reflects actual performance
   
   // === PACE-ADJUSTED PROJECTION (Actual sales + remaining hourly projections) ===
   const todayPaceAdjusted = calculatePaceAdjustedProjection(
