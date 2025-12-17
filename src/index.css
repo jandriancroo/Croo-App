@@ -286,28 +286,28 @@ All colors MUST be HSL.
 
 /* Blaze Pizza Theme - Official brand colors */
 [data-theme="blaze"] {
-  --background: 32 30% 94%;
-  --foreground: 11 11% 20%;
-  --card: 32 35% 98%;
-  --card-foreground: 11 11% 20%;
-  --popover: 32 35% 98%;
-  --popover-foreground: 11 11% 20%;
+  --background: 32 45% 75%;
+  --foreground: 11 11% 15%;
+  --card: 32 45% 68%;
+  --card-foreground: 11 11% 15%;
+  --popover: 32 45% 70%;
+  --popover-foreground: 11 11% 15%;
   --primary: 180 100% 25%;
   --primary-foreground: 0 0% 100%;
   --secondary: 22 76% 52%;
   --secondary-foreground: 0 0% 100%;
-  --muted: 32 20% 88%;
-  --muted-foreground: 11 8% 40%;
+  --muted: 32 45% 62%;
+  --muted-foreground: 11 11% 25%;
   --accent: 22 76% 52%;
   --accent-foreground: 0 0% 100%;
   --destructive: 4 76% 31%;
   --destructive-foreground: 0 0% 100%;
-  --border: 32 25% 78%;
-  --input: 32 25% 85%;
+  --border: 32 40% 55%;
+  --input: 32 45% 65%;
   --ring: 180 100% 25%;
-  --glass-background: 32 35% 100% / 0.65;
+  --glass-background: 32 45% 72% / 0.75;
   --glass-border: 180 50% 40% / 0.3;
-  --glass-shadow: 11 11% 20% / 0.08;
+  --glass-shadow: 11 11% 15% / 0.12;
   
   /* Blaze brand chart colors */
   --chart-1: 180 100% 25%;
