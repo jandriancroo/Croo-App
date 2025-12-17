@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Paperclip, X } from 'lucide-react';
-import { compressImage } from '@/utils/imageCompression';
+import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 
 interface Profile {
   id: string;
@@ -82,15 +82,8 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
         fileName = `${user.id}/${Date.now()}.jpg`;
       }
 
-      const { error: uploadError } = await supabase.storage
-        .from('message-attachments')
-        .upload(fileName, fileToUpload);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('message-attachments')
-        .getPublicUrl(fileName);
+      // Use retry logic for flaky mobile connections
+      const { publicUrl } = await uploadWithRetry(supabase, 'message-attachments', fileName, fileToUpload as File, 3);
 
       setUploadedFile(file);
       setUploadedFileUrl(publicUrl);

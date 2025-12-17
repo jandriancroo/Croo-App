@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
+import { compressImage, uploadWithRetry } from "@/utils/imageCompression";
 
 interface TemporaryTaskDetailsDialogProps {
   open: boolean;
@@ -125,20 +126,14 @@ export function TemporaryTaskDetailsDialog({
     setUploadingSubtaskId(subtaskId);
     
     try {
-      // Upload to storage
-      const fileExt = file.name.split('.').pop();
+      // Compress image for mobile devices
+      const compressedFile = await compressImage(file, 1200, 1200, 0.8);
+      
+      // Upload with retry logic for flaky Android connections
+      const fileExt = 'jpg';
       const fileName = `${task.id}/${subtaskId}/${Date.now()}.${fileExt}`;
       
-      const { error: uploadError } = await supabase.storage
-        .from('checklist-images')
-        .upload(fileName, file);
-      
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('checklist-images')
-        .getPublicUrl(fileName);
+      const { publicUrl } = await uploadWithRetry(supabase, 'checklist-images', fileName, compressedFile, 3);
 
       // Update subtask
       const { error: updateError } = await supabase
