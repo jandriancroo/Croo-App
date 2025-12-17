@@ -14,7 +14,7 @@ import { MessageContent } from './MessageContent';
 import { ReadReceipts } from './ReadReceipts';
 import { AnnouncementStats } from './AnnouncementStats';
 import { useUserRole } from '@/hooks/useUserRole';
-import { compressImage } from '@/utils/imageCompression';
+import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -372,15 +372,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         fileName = `${user.id}/${Date.now()}.jpg`;
       }
 
-      const { error: uploadError } = await supabase.storage
-        .from(bucketName)
-        .upload(fileName, fileToUpload);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucketName)
-        .getPublicUrl(fileName);
+      // Use retry logic for flaky mobile connections
+      const { publicUrl } = await uploadWithRetry(supabase, bucketName, fileName, fileToUpload as File, 3);
 
       const { error: insertError } = await supabase
         .from('messages')

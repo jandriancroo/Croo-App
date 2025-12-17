@@ -18,7 +18,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { formatTime12Hour } from '@/lib/utils';
-import { compressImage } from '@/utils/imageCompression';
+import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 interface ChecklistItem {
   id: string;
   question: string;
@@ -531,17 +531,12 @@ export default function CompleteChecklist() {
       const compressedFile = await compressImage(file, 1200, 1200, 0.8);
       
       const fileName = `${user?.id}/${Date.now()}.jpg`;
-      const {
-        error: uploadError
-      } = await supabase.storage.from('checklist-images').upload(fileName, compressedFile);
-      if (uploadError) {
-        console.error('Image upload error:', uploadError);
-        throw uploadError;
-      }
-      const {
-        data
-      } = supabase.storage.from('checklist-images').getPublicUrl(fileName);
-      console.log('Image uploaded successfully:', data.publicUrl);
+      
+      // Use retry logic for flaky Android connections
+      const { publicUrl } = await uploadWithRetry(supabase, 'checklist-images', fileName, compressedFile, 3);
+      console.log('Image uploaded successfully:', publicUrl);
+      
+      const data = { publicUrl };
       
       // Only extract temperature for temperature-type items OR image items with requires_temperature_validation
       const item = items.find(i => i.id === itemId);

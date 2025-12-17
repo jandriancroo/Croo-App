@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ImageIcon, X } from 'lucide-react';
-import { compressImage } from '@/utils/imageCompression';
+import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 
 interface Profile {
   id: string;
@@ -105,15 +105,8 @@ export function GroupSettingsDialog({
       const compressedFile = await compressImage(file, 800, 800, 0.8);
       const fileName = `chat-images/${chatId}/${Date.now()}.jpg`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('checklist-images')
-        .upload(fileName, compressedFile);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('checklist-images')
-        .getPublicUrl(fileName);
+      // Use retry logic for flaky mobile connections
+      const { publicUrl } = await uploadWithRetry(supabase, 'checklist-images', fileName, compressedFile, 3);
 
       setImageUrl(publicUrl);
       toast.success('Image uploaded');

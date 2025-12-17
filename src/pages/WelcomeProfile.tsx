@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera } from 'lucide-react';
 import { toast } from 'sonner';
-import { compressImage } from '@/utils/imageCompression';
+import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 
 const WelcomeProfile = () => {
   const { user } = useAuth();
@@ -64,17 +64,9 @@ const WelcomeProfile = () => {
         const compressedFile = await compressImage(profilePhotoFile, 800, 800, 0.8);
         const filePath = `${user.id}/${Date.now()}.jpg`;
 
-        const { error: uploadError } = await supabase.storage
-          .from('profile-photos')
-          .upload(filePath, compressedFile, { upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        const { data } = supabase.storage
-          .from('profile-photos')
-          .getPublicUrl(filePath);
-
-        publicUrl = data.publicUrl;
+        // Use retry logic for flaky connections
+        const result = await uploadWithRetry(supabase, 'profile-photos', filePath, compressedFile, 3);
+        publicUrl = result.publicUrl;
       }
 
       await supabase.auth.updateUser({
