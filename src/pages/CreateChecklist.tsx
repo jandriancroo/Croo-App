@@ -43,10 +43,14 @@ export default function CreateChecklist() {
   const [loading, setLoading] = useState(false);
   const [uploadingImage, setUploadingImage] = useState<string | null>(null);
   const [bulkText, setBulkText] = useState('');
+  const [didLoadDraft, setDidLoadDraft] = useState(false);
+
   const { user } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
   const { currentLocation } = useLocation();
   const navigate = useNavigate();
+
+  const draftKey = `createChecklistDraft:${currentLocation?.id ?? 'no-location'}`;
 
   useEffect(() => {
     if (!roleLoading && !isAdmin) {
@@ -54,6 +58,85 @@ export default function CreateChecklist() {
       toast.error('Only admins can create checklists');
     }
   }, [isAdmin, roleLoading, navigate]);
+
+  useEffect(() => {
+    if (!isAdmin || roleLoading) return;
+    if (!currentLocation?.id) return;
+    if (didLoadDraft) return;
+
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (!raw) {
+        setDidLoadDraft(true);
+        return;
+      }
+
+      const parsed = JSON.parse(raw);
+      setTitle(parsed.title ?? '');
+      setDescription(parsed.description ?? '');
+      setFrequency(parsed.frequency ?? 'daily');
+      setDueByTime(parsed.dueByTime ?? '');
+      setTemplateType(parsed.templateType ?? 'standard');
+      setSelectedRoles(Array.isArray(parsed.selectedRoles) ? parsed.selectedRoles : []);
+      setVisibleDaysBeforeMonthEnd(
+        typeof parsed.visibleDaysBeforeMonthEnd === 'number' ? parsed.visibleDaysBeforeMonthEnd : 7
+      );
+      setItems(Array.isArray(parsed.items) && parsed.items.length > 0 ? parsed.items : [{ question: '', item_type: 'text', is_required: true }]);
+      setBulkText(parsed.bulkText ?? '');
+    } catch {
+      // If draft is corrupted, ignore it
+    } finally {
+      setDidLoadDraft(true);
+    }
+  }, [currentLocation?.id, didLoadDraft, draftKey, isAdmin, roleLoading]);
+
+  useEffect(() => {
+    if (!didLoadDraft) return;
+    if (!isAdmin || roleLoading) return;
+    if (!currentLocation?.id) return;
+
+    try {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          title,
+          description,
+          frequency,
+          dueByTime,
+          templateType,
+          selectedRoles,
+          visibleDaysBeforeMonthEnd,
+          items,
+          bulkText,
+        })
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [
+    didLoadDraft,
+    isAdmin,
+    roleLoading,
+    currentLocation?.id,
+    draftKey,
+    title,
+    description,
+    frequency,
+    dueByTime,
+    templateType,
+    selectedRoles,
+    visibleDaysBeforeMonthEnd,
+    items,
+    bulkText,
+  ]);
+
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      // ignore
+    }
+  };
 
   if (roleLoading || !isAdmin) {
     return (
@@ -162,6 +245,12 @@ export default function CreateChecklist() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!currentLocation?.id) {
+      toast.error('Please select a location first');
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -192,7 +281,7 @@ export default function CreateChecklist() {
         due_by_time: dueByTime || null,
         template_type: 'standard',
         created_by: user?.id,
-        location_id: currentLocation?.id,
+        location_id: currentLocation.id,
         visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
       })
       .select()
@@ -223,9 +312,9 @@ export default function CreateChecklist() {
 
     // Create role tags if any roles are selected
     if (selectedRoles.length > 0) {
-      const roleTagsToInsert = selectedRoles.map(role => ({
+      const roleTagsToInsert = selectedRoles.map((role) => ({
         checklist_id: checklist.id,
-        role: role as 'admin' | 'manager' | 'team_member',
+        role: role as 'super_admin' | 'admin' | 'general_manager' | 'shift_manager' | 'team_member',
       }));
 
       const { error: roleTagsError } = await supabase
@@ -234,6 +323,8 @@ export default function CreateChecklist() {
 
       if (roleTagsError) throw roleTagsError;
     }
+
+    clearDraft();
   };
 
   const createDynamicTemplate = async () => {
@@ -247,7 +338,7 @@ export default function CreateChecklist() {
         due_by_time: dueByTime || null,
         template_type: 'dynamic',
         created_by: user?.id,
-        location_id: currentLocation?.id,
+        location_id: currentLocation.id,
       })
       .select()
       .single();
@@ -277,9 +368,9 @@ export default function CreateChecklist() {
 
     // Insert role tags if any are selected
     if (selectedRoles.length > 0) {
-      const roleTagsToInsert = selectedRoles.map(role => ({
+      const roleTagsToInsert = selectedRoles.map((role) => ({
         checklist_id: checklist.id,
-        role: role as 'admin' | 'manager' | 'team_member',
+        role: role as 'super_admin' | 'admin' | 'general_manager' | 'shift_manager' | 'team_member',
       }));
 
       const { error: roleTagsError } = await supabase
@@ -288,6 +379,8 @@ export default function CreateChecklist() {
 
       if (roleTagsError) throw roleTagsError;
     }
+
+    clearDraft();
 
     toast.success('Template created! Now assign tasks to days.');
     
