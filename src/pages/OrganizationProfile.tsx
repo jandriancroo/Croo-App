@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Building2, MapPin, Plus, Palette, Save, ExternalLink, Upload, X, Wand2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Plus, Palette, Save, ExternalLink, Upload, X, Wand2, Loader2, ShieldX } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,11 +12,13 @@ import { toast } from 'sonner';
 import { compressImage } from '@/utils/imageCompression';
 import { removeBackground, loadImageFromUrl } from '@/utils/backgroundRemoval';
 import { OrganizationMembersSection } from '@/components/settings/OrganizationMembersSection';
+import { useUserRole } from '@/hooks/useUserRole';
 
 export default function OrganizationProfile() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { isSuperAdmin, loading: roleLoading } = useUserRole();
   const isNew = id === 'new';
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -184,10 +186,29 @@ export default function OrganizationProfile() {
     }
   };
 
-  if (isLoading && !isNew) {
+  if (roleLoading || (isLoading && !isNew)) {
     return (
       <Layout>
         <div className="text-center py-8">Loading...</div>
+      </Layout>
+    );
+  }
+
+  // Only super_admin can create new organizations
+  if (isNew && !isSuperAdmin) {
+    return (
+      <Layout>
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <ShieldX className="h-16 w-16 text-muted-foreground mb-4" />
+          <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
+          <p className="text-muted-foreground mb-4">
+            Only super administrators can create new organizations.
+          </p>
+          <Button variant="outline" onClick={() => navigate('/settings')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Settings
+          </Button>
+        </div>
       </Layout>
     );
   }
