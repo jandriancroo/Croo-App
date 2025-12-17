@@ -583,12 +583,12 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                               <Button
                                 size="icon"
                                 variant="outline"
-                                className="h-8 w-8 bg-primary/10 border-primary/30 hover:bg-primary/20 hover:border-primary/50"
+                                className="h-8 w-8 bg-primary/20 border-primary/50 hover:bg-primary/30 hover:border-primary"
                               >
                                 {isExpanded ? (
-                                  <ChevronDown className="w-5 h-5 text-primary" />
+                                  <ChevronDown className="w-5 h-5 text-primary-foreground dark:text-primary" style={{ color: 'hsl(180 100% 15%)' }} />
                                 ) : (
-                                  <ChevronRight className="w-5 h-5 text-primary" />
+                                  <ChevronRight className="w-5 h-5 text-primary-foreground dark:text-primary" style={{ color: 'hsl(180 100% 15%)' }} />
                                 )}
                               </Button>
                             </CollapsibleTrigger>
