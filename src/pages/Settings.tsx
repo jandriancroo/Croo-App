@@ -26,6 +26,7 @@ const themes = [
   { value: 'sage', label: 'Sage' },
   { value: 'lavender', label: 'Lavender' },
   { value: 'vibrant', label: 'Vibrant' },
+  { value: 'blaze', label: 'Blaze Pizza' },
 ];
 
 const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'organizations', 'roles', 'maintenance'];
