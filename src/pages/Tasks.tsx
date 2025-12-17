@@ -23,6 +23,7 @@ import { SortableChecklistItem } from '@/components/tasks/SortableChecklistItem'
 import { ChecklistLeaderboard } from '@/components/tasks/ChecklistLeaderboard';
 import { CopyChecklistDialog } from '@/components/tasks/CopyChecklistDialog';
 import { TemporaryTasksSection } from '@/components/tasks/TemporaryTasksSection';
+import { CompletedTaskDetailsDialog } from '@/components/tasks/CompletedTaskDetailsDialog';
 import { getTodayInPST, getDateInPST, getStartOfDatePST } from '@/utils/dateUtils';
 export default function Tasks() {
   const navigate = useNavigate();
@@ -36,6 +37,7 @@ export default function Tasks() {
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copyChecklistIds, setCopyChecklistIds] = useState<string[]>([]);
   const [copyChecklistTitles, setCopyChecklistTitles] = useState<string[]>([]);
+  const [selectedCompletedTask, setSelectedCompletedTask] = useState<any>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -556,7 +558,11 @@ export default function Tasks() {
                           const pct = total > 0 ? Math.round((done / total) * 100) : 100;
 
                           return (
-                            <div key={t.id} className="p-4 rounded-lg border space-y-3">
+                            <div 
+                              key={t.id} 
+                              className="p-4 rounded-lg border space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => setSelectedCompletedTask(t)}
+                            >
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <div
@@ -707,6 +713,11 @@ export default function Tasks() {
         onOpenChange={setCopyDialogOpen}
         checklistIds={copyChecklistIds}
         checklistTitles={copyChecklistTitles}
+      />
+      <CompletedTaskDetailsDialog
+        open={!!selectedCompletedTask}
+        onOpenChange={(open) => !open && setSelectedCompletedTask(null)}
+        task={selectedCompletedTask}
       />
     </Layout>
   );
