@@ -330,6 +330,77 @@ export default function Tasks() {
     enabled: !!user && !!currentLocation?.id,
   });
 
+  // Fetch completed quick tasks for selected date
+  const { data: completedTempTasks = [] } = useQuery({
+    queryKey: ['completed-temp-tasks', format(historyDate, 'yyyy-MM-dd'), currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation?.id) return [];
+
+      const startOfDay = new Date(historyDate);
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(historyDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const { data: tasks, error } = await supabase
+        .from('temporary_tasks')
+        .select('id, title, description, completed_at, completed_by, accent_color')
+        .eq('location_id', currentLocation.id)
+        .not('completed_at', 'is', null)
+        .gte('completed_at', startOfDay.toISOString())
+        .lte('completed_at', endOfDay.toISOString())
+        .order('completed_at', { ascending: false });
+
+      if (error) throw error;
+      if (!tasks || tasks.length === 0) return [];
+
+      const taskIds = tasks.map(t => t.id);
+      const completerIds = [...new Set(tasks.map(t => t.completed_by).filter(Boolean))] as string[];
+
+      const [{ data: subtasks }, { data: completers }] = await Promise.all([
+        supabase
+          .from('temporary_task_subtasks')
+          .select('task_id, completed_at')
+          .in('task_id', taskIds),
+        completerIds.length > 0
+          ? supabase
+              .from('profiles')
+              .select('id, full_name, profile_photo_url')
+              .in('id', completerIds)
+          : Promise.resolve({ data: [] as any[] } as any),
+      ]);
+
+      const completerMap = (completers || []).reduce((acc: Record<string, any>, p: any) => {
+        acc[p.id] = p;
+        return acc;
+      }, {});
+
+      const subtaskAgg = (subtasks || []).reduce(
+        (acc: Record<string, { total: number; completed: number }>, s: any) => {
+          const entry = acc[s.task_id] || { total: 0, completed: 0 };
+          entry.total += 1;
+          if (s.completed_at) entry.completed += 1;
+          acc[s.task_id] = entry;
+          return acc;
+        },
+        {}
+      );
+
+      return tasks.map(t => {
+        const agg = subtaskAgg[t.id] || { total: 0, completed: 0 };
+        const completer = t.completed_by ? completerMap[t.completed_by] : null;
+        return {
+          ...t,
+          subtaskTotal: agg.total,
+          subtaskCompleted: agg.completed,
+          completerName: completer?.full_name || null,
+          completerPhoto: completer?.profile_photo_url || null,
+        };
+      });
+    },
+    enabled: !!currentLocation?.id,
+  });
+
   const currentDay = new Date().getDay();
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -390,85 +461,162 @@ export default function Tasks() {
                 </div>
               </CardHeader>
               <CardContent>
-                {historyStats && historyStats.length > 0 ? (
-                  <div className="space-y-4">
-                    {historyStats.map((stat: any) => {
-                      const completionPercent = stat.completionRate * 100;
-                      const isComplete = stat.completionRate === 1;
-                      const isPartial = stat.completionRate > 0 && stat.completionRate < 1;
-                      const barColor = isComplete ? 'bg-green-500' : isPartial ? 'bg-yellow-500' : 'bg-red-500';
-                      
-                      return (
-                        <div 
-                          key={stat.id} 
-                          className="p-4 rounded-lg border space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                          onClick={() => navigate(`/complete-checklist/${stat.id}?date=${format(historyDate, 'yyyy-MM-dd')}`)}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium">{stat.title}</span>
-                            <div className="text-xl">
-                              {isComplete ? '🎉' : isPartial ? '😕' : '😞'}
-                            </div>
-                          </div>
-                          
-                          {/* Progress bar */}
-                          <div className="space-y-1">
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                              <span>{stat.completedCount} of {stat.itemCount} items</span>
-                              <span>{completionPercent.toFixed(0)}%</span>
-                            </div>
-                            <div className="h-3 bg-secondary rounded-full overflow-hidden">
-                              <div 
-                                className={`h-full ${barColor} transition-all`}
-                                style={{ width: `${completionPercent}%` }}
-                              />
-                            </div>
-                          </div>
-                          
-                          {/* Contributors */}
-                          {stat.contributors.length > 0 && (
-                            <div className="flex items-center gap-2 pt-2 border-t">
-                              <span className="text-xs text-muted-foreground">Completed by:</span>
-                              <div className="flex -space-x-2">
-                                {stat.contributors.slice(0, 5).map((contributor: any, idx: number) => (
-                                  <div
-                                    key={idx}
-                                    className="h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted"
-                                    title={contributor.name}
-                                  >
-                                    {contributor.photo ? (
-                                      <img 
-                                        src={contributor.photo} 
-                                        alt={contributor.name}
-                                        className="h-full w-full object-cover"
-                                      />
-                                    ) : (
-                                      <div className="h-full w-full flex items-center justify-center text-xs font-medium">
-                                        {contributor.name?.charAt(0)}
+                <div className="space-y-6">
+                  {/* Checklists */}
+                  <section className="space-y-4">
+                    {historyStats && historyStats.length > 0 ? (
+                      <div className="space-y-4">
+                        {historyStats.map((stat: any) => {
+                          const completionPercent = stat.completionRate * 100;
+                          const isComplete = stat.completionRate === 1;
+                          const isPartial = stat.completionRate > 0 && stat.completionRate < 1;
+                          const barColor = isComplete ? 'bg-green-500' : isPartial ? 'bg-yellow-500' : 'bg-red-500';
+
+                          return (
+                            <div 
+                              key={stat.id} 
+                              className="p-4 rounded-lg border space-y-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => navigate(`/complete-checklist/${stat.id}?date=${format(historyDate, 'yyyy-MM-dd')}`)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium">{stat.title}</span>
+                                <div className="text-xl">
+                                  {isComplete ? '🎉' : isPartial ? '😕' : '😞'}
+                                </div>
+                              </div>
+
+                              {/* Progress bar */}
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                  <span>{stat.completedCount} of {stat.itemCount} items</span>
+                                  <span>{completionPercent.toFixed(0)}%</span>
+                                </div>
+                                <div className="h-3 bg-secondary rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-full ${barColor} transition-all`}
+                                    style={{ width: `${completionPercent}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Contributors */}
+                              {stat.contributors.length > 0 && (
+                                <div className="flex items-center gap-2 pt-2 border-t">
+                                  <span className="text-xs text-muted-foreground">Completed by:</span>
+                                  <div className="flex -space-x-2">
+                                    {stat.contributors.slice(0, 5).map((contributor: any, idx: number) => (
+                                      <div
+                                        key={idx}
+                                        className="h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted"
+                                        title={contributor.name}
+                                      >
+                                        {contributor.photo ? (
+                                          <img 
+                                            src={contributor.photo} 
+                                            alt={contributor.name}
+                                            className="h-full w-full object-cover"
+                                          />
+                                        ) : (
+                                          <div className="h-full w-full flex items-center justify-center text-xs font-medium">
+                                            {contributor.name?.charAt(0)}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                    {stat.contributors.length > 5 && (
+                                      <div className="h-8 w-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs">
+                                        +{stat.contributors.length - 5}
                                       </div>
                                     )}
                                   </div>
-                                ))}
-                                {stat.contributors.length > 5 && (
-                                  <div className="h-8 w-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs">
-                                    +{stat.contributors.length - 5}
-                                  </div>
-                                )}
-                              </div>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      No checklists available for this date.
-                    </AlertDescription>
-                  </Alert>
-                )}
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <Alert>
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          No checklists available for this date.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </section>
+
+                  {/* Quick Tasks */}
+                  <section className="space-y-3">
+                    <div className="text-sm font-semibold">Quick Tasks</div>
+                    {completedTempTasks.length > 0 ? (
+                      <div className="space-y-3">
+                        {completedTempTasks.map((t: any) => {
+                          const total = t.subtaskTotal || 0;
+                          const done = t.subtaskCompleted || 0;
+                          const pct = total > 0 ? Math.round((done / total) * 100) : 100;
+
+                          return (
+                            <div key={t.id} className="p-4 rounded-lg border space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <div
+                                    className="w-3 h-3 rounded-full shrink-0"
+                                    style={{ backgroundColor: t.accent_color || '#8B5CF6' }}
+                                  />
+                                  <span className="font-medium truncate">{t.title}</span>
+                                </div>
+                                <div className="text-xl">🎉</div>
+                              </div>
+
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-xs text-muted-foreground">
+                                  <span>{done} of {total} subtasks</span>
+                                  <span>{pct}%</span>
+                                </div>
+                                <div className="h-3 bg-secondary rounded-full overflow-hidden">
+                                  <div
+                                    className="h-full bg-primary transition-all"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+
+                              {(t.completerName || t.completerPhoto) && (
+                                <div className="flex items-center gap-2 pt-2 border-t">
+                                  <span className="text-xs text-muted-foreground">Completed by:</span>
+                                  <div className="flex -space-x-2">
+                                    <div
+                                      className="h-8 w-8 rounded-full border-2 border-background overflow-hidden bg-muted"
+                                      title={t.completerName || 'User'}
+                                    >
+                                      {t.completerPhoto ? (
+                                        <img
+                                          src={t.completerPhoto}
+                                          alt={t.completerName || 'Completed by'}
+                                          className="h-full w-full object-cover"
+                                        />
+                                      ) : (
+                                        <div className="h-full w-full flex items-center justify-center text-xs font-medium">
+                                          {t.completerName?.charAt(0) || '?'}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {t.description && (
+                                <p className="text-sm text-muted-foreground">{t.description}</p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No quick tasks completed on this date.</p>
+                    )}
+                  </section>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
