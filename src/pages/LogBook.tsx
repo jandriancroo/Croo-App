@@ -284,13 +284,11 @@ export default function LogBook() {
       // Create or update entry
       const { data: entryData, error: entryError } = await supabase
         .from('logbook_entries')
-        .upsert({
+        .insert({
           category_id: selectedCategory,
           entry_date: dateStr,
           created_by: user!.id,
           location_id: currentLocation?.id,
-        }, {
-          onConflict: 'category_id,entry_date,location_id'
         })
         .select()
         .single();
@@ -544,12 +542,12 @@ export default function LogBook() {
                 
                 const { data: entryData, error: entryError } = await supabase
                   .from('logbook_entries')
-                  .upsert({
+                  .insert({
                     category_id: selectedCategory,
                     entry_date: dateStr,
                     created_by: user!.id,
                     location_id: currentLocation?.id,
-                  }, { onConflict: 'category_id,entry_date,location_id' })
+                  })
                   .select()
                   .single();
 
