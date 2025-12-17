@@ -365,46 +365,41 @@ export default function Messages() {
         {/* Desktop: Chat List Sidebar */}
         {!isMobile && (
           <div className="w-80 border-r border-border bg-card rounded-lg p-4 flex flex-col">
-            <div className="flex items-center justify-end mb-4">
-              <div className="flex gap-2">
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="flex-1">
+                <TabsList className={`grid w-full ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                  <TabsTrigger value="chats">Chats</TabsTrigger>
+                  <TabsTrigger value="announcements">Announce</TabsTrigger>
+                  <TabsTrigger value="marketplace" className="gap-1">
+                    <ArrowLeftRight className="h-3 w-3" />
+                    Shifts
+                  </TabsTrigger>
+                  {(isAdmin || isManager) && (
+                    <TabsTrigger value="hiring" className="gap-1">
+                      <Briefcase className="h-3 w-3" />
+                      Hiring
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+              </Tabs>
+              <div className="flex gap-1">
                 {isAdmin && (
                   <Button
-                    size="sm"
+                    size="icon"
                     variant="outline"
                     onClick={() => setIsAnnouncementOpen(true)}
-                    className="gap-2"
                   >
                     <Megaphone className="h-4 w-4" />
-                    Announce
                   </Button>
                 )}
                 <Button
-                  size="sm"
+                  size="icon"
                   onClick={() => setIsNewChatOpen(true)}
-                  className="gap-2"
                 >
                   <Plus className="h-4 w-4" />
-                  New
                 </Button>
               </div>
             </div>
-            
-            <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
-              <TabsList className={`grid w-full ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                <TabsTrigger value="chats">Chats</TabsTrigger>
-                <TabsTrigger value="announcements">Announce</TabsTrigger>
-                <TabsTrigger value="marketplace" className="gap-1">
-                  <ArrowLeftRight className="h-3 w-3" />
-                  Shifts
-                </TabsTrigger>
-                {(isAdmin || isManager) && (
-                  <TabsTrigger value="hiring" className="gap-1">
-                    <Briefcase className="h-3 w-3" />
-                    Hiring
-                  </TabsTrigger>
-                )}
-              </TabsList>
-            </Tabs>
             
             {viewMode === 'hiring' ? (
               <HiringChatList
@@ -468,46 +463,43 @@ export default function Messages() {
         {isMobile && (
           <>
             <div className="flex-1 bg-card rounded-lg p-4 flex flex-col">
-              <div className="flex items-center justify-end mb-4">
-                <div className="flex gap-2">
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="flex-1">
+                  <TabsList className={`grid w-full ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                    <TabsTrigger value="chats" className="px-2">
+                      <MessageCircle className="h-4 w-4" />
+                    </TabsTrigger>
+                    <TabsTrigger value="announcements" className="px-2">
+                      <Megaphone className="h-4 w-4" />
+                    </TabsTrigger>
+                    <TabsTrigger value="marketplace" className="px-2">
+                      <ArrowLeftRight className="h-4 w-4" />
+                    </TabsTrigger>
+                    {(isAdmin || isManager) && (
+                      <TabsTrigger value="hiring" className="px-2">
+                        <Briefcase className="h-4 w-4" />
+                      </TabsTrigger>
+                    )}
+                  </TabsList>
+                </Tabs>
+                <div className="flex gap-1">
                   {isAdmin && (
                     <Button
-                      size="sm"
+                      size="icon"
                       variant="outline"
                       onClick={() => setIsAnnouncementOpen(true)}
-                      className="gap-2"
                     >
                       <Megaphone className="h-4 w-4" />
                     </Button>
                   )}
                   <Button
-                    size="sm"
+                    size="icon"
                     onClick={() => setIsNewChatOpen(true)}
-                    className="gap-2"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-              
-              <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
-                <TabsList className={`grid w-full ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                  <TabsTrigger value="chats" className="px-2">
-                    <MessageCircle className="h-4 w-4" />
-                  </TabsTrigger>
-                  <TabsTrigger value="announcements" className="px-2">
-                    <Megaphone className="h-4 w-4" />
-                  </TabsTrigger>
-                  <TabsTrigger value="marketplace" className="px-2">
-                    <ArrowLeftRight className="h-4 w-4" />
-                  </TabsTrigger>
-                  {(isAdmin || isManager) && (
-                    <TabsTrigger value="hiring" className="px-2">
-                      <Briefcase className="h-4 w-4" />
-                    </TabsTrigger>
-                  )}
-                </TabsList>
-              </Tabs>
               
               {viewMode === 'hiring' ? (
                 <HiringChatList

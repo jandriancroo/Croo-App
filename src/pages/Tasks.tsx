@@ -420,19 +420,15 @@ export default function Tasks() {
     <Layout>
       <div className="space-y-6">
         <Tabs defaultValue="history" className="w-full">
-          <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4 mb-6">
-            <div className="space-y-3">
-              <TabsList>
-                <TabsTrigger value="history">History</TabsTrigger>
-                {currentLocation?.location_type !== 'checklist_only' && (
-                  <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
-                )}
-                {(isAdmin || isManager) && (
-                  <TabsTrigger value="edit">Edit</TabsTrigger>
-                )}
-              </TabsList>
-            </div>
-          </div>
+          <TabsList className="mb-6">
+            <TabsTrigger value="history">History</TabsTrigger>
+            {currentLocation?.location_type !== 'checklist_only' && (
+              <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
+            )}
+            {(isAdmin || isManager) && (
+              <TabsTrigger value="edit">Edit</TabsTrigger>
+            )}
+          </TabsList>
 
           <TabsContent value="history" className="space-y-6">
 
