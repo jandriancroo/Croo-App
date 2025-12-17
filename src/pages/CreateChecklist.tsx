@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useLocation } from '@/hooks/useLocation';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -44,6 +45,7 @@ export default function CreateChecklist() {
   const [bulkText, setBulkText] = useState('');
   const { user } = useAuth();
   const { isAdmin, loading: roleLoading } = useUserRole();
+  const { currentLocation } = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -190,6 +192,7 @@ export default function CreateChecklist() {
         due_by_time: dueByTime || null,
         template_type: 'standard',
         created_by: user?.id,
+        location_id: currentLocation?.id,
         visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
       })
       .select()
@@ -244,6 +247,7 @@ export default function CreateChecklist() {
         due_by_time: dueByTime || null,
         template_type: 'dynamic',
         created_by: user?.id,
+        location_id: currentLocation?.id,
       })
       .select()
       .single();
