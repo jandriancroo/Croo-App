@@ -246,6 +246,11 @@ export default function CreateChecklist() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!user?.id) {
+      toast.error('Your session is missing. Please sign out and sign back in.');
+      return;
+    }
+
     if (!currentLocation?.id) {
       toast.error('Please select a location first');
       return;
@@ -256,10 +261,10 @@ export default function CreateChecklist() {
     try {
       if (templateType === 'dynamic') {
         // For dynamic templates, create template then navigate to calendar
-        await createDynamicTemplate();
+        await createDynamicTemplate(user.id, currentLocation.id);
       } else {
         // Standard checklist creation
-        await createStandardChecklist();
+        await createStandardChecklist(user.id, currentLocation.id);
         toast.success('Checklist created successfully!');
         navigate('/tasks');
       }
@@ -270,7 +275,7 @@ export default function CreateChecklist() {
     }
   };
 
-  const createStandardChecklist = async () => {
+  const createStandardChecklist = async (userId: string, locationId: string) => {
     // Create checklist
     const { data: checklist, error: checklistError } = await supabase
       .from('checklists')
@@ -280,8 +285,8 @@ export default function CreateChecklist() {
         frequency,
         due_by_time: dueByTime || null,
         template_type: 'standard',
-        created_by: user?.id,
-        location_id: currentLocation.id,
+        created_by: userId,
+        location_id: locationId,
         visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
       })
       .select()
@@ -327,7 +332,7 @@ export default function CreateChecklist() {
     clearDraft();
   };
 
-  const createDynamicTemplate = async () => {
+  const createDynamicTemplate = async (userId: string, locationId: string) => {
     // Create the template checklist (without generating daily checklists yet)
     const { data: checklist, error: checklistError } = await supabase
       .from('checklists')
@@ -337,8 +342,8 @@ export default function CreateChecklist() {
         frequency,
         due_by_time: dueByTime || null,
         template_type: 'dynamic',
-        created_by: user?.id,
-        location_id: currentLocation.id,
+        created_by: userId,
+        location_id: locationId,
       })
       .select()
       .single();
@@ -383,7 +388,7 @@ export default function CreateChecklist() {
     clearDraft();
 
     toast.success('Template created! Now assign tasks to days.');
-    
+
     // Navigate to the dynamic checklist calendar page
     navigate(`/dynamic-checklist/${checklist.id}`);
   };
