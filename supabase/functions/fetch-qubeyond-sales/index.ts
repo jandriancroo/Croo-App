@@ -611,7 +611,6 @@ function generateDailyProjectionsForMonth(
   fourWeekAverage?: { avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[] }
 ): { date: string; sales: number; projected: number }[] {
   const result: { date: string; sales: number; projected: number }[] = [];
-  const randomFactor = getSeededRandomFactor(`month-${monthStartStr}-${locationId}`);
   
   const monthDate = new Date(monthStartStr + 'T12:00:00');
   const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
@@ -620,6 +619,9 @@ function generateDailyProjectionsForMonth(
     const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const dayOfWeek = date.getDay();
+    
+    // Each day gets its own unique random factor seeded by date+location
+    const randomFactor = getSeededRandomFactor(`${dateStr}-${locationId}`);
     
     const actual = monthlyBreakdown.find(d => d.date === dateStr)?.sales || 0;
     let projected = 0;
