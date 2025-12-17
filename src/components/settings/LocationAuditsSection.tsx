@@ -582,13 +582,13 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                             <CollapsibleTrigger asChild>
                               <Button
                                 size="icon"
-                                variant="ghost"
-                                className="h-7 w-7"
+                                variant="outline"
+                                className="h-8 w-8 bg-primary/10 border-primary/30 hover:bg-primary/20 hover:border-primary/50"
                               >
                                 {isExpanded ? (
-                                  <ChevronDown className="w-4 h-4" />
+                                  <ChevronDown className="w-5 h-5 text-primary" />
                                 ) : (
-                                  <ChevronRight className="w-4 h-4" />
+                                  <ChevronRight className="w-5 h-5 text-primary" />
                                 )}
                               </Button>
                             </CollapsibleTrigger>
