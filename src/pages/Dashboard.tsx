@@ -731,32 +731,35 @@ export default function Dashboard() {
     : standardSections;
   return <Layout>
       <div className="space-y-6">
-        {/* Header row with Croo Cash and edit buttons */}
-        {(FEATURE_FLAGS.CROO_CASH_ENABLED && !isChecklistOnlyLocation) && (
-          <div className="flex items-center justify-end gap-2">
-            <div className="flex flex-col items-center justify-center px-3 py-1 h-10 rounded-full bg-primary/10 text-primary border border-primary/20 relative">
-              {userName && <span className="text-[10px] font-medium leading-none">{userName}</span>}
-              <div className="flex items-center gap-1">
-                <Banknote className="h-3 w-3" style={{ transform: 'rotate(90deg) rotate(-10deg)' }} />
-                <span className="text-xs font-bold leading-none">${(crooCashBalance / 100).toFixed(2)}</span>
-              </div>
-              
-              {/* Celebration Animation */}
-              {animationAmount !== null && (
-                <div className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none animate-bounce z-50">
-                  <div className="flex items-center gap-1 text-2xl font-black text-green-500 whitespace-nowrap" style={{
-                    textShadow: '0 0 20px rgba(34, 197, 94, 0.8)',
-                    fontFamily: 'Comic Sans MS, cursive',
-                    animation: 'bounce 0.8s ease-in-out 3, fade-out 0.5s ease-out 2.5s forwards'
-                  }}>
-                    +${(animationAmount / 100).toFixed(2)}
-                    <Sparkles className="h-6 w-6 animate-spin" style={{
-                      filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.8))'
-                    }} />
-                  </div>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold">Dash</h1>
+          <div className="flex gap-2 items-center">
+            {/* Hide Croo Cash for checklist-only locations or when feature is disabled */}
+            {FEATURE_FLAGS.CROO_CASH_ENABLED && !isChecklistOnlyLocation && (
+              <div className="flex flex-col items-center justify-center px-3 py-1 h-10 rounded-full bg-primary/10 text-primary border border-primary/20 relative">
+                {userName && <span className="text-[10px] font-medium leading-none">{userName}</span>}
+                <div className="flex items-center gap-1">
+                  <Banknote className="h-3 w-3" style={{ transform: 'rotate(90deg) rotate(-10deg)' }} />
+                  <span className="text-xs font-bold leading-none">${(crooCashBalance / 100).toFixed(2)}</span>
                 </div>
-              )}
-            </div>
+                
+                {/* Celebration Animation */}
+                {animationAmount !== null && (
+                  <div className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none animate-bounce z-50">
+                    <div className="flex items-center gap-1 text-2xl font-black text-green-500 whitespace-nowrap" style={{
+                      textShadow: '0 0 20px rgba(34, 197, 94, 0.8)',
+                      fontFamily: 'Comic Sans MS, cursive',
+                      animation: 'bounce 0.8s ease-in-out 3, fade-out 0.5s ease-out 2.5s forwards'
+                    }}>
+                      +${(animationAmount / 100).toFixed(2)}
+                      <Sparkles className="h-6 w-6 animate-spin" style={{
+                        filter: 'drop-shadow(0 0 10px rgba(34, 197, 94, 0.8))'
+                      }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             
             {isEditMode && <Button onClick={resetLayout} variant="outline" size="icon" className="h-10 w-10">
                 <ArrowUpDown className="h-4 w-4" />
@@ -765,7 +768,7 @@ export default function Dashboard() {
               {isEditMode ? <Check className="h-4 w-4" /> : <ArrowUpDown className="h-4 w-4" />}
             </Button>
           </div>
-        )}
+        </div>
 
         {loading ? <PageSkeleton variant="grid" /> : checklists.length === 0 ? <Card className="text-center py-12">
             <CardContent>

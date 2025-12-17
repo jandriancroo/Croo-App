@@ -926,60 +926,61 @@ export default function LogBook() {
   return (
     <Layout>
       <div className="container max-w-6xl mx-auto p-4 md:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+          <h1 className="text-3xl font-bold">Logs</h1>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>
+              <Settings className="h-4 w-4 mr-2" />
+              Categories
+            </Button>
+          )}
+        </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             <TabsList>
               <TabsTrigger value="search">Recent Logs</TabsTrigger>
               <TabsTrigger value="catering">Catering Orders</TabsTrigger>
             </TabsList>
             
-            <div className="flex items-center gap-2">
-              {isAdmin && (
-                <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>
-                  <Settings className="h-4 w-4 mr-2" />
-                  Categories
-                </Button>
-              )}
-            
-              {activeTab === 'search' && (
-                <Sheet open={showNewEntrySheet} onOpenChange={setShowNewEntrySheet}>
-                  <SheetTrigger asChild>
-                    <Button size="icon" variant="default">
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
-                    <SheetHeader>
-                      <SheetTitle>New Log Entry</SheetTitle>
-                    </SheetHeader>
-                    <div className="mt-4 space-y-4">
-                      {/* Category Selection */}
-                      <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((category: any) => (
-                            <SelectItem key={category.id} value={category.id}>
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+            {activeTab === 'search' && (
+              <Sheet open={showNewEntrySheet} onOpenChange={setShowNewEntrySheet}>
+                <SheetTrigger asChild>
+                  <Button size="icon" variant="default">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+                  <SheetHeader>
+                    <SheetTitle>New Log Entry</SheetTitle>
+                  </SheetHeader>
+                  <div className="mt-4 space-y-4">
+                    {/* Category Selection */}
+                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((category: any) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
 
-                      {/* New Entry Form Content */}
-                      {renderNewEntryContent()}
-                    </div>
-                  </SheetContent>
-                </Sheet>
-              )}
-              
-              {activeTab === 'catering' && (
-                <Button size="icon" variant="default" onClick={() => setShowCateringUpload(true)}>
-                  <Upload className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
+                    {/* New Entry Form Content */}
+                    {renderNewEntryContent()}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            )}
+            
+            {activeTab === 'catering' && (
+              <Button size="icon" variant="default" onClick={() => setShowCateringUpload(true)}>
+                <Upload className="h-4 w-4" />
+              </Button>
+            )}
           </div>
 
 
