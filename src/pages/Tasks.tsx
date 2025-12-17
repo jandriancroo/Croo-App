@@ -422,7 +422,6 @@ export default function Tasks() {
         <Tabs defaultValue="history" className="w-full">
           <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4 mb-6">
             <div className="space-y-3">
-              <h1 className="text-3xl font-bold">Tasks</h1>
               <TabsList>
                 <TabsTrigger value="history">History</TabsTrigger>
                 {currentLocation?.location_type !== 'checklist_only' && (
