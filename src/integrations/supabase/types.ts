@@ -3189,6 +3189,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
       }
+      has_active_location_integration: {
+        Args: { _integration_type: string; _location_id: string }
+        Returns: boolean
+      }
       has_location_access: {
         Args: { _location_id: string; _user_id: string }
         Returns: boolean
