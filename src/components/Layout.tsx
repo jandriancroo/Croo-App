@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -47,6 +47,7 @@ export const Layout = ({
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation } = useAppLocation();
   const canAccessLogs = isAdmin || isManager;
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [hasFBCAccess, setHasFBCAccess] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
 
@@ -90,17 +91,26 @@ export const Layout = ({
     }
   };
 
-  // Check if user is super_admin
+  // Check if user is super_admin or has FBC/brand_admin access
   useEffect(() => {
-    const checkSuperAdmin = async () => {
+    const checkRoles = async () => {
       if (!user?.id) {
         setIsSuperAdmin(false);
+        setHasFBCAccess(false);
         return;
       }
-      const { data } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'super_admin' });
-      setIsSuperAdmin(data === true);
+      
+      // Check super_admin
+      const { data: isSuperAdminResult } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'super_admin' });
+      setIsSuperAdmin(isSuperAdminResult === true);
+      
+      // Check brand_admin or fbc role
+      const { data: isBrandAdmin } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'brand_admin' });
+      const { data: isFBC } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'fbc' });
+      
+      setHasFBCAccess(isSuperAdminResult === true || isBrandAdmin === true || isFBC === true);
     };
-    checkSuperAdmin();
+    checkRoles();
   }, [user?.id]);
 
   // Fetch user profile for avatar
@@ -445,6 +455,15 @@ export const Layout = ({
                     <DropdownMenuItem onClick={() => openDiagnosticMode()} className="gap-2 cursor-pointer">
                       <FlaskConical className="h-4 w-4 flex-shrink-0" />
                       <span className="whitespace-nowrap">Diagnostics</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                {hasFBCAccess && (
+                  <>
+                    <DropdownMenuItem onClick={() => navigate('/fbc-dashboard')} className="gap-2 cursor-pointer">
+                      <BarChart3 className="h-4 w-4 flex-shrink-0" />
+                      <span className="whitespace-nowrap">FBC Dashboard</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                   </>

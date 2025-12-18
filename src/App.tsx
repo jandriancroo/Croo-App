@@ -51,6 +51,7 @@ import HiringChat from "./pages/HiringChat";
 import ApplicantPortal from "./pages/ApplicantPortal";
 import Changelog from "./pages/Changelog";
 import PunchClockCustomization from "./pages/PunchClockCustomization";
+import FBCDashboard from "./pages/FBCDashboard";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
@@ -103,6 +104,7 @@ const AppContent = () => {
       <Route path="/role-management" element={<ProtectedRoute><RoleManagement /></ProtectedRoute>} />
       <Route path="/hiring" element={<ProtectedRoute><Hiring /></ProtectedRoute>} />
       <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
+      <Route path="/fbc-dashboard" element={<ProtectedRoute><FBCDashboard /></ProtectedRoute>} />
       <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
