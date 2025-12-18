@@ -6,13 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ClipboardCheck, Plus, Trash2, ExternalLink, FileText, Loader2, ChevronDown, ChevronRight, AlertTriangle, AlertCircle, Info, Sparkles, X, Check } from 'lucide-react';
+import { ClipboardCheck, Plus, Trash2, ExternalLink, FileText, Loader2, ChevronDown, ChevronRight, AlertTriangle, AlertCircle, Info, Sparkles, X, Check, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { compressImage } from '@/utils/imageCompression';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 
 interface ItemCorrection {
@@ -40,6 +41,19 @@ interface FoodSafetyAudit {
   summary_extracted_at: string | null;
 }
 
+interface ManagerProfile {
+  id: string;
+  full_name: string | null;
+  profile_photo_url: string | null;
+}
+
+interface SendTaskData {
+  auditId: string;
+  priority: 'first' | 'second' | 'third';
+  itemIndex: number;
+  itemText: string;
+}
+
 interface LocationAuditsSectionProps {
   locationId: string | undefined;
   locationName?: string;
@@ -62,6 +76,13 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
   const [userName, setUserName] = useState<string>("");
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [auditToDelete, setAuditToDelete] = useState<string | null>(null);
+  
+  // Send task dialog state
+  const [sendTaskDialogOpen, setSendTaskDialogOpen] = useState(false);
+  const [sendTaskData, setSendTaskData] = useState<SendTaskData | null>(null);
+  const [managers, setManagers] = useState<ManagerProfile[]>([]);
+  const [selectedManagers, setSelectedManagers] = useState<Set<string>>(new Set());
+  const [sendingTask, setSendingTask] = useState(false);
 
   useEffect(() => {
     if (locationId) {
@@ -85,6 +106,45 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
     };
     fetchUserName();
   }, [user]);
+
+  // Fetch managers at location for task assignment
+  const fetchManagers = async () => {
+    if (!locationId) return;
+    
+    try {
+      // Get users with manager+ roles at this location
+      const { data: userLocations } = await supabase
+        .from('user_locations')
+        .select('user_id')
+        .eq('location_id', locationId);
+      
+      if (!userLocations) return;
+      
+      const userIds = userLocations.map(ul => ul.user_id);
+      
+      // Get users with manager+ roles
+      const { data: managerRoles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .in('user_id', userIds)
+        .in('role', ['admin', 'general_manager', 'shift_manager', 'manager']);
+      
+      if (!managerRoles) return;
+      
+      const managerIds = managerRoles.map(r => r.user_id);
+      
+      // Get profiles
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, profile_photo_url')
+        .in('id', managerIds)
+        .eq('is_active', true);
+      
+      setManagers(profiles || []);
+    } catch (error) {
+      console.error('Error fetching managers:', error);
+    }
+  };
 
   // Auto-scan unscanned audits
   useEffect(() => {
@@ -402,6 +462,81 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
     }
   };
 
+  const openSendTaskDialog = (
+    auditId: string,
+    priority: 'first' | 'second' | 'third',
+    itemIndex: number,
+    itemText: string
+  ) => {
+    setSendTaskData({ auditId, priority, itemIndex, itemText });
+    setSelectedManagers(new Set());
+    fetchManagers();
+    setSendTaskDialogOpen(true);
+  };
+
+  const handleSendTask = async () => {
+    if (!sendTaskData || !user || !locationId || selectedManagers.size === 0) {
+      toast.error('Please select at least one manager');
+      return;
+    }
+
+    setSendingTask(true);
+    try {
+      // Create the temporary task
+      const { data: task, error: taskError } = await supabase
+        .from('temporary_tasks')
+        .insert({
+          location_id: locationId,
+          created_by: user.id,
+          title: `Audit Fix: ${sendTaskData.itemText.substring(0, 50)}${sendTaskData.itemText.length > 50 ? '...' : ''}`,
+          description: sendTaskData.itemText,
+          icon_name: 'ClipboardCheck',
+          audit_id: sendTaskData.auditId,
+          audit_item_index: sendTaskData.itemIndex,
+          audit_priority_level: sendTaskData.priority,
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (taskError) throw taskError;
+
+      // Create assignments for each selected manager
+      const assignments = Array.from(selectedManagers).map(managerId => ({
+        task_id: task.id,
+        user_id: managerId
+      }));
+
+      const { error: assignError } = await supabase
+        .from('temporary_task_assignments')
+        .insert(assignments);
+
+      if (assignError) throw assignError;
+
+      toast.success(`Task sent to ${selectedManagers.size} manager${selectedManagers.size > 1 ? 's' : ''}`);
+      setSendTaskDialogOpen(false);
+      setSendTaskData(null);
+      setSelectedManagers(new Set());
+    } catch (error: any) {
+      console.error('Error sending task:', error);
+      toast.error('Failed to send task');
+    } finally {
+      setSendingTask(false);
+    }
+  };
+
+  const toggleManagerSelection = (managerId: string) => {
+    setSelectedManagers(prev => {
+      const next = new Set(prev);
+      if (next.has(managerId)) {
+        next.delete(managerId);
+      } else {
+        next.add(managerId);
+      }
+      return next;
+    });
+  };
+
   const PriorityItem = ({ 
     audit, 
     priority, 
@@ -421,21 +556,21 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
     return (
       <li 
         className={cn(
-          "text-xs flex flex-col gap-0.5 py-1.5 px-2 rounded-md transition-colors cursor-pointer",
+          "text-xs flex flex-col gap-0.5 py-1.5 px-2 rounded-md transition-colors",
           isCorrected 
             ? "bg-green-500/20 text-green-700 dark:text-green-400" 
             : "hover:bg-muted/50"
         )}
-        onClick={() => toggleItemCorrected(audit.id, priority, index)}
       >
         <div className="flex items-start gap-2">
           <button 
             className={cn(
-              "flex-shrink-0 mt-0.5 w-4 h-4 rounded-full flex items-center justify-center transition-colors",
+              "flex-shrink-0 mt-0.5 w-4 h-4 rounded-full flex items-center justify-center transition-colors cursor-pointer",
               isCorrected 
                 ? "bg-green-500 text-white" 
                 : "bg-muted-foreground/20 text-muted-foreground hover:bg-muted-foreground/30"
             )}
+            onClick={() => toggleItemCorrected(audit.id, priority, index)}
           >
             {isCorrected ? (
               <Check className="w-3 h-3" />
@@ -443,7 +578,24 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
               <X className="w-3 h-3" />
             )}
           </button>
-          <span className={cn(isCorrected && "line-through opacity-70")}>{item}</span>
+          <span 
+            className={cn("flex-1 cursor-pointer", isCorrected && "line-through opacity-70")}
+            onClick={() => toggleItemCorrected(audit.id, priority, index)}
+          >
+            {item}
+          </span>
+          {!isCorrected && (
+            <button
+              className="flex-shrink-0 p-1 rounded hover:bg-primary/20 text-primary transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                openSendTaskDialog(audit.id, priority, index, item);
+              }}
+              title="Send as task"
+            >
+              <Send className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
         {isCorrected && correction && (
           <div className="ml-6 text-[10px] text-green-600 dark:text-green-500 italic">
@@ -835,6 +987,97 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Send Task Dialog */}
+      <Dialog open={sendTaskDialogOpen} onOpenChange={(open) => {
+        setSendTaskDialogOpen(open);
+        if (!open) {
+          setSendTaskData(null);
+          setSelectedManagers(new Set());
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send as Task</DialogTitle>
+            <DialogDescription>
+              Select managers to assign this audit item as a task. When completed, the item will be automatically marked as corrected.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {sendTaskData && (
+            <div className="space-y-4">
+              <div className="p-3 bg-muted rounded-md">
+                <p className="text-sm font-medium mb-1">Task Item:</p>
+                <p className="text-sm text-muted-foreground">{sendTaskData.itemText}</p>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Assign to Managers</Label>
+                {managers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Loading managers...</p>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {managers.map(manager => (
+                      <div
+                        key={manager.id}
+                        className={cn(
+                          "flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors",
+                          selectedManagers.has(manager.id)
+                            ? "bg-primary/10 border border-primary/30"
+                            : "hover:bg-muted"
+                        )}
+                        onClick={() => toggleManagerSelection(manager.id)}
+                      >
+                        <Checkbox
+                          checked={selectedManagers.has(manager.id)}
+                          onCheckedChange={() => toggleManagerSelection(manager.id)}
+                        />
+                        {manager.profile_photo_url ? (
+                          <img
+                            src={manager.profile_photo_url}
+                            alt={manager.full_name || 'Manager'}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium">
+                            {manager.full_name?.charAt(0) || '?'}
+                          </div>
+                        )}
+                        <span className="text-sm">{manager.full_name || 'Unknown'}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setSendTaskDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSendTask}
+                  disabled={sendingTask || selectedManagers.size === 0}
+                >
+                  {sendingTask ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4 mr-2" />
+                      Send Task ({selectedManagers.size})
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
