@@ -2758,6 +2758,9 @@ export type Database = {
       temporary_tasks: {
         Row: {
           accent_color: string | null
+          audit_id: string | null
+          audit_item_index: number | null
+          audit_priority_level: string | null
           completed_at: string | null
           completed_by: string | null
           created_at: string
@@ -2772,6 +2775,9 @@ export type Database = {
         }
         Insert: {
           accent_color?: string | null
+          audit_id?: string | null
+          audit_item_index?: number | null
+          audit_priority_level?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
@@ -2786,6 +2792,9 @@ export type Database = {
         }
         Update: {
           accent_color?: string | null
+          audit_id?: string | null
+          audit_item_index?: number | null
+          audit_priority_level?: string | null
           completed_at?: string | null
           completed_by?: string | null
           created_at?: string
@@ -2799,6 +2808,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "temporary_tasks_audit_id_fkey"
+            columns: ["audit_id"]
+            isOneToOne: false
+            referencedRelation: "food_safety_audits"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "temporary_tasks_completed_by_fkey"
             columns: ["completed_by"]
