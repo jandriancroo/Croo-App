@@ -512,6 +512,118 @@ async function fetchLaborDataForDates(
   return { laborCost: totalLaborCost, hoursWorked: totalHoursWorked, regularHours: totalRegularHours, overtimeHours: totalOvertimeHours, dailyLabor };
 }
 
+// Fetch tips data from QuBeyond Tips report
+async function fetchTipsData(
+  tokenGw: string,
+  dateStr: string,
+  qbLocationId: string
+): Promise<{ ccTips: number; cashTips: number; totalTips: number; byEmployee: { employeeName: string; ccTips: number; cashTips: number }[] } | null> {
+  console.log(`Fetching tips data for ${dateStr}`);
+  
+  try {
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/tips/sections/main', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': tokenGw,
+        'Origin': 'https://admin.qubeyond.com',
+        'Referer': 'https://admin.qubeyond.com/',
+      },
+      body: JSON.stringify({
+        fields: [
+          { fieldName: "employee" },
+          { fieldName: "creditCardTips" },
+          { fieldName: "cashTips" },
+          { fieldName: "totalTips" }
+        ],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: "custom" },
+          singleLocation: parseInt(qbLocationId)
+        },
+        params: { 
+          sectionId: "main", 
+          pageNumber: 1, 
+          pageSize: 100, 
+          totalRecords: null, 
+          sort: null, 
+          showTotals: true 
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Tips fetch failed:', response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    console.log('Tips response:', JSON.stringify(data).substring(0, 1000));
+    
+    let totalCcTips = 0;
+    let totalCashTips = 0;
+    const byEmployee: { employeeName: string; ccTips: number; cashTips: number }[] = [];
+    
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        const employeeName = item.employee || '';
+        const ccTips = parseFloat(String(item.creditCardTips || item.ccTips || '0').replace(/[$,]/g, '')) || 0;
+        const cashTips = parseFloat(String(item.cashTips || '0').replace(/[$,]/g, '')) || 0;
+        
+        totalCcTips += ccTips;
+        totalCashTips += cashTips;
+        
+        if (employeeName) {
+          byEmployee.push({ employeeName, ccTips, cashTips });
+        }
+      }
+    }
+    
+    // Also check totals if available
+    if (data.totals) {
+      const totalFromTotals = parseFloat(String(data.totals.creditCardTips || data.totals.ccTips || '0').replace(/[$,]/g, '')) || 0;
+      const cashFromTotals = parseFloat(String(data.totals.cashTips || '0').replace(/[$,]/g, '')) || 0;
+      if (totalFromTotals > 0) totalCcTips = totalFromTotals;
+      if (cashFromTotals > 0) totalCashTips = cashFromTotals;
+    }
+    
+    console.log(`Tips result: ccTips=${totalCcTips}, cashTips=${totalCashTips}, employees=${byEmployee.length}`);
+    return { ccTips: totalCcTips, cashTips: totalCashTips, totalTips: totalCcTips + totalCashTips, byEmployee };
+  } catch (error) {
+    console.error('Tips data fetch error:', error);
+    return null;
+  }
+}
+
+// Fetch tips data for multiple dates (for pay period totals)
+async function fetchTipsDataForDates(
+  tokenGw: string,
+  dates: string[],
+  qbLocationId: string
+): Promise<{ ccTips: number; cashTips: number; dailyTips: { date: string; ccTips: number; cashTips: number }[] }> {
+  console.log(`Fetching tips data for ${dates.length} days`);
+  
+  let totalCcTips = 0;
+  let totalCashTips = 0;
+  const dailyTips: { date: string; ccTips: number; cashTips: number }[] = [];
+  
+  // Fetch tips data for each date
+  for (const dateStr of dates) {
+    const tips = await fetchTipsData(tokenGw, dateStr, qbLocationId);
+    if (tips) {
+      totalCcTips += tips.ccTips;
+      totalCashTips += tips.cashTips;
+      dailyTips.push({
+        date: dateStr,
+        ccTips: tips.ccTips,
+        cashTips: tips.cashTips
+      });
+    }
+  }
+  
+  return { ccTips: totalCcTips, cashTips: totalCashTips, dailyTips };
+}
+
 // Generate deterministic seeded random factor between -2% and +3%
 // Uses a simple hash of date + locationId to ensure consistency for same inputs
 function getSeededRandomFactor(seed: string): number {
@@ -1046,15 +1158,31 @@ serve(async (req) => {
     let laborData = null;
     let weeklyLaborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] } | null = null;
     
+    // Always fetch tips data
+    let tipsData = null;
+    let weeklyTipsData: { ccTips: number; cashTips: number; dailyTips: { date: string; ccTips: number; cashTips: number }[] } | null = null;
+    
     if (credentials.pull_labor) {
       console.log('Pull labor enabled - fetching labor data from Real Time Summary');
-      // Fetch today's labor and weekly labor in parallel
-      const [todayLabor, weekLabor] = await Promise.all([
+      // Fetch today's labor, weekly labor, and tips data in parallel
+      const [todayLabor, weekLabor, todayTips, weekTips] = await Promise.all([
         fetchLaborData(tokenGw, todayStr, qbLocationId),
-        fetchLaborDataForDates(tokenGw, weekDates, qbLocationId)
+        fetchLaborDataForDates(tokenGw, weekDates, qbLocationId),
+        fetchTipsData(tokenGw, todayStr, qbLocationId),
+        fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
       ]);
       laborData = todayLabor;
       weeklyLaborData = weekLabor;
+      tipsData = todayTips;
+      weeklyTipsData = weekTips;
+    } else {
+      // Still fetch tips even without labor
+      const [todayTips, weekTips] = await Promise.all([
+        fetchTipsData(tokenGw, todayStr, qbLocationId),
+        fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
+      ]);
+      tipsData = todayTips;
+      weeklyTipsData = weekTips;
     }
 
     // Calculate today's metrics from hourly data
@@ -1381,6 +1509,8 @@ serve(async (req) => {
       tills: tillsData, // Tills data for drawer count expected cash
       labor: laborData, // Labor data from Real Time Summary (if pull_labor enabled)
       weeklyLabor: weeklyLaborTotals, // Weekly labor totals (if pull_labor enabled)
+      tips: tipsData, // Today's tips data (CC + cash)
+      weeklyTips: weeklyTipsData, // Weekly tips breakdown by day
       authenticated: true,
       timestamp: new Date().toISOString(),
       currentHour,

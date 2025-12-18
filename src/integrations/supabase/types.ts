@@ -781,6 +781,47 @@ export type Database = {
           },
         ]
       }
+      daily_tips: {
+        Row: {
+          created_at: string
+          fetched_at: string
+          id: string
+          location_id: string
+          tip_date: string
+          total_cash_tips: number
+          total_cc_tips: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          location_id: string
+          tip_date: string
+          total_cash_tips?: number
+          total_cc_tips?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          location_id?: string
+          tip_date?: string
+          total_cash_tips?: number
+          total_cc_tips?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_tips_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employee_notes: {
         Row: {
           created_at: string
@@ -2985,6 +3026,54 @@ export type Database = {
           },
           {
             foreignKeyName: "time_punches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tip_distributions: {
+        Row: {
+          created_at: string
+          daily_tip_id: string
+          distribution_type: string
+          hours_worked: number
+          id: string
+          tip_amount: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          daily_tip_id: string
+          distribution_type?: string
+          hours_worked?: number
+          id?: string
+          tip_amount?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          daily_tip_id?: string
+          distribution_type?: string
+          hours_worked?: number
+          id?: string
+          tip_amount?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tip_distributions_daily_tip_id_fkey"
+            columns: ["daily_tip_id"]
+            isOneToOne: false
+            referencedRelation: "daily_tips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tip_distributions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
