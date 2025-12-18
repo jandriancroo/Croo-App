@@ -133,22 +133,23 @@ export default function Dashboard() {
   });
 
   // Check if location has active QuBeyond integration
+  // Uses backend RPC to avoid exposing integration credentials to non-admin roles
   const { data: hasQuBeyondIntegration } = useQuery({
     queryKey: ["qubeyond-integration-check", currentLocation?.id],
     staleTime: 10 * 60 * 1000, // 10 min cache - rarely changes
     queryFn: async () => {
       if (!currentLocation) return false;
-      const { data, error } = await supabase
-        .from('location_integrations')
-        .select('is_active')
-        .eq('location_id', currentLocation.id)
-        .eq('integration_type', 'qubeyond')
-        .eq('is_active', true)
-        .maybeSingle();
+
+      const { data, error } = await supabase.rpc('has_active_location_integration', {
+        _location_id: currentLocation.id,
+        _integration_type: 'qubeyond',
+      });
+
       if (error) {
         console.error("Error checking integration:", error);
         return false;
       }
+
       return !!data;
     },
     enabled: !!currentLocation,
