@@ -83,6 +83,9 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
   const [managers, setManagers] = useState<ManagerProfile[]>([]);
   const [selectedManagers, setSelectedManagers] = useState<Set<string>>(new Set());
   const [sendingTask, setSendingTask] = useState(false);
+  
+  // Track which audit items have active tasks assigned
+  const [assignedItems, setAssignedItems] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (locationId) {
@@ -168,6 +171,24 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
 
       if (error) throw error;
       setAudits((data as any) || []);
+      
+      // Fetch assigned items for all audits
+      if (data && data.length > 0) {
+        const auditIds = data.map(a => a.id);
+        const { data: tasks } = await supabase
+          .from('temporary_tasks')
+          .select('audit_id, audit_priority_level, audit_item_index')
+          .in('audit_id', auditIds)
+          .is('completed_at', null)
+          .eq('is_active', true);
+        
+        if (tasks) {
+          const assigned = new Set(
+            tasks.map(t => `${t.audit_id}_${t.audit_priority_level}_${t.audit_item_index}`)
+          );
+          setAssignedItems(assigned);
+        }
+      }
     } catch (error: any) {
       console.error("Error fetching audits:", error);
       toast.error("Failed to load audits");
@@ -514,6 +535,10 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
       if (assignError) throw assignError;
 
       toast.success(`Task sent to ${selectedManagers.size} manager${selectedManagers.size > 1 ? 's' : ''}`);
+      
+      // Add to assigned items set
+      setAssignedItems(prev => new Set([...prev, `${sendTaskData.auditId}_${sendTaskData.priority}_${sendTaskData.itemIndex}`]));
+      
       setSendTaskDialogOpen(false);
       setSendTaskData(null);
       setSelectedManagers(new Set());
@@ -553,6 +578,7 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
     const correction = audit.item_corrections?.[correctionKey];
     // Check both the array and item_corrections (trigger updates item_corrections)
     const isCorrected = correctedArray.includes(index) || !!correction;
+    const isAssigned = assignedItems.has(`${audit.id}_${priority}_${index}`);
     
     return (
       <li 
@@ -560,7 +586,9 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
           "text-xs flex flex-col gap-0.5 py-1.5 px-2 rounded-md transition-colors",
           isCorrected 
             ? "bg-green-500/20 text-green-700 dark:text-green-400" 
-            : "hover:bg-muted/50"
+            : isAssigned
+              ? "bg-amber-500/10"
+              : "hover:bg-muted/50"
         )}
       >
         <div className="flex items-start gap-2">
@@ -586,16 +614,22 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
             {item}
           </span>
           {!isCorrected && (
-            <button
-              className="flex-shrink-0 p-1 rounded hover:bg-primary/20 text-primary transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                openSendTaskDialog(audit.id, priority, index, item);
-              }}
-              title="Send as task"
-            >
-              <Send className="w-3.5 h-3.5" />
-            </button>
+            isAssigned ? (
+              <span className="flex-shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                Assigned
+              </span>
+            ) : (
+              <button
+                className="flex-shrink-0 p-1 rounded hover:bg-primary/20 text-primary transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  openSendTaskDialog(audit.id, priority, index, item);
+                }}
+                title="Send as task"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            )
           )}
         </div>
         {isCorrected && correction && (
