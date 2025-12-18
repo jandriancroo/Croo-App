@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ClipboardCheck, Plus, Trash2, ExternalLink, FileText, Loader2, ChevronDown, ChevronRight, AlertTriangle, AlertCircle, Info, Sparkles, X, Check } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -59,6 +60,8 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
   const [expandedAudits, setExpandedAudits] = useState<Set<string>>(new Set());
   const [extractingIds, setExtractingIds] = useState<Set<string>>(new Set());
   const [userName, setUserName] = useState<string>("");
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [auditToDelete, setAuditToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     if (locationId) {
@@ -310,8 +313,6 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
   };
 
   const handleAuditDelete = async (auditId: string) => {
-    if (!confirm("Are you sure you want to delete this audit?")) return;
-
     try {
       const { error } = await supabase
         .from("food_safety_audits")
@@ -321,6 +322,8 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
       if (error) throw error;
 
       toast.success("Audit deleted");
+      setDeleteConfirmOpen(false);
+      setAuditToDelete(null);
       fetchAudits();
     } catch (error: any) {
       toast.error("Failed to delete audit");
@@ -582,13 +585,13 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                             <CollapsibleTrigger asChild>
                               <Button
                                 size="icon"
-                                variant="outline"
-                                className="h-8 w-8 bg-primary/20 border-primary/50 hover:bg-primary/30 hover:border-primary"
+                                variant="default"
+                                className="h-8 w-8 bg-primary hover:bg-primary/80"
                               >
                                 {isExpanded ? (
-                                  <ChevronDown className="w-5 h-5 text-primary-foreground dark:text-primary" style={{ color: 'hsl(180 100% 15%)' }} />
+                                  <ChevronDown className="w-5 h-5 text-primary-foreground" />
                                 ) : (
-                                  <ChevronRight className="w-5 h-5 text-primary-foreground dark:text-primary" style={{ color: 'hsl(180 100% 15%)' }} />
+                                  <ChevronRight className="w-5 h-5 text-primary-foreground" />
                                 )}
                               </Button>
                             </CollapsibleTrigger>
@@ -611,7 +614,8 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                             className="h-7 w-7 text-destructive"
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleAuditDelete(audit.id);
+                              setAuditToDelete(audit.id);
+                              setDeleteConfirmOpen(true);
                             }}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -811,6 +815,26 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Audit</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this audit? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAuditToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => auditToDelete && handleAuditDelete(auditToDelete)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
