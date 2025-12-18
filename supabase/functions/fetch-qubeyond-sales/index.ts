@@ -533,6 +533,7 @@ async function fetchTipsData(
       body: JSON.stringify({
         fields: [
           { fieldName: "employee" },
+          { fieldName: "tips" },
           { fieldName: "creditCardTips" },
           { fieldName: "cashTips" },
           { fieldName: "totalTips" }
@@ -558,7 +559,7 @@ async function fetchTipsData(
     }
 
     const data = await response.json();
-    console.log('Tips response:', JSON.stringify(data).substring(0, 1000));
+    console.log('Tips RAW response:', JSON.stringify(data));
     
     let totalCcTips = 0;
     let totalCashTips = 0;
@@ -567,21 +568,22 @@ async function fetchTipsData(
     if (data.items && Array.isArray(data.items)) {
       for (const item of data.items) {
         const employeeName = item.employee || '';
-        const ccTips = parseFloat(String(item.creditCardTips || item.ccTips || '0').replace(/[$,]/g, '')) || 0;
+        // Check for 'tips' field (which appears to be what QuBeyond uses for CC tips)
+        const tips = parseFloat(String(item.tips || item.creditCardTips || item.ccTips || '0').replace(/[$,]/g, '')) || 0;
         const cashTips = parseFloat(String(item.cashTips || '0').replace(/[$,]/g, '')) || 0;
         
-        totalCcTips += ccTips;
+        totalCcTips += tips;
         totalCashTips += cashTips;
         
         if (employeeName) {
-          byEmployee.push({ employeeName, ccTips, cashTips });
+          byEmployee.push({ employeeName, ccTips: tips, cashTips });
         }
       }
     }
     
     // Also check totals if available
     if (data.totals) {
-      const totalFromTotals = parseFloat(String(data.totals.creditCardTips || data.totals.ccTips || '0').replace(/[$,]/g, '')) || 0;
+      const totalFromTotals = parseFloat(String(data.totals.tips || data.totals.creditCardTips || data.totals.ccTips || '0').replace(/[$,]/g, '')) || 0;
       const cashFromTotals = parseFloat(String(data.totals.cashTips || '0').replace(/[$,]/g, '')) || 0;
       if (totalFromTotals > 0) totalCcTips = totalFromTotals;
       if (cashFromTotals > 0) totalCashTips = cashFromTotals;
