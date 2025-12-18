@@ -34,7 +34,7 @@ export const useUserRole = () => {
   const isShiftManager = role === 'shift_manager' || role === 'manager';
   const isManager = isGeneralManager || isShiftManager;
   const canManageSchedule = isAdmin || isGeneralManager;
-  const canViewAllWages = isAdmin || isGeneralManager;
+  const canViewAllWages = isAdmin || isGeneralManager || isShiftManager;
   const canApproveRequests = isAdmin || isGeneralManager;
   const canEditChecklists = isAdmin || isGeneralManager;
 
