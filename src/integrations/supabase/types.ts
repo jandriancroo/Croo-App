@@ -145,6 +145,75 @@ export type Database = {
           },
         ]
       }
+      brand_members: {
+        Row: {
+          brand_id: string
+          brand_role: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          brand_id: string
+          brand_role?: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          brand_id?: string
+          brand_role?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_members_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brands: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       catering_orders: {
         Row: {
           completed_at: string | null
@@ -1997,6 +2066,7 @@ export type Database = {
       }
       organizations: {
         Row: {
+          brand_id: string | null
           brand_name: string | null
           created_at: string
           id: string
@@ -2007,6 +2077,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brand_id?: string | null
           brand_name?: string | null
           created_at?: string
           id?: string
@@ -2017,6 +2088,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brand_id?: string | null
           brand_name?: string | null
           created_at?: string
           id?: string
@@ -2026,7 +2098,15 @@ export type Database = {
           slug?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "organizations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pay_periods: {
         Row: {
@@ -3193,6 +3273,14 @@ export type Database = {
         Args: { _integration_type: string; _location_id: string }
         Returns: boolean
       }
+      has_brand_access: {
+        Args: { _organization_id: string; _user_id: string }
+        Returns: boolean
+      }
+      has_brand_access_via_location: {
+        Args: { _location_id: string; _user_id: string }
+        Returns: boolean
+      }
       has_location_access: {
         Args: { _location_id: string; _user_id: string }
         Returns: boolean
@@ -3207,6 +3295,10 @@ export type Database = {
       increment_croo_cash: {
         Args: { amount: number; user_id: string }
         Returns: undefined
+      }
+      is_brand_admin: {
+        Args: { _brand_id: string; _user_id: string }
+        Returns: boolean
       }
       is_chat_member: {
         Args: { _chat_id: string; _user_id: string }
@@ -3238,6 +3330,7 @@ export type Database = {
         | "shift_manager"
         | "super_admin"
         | "org_admin"
+        | "brand_admin"
       application_status:
         | "pending"
         | "interested"
@@ -3379,6 +3472,7 @@ export const Constants = {
         "shift_manager",
         "super_admin",
         "org_admin",
+        "brand_admin",
       ],
       application_status: [
         "pending",
