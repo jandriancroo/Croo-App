@@ -693,43 +693,45 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                 return (
                   <Collapsible key={audit.id} open={isExpanded} onOpenChange={() => toggleExpanded(audit.id)}>
                     <div className="border rounded-md bg-muted/30 overflow-hidden">
-                      <div className="flex items-center gap-3 p-3">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPreviewUrl(audit.audit_url);
-                            setPreviewOpen(true);
-                          }}
-                          className="w-12 h-12 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80 flex items-center justify-center"
-                        >
-                          {isPdf ? (
-                            <FileText className="w-6 h-6 text-muted-foreground" />
-                          ) : (
-                            <img 
-                              src={audit.audit_url} 
-                              alt="Food Safety Audit"
-                              className="w-full h-full object-cover"
-                            />
-                          )}
-                        </button>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium">
-                              Audit - {auditDateDisplay}
-                            </span>
-                            {audit.visit_score && (
-                              <Badge variant="secondary" className="text-xs">
-                                Score: {audit.visit_score}
-                              </Badge>
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewUrl(audit.audit_url);
+                              setPreviewOpen(true);
+                            }}
+                            className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 border rounded overflow-hidden bg-muted cursor-pointer hover:opacity-80 flex items-center justify-center"
+                          >
+                            {isPdf ? (
+                              <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
+                            ) : (
+                              <img 
+                                src={audit.audit_url} 
+                                alt="Food Safety Audit"
+                                className="w-full h-full object-cover"
+                              />
+                            )}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium whitespace-nowrap">
+                                {auditDateDisplay}
+                              </span>
+                              {audit.visit_score && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {audit.visit_score}
+                                </Badge>
+                              )}
+                            </div>
+                            {audit.manager_name && (
+                              <p className="text-xs text-muted-foreground truncate">
+                                {audit.manager_name}
+                              </p>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {audit.manager_name ? `Manager: ${audit.manager_name}` : null}
-                            {audit.manager_name && audit.notes && ' • '}
-                            {audit.notes}
-                          </p>
                         </div>
-                        <div className="flex gap-1 flex-shrink-0 items-center">
+                        <div className="flex gap-1 flex-shrink-0 items-center justify-end">
                           {!hasData && (
                             <Button
                               size="sm"
@@ -746,14 +748,14 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                               ) : (
                                 <Sparkles className="w-3 h-3" />
                               )}
-                              {isExtracting ? 'Croo AI Scanning...' : 'Croo AI Scan'}
+                              <span className="hidden sm:inline">{isExtracting ? 'Scanning...' : 'Scan'}</span>
                             </Button>
                           )}
                           {hasData && (
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-7 text-xs gap-1"
+                              className="h-7 text-xs gap-1 px-2"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleManualRescan(audit);
@@ -765,7 +767,6 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                               ) : (
                                 <Sparkles className="w-3 h-3" />
                               )}
-                              Rescan
                             </Button>
                           )}
                           {hasData && (
@@ -773,28 +774,16 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
                               <Button
                                 size="icon"
                                 variant="default"
-                                className="h-8 w-8 bg-primary hover:bg-primary/80"
+                                className="h-7 w-7 sm:h-8 sm:w-8 bg-primary hover:bg-primary/80"
                               >
                                 {isExpanded ? (
-                                  <ChevronDown className="w-5 h-5 text-primary-foreground" />
+                                  <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                                 ) : (
-                                  <ChevronRight className="w-5 h-5 text-primary-foreground" />
+                                  <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
                                 )}
                               </Button>
                             </CollapsibleTrigger>
                           )}
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPreviewUrl(audit.audit_url);
-                              setPreviewOpen(true);
-                            }}
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </Button>
                           <Button
                             size="icon"
                             variant="ghost"
