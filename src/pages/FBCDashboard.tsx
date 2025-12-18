@@ -4,18 +4,20 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TrendingUp, TrendingDown, Minus, Building2, ClipboardCheck } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Building2, ClipboardCheck, ChevronDown, ChevronRight, ExternalLink, AlertTriangle, AlertCircle, Info, Trophy } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 interface LocationSalesData {
   locationId: string;
   locationName: string;
   organizationName: string;
-  daily: { actual: number; projected: number };
-  weekly: { actual: number; projected: number };
-  monthly: { actual: number; projected: number };
+  actual: number;
+  projected: number;
 }
 
 interface AuditData {
@@ -25,10 +27,16 @@ interface AuditData {
   auditDate: string;
   visitScore: string | null;
   managerName: string | null;
+  auditUrl: string;
+  firstPriorityItems: string[] | null;
+  secondPriorityItems: string[] | null;
+  thirdPriorityItems: string[] | null;
 }
 
 export default function FBCDashboard() {
   const { user } = useAuth();
+  const [salesPeriod, setSalesPeriod] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [expandedAudits, setExpandedAudits] = useState<Set<string>>(new Set());
 
   // Fetch brand membership to determine which brand's locations to show
   const { data: brandMembership, isLoading: brandLoading } = useQuery({
@@ -82,40 +90,83 @@ export default function FBCDashboard() {
 
   // Fetch sales data for all locations
   const { data: salesData, isLoading: salesLoading } = useQuery({
-    queryKey: ['fbc-sales-data', locations?.map(l => l.id)],
+    queryKey: ['fbc-sales-data', locations?.map(l => l.id), salesPeriod],
     queryFn: async () => {
       if (!locations?.length) return [];
       
       const today = new Date();
+      const todayStr = format(today, 'yyyy-MM-dd');
       const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-      const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
+      const weekStartStr = format(weekStart, 'yyyy-MM-dd');
       const monthStart = startOfMonth(today);
-      const monthEnd = endOfMonth(today);
+      const monthStartStr = format(monthStart, 'yyyy-MM-dd');
       
-      // For each location, we'd ideally fetch from QuBeyond
-      // For now, return placeholder data - in production this would call the sales API
-      const salesResults: LocationSalesData[] = locations.map(loc => {
+      // Fetch sales for each location from QuBeyond
+      const salesResults: LocationSalesData[] = [];
+      
+      for (const loc of locations) {
         const org = loc.organizations as any;
-        return {
+        
+        // Try to fetch real sales data
+        try {
+          const { data: integrationData } = await supabase
+            .from('location_integrations')
+            .select('credentials')
+            .eq('location_id', loc.id)
+            .eq('integration_type', 'qubeyond')
+            .eq('is_active', true)
+            .single();
+          
+          if (integrationData?.credentials) {
+            // Call QuBeyond API for this location
+            const { data: salesResponse } = await supabase.functions.invoke('fetch-qubeyond-sales', {
+              body: { 
+                locationId: loc.id,
+                includeProjections: true
+              }
+            });
+            
+            if (salesResponse?.success) {
+              let actual = 0;
+              let projected = 0;
+              
+              if (salesPeriod === 'daily') {
+                actual = salesResponse.daily?.total || 0;
+                projected = salesResponse.projections?.todayProjected || salesResponse.projections?.todayPaceAdjusted || 0;
+              } else if (salesPeriod === 'weekly') {
+                actual = salesResponse.weekly?.total || 0;
+                projected = salesResponse.projections?.weekProjected || 0;
+              } else {
+                actual = salesResponse.monthly?.total || 0;
+                projected = salesResponse.projections?.monthProjected || 0;
+              }
+              
+              salesResults.push({
+                locationId: loc.id,
+                locationName: loc.name,
+                organizationName: org?.brand_name || org?.name || 'Unknown',
+                actual,
+                projected,
+              });
+              continue;
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to fetch sales for ${loc.name}:`, err);
+        }
+        
+        // Fallback: no data available
+        salesResults.push({
           locationId: loc.id,
           locationName: loc.name,
           organizationName: org?.brand_name || org?.name || 'Unknown',
-          daily: { 
-            actual: Math.floor(Math.random() * 3000) + 1500, 
-            projected: Math.floor(Math.random() * 3000) + 1500 
-          },
-          weekly: { 
-            actual: Math.floor(Math.random() * 20000) + 10000, 
-            projected: Math.floor(Math.random() * 20000) + 10000 
-          },
-          monthly: { 
-            actual: Math.floor(Math.random() * 80000) + 40000, 
-            projected: Math.floor(Math.random() * 80000) + 40000 
-          },
-        };
-      });
+          actual: 0,
+          projected: 0,
+        });
+      }
       
-      return salesResults;
+      // Sort by actual sales descending
+      return salesResults.sort((a, b) => b.actual - a.actual);
     },
     enabled: !!locations?.length,
   });
@@ -134,12 +185,16 @@ export default function FBCDashboard() {
           id,
           location_id,
           audit_date,
+          audit_url,
           visit_score,
           manager_name,
+          first_priority_items,
+          second_priority_items,
+          third_priority_items,
           locations!inner(name)
         `)
         .in('location_id', locationIds)
-        .order('audit_date', { ascending: false })
+        .order('visit_score', { ascending: false, nullsFirst: false })
         .limit(50);
       
       if (error) throw error;
@@ -149,11 +204,22 @@ export default function FBCDashboard() {
         locationId: audit.location_id,
         locationName: (audit.locations as any)?.name || 'Unknown',
         auditDate: audit.audit_date,
+        auditUrl: audit.audit_url,
         visitScore: audit.visit_score,
         managerName: audit.manager_name,
+        firstPriorityItems: audit.first_priority_items as string[] | null,
+        secondPriorityItems: audit.second_priority_items as string[] | null,
+        thirdPriorityItems: audit.third_priority_items as string[] | null,
       }));
     },
     enabled: !!locations?.length,
+  });
+
+  // Sort audits by score for leaderboard
+  const sortedAudits = audits?.slice().sort((a, b) => {
+    const scoreA = parseFloat(a.visitScore || '0');
+    const scoreB = parseFloat(b.visitScore || '0');
+    return scoreB - scoreA;
   });
 
   const isLoading = brandLoading || locationsLoading;
@@ -167,20 +233,25 @@ export default function FBCDashboard() {
     }).format(amount);
   };
 
+  const getVariancePercent = (actual: number, projected: number) => {
+    if (projected === 0) return 0;
+    return ((actual - projected) / projected) * 100;
+  };
+
   const getVarianceIndicator = (actual: number, projected: number) => {
     const variance = actual - projected;
-    const percentVariance = projected > 0 ? ((variance / projected) * 100).toFixed(1) : '0';
+    const percentVariance = getVariancePercent(actual, projected).toFixed(1);
     
     if (variance > 0) {
       return (
-        <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm">
+        <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm font-medium">
           <TrendingUp className="h-3 w-3" />
           +{percentVariance}%
         </span>
       );
     } else if (variance < 0) {
       return (
-        <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-sm">
+        <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-sm font-medium">
           <TrendingDown className="h-3 w-3" />
           {percentVariance}%
         </span>
@@ -200,6 +271,54 @@ export default function FBCDashboard() {
     if (numScore >= 90) return 'default';
     if (numScore >= 80) return 'secondary';
     return 'destructive';
+  };
+
+  const getBarWidth = (value: number, maxValue: number) => {
+    if (maxValue === 0) return 0;
+    return Math.min((value / maxValue) * 100, 100);
+  };
+
+  const maxSales = Math.max(
+    ...(salesData?.map(s => Math.max(s.actual, s.projected)) || [1])
+  );
+
+  const getPeriodDateRange = () => {
+    const today = new Date();
+    if (salesPeriod === 'daily') {
+      return format(today, 'MMMM d, yyyy');
+    } else if (salesPeriod === 'weekly') {
+      const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+      const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
+      return `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`;
+    } else {
+      return format(today, 'MMMM yyyy');
+    }
+  };
+
+  const toggleExpanded = (auditId: string) => {
+    setExpandedAudits(prev => {
+      const next = new Set(prev);
+      if (next.has(auditId)) {
+        next.delete(auditId);
+      } else {
+        next.add(auditId);
+      }
+      return next;
+    });
+  };
+
+  const hasSummary = (audit: AuditData) => {
+    return audit.visitScore || 
+           (audit.firstPriorityItems && audit.firstPriorityItems.length > 0) ||
+           (audit.secondPriorityItems && audit.secondPriorityItems.length > 0) ||
+           (audit.thirdPriorityItems && audit.thirdPriorityItems.length > 0);
+  };
+
+  const getRankIcon = (index: number) => {
+    if (index === 0) return <Trophy className="h-5 w-5 text-yellow-500" />;
+    if (index === 1) return <Trophy className="h-5 w-5 text-gray-400" />;
+    if (index === 2) return <Trophy className="h-5 w-5 text-amber-600" />;
+    return <span className="w-5 h-5 flex items-center justify-center text-sm font-bold text-muted-foreground">#{index + 1}</span>;
   };
 
   return (
@@ -225,77 +344,83 @@ export default function FBCDashboard() {
               </TabsTrigger>
               <TabsTrigger value="audits" className="gap-2">
                 <ClipboardCheck className="h-4 w-4" />
-                Recent Audits
+                Audit Leaderboard
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="sales" className="space-y-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Location Performance</CardTitle>
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-lg">Location Performance</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">{getPeriodDateRange()}</p>
+                    </div>
+                    <Tabs value={salesPeriod} onValueChange={(v) => setSalesPeriod(v as any)} className="w-auto">
+                      <TabsList className="h-8">
+                        <TabsTrigger value="daily" className="text-xs px-3 h-7">Daily</TabsTrigger>
+                        <TabsTrigger value="weekly" className="text-xs px-3 h-7">Weekly</TabsTrigger>
+                        <TabsTrigger value="monthly" className="text-xs px-3 h-7">Monthly</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {salesLoading ? (
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       {[1, 2, 3].map(i => (
-                        <Skeleton key={i} className="h-16 w-full" />
+                        <Skeleton key={i} className="h-20 w-full" />
                       ))}
                     </div>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b text-left text-sm text-muted-foreground">
-                            <th className="pb-3 font-medium">Location</th>
-                            <th className="pb-3 font-medium text-right">Daily</th>
-                            <th className="pb-3 font-medium text-center">Var</th>
-                            <th className="pb-3 font-medium text-right">Weekly</th>
-                            <th className="pb-3 font-medium text-center">Var</th>
-                            <th className="pb-3 font-medium text-right">Monthly</th>
-                            <th className="pb-3 font-medium text-center">Var</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {salesData?.map(loc => (
-                            <tr key={loc.locationId} className="hover:bg-muted/50">
-                              <td className="py-3">
-                                <div>
-                                  <div className="font-medium">{loc.locationName}</div>
-                                  <div className="text-xs text-muted-foreground">{loc.organizationName}</div>
-                                </div>
-                              </td>
-                              <td className="py-3 text-right">
-                                <div className="font-medium">{formatCurrency(loc.daily.actual)}</div>
-                                <div className="text-xs text-muted-foreground">proj: {formatCurrency(loc.daily.projected)}</div>
-                              </td>
-                              <td className="py-3 text-center">
-                                {getVarianceIndicator(loc.daily.actual, loc.daily.projected)}
-                              </td>
-                              <td className="py-3 text-right">
-                                <div className="font-medium">{formatCurrency(loc.weekly.actual)}</div>
-                                <div className="text-xs text-muted-foreground">proj: {formatCurrency(loc.weekly.projected)}</div>
-                              </td>
-                              <td className="py-3 text-center">
-                                {getVarianceIndicator(loc.weekly.actual, loc.weekly.projected)}
-                              </td>
-                              <td className="py-3 text-right">
-                                <div className="font-medium">{formatCurrency(loc.monthly.actual)}</div>
-                                <div className="text-xs text-muted-foreground">proj: {formatCurrency(loc.monthly.projected)}</div>
-                              </td>
-                              <td className="py-3 text-center">
-                                {getVarianceIndicator(loc.monthly.actual, loc.monthly.projected)}
-                              </td>
-                            </tr>
-                          ))}
-                          {(!salesData || salesData.length === 0) && (
-                            <tr>
-                              <td colSpan={7} className="py-8 text-center text-muted-foreground">
-                                No locations found
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
+                    <div className="space-y-4">
+                      {salesData?.map((loc, index) => (
+                        <div key={loc.locationId} className="border rounded-lg p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <div className="font-semibold">{loc.locationName}</div>
+                              <div className="text-xs text-muted-foreground">{loc.organizationName}</div>
+                            </div>
+                            <div className="text-right">
+                              {getVarianceIndicator(loc.actual, loc.projected)}
+                            </div>
+                          </div>
+                          
+                          {/* Projection Bar */}
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-muted-foreground w-16 shrink-0">Projected</span>
+                              <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-blue-500/30 rounded-full transition-all duration-500"
+                                  style={{ width: `${getBarWidth(loc.projected, maxSales)}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-medium w-20 text-right">{formatCurrency(loc.projected)}</span>
+                            </div>
+                            
+                            {/* Actual Bar */}
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs text-muted-foreground w-16 shrink-0">Actual</span>
+                              <div className="flex-1 h-6 bg-muted rounded-full overflow-hidden">
+                                <div 
+                                  className={cn(
+                                    "h-full rounded-full transition-all duration-500",
+                                    loc.actual >= loc.projected ? "bg-green-500" : "bg-red-500"
+                                  )}
+                                  style={{ width: `${getBarWidth(loc.actual, maxSales)}%` }}
+                                />
+                              </div>
+                              <span className="text-sm font-bold w-20 text-right">{formatCurrency(loc.actual)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                      {(!salesData || salesData.length === 0) && (
+                        <div className="py-8 text-center text-muted-foreground">
+                          No locations found
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -305,7 +430,11 @@ export default function FBCDashboard() {
             <TabsContent value="audits" className="space-y-4">
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">Recent Food Safety Audits</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Trophy className="h-5 w-5 text-yellow-500" />
+                    Food Safety Audit Leaderboard
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">Sorted by visit score</p>
                 </CardHeader>
                 <CardContent>
                   {auditsLoading ? (
@@ -315,46 +444,127 @@ export default function FBCDashboard() {
                       ))}
                     </div>
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b text-left text-sm text-muted-foreground">
-                            <th className="pb-3 font-medium">Location</th>
-                            <th className="pb-3 font-medium">Audit Date</th>
-                            <th className="pb-3 font-medium">Manager</th>
-                            <th className="pb-3 font-medium text-right">Score</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y">
-                          {audits?.map(audit => (
-                            <tr key={audit.id} className="hover:bg-muted/50">
-                              <td className="py-3 font-medium">{audit.locationName}</td>
-                              <td className="py-3 text-muted-foreground">
-                                {format(new Date(audit.auditDate), 'MMM d, yyyy')}
-                              </td>
-                              <td className="py-3 text-muted-foreground">
-                                {audit.managerName || '—'}
-                              </td>
-                              <td className="py-3 text-right">
+                    <div className="space-y-2">
+                      {sortedAudits?.map((audit, index) => (
+                        <Collapsible
+                          key={audit.id}
+                          open={expandedAudits.has(audit.id)}
+                          onOpenChange={() => toggleExpanded(audit.id)}
+                        >
+                          <CollapsibleTrigger className="w-full">
+                            <div className={cn(
+                              "flex items-center gap-3 p-3 rounded-lg border hover:bg-muted/50 transition-colors",
+                              index === 0 && "border-yellow-500/50 bg-yellow-500/5",
+                              index === 1 && "border-gray-400/50 bg-gray-400/5",
+                              index === 2 && "border-amber-600/50 bg-amber-600/5"
+                            )}>
+                              {/* Rank */}
+                              <div className="flex-shrink-0">
+                                {getRankIcon(index)}
+                              </div>
+                              
+                              {/* Location Name */}
+                              <div className="flex-1 text-left">
+                                <div className="font-medium">{audit.locationName}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {format(new Date(audit.auditDate), 'MMM d, yyyy')}
+                                  {audit.managerName && ` • ${audit.managerName}`}
+                                </div>
+                              </div>
+                              
+                              {/* Score */}
+                              <div className="flex items-center gap-2">
                                 {audit.visitScore ? (
-                                  <Badge variant={getScoreBadgeVariant(audit.visitScore)}>
+                                  <Badge 
+                                    variant={getScoreBadgeVariant(audit.visitScore)}
+                                    className="text-lg px-3 py-1"
+                                  >
                                     {audit.visitScore}
                                   </Badge>
                                 ) : (
                                   <span className="text-muted-foreground">—</span>
                                 )}
-                              </td>
-                            </tr>
-                          ))}
-                          {(!audits || audits.length === 0) && (
-                            <tr>
-                              <td colSpan={4} className="py-8 text-center text-muted-foreground">
-                                No audits found
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
+                                {hasSummary(audit) && (
+                                  expandedAudits.has(audit.id) 
+                                    ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                    : <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                                )}
+                              </div>
+                            </div>
+                          </CollapsibleTrigger>
+                          
+                          <CollapsibleContent>
+                            {hasSummary(audit) && (
+                              <div className="p-4 border-x border-b rounded-b-lg bg-muted/30 space-y-4">
+                                {/* Priority Items */}
+                                {audit.firstPriorityItems && audit.firstPriorityItems.length > 0 && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-red-600 dark:text-red-400">
+                                      <AlertTriangle className="h-4 w-4" />
+                                      1st Priority Items
+                                    </div>
+                                    <ul className="space-y-1 pl-6">
+                                      {audit.firstPriorityItems.map((item, idx) => (
+                                        <li key={idx} className="text-sm text-muted-foreground list-disc">
+                                          {item}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                
+                                {audit.secondPriorityItems && audit.secondPriorityItems.length > 0 && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-orange-600 dark:text-orange-400">
+                                      <AlertCircle className="h-4 w-4" />
+                                      2nd Priority Items
+                                    </div>
+                                    <ul className="space-y-1 pl-6">
+                                      {audit.secondPriorityItems.map((item, idx) => (
+                                        <li key={idx} className="text-sm text-muted-foreground list-disc">
+                                          {item}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                
+                                {audit.thirdPriorityItems && audit.thirdPriorityItems.length > 0 && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-yellow-600 dark:text-yellow-400">
+                                      <Info className="h-4 w-4" />
+                                      3rd Priority Items
+                                    </div>
+                                    <ul className="space-y-1 pl-6">
+                                      {audit.thirdPriorityItems.map((item, idx) => (
+                                        <li key={idx} className="text-sm text-muted-foreground list-disc">
+                                          {item}
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
+                                
+                                {/* View PDF Link */}
+                                <a
+                                  href={audit.auditUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                                >
+                                  <ExternalLink className="h-4 w-4" />
+                                  View Full Audit Report
+                                </a>
+                              </div>
+                            )}
+                          </CollapsibleContent>
+                        </Collapsible>
+                      ))}
+                      {(!sortedAudits || sortedAudits.length === 0) && (
+                        <div className="py-8 text-center text-muted-foreground">
+                          No audits found
+                        </div>
+                      )}
                     </div>
                   )}
                 </CardContent>
