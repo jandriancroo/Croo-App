@@ -126,20 +126,20 @@ export default function FBCDashboard() {
               }
             });
             
-            if (salesResponse?.success) {
-              let actual = 0;
-              let projected = 0;
-              
-              if (salesPeriod === 'daily') {
-                actual = salesResponse.daily?.total || 0;
-                projected = salesResponse.projections?.todayProjected || salesResponse.projections?.todayPaceAdjusted || 0;
-              } else if (salesPeriod === 'weekly') {
-                actual = salesResponse.weekly?.total || 0;
-                projected = salesResponse.projections?.weekProjected || 0;
-              } else {
-                actual = salesResponse.monthly?.total || 0;
-                projected = salesResponse.projections?.monthProjected || 0;
-              }
+          if (salesResponse) {
+            let actual = 0;
+            let projected = 0;
+            
+            if (salesPeriod === 'daily') {
+              actual = typeof salesResponse.daily === 'number' ? salesResponse.daily : (salesResponse.daily?.total || 0);
+              projected = salesResponse.projections?.todayProjected || salesResponse.projections?.todayPaceAdjusted || 0;
+            } else if (salesPeriod === 'weekly') {
+              actual = typeof salesResponse.weekly === 'number' ? salesResponse.weekly : (salesResponse.weekly?.total || 0);
+              projected = salesResponse.projections?.weekProjected || 0;
+            } else {
+              actual = typeof salesResponse.monthly === 'number' ? salesResponse.monthly : (salesResponse.monthly?.total || 0);
+              projected = salesResponse.projections?.monthProjected || 0;
+            }
               
               salesResults.push({
                 locationId: loc.id,
