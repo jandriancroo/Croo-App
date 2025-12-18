@@ -1528,7 +1528,9 @@ serve(async (req) => {
       guestCount: result.guestCount,
       comparison: result.comparison,
       projections: result.projections,
-      productMixCount: result.productMix.length
+      productMixCount: result.productMix.length,
+      tips: result.tips,
+      weeklyTips: result.weeklyTips
     }));
 
     return new Response(JSON.stringify(result), {
