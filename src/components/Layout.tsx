@@ -619,6 +619,16 @@ export const Layout = ({
                   </Button>
                 )}
 
+                {hasFBCAccess && (
+                  <Button variant="outline" onClick={() => {
+                    navigate('/fbc-dashboard');
+                    setMenuOpen(false);
+                  }} className="justify-start gap-3 h-11">
+                    <BarChart3 className="h-5 w-5" />
+                    <span className="text-base">FBC Dashboard</span>
+                  </Button>
+                )}
+
                 {/* Time collapsible section */}
                 {mobileTimeItems.length > 0 && (
                   <div className="space-y-1">
