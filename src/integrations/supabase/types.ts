@@ -3331,6 +3331,7 @@ export type Database = {
         | "super_admin"
         | "org_admin"
         | "brand_admin"
+        | "fbc"
       application_status:
         | "pending"
         | "interested"
@@ -3473,6 +3474,7 @@ export const Constants = {
         "super_admin",
         "org_admin",
         "brand_admin",
+        "fbc",
       ],
       application_status: [
         "pending",
