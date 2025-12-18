@@ -549,9 +549,10 @@ export function LocationAuditsSection({ locationId, locationName }: LocationAudi
     index: number;
   }) => {
     const correctedArray = audit[`${priority}_priority_corrected`] || [];
-    const isCorrected = correctedArray.includes(index);
     const correctionKey = `${priority}_${index}`;
     const correction = audit.item_corrections?.[correctionKey];
+    // Check both the array and item_corrections (trigger updates item_corrections)
+    const isCorrected = correctedArray.includes(index) || !!correction;
     
     return (
       <li 
