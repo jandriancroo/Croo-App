@@ -518,7 +518,7 @@ async function fetchTipsData(
   dateStr: string,
   qbLocationId: string
 ): Promise<{ ccTips: number; cashTips: number; totalTips: number; byEmployee: { employeeName: string; ccTips: number; cashTips: number }[] } | null> {
-  console.log(`Fetching tips data for ${dateStr}`);
+  console.log(`[TIPS] Fetching tips data for ${dateStr} location ${qbLocationId}`);
   
   try {
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/tips/sections/main', {
