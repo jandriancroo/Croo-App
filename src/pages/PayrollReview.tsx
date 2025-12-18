@@ -6,8 +6,9 @@ import { format, addDays, addWeeks, startOfWeek, endOfWeek, isSameWeek } from 'd
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
+import { useTipDistribution } from '@/hooks/useTipDistribution';
 import { toast } from 'sonner';
-import { ChevronLeft, AlertTriangle, Trash2, Clock, CheckCircle2, Lock, AlertCircle, Coffee, Download, FileSpreadsheet, Calendar } from 'lucide-react';
+import { ChevronLeft, AlertTriangle, Trash2, Clock, CheckCircle2, Lock, AlertCircle, Coffee, Download, FileSpreadsheet, Calendar, DollarSign } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -228,6 +229,19 @@ export default function PayrollReview() {
   const [periodStatuses, setPeriodStatuses] = useState<Record<string, any>>({});
   const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all', hasBreakViolation?: boolean, hasAutoClockOut?: boolean, shiftInfo?: { dayPunches: any[], userId: string, locationId: string, shiftDate: string } } | null>(null);
   const [laborRules, setLaborRules] = useState<any>(null);
+
+  // Tip distribution hook
+  const { 
+    isLoading: tipsLoading, 
+    employeeTipShares, 
+    totalTipPool,
+    dailyTips 
+  } = useTipDistribution(
+    currentLocation?.id || null,
+    selectedPeriod?.start || null,
+    selectedPeriod?.end || null,
+    timeCards
+  );
 
   useEffect(() => {
     if ((isAdmin || isManager) && currentLocation) {
@@ -828,6 +842,10 @@ export default function PayrollReview() {
       // Include PTO hours in gross wages calculation (paid at regular rate)
       const grossWages = (regularHours * wage) + (overtimeHours * wage * 1.5) + (ptoHours * wage);
       
+      // Get tip share for this employee
+      const tipShare = employeeTipShares.find(t => t.userId === card.profile.id);
+      const tips = tipShare?.totalTips || 0;
+      
       return {
         name: card.profile.full_name,
         odId: card.profile.id,
@@ -836,7 +854,9 @@ export default function PayrollReview() {
         overtimeHours,
         ptoHours,
         doubleOvertimeHours: 0, // Not calculated yet
-        grossWages
+        tips,
+        grossWages,
+        totalCompensation: grossWages + tips
       };
     });
 
@@ -845,8 +865,10 @@ export default function PayrollReview() {
       overtimeHours: acc.overtimeHours + emp.overtimeHours,
       doubleOvertimeHours: acc.doubleOvertimeHours + emp.doubleOvertimeHours,
       ptoHours: acc.ptoHours + emp.ptoHours,
-      grossWages: acc.grossWages + emp.grossWages
-    }), { regularHours: 0, overtimeHours: 0, doubleOvertimeHours: 0, ptoHours: 0, grossWages: 0 });
+      tips: acc.tips + emp.tips,
+      grossWages: acc.grossWages + emp.grossWages,
+      totalCompensation: acc.totalCompensation + emp.totalCompensation
+    }), { regularHours: 0, overtimeHours: 0, doubleOvertimeHours: 0, ptoHours: 0, tips: 0, grossWages: 0, totalCompensation: 0 });
 
     return { employees: summary, totals };
   };
@@ -886,16 +908,18 @@ export default function PayrollReview() {
   // Export functions
   const exportToCSV = () => {
     const summary = calculatePayrollSummary();
-    const headers = ['Employee', 'Hourly Wage', 'Regular Hours', 'Overtime Hours', 'PTO Hours', 'Gross Wages'];
+    const headers = ['Employee', 'Hourly Wage', 'Regular Hours', 'Overtime Hours', 'PTO Hours', 'Tips', 'Gross Wages', 'Total Compensation'];
     const rows = summary.employees.map(emp => [
       emp.name,
       emp.wage.toFixed(2),
       emp.regularHours.toFixed(2),
       emp.overtimeHours.toFixed(2),
       emp.ptoHours.toFixed(2),
-      emp.grossWages.toFixed(2)
+      emp.tips.toFixed(2),
+      emp.grossWages.toFixed(2),
+      emp.totalCompensation.toFixed(2)
     ]);
-    rows.push(['TOTALS', '', summary.totals.regularHours.toFixed(2), summary.totals.overtimeHours.toFixed(2), summary.totals.ptoHours.toFixed(2), summary.totals.grossWages.toFixed(2)]);
+    rows.push(['TOTALS', '', summary.totals.regularHours.toFixed(2), summary.totals.overtimeHours.toFixed(2), summary.totals.ptoHours.toFixed(2), summary.totals.tips.toFixed(2), summary.totals.grossWages.toFixed(2), summary.totals.totalCompensation.toFixed(2)]);
     
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
