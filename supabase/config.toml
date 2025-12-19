@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.generate-weekly-summary]
 verify_jwt = true
+
+[functions.fetch-ovation-scores]
+verify_jwt = true
