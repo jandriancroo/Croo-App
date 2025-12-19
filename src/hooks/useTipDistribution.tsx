@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
-import { toast } from 'sonner';
 
 interface DailyTipData {
   date: string;
@@ -37,7 +36,10 @@ export function useTipDistribution(
   const [error, setError] = useState<string | null>(null);
 
   const fetchTipsData = async () => {
-    if (!locationId || !startDate || !endDate) return;
+    if (!locationId || !startDate || !endDate) {
+      setIsLoading(false);
+      return;
+    }
     
     setIsLoading(true);
     setError(null);
@@ -54,6 +56,7 @@ export function useTipDistribution(
       
       if (!integration) {
         setDailyTips([]);
+        setIsLoading(false);
         return;
       }
       
@@ -65,48 +68,71 @@ export function useTipDistribution(
         current.setDate(current.getDate() + 1);
       }
       
-      // Fetch tips for each date from QuBeyond
+      // Fetch tips in batches of 7 days (one week at a time) to reduce API calls
       const allTips: DailyTipData[] = [];
+      const batchSize = 7;
       
-      for (const dateStr of dates) {
+      for (let i = 0; i < dates.length; i += batchSize) {
+        const batchDates = dates.slice(i, i + batchSize);
+        const middleDate = batchDates[Math.floor(batchDates.length / 2)];
+        
         try {
           const { data, error: fetchError } = await supabase.functions.invoke('fetch-qubeyond-sales', {
             body: { 
               locationId, 
-              targetDate: dateStr 
+              targetDate: middleDate 
             }
           });
           
           if (fetchError) {
-            console.error(`Error fetching tips for ${dateStr}:`, fetchError);
+            console.error(`Error fetching tips batch:`, fetchError);
             continue;
           }
           
-          if (data?.tips) {
-            allTips.push({
-              date: dateStr,
-              ccTips: data.tips.ccTips || 0,
-              cashTips: data.tips.cashTips || 0,
-              totalTips: data.tips.totalTips || 0
+          // Extract daily tips from weeklyTips breakdown
+          if (data?.weeklyTips?.dailyTips) {
+            data.weeklyTips.dailyTips.forEach((dayTip: any) => {
+              if (batchDates.includes(dayTip.date)) {
+                const totalTips = (dayTip.ccTips || 0) + (dayTip.cashTips || 0);
+                if (totalTips > 0) {
+                  allTips.push({
+                    date: dayTip.date,
+                    ccTips: dayTip.ccTips || 0,
+                    cashTips: dayTip.cashTips || 0,
+                    totalTips
+                  });
+                }
+              }
             });
-          } else if (data?.weeklyTips?.dailyTips) {
-            // Check if the date is in weekly breakdown
-            const dayTip = data.weeklyTips.dailyTips.find((d: any) => d.date === dateStr);
-            if (dayTip) {
+          }
+          
+          // Also check the current day's tips
+          if (data?.tips && batchDates.includes(middleDate)) {
+            const existing = allTips.find(t => t.date === middleDate);
+            if (!existing && data.tips.totalTips > 0) {
               allTips.push({
-                date: dateStr,
-                ccTips: dayTip.ccTips || 0,
-                cashTips: dayTip.cashTips || 0,
-                totalTips: (dayTip.ccTips || 0) + (dayTip.cashTips || 0)
+                date: middleDate,
+                ccTips: data.tips.ccTips || 0,
+                cashTips: data.tips.cashTips || 0,
+                totalTips: data.tips.totalTips || 0
               });
             }
           }
         } catch (err) {
-          console.error(`Error fetching tips for ${dateStr}:`, err);
+          console.error(`Error fetching tips batch:`, err);
         }
       }
       
-      setDailyTips(allTips);
+      // Remove duplicates and sort by date
+      const uniqueTips = allTips.reduce((acc, tip) => {
+        const existing = acc.find(t => t.date === tip.date);
+        if (!existing) {
+          acc.push(tip);
+        }
+        return acc;
+      }, [] as DailyTipData[]);
+      
+      setDailyTips(uniqueTips.sort((a, b) => a.date.localeCompare(b.date)));
     } catch (err) {
       console.error('Error fetching tips:', err);
       setError('Failed to fetch tips data');
