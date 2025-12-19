@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { 
@@ -15,9 +16,10 @@ import {
   AlertTriangle,
   Building2,
   FileText,
-  ChevronRight
+  ChevronRight,
+  Search
 } from 'lucide-react';
-import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth, parse, isAfter } from 'date-fns';
+import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth, parse, isAfter, subYears } from 'date-fns';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, LabelList, ReferenceLine } from 'recharts';
 
 interface ChecklistMetric {
@@ -29,9 +31,9 @@ interface ChecklistMetric {
 }
 
 interface LocationSalesData {
-  daily: { actual: number; projected: number; pacing: number };
-  weekly: { actual: number; projected: number; pacing: number };
-  monthly: { actual: number; projected: number; pacing: number };
+  daily: { actual: number; projected: number; pacing: number; lastYear: number };
+  weekly: { actual: number; projected: number; pacing: number; lastYear: number };
+  monthly: { actual: number; projected: number; pacing: number; lastYear: number };
 }
 
 interface AuditSummary {
@@ -63,6 +65,8 @@ export default function MultiLocationDashboard() {
   const [locations, setLocations] = useState<LocationMetrics[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [defaultLocationId, setDefaultLocationId] = useState<string | null>(null);
 
   useEffect(() => {
     checkAccessAndFetchData();
@@ -72,6 +76,17 @@ export default function MultiLocationDashboard() {
     if (!user?.id) return;
 
     try {
+      // Fetch user's default location
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('default_location_id')
+        .eq('id', user.id)
+        .single();
+      
+      if (profile?.default_location_id) {
+        setDefaultLocationId(profile.default_location_id);
+      }
+
       const { data: isSuperAdmin } = await supabase.rpc('is_super_admin', { _user_id: user.id });
       
       const { data: orgMemberships } = await supabase
@@ -156,15 +171,23 @@ export default function MultiLocationDashboard() {
           const hasQuBeyond = !!integration;
 
           let salesData: LocationSalesData = {
-            daily: { actual: 0, projected: 0, pacing: 0 },
-            weekly: { actual: 0, projected: 0, pacing: 0 },
-            monthly: { actual: 0, projected: 0, pacing: 0 }
+            daily: { actual: 0, projected: 0, pacing: 0, lastYear: 0 },
+            weekly: { actual: 0, projected: 0, pacing: 0, lastYear: 0 },
+            monthly: { actual: 0, projected: 0, pacing: 0, lastYear: 0 }
           };
 
           if (hasQuBeyond) {
             try {
+              // Fetch current year sales
               const { data: salesResponse } = await supabase.functions.invoke('fetch-qubeyond-sales', {
                 body: { locationId: loc.id, targetDate: todayStr }
+              });
+
+              // Fetch last year sales
+              const lastYearDate = subYears(today, 1);
+              const lastYearStr = format(lastYearDate, 'yyyy-MM-dd');
+              const { data: lastYearResponse } = await supabase.functions.invoke('fetch-qubeyond-sales', {
+                body: { locationId: loc.id, targetDate: lastYearStr }
               });
 
               if (salesResponse) {
@@ -172,17 +195,20 @@ export default function MultiLocationDashboard() {
                   daily: {
                     actual: salesResponse.daily || 0,
                     projected: salesResponse.projections?.todayProjected || 0,
-                    pacing: salesResponse.projections?.todayPaceAdjusted || salesResponse.projections?.todayProjected || 0
+                    pacing: salesResponse.projections?.todayPaceAdjusted || salesResponse.projections?.todayProjected || 0,
+                    lastYear: lastYearResponse?.daily || 0
                   },
                   weekly: {
                     actual: salesResponse.weekly || 0,
                     projected: salesResponse.projections?.weekProjected || 0,
-                    pacing: calculatePacing(salesResponse.weekly, salesResponse.projections?.weekProjected, weekStart, today)
+                    pacing: calculatePacing(salesResponse.weekly, salesResponse.projections?.weekProjected, weekStart, today),
+                    lastYear: lastYearResponse?.weekly || 0
                   },
                   monthly: {
                     actual: salesResponse.monthly || 0,
                     projected: salesResponse.projections?.monthProjected || 0,
-                    pacing: calculatePacing(salesResponse.monthly, salesResponse.projections?.monthProjected, monthStart, today)
+                    pacing: calculatePacing(salesResponse.monthly, salesResponse.projections?.monthProjected, monthStart, today),
+                    lastYear: lastYearResponse?.monthly || 0
                   }
                 };
               }
@@ -375,6 +401,14 @@ export default function MultiLocationDashboard() {
     return 'text-red-600';
   };
 
+  const formatLastYearComparison = (actual: number, lastYear: number) => {
+    if (!lastYear || lastYear === 0) return null;
+    const diff = actual - lastYear;
+    const percent = ((diff / lastYear) * 100).toFixed(1);
+    const isPositive = diff >= 0;
+    return { diff, percent, isPositive, lastYear };
+  };
+
   // Daily chart - includes pacing with reference lines
   const DailySalesChart = ({ sales }: { sales: LocationSalesData }) => {
     const data = sales.daily;
@@ -384,24 +418,32 @@ export default function MultiLocationDashboard() {
       { name: 'Pacing', value: data.pacing, fill: 'hsl(142 76% 36%)', label: formatCurrency(data.pacing) }
     ];
     const maxVal = Math.max(data.actual, data.projected, data.pacing, 1);
+    const lyComparison = formatLastYearComparison(data.actual, data.lastYear);
 
     return (
-      <div className="h-[80px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
-            <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
-            <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
-            <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
-            <ReferenceLine x={maxVal * 0.5} stroke="hsl(var(--border))" strokeDasharray="2 2" />
-            <ReferenceLine x={maxVal * 0.75} stroke="hsl(var(--border))" strokeDasharray="2 2" />
-            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14} background={{ fill: 'hsl(var(--muted)/0.3)' }}>
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.fill} />
-              ))}
-              <LabelList dataKey="label" position="insideRight" style={{ fontSize: 9, fill: '#fff', fontWeight: 500 }} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      <div className="w-full">
+        <div className="h-[80px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
+              <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
+              <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+              <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
+              <ReferenceLine x={maxVal * 0.5} stroke="hsl(var(--border))" strokeDasharray="2 2" />
+              <ReferenceLine x={maxVal * 0.75} stroke="hsl(var(--border))" strokeDasharray="2 2" />
+              <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14} background={{ fill: 'hsl(var(--muted)/0.3)' }}>
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                ))}
+                <LabelList dataKey="label" position="insideRight" style={{ fontSize: 9, fill: '#fff', fontWeight: 500 }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        {lyComparison && (
+          <p className={`text-[10px] mt-1 ${lyComparison.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+            vs LY: {formatCurrencyCompact(lyComparison.lastYear)} ({lyComparison.isPositive ? '+' : ''}{lyComparison.percent}%)
+          </p>
+        )}
       </div>
     );
   };
@@ -414,24 +456,32 @@ export default function MultiLocationDashboard() {
       { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrency(data.projected) }
     ];
     const maxVal = Math.max(data.actual, data.projected, 1);
+    const lyComparison = formatLastYearComparison(data.actual, data.lastYear);
 
     return (
-      <div className="h-[56px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
-            <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
-            <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
-            <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
-            <ReferenceLine x={maxVal * 0.5} stroke="hsl(var(--border))" strokeDasharray="2 2" />
-            <ReferenceLine x={maxVal * 0.75} stroke="hsl(var(--border))" strokeDasharray="2 2" />
-            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14} background={{ fill: 'hsl(var(--muted)/0.3)' }}>
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.fill} />
-              ))}
-              <LabelList dataKey="label" position="insideRight" style={{ fontSize: 9, fill: '#fff', fontWeight: 500 }} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
+      <div className="w-full">
+        <div className="h-[56px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
+              <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
+              <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+              <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
+              <ReferenceLine x={maxVal * 0.5} stroke="hsl(var(--border))" strokeDasharray="2 2" />
+              <ReferenceLine x={maxVal * 0.75} stroke="hsl(var(--border))" strokeDasharray="2 2" />
+              <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14} background={{ fill: 'hsl(var(--muted)/0.3)' }}>
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.fill} />
+                ))}
+                <LabelList dataKey="label" position="insideRight" style={{ fontSize: 9, fill: '#fff', fontWeight: 500 }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        {lyComparison && (
+          <p className={`text-[10px] mt-1 ${lyComparison.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+            vs LY: {formatCurrencyCompact(lyComparison.lastYear)} ({lyComparison.isPositive ? '+' : ''}{lyComparison.percent}%)
+          </p>
+        )}
       </div>
     );
   };
@@ -439,6 +489,37 @@ export default function MultiLocationDashboard() {
   const navigateToAudit = (locationId: string) => {
     navigate(`/location/${locationId}#audits`);
   };
+
+  const navigateToChecklist = (locationId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigate(`/location/${locationId}#tasks`);
+  };
+
+  // Sort and filter locations
+  const sortedAndFilteredLocations = useMemo(() => {
+    // Filter by search
+    let filtered = locations;
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = locations.filter(loc => 
+        loc.name.toLowerCase().includes(query) ||
+        loc.store_number?.toLowerCase().includes(query) ||
+        loc.organization_name?.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort by store number (numeric), with default location at top
+    return [...filtered].sort((a, b) => {
+      // Default location always first
+      if (a.id === defaultLocationId) return -1;
+      if (b.id === defaultLocationId) return 1;
+
+      // Then sort by store number numerically
+      const aNum = parseInt(a.store_number || '9999', 10);
+      const bNum = parseInt(b.store_number || '9999', 10);
+      return aNum - bNum;
+    });
+  }, [locations, searchQuery, defaultLocationId]);
 
   const totals = locations.reduce(
     (acc, loc) => ({
@@ -535,9 +616,22 @@ export default function MultiLocationDashboard() {
           </Card>
         </div>
 
+        {/* Search bar - only show when more than 5 locations */}
+        {locations.length > 5 && (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search locations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        )}
+
         {/* Location Cards */}
         <div className="space-y-4">
-          {locations.map((loc) => (
+          {sortedAndFilteredLocations.map((loc) => (
             <Card 
               key={loc.id} 
               className="cursor-pointer hover:shadow-lg transition-shadow"
@@ -603,11 +697,15 @@ export default function MultiLocationDashboard() {
                   )}
 
                   {/* Checklists Section */}
-                  <div className="lg:w-64 flex-shrink-0 space-y-1.5">
+                  <div 
+                    className="lg:w-64 flex-shrink-0 space-y-1.5 cursor-pointer hover:bg-muted/30 rounded-lg p-1.5 -m-1.5 transition-colors"
+                    onClick={(e) => navigateToChecklist(loc.id, e)}
+                  >
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                         <ClipboardCheck className="h-3 w-3" />
                         Checklists
+                        <ChevronRight className="h-3 w-3" />
                       </p>
                       {!loc.isOpen && loc.openTime && (
                         <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
