@@ -280,9 +280,15 @@ export default function PayrollReview() {
     const periods: any[] = [];
     
     const payPeriodType = laborRules?.pay_period_type || 'biweekly';
-    const baseStartDate = laborRules?.pay_period_start_date 
-      ? new Date(laborRules.pay_period_start_date) 
-      : new Date(2025, 10, 3); // Default: Nov 3, 2025
+    // Parse date string as local time to avoid timezone shift issues
+    // "2025-12-15" should stay as Dec 15, not shift to Dec 14
+    let baseStartDate: Date;
+    if (laborRules?.pay_period_start_date) {
+      const [year, month, day] = laborRules.pay_period_start_date.split('-').map(Number);
+      baseStartDate = new Date(year, month - 1, day); // month is 0-indexed
+    } else {
+      baseStartDate = new Date(2025, 10, 3); // Default: Nov 3, 2025
+    }
     
     if (payPeriodType === 'weekly') {
       // Generate weekly periods
