@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -21,7 +21,8 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  FileText
+  FileText,
+  ChevronRight
 } from 'lucide-react';
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, LabelList } from 'recharts';
@@ -30,7 +31,7 @@ interface ChecklistMetric {
   id: string;
   title: string;
   completedCount: number;
-  totalPossible: number;
+  totalCount: number;
   percent: number;
 }
 
@@ -45,9 +46,6 @@ interface AuditSummary {
   audit_date: string;
   visit_score: string | null;
   manager_name: string | null;
-  first_priority_count: number;
-  second_priority_count: number;
-  third_priority_count: number;
 }
 
 interface LocationMetrics {
@@ -55,16 +53,12 @@ interface LocationMetrics {
   name: string;
   store_number: string | null;
   organization_name: string | null;
-  // Sales
   sales: LocationSalesData;
   hasQuBeyond: boolean;
-  // Tasks
   checklists: ChecklistMetric[];
-  // Staffing
   clockedInCount: number;
   scheduledCount: number;
   openShifts: number;
-  // Audits
   latestAudit: AuditSummary | null;
 }
 
@@ -84,7 +78,6 @@ export default function MultiLocationDashboard() {
     if (!user?.id) return;
 
     try {
-      // Check if user has multi-location access
       const { data: isSuperAdmin } = await supabase.rpc('is_super_admin', { _user_id: user.id });
       
       const { data: orgMemberships } = await supabase
@@ -110,7 +103,6 @@ export default function MultiLocationDashboard() {
         return;
       }
 
-      // Fetch all accessible locations
       let locationsQuery = supabase
         .from('locations')
         .select(`
@@ -150,7 +142,6 @@ export default function MultiLocationDashboard() {
         return;
       }
 
-      // Fetch metrics for each location
       const locationMetrics = await Promise.all(
         locationsData.map(async (loc) => {
           const today = new Date();
@@ -160,7 +151,6 @@ export default function MultiLocationDashboard() {
           const weekStart = startOfWeek(today, { weekStartsOn: 1 });
           const monthStart = startOfMonth(today);
 
-          // Check if location has QuBeyond integration
           const { data: integration } = await supabase
             .from('location_integrations')
             .select('id')
@@ -171,7 +161,6 @@ export default function MultiLocationDashboard() {
 
           const hasQuBeyond = !!integration;
 
-          // Fetch sales data if QuBeyond is connected
           let salesData: LocationSalesData = {
             daily: { actual: 0, projected: 0, pacing: 0 },
             weekly: { actual: 0, projected: 0, pacing: 0 },
@@ -208,7 +197,6 @@ export default function MultiLocationDashboard() {
             }
           }
 
-          // Get clocked in status
           const { data: clockedIn } = await supabase
             .from('time_punches')
             .select('user_id')
@@ -228,14 +216,13 @@ export default function MultiLocationDashboard() {
           const clockedOutIds = new Set(clockedOut?.map(p => p.user_id) || []);
           const currentlyClockedIn = clockedIn?.filter(p => !clockedOutIds.has(p.user_id)) || [];
 
-          // Get scheduled shifts
           let scheduledCount = 0;
           try {
             const result = await (supabase.from('scheduled_shifts' as any).select('id').eq('location_id', loc.id).eq('shift_date', todayStr) as any);
             scheduledCount = result.data?.length || 0;
           } catch (e) {}
 
-          // Get checklists and their completion status for today (excluding temporary tasks)
+          // Get checklists with their items count
           const { data: checklists } = await supabase
             .from('checklists')
             .select('id, title, frequency')
@@ -243,38 +230,56 @@ export default function MultiLocationDashboard() {
             .eq('is_active', true)
             .is('template_type', null);
 
-          // Get today's submissions
+          // Get today's submissions with response counts
           const { data: submissions } = await supabase
             .from('checklist_submissions')
-            .select('id, checklist_id')
+            .select(`
+              id, 
+              checklist_id,
+              checklist_responses(id)
+            `)
             .eq('location_id', loc.id)
             .gte('submitted_at', startOfToday)
             .lte('submitted_at', endOfToday);
 
-          const submissionCountByChecklist = new Map<string, number>();
+          // Get checklist items counts
+          const checklistIds = checklists?.map(c => c.id) || [];
+          const { data: checklistItems } = await supabase
+            .from('checklist_items')
+            .select('id, checklist_id')
+            .in('checklist_id', checklistIds);
+
+          const itemCountByChecklist = new Map<string, number>();
+          checklistItems?.forEach(item => {
+            const count = itemCountByChecklist.get(item.checklist_id) || 0;
+            itemCountByChecklist.set(item.checklist_id, count + 1);
+          });
+
+          const submissionByChecklist = new Map<string, { completed: number; total: number }>();
           submissions?.forEach(sub => {
-            const count = submissionCountByChecklist.get(sub.checklist_id) || 0;
-            submissionCountByChecklist.set(sub.checklist_id, count + 1);
+            const responseCount = (sub.checklist_responses as any[])?.length || 0;
+            const totalItems = itemCountByChecklist.get(sub.checklist_id) || 0;
+            submissionByChecklist.set(sub.checklist_id, { completed: responseCount, total: totalItems });
           });
 
           const checklistMetrics: ChecklistMetric[] = (checklists || []).map(cl => {
-            const completedCount = submissionCountByChecklist.get(cl.id) || 0;
-            const totalPossible = cl.frequency === 'daily' ? 1 : 1;
-            const percent = totalPossible > 0 ? Math.min(100, (completedCount / totalPossible) * 100) : 0;
+            const submission = submissionByChecklist.get(cl.id);
+            const totalCount = itemCountByChecklist.get(cl.id) || 0;
+            const completedCount = submission?.completed || 0;
+            const percent = totalCount > 0 ? Math.min(100, (completedCount / totalCount) * 100) : 0;
             
             return {
               id: cl.id,
               title: cl.title,
               completedCount,
-              totalPossible,
+              totalCount,
               percent
             };
           });
 
-          // Fetch latest Steritech audit
           const { data: auditData } = await supabase
             .from('food_safety_audits')
-            .select('id, audit_date, visit_score, manager_name, first_priority_items, second_priority_items, third_priority_items')
+            .select('id, audit_date, visit_score, manager_name')
             .eq('location_id', loc.id)
             .order('audit_date', { ascending: false })
             .limit(1)
@@ -282,18 +287,11 @@ export default function MultiLocationDashboard() {
 
           let latestAudit: AuditSummary | null = null;
           if (auditData) {
-            const firstPriorityItems = auditData.first_priority_items as string[] | null;
-            const secondPriorityItems = auditData.second_priority_items as string[] | null;
-            const thirdPriorityItems = auditData.third_priority_items as string[] | null;
-            
             latestAudit = {
               id: auditData.id,
               audit_date: auditData.audit_date,
               visit_score: auditData.visit_score,
-              manager_name: auditData.manager_name,
-              first_priority_count: firstPriorityItems?.length || 0,
-              second_priority_count: secondPriorityItems?.length || 0,
-              third_priority_count: thirdPriorityItems?.length || 0
+              manager_name: auditData.manager_name
             };
           }
 
@@ -334,7 +332,6 @@ export default function MultiLocationDashboard() {
     return storeNumber ? `${name} - ${storeNumber}` : name;
   };
 
-  // Full currency format - no abbreviations
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { 
       style: 'currency', 
@@ -344,7 +341,6 @@ export default function MultiLocationDashboard() {
     }).format(amount);
   };
 
-  // Compact format for chart labels
   const formatCurrencyCompact = (amount: number) => {
     if (amount >= 1000000) {
       return `$${(amount / 1000000).toFixed(1)}M`;
@@ -371,8 +367,9 @@ export default function MultiLocationDashboard() {
     return <TrendingDown className="h-3 w-3 text-red-500" />;
   };
 
-  const LocationSalesChart = ({ sales, period }: { sales: LocationSalesData; period: 'daily' | 'weekly' | 'monthly' }) => {
-    const data = sales[period];
+  // Daily chart - includes pacing
+  const DailySalesChart = ({ sales }: { sales: LocationSalesData }) => {
+    const data = sales.daily;
     const chartData = [
       { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))', label: formatCurrencyCompact(data.actual) },
       { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrencyCompact(data.projected) },
@@ -380,20 +377,16 @@ export default function MultiLocationDashboard() {
     ];
 
     return (
-      <div className="h-[100px] w-full">
+      <div className="h-[80px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} layout="vertical" margin={{ left: 60, right: 50 }}>
+          <BarChart data={chartData} layout="vertical" margin={{ left: 55, right: 50 }}>
             <XAxis type="number" hide />
-            <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 10 }} />
+            <YAxis type="category" dataKey="name" width={50} tick={{ fontSize: 9 }} />
             <Bar dataKey="value" radius={[0, 4, 4, 0]}>
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
-              <LabelList 
-                dataKey="label" 
-                position="right" 
-                style={{ fontSize: 10, fill: 'hsl(var(--foreground))' }} 
-              />
+              <LabelList dataKey="label" position="right" style={{ fontSize: 9, fill: 'hsl(var(--foreground))' }} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -401,7 +394,36 @@ export default function MultiLocationDashboard() {
     );
   };
 
-  // Calculate totals
+  // Weekly/Monthly chart - no pacing
+  const PeriodSalesChart = ({ sales, period }: { sales: LocationSalesData; period: 'weekly' | 'monthly' }) => {
+    const data = sales[period];
+    const chartData = [
+      { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))', label: formatCurrencyCompact(data.actual) },
+      { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrencyCompact(data.projected) }
+    ];
+
+    return (
+      <div className="h-[60px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} layout="vertical" margin={{ left: 55, right: 50 }}>
+            <XAxis type="number" hide />
+            <YAxis type="category" dataKey="name" width={50} tick={{ fontSize: 9 }} />
+            <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.fill} />
+              ))}
+              <LabelList dataKey="label" position="right" style={{ fontSize: 9, fill: 'hsl(var(--foreground))' }} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
+
+  const navigateToAudit = (locationId: string) => {
+    navigate(`/location/${locationId}#audits`);
+  };
+
   const totals = locations.reduce(
     (acc, loc) => ({
       clockedIn: acc.clockedIn + (loc.clockedInCount || 0),
@@ -417,9 +439,9 @@ export default function MultiLocationDashboard() {
       <Layout>
         <div className="space-y-6">
           <Skeleton className="h-10 w-64" />
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-[400px]" />
+          <div className="space-y-4">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-[200px]" />
             ))}
           </div>
         </div>
@@ -517,143 +539,139 @@ export default function MultiLocationDashboard() {
           </Card>
         </div>
 
-        {/* Card View */}
+        {/* Card View - Horizontal Cards */}
         {viewMode === 'cards' && (
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="space-y-4">
             {locations.map((loc) => (
               <Card 
                 key={loc.id} 
                 className="cursor-pointer hover:shadow-lg transition-shadow"
                 onClick={() => navigate(`/location/${loc.id}`)}
               >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle className="text-lg">
-                        {formatLocationName(loc.name, loc.store_number)}
-                      </CardTitle>
-                      {loc.organization_name && (
-                        <p className="text-xs text-muted-foreground">{loc.organization_name}</p>
+                <CardContent className="p-4">
+                  <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                    {/* Location Header */}
+                    <div className="lg:w-48 flex-shrink-0">
+                      <div className="flex items-center justify-between lg:flex-col lg:items-start gap-2">
+                        <div>
+                          <h3 className="font-semibold text-lg">
+                            {formatLocationName(loc.name, loc.store_number)}
+                          </h3>
+                          {loc.organization_name && (
+                            <p className="text-xs text-muted-foreground">{loc.organization_name}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={loc.clockedInCount > 0 ? 'default' : 'secondary'} className="text-xs">
+                            {loc.clockedInCount > 0 ? 'Active' : 'Idle'}
+                          </Badge>
+                          <div className="flex items-center gap-1 text-sm">
+                            <Users className="h-3 w-3 text-muted-foreground" />
+                            <span>{loc.clockedInCount}/{loc.scheduledCount}</span>
+                          </div>
+                        </div>
+                      </div>
+                      {loc.openShifts > 0 && (
+                        <div className="flex items-center gap-1 text-amber-600 text-xs mt-2">
+                          <AlertTriangle className="h-3 w-3" />
+                          <span>{loc.openShifts} open shift{loc.openShifts !== 1 ? 's' : ''}</span>
+                        </div>
                       )}
                     </div>
-                    <Badge variant={loc.clockedInCount > 0 ? 'default' : 'secondary'}>
-                      {loc.clockedInCount > 0 ? 'Active' : 'Idle'}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Sales Chart */}
-                  {loc.hasQuBeyond && (
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <Tabs defaultValue="daily" className="w-full">
-                        <TabsList className="grid w-full grid-cols-3 h-8">
-                          <TabsTrigger value="daily" className="text-xs">Day</TabsTrigger>
-                          <TabsTrigger value="weekly" className="text-xs">Week</TabsTrigger>
-                          <TabsTrigger value="monthly" className="text-xs">Month</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="daily" className="mt-2">
-                          <LocationSalesChart sales={loc.sales} period="daily" />
-                        </TabsContent>
-                        <TabsContent value="weekly" className="mt-2">
-                          <LocationSalesChart sales={loc.sales} period="weekly" />
-                        </TabsContent>
-                        <TabsContent value="monthly" className="mt-2">
-                          <LocationSalesChart sales={loc.sales} period="monthly" />
-                        </TabsContent>
-                      </Tabs>
-                    </div>
-                  )}
 
-                  {!loc.hasQuBeyond && (
-                    <div className="text-center py-4 text-sm text-muted-foreground border rounded-lg bg-muted/20">
-                      No sales integration
-                    </div>
-                  )}
+                    {/* Sales Section */}
+                    {loc.hasQuBeyond && (
+                      <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                        <Tabs defaultValue="daily" className="w-full">
+                          <TabsList className="h-7 mb-2">
+                            <TabsTrigger value="daily" className="text-xs px-3 h-6">Day</TabsTrigger>
+                            <TabsTrigger value="weekly" className="text-xs px-3 h-6">Week</TabsTrigger>
+                            <TabsTrigger value="monthly" className="text-xs px-3 h-6">Month</TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="daily" className="mt-0">
+                            <DailySalesChart sales={loc.sales} />
+                          </TabsContent>
+                          <TabsContent value="weekly" className="mt-0">
+                            <PeriodSalesChart sales={loc.sales} period="weekly" />
+                          </TabsContent>
+                          <TabsContent value="monthly" className="mt-0">
+                            <PeriodSalesChart sales={loc.sales} period="monthly" />
+                          </TabsContent>
+                        </Tabs>
+                      </div>
+                    )}
 
-                  {/* Checklists */}
-                  {(loc.checklists?.length || 0) > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium text-muted-foreground">Checklists</p>
-                      {loc.checklists?.map((cl) => (
-                        <div key={cl.id} className="space-y-1">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="truncate flex-1 mr-2">{cl.title}</span>
-                            <span className={`font-medium ${getCompletionColor(cl.percent)}`}>
-                              {cl.percent.toFixed(0)}%
+                    {!loc.hasQuBeyond && (
+                      <div className="flex-1 flex items-center justify-center py-4 text-sm text-muted-foreground border rounded-lg bg-muted/20">
+                        No sales integration
+                      </div>
+                    )}
+
+                    {/* Checklists Section */}
+                    <div className="lg:w-64 flex-shrink-0 space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                        <ClipboardCheck className="h-3 w-3" />
+                        Checklists
+                      </p>
+                      {(loc.checklists?.length || 0) > 0 ? (
+                        <div className="space-y-1">
+                          {loc.checklists?.map((cl) => (
+                            <div key={cl.id} className="flex items-center gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="truncate">{cl.title}</span>
+                                  <span className={`font-medium ml-1 ${getCompletionColor(cl.percent)}`}>
+                                    {cl.completedCount}/{cl.totalCount} ({cl.percent.toFixed(0)}%)
+                                  </span>
+                                </div>
+                                <Progress value={cl.percent} className="h-1 mt-0.5" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No checklists</p>
+                      )}
+                    </div>
+
+                    {/* Audit Section */}
+                    <div 
+                      className="lg:w-40 flex-shrink-0 cursor-pointer"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigateToAudit(loc.id);
+                      }}
+                    >
+                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
+                        <FileText className="h-3 w-3" />
+                        Latest Audit
+                      </p>
+                      {loc.latestAudit ? (
+                        <div className="bg-muted/30 rounded-lg p-2 hover:bg-muted/50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-muted-foreground">
+                              {format(new Date(loc.latestAudit.audit_date), 'MMM d, yyyy')}
                             </span>
+                            {loc.latestAudit.visit_score && (
+                              <Badge variant="outline" className="font-bold text-xs">
+                                {loc.latestAudit.visit_score}
+                              </Badge>
+                            )}
                           </div>
-                          <Progress 
-                            value={cl.percent} 
-                            className="h-1.5"
-                          />
+                          {loc.latestAudit.manager_name && (
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              MOD: {loc.latestAudit.manager_name}
+                            </p>
+                          )}
+                          <div className="flex items-center justify-end mt-1">
+                            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                          </div>
                         </div>
-                      ))}
+                      ) : (
+                        <p className="text-xs text-muted-foreground">No audits</p>
+                      )}
                     </div>
-                  )}
-
-                  {/* Steritech Audit */}
-                  {loc.latestAudit && (
-                    <div className="space-y-2 pt-2 border-t">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium text-muted-foreground">Latest Audit</span>
-                      </div>
-                      <div className="bg-muted/30 rounded-lg p-2 space-y-1">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-muted-foreground">{format(new Date(loc.latestAudit.audit_date), 'MMM d, yyyy')}</span>
-                          {loc.latestAudit.visit_score && (
-                            <Badge variant="outline" className="font-bold">
-                              {loc.latestAudit.visit_score}
-                            </Badge>
-                          )}
-                        </div>
-                        {loc.latestAudit.manager_name && (
-                          <p className="text-xs text-muted-foreground">MOD: {loc.latestAudit.manager_name}</p>
-                        )}
-                        <div className="flex gap-2 text-xs">
-                          {loc.latestAudit.first_priority_count > 0 && (
-                            <Badge variant="destructive" className="text-xs">
-                              P1: {loc.latestAudit.first_priority_count}
-                            </Badge>
-                          )}
-                          {loc.latestAudit.second_priority_count > 0 && (
-                            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
-                              P2: {loc.latestAudit.second_priority_count}
-                            </Badge>
-                          )}
-                          {loc.latestAudit.third_priority_count > 0 && (
-                            <Badge variant="secondary" className="text-xs">
-                              P3: {loc.latestAudit.third_priority_count}
-                            </Badge>
-                          )}
-                          {loc.latestAudit.first_priority_count === 0 && 
-                           loc.latestAudit.second_priority_count === 0 && 
-                           loc.latestAudit.third_priority_count === 0 && (
-                            <span className="text-green-600 text-xs">No priority items</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Staffing */}
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Staffing</span>
-                    </div>
-                    <span className="font-medium">
-                      {loc.clockedInCount}/{loc.scheduledCount}
-                    </span>
                   </div>
-
-                  {/* Open Shifts Alert */}
-                  {loc.openShifts > 0 && (
-                    <div className="flex items-center gap-2 text-amber-600 bg-amber-50 dark:bg-amber-950/20 rounded-md px-2 py-1">
-                      <AlertTriangle className="h-4 w-4" />
-                      <span className="text-sm">{loc.openShifts} open shift{loc.openShifts !== 1 ? 's' : ''}</span>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             ))}
@@ -738,9 +756,15 @@ export default function MultiLocationDashboard() {
                               {loc.checklists?.filter(c => c.percent >= 100).length || 0}/{loc.checklists?.length || 0}
                             </span>
                           </TableCell>
-                          <TableCell className="text-center">
+                          <TableCell 
+                            className="text-center cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigateToAudit(loc.id);
+                            }}
+                          >
                             {loc.latestAudit ? (
-                              <div className="flex flex-col items-center">
+                              <div className="flex flex-col items-center hover:text-primary">
                                 {loc.latestAudit.visit_score && (
                                   <Badge variant="outline" className="font-bold text-xs">
                                     {loc.latestAudit.visit_score}

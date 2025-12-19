@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { MapPin, ArrowLeft, Copy, RefreshCw, Save, Shield, Sparkles, ChevronRight } from 'lucide-react';
@@ -23,6 +23,7 @@ export default function LocationProfile() {
   const { locationId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const routerLocation = useLocation();
   const { user } = useAuth();
   const { isSuperAdmin } = useUserRole();
   const isNew = locationId === 'new';
@@ -31,6 +32,19 @@ export default function LocationProfile() {
   const [location, setLocation] = useState<any>(isNew ? { name: '', address: '', location_type: 'standard' } : null);
   const [loading, setLoading] = useState(!isNew);
   const [saving, setSaving] = useState(false);
+
+  // Scroll to hash section on load
+  useEffect(() => {
+    if (routerLocation.hash && !loading) {
+      const elementId = routerLocation.hash.replace('#', '');
+      setTimeout(() => {
+        const element = document.getElementById(elementId);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    }
+  }, [routerLocation.hash, loading]);
 
   useEffect(() => {
     if (locationId && !isNew) {
@@ -439,7 +453,9 @@ export default function LocationProfile() {
 
           {/* Food Safety Audits - only for existing locations */}
           {!isNew && (
-            <LocationAuditsSection locationId={locationId} locationName={location?.name} />
+            <div id="audits">
+              <LocationAuditsSection locationId={locationId} locationName={location?.name} />
+            </div>
           )}
 
           {/* Integrations - at bottom, for all existing locations */}
