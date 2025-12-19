@@ -524,7 +524,7 @@ export default function MultiLocationDashboard() {
       <div className="w-full">
         <div className="h-[80px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 55 }}>
               <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
               <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
@@ -534,7 +534,7 @@ export default function MultiLocationDashboard() {
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.fill} />
                 ))}
-                <LabelList dataKey="label" position="insideRight" style={{ fontSize: 11, fill: '#fff', fontWeight: 600 }} />
+                <LabelList dataKey="label" position="right" style={{ fontSize: 11, fill: 'hsl(var(--foreground))', fontWeight: 600 }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -562,7 +562,7 @@ export default function MultiLocationDashboard() {
       <div className="w-full">
         <div className="h-[56px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
+            <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 55 }}>
               <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
               <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
@@ -572,7 +572,7 @@ export default function MultiLocationDashboard() {
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.fill} />
                 ))}
-                <LabelList dataKey="label" position="insideRight" style={{ fontSize: 11, fill: '#fff', fontWeight: 600 }} />
+                <LabelList dataKey="label" position="right" style={{ fontSize: 11, fill: 'hsl(var(--foreground))', fontWeight: 600 }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -760,23 +760,26 @@ export default function MultiLocationDashboard() {
                       <div className="flex items-center gap-2">
                         {loc.hasQuBeyond && loc.sales && loc.sales.daily.pacing > 0 && loc.sales.daily.actual >= 100 ? (() => {
                           const pacingPercent = (loc.sales.daily.actual / loc.sales.daily.pacing) * 100;
-                          const pacingDiff = loc.sales.daily.actual - loc.sales.daily.pacing;
-                          const isAhead = pacingPercent >= 105;
-                          // Only show "Behind Pace" if more than $100 behind the pacing projection
-                          const isBehind = pacingDiff < -100;
-                          const isOnPace = !isAhead && !isBehind;
+                          // On Fire: >110%, Ahead: 105-110%, On Track: 95-105%, Behind: <95%
+                          const isOnFire = pacingPercent >= 110;
+                          const isAhead = pacingPercent >= 105 && pacingPercent < 110;
+                          const isOnTrack = pacingPercent >= 95 && pacingPercent < 105;
+                          const isBehind = pacingPercent < 95;
+                          
                           return (
                             <Badge 
                               variant="outline" 
                               className={`text-xs ${
-                                isAhead 
-                                  ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
-                                  : isOnPace 
-                                    ? 'border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-950'
-                                    : 'border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950'
+                                isOnFire
+                                  ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950'
+                                  : isAhead 
+                                    ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
+                                    : isOnTrack 
+                                      ? 'border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-950'
+                                      : 'border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950'
                               }`}
                             >
-                              {isAhead ? 'Ahead of Goal' : isOnPace ? 'On Pace' : 'Behind Pace'}
+                              {isOnFire ? '🔥 On Fire' : isAhead ? 'Ahead of Pace' : isOnTrack ? 'On Track' : 'Behind Pace'}
                             </Badge>
                           );
                         })() : !loc.isOpen && loc.openTime ? (
