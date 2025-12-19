@@ -1,6 +1,9 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -183,13 +186,41 @@ const handler = async (req: Request): Promise<Response> => {
     if (resetError) {
       console.error("Password reset email error:", resetError);
     }
+
+    // Send branded invite email
+    const resetLink = resetData?.properties?.action_link ?? null;
+    if (resetLink) {
+      try {
+        const inviteEmailResponse = await fetch(`${SUPABASE_URL}/functions/v1/send-invite-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({
+            to: email,
+            fullName: fullName,
+            locationId: locationId,
+            resetLink: resetLink,
+          }),
+        });
+
+        if (!inviteEmailResponse.ok) {
+          console.error("Failed to send invite email:", await inviteEmailResponse.text());
+        } else {
+          console.log("Invite email sent successfully");
+        }
+      } catch (emailError) {
+        console.error("Error sending invite email:", emailError);
+      }
+    }
  
     return new Response(
       JSON.stringify({
         success: true,
         userId: newUser.user.id,
         message: "User invited successfully. They will receive an email to set their password.",
-        resetLink: resetData?.properties?.action_link ?? null,
+        resetLink: resetLink,
       }),
       {
         status: 200,
