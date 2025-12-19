@@ -726,11 +726,6 @@ export default function MultiLocationDashboard() {
                         Checklists
                         <ChevronRight className="h-3 w-3" />
                       </p>
-                      {!loc.isOpen && loc.openTime && (
-                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
-                          Opens {loc.openTime}
-                        </Badge>
-                      )}
                     </div>
                     {(loc.checklists?.length || 0) > 0 ? (
                       <div className="space-y-1">
