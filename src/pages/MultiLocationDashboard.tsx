@@ -327,9 +327,8 @@ export default function MultiLocationDashboard() {
           const openDateTime = new Date(today);
           openDateTime.setHours(h, m, 0, 0);
           isOpen = today >= openDateTime;
-          if (!isOpen) {
-            openTime = format(openDateTime, 'h:mm a');
-          }
+          // Always set openTime so we can display it when store has no sales yet
+          openTime = format(openDateTime, 'h:mm a');
         }
 
         return {
