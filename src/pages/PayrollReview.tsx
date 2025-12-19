@@ -1237,6 +1237,14 @@ export default function PayrollReview() {
                       </TableRow>
                     </TableBody>
                   </Table>
+                  
+                  {/* Tip Distribution Explanation */}
+                  {totalTipPool > 0 && (
+                    <div className="mt-4 p-3 bg-muted/50 rounded-lg text-xs text-muted-foreground">
+                      <p className="font-medium text-foreground mb-1">Tip Distribution</p>
+                      <p>Tips are pooled daily and distributed based on hours worked. Each employee receives a share proportional to their hours relative to total hours worked that day.</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ) : (
