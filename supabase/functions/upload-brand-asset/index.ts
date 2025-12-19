@@ -17,26 +17,52 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const formData = await req.formData();
-    const file = formData.get("file") as File;
-    const fileName = formData.get("fileName") as string || file.name;
+    const contentType = req.headers.get("content-type") || "";
+    
+    let uint8Array: Uint8Array;
+    let fileName: string;
+    let fileType: string;
 
-    if (!file) {
-      return new Response(
-        JSON.stringify({ error: "No file provided" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    // Handle JSON body with URL
+    if (contentType.includes("application/json")) {
+      const { url, name } = await req.json();
+      if (!url || !name) {
+        return new Response(
+          JSON.stringify({ error: "URL and name are required" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      console.log(`Fetching file from URL: ${url}`);
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      uint8Array = new Uint8Array(arrayBuffer);
+      fileName = name;
+      fileType = response.headers.get("content-type") || "image/png";
+    } else {
+      // Handle form data
+      const formData = await req.formData();
+      const file = formData.get("file") as File;
+      fileName = (formData.get("fileName") as string) || file.name;
+
+      if (!file) {
+        return new Response(
+          JSON.stringify({ error: "No file provided" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const arrayBuffer = await file.arrayBuffer();
+      uint8Array = new Uint8Array(arrayBuffer);
+      fileType = file.type;
     }
 
-    console.log(`Uploading file: ${fileName}, size: ${file.size}, type: ${file.type}`);
-
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
+    console.log(`Uploading file: ${fileName}, size: ${uint8Array.length}`);
 
     const { data, error } = await supabaseAdmin.storage
       .from("brand-assets")
       .upload(fileName, uint8Array, {
-        contentType: file.type,
+        contentType: fileType,
         upsert: true,
       });
 
