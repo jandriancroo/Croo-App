@@ -288,14 +288,16 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
   const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
-  // Get events for a specific day, including multi-day events
+  // Get events for a specific day, including multi-day events, sorted by time
   const getEventsForDay = (dayIndex: number) => {
-    return events.filter((e) => {
-      if (e.days_of_week && e.days_of_week.length > 0) {
-        return e.days_of_week.includes(dayIndex);
-      }
-      return e.day_of_week === dayIndex;
-    });
+    return events
+      .filter((e) => {
+        if (e.days_of_week && e.days_of_week.length > 0) {
+          return e.days_of_week.includes(dayIndex);
+        }
+        return e.day_of_week === dayIndex;
+      })
+      .sort((a, b) => a.event_time.localeCompare(b.event_time));
   };
 
   const getCategoryColor = (event: ScheduleEvent) => {
