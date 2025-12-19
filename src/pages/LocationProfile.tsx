@@ -130,6 +130,7 @@ export default function LocationProfile() {
             organization_id: orgId || null,
             location_code: locationCode,
             created_by: user?.id,
+            store_number: location.store_number?.trim() || null,
           })
           .select()
           .single();
@@ -159,7 +160,8 @@ export default function LocationProfile() {
             name: location.name.trim(),
             address: location.address?.trim() || null,
             latitude: coordinates.lat ? parseFloat(String(coordinates.lat)) : null,
-            longitude: coordinates.lng ? parseFloat(String(coordinates.lng)) : null
+            longitude: coordinates.lng ? parseFloat(String(coordinates.lng)) : null,
+            store_number: location.store_number?.trim() || null,
           })
           .eq('id', location.id);
 
@@ -270,14 +272,28 @@ export default function LocationProfile() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="location-name">Location Name</Label>
-                <Input
-                  id="location-name"
-                  value={location?.name || ''}
-                  onChange={(e) => setLocation({...location, name: e.target.value})}
-                  placeholder="e.g., Downtown Store"
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="location-name">Location Name</Label>
+                  <Input
+                    id="location-name"
+                    value={location?.name || ''}
+                    onChange={(e) => setLocation({...location, name: e.target.value})}
+                    placeholder="e.g., Downtown Store"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="store-number">Store Number</Label>
+                  <Input
+                    id="store-number"
+                    value={location?.store_number || ''}
+                    onChange={(e) => setLocation({...location, store_number: e.target.value})}
+                    placeholder="e.g., 1234"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Optional franchise store number
+                  </p>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="location-address">Address</Label>
