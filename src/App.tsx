@@ -46,6 +46,7 @@ import MyWallet from "./pages/MyWallet";
 import RoleManagement from "./pages/RoleManagement";
 import CompletedStampPreview from "./pages/CompletedStampPreview";
 import OrganizationProfile from "./pages/OrganizationProfile";
+import BrandManagement from "./pages/BrandManagement";
 import Hiring from "./pages/Hiring";
 import PublicApplication from "./pages/PublicApplication";
 import HiringChat from "./pages/HiringChat";
@@ -98,6 +99,7 @@ const AppContent = () => {
       <Route path="/location/:locationId" element={<ProtectedRoute><LocationProfile /></ProtectedRoute>} />
       <Route path="/location/:locationId/punch-clock" element={<ProtectedRoute><PunchClockCustomization /></ProtectedRoute>} />
       <Route path="/organization/:id" element={<ProtectedRoute><OrganizationProfile /></ProtectedRoute>} />
+      <Route path="/brands" element={<ProtectedRoute><BrandManagement /></ProtectedRoute>} />
       <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
       <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
       <Route path="/font-preview" element={<ProtectedRoute><FontPreviewPage /></ProtectedRoute>} />
