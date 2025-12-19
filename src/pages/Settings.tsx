@@ -12,7 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical, ArrowUpDown, Building2 } from 'lucide-react';
 
-import { NotificationSettings } from '@/components/settings/NotificationSettings';
+import { UnifiedNotificationSettings } from '@/components/settings/UnifiedNotificationSettings';
 import { toast as sonnerToast } from 'sonner';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
@@ -183,7 +183,7 @@ export default function Settings() {
         );
 
       case 'notifications':
-        return <NotificationSettings />;
+        return <UnifiedNotificationSettings />;
 
       case 'organizations':
         if (!isAdmin) return null;

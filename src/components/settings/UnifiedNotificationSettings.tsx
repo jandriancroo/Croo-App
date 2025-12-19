@@ -1,0 +1,433 @@
+import { useEffect, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
+import { toast } from '@/hooks/use-toast';
+import { Bell, BellOff, Smartphone, MapPin, AlertCircle, BellRing, Mail } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+
+interface UserLocation {
+  location_id: string;
+  location_name: string;
+}
+
+interface NotificationSetting {
+  notification_type: string;
+  location_id: string | null;
+  alert_enabled: boolean;
+  push_enabled: boolean;
+  email_enabled: boolean;
+}
+
+// Notification types that follow you (no location)
+const PERSONAL_NOTIFICATIONS = [
+  { key: 'chat_messages', label: 'Chat Messages', description: 'New messages in your chats' },
+  { key: 'announcements', label: 'Announcements', description: 'Team-wide announcements' },
+  { key: 'schedule_updates', label: 'Schedule Updates', description: 'Changes to your schedule' },
+  { key: 'shift_approvals', label: 'Shift Approvals', description: 'When your shifts are approved' },
+] as const;
+
+// Notification types that are location-specific
+const LOCATION_NOTIFICATIONS = [
+  { key: 'overdue_checklists', label: 'Overdue Checklists', description: 'When checklists are past due' },
+  { key: 'late_arrivals', label: 'Late Arrivals', description: 'When team members are late' },
+  { key: 'certification_expiring', label: 'Cert Expiring', description: 'Expiring certifications' },
+] as const;
+
+// Helper to detect if running as installed PWA
+const isInstalledPWA = () => {
+  return window.matchMedia('(display-mode: standalone)').matches || 
+         (window.navigator as any).standalone === true;
+};
+
+export const UnifiedNotificationSettings = () => {
+  const { user } = useAuth();
+  const [settings, setSettings] = useState<NotificationSetting[]>([]);
+  const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
+  const [isEnabling, setIsEnabling] = useState(false);
+
+  const isNative = Capacitor.isNativePlatform();
+  const needsPermission = !isNative && notificationPermission !== 'granted';
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setLoading(false);
+      return;
+    }
+    fetchData();
+  }, [user]);
+
+  const fetchData = async () => {
+    if (!user) return;
+    
+    try {
+      // Fetch user's locations
+      const { data: locationsData } = await supabase
+        .from('user_locations')
+        .select('location_id, locations(id, name)')
+        .eq('user_id', user.id);
+
+      const locs: UserLocation[] = (locationsData || []).map((ul: any) => ({
+        location_id: ul.location_id,
+        location_name: ul.locations?.name || 'Unknown',
+      }));
+      setUserLocations(locs);
+      
+      if (locs.length > 0 && !selectedLocationId) {
+        setSelectedLocationId(locs[0].location_id);
+      }
+
+      // Fetch existing notification settings
+      const { data: existingSettings } = await supabase
+        .from('user_notification_settings')
+        .select('*')
+        .eq('user_id', user.id);
+
+      // Build settings with defaults
+      const allSettings: NotificationSetting[] = [];
+
+      // Personal notifications (no location)
+      PERSONAL_NOTIFICATIONS.forEach(nt => {
+        const existing = existingSettings?.find(s => s.notification_type === nt.key && !s.location_id);
+        allSettings.push({
+          notification_type: nt.key,
+          location_id: null,
+          alert_enabled: existing?.alert_enabled ?? true,
+          push_enabled: existing?.push_enabled ?? true,
+          email_enabled: existing?.email_enabled ?? false,
+        });
+      });
+
+      // Location notifications (per location)
+      locs.forEach(loc => {
+        LOCATION_NOTIFICATIONS.forEach(nt => {
+          const existing = existingSettings?.find(s => s.notification_type === nt.key && s.location_id === loc.location_id);
+          allSettings.push({
+            notification_type: nt.key,
+            location_id: loc.location_id,
+            alert_enabled: existing?.alert_enabled ?? true,
+            push_enabled: existing?.push_enabled ?? true,
+            email_enabled: existing?.email_enabled ?? false,
+          });
+        });
+      });
+
+      setSettings(allSettings);
+    } catch (error) {
+      console.error('Error fetching notification settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const enableNotifications = async () => {
+    if (!user) return;
+    
+    setIsEnabling(true);
+    try {
+      if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        toast({
+          title: "Not Supported",
+          description: "Push notifications are not supported on this device.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+
+      if (permission !== 'granted') {
+        toast({
+          title: "Permission Denied",
+          description: "Please enable notifications in your device settings.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      const vapidPublicKey = 'BA4iHtMMThy4LwpxYB7cIokOK9dVRTLZbSqySIlYNuXpVRZn9zNBSg3OJOZ4m_ruFWzzjRGZiwtIGHn9B7a35_M';
+      
+      const urlBase64ToUint8Array = (base64String: string) => {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+          outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+      };
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+      });
+
+      await supabase
+        .from('push_notification_tokens')
+        .upsert({
+          user_id: user.id,
+          token: JSON.stringify(subscription),
+          platform: 'web',
+        }, {
+          onConflict: 'user_id,platform'
+        });
+
+      toast({
+        title: "Notifications Enabled!",
+        description: "You'll receive push notifications for important updates.",
+      });
+
+    } catch (error) {
+      console.error('Error enabling notifications:', error);
+      toast({
+        title: "Error",
+        description: "Failed to enable notifications. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEnabling(false);
+    }
+  };
+
+  const updateSetting = async (
+    notificationType: string, 
+    locationId: string | null, 
+    channel: 'alert_enabled' | 'push_enabled' | 'email_enabled', 
+    value: boolean
+  ) => {
+    if (!user) return;
+
+    // Optimistic update
+    setSettings(prev => prev.map(s => 
+      s.notification_type === notificationType && s.location_id === locationId
+        ? { ...s, [channel]: value }
+        : s
+    ));
+
+    try {
+      const currentSetting = settings.find(s => s.notification_type === notificationType && s.location_id === locationId);
+      
+      const { error } = await supabase
+        .from('user_notification_settings')
+        .upsert({
+          user_id: user.id,
+          notification_type: notificationType,
+          location_id: locationId,
+          alert_enabled: channel === 'alert_enabled' ? value : (currentSetting?.alert_enabled ?? true),
+          push_enabled: channel === 'push_enabled' ? value : (currentSetting?.push_enabled ?? true),
+          email_enabled: channel === 'email_enabled' ? value : (currentSetting?.email_enabled ?? false),
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id,notification_type,location_id'
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Failed to update setting:', error);
+      // Revert on error
+      setSettings(prev => prev.map(s => 
+        s.notification_type === notificationType && s.location_id === locationId
+          ? { ...s, [channel]: !value }
+          : s
+      ));
+      toast({
+        title: 'Error',
+        description: 'Failed to update setting',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const getSetting = (notificationType: string, locationId: string | null) => {
+    return settings.find(s => s.notification_type === notificationType && s.location_id === locationId);
+  };
+
+  const allDisabled = settings.every(s => !s.alert_enabled && !s.push_enabled && !s.email_enabled);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader className="pb-2">
+          <Skeleton className="h-5 w-40" />
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center gap-2">
+          {allDisabled ? <BellOff className="h-4 w-4" /> : <Bell className="h-4 w-4" />}
+          <CardTitle className="text-base">Notifications</CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Enable push notifications button */}
+        {needsPermission && (
+          <div className="p-3 bg-muted rounded-lg space-y-2">
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">Enable Push Notifications</span>
+            </div>
+            <Button 
+              onClick={enableNotifications} 
+              disabled={isEnabling}
+              size="sm"
+              className="w-full"
+            >
+              {isEnabling ? "Enabling..." : "Enable Notifications"}
+            </Button>
+            {notificationPermission === 'denied' && (
+              <p className="text-xs text-destructive">
+                Notifications are blocked. Enable in device settings.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Channel headers */}
+        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center text-xs text-muted-foreground px-1">
+          <span></span>
+          <div className="w-10 text-center" title="In-app alerts">
+            <AlertCircle className="h-3.5 w-3.5 mx-auto" />
+          </div>
+          <div className="w-10 text-center" title="Push notifications">
+            <BellRing className="h-3.5 w-3.5 mx-auto" />
+          </div>
+          <div className="w-10 text-center" title="Email">
+            <Mail className="h-3.5 w-3.5 mx-auto" />
+          </div>
+        </div>
+
+        {/* Personal notifications */}
+        <div className="space-y-1">
+          <p className="text-xs text-muted-foreground mb-2">Personal — these follow you everywhere</p>
+          {PERSONAL_NOTIFICATIONS.map(nt => {
+            const setting = getSetting(nt.key, null);
+            return (
+              <div key={nt.key} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-1.5 px-1 rounded hover:bg-muted/50">
+                <div>
+                  <span className="text-sm">{nt.label}</span>
+                </div>
+                <div className="w-10 flex justify-center">
+                  <Checkbox
+                    checked={setting?.alert_enabled ?? true}
+                    onCheckedChange={(checked) => updateSetting(nt.key, null, 'alert_enabled', !!checked)}
+                  />
+                </div>
+                <div className="w-10 flex justify-center">
+                  <Checkbox
+                    checked={setting?.push_enabled ?? true}
+                    onCheckedChange={(checked) => updateSetting(nt.key, null, 'push_enabled', !!checked)}
+                    disabled={needsPermission}
+                  />
+                </div>
+                <div className="w-10 flex justify-center">
+                  <Checkbox
+                    checked={setting?.email_enabled ?? false}
+                    onCheckedChange={(checked) => updateSetting(nt.key, null, 'email_enabled', !!checked)}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <Separator />
+
+        {/* Location-based notifications */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">Location-based</p>
+          </div>
+
+          {userLocations.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">No locations assigned</p>
+          ) : (
+            <>
+              <Select
+                value={selectedLocationId || ''}
+                onValueChange={(value) => setSelectedLocationId(value)}
+              >
+                <SelectTrigger className="w-full bg-background">
+                  <SelectValue placeholder="Select a location" />
+                </SelectTrigger>
+                <SelectContent>
+                  {userLocations.map((loc) => (
+                    <SelectItem key={loc.location_id} value={loc.location_id}>
+                      {loc.location_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {selectedLocationId && (
+                <div className="space-y-1">
+                  {LOCATION_NOTIFICATIONS.map(nt => {
+                    const setting = getSetting(nt.key, selectedLocationId);
+                    return (
+                      <div key={nt.key} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-1.5 px-1 rounded hover:bg-muted/50">
+                        <div>
+                          <span className="text-sm">{nt.label}</span>
+                        </div>
+                        <div className="w-10 flex justify-center">
+                          <Checkbox
+                            checked={setting?.alert_enabled ?? true}
+                            onCheckedChange={(checked) => updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)}
+                          />
+                        </div>
+                        <div className="w-10 flex justify-center">
+                          <Checkbox
+                            checked={setting?.push_enabled ?? true}
+                            onCheckedChange={(checked) => updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)}
+                            disabled={needsPermission}
+                          />
+                        </div>
+                        <div className="w-10 flex justify-center">
+                          <Checkbox
+                            checked={setting?.email_enabled ?? false}
+                            onCheckedChange={(checked) => updateSetting(nt.key, selectedLocationId, 'email_enabled', !!checked)}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
