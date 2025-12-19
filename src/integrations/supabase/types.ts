@@ -2152,6 +2152,76 @@ export type Database = {
           },
         ]
       }
+      ovation_integrations: {
+        Row: {
+          auth_token: string | null
+          brand_id: string | null
+          company_id: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          token_updated_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          auth_token?: string | null
+          brand_id?: string | null
+          company_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          token_updated_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          auth_token?: string | null
+          brand_id?: string | null
+          company_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          token_updated_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ovation_integrations_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: true
+            referencedRelation: "brands"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ovation_location_mappings: {
+        Row: {
+          created_at: string
+          id: string
+          location_id: string | null
+          ovation_location_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          ovation_location_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          ovation_location_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ovation_location_mappings_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: true
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pay_periods: {
         Row: {
           closed_at: string | null

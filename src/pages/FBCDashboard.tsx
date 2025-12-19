@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TrendingUp, TrendingDown, Minus, Building2, ClipboardCheck, ChevronDown, ChevronRight, ExternalLink, AlertTriangle, AlertCircle, Info, Trophy } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Building2, ClipboardCheck, ChevronDown, ChevronRight, ExternalLink, AlertTriangle, AlertCircle, Info, Trophy, Star, MessageSquare } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,6 +31,14 @@ interface AuditData {
   firstPriorityItems: string[] | null;
   secondPriorityItems: string[] | null;
   thirdPriorityItems: string[] | null;
+}
+
+interface OvationScore {
+  locationId: string;
+  locationName: string;
+  averageScore: number;
+  totalResponses: number;
+  nps?: number;
 }
 
 export default function FBCDashboard() {
@@ -215,6 +223,29 @@ export default function FBCDashboard() {
     enabled: !!locations?.length,
   });
 
+  // Fetch OvationUp scores
+  const { data: ovationData, isLoading: ovationLoading, error: ovationError } = useQuery({
+    queryKey: ['fbc-ovation-scores', brandMembership?.brandId, locations?.map(l => l.id)],
+    queryFn: async () => {
+      if (!brandMembership?.brandId && !brandMembership?.isSuperAdmin) return { scores: [], error: null };
+      
+      const { data, error } = await supabase.functions.invoke('fetch-ovation-scores', {
+        body: {
+          brandId: brandMembership.brandId,
+          locationIds: locations?.map(l => l.id) || [],
+        }
+      });
+      
+      if (error) {
+        console.error('OvationUp fetch error:', error);
+        return { scores: [], error: 'Failed to fetch OvationUp data' };
+      }
+      
+      return data as { scores: OvationScore[]; error?: string; raw?: any };
+    },
+    enabled: !!brandMembership && !!locations?.length,
+  });
+
   // Sort audits by score for leaderboard
   const sortedAudits = audits?.slice().sort((a, b) => {
     const scoreA = parseFloat(a.visitScore || '0');
@@ -345,6 +376,10 @@ export default function FBCDashboard() {
               <TabsTrigger value="audits" className="gap-2">
                 <ClipboardCheck className="h-4 w-4" />
                 Audit Leaderboard
+              </TabsTrigger>
+              <TabsTrigger value="ovation" className="gap-2">
+                <Star className="h-4 w-4" />
+                Guest Feedback
               </TabsTrigger>
             </TabsList>
 
@@ -565,6 +600,89 @@ export default function FBCDashboard() {
                           No audits found
                         </div>
                       )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="ovation" className="space-y-4">
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Star className="h-5 w-5 text-yellow-500" />
+                    OvationUp Guest Feedback
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">Last 30 days survey scores</p>
+                </CardHeader>
+                <CardContent>
+                  {ovationLoading ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3].map(i => (
+                        <Skeleton key={i} className="h-16 w-full" />
+                      ))}
+                    </div>
+                  ) : ovationData?.error ? (
+                    <div className="py-8 text-center">
+                      <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                      <p className="text-muted-foreground">{ovationData.error}</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Configure OvationUp integration in Settings to see guest feedback data.
+                      </p>
+                    </div>
+                  ) : ovationData?.scores && ovationData.scores.length > 0 ? (
+                    <div className="space-y-2">
+                      {ovationData.scores.map((score, index) => (
+                        <div
+                          key={score.locationId}
+                          className={cn(
+                            "flex items-center gap-3 p-3 rounded-lg border",
+                            index === 0 && "border-yellow-500/50 bg-yellow-500/5",
+                            index === 1 && "border-gray-400/50 bg-gray-400/5",
+                            index === 2 && "border-amber-600/50 bg-amber-600/5"
+                          )}
+                        >
+                          {/* Rank */}
+                          <div className="flex-shrink-0">
+                            {getRankIcon(index)}
+                          </div>
+                          
+                          {/* Location Name */}
+                          <div className="flex-1">
+                            <div className="font-medium">{score.locationName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {score.totalResponses} responses
+                            </div>
+                          </div>
+                          
+                          {/* Score */}
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className="text-2xl font-bold">{score.averageScore.toFixed(1)}</div>
+                              <div className="text-xs text-muted-foreground">avg score</div>
+                            </div>
+                            {score.nps !== undefined && (
+                              <div className="text-right pl-3 border-l">
+                                <div className={cn(
+                                  "text-lg font-semibold",
+                                  score.nps >= 50 ? "text-green-600" : score.nps >= 0 ? "text-yellow-600" : "text-red-600"
+                                )}>
+                                  {score.nps > 0 ? '+' : ''}{score.nps}
+                                </div>
+                                <div className="text-xs text-muted-foreground">NPS</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center">
+                      <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                      <p className="text-muted-foreground">No guest feedback data available</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Configure OvationUp integration to see guest feedback scores.
+                      </p>
                     </div>
                   )}
                 </CardContent>
