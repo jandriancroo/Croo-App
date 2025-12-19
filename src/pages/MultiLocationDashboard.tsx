@@ -522,7 +522,7 @@ export default function MultiLocationDashboard() {
     const chartData = [
       { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))', label: formatCurrency(data.actual) },
       { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrency(data.projected) },
-      { name: 'Pacing', value: data.pacing, fill: 'hsl(142 76% 36%)', label: formatCurrency(data.pacing) }
+      { name: 'Pace', value: data.pacing, fill: 'hsl(142 76% 36%)', label: formatCurrency(data.pacing) }
     ];
     const maxVal = Math.max(data.actual, data.projected, data.pacing, 1);
     const lyComparison = formatLastYearComparison(data.actual, data.lastYear);
@@ -766,13 +766,19 @@ export default function MultiLocationDashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         {loc.hasQuBeyond && loc.sales && loc.sales.daily.pacing > 0 && loc.sales.daily.actual >= 100 ? (() => {
-                          const pacingPercent = (loc.sales.daily.actual / loc.sales.daily.pacing) * 100;
                           // Grace period: first 2 hours show "Warming Up" instead of behind
                           const inGracePeriod = loc.hoursSinceOpen !== null && loc.hoursSinceOpen < 2;
-                          // On Fire: >=105%, On Track: 95-105%, Behind: <95%
-                          const isAhead = pacingPercent >= 105;
-                          const isOnTrack = pacingPercent >= 95 && pacingPercent < 105;
-                          const isBehind = pacingPercent < 95;
+                          
+                          // "Ahead/On Fire" requires pace to exceed original projection
+                          // "On Track" means pace meets projection (95-105% of projection)
+                          // "Behind" means pace is below projection (<95% of projection)
+                          const paceVsProjection = loc.sales.daily.projected > 0 
+                            ? (loc.sales.daily.pacing / loc.sales.daily.projected) * 100 
+                            : 0;
+                          
+                          const isAhead = paceVsProjection >= 105; // Pace is 105%+ of projection
+                          const isOnTrack = paceVsProjection >= 95 && paceVsProjection < 105;
+                          const isBehind = paceVsProjection < 95;
                           
                           // During grace period, show "Warming Up" instead of "Behind Pace"
                           const showWarmingUp = inGracePeriod && isBehind;

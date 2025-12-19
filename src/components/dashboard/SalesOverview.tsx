@@ -428,13 +428,13 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                       </div>
                     </div>
                     
-                    {/* Pacing to - Right */}
+                    {/* Pace - Right */}
                     {salesData.projections.todayPaceAdjusted !== undefined && 
                      salesData.projections.todayPaceAdjusted > 0 && 
                      isToday && (
                       <div className="flex items-center gap-2 flex-1 justify-end">
                         <div className="flex flex-col items-end">
-                          <span className="text-xs text-muted-foreground">Pacing to</span>
+                          <span className="text-xs text-muted-foreground">Pace</span>
                           <div className="flex items-center gap-1.5">
                             <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
                               {formatCurrency(salesData.projections.todayPaceAdjusted)}
