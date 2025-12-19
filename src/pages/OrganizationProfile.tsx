@@ -3,14 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Building2, MapPin, Plus, Palette, Save, ExternalLink, Upload, X, Wand2, Loader2, ShieldX } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, Building2, MapPin, Plus, Save, ExternalLink, ShieldX, Tag } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { compressImage } from '@/utils/imageCompression';
-import { removeBackground, loadImageFromUrl } from '@/utils/backgroundRemoval';
 import { OrganizationMembersSection } from '@/components/settings/OrganizationMembersSection';
 import { useUserRole } from '@/hooks/useUserRole';
 
@@ -20,15 +19,25 @@ export default function OrganizationProfile() {
   const queryClient = useQueryClient();
   const { isSuperAdmin, loading: roleLoading } = useUserRole();
   const isNew = id === 'new';
-  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  const [brandName, setBrandName] = useState('');
-  const [logoUrl, setLogoUrl] = useState('');
+  const [brandId, setBrandId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [isRemovingBg, setIsRemovingBg] = useState(false);
+
+  // Fetch all brands for the dropdown
+  const { data: brands = [] } = useQuery({
+    queryKey: ['brands'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('brands')
+        .select('id, name, logo_url')
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data: organization, isLoading } = useQuery({
     queryKey: ['organization', id],
@@ -36,7 +45,7 @@ export default function OrganizationProfile() {
       if (isNew) return null;
       const { data, error } = await supabase
         .from('organizations')
-        .select('*')
+        .select('*, brands(id, name, logo_url)')
         .eq('id', id)
         .single();
       if (error) throw error;
@@ -64,8 +73,7 @@ export default function OrganizationProfile() {
     if (organization) {
       setName(organization.name || '');
       setSlug(organization.slug || '');
-      setBrandName((organization as any).brand_name || '');
-      setLogoUrl(organization.logo_url || '');
+      setBrandId((organization as any).brand_id || null);
     }
   }, [organization]);
 
@@ -75,75 +83,6 @@ export default function OrganizationProfile() {
       setSlug(name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
     }
   }, [name, isNew]);
-
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsUploading(true);
-    try {
-      const compressed = await compressImage(file, 800, 800);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${id || 'new'}-${Date.now()}.${fileExt}`;
-      const filePath = `logos/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('organization-branding')
-        .upload(filePath, compressed, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('organization-branding')
-        .getPublicUrl(filePath);
-
-      setLogoUrl(publicUrl);
-      toast.success('Logo uploaded');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to upload logo');
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const handleRemoveLogo = () => {
-    setLogoUrl('');
-  };
-
-  const handleRemoveBackground = async () => {
-    if (!logoUrl) return;
-    
-    setIsRemovingBg(true);
-    try {
-      toast.info('Loading AI model... This may take a moment the first time.');
-      
-      const img = await loadImageFromUrl(logoUrl);
-      const resultBlob = await removeBackground(img);
-      
-      // Upload the processed image
-      const fileName = `${id || 'new'}-${Date.now()}-nobg.png`;
-      const filePath = `logos/${fileName}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('organization-branding')
-        .upload(filePath, resultBlob, { upsert: true });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('organization-branding')
-        .getPublicUrl(filePath);
-
-      setLogoUrl(publicUrl);
-      toast.success('Background removed successfully!');
-    } catch (error: any) {
-      console.error('Background removal error:', error);
-      toast.error(error.message || 'Failed to remove background');
-    } finally {
-      setIsRemovingBg(false);
-    }
-  };
 
   const handleSave = async () => {
     if (!name.trim() || !slug.trim()) {
@@ -159,8 +98,7 @@ export default function OrganizationProfile() {
           .insert({
             name: name.trim(),
             slug: slug.trim(),
-            brand_name: brandName.trim() || null,
-            logo_url: logoUrl.trim() || null,
+            brand_id: brandId,
           } as any);
         if (error) throw error;
         toast.success('Organization created');
@@ -171,8 +109,7 @@ export default function OrganizationProfile() {
           .update({
             name: name.trim(),
             slug: slug.trim(),
-            brand_name: brandName.trim() || null,
-            logo_url: logoUrl.trim() || null,
+            brand_id: brandId,
           } as any)
           .eq('id', id);
         if (error) throw error;
@@ -185,6 +122,9 @@ export default function OrganizationProfile() {
       setIsSaving(false);
     }
   };
+
+  // Get selected brand details
+  const selectedBrand = brands.find(b => b.id === brandId);
 
   if (roleLoading || (isLoading && !isNew)) {
     return (
@@ -269,104 +209,59 @@ export default function OrganizationProfile() {
           </CardContent>
         </Card>
 
-        {/* Branding */}
+        {/* Brand Assignment */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Palette className="h-4 w-4" />
-              <CardTitle className="text-base">Branding</CardTitle>
+              <Tag className="h-4 w-4" />
+              <CardTitle className="text-base">Brand</CardTitle>
             </div>
             <CardDescription className="text-xs">
-              Customize your organization's appearance
+              Assign this organization to a brand for branding and logo
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="brandName">Brand Name</Label>
-              <Input
-                id="brandName"
-                value={brandName}
-                onChange={(e) => setBrandName(e.target.value)}
-                placeholder="e.g., Blaze Pizza"
-              />
+              <Label>Brand</Label>
+              <Select value={brandId || ''} onValueChange={(value) => setBrandId(value || null)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a brand..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {brands.map((brand) => (
+                    <SelectItem key={brand.id} value={brand.id}>
+                      <div className="flex items-center gap-2">
+                        {brand.logo_url && (
+                          <img src={brand.logo_url} alt="" className="h-4 w-4 object-contain" />
+                        )}
+                        {brand.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <p className="text-xs text-muted-foreground">
-                The customer-facing brand name (e.g., "Blaze Pizza" for "Jo Pizza LLC")
+                The brand's name and logo will be used for this organization
               </p>
             </div>
-            
-            <div className="space-y-2">
-              <Label>Organization Logo</Label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleLogoUpload}
-                className="hidden"
-              />
-              
-              {logoUrl ? (
-                <div className="space-y-3">
-                  <div className="relative inline-block">
-                    <div className="p-4 border rounded-lg bg-[repeating-conic-gradient(#e5e5e5_0%_25%,#fff_0%_50%)] bg-[length:16px_16px]">
-                      <img 
-                        src={logoUrl} 
-                        alt="Logo preview" 
-                        className="h-20 object-contain"
-                      />
-                    </div>
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      className="absolute -top-2 -right-2 h-6 w-6"
-                      onClick={handleRemoveLogo}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
+
+            {selectedBrand && (
+              <div className="flex items-center gap-4 p-3 rounded-lg border bg-muted/50">
+                {selectedBrand.logo_url && (
+                  <div className="p-2 border rounded-lg bg-background">
+                    <img 
+                      src={selectedBrand.logo_url} 
+                      alt={selectedBrand.name} 
+                      className="h-12 object-contain"
+                    />
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                    >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Replace
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleRemoveBackground}
-                      disabled={isRemovingBg}
-                    >
-                      {isRemovingBg ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Wand2 className="h-4 w-4 mr-2" />
-                      )}
-                      {isRemovingBg ? 'Processing...' : 'Remove Background'}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Use "Remove Background" to make your logo transparent
-                  </p>
+                )}
+                <div>
+                  <p className="font-medium">{selectedBrand.name}</p>
+                  <p className="text-xs text-muted-foreground">Current brand</p>
                 </div>
-              ) : (
-                <Button
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                  className="w-full h-24 border-dashed"
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <Upload className="h-6 w-6 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      {isUploading ? 'Uploading...' : 'Click to upload logo'}
-                    </span>
-                  </div>
-                </Button>
-              )}
-            </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -402,7 +297,7 @@ export default function OrganizationProfile() {
                   No locations yet. Add your first location to get started.
                 </p>
               ) : (
-                locations.map((location) => (
+                locations.map((location: any) => (
                   <Button
                     key={location.id}
                     variant="outline"
@@ -412,7 +307,12 @@ export default function OrganizationProfile() {
                     <div className="flex items-center gap-2">
                       <MapPin className="h-3 w-3" />
                       <div className="text-left">
-                        <div className="text-sm font-medium">{location.name}</div>
+                        <div className="text-sm font-medium">
+                          {location.store_number && (
+                            <span className="text-muted-foreground mr-1">#{location.store_number}</span>
+                          )}
+                          {location.name}
+                        </div>
                         <div className="text-xs text-muted-foreground">
                           {location.location_type === 'checklist_only' ? 'Checklist Only' : 'Full Features'}
                         </div>
