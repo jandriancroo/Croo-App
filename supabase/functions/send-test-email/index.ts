@@ -52,17 +52,12 @@ const handler = async (req: Request): Promise<Response> => {
                   <!-- Header with Logo -->
                   <tr>
                     <td style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d5a65 100%); padding: 40px 40px 30px; text-align: center;">
-                      <table role="presentation" style="margin: 0 auto;">
-                        <tr>
-                          <td style="background-color: ${accentColor}; width: 48px; height: 48px; border-radius: 12px; text-align: center; vertical-align: middle;">
-                            <span style="color: #ffffff; font-size: 24px; font-weight: 700; font-family: 'Lexend', -apple-system, sans-serif;">C</span>
-                          </td>
-                          <td style="padding-left: 12px;">
-                            <span style="color: #ffffff; font-size: 32px; font-weight: 700; font-family: 'Lexend', -apple-system, sans-serif; letter-spacing: -1px;">croo</span>
-                          </td>
-                        </tr>
-                      </table>
-                      <h1 style="color: #ffffff; font-size: 28px; font-weight: 600; margin: 24px 0 0; letter-spacing: -0.5px;">
+                      <img 
+                        src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/brand-assets/croo-logo-white.png" 
+                        alt="Croo" 
+                        style="height: 60px; width: auto; margin-bottom: 16px;"
+                      />
+                      <h1 style="color: #ffffff; font-size: 28px; font-weight: 600; margin: 0; letter-spacing: -0.5px;">
                         Welcome to Croo!
                       </h1>
                     </td>
@@ -137,7 +132,9 @@ const handler = async (req: Request): Promise<Response> => {
                       <table role="presentation" style="width: 100%; margin: 30px 0;">
                         <tr>
                           <td style="text-align: center;">
-                            <a href="https://croo.app" style="display: inline-block; background: linear-gradient(135deg, ${accentColor} 0%, #e06b10 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(245, 130, 32, 0.3);">
+                            <a href="https://croohq.com" style="display: inline-block; background: linear-gradient(135deg, ${accentColor} 0%, #e06b10 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(245, 130, 32, 0.3);">
+                              Open Croo Dashboard
+                            </a>
                               Open Croo Dashboard
                             </a>
                           </td>
