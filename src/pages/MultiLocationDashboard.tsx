@@ -492,7 +492,7 @@ export default function MultiLocationDashboard() {
 
   const navigateToChecklist = (locationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate(`/location/${locationId}#tasks`);
+    navigate(`/tasks`);
   };
 
   // Sort and filter locations
