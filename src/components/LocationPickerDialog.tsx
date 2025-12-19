@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
-import { Building2, MapPin, ChevronRight } from 'lucide-react';
+import { Building2, MapPin, ChevronRight, Star } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { toast } from 'sonner';
 
 interface Organization {
   id: string;
@@ -43,6 +44,21 @@ export function LocationPickerDialog({
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
+  const [defaultLocationId, setDefaultLocationId] = useState<string | null>(null);
+
+  // Fetch user's default location
+  useEffect(() => {
+    if (user) {
+      supabase
+        .from('profiles')
+        .select('default_location_id')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          setDefaultLocationId(data?.default_location_id || null);
+        });
+    }
+  }, [user]);
 
   // For now, admins can see all orgs/locations they have access to
   const canSeeAllOrgs = role === 'admin' || (role as string) === 'super_admin';
@@ -141,6 +157,26 @@ export function LocationPickerDialog({
     onOpenChange(false);
   };
 
+  const handleSetDefault = async (e: React.MouseEvent, locationId: string) => {
+    e.stopPropagation();
+    if (!user) return;
+    
+    const newDefault = defaultLocationId === locationId ? null : locationId;
+    
+    const { error } = await supabase
+      .from('profiles')
+      .update({ default_location_id: newDefault })
+      .eq('id', user.id);
+
+    if (error) {
+      toast.error('Failed to update default location');
+      return;
+    }
+
+    setDefaultLocationId(newDefault);
+    toast.success(newDefault ? 'Default location set' : 'Default location cleared');
+  };
+
   // Group locations by organization
   const locationsByOrg = locations.reduce((acc, loc) => {
     const orgId = loc.organization_id || 'unassigned';
@@ -186,7 +222,19 @@ export function LocationPickerDialog({
                       onClick={() => handleSelectLocation(location)}
                     >
                       <div className="flex items-center gap-2">
-                        <MapPin className="h-3.5 w-3.5" />
+                        <button
+                          onClick={(e) => handleSetDefault(e, location.id)}
+                          className="p-0.5 hover:scale-110 transition-transform"
+                          title={defaultLocationId === location.id ? 'Remove as default' : 'Set as default'}
+                        >
+                          <Star 
+                            className={`h-3.5 w-3.5 ${
+                              defaultLocationId === location.id 
+                                ? 'fill-yellow-400 text-yellow-400' 
+                                : 'text-muted-foreground hover:text-yellow-400'
+                            }`} 
+                          />
+                        </button>
                         <div className="text-left">
                           <div className="text-sm font-medium">{location.name}</div>
                           {location.location_type === 'checklist_only' && (
@@ -211,7 +259,19 @@ export function LocationPickerDialog({
                   onClick={() => handleSelectLocation(location)}
                 >
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-3.5 w-3.5" />
+                    <button
+                      onClick={(e) => handleSetDefault(e, location.id)}
+                      className="p-0.5 hover:scale-110 transition-transform"
+                      title={defaultLocationId === location.id ? 'Remove as default' : 'Set as default'}
+                    >
+                      <Star 
+                        className={`h-3.5 w-3.5 ${
+                          defaultLocationId === location.id 
+                            ? 'fill-yellow-400 text-yellow-400' 
+                            : 'text-muted-foreground hover:text-yellow-400'
+                        }`} 
+                      />
+                    </button>
                     <div className="text-left">
                       <div className="text-sm font-medium">{location.name}</div>
                       {location.location_type === 'checklist_only' && (
@@ -241,7 +301,19 @@ export function LocationPickerDialog({
                     onClick={() => handleSelectLocation(location)}
                   >
                     <div className="flex items-center gap-2">
-                      <MapPin className="h-3.5 w-3.5" />
+                      <button
+                        onClick={(e) => handleSetDefault(e, location.id)}
+                        className="p-0.5 hover:scale-110 transition-transform"
+                        title={defaultLocationId === location.id ? 'Remove as default' : 'Set as default'}
+                      >
+                        <Star 
+                          className={`h-3.5 w-3.5 ${
+                            defaultLocationId === location.id 
+                              ? 'fill-yellow-400 text-yellow-400' 
+                              : 'text-muted-foreground hover:text-yellow-400'
+                          }`} 
+                        />
+                      </button>
                       <div className="text-left">
                         <div className="text-sm font-medium">{location.name}</div>
                       </div>

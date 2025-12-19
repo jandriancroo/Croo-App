@@ -49,13 +49,29 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
 
       setLocations(locs || []);
 
-      // Set current location from localStorage or default to first
+      // Set current location: priority is localStorage > default_location_id > first location
       const savedLocationId = localStorage.getItem('currentLocationId');
       if (savedLocationId && locs?.find(l => l.id === savedLocationId)) {
         setCurrentLocationState(locs.find(l => l.id === savedLocationId)!);
-      } else if (locs && locs.length > 0) {
-        setCurrentLocationState(locs[0]);
-        localStorage.setItem('currentLocationId', locs[0].id);
+      } else {
+        // Check for user's default location
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('default_location_id')
+          .eq('id', user.id)
+          .single();
+        
+        const defaultLoc = profile?.default_location_id 
+          ? locs?.find(l => l.id === profile.default_location_id)
+          : null;
+        
+        if (defaultLoc) {
+          setCurrentLocationState(defaultLoc);
+          localStorage.setItem('currentLocationId', defaultLoc.id);
+        } else if (locs && locs.length > 0) {
+          setCurrentLocationState(locs[0]);
+          localStorage.setItem('currentLocationId', locs[0].id);
+        }
       }
     } catch (error) {
       console.error('Error fetching locations:', error);
