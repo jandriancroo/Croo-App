@@ -651,9 +651,28 @@ export default function MultiLocationDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={loc.clockedInCount > 0 ? 'default' : 'secondary'} className="text-xs">
-                          {loc.clockedInCount > 0 ? 'Active' : 'Idle'}
-                        </Badge>
+                        {loc.hasQuBeyond && loc.sales.daily.projected > 0 ? (
+                          <Badge 
+                            variant="outline" 
+                            className={`text-xs ${
+                              loc.sales.daily.pacing >= 105 
+                                ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
+                                : loc.sales.daily.pacing >= 95 
+                                  ? 'border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-950'
+                                  : 'border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950'
+                            }`}
+                          >
+                            {loc.sales.daily.pacing >= 105 
+                              ? 'Ahead of Goal' 
+                              : loc.sales.daily.pacing >= 95 
+                                ? 'On Pace'
+                                : 'Behind Pace'}
+                          </Badge>
+                        ) : !loc.isOpen && loc.openTime ? (
+                          <Badge variant="secondary" className="text-xs">
+                            Opens {loc.openTime}
+                          </Badge>
+                        ) : null}
                         <div className="flex items-center gap-1 text-sm">
                           <Users className="h-3 w-3 text-muted-foreground" />
                           <span>{loc.clockedInCount}/{loc.scheduledCount}</span>
