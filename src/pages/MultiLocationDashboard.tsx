@@ -779,7 +779,7 @@ export default function MultiLocationDashboard() {
                                       : 'border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950'
                               }`}
                             >
-                              {isOnFire ? '🔥 On Fire' : isAhead ? 'Ahead of Pace' : isOnTrack ? 'On Track' : 'Behind Pace'}
+                              {isOnFire ? '🔥 On Fire' : isAhead ? '📈 Ahead of Pace' : isOnTrack ? '🏃 On Track' : '🧊 Behind Pace'}
                             </Badge>
                           );
                         })() : !loc.isOpen && loc.openTime ? (
