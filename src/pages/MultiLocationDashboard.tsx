@@ -426,7 +426,7 @@ export default function MultiLocationDashboard() {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
               <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
-              <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" width={60} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
               <ReferenceLine x={maxVal * 0.5} stroke="hsl(var(--border))" strokeDasharray="2 2" />
               <ReferenceLine x={maxVal * 0.75} stroke="hsl(var(--border))" strokeDasharray="2 2" />
@@ -434,13 +434,13 @@ export default function MultiLocationDashboard() {
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.fill} />
                 ))}
-                <LabelList dataKey="label" position="insideRight" style={{ fontSize: 9, fill: '#fff', fontWeight: 500 }} />
+                <LabelList dataKey="label" position="insideRight" style={{ fontSize: 11, fill: '#fff', fontWeight: 600 }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
         {lyComparison && (
-          <p className={`text-[10px] mt-1 ${lyComparison.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+          <p className={`text-xs mt-1 font-medium ${lyComparison.isPositive ? 'text-green-600' : 'text-red-600'}`}>
             vs LY: {formatCurrencyCompact(lyComparison.lastYear)} ({lyComparison.isPositive ? '+' : ''}{lyComparison.percent}%)
           </p>
         )}
@@ -464,7 +464,7 @@ export default function MultiLocationDashboard() {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
               <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
-              <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" width={60} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
               <ReferenceLine x={maxVal * 0.5} stroke="hsl(var(--border))" strokeDasharray="2 2" />
               <ReferenceLine x={maxVal * 0.75} stroke="hsl(var(--border))" strokeDasharray="2 2" />
@@ -472,13 +472,13 @@ export default function MultiLocationDashboard() {
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.fill} />
                 ))}
-                <LabelList dataKey="label" position="insideRight" style={{ fontSize: 9, fill: '#fff', fontWeight: 500 }} />
+                <LabelList dataKey="label" position="insideRight" style={{ fontSize: 11, fill: '#fff', fontWeight: 600 }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
         {lyComparison && (
-          <p className={`text-[10px] mt-1 ${lyComparison.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+          <p className={`text-xs mt-1 font-medium ${lyComparison.isPositive ? 'text-green-600' : 'text-red-600'}`}>
             vs LY: {formatCurrencyCompact(lyComparison.lastYear)} ({lyComparison.isPositive ? '+' : ''}{lyComparison.percent}%)
           </p>
         )}
