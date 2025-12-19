@@ -7,37 +7,48 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { 
   LayoutGrid, 
   TableIcon, 
-  MapPin, 
-  DollarSign, 
   Users, 
   ClipboardCheck, 
-  TrendingUp, 
   Clock,
   AlertTriangle,
-  CheckCircle2,
-  Building2
+  Building2,
+  TrendingUp,
+  TrendingDown,
+  Minus
 } from 'lucide-react';
-import { format, startOfDay, endOfDay, subDays } from 'date-fns';
-import { getTodayInTimezone } from '@/utils/timezoneUtils';
+import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell } from 'recharts';
+
+interface ChecklistMetric {
+  id: string;
+  title: string;
+  completedCount: number;
+  totalPossible: number;
+  percent: number;
+}
+
+interface LocationSalesData {
+  daily: { actual: number; projected: number; pacing: number };
+  weekly: { actual: number; projected: number; pacing: number };
+  monthly: { actual: number; projected: number; pacing: number };
+}
 
 interface LocationMetrics {
   id: string;
   name: string;
   store_number: string | null;
   organization_name: string | null;
-  // Sales & Labor
-  todaySales: number;
-  laborCost: number;
-  laborPercent: number;
+  // Sales
+  sales: LocationSalesData;
+  hasQuBeyond: boolean;
   // Tasks
-  tasksCompleted: number;
-  totalTasks: number;
-  overdueChecklists: number;
+  checklists: ChecklistMetric[];
   // Staffing
   clockedInCount: number;
   scheduledCount: number;
@@ -60,17 +71,15 @@ export default function MultiLocationDashboard() {
     if (!user?.id) return;
 
     try {
-      // Check if user has multi-location access (org_admin, brand_admin, or super_admin)
+      // Check if user has multi-location access
       const { data: isSuperAdmin } = await supabase.rpc('is_super_admin', { _user_id: user.id });
       
-      // Get organization memberships with admin role
       const { data: orgMemberships } = await supabase
         .from('organization_members')
         .select('organization_id, org_role')
         .eq('user_id', user.id)
         .eq('org_role', 'admin');
 
-      // Get brand memberships with admin role
       const { data: brandMemberships } = await supabase
         .from('brand_members')
         .select('brand_id, brand_role')
@@ -101,11 +110,9 @@ export default function MultiLocationDashboard() {
         .neq('location_type', 'checklist_only')
         .order('name');
 
-      // If not super admin, filter by org/brand access
       if (!isSuperAdmin) {
         const orgIds = orgMemberships?.map(m => m.organization_id) || [];
         
-        // Get org IDs from brand memberships
         if (brandMemberships && brandMemberships.length > 0) {
           const brandIds = brandMemberships.map(b => b.brand_id);
           const { data: brandOrgs } = await supabase
@@ -137,19 +144,61 @@ export default function MultiLocationDashboard() {
           const todayStr = format(today, 'yyyy-MM-dd');
           const startOfToday = startOfDay(today).toISOString();
           const endOfToday = endOfDay(today).toISOString();
+          const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+          const monthStart = startOfMonth(today);
 
-          // Get today's sales (from daily_tips or cache)
-          const { data: salesData } = await supabase
-            .from('daily_tips')
-            .select('total_cc_tips, total_cash_tips')
+          // Check if location has QuBeyond integration
+          const { data: integration } = await supabase
+            .from('location_integrations')
+            .select('id')
             .eq('location_id', loc.id)
-            .eq('tip_date', todayStr)
+            .eq('integration_type', 'qubeyond')
+            .eq('is_active', true)
             .single();
 
-          // Get current labor (clocked in employees)
+          const hasQuBeyond = !!integration;
+
+          // Fetch sales data if QuBeyond is connected
+          let salesData: LocationSalesData = {
+            daily: { actual: 0, projected: 0, pacing: 0 },
+            weekly: { actual: 0, projected: 0, pacing: 0 },
+            monthly: { actual: 0, projected: 0, pacing: 0 }
+          };
+
+          if (hasQuBeyond) {
+            try {
+              const { data: salesResponse } = await supabase.functions.invoke('fetch-qubeyond-sales', {
+                body: { locationId: loc.id, targetDate: todayStr }
+              });
+
+              if (salesResponse) {
+                salesData = {
+                  daily: {
+                    actual: salesResponse.daily || 0,
+                    projected: salesResponse.projections?.todayProjected || 0,
+                    pacing: salesResponse.projections?.todayPaceAdjusted || salesResponse.projections?.todayProjected || 0
+                  },
+                  weekly: {
+                    actual: salesResponse.weekly || 0,
+                    projected: salesResponse.projections?.weekProjected || 0,
+                    pacing: calculatePacing(salesResponse.weekly, salesResponse.projections?.weekProjected, weekStart, today)
+                  },
+                  monthly: {
+                    actual: salesResponse.monthly || 0,
+                    projected: salesResponse.projections?.monthProjected || 0,
+                    pacing: calculatePacing(salesResponse.monthly, salesResponse.projections?.monthProjected, monthStart, today)
+                  }
+                };
+              }
+            } catch (error) {
+              console.error(`Error fetching sales for ${loc.name}:`, error);
+            }
+          }
+
+          // Get clocked in status
           const { data: clockedIn } = await supabase
             .from('time_punches')
-            .select('user_id, punch_time')
+            .select('user_id')
             .eq('location_id', loc.id)
             .eq('punch_type', 'clock_in')
             .gte('punch_time', startOfToday)
@@ -166,7 +215,22 @@ export default function MultiLocationDashboard() {
           const clockedOutIds = new Set(clockedOut?.map(p => p.user_id) || []);
           const currentlyClockedIn = clockedIn?.filter(p => !clockedOutIds.has(p.user_id)) || [];
 
-          // Get today's checklist completions
+          // Get scheduled shifts
+          let scheduledCount = 0;
+          try {
+            const result = await (supabase.from('scheduled_shifts' as any).select('id').eq('location_id', loc.id).eq('shift_date', todayStr) as any);
+            scheduledCount = result.data?.length || 0;
+          } catch (e) {}
+
+          // Get checklists and their completion status for today (excluding temporary tasks)
+          const { data: checklists } = await supabase
+            .from('checklists')
+            .select('id, title, frequency')
+            .eq('location_id', loc.id)
+            .eq('is_active', true)
+            .is('template_type', null); // Exclude templates (temporary tasks use these)
+
+          // Get today's submissions
           const { data: submissions } = await supabase
             .from('checklist_submissions')
             .select('id, checklist_id')
@@ -174,39 +238,36 @@ export default function MultiLocationDashboard() {
             .gte('submitted_at', startOfToday)
             .lte('submitted_at', endOfToday);
 
-          // Get total active checklists for location
-          const { data: checklists } = await supabase
-            .from('checklists')
-            .select('id')
-            .eq('location_id', loc.id)
-            .eq('is_active', true);
+          const submissionCountByChecklist = new Map<string, number>();
+          submissions?.forEach(sub => {
+            const count = submissionCountByChecklist.get(sub.checklist_id) || 0;
+            submissionCountByChecklist.set(sub.checklist_id, count + 1);
+          });
 
-          // Get scheduled shifts for today - using rpc to avoid type issues
-          let scheduledCount = 0;
-          try {
-            const query = supabase.from('scheduled_shifts' as any).select('id').eq('location_id', loc.id).eq('shift_date', todayStr);
-            const result = await query;
-            scheduledCount = (result.data as any[])?.length || 0;
-          } catch (e) {
-            // Ignore if table doesn't exist
-          }
-
-          // Calculate metrics
-          const todaySales = 0; // Would need POS integration
-          const laborCost = currentlyClockedIn.length * 15 * 4; // Rough estimate
-          const laborPercent = todaySales > 0 ? (laborCost / todaySales) * 100 : 0;
+          const checklistMetrics: ChecklistMetric[] = (checklists || []).map(cl => {
+            const completedCount = submissionCountByChecklist.get(cl.id) || 0;
+            // For daily checklists, expected is 1 per day
+            // For other frequencies, this is a simplification
+            const totalPossible = cl.frequency === 'daily' ? 1 : 1;
+            const percent = totalPossible > 0 ? Math.min(100, (completedCount / totalPossible) * 100) : 0;
+            
+            return {
+              id: cl.id,
+              title: cl.title,
+              completedCount,
+              totalPossible,
+              percent
+            };
+          });
 
           return {
             id: loc.id,
             name: loc.name,
             store_number: loc.store_number,
             organization_name: (loc.organizations as any)?.name || null,
-            todaySales,
-            laborCost,
-            laborPercent,
-            tasksCompleted: submissions?.length || 0,
-            totalTasks: checklists?.length || 0,
-            overdueChecklists: 0, // Would need due time logic
+            sales: salesData,
+            hasQuBeyond,
+            checklists: checklistMetrics,
             clockedInCount: currentlyClockedIn.length,
             scheduledCount,
             openShifts: Math.max(0, scheduledCount - currentlyClockedIn.length),
@@ -222,25 +283,96 @@ export default function MultiLocationDashboard() {
     }
   };
 
+  const calculatePacing = (actual: number, projected: number, periodStart: Date, now: Date) => {
+    if (!projected || projected === 0) return actual;
+    const periodEnd = endOfMonth(periodStart);
+    const totalDays = Math.ceil((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+    const elapsedDays = Math.ceil((now.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+    const expectedPercent = elapsedDays / totalDays;
+    return (actual / expectedPercent);
+  };
+
   const formatLocationName = (name: string, storeNumber: string | null) => {
     return storeNumber ? `${name} - ${storeNumber}` : name;
   };
 
-  const getTaskCompletionColor = (completed: number, total: number) => {
-    if (total === 0) return 'text-muted-foreground';
-    const percent = (completed / total) * 100;
-    if (percent >= 80) return 'text-green-600';
+  const formatCurrency = (amount: number) => {
+    if (amount >= 1000000) {
+      return `$${(amount / 1000000).toFixed(1)}M`;
+    }
+    if (amount >= 1000) {
+      return `$${(amount / 1000).toFixed(1)}K`;
+    }
+    return new Intl.NumberFormat('en-US', { 
+      style: 'currency', 
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
+  const getCompletionColor = (percent: number) => {
+    if (percent >= 100) return 'text-green-600';
     if (percent >= 50) return 'text-amber-600';
     return 'text-red-600';
   };
 
-  const getStaffingColor = (clockedIn: number, scheduled: number) => {
-    if (scheduled === 0) return 'text-muted-foreground';
-    const percent = (clockedIn / scheduled) * 100;
-    if (percent >= 90) return 'text-green-600';
-    if (percent >= 70) return 'text-amber-600';
-    return 'text-red-600';
+  const getProgressColor = (percent: number) => {
+    if (percent >= 100) return 'bg-green-500';
+    if (percent >= 50) return 'bg-amber-500';
+    return 'bg-red-500';
   };
+
+  const getSalesTrendIcon = (actual: number, projected: number) => {
+    if (projected === 0) return <Minus className="h-3 w-3 text-muted-foreground" />;
+    const diff = ((actual - projected) / projected) * 100;
+    if (diff >= 0) return <TrendingUp className="h-3 w-3 text-green-500" />;
+    return <TrendingDown className="h-3 w-3 text-red-500" />;
+  };
+
+  const LocationSalesChart = ({ sales, period }: { sales: LocationSalesData; period: 'daily' | 'weekly' | 'monthly' }) => {
+    const data = sales[period];
+    const chartData = [
+      { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))' },
+      { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))' },
+      { name: 'Pacing', value: data.pacing, fill: 'hsl(142 76% 36%)' }
+    ];
+
+    return (
+      <div className="h-[120px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 10 }}>
+            <XAxis type="number" hide />
+            <YAxis type="category" dataKey="name" width={60} tick={{ fontSize: 11 }} />
+            <Tooltip 
+              formatter={(value: number) => formatCurrency(value)}
+              contentStyle={{ 
+                backgroundColor: 'hsl(var(--background))', 
+                border: '1px solid hsl(var(--border))',
+                borderRadius: '8px'
+              }}
+            />
+            <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.fill} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+    );
+  };
+
+  // Calculate totals
+  const totals = locations.reduce(
+    (acc, loc) => ({
+      clockedIn: acc.clockedIn + loc.clockedInCount,
+      scheduled: acc.scheduled + loc.scheduledCount,
+      checklistsCompleted: acc.checklistsCompleted + loc.checklists.filter(c => c.percent >= 100).length,
+      totalChecklists: acc.totalChecklists + loc.checklists.length,
+    }),
+    { clockedIn: 0, scheduled: 0, checklistsCompleted: 0, totalChecklists: 0 }
+  );
 
   if (loading) {
     return (
@@ -249,7 +381,7 @@ export default function MultiLocationDashboard() {
           <Skeleton className="h-10 w-64" />
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Skeleton key={i} className="h-48" />
+              <Skeleton key={i} className="h-[400px]" />
             ))}
           </div>
         </div>
@@ -273,17 +405,6 @@ export default function MultiLocationDashboard() {
     );
   }
 
-  // Calculate totals
-  const totals = locations.reduce(
-    (acc, loc) => ({
-      clockedIn: acc.clockedIn + loc.clockedInCount,
-      scheduled: acc.scheduled + loc.scheduledCount,
-      tasksCompleted: acc.tasksCompleted + loc.tasksCompleted,
-      totalTasks: acc.totalTasks + loc.totalTasks,
-    }),
-    { clockedIn: 0, scheduled: 0, tasksCompleted: 0, totalTasks: 0 }
-  );
-
   return (
     <Layout>
       <div className="space-y-6">
@@ -292,7 +413,7 @@ export default function MultiLocationDashboard() {
           <div>
             <h1 className="text-3xl font-bold">Multi-Location Overview</h1>
             <p className="text-muted-foreground">
-              {locations.length} location{locations.length !== 1 ? 's' : ''} • {format(new Date(), 'EEEE, MMMM d, yyyy')}
+              {format(new Date(), 'EEEE, MMMM d, yyyy')}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -315,21 +436,8 @@ export default function MultiLocationDashboard() {
           </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <MapPin className="h-5 w-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Locations</p>
-                  <p className="text-2xl font-bold">{locations.length}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Summary Cards - Removed location count */}
+        <div className="grid gap-4 grid-cols-3">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -363,8 +471,8 @@ export default function MultiLocationDashboard() {
                   <ClipboardCheck className="h-5 w-5 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Tasks Done</p>
-                  <p className="text-2xl font-bold">{totals.tasksCompleted}/{totals.totalTasks}</p>
+                  <p className="text-sm text-muted-foreground">Checklists Done</p>
+                  <p className="text-2xl font-bold">{totals.checklistsCompleted}/{totals.totalChecklists}</p>
                 </div>
               </div>
             </CardContent>
@@ -373,7 +481,7 @@ export default function MultiLocationDashboard() {
 
         {/* Card View */}
         {viewMode === 'cards' && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {locations.map((loc) => (
               <Card 
                 key={loc.id} 
@@ -396,25 +504,63 @@ export default function MultiLocationDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Sales Chart */}
+                  {loc.hasQuBeyond && (
+                    <div>
+                      <Tabs defaultValue="daily" className="w-full">
+                        <TabsList className="grid w-full grid-cols-3 h-8">
+                          <TabsTrigger value="daily" className="text-xs">Day</TabsTrigger>
+                          <TabsTrigger value="weekly" className="text-xs">Week</TabsTrigger>
+                          <TabsTrigger value="monthly" className="text-xs">Month</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="daily" className="mt-2">
+                          <LocationSalesChart sales={loc.sales} period="daily" />
+                        </TabsContent>
+                        <TabsContent value="weekly" className="mt-2">
+                          <LocationSalesChart sales={loc.sales} period="weekly" />
+                        </TabsContent>
+                        <TabsContent value="monthly" className="mt-2">
+                          <LocationSalesChart sales={loc.sales} period="monthly" />
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  )}
+
+                  {!loc.hasQuBeyond && (
+                    <div className="text-center py-4 text-sm text-muted-foreground border rounded-lg bg-muted/20">
+                      No sales integration
+                    </div>
+                  )}
+
+                  {/* Checklists */}
+                  {loc.checklists.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-muted-foreground">Checklists</p>
+                      {loc.checklists.map((cl) => (
+                        <div key={cl.id} className="space-y-1">
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="truncate flex-1 mr-2">{cl.title}</span>
+                            <span className={`font-medium ${getCompletionColor(cl.percent)}`}>
+                              {cl.percent.toFixed(0)}%
+                            </span>
+                          </div>
+                          <Progress 
+                            value={cl.percent} 
+                            className="h-1.5"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Staffing */}
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between pt-2 border-t">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm">Staffing</span>
                     </div>
-                    <span className={`font-medium ${getStaffingColor(loc.clockedInCount, loc.scheduledCount)}`}>
+                    <span className="font-medium">
                       {loc.clockedInCount}/{loc.scheduledCount}
-                    </span>
-                  </div>
-
-                  {/* Tasks */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm">Tasks</span>
-                    </div>
-                    <span className={`font-medium ${getTaskCompletionColor(loc.tasksCompleted, loc.totalTasks)}`}>
-                      {loc.tasksCompleted}/{loc.totalTasks}
                     </span>
                   </div>
 
@@ -441,54 +587,81 @@ export default function MultiLocationDashboard() {
                     <TableRow>
                       <TableHead>Location</TableHead>
                       <TableHead className="text-center">Status</TableHead>
-                      <TableHead className="text-center">Clocked In</TableHead>
-                      <TableHead className="text-center">Scheduled</TableHead>
-                      <TableHead className="text-center">Tasks</TableHead>
-                      <TableHead className="text-center">Open Shifts</TableHead>
+                      <TableHead className="text-right">Daily Sales</TableHead>
+                      <TableHead className="text-right">Weekly Sales</TableHead>
+                      <TableHead className="text-right">Monthly Sales</TableHead>
+                      <TableHead className="text-center">Checklists</TableHead>
+                      <TableHead className="text-center">Staffing</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {locations.map((loc) => (
-                      <TableRow 
-                        key={loc.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => navigate(`/location/${loc.id}`)}
-                      >
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{formatLocationName(loc.name, loc.store_number)}</p>
-                            {loc.organization_name && (
-                              <p className="text-xs text-muted-foreground">{loc.organization_name}</p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Badge variant={loc.clockedInCount > 0 ? 'default' : 'secondary'}>
-                            {loc.clockedInCount > 0 ? 'Active' : 'Idle'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <span className={`font-medium ${getStaffingColor(loc.clockedInCount, loc.scheduledCount)}`}>
-                            {loc.clockedInCount}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-center">{loc.scheduledCount}</TableCell>
-                        <TableCell className="text-center">
-                          <span className={`font-medium ${getTaskCompletionColor(loc.tasksCompleted, loc.totalTasks)}`}>
-                            {loc.tasksCompleted}/{loc.totalTasks}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          {loc.openShifts > 0 ? (
-                            <Badge variant="outline" className="text-amber-600 border-amber-300">
-                              {loc.openShifts}
+                    {locations.map((loc) => {
+                      const checklistPercent = loc.checklists.length > 0
+                        ? loc.checklists.filter(c => c.percent >= 100).length / loc.checklists.length * 100
+                        : 0;
+
+                      return (
+                        <TableRow 
+                          key={loc.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => navigate(`/location/${loc.id}`)}
+                        >
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{formatLocationName(loc.name, loc.store_number)}</p>
+                              {loc.organization_name && (
+                                <p className="text-xs text-muted-foreground">{loc.organization_name}</p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={loc.clockedInCount > 0 ? 'default' : 'secondary'}>
+                              {loc.clockedInCount > 0 ? 'Active' : 'Idle'}
                             </Badge>
-                          ) : (
-                            <CheckCircle2 className="h-4 w-4 mx-auto text-green-600" />
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {loc.hasQuBeyond ? (
+                              <div className="flex items-center justify-end gap-1">
+                                {getSalesTrendIcon(loc.sales.daily.actual, loc.sales.daily.projected)}
+                                <span>{formatCurrency(loc.sales.daily.actual)}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">--</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {loc.hasQuBeyond ? (
+                              <div className="flex items-center justify-end gap-1">
+                                {getSalesTrendIcon(loc.sales.weekly.actual, loc.sales.weekly.projected)}
+                                <span>{formatCurrency(loc.sales.weekly.actual)}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">--</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {loc.hasQuBeyond ? (
+                              <div className="flex items-center justify-end gap-1">
+                                {getSalesTrendIcon(loc.sales.monthly.actual, loc.sales.monthly.projected)}
+                                <span>{formatCurrency(loc.sales.monthly.actual)}</span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">--</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className={getCompletionColor(checklistPercent)}>
+                              {loc.checklists.filter(c => c.percent >= 100).length}/{loc.checklists.length}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <span className={loc.openShifts > 0 ? 'text-amber-600' : ''}>
+                              {loc.clockedInCount}/{loc.scheduledCount}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
