@@ -651,7 +651,7 @@ export default function MultiLocationDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {loc.hasQuBeyond && loc.sales.daily.projected > 0 ? (
+                        {loc.hasQuBeyond && loc.sales.daily.projected > 0 && loc.sales.daily.actual > 0 ? (
                           <Badge 
                             variant="outline" 
                             className={`text-xs ${
