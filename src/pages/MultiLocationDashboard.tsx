@@ -2,30 +2,23 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { 
-  LayoutGrid, 
-  TableIcon, 
   Users, 
   ClipboardCheck, 
   Clock,
   AlertTriangle,
   Building2,
-  TrendingUp,
-  TrendingDown,
-  Minus,
   FileText,
   ChevronRight
 } from 'lucide-react';
-import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, LabelList } from 'recharts';
+import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth, parse, isAfter } from 'date-fns';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, LabelList, ReferenceLine } from 'recharts';
 
 interface ChecklistMetric {
   id: string;
@@ -60,12 +53,13 @@ interface LocationMetrics {
   scheduledCount: number;
   openShifts: number;
   latestAudit: AuditSummary | null;
+  openTime: string | null;
+  isOpen: boolean;
 }
 
 export default function MultiLocationDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [locations, setLocations] = useState<LocationMetrics[]>([]);
   const [loading, setLoading] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
@@ -294,6 +288,26 @@ export default function MultiLocationDashboard() {
             };
           }
 
+          // Get location hours for today
+          const dayOfWeek = today.getDay();
+          const { data: hoursData } = await supabase
+            .from('location_hours')
+            .select('open_time, is_closed')
+            .eq('location_id', loc.id)
+            .eq('day_of_week', dayOfWeek)
+            .single();
+
+          let openTime: string | null = null;
+          let isOpen = true;
+          
+          if (hoursData && !hoursData.is_closed && hoursData.open_time) {
+            const openDateTime = parse(hoursData.open_time, 'HH:mm:ss', today);
+            isOpen = isAfter(today, openDateTime);
+            if (!isOpen) {
+              openTime = format(openDateTime, 'h:mm a');
+            }
+          }
+
           return {
             id: loc.id,
             name: loc.name,
@@ -306,6 +320,8 @@ export default function MultiLocationDashboard() {
             scheduledCount,
             openShifts: Math.max(0, scheduledCount - currentlyClockedIn.length),
             latestAudit,
+            openTime,
+            isOpen,
           };
         })
       );
@@ -359,14 +375,7 @@ export default function MultiLocationDashboard() {
     return 'text-red-600';
   };
 
-  const getSalesTrendIcon = (actual: number, projected: number) => {
-    if (projected === 0) return <Minus className="h-3 w-3 text-muted-foreground" />;
-    const diff = ((actual - projected) / projected) * 100;
-    if (diff >= 0) return <TrendingUp className="h-3 w-3 text-green-500" />;
-    return <TrendingDown className="h-3 w-3 text-red-500" />;
-  };
-
-  // Daily chart - includes pacing
+  // Daily chart - includes pacing with reference lines
   const DailySalesChart = ({ sales }: { sales: LocationSalesData }) => {
     const data = sales.daily;
     const chartData = [
@@ -374,14 +383,18 @@ export default function MultiLocationDashboard() {
       { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrency(data.projected) },
       { name: 'Pacing', value: data.pacing, fill: 'hsl(142 76% 36%)', label: formatCurrency(data.pacing) }
     ];
+    const maxVal = Math.max(data.actual, data.projected, data.pacing, 1);
 
     return (
       <div className="h-[80px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
-            <XAxis type="number" hide />
+            <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
             <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
-            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14}>
+            <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
+            <ReferenceLine x={maxVal * 0.5} stroke="hsl(var(--border))" strokeDasharray="2 2" />
+            <ReferenceLine x={maxVal * 0.75} stroke="hsl(var(--border))" strokeDasharray="2 2" />
+            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14} background={{ fill: 'hsl(var(--muted)/0.3)' }}>
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
@@ -393,21 +406,25 @@ export default function MultiLocationDashboard() {
     );
   };
 
-  // Weekly/Monthly chart - no pacing
+  // Weekly/Monthly chart - no pacing, with reference lines
   const PeriodSalesChart = ({ sales, period }: { sales: LocationSalesData; period: 'weekly' | 'monthly' }) => {
     const data = sales[period];
     const chartData = [
       { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))', label: formatCurrency(data.actual) },
       { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrency(data.projected) }
     ];
+    const maxVal = Math.max(data.actual, data.projected, 1);
 
     return (
       <div className="h-[56px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
-            <XAxis type="number" hide />
+            <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
             <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
-            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14}>
+            <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
+            <ReferenceLine x={maxVal * 0.5} stroke="hsl(var(--border))" strokeDasharray="2 2" />
+            <ReferenceLine x={maxVal * 0.75} stroke="hsl(var(--border))" strokeDasharray="2 2" />
+            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14} background={{ fill: 'hsl(var(--muted)/0.3)' }}>
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
@@ -468,31 +485,11 @@ export default function MultiLocationDashboard() {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold">Multi-Location Overview</h1>
-            <p className="text-muted-foreground">
-              {format(new Date(), 'EEEE, MMMM d, yyyy')}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant={viewMode === 'cards' ? 'secondary' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('cards')}
-            >
-              <LayoutGrid className="h-4 w-4 mr-2" />
-              Cards
-            </Button>
-            <Button
-              variant={viewMode === 'table' ? 'secondary' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('table')}
-            >
-              <TableIcon className="h-4 w-4 mr-2" />
-              Table
-            </Button>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold">Multi-Location Overview</h1>
+          <p className="text-muted-foreground">
+            {format(new Date(), 'EEEE, MMMM d, yyyy')}
+          </p>
         </div>
 
         {/* Summary Cards */}
@@ -538,259 +535,149 @@ export default function MultiLocationDashboard() {
           </Card>
         </div>
 
-        {/* Card View - Horizontal Cards */}
-        {viewMode === 'cards' && (
-          <div className="space-y-4">
-            {locations.map((loc) => (
-              <Card 
-                key={loc.id} 
-                className="cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => navigate(`/location/${loc.id}`)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex flex-col lg:flex-row lg:items-start gap-4">
-                    {/* Location Header */}
-                    <div className="lg:w-48 flex-shrink-0">
-                      <div className="flex items-center justify-between lg:flex-col lg:items-start gap-2">
-                        <div>
-                          <h3 className="font-semibold text-lg">
-                            {formatLocationName(loc.name, loc.store_number)}
-                          </h3>
-                          {loc.organization_name && (
-                            <p className="text-xs text-muted-foreground">{loc.organization_name}</p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={loc.clockedInCount > 0 ? 'default' : 'secondary'} className="text-xs">
-                            {loc.clockedInCount > 0 ? 'Active' : 'Idle'}
-                          </Badge>
-                          <div className="flex items-center gap-1 text-sm">
-                            <Users className="h-3 w-3 text-muted-foreground" />
-                            <span>{loc.clockedInCount}/{loc.scheduledCount}</span>
-                          </div>
+        {/* Location Cards */}
+        <div className="space-y-4">
+          {locations.map((loc) => (
+            <Card 
+              key={loc.id} 
+              className="cursor-pointer hover:shadow-lg transition-shadow"
+              onClick={() => navigate(`/location/${loc.id}`)}
+            >
+              <CardContent className="p-4">
+                <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+                  {/* Location Header */}
+                  <div className="lg:w-48 flex-shrink-0">
+                    <div className="flex items-center justify-between lg:flex-col lg:items-start gap-2">
+                      <div>
+                        <h3 className="font-semibold text-lg">
+                          {formatLocationName(loc.name, loc.store_number)}
+                        </h3>
+                        {loc.organization_name && (
+                          <p className="text-xs text-muted-foreground">{loc.organization_name}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={loc.clockedInCount > 0 ? 'default' : 'secondary'} className="text-xs">
+                          {loc.clockedInCount > 0 ? 'Active' : 'Idle'}
+                        </Badge>
+                        <div className="flex items-center gap-1 text-sm">
+                          <Users className="h-3 w-3 text-muted-foreground" />
+                          <span>{loc.clockedInCount}/{loc.scheduledCount}</span>
                         </div>
                       </div>
-                      {loc.openShifts > 0 && (
-                        <div className="flex items-center gap-1 text-amber-600 text-xs mt-2">
-                          <AlertTriangle className="h-3 w-3" />
-                          <span>{loc.openShifts} open shift{loc.openShifts !== 1 ? 's' : ''}</span>
-                        </div>
-                      )}
                     </div>
-
-                    {/* Sales Section */}
-                    {loc.hasQuBeyond && (
-                      <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
-                        <Tabs defaultValue="daily" className="w-full">
-                          <TabsList className="h-7 mb-2">
-                            <TabsTrigger value="daily" className="text-xs px-3 h-6">Day</TabsTrigger>
-                            <TabsTrigger value="weekly" className="text-xs px-3 h-6">Week</TabsTrigger>
-                            <TabsTrigger value="monthly" className="text-xs px-3 h-6">Month</TabsTrigger>
-                          </TabsList>
-                          <TabsContent value="daily" className="mt-0">
-                            <DailySalesChart sales={loc.sales} />
-                          </TabsContent>
-                          <TabsContent value="weekly" className="mt-0">
-                            <PeriodSalesChart sales={loc.sales} period="weekly" />
-                          </TabsContent>
-                          <TabsContent value="monthly" className="mt-0">
-                            <PeriodSalesChart sales={loc.sales} period="monthly" />
-                          </TabsContent>
-                        </Tabs>
+                    {loc.openShifts > 0 && (
+                      <div className="flex items-center gap-1 text-amber-600 text-xs mt-2">
+                        <AlertTriangle className="h-3 w-3" />
+                        <span>{loc.openShifts} open shift{loc.openShifts !== 1 ? 's' : ''}</span>
                       </div>
                     )}
+                  </div>
 
-                    {!loc.hasQuBeyond && (
-                      <div className="flex-1 flex items-center justify-center py-4 text-sm text-muted-foreground border rounded-lg bg-muted/20">
-                        No sales integration
-                      </div>
-                    )}
+                  {/* Sales Section */}
+                  {loc.hasQuBeyond && (
+                    <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                      <Tabs defaultValue="daily" className="w-full">
+                        <TabsList className="h-7 mb-2">
+                          <TabsTrigger value="daily" className="text-xs px-3 h-6">Day</TabsTrigger>
+                          <TabsTrigger value="weekly" className="text-xs px-3 h-6">Week</TabsTrigger>
+                          <TabsTrigger value="monthly" className="text-xs px-3 h-6">Month</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="daily" className="mt-0">
+                          <DailySalesChart sales={loc.sales} />
+                        </TabsContent>
+                        <TabsContent value="weekly" className="mt-0">
+                          <PeriodSalesChart sales={loc.sales} period="weekly" />
+                        </TabsContent>
+                        <TabsContent value="monthly" className="mt-0">
+                          <PeriodSalesChart sales={loc.sales} period="monthly" />
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  )}
 
-                    {/* Checklists Section */}
-                    <div className="lg:w-64 flex-shrink-0 space-y-1.5">
+                  {!loc.hasQuBeyond && (
+                    <div className="flex-1 flex items-center justify-center py-4 text-sm text-muted-foreground border rounded-lg bg-muted/20">
+                      No sales integration
+                    </div>
+                  )}
+
+                  {/* Checklists Section */}
+                  <div className="lg:w-64 flex-shrink-0 space-y-1.5">
+                    <div className="flex items-center justify-between">
                       <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                         <ClipboardCheck className="h-3 w-3" />
                         Checklists
                       </p>
-                      {(loc.checklists?.length || 0) > 0 ? (
-                        <div className="space-y-1">
-                          {loc.checklists?.map((cl) => (
-                            <div key={cl.id} className="flex items-center gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between text-xs">
-                                  <span className="truncate">{cl.title}</span>
-                                  <span className={`font-medium ml-1 ${getCompletionColor(cl.percent)}`}>
-                                    {cl.completedCount}/{cl.totalCount} ({cl.percent.toFixed(0)}%)
-                                  </span>
-                                </div>
-                                <Progress value={cl.percent} className="h-1 mt-0.5" />
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">No checklists</p>
+                      {!loc.isOpen && loc.openTime && (
+                        <Badge variant="outline" className="text-xs text-amber-600 border-amber-300">
+                          Opens {loc.openTime}
+                        </Badge>
                       )}
                     </div>
-
-                    {/* Audit Section */}
-                    <div 
-                      className="lg:w-40 flex-shrink-0 cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigateToAudit(loc.id);
-                      }}
-                    >
-                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
-                        <FileText className="h-3 w-3" />
-                        Latest Audit
-                      </p>
-                      {loc.latestAudit ? (
-                        <div className="bg-muted/30 rounded-lg p-2 hover:bg-muted/50 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs text-muted-foreground">
-                              {format(new Date(loc.latestAudit.audit_date), 'MMM d, yyyy')}
-                            </span>
-                            {loc.latestAudit.visit_score && (
-                              <Badge variant="outline" className="font-bold text-xs">
-                                {loc.latestAudit.visit_score}
-                              </Badge>
-                            )}
-                          </div>
-                          {loc.latestAudit.manager_name && (
-                            <p className="text-xs text-muted-foreground mt-0.5">
-                              MOD: {loc.latestAudit.manager_name}
-                            </p>
-                          )}
-                          <div className="flex items-center justify-end mt-1">
-                            <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                          </div>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">No audits</p>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {/* Table View */}
-        {viewMode === 'table' && (
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Location</TableHead>
-                      <TableHead className="text-center">Status</TableHead>
-                      <TableHead className="text-right">Daily Sales</TableHead>
-                      <TableHead className="text-right">Weekly Sales</TableHead>
-                      <TableHead className="text-right">Monthly Sales</TableHead>
-                      <TableHead className="text-center">Checklists</TableHead>
-                      <TableHead className="text-center">Latest Audit</TableHead>
-                      <TableHead className="text-center">Staffing</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {locations.map((loc) => {
-                      const checklistPercent = (loc.checklists?.length || 0) > 0
-                        ? (loc.checklists?.filter(c => c.percent >= 100).length || 0) / loc.checklists.length * 100
-                        : 0;
-
-                      return (
-                        <TableRow 
-                          key={loc.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => navigate(`/location/${loc.id}`)}
-                        >
-                          <TableCell>
-                            <div>
-                              <p className="font-medium">{formatLocationName(loc.name, loc.store_number)}</p>
-                              {loc.organization_name && (
-                                <p className="text-xs text-muted-foreground">{loc.organization_name}</p>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant={loc.clockedInCount > 0 ? 'default' : 'secondary'}>
-                              {loc.clockedInCount > 0 ? 'Active' : 'Idle'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {loc.hasQuBeyond ? (
-                              <div className="flex items-center justify-end gap-1">
-                                {getSalesTrendIcon(loc.sales.daily.actual, loc.sales.daily.projected)}
-                                <span>{formatCurrency(loc.sales.daily.actual)}</span>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">--</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {loc.hasQuBeyond ? (
-                              <div className="flex items-center justify-end gap-1">
-                                {getSalesTrendIcon(loc.sales.weekly.actual, loc.sales.weekly.projected)}
-                                <span>{formatCurrency(loc.sales.weekly.actual)}</span>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">--</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {loc.hasQuBeyond ? (
-                              <div className="flex items-center justify-end gap-1">
-                                {getSalesTrendIcon(loc.sales.monthly.actual, loc.sales.monthly.projected)}
-                                <span>{formatCurrency(loc.sales.monthly.actual)}</span>
-                              </div>
-                            ) : (
-                              <span className="text-muted-foreground">--</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <span className={getCompletionColor(checklistPercent)}>
-                              {loc.checklists?.filter(c => c.percent >= 100).length || 0}/{loc.checklists?.length || 0}
-                            </span>
-                          </TableCell>
-                          <TableCell 
-                            className="text-center cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigateToAudit(loc.id);
-                            }}
-                          >
-                            {loc.latestAudit ? (
-                              <div className="flex flex-col items-center hover:text-primary">
-                                {loc.latestAudit.visit_score && (
-                                  <Badge variant="outline" className="font-bold text-xs">
-                                    {loc.latestAudit.visit_score}
-                                  </Badge>
-                                )}
-                                <span className="text-xs text-muted-foreground">
-                                  {format(new Date(loc.latestAudit.audit_date), 'M/d/yy')}
+                    {(loc.checklists?.length || 0) > 0 ? (
+                      <div className="space-y-1">
+                        {loc.checklists?.map((cl) => (
+                          <div key={cl.id} className="flex items-center gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="truncate">{cl.title}</span>
+                                <span className={`font-medium ml-1 ${getCompletionColor(cl.percent)}`}>
+                                  {cl.completedCount}/{cl.totalCount} ({cl.percent.toFixed(0)}%)
                                 </span>
                               </div>
-                            ) : (
-                              <span className="text-muted-foreground">--</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <span className={loc.openShifts > 0 ? 'text-amber-600' : ''}>
-                              {loc.clockedInCount}/{loc.scheduledCount}
-                            </span>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+                              <Progress value={cl.percent} className="h-1 mt-0.5" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No checklists</p>
+                    )}
+                  </div>
+
+                  {/* Audit Section */}
+                  <div 
+                    className="lg:w-40 flex-shrink-0 cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigateToAudit(loc.id);
+                    }}
+                  >
+                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
+                      <FileText className="h-3 w-3" />
+                      Latest Audit
+                    </p>
+                    {loc.latestAudit ? (
+                      <div className="bg-muted/30 rounded-lg p-2 hover:bg-muted/50 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {format(new Date(loc.latestAudit.audit_date), 'MMM d, yyyy')}
+                          </span>
+                          {loc.latestAudit.visit_score && (
+                            <Badge variant="outline" className="font-bold text-xs">
+                              {loc.latestAudit.visit_score}
+                            </Badge>
+                          )}
+                        </div>
+                        {loc.latestAudit.manager_name && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            MOD: {loc.latestAudit.manager_name}
+                          </p>
+                        )}
+                        <div className="flex items-center justify-end mt-1">
+                          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">No audits</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     </Layout>
   );
