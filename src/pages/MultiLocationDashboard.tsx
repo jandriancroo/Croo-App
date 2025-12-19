@@ -17,7 +17,8 @@ import {
   Building2,
   FileText,
   ChevronRight,
-  Search
+  Search,
+  DollarSign
 } from 'lucide-react';
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth, subYears } from 'date-fns';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, LabelList, ReferenceLine } from 'recharts';
@@ -37,6 +38,12 @@ interface LocationSalesData {
   monthly: { actual: number; projected: number; pacing: number; lastYear: number };
 }
 
+interface LaborData {
+  laborPercent: number;
+  laborCost: number;
+  hoursWorked: number;
+}
+
 interface AuditSummary {
   id: string;
   audit_date: string;
@@ -50,7 +57,9 @@ interface LocationMetrics {
   store_number: string | null;
   organization_name: string | null;
   sales: LocationSalesData | null; // null = loading
+  labor: LaborData | null; // null = not available or loading
   hasQuBeyond: boolean;
+  hasLaborIntegration: boolean;
   checklists: ChecklistMetric[] | null; // null = loading
   clockedInCount: number | null; // null = loading
   scheduledCount: number | null;
@@ -208,7 +217,7 @@ export default function MultiLocationDashboard() {
         hoursResult,
         scheduledResult
       ] = await Promise.all([
-        supabase.from('location_integrations').select('location_id, id').in('location_id', locationIds).eq('integration_type', 'qubeyond').eq('is_active', true),
+        supabase.from('location_integrations').select('location_id, id, credentials').in('location_id', locationIds).eq('integration_type', 'qubeyond').eq('is_active', true),
         supabase.from('time_punches').select('user_id, location_id').in('location_id', locationIds).eq('punch_type', 'clock_in').gte('punch_time', startOfToday).lte('punch_time', endOfToday),
         supabase.from('time_punches').select('user_id, location_id').in('location_id', locationIds).eq('punch_type', 'clock_out').gte('punch_time', startOfToday).lte('punch_time', endOfToday),
         supabase.from('checklists').select('id, title, frequency, location_id').in('location_id', locationIds).eq('is_active', true),
@@ -227,7 +236,14 @@ export default function MultiLocationDashboard() {
       ]);
 
       // Build lookup maps
-      const integrationsByLocation = new Set(integrationsResult.data?.map(i => i.location_id) || []);
+      const integrationsByLocation = new Map<string, { hasQuBeyond: boolean; hasLabor: boolean }>();
+      integrationsResult.data?.forEach(i => {
+        const credentials = i.credentials as { pull_labor?: boolean } | null;
+        integrationsByLocation.set(i.location_id, {
+          hasQuBeyond: true,
+          hasLabor: credentials?.pull_labor === true
+        });
+      });
       
       const clockedOutByLocation = new Map<string, Set<string>>();
       clockedOutResult.data?.forEach(p => {
@@ -284,7 +300,9 @@ export default function MultiLocationDashboard() {
 
       // Build initial location metrics (without sales - those load async)
       const initialMetrics: LocationMetrics[] = locationsData.map(loc => {
-        const hasQuBeyond = integrationsByLocation.has(loc.id);
+        const integration = integrationsByLocation.get(loc.id);
+        const hasQuBeyond = integration?.hasQuBeyond || false;
+        const hasLaborIntegration = integration?.hasLabor || false;
         const clockedInCount = clockedInByLocation.get(loc.id) || 0;
         const scheduledCount = scheduledByLocation.get(loc.id) || 0;
         
@@ -320,7 +338,9 @@ export default function MultiLocationDashboard() {
           store_number: loc.store_number,
           organization_name: (loc.organizations as any)?.name || null,
           sales: hasQuBeyond ? null : { daily: { actual: 0, projected: 0, pacing: 0, lastYear: 0 }, weekly: { actual: 0, projected: 0, pacing: 0, lastYear: 0 }, monthly: { actual: 0, projected: 0, pacing: 0, lastYear: 0 } },
+          labor: hasLaborIntegration ? null : null, // Will be loaded with sales
           hasQuBeyond,
+          hasLaborIntegration,
           checklists: checklistMetrics,
           clockedInCount,
           scheduledCount,
@@ -397,12 +417,19 @@ export default function MultiLocationDashboard() {
                   }
                 };
 
-                return { locationId: loc.id, sales: salesData };
+                // Extract labor data if available
+                const laborData: LaborData | null = salesResponse.labor ? {
+                  laborPercent: salesResponse.labor.laborPercent || 0,
+                  laborCost: salesResponse.labor.laborCost || 0,
+                  hoursWorked: salesResponse.labor.hoursWorked || 0
+                } : null;
+
+                return { locationId: loc.id, sales: salesData, labor: laborData };
               }
             } catch (error) {
               console.error(`Error fetching sales for ${loc.name}:`, error);
             }
-            return { locationId: loc.id, sales: null };
+            return { locationId: loc.id, sales: null, labor: null };
           });
 
           const salesResults = await Promise.all(salesPromises);
@@ -412,7 +439,11 @@ export default function MultiLocationDashboard() {
             const updated = prev.map(loc => {
               const salesResult = salesResults.find(r => r.locationId === loc.id);
               if (salesResult?.sales) {
-                return { ...loc, sales: salesResult.sales };
+                return { 
+                  ...loc, 
+                  sales: salesResult.sales,
+                  labor: salesResult.labor || loc.labor
+                };
               }
               return loc;
             });
@@ -768,22 +799,41 @@ export default function MultiLocationDashboard() {
                   {loc.hasQuBeyond && (
                     <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
                       {loc.sales ? (
-                        <Tabs defaultValue="daily" className="w-full">
-                          <TabsList className="h-7 mb-2">
-                            <TabsTrigger value="daily" className="text-xs px-3 h-6">Day</TabsTrigger>
-                            <TabsTrigger value="weekly" className="text-xs px-3 h-6">Week</TabsTrigger>
-                            <TabsTrigger value="monthly" className="text-xs px-3 h-6">Month</TabsTrigger>
-                          </TabsList>
-                          <TabsContent value="daily" className="mt-0">
-                            <DailySalesChart sales={loc.sales} />
-                          </TabsContent>
-                          <TabsContent value="weekly" className="mt-0">
-                            <PeriodSalesChart sales={loc.sales} period="weekly" />
-                          </TabsContent>
-                          <TabsContent value="monthly" className="mt-0">
-                            <PeriodSalesChart sales={loc.sales} period="monthly" />
-                          </TabsContent>
-                        </Tabs>
+                        <div>
+                          <div className="flex items-center gap-3 mb-2">
+                            <Tabs defaultValue="daily" className="w-full">
+                              <div className="flex items-center justify-between">
+                                <TabsList className="h-7">
+                                  <TabsTrigger value="daily" className="text-xs px-3 h-6">Day</TabsTrigger>
+                                  <TabsTrigger value="weekly" className="text-xs px-3 h-6">Week</TabsTrigger>
+                                  <TabsTrigger value="monthly" className="text-xs px-3 h-6">Month</TabsTrigger>
+                                </TabsList>
+                                {/* Labor Indicator */}
+                                {loc.hasLaborIntegration && loc.labor && loc.labor.laborPercent > 0 && (
+                                  <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ${
+                                    loc.labor.laborPercent <= 25 
+                                      ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-400' 
+                                      : loc.labor.laborPercent <= 30 
+                                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
+                                        : 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400'
+                                  }`}>
+                                    <DollarSign className="h-3 w-3" />
+                                    <span>Labor: {loc.labor.laborPercent.toFixed(1)}%</span>
+                                  </div>
+                                )}
+                              </div>
+                              <TabsContent value="daily" className="mt-2">
+                                <DailySalesChart sales={loc.sales} />
+                              </TabsContent>
+                              <TabsContent value="weekly" className="mt-2">
+                                <PeriodSalesChart sales={loc.sales} period="weekly" />
+                              </TabsContent>
+                              <TabsContent value="monthly" className="mt-2">
+                                <PeriodSalesChart sales={loc.sales} period="monthly" />
+                              </TabsContent>
+                            </Tabs>
+                          </div>
+                        </div>
                       ) : (
                         <SalesLoadingSkeleton />
                       )}
