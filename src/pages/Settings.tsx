@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical, ArrowUpDown, Building2 } from 'lucide-react';
+import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical, ArrowUpDown, Building2, Tag } from 'lucide-react';
 
 import { UnifiedNotificationSettings } from '@/components/settings/UnifiedNotificationSettings';
 import { toast as sonnerToast } from 'sonner';
@@ -29,7 +29,7 @@ const themes = [
   { value: 'blaze', label: 'Blaze Pizza' },
 ];
 
-const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'organizations', 'roles', 'maintenance'];
+const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'brands', 'organizations', 'roles', 'maintenance'];
 const STORAGE_KEY = 'settings-section-order';
 
 interface SortableSectionProps {
@@ -67,7 +67,7 @@ export default function Settings() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, isSuperAdmin } = useUserRole();
   const { isChecklistOnlyLocation } = useAppLocation();
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [locations, setLocations] = useState<any[]>([]);
@@ -184,6 +184,32 @@ export default function Settings() {
 
       case 'notifications':
         return <UnifiedNotificationSettings />;
+
+      case 'brands':
+        if (!isSuperAdmin) return null;
+        return (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Tag className="h-4 w-4" />
+                  <CardTitle className="text-base">Brands</CardTitle>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/brands')}
+                >
+                  <Tag className="h-3 w-3 mr-1" />
+                  Manage
+                </Button>
+              </div>
+              <CardDescription className="text-xs">
+                Create and manage franchise brands
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        );
 
       case 'organizations':
         if (!isAdmin) return null;
