@@ -52,13 +52,17 @@ const handler = async (req: Request): Promise<Response> => {
                   <!-- Header with Logo -->
                   <tr>
                     <td style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d5a65 100%); padding: 40px 40px 30px; text-align: center;">
-                      <img 
-                        src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/public-assets/croo-logo-white.png" 
-                        alt="Croo" 
-                        style="height: 50px; width: auto;"
-                        onerror="this.style.display='none'"
-                      />
-                      <h1 style="color: #ffffff; font-size: 28px; font-weight: 600; margin: 20px 0 0; letter-spacing: -0.5px;">
+                      <table role="presentation" style="margin: 0 auto;">
+                        <tr>
+                          <td style="background-color: ${accentColor}; width: 48px; height: 48px; border-radius: 12px; text-align: center; vertical-align: middle;">
+                            <span style="color: #ffffff; font-size: 24px; font-weight: 700; font-family: 'Lexend', -apple-system, sans-serif;">C</span>
+                          </td>
+                          <td style="padding-left: 12px;">
+                            <span style="color: #ffffff; font-size: 32px; font-weight: 700; font-family: 'Lexend', -apple-system, sans-serif; letter-spacing: -1px;">croo</span>
+                          </td>
+                        </tr>
+                      </table>
+                      <h1 style="color: #ffffff; font-size: 28px; font-weight: 600; margin: 24px 0 0; letter-spacing: -0.5px;">
                         Welcome to Croo!
                       </h1>
                     </td>
