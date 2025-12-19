@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,8 +19,9 @@ import {
   ChevronRight,
   Search
 } from 'lucide-react';
-import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth, parse, isAfter, subYears } from 'date-fns';
+import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth, subYears } from 'date-fns';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, LabelList, ReferenceLine } from 'recharts';
+import { getCachedLiveSales, setCachedLiveSales } from '@/utils/salesCache';
 
 interface ChecklistMetric {
   id: string;
@@ -48,15 +49,52 @@ interface LocationMetrics {
   name: string;
   store_number: string | null;
   organization_name: string | null;
-  sales: LocationSalesData;
+  sales: LocationSalesData | null; // null = loading
   hasQuBeyond: boolean;
-  checklists: ChecklistMetric[];
-  clockedInCount: number;
-  scheduledCount: number;
-  openShifts: number;
+  checklists: ChecklistMetric[] | null; // null = loading
+  clockedInCount: number | null; // null = loading
+  scheduledCount: number | null;
+  openShifts: number | null;
   latestAudit: AuditSummary | null;
   openTime: string | null;
   isOpen: boolean;
+}
+
+// Cache key for localStorage
+const MULTI_LOC_CACHE_KEY = 'multi_loc_dashboard_cache';
+const CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+interface CachedDashboard {
+  timestamp: number;
+  data: LocationMetrics[];
+}
+
+function getCachedDashboard(): LocationMetrics[] | null {
+  try {
+    const cached = localStorage.getItem(MULTI_LOC_CACHE_KEY);
+    if (!cached) return null;
+    const parsed: CachedDashboard = JSON.parse(cached);
+    const age = Date.now() - parsed.timestamp;
+    // Return cached data even if stale (stale-while-revalidate)
+    if (age < CACHE_TTL_MS * 5) { // Keep for 10 minutes max
+      return parsed.data;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function setCachedDashboard(data: LocationMetrics[]): void {
+  try {
+    const cacheEntry: CachedDashboard = {
+      timestamp: Date.now(),
+      data
+    };
+    localStorage.setItem(MULTI_LOC_CACHE_KEY, JSON.stringify(cacheEntry));
+  } catch {
+    // Ignore
+  }
 }
 
 export default function MultiLocationDashboard() {
@@ -68,6 +106,16 @@ export default function MultiLocationDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [defaultLocationId, setDefaultLocationId] = useState<string | null>(null);
 
+  // Show cached data immediately while fetching fresh data
+  useEffect(() => {
+    const cached = getCachedDashboard();
+    if (cached && cached.length > 0) {
+      setLocations(cached);
+      setHasAccess(true);
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     checkAccessAndFetchData();
   }, [user?.id]);
@@ -76,30 +124,22 @@ export default function MultiLocationDashboard() {
     if (!user?.id) return;
 
     try {
-      // Fetch user's default location
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('default_location_id')
-        .eq('id', user.id)
-        .single();
-      
+      // Parallel fetch for initial access check
+      const [profileResult, isSuperAdminResult, orgMembershipsResult, brandMembershipsResult] = await Promise.all([
+        supabase.from('profiles').select('default_location_id').eq('id', user.id).single(),
+        supabase.rpc('is_super_admin', { _user_id: user.id }),
+        supabase.from('organization_members').select('organization_id, org_role').eq('user_id', user.id).eq('org_role', 'admin'),
+        supabase.from('brand_members').select('brand_id, brand_role').eq('user_id', user.id).eq('brand_role', 'admin')
+      ]);
+
+      const profile = profileResult.data;
+      const isSuperAdmin = isSuperAdminResult.data;
+      const orgMemberships = orgMembershipsResult.data;
+      const brandMemberships = brandMembershipsResult.data;
+
       if (profile?.default_location_id) {
         setDefaultLocationId(profile.default_location_id);
       }
-
-      const { data: isSuperAdmin } = await supabase.rpc('is_super_admin', { _user_id: user.id });
-      
-      const { data: orgMemberships } = await supabase
-        .from('organization_members')
-        .select('organization_id, org_role')
-        .eq('user_id', user.id)
-        .eq('org_role', 'admin');
-
-      const { data: brandMemberships } = await supabase
-        .from('brand_members')
-        .select('brand_id, brand_role')
-        .eq('user_id', user.id)
-        .eq('brand_role', 'admin');
 
       const hasMultiAccess = isSuperAdmin || 
         (orgMemberships && orgMemberships.length > 0) || 
@@ -112,6 +152,22 @@ export default function MultiLocationDashboard() {
         return;
       }
 
+      // Get org IDs including from brand memberships
+      let orgIds = orgMemberships?.map(m => m.organization_id) || [];
+      
+      if (brandMemberships && brandMemberships.length > 0) {
+        const brandIds = brandMemberships.map(b => b.brand_id);
+        const { data: brandOrgs } = await supabase
+          .from('organizations')
+          .select('id')
+          .in('brand_id', brandIds);
+        
+        if (brandOrgs) {
+          orgIds.push(...brandOrgs.map(o => o.id));
+        }
+      }
+
+      // Build locations query
       let locationsQuery = supabase
         .from('locations')
         .select(`
@@ -124,24 +180,8 @@ export default function MultiLocationDashboard() {
         .neq('location_type', 'checklist_only')
         .order('name');
 
-      if (!isSuperAdmin) {
-        const orgIds = orgMemberships?.map(m => m.organization_id) || [];
-        
-        if (brandMemberships && brandMemberships.length > 0) {
-          const brandIds = brandMemberships.map(b => b.brand_id);
-          const { data: brandOrgs } = await supabase
-            .from('organizations')
-            .select('id')
-            .in('brand_id', brandIds);
-          
-          if (brandOrgs) {
-            orgIds.push(...brandOrgs.map(o => o.id));
-          }
-        }
-
-        if (orgIds.length > 0) {
-          locationsQuery = locationsQuery.in('organization_id', orgIds);
-        }
+      if (!isSuperAdmin && orgIds.length > 0) {
+        locationsQuery = locationsQuery.in('organization_id', orgIds);
       }
 
       const { data: locationsData } = await locationsQuery;
@@ -151,47 +191,192 @@ export default function MultiLocationDashboard() {
         return;
       }
 
-      const locationMetrics = await Promise.all(
-        locationsData.map(async (loc) => {
-          const today = new Date();
-          const todayStr = format(today, 'yyyy-MM-dd');
-          const startOfToday = startOfDay(today).toISOString();
-          const endOfToday = endOfDay(today).toISOString();
-          const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-          const monthStart = startOfMonth(today);
+      const locationIds = locationsData.map(l => l.id);
+      const today = new Date();
+      const todayStr = format(today, 'yyyy-MM-dd');
+      const startOfToday = startOfDay(today).toISOString();
+      const endOfToday = endOfDay(today).toISOString();
+      const dayOfWeek = today.getDay();
 
-          const { data: integration } = await supabase
-            .from('location_integrations')
-            .select('id')
-            .eq('location_id', loc.id)
-            .eq('integration_type', 'qubeyond')
-            .eq('is_active', true)
-            .single();
+      // Batch fetch all static data in parallel
+      const [
+        integrationsResult,
+        clockedInResult,
+        clockedOutResult,
+        checklistsResult,
+        auditsResult,
+        hoursResult,
+        scheduledResult
+      ] = await Promise.all([
+        supabase.from('location_integrations').select('location_id, id').in('location_id', locationIds).eq('integration_type', 'qubeyond').eq('is_active', true),
+        supabase.from('time_punches').select('user_id, location_id').in('location_id', locationIds).eq('punch_type', 'clock_in').gte('punch_time', startOfToday).lte('punch_time', endOfToday),
+        supabase.from('time_punches').select('user_id, location_id').in('location_id', locationIds).eq('punch_type', 'clock_out').gte('punch_time', startOfToday).lte('punch_time', endOfToday),
+        supabase.from('checklists').select('id, title, frequency, location_id').in('location_id', locationIds).eq('is_active', true),
+        supabase.from('food_safety_audits').select('id, audit_date, visit_score, manager_name, location_id').in('location_id', locationIds).order('audit_date', { ascending: false }),
+        supabase.from('location_hours').select('location_id, open_time, is_closed').in('location_id', locationIds).eq('day_of_week', dayOfWeek),
+        (supabase.from('scheduled_shifts' as any).select('id, location_id').in('location_id', locationIds).eq('shift_date', todayStr) as any)
+      ]);
 
-          const hasQuBeyond = !!integration;
+      // Get checklist items and submissions for all locations
+      const checklistIds = checklistsResult.data?.map(c => c.id) || [];
+      const [checklistItemsResult, submissionsResult] = await Promise.all([
+        checklistIds.length > 0 
+          ? supabase.from('checklist_items').select('id, checklist_id').in('checklist_id', checklistIds)
+          : Promise.resolve({ data: [] }),
+        supabase.from('checklist_submissions').select('id, checklist_id, location_id, checklist_responses(id)').in('location_id', locationIds).gte('submitted_at', startOfToday).lte('submitted_at', endOfToday)
+      ]);
 
-          let salesData: LocationSalesData = {
-            daily: { actual: 0, projected: 0, pacing: 0, lastYear: 0 },
-            weekly: { actual: 0, projected: 0, pacing: 0, lastYear: 0 },
-            monthly: { actual: 0, projected: 0, pacing: 0, lastYear: 0 }
-          };
+      // Build lookup maps
+      const integrationsByLocation = new Set(integrationsResult.data?.map(i => i.location_id) || []);
+      
+      const clockedOutByLocation = new Map<string, Set<string>>();
+      clockedOutResult.data?.forEach(p => {
+        if (!clockedOutByLocation.has(p.location_id)) {
+          clockedOutByLocation.set(p.location_id, new Set());
+        }
+        clockedOutByLocation.get(p.location_id)!.add(p.user_id);
+      });
 
-          if (hasQuBeyond) {
+      const clockedInByLocation = new Map<string, number>();
+      clockedInResult.data?.forEach(p => {
+        const outSet = clockedOutByLocation.get(p.location_id);
+        if (!outSet?.has(p.user_id)) {
+          clockedInByLocation.set(p.location_id, (clockedInByLocation.get(p.location_id) || 0) + 1);
+        }
+      });
+
+      const scheduledByLocation = new Map<string, number>();
+      scheduledResult.data?.forEach(s => {
+        scheduledByLocation.set(s.location_id, (scheduledByLocation.get(s.location_id) || 0) + 1);
+      });
+
+      const itemCountByChecklist = new Map<string, number>();
+      checklistItemsResult.data?.forEach(item => {
+        itemCountByChecklist.set(item.checklist_id, (itemCountByChecklist.get(item.checklist_id) || 0) + 1);
+      });
+
+      const submissionByLocationChecklist = new Map<string, Map<string, { completed: number; total: number }>>();
+      submissionsResult.data?.forEach(sub => {
+        if (!submissionByLocationChecklist.has(sub.location_id)) {
+          submissionByLocationChecklist.set(sub.location_id, new Map());
+        }
+        const responseCount = (sub.checklist_responses as any[])?.length || 0;
+        const totalItems = itemCountByChecklist.get(sub.checklist_id) || 0;
+        submissionByLocationChecklist.get(sub.location_id)!.set(sub.checklist_id, { completed: responseCount, total: totalItems });
+      });
+
+      const auditsByLocation = new Map<string, AuditSummary>();
+      auditsResult.data?.forEach(audit => {
+        if (!auditsByLocation.has(audit.location_id)) {
+          auditsByLocation.set(audit.location_id, {
+            id: audit.id,
+            audit_date: audit.audit_date,
+            visit_score: audit.visit_score,
+            manager_name: audit.manager_name
+          });
+        }
+      });
+
+      const hoursByLocation = new Map<string, { open_time: string | null; is_closed: boolean }>();
+      hoursResult.data?.forEach(h => {
+        hoursByLocation.set(h.location_id, { open_time: h.open_time, is_closed: h.is_closed });
+      });
+
+      // Build initial location metrics (without sales - those load async)
+      const initialMetrics: LocationMetrics[] = locationsData.map(loc => {
+        const hasQuBeyond = integrationsByLocation.has(loc.id);
+        const clockedInCount = clockedInByLocation.get(loc.id) || 0;
+        const scheduledCount = scheduledByLocation.get(loc.id) || 0;
+        
+        const locationChecklists = checklistsResult.data?.filter(c => c.location_id === loc.id) || [];
+        const locationSubmissions = submissionByLocationChecklist.get(loc.id);
+        
+        const checklistMetrics: ChecklistMetric[] = locationChecklists.map(cl => {
+          const submission = locationSubmissions?.get(cl.id);
+          const totalCount = itemCountByChecklist.get(cl.id) || 0;
+          const completedCount = submission?.completed || 0;
+          const percent = totalCount > 0 ? Math.min(100, (completedCount / totalCount) * 100) : 0;
+          
+          return { id: cl.id, title: cl.title, completedCount, totalCount, percent };
+        });
+
+        const hours = hoursByLocation.get(loc.id);
+        let openTime: string | null = null;
+        let isOpen = true;
+        
+        if (hours && !hours.is_closed && hours.open_time) {
+          const [h, m] = hours.open_time.split(':').map(Number);
+          const openDateTime = new Date(today);
+          openDateTime.setHours(h, m, 0, 0);
+          isOpen = today >= openDateTime;
+          if (!isOpen) {
+            openTime = format(openDateTime, 'h:mm a');
+          }
+        }
+
+        return {
+          id: loc.id,
+          name: loc.name,
+          store_number: loc.store_number,
+          organization_name: (loc.organizations as any)?.name || null,
+          sales: hasQuBeyond ? null : { daily: { actual: 0, projected: 0, pacing: 0, lastYear: 0 }, weekly: { actual: 0, projected: 0, pacing: 0, lastYear: 0 }, monthly: { actual: 0, projected: 0, pacing: 0, lastYear: 0 } },
+          hasQuBeyond,
+          checklists: checklistMetrics,
+          clockedInCount,
+          scheduledCount,
+          openShifts: Math.max(0, scheduledCount - clockedInCount),
+          latestAudit: auditsByLocation.get(loc.id) || null,
+          openTime,
+          isOpen,
+        };
+      });
+
+      // Set initial data immediately (fast first paint)
+      setLocations(initialMetrics);
+      setLoading(false);
+
+      // Fetch sales data in parallel for locations with QuBeyond
+      const locationsWithQuBeyond = initialMetrics.filter(l => l.hasQuBeyond);
+      
+      if (locationsWithQuBeyond.length > 0) {
+        const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+        const monthStart = startOfMonth(today);
+        
+        // Fetch all sales in parallel (batch of 5 at a time to avoid overwhelming)
+        const batchSize = 5;
+        const batches: LocationMetrics[][] = [];
+        for (let i = 0; i < locationsWithQuBeyond.length; i += batchSize) {
+          batches.push(locationsWithQuBeyond.slice(i, i + batchSize));
+        }
+
+        for (const batch of batches) {
+          const salesPromises = batch.map(async (loc) => {
             try {
-              // Fetch current year sales
-              const { data: salesResponse } = await supabase.functions.invoke('fetch-qubeyond-sales', {
-                body: { locationId: loc.id, targetDate: todayStr }
-              });
+              // Check cache first
+              const cached = getCachedLiveSales(loc.id);
+              let salesResponse = cached?.data;
+              let lastYearResponse: any = null;
 
-              // Fetch last year sales
-              const lastYearDate = subYears(today, 1);
-              const lastYearStr = format(lastYearDate, 'yyyy-MM-dd');
-              const { data: lastYearResponse } = await supabase.functions.invoke('fetch-qubeyond-sales', {
-                body: { locationId: loc.id, targetDate: lastYearStr }
-              });
+              if (!cached || cached.isStale) {
+                // Fetch current and last year in parallel
+                const lastYearDate = subYears(today, 1);
+                const lastYearStr = format(lastYearDate, 'yyyy-MM-dd');
+                
+                const [currentResult, lyResult] = await Promise.all([
+                  supabase.functions.invoke('fetch-qubeyond-sales', { body: { locationId: loc.id, targetDate: todayStr } }),
+                  supabase.functions.invoke('fetch-qubeyond-sales', { body: { locationId: loc.id, targetDate: lastYearStr } })
+                ]);
+
+                salesResponse = currentResult.data;
+                lastYearResponse = lyResult.data;
+
+                if (salesResponse) {
+                  setCachedLiveSales(loc.id, salesResponse);
+                }
+              }
 
               if (salesResponse) {
-                salesData = {
+                const salesData: LocationSalesData = {
                   daily: {
                     actual: salesResponse.daily || 0,
                     projected: salesResponse.projections?.todayProjected || 0,
@@ -211,151 +396,36 @@ export default function MultiLocationDashboard() {
                     lastYear: lastYearResponse?.monthly || 0
                   }
                 };
+
+                return { locationId: loc.id, sales: salesData };
               }
             } catch (error) {
               console.error(`Error fetching sales for ${loc.name}:`, error);
             }
-          }
-
-          const { data: clockedIn } = await supabase
-            .from('time_punches')
-            .select('user_id')
-            .eq('location_id', loc.id)
-            .eq('punch_type', 'clock_in')
-            .gte('punch_time', startOfToday)
-            .lte('punch_time', endOfToday);
-
-          const { data: clockedOut } = await supabase
-            .from('time_punches')
-            .select('user_id')
-            .eq('location_id', loc.id)
-            .eq('punch_type', 'clock_out')
-            .gte('punch_time', startOfToday)
-            .lte('punch_time', endOfToday);
-
-          const clockedOutIds = new Set(clockedOut?.map(p => p.user_id) || []);
-          const currentlyClockedIn = clockedIn?.filter(p => !clockedOutIds.has(p.user_id)) || [];
-
-          let scheduledCount = 0;
-          try {
-            const result = await (supabase.from('scheduled_shifts' as any).select('id').eq('location_id', loc.id).eq('shift_date', todayStr) as any);
-            scheduledCount = result.data?.length || 0;
-          } catch (e) {}
-
-          // Get checklists with their items count - include all active checklists
-          const { data: checklists } = await supabase
-            .from('checklists')
-            .select('id, title, frequency')
-            .eq('location_id', loc.id)
-            .eq('is_active', true);
-
-          // Get today's submissions with response counts
-          const { data: submissions } = await supabase
-            .from('checklist_submissions')
-            .select(`
-              id, 
-              checklist_id,
-              checklist_responses(id)
-            `)
-            .eq('location_id', loc.id)
-            .gte('submitted_at', startOfToday)
-            .lte('submitted_at', endOfToday);
-
-          // Get checklist items counts
-          const checklistIds = checklists?.map(c => c.id) || [];
-          const { data: checklistItems } = await supabase
-            .from('checklist_items')
-            .select('id, checklist_id')
-            .in('checklist_id', checklistIds);
-
-          const itemCountByChecklist = new Map<string, number>();
-          checklistItems?.forEach(item => {
-            const count = itemCountByChecklist.get(item.checklist_id) || 0;
-            itemCountByChecklist.set(item.checklist_id, count + 1);
+            return { locationId: loc.id, sales: null };
           });
 
-          const submissionByChecklist = new Map<string, { completed: number; total: number }>();
-          submissions?.forEach(sub => {
-            const responseCount = (sub.checklist_responses as any[])?.length || 0;
-            const totalItems = itemCountByChecklist.get(sub.checklist_id) || 0;
-            submissionByChecklist.set(sub.checklist_id, { completed: responseCount, total: totalItems });
+          const salesResults = await Promise.all(salesPromises);
+
+          // Update locations with sales data progressively
+          setLocations(prev => {
+            const updated = prev.map(loc => {
+              const salesResult = salesResults.find(r => r.locationId === loc.id);
+              if (salesResult?.sales) {
+                return { ...loc, sales: salesResult.sales };
+              }
+              return loc;
+            });
+            // Cache the updated data
+            setCachedDashboard(updated);
+            return updated;
           });
-
-          const checklistMetrics: ChecklistMetric[] = (checklists || []).map(cl => {
-            const submission = submissionByChecklist.get(cl.id);
-            const totalCount = itemCountByChecklist.get(cl.id) || 0;
-            const completedCount = submission?.completed || 0;
-            const percent = totalCount > 0 ? Math.min(100, (completedCount / totalCount) * 100) : 0;
-            
-            return {
-              id: cl.id,
-              title: cl.title,
-              completedCount,
-              totalCount,
-              percent
-            };
-          });
-
-          const { data: auditData } = await supabase
-            .from('food_safety_audits')
-            .select('id, audit_date, visit_score, manager_name')
-            .eq('location_id', loc.id)
-            .order('audit_date', { ascending: false })
-            .limit(1)
-            .single();
-
-          let latestAudit: AuditSummary | null = null;
-          if (auditData) {
-            latestAudit = {
-              id: auditData.id,
-              audit_date: auditData.audit_date,
-              visit_score: auditData.visit_score,
-              manager_name: auditData.manager_name
-            };
-          }
-
-          // Get location hours for today
-          const dayOfWeek = today.getDay();
-          const { data: hoursData } = await supabase
-            .from('location_hours')
-            .select('open_time, is_closed')
-            .eq('location_id', loc.id)
-            .eq('day_of_week', dayOfWeek)
-            .single();
-
-          let openTime: string | null = null;
-          let isOpen = true;
-          
-          if (hoursData && !hoursData.is_closed && hoursData.open_time) {
-            const openDateTime = parse(hoursData.open_time, 'HH:mm:ss', today);
-            isOpen = isAfter(today, openDateTime);
-            if (!isOpen) {
-              openTime = format(openDateTime, 'h:mm a');
-            }
-          }
-
-          return {
-            id: loc.id,
-            name: loc.name,
-            store_number: loc.store_number,
-            organization_name: (loc.organizations as any)?.name || null,
-            sales: salesData,
-            hasQuBeyond,
-            checklists: checklistMetrics,
-            clockedInCount: currentlyClockedIn.length,
-            scheduledCount,
-            openShifts: Math.max(0, scheduledCount - currentlyClockedIn.length),
-            latestAudit,
-            openTime,
-            isOpen,
-          };
-        })
-      );
-
-      setLocations(locationMetrics);
+        }
+      } else {
+        setCachedDashboard(initialMetrics);
+      }
     } catch (error) {
       console.error('Error fetching multi-location data:', error);
-    } finally {
       setLoading(false);
     }
   };
@@ -486,16 +556,23 @@ export default function MultiLocationDashboard() {
     );
   };
 
-  const navigateToAudit = (locationId: string) => {
-    navigate(`/location/${locationId}#audits`);
-  };
+  // Loading skeleton for sales section
+  const SalesLoadingSkeleton = () => (
+    <div className="space-y-2">
+      <Skeleton className="h-4 w-24" />
+      <Skeleton className="h-[80px] w-full" />
+    </div>
+  );
 
   const navigateToChecklist = (locationId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    navigate(`/tasks`);
+    navigate(`/tasks?location=${locationId}`);
   };
 
-  // Sort and filter locations
+  const navigateToAudit = (locationId: string) => {
+    navigate(`/settings?location=${locationId}&tab=audits`);
+  };
+
   const sortedAndFilteredLocations = useMemo(() => {
     // Filter by search
     let filtered = locations;
@@ -531,7 +608,7 @@ export default function MultiLocationDashboard() {
     { clockedIn: 0, scheduled: 0, checklistsCompleted: 0, totalChecklists: 0 }
   );
 
-  if (loading) {
+  if (loading && locations.length === 0) {
     return (
       <Layout>
         <div className="space-y-6">
@@ -651,7 +728,7 @@ export default function MultiLocationDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {loc.hasQuBeyond && loc.sales.daily.projected > 0 && loc.sales.daily.actual > 0 ? (
+                        {loc.hasQuBeyond && loc.sales && loc.sales.daily.projected > 0 && loc.sales.daily.actual > 0 ? (
                           <Badge 
                             variant="outline" 
                             className={`text-xs ${
@@ -675,11 +752,11 @@ export default function MultiLocationDashboard() {
                         ) : null}
                         <div className="flex items-center gap-1 text-sm">
                           <Users className="h-3 w-3 text-muted-foreground" />
-                          <span>{loc.clockedInCount}/{loc.scheduledCount}</span>
+                          <span>{loc.clockedInCount ?? '-'}/{loc.scheduledCount ?? '-'}</span>
                         </div>
                       </div>
                     </div>
-                    {loc.openShifts > 0 && (
+                    {(loc.openShifts ?? 0) > 0 && (
                       <div className="flex items-center gap-1 text-amber-600 text-xs mt-2">
                         <AlertTriangle className="h-3 w-3" />
                         <span>{loc.openShifts} open shift{loc.openShifts !== 1 ? 's' : ''}</span>
@@ -690,22 +767,26 @@ export default function MultiLocationDashboard() {
                   {/* Sales Section */}
                   {loc.hasQuBeyond && (
                     <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
-                      <Tabs defaultValue="daily" className="w-full">
-                        <TabsList className="h-7 mb-2">
-                          <TabsTrigger value="daily" className="text-xs px-3 h-6">Day</TabsTrigger>
-                          <TabsTrigger value="weekly" className="text-xs px-3 h-6">Week</TabsTrigger>
-                          <TabsTrigger value="monthly" className="text-xs px-3 h-6">Month</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="daily" className="mt-0">
-                          <DailySalesChart sales={loc.sales} />
-                        </TabsContent>
-                        <TabsContent value="weekly" className="mt-0">
-                          <PeriodSalesChart sales={loc.sales} period="weekly" />
-                        </TabsContent>
-                        <TabsContent value="monthly" className="mt-0">
-                          <PeriodSalesChart sales={loc.sales} period="monthly" />
-                        </TabsContent>
-                      </Tabs>
+                      {loc.sales ? (
+                        <Tabs defaultValue="daily" className="w-full">
+                          <TabsList className="h-7 mb-2">
+                            <TabsTrigger value="daily" className="text-xs px-3 h-6">Day</TabsTrigger>
+                            <TabsTrigger value="weekly" className="text-xs px-3 h-6">Week</TabsTrigger>
+                            <TabsTrigger value="monthly" className="text-xs px-3 h-6">Month</TabsTrigger>
+                          </TabsList>
+                          <TabsContent value="daily" className="mt-0">
+                            <DailySalesChart sales={loc.sales} />
+                          </TabsContent>
+                          <TabsContent value="weekly" className="mt-0">
+                            <PeriodSalesChart sales={loc.sales} period="weekly" />
+                          </TabsContent>
+                          <TabsContent value="monthly" className="mt-0">
+                            <PeriodSalesChart sales={loc.sales} period="monthly" />
+                          </TabsContent>
+                        </Tabs>
+                      ) : (
+                        <SalesLoadingSkeleton />
+                      )}
                     </div>
                   )}
 
