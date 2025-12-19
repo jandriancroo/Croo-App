@@ -104,6 +104,13 @@ export default function Auth() {
       const { error } = await signUp(email, password, fullName);
 
       if (error) {
+        // Check if user already exists (was invited by admin)
+        if (error.message?.includes('already registered') || error.message?.includes('already exists')) {
+          toast.error('This email is already registered. If you were invited, please use the link sent to your email or try signing in.');
+          setActiveTab('signin');
+          setLoading(false);
+          return;
+        }
         toast.error(error.message);
         return;
       }
