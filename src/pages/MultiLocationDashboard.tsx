@@ -780,7 +780,7 @@ export default function MultiLocationDashboard() {
                               {isAhead ? 'Ahead of Goal' : isOnPace ? 'On Pace' : 'Behind Pace'}
                             </Badge>
                           );
-                        })() : !loc.isOpen && loc.openTime ? (
+                        })() : (loc.hasQuBeyond && loc.sales && loc.sales.daily.actual === 0 && loc.openTime) || (!loc.isOpen && loc.openTime) ? (
                           <Badge variant="secondary" className="text-xs">
                             Opens {loc.openTime}
                           </Badge>
