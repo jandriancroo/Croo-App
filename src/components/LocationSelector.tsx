@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useLocation } from "@/hooks/useLocation";
 import { MapPin } from "lucide-react";
 import { LocationPickerDialog } from "./LocationPickerDialog";
+import { formatLocationName } from "@/utils/locationUtils";
 
 export const LocationSelector = () => {
   const { currentLocation, setCurrentLocation } = useLocation();
@@ -20,7 +21,7 @@ export const LocationSelector = () => {
         onClick={() => setDialogOpen(true)}
       >
         <MapPin className="h-4 w-4" />
-        <span className="hidden sm:inline">{currentLocation.name}</span>
+        <span className="hidden sm:inline">{formatLocationName(currentLocation.name, currentLocation.store_number)}</span>
       </Button>
 
       <LocationPickerDialog
@@ -32,6 +33,7 @@ export const LocationSelector = () => {
             id: loc.id,
             name: loc.name,
             location_type: loc.location_type,
+            store_number: loc.store_number,
           });
         }}
       />
