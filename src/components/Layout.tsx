@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw, BarChart3 } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw, BarChart3, Building2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -48,6 +48,7 @@ export const Layout = ({
   const canAccessLogs = isAdmin || isManager;
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [hasFBCAccess, setHasFBCAccess] = useState(false);
+  const [hasMultiLocationAccess, setHasMultiLocationAccess] = useState(false);
   const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
 
@@ -91,12 +92,13 @@ export const Layout = ({
     }
   };
 
-  // Check if user is super_admin or has FBC/brand_admin access
+  // Check if user is super_admin or has FBC/brand_admin/multi-location access
   useEffect(() => {
     const checkRoles = async () => {
       if (!user?.id) {
         setIsSuperAdmin(false);
         setHasFBCAccess(false);
+        setHasMultiLocationAccess(false);
         return;
       }
       
@@ -109,6 +111,17 @@ export const Layout = ({
       const { data: isFBC } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'fbc' });
       
       setHasFBCAccess(isSuperAdminResult === true || isBrandAdmin === true || isFBC === true);
+      
+      // Check multi-location access (org admin or brand admin)
+      const { data: orgMemberships } = await supabase
+        .from('organization_members')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('org_role', 'admin')
+        .limit(1);
+      
+      const hasOrgAdmin = orgMemberships && orgMemberships.length > 0;
+      setHasMultiLocationAccess(isSuperAdminResult === true || isBrandAdmin === true || hasOrgAdmin);
     };
     checkRoles();
   }, [user?.id]);
@@ -459,6 +472,15 @@ export const Layout = ({
                     <DropdownMenuSeparator />
                   </>
                 )}
+                {hasMultiLocationAccess && (
+                  <>
+                    <DropdownMenuItem onClick={() => navigate('/multi-location')} className="gap-2 cursor-pointer">
+                      <Building2 className="h-4 w-4 flex-shrink-0" />
+                      <span className="whitespace-nowrap">Multi-Location</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
                 {hasFBCAccess && (
                   <>
                     <DropdownMenuItem onClick={() => navigate('/fbc-dashboard')} className="gap-2 cursor-pointer">
@@ -616,6 +638,16 @@ export const Layout = ({
                   }} className="justify-start gap-3 h-11">
                     <FlaskConical className="h-5 w-5" />
                     <span className="text-base">Diagnostics</span>
+                  </Button>
+                )}
+
+                {hasMultiLocationAccess && (
+                  <Button variant="outline" onClick={() => {
+                    navigate('/multi-location');
+                    setMenuOpen(false);
+                  }} className="justify-start gap-3 h-11">
+                    <Building2 className="h-5 w-5" />
+                    <span className="text-base">Multi-Location</span>
                   </Button>
                 )}
 
