@@ -366,10 +366,10 @@ export default function MultiLocationDashboard() {
   // Calculate totals
   const totals = locations.reduce(
     (acc, loc) => ({
-      clockedIn: acc.clockedIn + loc.clockedInCount,
-      scheduled: acc.scheduled + loc.scheduledCount,
-      checklistsCompleted: acc.checklistsCompleted + loc.checklists.filter(c => c.percent >= 100).length,
-      totalChecklists: acc.totalChecklists + loc.checklists.length,
+      clockedIn: acc.clockedIn + (loc.clockedInCount || 0),
+      scheduled: acc.scheduled + (loc.scheduledCount || 0),
+      checklistsCompleted: acc.checklistsCompleted + (loc.checklists?.filter(c => c.percent >= 100).length || 0),
+      totalChecklists: acc.totalChecklists + (loc.checklists?.length || 0),
     }),
     { clockedIn: 0, scheduled: 0, checklistsCompleted: 0, totalChecklists: 0 }
   );
@@ -533,10 +533,10 @@ export default function MultiLocationDashboard() {
                   )}
 
                   {/* Checklists */}
-                  {loc.checklists.length > 0 && (
+                  {(loc.checklists?.length || 0) > 0 && (
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-muted-foreground">Checklists</p>
-                      {loc.checklists.map((cl) => (
+                      {loc.checklists?.map((cl) => (
                         <div key={cl.id} className="space-y-1">
                           <div className="flex items-center justify-between text-sm">
                             <span className="truncate flex-1 mr-2">{cl.title}</span>
@@ -596,8 +596,8 @@ export default function MultiLocationDashboard() {
                   </TableHeader>
                   <TableBody>
                     {locations.map((loc) => {
-                      const checklistPercent = loc.checklists.length > 0
-                        ? loc.checklists.filter(c => c.percent >= 100).length / loc.checklists.length * 100
+                      const checklistPercent = (loc.checklists?.length || 0) > 0
+                        ? (loc.checklists?.filter(c => c.percent >= 100).length || 0) / loc.checklists.length * 100
                         : 0;
 
                       return (
@@ -651,7 +651,7 @@ export default function MultiLocationDashboard() {
                           </TableCell>
                           <TableCell className="text-center">
                             <span className={getCompletionColor(checklistPercent)}>
-                              {loc.checklists.filter(c => c.percent >= 100).length}/{loc.checklists.length}
+                              {loc.checklists?.filter(c => c.percent >= 100).length || 0}/{loc.checklists?.length || 0}
                             </span>
                           </TableCell>
                           <TableCell className="text-center">
