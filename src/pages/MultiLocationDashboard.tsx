@@ -786,11 +786,11 @@ export default function MultiLocationDashboard() {
                                   : isOnTrack 
                                     ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
                                     : showWarmingUp
-                                      ? 'border-purple-400 text-purple-500 bg-purple-50 dark:bg-purple-950'
+                                      ? 'border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950'
                                       : 'border-sky-400 text-sky-500 bg-sky-50 dark:bg-sky-950'
                               }`}
                             >
-                              {isAhead ? '🔥 On Fire' : isOnTrack ? '🏃 On Track' : showWarmingUp ? '🚀 Warming Up' : '🧊 Behind Pace'}
+                              {isAhead ? '🔥 On Fire' : isOnTrack ? '🏃 On Track' : showWarmingUp ? '☕ Warming Up' : '🧊 Behind Pace'}
                             </Badge>
                           );
                         })() : !loc.isOpen && loc.openTime ? (
