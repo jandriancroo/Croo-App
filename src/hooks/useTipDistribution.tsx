@@ -22,6 +22,8 @@ interface TipDistributionResult {
   dailyTips: DailyTipData[];
   employeeTipShares: EmployeeTipShare[];
   totalTipPool: number;
+  totalDistributedTips: number;
+  totalHoursWithTips: number;
   refetch: () => void;
 }
 
@@ -260,12 +262,29 @@ export function useTipDistribution(
     return dailyTips.reduce((sum, day) => sum + day.totalTips, 0);
   }, [dailyTips]);
 
+  // Calculate total distributed tips and total hours that earned tips
+  const { totalDistributedTips, totalHoursWithTips } = useMemo(() => {
+    let distributed = 0;
+    let hours = 0;
+    
+    employeeTipShares.forEach(share => {
+      distributed += share.totalTips;
+      share.dailyBreakdown.forEach(day => {
+        hours += day.hours;
+      });
+    });
+    
+    return { totalDistributedTips: distributed, totalHoursWithTips: hours };
+  }, [employeeTipShares]);
+
   return {
     isLoading,
     error,
     dailyTips,
     employeeTipShares,
     totalTipPool,
+    totalDistributedTips,
+    totalHoursWithTips,
     refetch: fetchTipsData
   };
 }

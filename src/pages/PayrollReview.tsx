@@ -235,6 +235,8 @@ export default function PayrollReview() {
     isLoading: tipsLoading, 
     employeeTipShares, 
     totalTipPool,
+    totalDistributedTips,
+    totalHoursWithTips,
     dailyTips 
   } = useTipDistribution(
     currentLocation?.id || null,
@@ -1150,10 +1152,10 @@ export default function PayrollReview() {
                       </div>
                     </div>
                     <div className="text-right text-sm text-muted-foreground">
-                      <p>{dailyTips.length} day{dailyTips.length !== 1 ? 's' : ''} with tips</p>
-                      {dailyTips.length > 0 && (
+                      <p>{dailyTips.filter(d => d.totalTips > 0).length} day{dailyTips.filter(d => d.totalTips > 0).length !== 1 ? 's' : ''} with tips</p>
+                      {totalHoursWithTips > 0 && (
                         <p className="text-xs">
-                          Avg: ${(totalTipPool / dailyTips.length).toFixed(2)}/day
+                          ${(totalDistributedTips / totalHoursWithTips).toFixed(2)}/hr avg
                         </p>
                       )}
                     </div>
