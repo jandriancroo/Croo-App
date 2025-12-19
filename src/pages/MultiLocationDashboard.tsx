@@ -222,13 +222,12 @@ export default function MultiLocationDashboard() {
             scheduledCount = result.data?.length || 0;
           } catch (e) {}
 
-          // Get checklists with their items count
+          // Get checklists with their items count - include all active checklists
           const { data: checklists } = await supabase
             .from('checklists')
             .select('id, title, frequency')
             .eq('location_id', loc.id)
-            .eq('is_active', true)
-            .is('template_type', null);
+            .eq('is_active', true);
 
           // Get today's submissions with response counts
           const { data: submissions } = await supabase
@@ -371,22 +370,22 @@ export default function MultiLocationDashboard() {
   const DailySalesChart = ({ sales }: { sales: LocationSalesData }) => {
     const data = sales.daily;
     const chartData = [
-      { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))', label: formatCurrencyCompact(data.actual) },
-      { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrencyCompact(data.projected) },
-      { name: 'Pacing', value: data.pacing, fill: 'hsl(142 76% 36%)', label: formatCurrencyCompact(data.pacing) }
+      { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))', label: formatCurrency(data.actual) },
+      { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrency(data.projected) },
+      { name: 'Pacing', value: data.pacing, fill: 'hsl(142 76% 36%)', label: formatCurrency(data.pacing) }
     ];
 
     return (
       <div className="h-[80px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} layout="vertical" margin={{ left: 55, right: 50 }}>
+          <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
             <XAxis type="number" hide />
-            <YAxis type="category" dataKey="name" width={50} tick={{ fontSize: 9 }} />
-            <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+            <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14}>
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
-              <LabelList dataKey="label" position="right" style={{ fontSize: 9, fill: 'hsl(var(--foreground))' }} />
+              <LabelList dataKey="label" position="insideRight" style={{ fontSize: 9, fill: '#fff', fontWeight: 500 }} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -398,21 +397,21 @@ export default function MultiLocationDashboard() {
   const PeriodSalesChart = ({ sales, period }: { sales: LocationSalesData; period: 'weekly' | 'monthly' }) => {
     const data = sales[period];
     const chartData = [
-      { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))', label: formatCurrencyCompact(data.actual) },
-      { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrencyCompact(data.projected) }
+      { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))', label: formatCurrency(data.actual) },
+      { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrency(data.projected) }
     ];
 
     return (
-      <div className="h-[60px] w-full">
+      <div className="h-[56px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} layout="vertical" margin={{ left: 55, right: 50 }}>
+          <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
             <XAxis type="number" hide />
-            <YAxis type="category" dataKey="name" width={50} tick={{ fontSize: 9 }} />
-            <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+            <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 9 }} axisLine={false} tickLine={false} />
+            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14}>
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
-              <LabelList dataKey="label" position="right" style={{ fontSize: 9, fill: 'hsl(var(--foreground))' }} />
+              <LabelList dataKey="label" position="insideRight" style={{ fontSize: 9, fill: '#fff', fontWeight: 500 }} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -497,42 +496,42 @@ export default function MultiLocationDashboard() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid gap-4 grid-cols-3">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-green-500/10">
-                  <Users className="h-5 w-5 text-green-600" />
+        <div className="flex flex-wrap gap-3">
+          <Card className="flex-1 min-w-[120px]">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-green-500/10">
+                  <Users className="h-4 w-4 text-green-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Clocked In</p>
-                  <p className="text-2xl font-bold">{totals.clockedIn}</p>
+                  <p className="text-xs text-muted-foreground">Clocked In</p>
+                  <p className="text-xl font-bold">{totals.clockedIn}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-amber-500/10">
-                  <Clock className="h-5 w-5 text-amber-600" />
+          <Card className="flex-1 min-w-[120px]">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-amber-500/10">
+                  <Clock className="h-4 w-4 text-amber-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Scheduled</p>
-                  <p className="text-2xl font-bold">{totals.scheduled}</p>
+                  <p className="text-xs text-muted-foreground">Scheduled</p>
+                  <p className="text-xl font-bold">{totals.scheduled}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-blue-500/10">
-                  <ClipboardCheck className="h-5 w-5 text-blue-600" />
+          <Card className="flex-1 min-w-[120px]">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-blue-500/10">
+                  <ClipboardCheck className="h-4 w-4 text-blue-600" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">Checklists Done</p>
-                  <p className="text-2xl font-bold">{totals.checklistsCompleted}/{totals.totalChecklists}</p>
+                  <p className="text-xs text-muted-foreground">Checklists</p>
+                  <p className="text-xl font-bold">{totals.checklistsCompleted}/{totals.totalChecklists}</p>
                 </div>
               </div>
             </CardContent>
