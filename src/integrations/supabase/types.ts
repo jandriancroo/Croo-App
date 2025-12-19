@@ -3148,6 +3148,50 @@ export type Database = {
           },
         ]
       }
+      user_notification_settings: {
+        Row: {
+          alert_enabled: boolean
+          created_at: string
+          email_enabled: boolean
+          id: string
+          location_id: string | null
+          notification_type: string
+          push_enabled: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_enabled?: boolean
+          created_at?: string
+          email_enabled?: boolean
+          id?: string
+          location_id?: string | null
+          notification_type: string
+          push_enabled?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          alert_enabled?: boolean
+          created_at?: string
+          email_enabled?: boolean
+          id?: string
+          location_id?: string | null
+          notification_type?: string
+          push_enabled?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_notification_settings_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null
