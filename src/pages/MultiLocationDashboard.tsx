@@ -758,7 +758,7 @@ export default function MultiLocationDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {loc.hasQuBeyond && loc.sales && loc.sales.daily.pacing > 0 && loc.sales.daily.actual > 0 ? (() => {
+                        {loc.hasQuBeyond && loc.sales && loc.sales.daily.pacing > 0 && loc.sales.daily.actual >= 100 ? (() => {
                           const pacingPercent = (loc.sales.daily.actual / loc.sales.daily.pacing) * 100;
                           const pacingDiff = loc.sales.daily.actual - loc.sales.daily.pacing;
                           const isAhead = pacingPercent >= 105;
