@@ -20,7 +20,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import autoPunchIcon from '@/assets/auto-punch-icon.jpg';
-import { toISOStringInTimezone, formatTimeDisplay } from '@/utils/timezoneUtils';
+import {
+  toISOStringInTimezone,
+  formatTimeDisplay,
+  formatDateTimeInTimezone,
+  getStartOfTodayInTimezone,
+  getDateInTimezone,
+  parseDateStringInTimezone,
+  getEndOfDateStringInTimezone,
+} from '@/utils/timezoneUtils';
 
 // Edit Shift Form Component - Full shift editing with clock in/out and breaks
 function EditShiftForm({ 
@@ -135,10 +143,13 @@ function EditShiftForm({
   return (
     <div className="space-y-4">
       <div className="text-sm text-muted-foreground mb-2">
-        {format(new Date(shiftDate), 'EEEE, MMMM d, yyyy')}
+        {formatDateTimeInTimezone(parseDateStringInTimezone(shiftDate, timezone), timezone, {
+          weekday: 'long',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        })}
       </div>
-
-      <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <label className="text-sm font-medium flex items-center gap-2">
             <span className="h-2 w-2 rounded-full bg-green-500" />
@@ -277,116 +288,148 @@ export default function PayrollReview() {
   };
 
   const generatePayPeriods = async () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = getStartOfTodayInTimezone(timezone);
     const periods: any[] = [];
-    
+
     const payPeriodType = laborRules?.pay_period_type || 'biweekly';
-    // Parse date string as local time to avoid timezone shift issues
-    // "2025-12-15" should stay as Dec 15, not shift to Dec 14
-    let baseStartDate: Date;
-    if (laborRules?.pay_period_start_date) {
-      const [year, month, day] = laborRules.pay_period_start_date.split('-').map(Number);
-      baseStartDate = new Date(year, month - 1, day); // month is 0-indexed
-    } else {
-      baseStartDate = new Date(2025, 10, 3); // Default: Nov 3, 2025
-    }
-    
+
+    // Treat pay_period_start_date as a *calendar date in the location timezone*
+    // (never parse YYYY-MM-DD via new Date(dateStr) because it is interpreted as UTC).
+    const baseStartDateStr = laborRules?.pay_period_start_date || '2025-11-03';
+    const baseStart = parseDateStringInTimezone(baseStartDateStr, timezone);
+
+    const makeLabel = (startDateStr: string, endDateStr: string) => {
+      const startLabel = formatDateTimeInTimezone(
+        parseDateStringInTimezone(startDateStr, timezone),
+        timezone,
+        { weekday: 'short', month: 'short', day: 'numeric' }
+      );
+      const endLabel = formatDateTimeInTimezone(
+        parseDateStringInTimezone(endDateStr, timezone),
+        timezone,
+        { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }
+      );
+      return `${startLabel} - ${endLabel}`;
+    };
+
     if (payPeriodType === 'weekly') {
-      // Generate weekly periods
       for (let i = 0; i <= 12; i++) {
-        const periodStart = addWeeks(baseStartDate, i);
-        const periodEnd = addDays(periodStart, 6);
-        
-        if (periodStart <= today) {
+        const start = addWeeks(baseStart, i);
+        const endDateStr = getDateInTimezone(addDays(start, 6), timezone);
+        const startDateStr = getDateInTimezone(start, timezone);
+        const end = getEndOfDateStringInTimezone(endDateStr, timezone);
+
+        if (start <= today) {
           periods.push({
-            start: periodStart,
-            end: periodEnd,
-            label: `${format(periodStart, 'EEE MMM d')} - ${format(periodEnd, 'EEE MMM d, yyyy')}`
+            start,
+            end,
+            startDate: startDateStr,
+            endDate: endDateStr,
+            label: makeLabel(startDateStr, endDateStr),
           });
         }
       }
     } else if (payPeriodType === 'biweekly') {
-      // Generate biweekly periods
       for (let i = 0; i <= 9; i++) {
-        const periodStart = addWeeks(baseStartDate, i * 2);
-        const periodEnd = addDays(periodStart, 13);
-        
-        if (periodStart <= today) {
+        const start = addWeeks(baseStart, i * 2);
+        const endDateStr = getDateInTimezone(addDays(start, 13), timezone);
+        const startDateStr = getDateInTimezone(start, timezone);
+        const end = getEndOfDateStringInTimezone(endDateStr, timezone);
+
+        if (start <= today) {
           periods.push({
-            start: periodStart,
-            end: periodEnd,
-            label: `${format(periodStart, 'EEE MMM d')} - ${format(periodEnd, 'EEE MMM d, yyyy')}`
+            start,
+            end,
+            startDate: startDateStr,
+            endDate: endDateStr,
+            label: makeLabel(startDateStr, endDateStr),
           });
         }
       }
     } else if (payPeriodType === 'semimonthly') {
-      // Generate semi-monthly periods (1st-15th, 16th-end of month)
-      const currentYear = today.getFullYear();
+      // Semi-monthly is based on local calendar days; build from date strings.
+      const currentYear = Number(getDateInTimezone(today, timezone).slice(0, 4));
       const currentMonth = today.getMonth();
-      
+
       for (let monthOffset = -3; monthOffset <= 0; monthOffset++) {
         const month = currentMonth + monthOffset;
         const year = currentYear + Math.floor(month / 12);
         const actualMonth = ((month % 12) + 12) % 12;
-        
-        // First half: 1st - 15th
-        const firstStart = new Date(year, actualMonth, 1);
-        const firstEnd = new Date(year, actualMonth, 15);
+        const mm = String(actualMonth + 1).padStart(2, '0');
+
+        const firstStartStr = `${year}-${mm}-01`;
+        const firstEndStr = `${year}-${mm}-15`;
+        const firstStart = parseDateStringInTimezone(firstStartStr, timezone);
+        const firstEnd = getEndOfDateStringInTimezone(firstEndStr, timezone);
+
         if (firstStart <= today) {
           periods.push({
             start: firstStart,
             end: firstEnd,
-            label: `${format(firstStart, 'MMM d')} - ${format(firstEnd, 'MMM d, yyyy')}`
+            startDate: firstStartStr,
+            endDate: firstEndStr,
+            label: makeLabel(firstStartStr, firstEndStr),
           });
         }
-        
+
         // Second half: 16th - end of month
-        const secondStart = new Date(year, actualMonth, 16);
-        const secondEnd = new Date(year, actualMonth + 1, 0); // Last day of month
+        const secondStartStr = `${year}-${mm}-16`;
+        const secondStart = parseDateStringInTimezone(secondStartStr, timezone);
+
+        // Compute month end by taking first day of next month minus 1 day
+        const nextMonth = new Date(Date.UTC(year, actualMonth + 1, 1));
+        const lastDay = new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth(), 0));
+        const lastDayStr = `${lastDay.getUTCFullYear()}-${String(lastDay.getUTCMonth() + 1).padStart(2, '0')}-${String(lastDay.getUTCDate()).padStart(2, '0')}`;
+        const secondEnd = getEndOfDateStringInTimezone(lastDayStr, timezone);
+
         if (secondStart <= today) {
           periods.push({
             start: secondStart,
             end: secondEnd,
-            label: `${format(secondStart, 'MMM d')} - ${format(secondEnd, 'MMM d, yyyy')}`
+            startDate: secondStartStr,
+            endDate: lastDayStr,
+            label: makeLabel(secondStartStr, lastDayStr),
           });
         }
       }
     } else if (payPeriodType === 'monthly') {
-      // Generate monthly periods
-      const currentYear = today.getFullYear();
+      const currentYear = Number(getDateInTimezone(today, timezone).slice(0, 4));
       const currentMonth = today.getMonth();
-      
+
       for (let monthOffset = -3; monthOffset <= 0; monthOffset++) {
         const month = currentMonth + monthOffset;
         const year = currentYear + Math.floor(month / 12);
         const actualMonth = ((month % 12) + 12) % 12;
-        
-        const periodStart = new Date(year, actualMonth, 1);
-        const periodEnd = new Date(year, actualMonth + 1, 0); // Last day of month
-        
-        if (periodStart <= today) {
+        const mm = String(actualMonth + 1).padStart(2, '0');
+
+        const startDateStr = `${year}-${mm}-01`;
+        const start = parseDateStringInTimezone(startDateStr, timezone);
+
+        const nextMonth = new Date(Date.UTC(year, actualMonth + 1, 1));
+        const lastDay = new Date(Date.UTC(nextMonth.getUTCFullYear(), nextMonth.getUTCMonth(), 0));
+        const endDateStr = `${lastDay.getUTCFullYear()}-${String(lastDay.getUTCMonth() + 1).padStart(2, '0')}-${String(lastDay.getUTCDate()).padStart(2, '0')}`;
+        const end = getEndOfDateStringInTimezone(endDateStr, timezone);
+
+        if (start <= today) {
           periods.push({
-            start: periodStart,
-            end: periodEnd,
-            label: `${format(periodStart, 'MMM d')} - ${format(periodEnd, 'MMM d, yyyy')}`
+            start,
+            end,
+            startDate: startDateStr,
+            endDate: endDateStr,
+            label: makeLabel(startDateStr, endDateStr),
           });
         }
       }
     }
-    
-    // Reverse to show most recent first
+
     periods.reverse();
-    
     setPayPeriods(periods);
-    
+
     // Fetch period statuses from database
-    const { data: statuses } = await supabase
-      .from('pay_periods')
-      .select('*');
-    
+    const { data: statuses } = await supabase.from('pay_periods').select('*');
+
     const statusMap: Record<string, any> = {};
-    statuses?.forEach(status => {
+    statuses?.forEach((status) => {
       const key = `${status.start_date}_${status.end_date}`;
       statusMap[key] = status;
     });
@@ -428,10 +471,10 @@ export default function PayrollReview() {
         const { data: currentWage } = await supabase
           .rpc('get_current_wage', { p_user_id: profile.id });
 
-        // Group punches by day
+        // Group punches by day (in the location timezone)
         const punchesByDay: { [key: string]: any[] } = {};
-        punches?.forEach(punch => {
-          const day = format(new Date(punch.punch_time), 'yyyy-MM-dd');
+        punches?.forEach((punch) => {
+          const day = getDateInTimezone(new Date(punch.punch_time), timezone);
           if (!punchesByDay[day]) punchesByDay[day] = [];
           punchesByDay[day].push(punch);
         });
@@ -597,18 +640,18 @@ export default function PayrollReview() {
     }
     
     if (hasAutoClockOut || hasBreakViolation) {
-      // Find the shift date from the punches
+      // Find the shift date from the punches (location timezone)
       const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
-      const shiftDate = clockIn ? format(new Date(clockIn.punch_time), 'yyyy-MM-dd') : '';
+      const shiftDate = clockIn ? getDateInTimezone(new Date(clockIn.punch_time), timezone) : '';
       const userId = clockIn?.user_id || '';
       const locationId = currentLocation?.id || '';
-      
-      setApprovalWarning({ 
-        punches: dayPunches, 
-        type: 'day', 
-        hasBreakViolation, 
+
+      setApprovalWarning({
+        punches: dayPunches,
+        type: 'day',
+        hasBreakViolation,
         hasAutoClockOut,
-        shiftInfo: { dayPunches, userId, locationId, shiftDate }
+        shiftInfo: { dayPunches, userId, locationId, shiftDate },
       });
       return;
     }
@@ -688,19 +731,26 @@ export default function PayrollReview() {
   // Generate list of dates in selected period for the filter
   const periodDates = useMemo(() => {
     if (!selectedPeriod) return [];
+
     const dates: { value: string; label: string }[] = [];
-    let currentDate = new Date(selectedPeriod.start);
-    const endDate = new Date(selectedPeriod.end);
-    
-    while (currentDate <= endDate) {
+    let current = parseDateStringInTimezone(selectedPeriod.startDate, timezone);
+    const end = parseDateStringInTimezone(selectedPeriod.endDate, timezone);
+
+    while (current <= end) {
+      const value = getDateInTimezone(current, timezone);
       dates.push({
-        value: format(currentDate, 'yyyy-MM-dd'),
-        label: format(currentDate, 'EEE, MMM d')
+        value,
+        label: formatDateTimeInTimezone(current, timezone, {
+          weekday: 'short',
+          month: 'short',
+          day: 'numeric',
+        }),
       });
-      currentDate = addDays(currentDate, 1);
+      current = addDays(current, 1);
     }
+
     return dates;
-  }, [selectedPeriod]);
+  }, [selectedPeriod, timezone]);
 
   // Filter cards by employee and day
   const filteredCards = useMemo(() => {
@@ -745,65 +795,68 @@ export default function PayrollReview() {
   const filteredPunchesAwaitingApproval = countShiftsAwaitingApproval(filteredCards);
 
   const getPeriodStatus = (period: any) => {
-    const key = `${format(period.start, 'yyyy-MM-dd')}_${format(period.end, 'yyyy-MM-dd')}`;
+    const key = `${period.startDate}_${period.endDate}`;
     return periodStatuses[key];
   };
 
   const handleClosePeriod = async () => {
     if (!selectedPeriod) return;
-    
+
     // Check if all shifts are approved
     if (totalPunchesAwaitingApproval > 0) {
       toast.error(`Cannot close pay period: ${totalPunchesAwaitingApproval} shift(s) still need approval`);
       return;
     }
-    
-    const startDate = format(selectedPeriod.start, 'yyyy-MM-dd');
-    const endDate = format(selectedPeriod.end, 'yyyy-MM-dd');
-    
+
+    const startDate = selectedPeriod.startDate;
+    const endDate = selectedPeriod.endDate;
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    
+
     const { error } = await supabase
       .from('pay_periods')
-      .upsert({
-        start_date: startDate,
-        end_date: endDate,
-        status: 'closed',
-        closed_at: new Date().toISOString(),
-        closed_by: user.id
-      }, { onConflict: 'start_date,end_date' });
-    
+      .upsert(
+        {
+          start_date: startDate,
+          end_date: endDate,
+          status: 'closed',
+          closed_at: new Date().toISOString(),
+          closed_by: user.id,
+        },
+        { onConflict: 'start_date,end_date' }
+      );
+
     if (error) {
       toast.error('Failed to close pay period');
       return;
     }
-    
+
     toast.success('Pay period closed');
     generatePayPeriods();
   };
 
   const handleReopenPeriod = async () => {
     if (!selectedPeriod) return;
-    
-    const startDate = format(selectedPeriod.start, 'yyyy-MM-dd');
-    const endDate = format(selectedPeriod.end, 'yyyy-MM-dd');
-    
+
+    const startDate = selectedPeriod.startDate;
+    const endDate = selectedPeriod.endDate;
+
     const { error } = await supabase
       .from('pay_periods')
       .update({
         status: 'open',
         closed_at: null,
-        closed_by: null
+        closed_by: null,
       })
       .eq('start_date', startDate)
       .eq('end_date', endDate);
-    
+
     if (error) {
       toast.error('Failed to reopen pay period');
       return;
     }
-    
+
     toast.success('Pay period reopened');
     generatePayPeriods();
   };
@@ -814,10 +867,10 @@ export default function PayrollReview() {
   useEffect(() => {
     const fetchPtoData = async () => {
       if (!selectedPeriod || !currentLocation) return;
-      
-      const startDate = format(selectedPeriod.start, 'yyyy-MM-dd');
-      const endDate = format(selectedPeriod.end, 'yyyy-MM-dd');
-      
+
+      const startDate = selectedPeriod.startDate;
+      const endDate = selectedPeriod.endDate;
+
       // Fetch approved PTO requests for this period
       const { data: ptoRequests } = await supabase
         .from('availability_requests')
@@ -827,17 +880,17 @@ export default function PayrollReview() {
         .in('request_type', ['paid', 'vacation', 'sick']) // Paid time off types
         .gte('start_date', startDate)
         .lte('start_date', endDate);
-      
+
       // Group PTO hours by user
       const ptoByUser: Record<string, number> = {};
-      ptoRequests?.forEach(req => {
+      ptoRequests?.forEach((req) => {
         if (!ptoByUser[req.user_id]) ptoByUser[req.user_id] = 0;
         ptoByUser[req.user_id] += req.hours_requested || 0;
       });
-      
+
       setPtoData(ptoByUser);
     };
-    
+
     fetchPtoData();
   }, [selectedPeriod, currentLocation]);
 
@@ -883,33 +936,41 @@ export default function PayrollReview() {
 
   // Group punches by week for display - ONLY include days within the selected pay period
   const groupPunchesByWeek = (punchesByDay: { [key: string]: any[] }) => {
-    const weeks: { [weekKey: string]: { start: Date; end: Date; days: { [day: string]: any[] } } } = {};
-    
+    const weeks: {
+      [weekKey: string]: { start: Date; end: Date; days: { [day: string]: any[] } };
+    } = {};
+
+    const getWeekStartStr = (dateStr: string) => {
+      // Monday=0 ... Sunday=6 (in location timezone)
+      const weekdayShort = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(
+        parseDateStringInTimezone(dateStr, timezone)
+      );
+      const map: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
+      const dow = map[weekdayShort] ?? 0;
+      const weekStart = addDays(parseDateStringInTimezone(dateStr, timezone), -dow);
+      return getDateInTimezone(weekStart, timezone);
+    };
+
     Object.entries(punchesByDay).forEach(([day, punches]) => {
-      const dayDate = new Date(day);
-      
+      const dayDate = parseDateStringInTimezone(day, timezone);
+
       // Filter out days outside the selected pay period
       if (selectedPeriod) {
-        const periodStart = new Date(selectedPeriod.start);
-        periodStart.setHours(0, 0, 0, 0);
-        const periodEnd = new Date(selectedPeriod.end);
-        periodEnd.setHours(23, 59, 59, 999);
-        
-        if (dayDate < periodStart || dayDate > periodEnd) {
-          return; // Skip days outside the pay period
-        }
+        if (dayDate < selectedPeriod.start || dayDate > selectedPeriod.end) return;
       }
-      
-      const weekStart = startOfWeek(dayDate, { weekStartsOn: 1 }); // Monday start
-      const weekEnd = endOfWeek(dayDate, { weekStartsOn: 1 });
-      const weekKey = format(weekStart, 'yyyy-MM-dd');
-      
+
+      const weekStartStr = getWeekStartStr(day);
+      const weekStart = parseDateStringInTimezone(weekStartStr, timezone);
+      const weekEndStr = getDateInTimezone(addDays(weekStart, 6), timezone);
+      const weekEnd = getEndOfDateStringInTimezone(weekEndStr, timezone);
+      const weekKey = weekStartStr;
+
       if (!weeks[weekKey]) {
         weeks[weekKey] = { start: weekStart, end: weekEnd, days: {} };
       }
       weeks[weekKey].days[day] = punches;
     });
-    
+
     return Object.entries(weeks).sort(([a], [b]) => a.localeCompare(b));
   };
 
@@ -934,7 +995,7 @@ export default function PayrollReview() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `payroll-${format(selectedPeriod.start, 'yyyy-MM-dd')}-to-${format(selectedPeriod.end, 'yyyy-MM-dd')}.csv`;
+    a.download = `payroll-${selectedPeriod.startDate}-to-${selectedPeriod.endDate}.csv`;
     a.click();
     URL.revokeObjectURL(url);
     toast.success('CSV exported');
