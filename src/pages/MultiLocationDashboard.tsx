@@ -67,6 +67,7 @@ interface LocationMetrics {
   latestAudit: AuditSummary | null;
   openTime: string | null;
   isOpen: boolean;
+  hoursSinceOpen: number | null; // null = unknown/closed
 }
 
 // Cache key for localStorage
@@ -321,6 +322,7 @@ export default function MultiLocationDashboard() {
         const hours = hoursByLocation.get(loc.id);
         let openTime: string | null = null;
         let isOpen = true;
+        let hoursSinceOpen: number | null = null;
         
         if (hours && !hours.is_closed && hours.open_time) {
           const [h, m] = hours.open_time.split(':').map(Number);
@@ -329,6 +331,10 @@ export default function MultiLocationDashboard() {
           isOpen = today >= openDateTime;
           // Always set openTime so we can display it when store has no sales yet
           openTime = format(openDateTime, 'h:mm a');
+          // Calculate hours since open
+          if (isOpen) {
+            hoursSinceOpen = (today.getTime() - openDateTime.getTime()) / (1000 * 60 * 60);
+          }
         }
 
         return {
@@ -347,6 +353,7 @@ export default function MultiLocationDashboard() {
           latestAudit: auditsByLocation.get(loc.id) || null,
           openTime,
           isOpen,
+          hoursSinceOpen,
         };
       });
 
@@ -760,9 +767,15 @@ export default function MultiLocationDashboard() {
                       <div className="flex items-center gap-2">
                         {loc.hasQuBeyond && loc.sales && loc.sales.daily.pacing > 0 && loc.sales.daily.actual >= 100 ? (() => {
                           const pacingPercent = (loc.sales.daily.actual / loc.sales.daily.pacing) * 100;
+                          // Grace period: first 2 hours show "Warming Up" instead of behind
+                          const inGracePeriod = loc.hoursSinceOpen !== null && loc.hoursSinceOpen < 2;
                           // On Fire: >=105%, On Track: 95-105%, Behind: <95%
                           const isAhead = pacingPercent >= 105;
                           const isOnTrack = pacingPercent >= 95 && pacingPercent < 105;
+                          const isBehind = pacingPercent < 95;
+                          
+                          // During grace period, show "Warming Up" instead of "Behind Pace"
+                          const showWarmingUp = inGracePeriod && isBehind;
                           
                           return (
                             <Badge 
@@ -772,10 +785,12 @@ export default function MultiLocationDashboard() {
                                   ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950'
                                   : isOnTrack 
                                     ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
-                                    : 'border-sky-400 text-sky-500 bg-sky-50 dark:bg-sky-950'
+                                    : showWarmingUp
+                                      ? 'border-purple-400 text-purple-500 bg-purple-50 dark:bg-purple-950'
+                                      : 'border-sky-400 text-sky-500 bg-sky-50 dark:bg-sky-950'
                               }`}
                             >
-                              {isAhead ? '🔥 On Fire' : isOnTrack ? '🏃 On Track' : '🧊 Behind Pace'}
+                              {isAhead ? '🔥 On Fire' : isOnTrack ? '🏃 On Track' : showWarmingUp ? '🚀 Warming Up' : '🧊 Behind Pace'}
                             </Badge>
                           );
                         })() : !loc.isOpen && loc.openTime ? (
