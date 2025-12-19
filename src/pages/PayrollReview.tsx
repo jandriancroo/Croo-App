@@ -1127,6 +1127,48 @@ export default function PayrollReview() {
               </Select>
             </div>
 
+            {/* Tips Summary Card */}
+            {totalTipPool > 0 && (
+              <Card className="border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-full bg-green-500 text-white flex items-center justify-center">
+                        <DollarSign className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">Total Tips This Period</p>
+                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                          ${totalTipPool.toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right text-sm text-muted-foreground">
+                      <p>{dailyTips.length} day{dailyTips.length !== 1 ? 's' : ''} with tips</p>
+                      {dailyTips.length > 0 && (
+                        <p className="text-xs">
+                          Avg: ${(totalTipPool / dailyTips.length).toFixed(2)}/day
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {tipsLoading && (
+              <Card className="border-muted">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
+                    <div>
+                      <p className="text-sm text-muted-foreground">Loading tips data...</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {isPeriodClosed ? (
               /* Payroll Summary */
               <Card>
