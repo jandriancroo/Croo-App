@@ -527,7 +527,7 @@ export default function MultiLocationDashboard() {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
               <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
-              <YAxis type="category" dataKey="name" width={60} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
               <ReferenceLine x={maxVal * 0.5} stroke="hsl(var(--border))" strokeDasharray="2 2" />
               <ReferenceLine x={maxVal * 0.75} stroke="hsl(var(--border))" strokeDasharray="2 2" />
@@ -565,7 +565,7 @@ export default function MultiLocationDashboard() {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 5 }}>
               <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
-              <YAxis type="category" dataKey="name" width={60} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
               <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
               <ReferenceLine x={maxVal * 0.5} stroke="hsl(var(--border))" strokeDasharray="2 2" />
               <ReferenceLine x={maxVal * 0.75} stroke="hsl(var(--border))" strokeDasharray="2 2" />
@@ -759,24 +759,25 @@ export default function MultiLocationDashboard() {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
-                        {loc.hasQuBeyond && loc.sales && loc.sales.daily.projected > 0 && loc.sales.daily.actual > 0 ? (
-                          <Badge 
-                            variant="outline" 
-                            className={`text-xs ${
-                              loc.sales.daily.pacing >= 105 
-                                ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
-                                : loc.sales.daily.pacing >= 95 
-                                  ? 'border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-950'
-                                  : 'border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950'
-                            }`}
-                          >
-                            {loc.sales.daily.pacing >= 105 
-                              ? 'Ahead of Goal' 
-                              : loc.sales.daily.pacing >= 95 
-                                ? 'On Pace'
-                                : 'Behind Pace'}
-                          </Badge>
-                        ) : !loc.isOpen && loc.openTime ? (
+                        {loc.hasQuBeyond && loc.sales && loc.sales.daily.pacing > 0 && loc.sales.daily.actual > 0 ? (() => {
+                          const pacingPercent = (loc.sales.daily.actual / loc.sales.daily.pacing) * 100;
+                          const isAhead = pacingPercent >= 105;
+                          const isOnPace = pacingPercent >= 95;
+                          return (
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${
+                                isAhead 
+                                  ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
+                                  : isOnPace 
+                                    ? 'border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-950'
+                                    : 'border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950'
+                              }`}
+                            >
+                              {isAhead ? 'Ahead of Goal' : isOnPace ? 'On Pace' : 'Behind Pace'}
+                            </Badge>
+                          );
+                        })() : !loc.isOpen && loc.openTime ? (
                           <Badge variant="secondary" className="text-xs">
                             Opens {loc.openTime}
                           </Badge>
