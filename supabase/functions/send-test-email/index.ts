@@ -53,9 +53,9 @@ const handler = async (req: Request): Promise<Response> => {
                   <tr>
                     <td style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d5a65 100%); padding: 40px 40px 30px; text-align: center;">
                       <img 
-                        src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/brand-assets/croo-logo-white.png" 
+                        src="https://croohq.com/assets/croo-logo-eWOfbANR.png" 
                         alt="Croo" 
-                        style="height: 60px; width: auto; margin-bottom: 16px;"
+                        style="height: 80px; width: auto; margin-bottom: 16px;"
                       />
                       <h1 style="color: #ffffff; font-size: 28px; font-weight: 600; margin: 0; letter-spacing: -0.5px;">
                         Welcome to Croo!
@@ -133,8 +133,6 @@ const handler = async (req: Request): Promise<Response> => {
                         <tr>
                           <td style="text-align: center;">
                             <a href="https://croohq.com" style="display: inline-block; background: linear-gradient(135deg, ${accentColor} 0%, #e06b10 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 15px; box-shadow: 0 4px 12px rgba(245, 130, 32, 0.3);">
-                              Open Croo Dashboard
-                            </a>
                               Open Croo Dashboard
                             </a>
                           </td>
