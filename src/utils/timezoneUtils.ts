@@ -9,24 +9,24 @@ const DEFAULT_TIMEZONE = 'America/Los_Angeles';
  * Get the current timezone offset string (e.g., "-08:00" or "-07:00" during DST)
  * This dynamically calculates the offset based on the actual timezone rules
  */
-export const getTimezoneOffset = (timezone: string = DEFAULT_TIMEZONE): string => {
-  const now = new Date();
+export const getTimezoneOffset = (
+  timezone: string = DEFAULT_TIMEZONE,
+  referenceDate: Date = new Date()
+): string => {
   const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
-    timeZoneName: 'longOffset'
+    timeZoneName: 'longOffset',
   });
-  
-  const parts = formatter.formatToParts(now);
-  const offsetPart = parts.find(p => p.type === 'timeZoneName');
-  
+
+  const parts = formatter.formatToParts(referenceDate);
+  const offsetPart = parts.find((p) => p.type === 'timeZoneName');
+
   if (offsetPart) {
     // Parse "GMT-08:00" or "GMT-07:00" format
     const match = offsetPart.value.match(/GMT([+-]\d{2}:\d{2})/);
-    if (match) {
-      return match[1];
-    }
+    if (match) return match[1];
   }
-  
+
   // Fallback to static offsets if parsing fails
   const staticOffsets: Record<string, string> = {
     'America/Los_Angeles': '-08:00',
@@ -113,11 +113,14 @@ export const formatDateTimeInTimezone = (
  * in the specified timezone. This is critical for saving times to the database.
  */
 export const toISOStringInTimezone = (
-  dateStr: string, 
-  timeStr: string, 
+  dateStr: string,
+  timeStr: string,
   timezone: string = DEFAULT_TIMEZONE
 ): string => {
-  const offset = getTimezoneOffset(timezone);
+  // Use a reference date that falls within the intended local calendar date
+  // (noon UTC is safely within the same date for US timezones)
+  const referenceDate = new Date(`${dateStr}T12:00:00Z`);
+  const offset = getTimezoneOffset(timezone, referenceDate);
   return new Date(`${dateStr}T${timeStr}:00${offset}`).toISOString();
 };
 
@@ -126,7 +129,8 @@ export const toISOStringInTimezone = (
  */
 export const getStartOfTodayInTimezone = (timezone: string = DEFAULT_TIMEZONE): Date => {
   const dateStr = getTodayInTimezone(timezone);
-  const offset = getTimezoneOffset(timezone);
+  const referenceDate = new Date(`${dateStr}T12:00:00Z`);
+  const offset = getTimezoneOffset(timezone, referenceDate);
   return new Date(`${dateStr}T00:00:00${offset}`);
 };
 
@@ -135,8 +139,34 @@ export const getStartOfTodayInTimezone = (timezone: string = DEFAULT_TIMEZONE): 
  */
 export const getStartOfDateInTimezone = (date: Date, timezone: string = DEFAULT_TIMEZONE): Date => {
   const dateStr = getDateInTimezone(date, timezone);
-  const offset = getTimezoneOffset(timezone);
+  const referenceDate = new Date(`${dateStr}T12:00:00Z`);
+  const offset = getTimezoneOffset(timezone, referenceDate);
   return new Date(`${dateStr}T00:00:00${offset}`);
+};
+
+/**
+ * Parse a date-only string (YYYY-MM-DD) as midnight in the specified timezone.
+ * This avoids the JS Date("YYYY-MM-DD") UTC parsing that can shift the calendar day.
+ */
+export const parseDateStringInTimezone = (
+  dateStr: string,
+  timezone: string = DEFAULT_TIMEZONE
+): Date => {
+  const referenceDate = new Date(`${dateStr}T12:00:00Z`);
+  const offset = getTimezoneOffset(timezone, referenceDate);
+  return new Date(`${dateStr}T00:00:00${offset}`);
+};
+
+/**
+ * Get the end-of-day Date for a date-only string (YYYY-MM-DD) in the specified timezone.
+ */
+export const getEndOfDateStringInTimezone = (
+  dateStr: string,
+  timezone: string = DEFAULT_TIMEZONE
+): Date => {
+  const referenceDate = new Date(`${dateStr}T12:00:00Z`);
+  const offset = getTimezoneOffset(timezone, referenceDate);
+  return new Date(`${dateStr}T23:59:59.999${offset}`);
 };
 
 /**
