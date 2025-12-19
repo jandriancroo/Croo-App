@@ -20,10 +20,11 @@ import {
   Building2,
   TrendingUp,
   TrendingDown,
-  Minus
+  Minus,
+  FileText
 } from 'lucide-react';
-import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell } from 'recharts';
+import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth } from 'date-fns';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, LabelList } from 'recharts';
 
 interface ChecklistMetric {
   id: string;
@@ -37,6 +38,16 @@ interface LocationSalesData {
   daily: { actual: number; projected: number; pacing: number };
   weekly: { actual: number; projected: number; pacing: number };
   monthly: { actual: number; projected: number; pacing: number };
+}
+
+interface AuditSummary {
+  id: string;
+  audit_date: string;
+  visit_score: string | null;
+  manager_name: string | null;
+  first_priority_count: number;
+  second_priority_count: number;
+  third_priority_count: number;
 }
 
 interface LocationMetrics {
@@ -53,6 +64,8 @@ interface LocationMetrics {
   clockedInCount: number;
   scheduledCount: number;
   openShifts: number;
+  // Audits
+  latestAudit: AuditSummary | null;
 }
 
 export default function MultiLocationDashboard() {
@@ -228,7 +241,7 @@ export default function MultiLocationDashboard() {
             .select('id, title, frequency')
             .eq('location_id', loc.id)
             .eq('is_active', true)
-            .is('template_type', null); // Exclude templates (temporary tasks use these)
+            .is('template_type', null);
 
           // Get today's submissions
           const { data: submissions } = await supabase
@@ -246,8 +259,6 @@ export default function MultiLocationDashboard() {
 
           const checklistMetrics: ChecklistMetric[] = (checklists || []).map(cl => {
             const completedCount = submissionCountByChecklist.get(cl.id) || 0;
-            // For daily checklists, expected is 1 per day
-            // For other frequencies, this is a simplification
             const totalPossible = cl.frequency === 'daily' ? 1 : 1;
             const percent = totalPossible > 0 ? Math.min(100, (completedCount / totalPossible) * 100) : 0;
             
@@ -260,6 +271,32 @@ export default function MultiLocationDashboard() {
             };
           });
 
+          // Fetch latest Steritech audit
+          const { data: auditData } = await supabase
+            .from('food_safety_audits')
+            .select('id, audit_date, visit_score, manager_name, first_priority_items, second_priority_items, third_priority_items')
+            .eq('location_id', loc.id)
+            .order('audit_date', { ascending: false })
+            .limit(1)
+            .single();
+
+          let latestAudit: AuditSummary | null = null;
+          if (auditData) {
+            const firstPriorityItems = auditData.first_priority_items as string[] | null;
+            const secondPriorityItems = auditData.second_priority_items as string[] | null;
+            const thirdPriorityItems = auditData.third_priority_items as string[] | null;
+            
+            latestAudit = {
+              id: auditData.id,
+              audit_date: auditData.audit_date,
+              visit_score: auditData.visit_score,
+              manager_name: auditData.manager_name,
+              first_priority_count: firstPriorityItems?.length || 0,
+              second_priority_count: secondPriorityItems?.length || 0,
+              third_priority_count: thirdPriorityItems?.length || 0
+            };
+          }
+
           return {
             id: loc.id,
             name: loc.name,
@@ -271,6 +308,7 @@ export default function MultiLocationDashboard() {
             clockedInCount: currentlyClockedIn.length,
             scheduledCount,
             openShifts: Math.max(0, scheduledCount - currentlyClockedIn.length),
+            latestAudit,
           };
         })
       );
@@ -296,13 +334,8 @@ export default function MultiLocationDashboard() {
     return storeNumber ? `${name} - ${storeNumber}` : name;
   };
 
+  // Full currency format - no abbreviations
   const formatCurrency = (amount: number) => {
-    if (amount >= 1000000) {
-      return `$${(amount / 1000000).toFixed(1)}M`;
-    }
-    if (amount >= 1000) {
-      return `$${(amount / 1000).toFixed(1)}K`;
-    }
     return new Intl.NumberFormat('en-US', { 
       style: 'currency', 
       currency: 'USD',
@@ -311,16 +344,24 @@ export default function MultiLocationDashboard() {
     }).format(amount);
   };
 
+  // Compact format for chart labels
+  const formatCurrencyCompact = (amount: number) => {
+    if (amount >= 1000000) {
+      return `$${(amount / 1000000).toFixed(1)}M`;
+    }
+    if (amount >= 100000) {
+      return `$${Math.round(amount / 1000)}K`;
+    }
+    if (amount >= 10000) {
+      return `$${(amount / 1000).toFixed(1)}K`;
+    }
+    return formatCurrency(amount);
+  };
+
   const getCompletionColor = (percent: number) => {
     if (percent >= 100) return 'text-green-600';
     if (percent >= 50) return 'text-amber-600';
     return 'text-red-600';
-  };
-
-  const getProgressColor = (percent: number) => {
-    if (percent >= 100) return 'bg-green-500';
-    if (percent >= 50) return 'bg-amber-500';
-    return 'bg-red-500';
   };
 
   const getSalesTrendIcon = (actual: number, projected: number) => {
@@ -333,29 +374,26 @@ export default function MultiLocationDashboard() {
   const LocationSalesChart = ({ sales, period }: { sales: LocationSalesData; period: 'daily' | 'weekly' | 'monthly' }) => {
     const data = sales[period];
     const chartData = [
-      { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))' },
-      { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))' },
-      { name: 'Pacing', value: data.pacing, fill: 'hsl(142 76% 36%)' }
+      { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))', label: formatCurrencyCompact(data.actual) },
+      { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrencyCompact(data.projected) },
+      { name: 'Pacing', value: data.pacing, fill: 'hsl(142 76% 36%)', label: formatCurrencyCompact(data.pacing) }
     ];
 
     return (
-      <div className="h-[120px] w-full">
+      <div className="h-[100px] w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 10 }}>
+          <BarChart data={chartData} layout="vertical" margin={{ left: 60, right: 50 }}>
             <XAxis type="number" hide />
-            <YAxis type="category" dataKey="name" width={60} tick={{ fontSize: 11 }} />
-            <Tooltip 
-              formatter={(value: number) => formatCurrency(value)}
-              contentStyle={{ 
-                backgroundColor: 'hsl(var(--background))', 
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '8px'
-              }}
-            />
+            <YAxis type="category" dataKey="name" width={55} tick={{ fontSize: 10 }} />
             <Bar dataKey="value" radius={[0, 4, 4, 0]}>
               {chartData.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={entry.fill} />
               ))}
+              <LabelList 
+                dataKey="label" 
+                position="right" 
+                style={{ fontSize: 10, fill: 'hsl(var(--foreground))' }} 
+              />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
@@ -436,7 +474,7 @@ export default function MultiLocationDashboard() {
           </div>
         </div>
 
-        {/* Summary Cards - Removed location count */}
+        {/* Summary Cards */}
         <div className="grid gap-4 grid-cols-3">
           <Card>
             <CardContent className="p-4">
@@ -506,7 +544,7 @@ export default function MultiLocationDashboard() {
                 <CardContent className="space-y-4">
                   {/* Sales Chart */}
                   {loc.hasQuBeyond && (
-                    <div>
+                    <div onClick={(e) => e.stopPropagation()}>
                       <Tabs defaultValue="daily" className="w-full">
                         <TabsList className="grid w-full grid-cols-3 h-8">
                           <TabsTrigger value="daily" className="text-xs">Day</TabsTrigger>
@@ -553,6 +591,51 @@ export default function MultiLocationDashboard() {
                     </div>
                   )}
 
+                  {/* Steritech Audit */}
+                  {loc.latestAudit && (
+                    <div className="space-y-2 pt-2 border-t">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium text-muted-foreground">Latest Audit</span>
+                      </div>
+                      <div className="bg-muted/30 rounded-lg p-2 space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-muted-foreground">{format(new Date(loc.latestAudit.audit_date), 'MMM d, yyyy')}</span>
+                          {loc.latestAudit.visit_score && (
+                            <Badge variant="outline" className="font-bold">
+                              {loc.latestAudit.visit_score}
+                            </Badge>
+                          )}
+                        </div>
+                        {loc.latestAudit.manager_name && (
+                          <p className="text-xs text-muted-foreground">MOD: {loc.latestAudit.manager_name}</p>
+                        )}
+                        <div className="flex gap-2 text-xs">
+                          {loc.latestAudit.first_priority_count > 0 && (
+                            <Badge variant="destructive" className="text-xs">
+                              P1: {loc.latestAudit.first_priority_count}
+                            </Badge>
+                          )}
+                          {loc.latestAudit.second_priority_count > 0 && (
+                            <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                              P2: {loc.latestAudit.second_priority_count}
+                            </Badge>
+                          )}
+                          {loc.latestAudit.third_priority_count > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              P3: {loc.latestAudit.third_priority_count}
+                            </Badge>
+                          )}
+                          {loc.latestAudit.first_priority_count === 0 && 
+                           loc.latestAudit.second_priority_count === 0 && 
+                           loc.latestAudit.third_priority_count === 0 && (
+                            <span className="text-green-600 text-xs">No priority items</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Staffing */}
                   <div className="flex items-center justify-between pt-2 border-t">
                     <div className="flex items-center gap-2">
@@ -591,6 +674,7 @@ export default function MultiLocationDashboard() {
                       <TableHead className="text-right">Weekly Sales</TableHead>
                       <TableHead className="text-right">Monthly Sales</TableHead>
                       <TableHead className="text-center">Checklists</TableHead>
+                      <TableHead className="text-center">Latest Audit</TableHead>
                       <TableHead className="text-center">Staffing</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -653,6 +737,22 @@ export default function MultiLocationDashboard() {
                             <span className={getCompletionColor(checklistPercent)}>
                               {loc.checklists?.filter(c => c.percent >= 100).length || 0}/{loc.checklists?.length || 0}
                             </span>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {loc.latestAudit ? (
+                              <div className="flex flex-col items-center">
+                                {loc.latestAudit.visit_score && (
+                                  <Badge variant="outline" className="font-bold text-xs">
+                                    {loc.latestAudit.visit_score}
+                                  </Badge>
+                                )}
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(loc.latestAudit.audit_date), 'M/d/yy')}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">--</span>
+                            )}
                           </TableCell>
                           <TableCell className="text-center">
                             <span className={loc.openShifts > 0 ? 'text-amber-600' : ''}>
