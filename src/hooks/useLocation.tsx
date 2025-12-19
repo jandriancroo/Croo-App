@@ -7,6 +7,7 @@ interface Location {
   id: string;
   name: string;
   location_type: string;
+  store_number?: string | null;
 }
 
 interface LocationContextType {
@@ -38,7 +39,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     try {
       const { data, error } = await supabase
         .from('user_locations')
-        .select('location_id, locations(id, name, location_type)')
+        .select('location_id, locations(id, name, location_type, store_number)')
         .eq('user_id', user.id);
 
       if (error) throw error;

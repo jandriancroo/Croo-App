@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
+import { formatLocationName } from '@/utils/locationUtils';
 
 interface Organization {
   id: string;
@@ -23,12 +24,13 @@ interface Location {
   location_type: string;
   organization_id: string | null;
   org_name?: string;
+  store_number?: string | null;
 }
 
 interface LocationPickerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSelectLocation: (location: { id: string; name: string; location_type: string }) => void;
+  onSelectLocation: (location: { id: string; name: string; location_type: string; store_number?: string | null }) => void;
   currentLocationId?: string;
 }
 
@@ -153,6 +155,7 @@ export function LocationPickerDialog({
       id: location.id,
       name: location.name,
       location_type: location.location_type,
+      store_number: location.store_number,
     });
     onOpenChange(false);
   };
@@ -236,7 +239,7 @@ export function LocationPickerDialog({
                           />
                         </button>
                         <div className="text-left">
-                          <div className="text-sm font-medium">{location.name}</div>
+                          <div className="text-sm font-medium">{formatLocationName(location.name, location.store_number)}</div>
                           {location.location_type === 'checklist_only' && (
                             <div className="text-xs text-muted-foreground">Checklist Only</div>
                           )}
@@ -273,7 +276,7 @@ export function LocationPickerDialog({
                       />
                     </button>
                     <div className="text-left">
-                      <div className="text-sm font-medium">{location.name}</div>
+                      <div className="text-sm font-medium">{formatLocationName(location.name, location.store_number)}</div>
                       {location.location_type === 'checklist_only' && (
                         <div className="text-xs text-muted-foreground">Checklist Only</div>
                       )}
@@ -315,7 +318,7 @@ export function LocationPickerDialog({
                         />
                       </button>
                       <div className="text-left">
-                        <div className="text-sm font-medium">{location.name}</div>
+                        <div className="text-sm font-medium">{formatLocationName(location.name, location.store_number)}</div>
                       </div>
                     </div>
                     <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
