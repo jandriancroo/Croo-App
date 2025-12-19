@@ -2196,6 +2196,7 @@ export type Database = {
           birthday: string | null
           created_at: string | null
           croo_cash_balance: number
+          default_location_id: string | null
           display_order: number | null
           email: string
           employee_pin: string | null
@@ -2213,6 +2214,7 @@ export type Database = {
           birthday?: string | null
           created_at?: string | null
           croo_cash_balance?: number
+          default_location_id?: string | null
           display_order?: number | null
           email: string
           employee_pin?: string | null
@@ -2230,6 +2232,7 @@ export type Database = {
           birthday?: string | null
           created_at?: string | null
           croo_cash_balance?: number
+          default_location_id?: string | null
           display_order?: number | null
           email?: string
           employee_pin?: string | null
@@ -2242,7 +2245,15 @@ export type Database = {
           role?: string | null
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_default_location_id_fkey"
+            columns: ["default_location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       punch_clock_templates: {
         Row: {
