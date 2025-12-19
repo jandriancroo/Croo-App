@@ -68,62 +68,80 @@ export function useTipDistribution(
         current.setDate(current.getDate() + 1);
       }
       
-      // Fetch tips in batches of 7 days (one week at a time) to reduce API calls
-      const allTips: DailyTipData[] = [];
-      const batchSize = 7;
+      console.log('[TipDistribution] Fetching tips for dates:', dates);
       
-      for (let i = 0; i < dates.length; i += batchSize) {
-        const batchDates = dates.slice(i, i + batchSize);
-        const middleDate = batchDates[Math.floor(batchDates.length / 2)];
-        
-        try {
-          const { data, error: fetchError } = await supabase.functions.invoke('fetch-qubeyond-sales', {
-            body: { 
-              locationId, 
-              targetDate: middleDate 
+      // Get unique weeks that we need to fetch
+      // The edge function returns a full calendar week of tips for each targetDate
+      const weekStarts = new Set<string>();
+      dates.forEach(date => {
+        const d = new Date(date + 'T12:00:00');
+        const day = d.getDay();
+        const diff = day === 0 ? 6 : day - 1; // Monday-based week start
+        d.setDate(d.getDate() - diff);
+        const weekStart = format(d, 'yyyy-MM-dd');
+        weekStarts.add(weekStart);
+      });
+      
+      console.log('[TipDistribution] Week starts to fetch:', Array.from(weekStarts));
+      
+      // Fetch tips for each week in parallel
+      const allTips: DailyTipData[] = [];
+      const weekStartsArray = Array.from(weekStarts);
+      
+      const results = await Promise.all(
+        weekStartsArray.map(async (weekStart) => {
+          // Use Wednesday of the week as target date (middle of week)
+          const targetDate = format(new Date(new Date(weekStart + 'T12:00:00').getTime() + 3 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
+          
+          try {
+            const { data, error: fetchError } = await supabase.functions.invoke('fetch-qubeyond-sales', {
+              body: { 
+                locationId, 
+                targetDate,
+                skipProjections: true // We only need tips data
+              }
+            });
+            
+            if (fetchError) {
+              console.error(`[TipDistribution] Error fetching tips for week ${weekStart}:`, fetchError);
+              return [];
             }
-          });
-          
-          if (fetchError) {
-            console.error(`Error fetching tips batch:`, fetchError);
-            continue;
-          }
-          
-          // Extract daily tips from weeklyTips breakdown
-          if (data?.weeklyTips?.dailyTips) {
-            data.weeklyTips.dailyTips.forEach((dayTip: any) => {
-              if (batchDates.includes(dayTip.date)) {
-                const totalTips = (dayTip.ccTips || 0) + (dayTip.cashTips || 0);
-                if (totalTips > 0) {
-                  allTips.push({
+            
+            console.log(`[TipDistribution] Response for ${targetDate}:`, {
+              hasTips: !!data?.tips,
+              hasWeeklyTips: !!data?.weeklyTips,
+              dailyTipsCount: data?.weeklyTips?.dailyTips?.length || 0
+            });
+            
+            const weekTips: DailyTipData[] = [];
+            
+            // Extract daily tips from weeklyTips breakdown
+            if (data?.weeklyTips?.dailyTips) {
+              data.weeklyTips.dailyTips.forEach((dayTip: any) => {
+                // Only include dates within our requested range
+                if (dates.includes(dayTip.date)) {
+                  const totalTips = (dayTip.ccTips || 0) + (dayTip.cashTips || 0);
+                  weekTips.push({
                     date: dayTip.date,
                     ccTips: dayTip.ccTips || 0,
                     cashTips: dayTip.cashTips || 0,
                     totalTips
                   });
                 }
-              }
-            });
-          }
-          
-          // Also check the current day's tips
-          if (data?.tips && batchDates.includes(middleDate)) {
-            const existing = allTips.find(t => t.date === middleDate);
-            if (!existing && data.tips.totalTips > 0) {
-              allTips.push({
-                date: middleDate,
-                ccTips: data.tips.ccTips || 0,
-                cashTips: data.tips.cashTips || 0,
-                totalTips: data.tips.totalTips || 0
               });
             }
+            
+            return weekTips;
+          } catch (err) {
+            console.error(`[TipDistribution] Error fetching tips for week ${weekStart}:`, err);
+            return [];
           }
-        } catch (err) {
-          console.error(`Error fetching tips batch:`, err);
-        }
-      }
+        })
+      );
       
-      // Remove duplicates and sort by date
+      // Flatten results and remove duplicates
+      results.forEach(weekTips => allTips.push(...weekTips));
+      
       const uniqueTips = allTips.reduce((acc, tip) => {
         const existing = acc.find(t => t.date === tip.date);
         if (!existing) {
@@ -132,9 +150,10 @@ export function useTipDistribution(
         return acc;
       }, [] as DailyTipData[]);
       
+      console.log('[TipDistribution] Final tips:', uniqueTips);
       setDailyTips(uniqueTips.sort((a, b) => a.date.localeCompare(b.date)));
     } catch (err) {
-      console.error('Error fetching tips:', err);
+      console.error('[TipDistribution] Error fetching tips:', err);
       setError('Failed to fetch tips data');
     } finally {
       setIsLoading(false);
