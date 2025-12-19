@@ -761,8 +761,11 @@ export default function MultiLocationDashboard() {
                       <div className="flex items-center gap-2">
                         {loc.hasQuBeyond && loc.sales && loc.sales.daily.pacing > 0 && loc.sales.daily.actual > 0 ? (() => {
                           const pacingPercent = (loc.sales.daily.actual / loc.sales.daily.pacing) * 100;
+                          const pacingDiff = loc.sales.daily.actual - loc.sales.daily.pacing;
                           const isAhead = pacingPercent >= 105;
-                          const isOnPace = pacingPercent >= 95;
+                          // Only show "Behind Pace" if more than $100 behind the pacing projection
+                          const isBehind = pacingDiff < -100;
+                          const isOnPace = !isAhead && !isBehind;
                           return (
                             <Badge 
                               variant="outline" 
