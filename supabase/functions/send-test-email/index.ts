@@ -53,7 +53,7 @@ const handler = async (req: Request): Promise<Response> => {
                   <tr>
                     <td style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d5a65 100%); padding: 40px 40px 30px; text-align: center;">
                       <img 
-                        src="https://croohq.com/assets/croo-logo-eWOfbANR.png" 
+                        src="https://lmodeiyrpwvgyqcvjkjr.supabase.co/storage/v1/object/public/brand-assets/croo-logo-white.png" 
                         alt="Croo" 
                         style="height: 80px; width: auto; margin-bottom: 16px;"
                       />
