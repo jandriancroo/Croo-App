@@ -521,6 +521,31 @@ async function fetchTipsData(
   console.log(`[TIPS] Fetching tips data for ${dateStr} location ${qbLocationId}`);
   
   try {
+    // Try with operationalUnits filter first (same as sales endpoint)
+    const requestPayload = {
+      fields: [
+        { fieldName: "employee" },
+        { fieldName: "tips" },
+        { fieldName: "creditCardTips" },
+        { fieldName: "cashTips" },
+        { fieldName: "totalTips" }
+      ],
+      filters: {
+        date: { from: null, to: null, values: [dateStr], type: "custom" },
+        location: { operationalUnits: [parseInt(qbLocationId)] }
+      },
+      params: { 
+        sectionId: "main", 
+        pageNumber: 1, 
+        pageSize: 100, 
+        totalRecords: null, 
+        sort: null, 
+        showTotals: true 
+      }
+    };
+    
+    console.log(`[TIPS] Request payload:`, JSON.stringify(requestPayload));
+    
     const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/tips/sections/main', {
       method: 'POST',
       headers: {
@@ -530,36 +555,16 @@ async function fetchTipsData(
         'Origin': 'https://admin.qubeyond.com',
         'Referer': 'https://admin.qubeyond.com/',
       },
-      body: JSON.stringify({
-        fields: [
-          { fieldName: "employee" },
-          { fieldName: "tips" },
-          { fieldName: "creditCardTips" },
-          { fieldName: "cashTips" },
-          { fieldName: "totalTips" }
-        ],
-        filters: {
-          date: { from: null, to: null, values: [dateStr], type: "custom" },
-          singleLocation: parseInt(qbLocationId)
-        },
-        params: { 
-          sectionId: "main", 
-          pageNumber: 1, 
-          pageSize: 100, 
-          totalRecords: null, 
-          sort: null, 
-          showTotals: true 
-        }
-      }),
+      body: JSON.stringify(requestPayload),
     });
 
     if (!response.ok) {
-      console.error('Tips fetch failed:', response.status);
+      console.error('[TIPS] Fetch failed:', response.status, await response.text());
       return null;
     }
 
     const data = await response.json();
-    console.log('Tips RAW response:', JSON.stringify(data));
+    console.log('[TIPS] RAW response:', JSON.stringify(data));
     
     let totalCcTips = 0;
     let totalCashTips = 0;
@@ -568,8 +573,8 @@ async function fetchTipsData(
     if (data.items && Array.isArray(data.items)) {
       for (const item of data.items) {
         const employeeName = item.employee || '';
-        // Check for 'tips' field (which appears to be what QuBeyond uses for CC tips)
-        const tips = parseFloat(String(item.tips || item.creditCardTips || item.ccTips || '0').replace(/[$,]/g, '')) || 0;
+        // QuBeyond uses 'tipsAmount' for the tips field
+        const tips = parseFloat(String(item.tipsAmount || item.tips || item.creditCardTips || item.ccTips || '0').replace(/[$,]/g, '')) || 0;
         const cashTips = parseFloat(String(item.cashTips || '0').replace(/[$,]/g, '')) || 0;
         
         totalCcTips += tips;
@@ -583,16 +588,18 @@ async function fetchTipsData(
     
     // Also check totals if available
     if (data.totals) {
-      const totalFromTotals = parseFloat(String(data.totals.tips || data.totals.creditCardTips || data.totals.ccTips || '0').replace(/[$,]/g, '')) || 0;
+      console.log('[TIPS] Totals object:', JSON.stringify(data.totals));
+      // QuBeyond uses 'tipsAmount' in totals as well
+      const totalFromTotals = parseFloat(String(data.totals.tipsAmount || data.totals.tips || data.totals.creditCardTips || '0').replace(/[$,]/g, '')) || 0;
       const cashFromTotals = parseFloat(String(data.totals.cashTips || '0').replace(/[$,]/g, '')) || 0;
       if (totalFromTotals > 0) totalCcTips = totalFromTotals;
       if (cashFromTotals > 0) totalCashTips = cashFromTotals;
     }
     
-    console.log(`Tips result: ccTips=${totalCcTips}, cashTips=${totalCashTips}, employees=${byEmployee.length}`);
+    console.log(`[TIPS] Result: ccTips=${totalCcTips}, cashTips=${totalCashTips}, employees=${byEmployee.length}`);
     return { ccTips: totalCcTips, cashTips: totalCashTips, totalTips: totalCcTips + totalCashTips, byEmployee };
   } catch (error) {
-    console.error('Tips data fetch error:', error);
+    console.error('[TIPS] Fetch error:', error);
     return null;
   }
 }
