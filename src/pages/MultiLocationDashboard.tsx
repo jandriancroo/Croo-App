@@ -760,26 +760,22 @@ export default function MultiLocationDashboard() {
                       <div className="flex items-center gap-2">
                         {loc.hasQuBeyond && loc.sales && loc.sales.daily.pacing > 0 && loc.sales.daily.actual >= 100 ? (() => {
                           const pacingPercent = (loc.sales.daily.actual / loc.sales.daily.pacing) * 100;
-                          // On Fire: >110%, Ahead: 105-110%, On Track: 95-105%, Behind: <95%
-                          const isOnFire = pacingPercent >= 110;
-                          const isAhead = pacingPercent >= 105 && pacingPercent < 110;
+                          // On Fire: >=105%, On Track: 95-105%, Behind: <95%
+                          const isAhead = pacingPercent >= 105;
                           const isOnTrack = pacingPercent >= 95 && pacingPercent < 105;
-                          const isBehind = pacingPercent < 95;
                           
                           return (
                             <Badge 
                               variant="outline" 
                               className={`text-xs ${
-                                isOnFire
+                                isAhead
                                   ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950'
-                                  : isAhead 
+                                  : isOnTrack 
                                     ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
-                                    : isOnTrack 
-                                      ? 'border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-950'
-                                      : 'border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950'
+                                    : 'border-sky-400 text-sky-500 bg-sky-50 dark:bg-sky-950'
                               }`}
                             >
-                              {isOnFire ? '🔥 On Fire' : isAhead ? '📈 Ahead of Pace' : isOnTrack ? '🏃 On Track' : '🧊 Behind Pace'}
+                              {isAhead ? '🔥 On Fire' : isOnTrack ? '🏃 On Track' : '🧊 Behind Pace'}
                             </Badge>
                           );
                         })() : !loc.isOpen && loc.openTime ? (
