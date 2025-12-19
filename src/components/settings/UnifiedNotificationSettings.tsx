@@ -7,7 +7,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { toast } from '@/hooks/use-toast';
 import { Bell, BellOff, Smartphone, MapPin, AlertCircle, BellRing, Mail } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -24,22 +23,18 @@ interface UserLocation {
 
 interface NotificationSetting {
   notification_type: string;
-  location_id: string | null;
+  location_id: string;
   alert_enabled: boolean;
   push_enabled: boolean;
   email_enabled: boolean;
 }
 
-// Notification types that follow you (no location)
-const PERSONAL_NOTIFICATIONS = [
-  { key: 'chat_messages', label: 'Chat Messages', description: 'New messages in your chats' },
-  { key: 'announcements', label: 'Announcements', description: 'Team-wide announcements' },
+// All notification types - now all location-based
+const NOTIFICATION_TYPES = [
+  { key: 'chat_messages', label: 'Chat Messages', description: 'New messages in location chats' },
+  { key: 'announcements', label: 'Announcements', description: 'Team announcements' },
   { key: 'schedule_updates', label: 'Schedule Updates', description: 'Changes to your schedule' },
   { key: 'shift_approvals', label: 'Shift Approvals', description: 'When your shifts are approved' },
-] as const;
-
-// Notification types that are location-specific
-const LOCATION_NOTIFICATIONS = [
   { key: 'overdue_checklists', label: 'Overdue Checklists', description: 'When checklists are past due' },
   { key: 'late_arrivals', label: 'Late Arrivals', description: 'When team members are late' },
   { key: 'certification_expiring', label: 'Cert Expiring', description: 'Expiring certifications' },
@@ -93,6 +88,7 @@ export const UnifiedNotificationSettings = () => {
       }));
       setUserLocations(locs);
       
+      // Auto-select first location
       if (locs.length > 0 && !selectedLocationId) {
         setSelectedLocationId(locs[0].location_id);
       }
@@ -103,25 +99,14 @@ export const UnifiedNotificationSettings = () => {
         .select('*')
         .eq('user_id', user.id);
 
-      // Build settings with defaults
+      // Build settings with defaults for all locations
       const allSettings: NotificationSetting[] = [];
 
-      // Personal notifications (no location)
-      PERSONAL_NOTIFICATIONS.forEach(nt => {
-        const existing = existingSettings?.find(s => s.notification_type === nt.key && !s.location_id);
-        allSettings.push({
-          notification_type: nt.key,
-          location_id: null,
-          alert_enabled: existing?.alert_enabled ?? true,
-          push_enabled: existing?.push_enabled ?? true,
-          email_enabled: existing?.email_enabled ?? false,
-        });
-      });
-
-      // Location notifications (per location)
       locs.forEach(loc => {
-        LOCATION_NOTIFICATIONS.forEach(nt => {
-          const existing = existingSettings?.find(s => s.notification_type === nt.key && s.location_id === loc.location_id);
+        NOTIFICATION_TYPES.forEach(nt => {
+          const existing = existingSettings?.find(
+            s => s.notification_type === nt.key && s.location_id === loc.location_id
+          );
           allSettings.push({
             notification_type: nt.key,
             location_id: loc.location_id,
@@ -214,7 +199,7 @@ export const UnifiedNotificationSettings = () => {
 
   const updateSetting = async (
     notificationType: string, 
-    locationId: string | null, 
+    locationId: string, 
     channel: 'alert_enabled' | 'push_enabled' | 'email_enabled', 
     value: boolean
   ) => {
@@ -228,7 +213,9 @@ export const UnifiedNotificationSettings = () => {
     ));
 
     try {
-      const currentSetting = settings.find(s => s.notification_type === notificationType && s.location_id === locationId);
+      const currentSetting = settings.find(
+        s => s.notification_type === notificationType && s.location_id === locationId
+      );
       
       const { error } = await supabase
         .from('user_notification_settings')
@@ -261,11 +248,12 @@ export const UnifiedNotificationSettings = () => {
     }
   };
 
-  const getSetting = (notificationType: string, locationId: string | null) => {
+  const getSetting = (notificationType: string, locationId: string) => {
     return settings.find(s => s.notification_type === notificationType && s.location_id === locationId);
   };
 
-  const allDisabled = settings.every(s => !s.alert_enabled && !s.push_enabled && !s.email_enabled);
+  const currentLocationSettings = settings.filter(s => s.location_id === selectedLocationId);
+  const allDisabled = currentLocationSettings.every(s => !s.alert_enabled && !s.push_enabled && !s.email_enabled);
 
   if (loading) {
     return (
@@ -274,7 +262,7 @@ export const UnifiedNotificationSettings = () => {
           <Skeleton className="h-5 w-40" />
         </CardHeader>
         <CardContent className="space-y-4">
-          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-10 w-full" />
           <Skeleton className="h-8 w-full" />
           <Skeleton className="h-8 w-full" />
         </CardContent>
@@ -314,67 +302,21 @@ export const UnifiedNotificationSettings = () => {
           </div>
         )}
 
-        {/* Channel headers */}
-        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center text-xs text-muted-foreground px-1">
-          <span></span>
-          <div className="w-10 text-center" title="In-app alerts">
-            <AlertCircle className="h-3.5 w-3.5 mx-auto" />
+        {/* No locations message */}
+        {userLocations.length === 0 ? (
+          <div className="text-center py-6 text-muted-foreground">
+            <MapPin className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">No locations assigned</p>
+            <p className="text-xs">Contact your manager to be added to a location</p>
           </div>
-          <div className="w-10 text-center" title="Push notifications">
-            <BellRing className="h-3.5 w-3.5 mx-auto" />
-          </div>
-          <div className="w-10 text-center" title="Email">
-            <Mail className="h-3.5 w-3.5 mx-auto" />
-          </div>
-        </div>
-
-        {/* Personal notifications */}
-        <div className="space-y-1">
-          <p className="text-xs text-muted-foreground mb-2">Personal — these follow you everywhere</p>
-          {PERSONAL_NOTIFICATIONS.map(nt => {
-            const setting = getSetting(nt.key, null);
-            return (
-              <div key={nt.key} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-1.5 px-1 rounded hover:bg-muted/50">
-                <div>
-                  <span className="text-sm">{nt.label}</span>
-                </div>
-                <div className="w-10 flex justify-center">
-                  <Checkbox
-                    checked={setting?.alert_enabled ?? true}
-                    onCheckedChange={(checked) => updateSetting(nt.key, null, 'alert_enabled', !!checked)}
-                  />
-                </div>
-                <div className="w-10 flex justify-center">
-                  <Checkbox
-                    checked={setting?.push_enabled ?? true}
-                    onCheckedChange={(checked) => updateSetting(nt.key, null, 'push_enabled', !!checked)}
-                    disabled={needsPermission}
-                  />
-                </div>
-                <div className="w-10 flex justify-center">
-                  <Checkbox
-                    checked={setting?.email_enabled ?? false}
-                    onCheckedChange={(checked) => updateSetting(nt.key, null, 'email_enabled', !!checked)}
-                  />
-                </div>
+        ) : (
+          <>
+            {/* Location selector */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">Select location</span>
               </div>
-            );
-          })}
-        </div>
-
-        <Separator />
-
-        {/* Location-based notifications */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-            <p className="text-xs text-muted-foreground">Location-based</p>
-          </div>
-
-          {userLocations.length === 0 ? (
-            <p className="text-sm text-muted-foreground italic">No locations assigned</p>
-          ) : (
-            <>
               <Select
                 value={selectedLocationId || ''}
                 onValueChange={(value) => setSelectedLocationId(value)}
@@ -390,43 +332,70 @@ export const UnifiedNotificationSettings = () => {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
 
-              {selectedLocationId && (
+            {/* Notification settings for selected location */}
+            {selectedLocationId && (
+              <>
+                {/* Channel headers */}
+                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center text-xs text-muted-foreground px-1 pt-2">
+                  <span></span>
+                  <div className="w-10 text-center" title="In-app alerts">
+                    <AlertCircle className="h-3.5 w-3.5 mx-auto" />
+                  </div>
+                  <div className="w-10 text-center" title="Push notifications">
+                    <BellRing className="h-3.5 w-3.5 mx-auto" />
+                  </div>
+                  <div className="w-10 text-center" title="Email">
+                    <Mail className="h-3.5 w-3.5 mx-auto" />
+                  </div>
+                </div>
+
+                {/* Notification type rows */}
                 <div className="space-y-1">
-                  {LOCATION_NOTIFICATIONS.map(nt => {
+                  {NOTIFICATION_TYPES.map(nt => {
                     const setting = getSetting(nt.key, selectedLocationId);
                     return (
-                      <div key={nt.key} className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-1.5 px-1 rounded hover:bg-muted/50">
+                      <div 
+                        key={nt.key} 
+                        className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
+                      >
                         <div>
                           <span className="text-sm">{nt.label}</span>
                         </div>
                         <div className="w-10 flex justify-center">
                           <Checkbox
                             checked={setting?.alert_enabled ?? true}
-                            onCheckedChange={(checked) => updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)}
+                            onCheckedChange={(checked) => 
+                              updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
+                            }
                           />
                         </div>
                         <div className="w-10 flex justify-center">
                           <Checkbox
                             checked={setting?.push_enabled ?? true}
-                            onCheckedChange={(checked) => updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)}
+                            onCheckedChange={(checked) => 
+                              updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
+                            }
                             disabled={needsPermission}
                           />
                         </div>
                         <div className="w-10 flex justify-center">
                           <Checkbox
                             checked={setting?.email_enabled ?? false}
-                            onCheckedChange={(checked) => updateSetting(nt.key, selectedLocationId, 'email_enabled', !!checked)}
+                            onCheckedChange={(checked) => 
+                              updateSetting(nt.key, selectedLocationId, 'email_enabled', !!checked)
+                            }
                           />
                         </div>
                       </div>
                     );
                   })}
                 </div>
-              )}
-            </>
-          )}
-        </div>
+              </>
+            )}
+          </>
+        )}
       </CardContent>
     </Card>
   );
