@@ -41,6 +41,7 @@ import Index from "./pages/Index";
 import WelcomeProfile from "./pages/WelcomeProfile";
 import InstallGuide from "./pages/InstallGuide";
 import ResetPassword from "./pages/ResetPassword";
+import ForgotPassword from "./pages/ForgotPassword";
 import MyWallet from "./pages/MyWallet";
 import RoleManagement from "./pages/RoleManagement";
 import CompletedStampPreview from "./pages/CompletedStampPreview";
@@ -63,6 +64,7 @@ const AppContent = () => {
         <Routes>
           <Route path="/auth" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/landing" element={<Index />} />
           <Route path="/stamp-preview" element={<CompletedStampPreview />} />
           <Route path="/install" element={<InstallGuide />} />

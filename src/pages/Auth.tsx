@@ -191,6 +191,15 @@ export default function Auth() {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? 'Signing in...' : 'Sign In'}
                 </Button>
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/forgot-password')}
+                    className="text-sm text-muted-foreground hover:text-primary underline"
+                  >
+                    Forgot your password?
+                  </button>
+                </div>
               </form>
             </TabsContent>
             <TabsContent value="signup">
