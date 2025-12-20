@@ -94,10 +94,47 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
   const isToday = isSameDay(targetDate, new Date());
 
+  // Check database cache for historical dates
+  const checkDatabaseCache = async (dateStr: string): Promise<SalesData | null> => {
+    if (!currentLocation?.id) return null;
+    
+    const { data: cached, error } = await supabase
+      .from('sales_cache')
+      .select('*')
+      .eq('location_id', currentLocation.id)
+      .eq('sale_date', dateStr)
+      .maybeSingle();
+    
+    if (error || !cached) return null;
+    
+    console.log(`[CACHE HIT] Using cached data for ${dateStr}`);
+    
+    // Convert cached data to SalesData format
+    const hourlyData = (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number }>) || [];
+    
+    return {
+      daily: Number(cached.net_sales) || 0,
+      hourly: hourlyData,
+      guestCount: { daily: cached.guest_count || 0, weekly: 0, monthly: 0 },
+      avgTicket: cached.avg_ticket ? Number(cached.avg_ticket) : undefined,
+      pizzaCount: cached.pizza_count || 0,
+    };
+  };
+
   // Fetch fresh data from API
   const fetchSalesData = async (): Promise<SalesData | null> => {
     const dateStr = getDateString(targetDate);
     const isTodayCheck = isSameDay(targetDate, new Date());
+    
+    // For historical dates, check database cache first
+    if (!isTodayCheck && currentLocation?.id) {
+      const cachedData = await checkDatabaseCache(dateStr);
+      if (cachedData) {
+        // We have cached daily data, but still need to fetch comparison data
+        // Return cached data immediately for fast render
+        return cachedData;
+      }
+    }
     
     // Check cache INSIDE the query function to get fresh values
     const cachedProjections = isTodayCheck && currentLocation?.id 
