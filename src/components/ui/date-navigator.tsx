@@ -10,7 +10,8 @@ interface DateNavigatorProps {
   canGoNext?: boolean;
   canGoPrev?: boolean;
   className?: string;
-  size?: 'sm' | 'default';
+  /** When true, makes the navigator slightly narrower (90%) - use when there's a row above it */
+  narrow?: boolean;
 }
 
 export function DateNavigator({ 
@@ -21,37 +22,28 @@ export function DateNavigator({
   canGoNext = true,
   canGoPrev = true,
   className,
-  size = 'default'
+  narrow = false
 }: DateNavigatorProps) {
   return (
-    <div className={cn("flex justify-center", className)}>
-      <div className={cn(
-        "flex items-center justify-between bg-primary rounded-full px-1",
-        size === 'sm' ? 'py-0.5 gap-2' : 'py-0.5 gap-3',
-        "w-auto min-w-[140px] max-w-fit"
-      )}>
+    <div className={cn(
+      "flex justify-center",
+      narrow && "px-[5%]",
+      className
+    )}>
+      <div className="flex items-center justify-between bg-primary rounded-full px-1 py-0.5 w-full">
         <Button 
           variant="ghost" 
           size="sm" 
           onClick={onPrev}
           disabled={!canGoPrev}
-          className={cn(
-            "text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full",
-            size === 'sm' ? 'h-5 w-5 p-0' : 'h-6 w-6 p-0'
-          )}
+          className="h-6 w-6 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
         >
-          <ChevronLeft className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+          <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div className="text-center px-1">
-          <span className={cn(
-            "text-primary-foreground font-medium whitespace-nowrap",
-            size === 'sm' ? 'text-[11px]' : 'text-xs'
-          )}>{label}</span>
+        <div className="text-center flex-1">
+          <span className="text-xs text-primary-foreground font-medium">{label}</span>
           {sublabel && (
-            <span className={cn(
-              "text-primary-foreground/80 block whitespace-nowrap",
-              size === 'sm' ? 'text-[10px]' : 'text-xs'
-            )}>{sublabel}</span>
+            <span className="text-xs text-primary-foreground/80 block">{sublabel}</span>
           )}
         </div>
         <Button 
@@ -59,12 +51,9 @@ export function DateNavigator({
           size="sm" 
           onClick={onNext} 
           disabled={!canGoNext}
-          className={cn(
-            "text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full",
-            size === 'sm' ? 'h-5 w-5 p-0' : 'h-6 w-6 p-0'
-          )}
+          className="h-6 w-6 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
         >
-          <ChevronRight className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} />
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
     </div>

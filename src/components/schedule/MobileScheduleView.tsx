@@ -397,7 +397,6 @@ export function MobileScheduleView({
               onPrev={handlePreviousWeek}
               onNext={handleNextWeek}
               label={format(currentWeekStart, 'MMMM yyyy')}
-              size="sm"
             />
           </div>
 
