@@ -80,7 +80,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   const isToday = isSameDay(targetDate, new Date());
 
   // Fetch fresh data from API
-  const fetchSalesData = async () => {
+  const fetchSalesData = async (): Promise<SalesData | null> => {
     const dateStr = getDateString(targetDate);
     const isTodayCheck = isSameDay(targetDate, new Date());
     
@@ -93,11 +93,16 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     const hasValidWeeklyMonthlyCache = cachedProjections?.weekProjected !== undefined && cachedProjections?.monthProjected !== undefined;
     const skipProjections = isTodayCheck && hasValidDailyCache && hasValidWeeklyMonthlyCache;
     
+    // Check if we have cached data - if so, use fast mode for quicker refresh
+    const cached = currentLocation?.id ? getCachedLiveSales(currentLocation.id) : null;
+    const useFastMode = cached?.data ? true : false;
+    
     const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
       body: { 
         locationId: currentLocation?.id,
         targetDate: dateStr,
-        skipProjections
+        skipProjections,
+        fastMode: useFastMode // Skip historical data for faster refresh when we have cached data
       }
     });
     if (error) {
