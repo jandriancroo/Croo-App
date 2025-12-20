@@ -94,7 +94,7 @@ export function EmployeeRow({
     const wage = profile.hourly_wage || 15.00;
     return (hours * wage).toFixed(2);
   };
-  return <div ref={setNodeRef} style={style} className="grid grid-cols-[minmax(140px,1.5fr)_repeat(7,1fr)] 2xl:grid-cols-8 gap-0 border-b border-dotted border-border/50 relative">
+  return <div ref={setNodeRef} style={style} className="grid grid-cols-8 gap-0 border-b border-dotted border-border/50 relative">
       {/* Drag Handle in Left Margin */}
       {isDraggable && profile.id !== "unassigned" && <div {...attributes} {...listeners} className="absolute -left-6 top-0 bottom-0 w-5 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground z-20">
           <GripVertical className="h-5 w-5" />
@@ -110,8 +110,8 @@ export function EmployeeRow({
               <AvatarImage src={profile.profile_photo_url || undefined} />
               <AvatarFallback className="text-base">{profile.full_name.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm 2xl:text-base font-semibold leading-tight mb-1 break-words">{profile.full_name}</p>
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <p className="text-sm 2xl:text-base font-semibold leading-tight mb-1 truncate">{profile.full_name}</p>
               <p className="text-xs 2xl:text-sm text-muted-foreground leading-tight">
                 {calculateTotalHours()} hrs
               </p>

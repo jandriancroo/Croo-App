@@ -1182,7 +1182,7 @@ export default function Schedule() {
         >
           <Card className="p-6 overflow-x-auto">
             {/* Week Day Headers */}
-            <div className="grid grid-cols-[minmax(140px,1.5fr)_repeat(7,1fr)] 2xl:grid-cols-8 gap-0 border-b-2 border-border">
+            <div className="grid grid-cols-8 gap-0 border-b-2 border-border">
               <div className="font-semibold p-2 border-r border-border bg-muted/50 text-xs"></div>
               {weekDays.map((day, index) => {
                 const dayString = format(day, "yyyy-MM-dd");
