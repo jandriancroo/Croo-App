@@ -441,11 +441,10 @@ export default function Tasks() {
             {/* Completion History */}
             <Card>
               <CardHeader className="py-3">
-                <DateNavigator
+              <DateNavigator
                   onPrev={() => setHistoryDate(subDays(historyDate, 1))}
                   onNext={() => setHistoryDate(addDays(historyDate, 1))}
-                  label={format(historyDate, 'EEEE')}
-                  sublabel={format(historyDate, 'MMMM d, yyyy')}
+                  label={`${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`}
                   canGoNext={format(historyDate, 'yyyy-MM-dd') < format(new Date(), 'yyyy-MM-dd')}
                 />
               </CardHeader>
