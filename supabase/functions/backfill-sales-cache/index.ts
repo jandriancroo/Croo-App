@@ -18,6 +18,7 @@ interface DaySalesData {
   hourlyData: { hour: string; sales: number; checksCount: number }[];
   netSales: number;
   guestCount: number;
+  pizzaCount: number;
 }
 
 function decodeJwtPayload(token: string): Record<string, unknown> {
@@ -156,6 +157,99 @@ async function fetchHourlySales(
     }
   }
   return hourlyData;
+}
+
+// Fetch product mix for a specific day to get pizza count
+async function fetchProductMix(
+  tokenGw: string, 
+  dateStr: string,
+  qbLocationId: string
+): Promise<number> {
+  try {
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': tokenGw,
+        'Origin': 'https://admin.qubeyond.com',
+        'Referer': 'https://admin.qubeyond.com/',
+      },
+      body: JSON.stringify({
+        fields: [
+          { fieldName: "itemGroup" },
+          { fieldName: "itemName" },
+          { fieldName: "quantity" },
+          { fieldName: "netSales" }
+        ],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: "custom" },
+          singleLocation: parseInt(qbLocationId)
+        },
+        params: {
+          sectionId: "main",
+          pageNumber: 1,
+          pageSize: 200,
+          totalRecords: null,
+          sort: [{ field: "netSales", dir: "desc" }],
+          showTotals: true
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      return 0;
+    }
+
+    const data = await response.json();
+    const products: { name: string; quantity: number; category: string }[] = [];
+
+    const addRow = (row: any, fallbackCategory?: string) => {
+      const name = row.itemName || row.productName || row.name || '';
+      if (!name || name === 'Totals') return;
+
+      const category =
+        row.itemGroupName ||
+        row.itemGroup ||
+        row.categoryName ||
+        row.category ||
+        fallbackCategory ||
+        '';
+
+      const quantity = parseFloat(String(row.quantity || '0').replace(/,/g, '')) || 0;
+
+      if (quantity > 0) {
+        products.push({ name, quantity, category });
+      }
+    };
+
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        if (item.items && Array.isArray(item.items)) {
+          const groupName = item.itemGroupName || item.itemGroup || item.categoryName || item.category || '';
+          for (const child of item.items) {
+            addRow(child, groupName);
+          }
+        } else {
+          addRow(item);
+        }
+      }
+    }
+    
+    // Calculate pizza count from "Crusts" category
+    // Items with "1/2" in the name count as 0.5 pizzas each
+    const pizzaCount = products
+      .filter(item => item.category.toLowerCase() === 'crusts')
+      .reduce((sum, item) => {
+        const isHalf = item.name.includes('1/2') || item.name.includes('(1/2)');
+        return sum + (isHalf ? item.quantity * 0.5 : item.quantity);
+      }, 0);
+    
+    return Math.round(pizzaCount);
+  } catch (error) {
+    console.error(`[BACKFILL] Product mix fetch error for ${dateStr}:`, error);
+    return 0;
+  }
 }
 
 // Get dates for backfill (last 365 days)
@@ -322,7 +416,10 @@ serve(async (req) => {
       const batchResults = await Promise.all(
         batch.map(async (dateStr) => {
           try {
-            const hourlyData = await fetchHourlySales(auth.tokenGw, dateStr, qbLocationId);
+            const [hourlyData, pizzaCount] = await Promise.all([
+              fetchHourlySales(auth.tokenGw, dateStr, qbLocationId),
+              fetchProductMix(auth.tokenGw, dateStr, qbLocationId)
+            ]);
             const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
             const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
             const date = new Date(dateStr + 'T12:00:00');
@@ -332,7 +429,8 @@ serve(async (req) => {
               dayOfWeek: date.getDay(),
               hourlyData,
               netSales,
-              guestCount
+              guestCount,
+              pizzaCount
             };
           } catch (error) {
             console.error(`[BACKFILL] Error fetching ${dateStr}:`, error);
@@ -399,7 +497,7 @@ serve(async (req) => {
         sale_date: dayData.dateStr,
         net_sales: dayData.netSales,
         guest_count: dayData.guestCount,
-        pizza_count: 0,
+        pizza_count: dayData.pizzaCount,
         avg_ticket: avgTicket,
         hourly_data: hourlyWithProjections,
         projected_sales: projectedSales,
