@@ -30,20 +30,20 @@ export function DateNavigator({
       narrow && "px-[5%]",
       className
     )}>
-      <div className="flex items-center justify-between bg-primary rounded-full px-1 py-0.5 w-full">
+      <div className="inline-flex items-center justify-between bg-primary rounded-full px-2 py-1 gap-2">
         <Button 
           variant="ghost" 
           size="sm" 
           onClick={onPrev}
           disabled={!canGoPrev}
-          className="h-6 w-6 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
+          className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div className="text-center flex-1">
-          <span className="text-xs text-primary-foreground font-medium">{label}</span>
+        <div className="text-center px-2">
+          <span className="text-sm text-primary-foreground font-medium whitespace-nowrap">{label}</span>
           {sublabel && (
-            <span className="text-xs text-primary-foreground/80 block">{sublabel}</span>
+            <span className="text-sm text-primary-foreground/80 ml-1">{sublabel}</span>
           )}
         </div>
         <Button 
@@ -51,7 +51,7 @@ export function DateNavigator({
           size="sm" 
           onClick={onNext} 
           disabled={!canGoNext}
-          className="h-6 w-6 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
+          className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
