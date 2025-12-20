@@ -98,31 +98,95 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   const checkDatabaseCache = async (dateStr: string): Promise<SalesData | null> => {
     if (!currentLocation?.id) return null;
     
-    const { data: cached, error } = await supabase
-      .from('sales_cache')
-      .select('*')
-      .eq('location_id', currentLocation.id)
-      .eq('sale_date', dateStr)
-      .maybeSingle();
+    // Get the target date for week/month calculations
+    const targetDateObj = new Date(dateStr + 'T00:00:00');
+    const weekStart = startOfWeek(targetDateObj, { weekStartsOn: 1 }); // Monday
+    const weekEnd = endOfWeek(targetDateObj, { weekStartsOn: 1 }); // Sunday
+    const monthStart = startOfMonth(targetDateObj);
     
-    if (error || !cached) return null;
+    const weekStartStr = format(weekStart, 'yyyy-MM-dd');
+    const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+    const monthStartStr = format(monthStart, 'yyyy-MM-dd');
+    
+    // Fetch daily data + week range + month range in parallel
+    const [dailyResult, weekResult, monthResult] = await Promise.all([
+      supabase
+        .from('sales_cache')
+        .select('*')
+        .eq('location_id', currentLocation.id)
+        .eq('sale_date', dateStr)
+        .maybeSingle(),
+      supabase
+        .from('sales_cache')
+        .select('sale_date, net_sales, guest_count, projected_sales')
+        .eq('location_id', currentLocation.id)
+        .gte('sale_date', weekStartStr)
+        .lte('sale_date', weekEndStr)
+        .order('sale_date'),
+      supabase
+        .from('sales_cache')
+        .select('sale_date, net_sales, guest_count, projected_sales')
+        .eq('location_id', currentLocation.id)
+        .gte('sale_date', monthStartStr)
+        .lte('sale_date', dateStr)
+        .order('sale_date')
+    ]);
+    
+    if (dailyResult.error || !dailyResult.data) return null;
+    const cached = dailyResult.data;
     
     console.log(`[CACHE HIT] Using cached data for ${dateStr}`);
     
-    // Convert cached data to SalesData format
+    // Aggregate weekly data
+    const weekData = weekResult.data || [];
+    const weeklySales = weekData.reduce((sum, d) => sum + (Number(d.net_sales) || 0), 0);
+    const weeklyGuests = weekData.reduce((sum, d) => sum + (d.guest_count || 0), 0);
+    const weeklyProjected = weekData.reduce((sum, d) => sum + (Number(d.projected_sales) || 0), 0);
+    const weeklyBreakdown = weekData.map(d => ({
+      date: d.sale_date,
+      sales: Number(d.net_sales) || 0,
+      projected: Number(d.projected_sales) || 0,
+      guestCount: d.guest_count || 0
+    }));
+    
+    // Aggregate monthly data
+    const monthData = monthResult.data || [];
+    const monthlySales = monthData.reduce((sum, d) => sum + (Number(d.net_sales) || 0), 0);
+    const monthlyGuests = monthData.reduce((sum, d) => sum + (d.guest_count || 0), 0);
+    const monthlyProjected = monthData.reduce((sum, d) => sum + (Number(d.projected_sales) || 0), 0);
+    const monthlyBreakdown = monthData.map(d => ({
+      date: d.sale_date,
+      sales: Number(d.net_sales) || 0,
+      projected: Number(d.projected_sales) || 0,
+      guestCount: d.guest_count || 0
+    }));
+    
     // Hourly data should already have projections from backfill
     const hourlyData = (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number; projected?: number }>) || [];
     
     return {
       daily: Number(cached.net_sales) || 0,
+      weekly: weeklySales,
+      monthly: monthlySales,
       hourly: hourlyData,
-      guestCount: { daily: cached.guest_count || 0, weekly: 0, monthly: 0 },
+      weeklyBreakdown,
+      monthlyBreakdown,
+      guestCount: { 
+        daily: cached.guest_count || 0, 
+        weekly: weeklyGuests, 
+        monthly: monthlyGuests 
+      },
       avgTicket: cached.avg_ticket ? Number(cached.avg_ticket) : undefined,
       pizzaCount: cached.pizza_count || 0,
       projections: {
         todayProjected: Number(cached.projected_sales) || 0,
-        weekProjected: 0,
-        monthProjected: 0
+        weekProjected: weeklyProjected,
+        monthProjected: monthlyProjected
+      },
+      dateRange: {
+        today: dateStr,
+        weekStart: weekStartStr,
+        monthStart: monthStartStr
       }
     };
   };
