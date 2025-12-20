@@ -110,8 +110,8 @@ export function EmployeeRow({
               <AvatarImage src={profile.profile_photo_url || undefined} />
               <AvatarFallback className="text-base">{profile.full_name.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0 overflow-hidden">
-              <p className="text-sm 2xl:text-base font-semibold leading-tight mb-1 truncate">{profile.full_name}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm 2xl:text-base font-semibold leading-tight mb-1 break-words">{profile.full_name}</p>
               <p className="text-xs 2xl:text-sm text-muted-foreground leading-tight">
                 {calculateTotalHours()} hrs
               </p>
