@@ -8,12 +8,12 @@ export function BreakIndicator({ hasBreak, size = 'md' }: BreakIndicatorProps) {
 
   return (
     <span 
-      className={`inline-flex items-center gap-1 bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 rounded px-1.5 ${
-        size === 'sm' ? 'text-[10px] py-0.5' : 'text-xs py-1'
+      className={`inline-flex items-center justify-center bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 rounded shrink-0 ${
+        size === 'sm' ? 'text-[10px] w-5 h-5' : 'text-xs px-1.5 py-1 gap-1'
       }`}
       title="30-minute unpaid break"
     >
-      <span>☕</span>
+      <span className={size === 'sm' ? 'text-xs' : ''}>☕</span>
       {size === 'md' && <span>30min break</span>}
     </span>
   );
