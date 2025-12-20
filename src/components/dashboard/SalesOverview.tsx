@@ -156,15 +156,15 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
     queryFn: fetchSalesData,
     enabled: !!currentLocation?.id,
-    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
-    refetchOnWindowFocus: false, // Don't refetch just because user switched tabs
-    initialData: getInitialData, // Show cached data instantly
+    staleTime: isToday ? 5 * 60 * 1000 : 30 * 60 * 1000, // 5 min for today, 30 min for past dates
+    gcTime: 60 * 60 * 1000, // Keep in cache for 1 hour
+    refetchOnWindowFocus: false,
+    refetchOnMount: 'always', // Always refetch when component mounts or date changes
+    initialData: getInitialData,
     initialDataUpdatedAt: () => {
-      // Tell React Query when the initial data was fetched
       if (!currentLocation?.id) return 0;
       const cached = getCachedLiveSales(currentLocation.id);
       if (!cached) return 0;
-      // Return timestamp to let React Query know if it should background refresh
       return cached.isStale ? 0 : Date.now();
     }
   });
