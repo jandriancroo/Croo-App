@@ -537,10 +537,8 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                       </div>
                     </div>
                     
-                    {/* Pace (Today) or Actual (Historical) - Right */}
-                    {isToday ? (
-                      // Show Pace for today
-                      salesData.projections.todayPaceAdjusted !== undefined && 
+                    {/* Pace - Right (only show for today when we have pace data) */}
+                    {isToday && salesData.projections.todayPaceAdjusted !== undefined && 
                       salesData.projections.todayPaceAdjusted > 0 && (
                         <div className="flex items-center gap-2 flex-1 justify-end">
                           <div className="flex flex-col items-end">
@@ -566,34 +564,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                           </div>
                         </div>
                       )
-                    ) : (
-                      // Show Actual for historical dates
-                      salesData.daily !== undefined && salesData.daily > 0 && (
-                        <div className="flex items-center gap-2 flex-1 justify-end">
-                          <div className="flex flex-col items-end">
-                            <span className="text-xs text-muted-foreground">Actual</span>
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
-                                {formatCurrency(salesData.daily)}
-                              </span>
-                              {salesData.projections.todayProjected > 0 && (
-                                <span className={`text-xs font-medium ${
-                                  salesData.daily >= salesData.projections.todayProjected 
-                                    ? 'text-green-500' 
-                                    : 'text-red-500'
-                                }`}>
-                                  {salesData.daily >= salesData.projections.todayProjected ? '+' : ''}
-                                  {formatCurrency(salesData.daily - salesData.projections.todayProjected)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
-                            <TrendingUp className="h-3.5 w-3.5 text-white" />
-                          </div>
-                        </div>
-                      )
-                    )}
+                    }
                   </div>
                 )}
 
@@ -792,7 +763,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                      salesData.projections.todayProjected > 0 && (
                       <div className="flex items-center gap-2 flex-1 justify-end">
                         <div className="flex flex-col items-end">
-                          <span className="text-xs text-muted-foreground">Pacing To</span>
+                          <span className="text-xs text-muted-foreground">Pace</span>
                           {(() => {
                             const pacingDelta = salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected;
                             const weekPacing = salesData.projections.weekProjected + pacingDelta;
@@ -946,7 +917,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                    salesData.projections.todayProjected > 0 && (
                     <div className="flex items-center gap-2 flex-1 justify-end">
                       <div className="flex flex-col items-end">
-                        <span className="text-xs text-muted-foreground">Pacing To</span>
+                        <span className="text-xs text-muted-foreground">Pace</span>
                         {(() => {
                           const pacingDelta = salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected;
                           const monthPacing = salesData.projections.monthProjected + pacingDelta;
