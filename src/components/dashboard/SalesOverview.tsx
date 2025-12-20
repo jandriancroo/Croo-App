@@ -361,22 +361,18 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
   const hasLaborData = salesData?.labor && salesData.labor.laborPercent > 0;
 
-  // Calculate pacing percentage vs projection
-  const pacingData = useMemo(() => {
+  // Calculate pacing status for "On Track" badge
+  const pacingStatus = useMemo(() => {
     if (!isToday || !salesData?.projections?.todayProjected || !salesData?.projections?.todayPaceAdjusted) {
       return null;
     }
     if (salesData.daily < 100) return null; // Not enough data yet
     
     const paceVsProjection = (salesData.projections.todayPaceAdjusted / salesData.projections.todayProjected) * 100;
-    const percentDiff = Math.round(paceVsProjection - 100);
     
-    let status: 'ahead' | 'onTrack' | 'behind';
-    if (paceVsProjection >= 102) status = 'ahead';
-    else if (paceVsProjection >= 98) status = 'onTrack';
-    else status = 'behind';
-    
-    return { status, percentDiff };
+    if (paceVsProjection >= 105) return 'ahead';
+    if (paceVsProjection >= 95) return 'onTrack';
+    return 'behind';
   }, [isToday, salesData?.daily, salesData?.projections?.todayProjected, salesData?.projections?.todayPaceAdjusted]);
 
   return (
@@ -409,18 +405,18 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
                       {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
                     </p>
-                    {pacingData && (
+                    {pacingStatus && (
                       <Badge 
                         variant="outline" 
-                        className={`text-[10px] px-1.5 py-0 h-5 font-semibold ${
-                          pacingData.status === 'ahead'
-                            ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950'
-                            : pacingData.status === 'onTrack' 
-                              ? 'border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950' 
-                              : 'border-red-400 text-red-500 bg-red-50 dark:bg-red-950'
+                        className={`text-[10px] px-1.5 py-0 h-5 ${
+                          pacingStatus === 'ahead'
+                            ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950'
+                            : pacingStatus === 'onTrack' 
+                              ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
+                              : 'border-sky-400 text-sky-500 bg-sky-50 dark:bg-sky-950'
                         }`}
                       >
-                        {pacingData.percentDiff >= 0 ? '+' : ''}{pacingData.percentDiff}%
+                        {pacingStatus === 'ahead' ? '🔥' : pacingStatus === 'onTrack' ? '🏃' : '🧊'}
                       </Badge>
                     )}
                   </div>
