@@ -110,12 +110,8 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     console.log(`[CACHE HIT] Using cached data for ${dateStr}`);
     
     // Convert cached data to SalesData format
-    // For historical dates, set projected = sales since the day is complete
-    const rawHourlyData = (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number }>) || [];
-    const hourlyData = rawHourlyData.map(h => ({
-      ...h,
-      projected: h.sales // For completed days, projected equals actual
-    }));
+    // Hourly data should already have projections from backfill
+    const hourlyData = (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number; projected?: number }>) || [];
     
     return {
       daily: Number(cached.net_sales) || 0,
@@ -123,6 +119,11 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       guestCount: { daily: cached.guest_count || 0, weekly: 0, monthly: 0 },
       avgTicket: cached.avg_ticket ? Number(cached.avg_ticket) : undefined,
       pizzaCount: cached.pizza_count || 0,
+      projections: {
+        todayProjected: Number(cached.projected_sales) || 0,
+        weekProjected: 0,
+        monthProjected: 0
+      }
     };
   };
 
