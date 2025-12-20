@@ -174,7 +174,7 @@ async function fetchHourlySales(
           { fieldName: "tax" }, { fieldName: "netSalesPercentage" }
         ],
         filters: {
-          date: { from: null, to: null, values: [dateStr], type: "today" },
+          date: { from: null, to: null, values: [dateStr], type: "custom" },
           location: { operationalUnits: [parseInt(qbLocationId)] }
         },
         params: { sectionId: "main", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
