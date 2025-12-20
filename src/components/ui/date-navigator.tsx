@@ -30,7 +30,10 @@ export function DateNavigator({
       narrow && "px-[5%]",
       className
     )}>
-      <div className="inline-flex items-center justify-between bg-primary rounded-full px-2 py-1 gap-2">
+      <div className={cn(
+        "inline-flex items-center justify-between bg-primary rounded-full px-2 py-1 gap-2",
+        className?.includes("w-full") && "w-full"
+      )}>
         <Button 
           variant="ghost" 
           size="sm" 
