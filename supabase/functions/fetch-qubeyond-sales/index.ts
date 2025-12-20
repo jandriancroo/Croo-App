@@ -1495,11 +1495,15 @@ serve(async (req) => {
     } : null;
 
     // Calculate pizza count from "Crusts" category in product mix
+    // Items with "1/2" in the name count as 0.5 pizzas each
     const pizzaCount = productMix
       .filter(item => item.category.toLowerCase() === 'crusts')
-      .reduce((sum, item) => sum + item.quantity, 0);
+      .reduce((sum, item) => {
+        const isHalf = item.name.includes('1/2') || item.name.includes('(1/2)');
+        return sum + (isHalf ? item.quantity * 0.5 : item.quantity);
+      }, 0);
     
-    console.log(`Pizza count (Crusts category): ${pizzaCount}`);
+    console.log(`Pizza count (Crusts category, 1/2 items counted as 0.5): ${pizzaCount}`);
 
     const result = {
       daily: dailySales,
