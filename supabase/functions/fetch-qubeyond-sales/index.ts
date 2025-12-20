@@ -397,16 +397,38 @@ async function fetchProductMix(
     console.log('Product mix first item sample:', JSON.stringify(data.items?.[0] || 'no items'));
     
     const products: { name: string; quantity: number; sales: number; category: string }[] = [];
-    
+
+    const addRow = (row: any, fallbackCategory?: string) => {
+      const name = row.itemName || row.productName || row.name || '';
+      if (!name || name === 'Totals') return;
+
+      const category =
+        row.itemGroupName ||
+        row.itemGroup ||
+        row.categoryName ||
+        row.category ||
+        fallbackCategory ||
+        '';
+
+      const quantity = parseFloat(String(row.quantity || '0').replace(/,/g, '')) || 0;
+      const sales =
+        parseFloat(String(row.netSales || row.itemSales || row.sales || '0').replace(/[$,]/g, '')) || 0;
+
+      if (quantity > 0) {
+        products.push({ name, quantity, sales, category });
+      }
+    };
+
     if (data.items && Array.isArray(data.items)) {
       for (const item of data.items) {
-        // Try multiple field name variations
-        const name = item.itemName || item.productName || item.name || '';
-        const category = item.itemGroup || item.categoryName || item.category || '';
-        const quantity = parseInt(String(item.quantity || '0').replace(/,/g, '')) || 0;
-        const sales = parseFloat(String(item.netSales || item.sales || '0').replace(/[$,]/g, '')) || 0;
-        if (name && quantity > 0) {
-          products.push({ name, quantity, sales, category });
+        // The product mix response is grouped: top-level rows contain nested `items`
+        if (item.items && Array.isArray(item.items)) {
+          const groupName = item.itemGroupName || item.itemGroup || item.categoryName || item.category || '';
+          for (const child of item.items) {
+            addRow(child, groupName);
+          }
+        } else {
+          addRow(item);
         }
       }
     }
