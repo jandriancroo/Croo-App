@@ -558,35 +558,43 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               })()}
 
               {/* Product Mix Section */}
-              {salesData?.productMix && salesData.productMix.length > 0 && (
-                <Collapsible open={showProductMix} onOpenChange={setShowProductMix}>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" className="w-full justify-between h-9 text-sm">
-                      <span className="flex items-center gap-2">
-                        <Package className="h-4 w-4" />
-                        Product Mix ({salesData.productMix.length} items)
-                      </span>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${showProductMix ? 'rotate-180' : ''}`} />
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="pt-2">
-                    <div className="max-h-[300px] overflow-y-auto space-y-1">
-                      {salesData.productMix.map((product, idx) => (
-                        <div key={idx} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{product.name}</p>
-                            <p className="text-xs text-muted-foreground">{product.category}</p>
+              {salesData?.productMix && salesData.productMix.length > 0 && (() => {
+                const sortedProductMix = [...salesData.productMix]
+                  .sort((a, b) => b.sales - a.sales)
+                  .slice(0, 20);
+                return (
+                  <Collapsible open={showProductMix} onOpenChange={setShowProductMix}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" className="w-full justify-between h-9 text-sm">
+                        <span className="flex items-center gap-2">
+                          <Package className="h-4 w-4" />
+                          Top 20 Products by Sales
+                        </span>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${showProductMix ? 'rotate-180' : ''}`} />
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-2">
+                      <div className="max-h-[300px] overflow-y-auto space-y-1">
+                        {sortedProductMix.map((product, idx) => (
+                          <div key={idx} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <span className="text-xs text-muted-foreground w-5">{idx + 1}.</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{product.name}</p>
+                                <p className="text-xs text-muted-foreground">{product.category}</p>
+                              </div>
+                            </div>
+                            <div className="text-right ml-2">
+                              <p className="text-sm font-medium">{formatCurrency(product.sales)}</p>
+                              <p className="text-xs text-muted-foreground">{product.quantity} sold</p>
+                            </div>
                           </div>
-                          <div className="text-right ml-2">
-                            <p className="text-sm font-medium">{product.quantity}</p>
-                            <p className="text-xs text-muted-foreground">{formatCurrency(product.sales)}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              )}
+                        ))}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                );
+              })()}
             </TabsContent>
             
             {/* WEEK TAB */}
