@@ -1494,6 +1494,13 @@ serve(async (req) => {
       overtimeHours: weeklyLaborData.overtimeHours
     } : null;
 
+    // Calculate pizza count from "Crusts" category in product mix
+    const pizzaCount = productMix
+      .filter(item => item.category.toLowerCase() === 'crusts')
+      .reduce((sum, item) => sum + item.quantity, 0);
+    
+    console.log(`Pizza count (Crusts category): ${pizzaCount}`);
+
     const result = {
       daily: dailySales,
       weekly: weeklySales,
@@ -1507,6 +1514,7 @@ serve(async (req) => {
         monthly: monthlyGuestCount
       },
       avgTicket,
+      pizzaCount, // Total crusts sold today
       comparison: {
         prevDay: prevDaySalesRealTime, // Real-time: same hours last week
         prevDayFullDay: prevDayTotalSales, // Full day total for reference

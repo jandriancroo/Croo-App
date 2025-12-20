@@ -23,6 +23,7 @@ interface SalesData {
   monthlyBreakdown?: Array<{ date: string; sales: number; projected?: number; guestCount?: number }>;
   guestCount?: { daily: number; weekly: number; monthly: number };
   avgTicket?: number;
+  pizzaCount?: number;
   comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevMonth: number };
   projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number };
   currentHour?: number;
@@ -382,7 +383,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 canGoNext={!isToday}
               />
               
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
+              <div className="grid grid-cols-4 gap-2 sm:gap-4 mb-4">
               <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">Sales</p>
                   <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
@@ -400,6 +401,12 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   <p className="text-xs text-muted-foreground">Guests</p>
                   <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
                     {salesData?.guestCount?.daily ?? "--"}
+                  </p>
+                </div>
+                <div className="text-center min-w-0">
+                  <p className="text-xs text-muted-foreground">Pizzas</p>
+                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
+                    {salesData?.pizzaCount ?? "--"}
                   </p>
                 </div>
                 <div className="text-right min-w-0">
