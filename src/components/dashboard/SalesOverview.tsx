@@ -320,12 +320,16 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   };
 
   const getChangePercent = (current: number, previous: number) => {
-    if (previous === 0) return current > 0 ? 100 : 0;
+    if (previous === 0) return null; // Can't calculate % change from 0
     return ((current - previous) / previous) * 100;
   };
 
   const ComparisonBadge = ({ current, previous, label }: { current: number; previous: number; label: string }) => {
     const change = getChangePercent(current, previous);
+    
+    // Don't show badge if we can't calculate a meaningful change
+    if (change === null) return null;
+    
     const isPositive = change >= 0;
     
     return (
