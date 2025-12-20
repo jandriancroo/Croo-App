@@ -374,7 +374,15 @@ async function fetchProductMix(
           date: { from: null, to: null, values: dates, type: "custom" },
           singleLocation: parseInt(qbLocationId)
         },
-        params: { sectionId: "main", pageNumber: 1, pageSize: 200, totalRecords: null, sort: { field: "quantity", dir: "desc" }, showTotals: false }
+        params: {
+          sectionId: "main",
+          pageNumber: 1,
+          pageSize: 200,
+          totalRecords: null,
+          // Qu expects an array here (ReportFilterSort[])
+          sort: [{ field: "netSales", dir: "desc" }],
+          showTotals: true
+        }
       }),
     });
 
