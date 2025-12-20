@@ -174,7 +174,8 @@ async function fetchHourlySales(
           { fieldName: "tax" }, { fieldName: "netSalesPercentage" }
         ],
         filters: {
-          date: { from: null, to: null, values: [dateStr], type: "today" },
+          // Use "custom" so historical dates work ("today" ignores provided values)
+          date: { from: null, to: null, values: [dateStr], type: "custom" },
           location: { operationalUnits: [parseInt(qbLocationId)] }
         },
         params: { sectionId: "main", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
@@ -468,7 +469,8 @@ async function fetchLaborData(
       body: JSON.stringify({
         fields: [{ fieldName: "metric" }, { fieldName: "total" }],
         filters: {
-          date: { from: null, to: null, values: [dateStr], type: "today" },
+          // Use "custom" so historical dates work
+          date: { from: null, to: null, values: [dateStr], type: "custom" },
           singleLocation: parseInt(qbLocationId),
           clockInRequired: true
         },
