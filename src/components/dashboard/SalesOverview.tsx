@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronLeft, ChevronRight, ChevronDown, TrendingUp, TrendingDown, Package, Sparkles } from 'lucide-react';
@@ -360,11 +361,41 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
   const hasLaborData = salesData?.labor && salesData.labor.laborPercent > 0;
 
+  // Calculate pacing status for "On Track" badge
+  const pacingStatus = useMemo(() => {
+    if (!isToday || !salesData?.projections?.todayProjected || !salesData?.projections?.todayPaceAdjusted) {
+      return null;
+    }
+    if (salesData.daily < 100) return null; // Not enough data yet
+    
+    const paceVsProjection = (salesData.projections.todayPaceAdjusted / salesData.projections.todayProjected) * 100;
+    
+    if (paceVsProjection >= 105) return 'ahead';
+    if (paceVsProjection >= 95) return 'onTrack';
+    return 'behind';
+  }, [isToday, salesData?.daily, salesData?.projections?.todayProjected, salesData?.projections?.todayPaceAdjusted]);
+
   return (
     <div>
-      <h3 className="text-xl font-semibold mb-4">
-        {hasLaborData ? 'Sales & Labor Overview' : 'Sales Overview'}
-      </h3>
+      <div className="flex items-center gap-2 mb-4">
+        <h3 className="text-xl font-semibold">
+          {hasLaborData ? 'Sales & Labor Overview' : 'Sales Overview'}
+        </h3>
+        {pacingStatus && (
+          <Badge 
+            variant="outline" 
+            className={`text-xs ${
+              pacingStatus === 'ahead'
+                ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950'
+                : pacingStatus === 'onTrack' 
+                  ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
+                  : 'border-sky-400 text-sky-500 bg-sky-50 dark:bg-sky-950'
+            }`}
+          >
+            {pacingStatus === 'ahead' ? '🔥 On Fire' : pacingStatus === 'onTrack' ? '🏃 On Track' : '🧊 Behind Pace'}
+          </Badge>
+        )}
+      </div>
       <Card>
         <CardContent className="pt-4">
           <Tabs defaultValue="today" className="w-full">
