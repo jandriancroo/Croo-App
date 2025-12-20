@@ -1100,70 +1100,69 @@ export default function Schedule() {
       ) : (
         <div className="space-y-6 pb-20">
         {/* Header */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="w-[12.5%]" />
-          <div className="w-[75%]">
-            <DateNavigator
-              onPrev={handlePreviousWeek}
-              onNext={handleNextWeek}
-              label={`${format(currentWeekStart, "MMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMM d, yyyy")}`}
-              className="w-full"
-            />
+        <div className="flex items-center gap-4 mb-2">
+          <div className="flex-1 flex justify-center">
+            <div className="w-[75%]">
+              <DateNavigator
+                onPrev={handlePreviousWeek}
+                onNext={handleNextWeek}
+                label={`${format(currentWeekStart, "MMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMM d, yyyy")}`}
+                className="w-full"
+              />
+            </div>
           </div>
-          <div className="w-[12.5%] flex justify-end gap-2">
-            {(isAdmin || isManager) && (
-              <>
-                <Button 
-                  variant="outline" 
-                  size="icon"
-                  onClick={() => setIsCreatingShift(true)}
-                  className="opacity-60 hover:opacity-100 transition-opacity"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <Wrench className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-background">
-                    <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
-                      <Calendar className="h-4 w-4" />
-                      View Availability
+          {(isAdmin || isManager) && (
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={() => setIsCreatingShift(true)}
+                className="opacity-60 hover:opacity-100 transition-opacity"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <Wrench className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-background">
+                  <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
+                    <Calendar className="h-4 w-4" />
+                    View Availability
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/schedule-templates")} className="gap-2 cursor-pointer">
+                    <Settings className="h-4 w-4" />
+                    Manage Templates
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setCopyScheduleDialogOpen(true)} className="gap-2 cursor-pointer">
+                    <Copy className="h-4 w-4" />
+                    Copy Schedule to Future Week
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setClearScheduleDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                    Clear Schedule
+                  </DropdownMenuItem>
+                  {isPublished && (
+                    <DropdownMenuItem onClick={() => setWithdrawDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
+                      <AlertTriangle className="h-4 w-4" />
+                      Withdraw Schedule
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/schedule-templates")} className="gap-2 cursor-pointer">
-                      <Settings className="h-4 w-4" />
-                      Manage Templates
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setCopyScheduleDialogOpen(true)} className="gap-2 cursor-pointer">
-                      <Copy className="h-4 w-4" />
-                      Copy Schedule to Future Week
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setClearScheduleDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                      Clear Schedule
-                    </DropdownMenuItem>
-                    {isPublished && (
-                      <DropdownMenuItem onClick={() => setWithdrawDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
-                        <AlertTriangle className="h-4 w-4" />
-                        Withdraw Schedule
-                      </DropdownMenuItem>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                {scheduleId && (
-                  <LiveStatusBadge
-                    isPublished={isPublished}
-                    isPublishing={isPublishing}
-                    hasPendingChanges={hasPendingChanges}
-                    onGoLive={handleGoLive}
-                    onUpdate={handleUpdate}
-                  />
-                )}
-              </>
-            )}
-          </div>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              {scheduleId && (
+                <LiveStatusBadge
+                  isPublished={isPublished}
+                  isPublishing={isPublishing}
+                  hasPendingChanges={hasPendingChanges}
+                  onGoLive={handleGoLive}
+                  onUpdate={handleUpdate}
+                />
+              )}
+            </div>
+          )}
         </div>
 
         {/* Team member view-only badge */}
