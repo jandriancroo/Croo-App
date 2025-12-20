@@ -158,6 +158,22 @@ async function fetchHourlySales(
   dateStr: string,
   qbLocationId: string
 ): Promise<{ hour: string; sales: number; checksCount: number }[]> {
+  const requestPayload = {
+    fields: [
+      { fieldName: "hour" }, { fieldName: "checksCount" }, { fieldName: "netSales" },
+      { fieldName: "averageCheck" }, { fieldName: "discount" }, { fieldName: "serviceCharge" },
+      { fieldName: "tax" }, { fieldName: "netSalesPercentage" }
+    ],
+    filters: {
+      // QuBeyond endpoints vary: some expect `singleLocation`, others expect `location.operationalUnits`.
+      // Provide both to keep hourly sales resilient.
+      date: { from: null, to: null, values: [dateStr], type: "custom" },
+      singleLocation: parseInt(qbLocationId),
+      location: { operationalUnits: [parseInt(qbLocationId)] }
+    },
+    params: { sectionId: "main", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
+  };
+
   const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/hourly-sales/sections/main', {
     method: 'POST',
     headers: {
@@ -167,21 +183,14 @@ async function fetchHourlySales(
       'Origin': 'https://admin.qubeyond.com',
       'Referer': 'https://admin.qubeyond.com/',
     },
-      body: JSON.stringify({
-        fields: [
-          { fieldName: "hour" }, { fieldName: "checksCount" }, { fieldName: "netSales" },
-          { fieldName: "averageCheck" }, { fieldName: "discount" }, { fieldName: "serviceCharge" },
-          { fieldName: "tax" }, { fieldName: "netSalesPercentage" }
-        ],
-        filters: {
-          date: { from: null, to: null, values: [dateStr], type: "custom" },
-          location: { operationalUnits: [parseInt(qbLocationId)] }
-        },
-        params: { sectionId: "main", pageNumber: 1, pageSize: 25, totalRecords: null, sort: null, showTotals: true }
-      }),
+    body: JSON.stringify(requestPayload),
   });
 
-  if (!response.ok) return [];
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    console.error(`[HOURLY] Fetch failed (${response.status}) for ${dateStr} loc ${qbLocationId}: ${errorText.substring(0, 300)}`);
+    return [];
+  }
 
   const data = await response.json();
   const hourlyData: { hour: string; sales: number; checksCount: number }[] = [];

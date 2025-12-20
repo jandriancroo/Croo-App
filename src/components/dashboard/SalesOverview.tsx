@@ -93,9 +93,9 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     const hasValidWeeklyMonthlyCache = cachedProjections?.weekProjected !== undefined && cachedProjections?.monthProjected !== undefined;
     const skipProjections = isTodayCheck && hasValidDailyCache && hasValidWeeklyMonthlyCache;
     
-    // Check if we have cached data - if so, use fast mode for quicker refresh
-    const cached = currentLocation?.id ? getCachedLiveSales(currentLocation.id) : null;
-    const useFastMode = cached?.data ? true : false;
+    // Check if we have cached data - if so, use fast mode for quicker refresh (TODAY only)
+    const cached = isTodayCheck && currentLocation?.id ? getCachedLiveSales(currentLocation.id) : null;
+    const useFastMode = isTodayCheck && !!cached?.data;
     
     const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
       body: { 
