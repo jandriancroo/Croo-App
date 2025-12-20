@@ -12,51 +12,66 @@ interface QuBeyondCredentials {
   location_id?: string;
 }
 
-// Authenticate with QuBeyond
+function decodeJwtPayload(token: string): Record<string, unknown> {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Invalid JWT format');
+  const payload = parts[1];
+  const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+  const jsonPayload = atob(base64);
+  return JSON.parse(jsonPayload);
+}
+
+// Authenticate with QuBeyond using the same method as fetch-qubeyond-sales
 async function authenticateQuBeyond(username: string, password: string): Promise<{ tokenGw: string; qbLocationId: string } | null> {
   console.log('[AUTH] Starting QuBeyond authentication...');
   
-  const authResponse = await fetch('https://id.qubeyond.com/connect/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'password',
+  const loginPayload = {
+    payload: {
       username,
       password,
-      client_id: 'AnalyticsWebApp',
-      scope: 'offline_access analytics openid profile email phone roles'
-    }),
-  });
-
-  if (!authResponse.ok) {
-    console.error('[AUTH] Authentication failed:', authResponse.status);
-    return null;
-  }
-
-  const authData = await authResponse.json();
-  const idToken = authData.id_token;
+      captchaToken: ''
+    }
+  };
   
-  // Get gateway token
-  const gwResponse = await fetch('https://gateway-api.qubeyond.com/api/v1/Auth/token', {
+  const loginResponse = await fetch('https://admin.qubeyond.com/api/auth/login', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${idToken}`,
+      'Accept': 'application/json, text/plain, */*',
+      'Origin': 'https://admin.qubeyond.com',
+      'Referer': 'https://admin.qubeyond.com/login',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     },
-    body: JSON.stringify({}),
+    body: JSON.stringify(loginPayload),
   });
 
-  if (!gwResponse.ok) {
-    console.error('[AUTH] Gateway token failed:', gwResponse.status);
+  if (!loginResponse.ok) {
+    console.error('[AUTH] Authentication failed:', loginResponse.status);
     return null;
   }
 
-  const gwData = await gwResponse.json();
-  const tokenGw = gwData.token;
-  
+  const loginData = await loginResponse.json();
+  if (!loginData.token) {
+    console.error('[AUTH] No token in login response');
+    return null;
+  }
+
+  const jwtPayload = decodeJwtPayload(loginData.token);
+  const tokenGw = jwtPayload.tokenGw as string;
+  if (!tokenGw) {
+    console.error('[AUTH] No tokenGw found in JWT payload');
+    return null;
+  }
+
   // Extract location from JWT
-  const payload = JSON.parse(atob(tokenGw.split('.')[1]));
-  const qbLocationId = payload.OperationalUnitId || payload.operationalUnitId || '';
+  let qbLocationId = (jwtPayload.locationId || jwtPayload.location_id || 
+                     jwtPayload.storeId || jwtPayload.store_id ||
+                     jwtPayload.singleLocation || jwtPayload.defaultLocation) as string || '';
+  
+  if (!qbLocationId && jwtPayload.user) {
+    const user = jwtPayload.user as Record<string, unknown>;
+    qbLocationId = (user.locationId || user.storeId || user.defaultLocation) as string || '';
+  }
   
   console.log(`[AUTH] Authenticated successfully, location ID: ${qbLocationId}`);
   return { tokenGw, qbLocationId };
