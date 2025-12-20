@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles } from 'lucide-react';
+import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, Bug } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,7 +15,7 @@ import { setCachedProjections, getCachedProjections, getCachedLiveSales, setCach
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateNavigator } from '@/components/ui/date-navigator';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
 
 interface SalesData {
   daily: number;
@@ -45,10 +45,23 @@ interface SalesOverviewProps {
   locationSettings?: LocationSettings | null;
 }
 
+// Debug state to capture raw API response for diagnostics
+interface DiagnosticInfo {
+  lastFetchTime: string;
+  locationId: string | null;
+  locationName: string | null;
+  targetDate: string;
+  rawResponse: unknown;
+  error: string | null;
+  authenticated?: boolean;
+}
+
 export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   const { currentLocation } = useAppLocation();
   const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [showProductMix, setShowProductMix] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [diagnosticInfo, setDiagnosticInfo] = useState<DiagnosticInfo | null>(null);
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const isBackgroundRefreshing = useRef(false);
@@ -107,6 +120,18 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
         fastMode: useFastMode // Skip historical data for faster refresh when we have cached data
       }
     });
+
+    // Capture diagnostic info for debugging
+    setDiagnosticInfo({
+      lastFetchTime: new Date().toISOString(),
+      locationId: currentLocation?.id || null,
+      locationName: currentLocation?.name || null,
+      targetDate: dateStr,
+      rawResponse: data,
+      error: error?.message || null,
+      authenticated: data && typeof data === 'object' && 'authenticated' in data ? (data as any).authenticated : undefined
+    });
+
     if (error) {
       console.error("Error fetching sales data:", error);
       const key = `${currentLocation?.id || 'unknown'}:${dateStr}`;
@@ -376,9 +401,59 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
   return (
     <div>
-      <h3 className="text-xl font-semibold mb-4">
-        {hasLaborData ? 'Sales & Labor Overview' : 'Sales Overview'}
-      </h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-xl font-semibold">
+          {hasLaborData ? 'Sales & Labor Overview' : 'Sales Overview'}
+        </h3>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowDiagnostics(!showDiagnostics)}
+          className="h-8 w-8 p-0"
+          title="Toggle Sales Diagnostics"
+        >
+          <Bug className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Diagnostics Panel */}
+      {showDiagnostics && (
+        <Card className="mb-4 border-dashed border-yellow-500/50 bg-yellow-500/5">
+          <CardContent className="pt-4">
+            <h4 className="font-semibold text-sm mb-2 text-yellow-600">🔍 Sales API Diagnostics</h4>
+            {diagnosticInfo ? (
+              <div className="text-xs space-y-1 font-mono">
+                <p><strong>Last Fetch:</strong> {diagnosticInfo.lastFetchTime}</p>
+                <p><strong>Location ID:</strong> {diagnosticInfo.locationId || 'N/A'}</p>
+                <p><strong>Location Name:</strong> {diagnosticInfo.locationName || 'N/A'}</p>
+                <p><strong>Target Date:</strong> {diagnosticInfo.targetDate}</p>
+                <p><strong>Error:</strong> {diagnosticInfo.error || 'None'}</p>
+                <p><strong>Authenticated:</strong> {diagnosticInfo.authenticated === undefined ? 'N/A' : diagnosticInfo.authenticated ? 'Yes' : 'No'}</p>
+                <details className="mt-2">
+                  <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Raw Response (click to expand)</summary>
+                  <pre className="mt-1 p-2 bg-muted rounded text-[10px] overflow-x-auto max-h-48 overflow-y-auto whitespace-pre-wrap break-all">
+                    {JSON.stringify(diagnosticInfo.rawResponse, null, 2)}
+                  </pre>
+                </details>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">No API call made yet. Switch locations or dates to trigger a fetch.</p>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={() => {
+                queryClient.invalidateQueries({ queryKey: ["qubeyond-sales"] });
+                refetch();
+              }}
+            >
+              Force Refresh
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent className="pt-4">
           <Tabs defaultValue="today" className="w-full">
