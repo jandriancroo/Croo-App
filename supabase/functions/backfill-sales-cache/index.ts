@@ -12,6 +12,14 @@ interface QuBeyondCredentials {
   location_id?: string;
 }
 
+interface DaySalesData {
+  dateStr: string;
+  dayOfWeek: number;
+  hourlyData: { hour: string; sales: number; checksCount: number }[];
+  netSales: number;
+  guestCount: number;
+}
+
 function decodeJwtPayload(token: string): Record<string, unknown> {
   const parts = token.split('.');
   if (parts.length !== 3) throw new Error('Invalid JWT format');
@@ -21,7 +29,19 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
   return JSON.parse(jsonPayload);
 }
 
-// Authenticate with QuBeyond using the same method as fetch-qubeyond-sales
+// Generate deterministic seeded random factor between -2% and +3%
+function getSeededRandomFactor(seed: string): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    const char = seed.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  const normalized = Math.abs(hash % 1000) / 1000;
+  return 0.98 + (normalized * 0.05);
+}
+
+// Authenticate with QuBeyond
 async function authenticateQuBeyond(username: string, password: string): Promise<{ tokenGw: string; qbLocationId: string } | null> {
   console.log('[AUTH] Starting QuBeyond authentication...');
   
@@ -63,7 +83,6 @@ async function authenticateQuBeyond(username: string, password: string): Promise
     return null;
   }
 
-  // Extract location from JWT
   let qbLocationId = (jwtPayload.locationId || jwtPayload.location_id || 
                      jwtPayload.storeId || jwtPayload.store_id ||
                      jwtPayload.singleLocation || jwtPayload.defaultLocation) as string || '';
@@ -156,6 +175,75 @@ function getBackfillDates(daysBack: number = 365): string[] {
   return dates;
 }
 
+// Calculate 4-week rolling average for each day of week
+function calculate4WeekAverages(
+  allData: DaySalesData[],
+  targetDateStr: string,
+  locationId: string
+): { avgByDayOfWeek: Map<number, number>; hourlyPatternByDayOfWeek: Map<number, { hour: number; avgPercent: number }[]> } {
+  const targetDate = new Date(targetDateStr + 'T12:00:00');
+  
+  // Get data from 4 weeks before target date
+  const fourWeeksAgo = new Date(targetDate);
+  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+  
+  const relevantData = allData.filter(d => {
+    const date = new Date(d.dateStr + 'T12:00:00');
+    return date >= fourWeeksAgo && date < targetDate && d.netSales > 0;
+  });
+  
+  // Group by day of week
+  const byDayOfWeek = new Map<number, DaySalesData[]>();
+  for (let dow = 0; dow < 7; dow++) {
+    byDayOfWeek.set(dow, []);
+  }
+  
+  for (const d of relevantData) {
+    const arr = byDayOfWeek.get(d.dayOfWeek) || [];
+    arr.push(d);
+    byDayOfWeek.set(d.dayOfWeek, arr);
+  }
+  
+  // Calculate averages
+  const avgByDayOfWeek = new Map<number, number>();
+  const hourlyPatternByDayOfWeek = new Map<number, { hour: number; avgPercent: number }[]>();
+  
+  for (let dow = 0; dow < 7; dow++) {
+    const days = byDayOfWeek.get(dow) || [];
+    if (days.length === 0) {
+      avgByDayOfWeek.set(dow, 0);
+      hourlyPatternByDayOfWeek.set(dow, []);
+      continue;
+    }
+    
+    const totalSales = days.reduce((sum, d) => sum + d.netSales, 0);
+    const avgSales = totalSales / days.length;
+    avgByDayOfWeek.set(dow, avgSales);
+    
+    // Calculate hourly pattern as percentage of daily total
+    const hourlyTotals = new Map<number, { sales: number; count: number }>();
+    for (const d of days) {
+      for (const h of d.hourlyData) {
+        const hourNum = parseInt(h.hour.split(':')[0]);
+        const existing = hourlyTotals.get(hourNum) || { sales: 0, count: 0 };
+        existing.sales += h.sales;
+        existing.count += 1;
+        hourlyTotals.set(hourNum, existing);
+      }
+    }
+    
+    const pattern: { hour: number; avgPercent: number }[] = [];
+    for (const [hour, data] of hourlyTotals.entries()) {
+      const avgHourlySales = data.sales / data.count;
+      const percent = avgSales > 0 ? avgHourlySales / avgSales : 0;
+      pattern.push({ hour, avgPercent: percent });
+    }
+    hourlyPatternByDayOfWeek.set(dow, pattern.sort((a, b) => a.hour - b.hour));
+  }
+  
+  return { avgByDayOfWeek, hourlyPatternByDayOfWeek };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -223,31 +311,28 @@ serve(async (req) => {
     
     console.log(`[BACKFILL] Will fetch ${dates.length} days of data`);
 
-    // Process in batches to avoid overwhelming the API
-    const BATCH_SIZE = 7; // 7 days at a time
+    // PHASE 1: Fetch all raw data first
+    const allRawData: DaySalesData[] = [];
+    const BATCH_SIZE = 7;
     let daysCompleted = 0;
 
     for (let i = 0; i < dates.length; i += BATCH_SIZE) {
       const batch = dates.slice(i, i + BATCH_SIZE);
       
-      // Fetch all days in batch in parallel
       const batchResults = await Promise.all(
         batch.map(async (dateStr) => {
           try {
             const hourlyData = await fetchHourlySales(auth.tokenGw, dateStr, qbLocationId);
             const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
             const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
-            const avgTicket = guestCount > 0 ? netSales / guestCount : null;
+            const date = new Date(dateStr + 'T12:00:00');
             
             return {
-              location_id: locationId,
-              sale_date: dateStr,
-              net_sales: netSales,
-              guest_count: guestCount,
-              pizza_count: 0, // We'll calculate this separately if needed
-              avg_ticket: avgTicket,
-              hourly_data: hourlyData,
-              fetched_at: new Date().toISOString()
+              dateStr,
+              dayOfWeek: date.getDay(),
+              hourlyData,
+              netSales,
+              guestCount
             };
           } catch (error) {
             console.error(`[BACKFILL] Error fetching ${dateStr}:`, error);
@@ -256,33 +341,90 @@ serve(async (req) => {
         })
       );
 
-      // Filter out failed fetches and upsert to database
-      const validResults = batchResults.filter(r => r !== null);
-      
-      if (validResults.length > 0) {
-        const { error: upsertError } = await supabase
-          .from('sales_cache')
-          .upsert(validResults, { onConflict: 'location_id,sale_date' });
-        
-        if (upsertError) {
-          console.error('[BACKFILL] Upsert error:', upsertError);
-        }
+      for (const result of batchResults) {
+        if (result) allRawData.push(result);
       }
 
       daysCompleted += batch.length;
       
-      // Update progress every batch
       await supabase
         .from('location_integrations')
-        .update({ backfill_days_completed: daysCompleted })
+        .update({ backfill_days_completed: Math.floor(daysCompleted / 2) }) // Show as 50% during fetch phase
         .eq('id', integrationId);
       
-      console.log(`[BACKFILL] Progress: ${daysCompleted}/${dates.length} days`);
+      console.log(`[BACKFILL] Fetch progress: ${daysCompleted}/${dates.length} days`);
       
-      // Small delay between batches to be nice to the API
       if (i + BATCH_SIZE < dates.length) {
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
+    }
+
+    console.log(`[BACKFILL] Fetched ${allRawData.length} days, now calculating projections...`);
+
+    // Sort by date (oldest first) for proper 4-week lookback
+    allRawData.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+
+    // PHASE 2: Calculate projections and save to database
+    const cacheRecords = [];
+    
+    for (let i = 0; i < allRawData.length; i++) {
+      const dayData = allRawData[i];
+      
+      // Calculate 4-week average for this date
+      const { avgByDayOfWeek, hourlyPatternByDayOfWeek } = calculate4WeekAverages(
+        allRawData,
+        dayData.dateStr,
+        locationId
+      );
+      
+      const avgForDayOfWeek = avgByDayOfWeek.get(dayData.dayOfWeek) || 0;
+      const hourlyPattern = hourlyPatternByDayOfWeek.get(dayData.dayOfWeek) || [];
+      
+      // Apply seeded random factor for projected sales
+      const randomFactor = getSeededRandomFactor(`${dayData.dateStr}-${locationId}`);
+      const projectedSales = Math.round(avgForDayOfWeek * randomFactor);
+      
+      // Add projections to hourly data
+      const hourlyWithProjections = dayData.hourlyData.map(h => {
+        const hourNum = parseInt(h.hour.split(':')[0]);
+        const pattern = hourlyPattern.find(p => p.hour === hourNum);
+        const hourlyProjected = pattern ? Math.round(projectedSales * pattern.avgPercent) : 0;
+        return { ...h, projected: hourlyProjected };
+      });
+      
+      const avgTicket = dayData.guestCount > 0 ? dayData.netSales / dayData.guestCount : null;
+      
+      cacheRecords.push({
+        location_id: locationId,
+        sale_date: dayData.dateStr,
+        net_sales: dayData.netSales,
+        guest_count: dayData.guestCount,
+        pizza_count: 0,
+        avg_ticket: avgTicket,
+        hourly_data: hourlyWithProjections,
+        projected_sales: projectedSales,
+        fetched_at: new Date().toISOString()
+      });
+    }
+
+    // Save in batches
+    const SAVE_BATCH_SIZE = 50;
+    for (let i = 0; i < cacheRecords.length; i += SAVE_BATCH_SIZE) {
+      const batch = cacheRecords.slice(i, i + SAVE_BATCH_SIZE);
+      
+      const { error: upsertError } = await supabase
+        .from('sales_cache')
+        .upsert(batch, { onConflict: 'location_id,sale_date' });
+      
+      if (upsertError) {
+        console.error('[BACKFILL] Upsert error:', upsertError);
+      }
+      
+      const progress = Math.floor(50 + (i / cacheRecords.length) * 50);
+      await supabase
+        .from('location_integrations')
+        .update({ backfill_days_completed: progress })
+        .eq('id', integrationId);
     }
 
     // Mark as complete
@@ -295,10 +437,10 @@ serve(async (req) => {
       })
       .eq('id', integrationId);
 
-    console.log(`[BACKFILL] Completed! Fetched ${dates.length} days of data`);
+    console.log(`[BACKFILL] Completed! Processed ${allRawData.length} days with projections`);
 
     return new Response(
-      JSON.stringify({ success: true, daysProcessed: dates.length }),
+      JSON.stringify({ success: true, daysProcessed: allRawData.length }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 

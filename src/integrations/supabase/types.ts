@@ -2507,6 +2507,7 @@ export type Database = {
           location_id: string
           net_sales: number
           pizza_count: number
+          projected_sales: number | null
           sale_date: string
         }
         Insert: {
@@ -2519,6 +2520,7 @@ export type Database = {
           location_id: string
           net_sales?: number
           pizza_count?: number
+          projected_sales?: number | null
           sale_date: string
         }
         Update: {
@@ -2531,6 +2533,7 @@ export type Database = {
           location_id?: string
           net_sales?: number
           pizza_count?: number
+          projected_sales?: number | null
           sale_date?: string
         }
         Relationships: [
