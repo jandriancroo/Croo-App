@@ -359,8 +359,8 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
           <Tabs defaultValue="today" className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-4">
               <TabsTrigger value="today">Today</TabsTrigger>
-              <TabsTrigger value="week">This Week</TabsTrigger>
-              <TabsTrigger value="month">This Month</TabsTrigger>
+              <TabsTrigger value="week">Week</TabsTrigger>
+              <TabsTrigger value="month">Month</TabsTrigger>
             </TabsList>
             
             {/* TODAY TAB */}
