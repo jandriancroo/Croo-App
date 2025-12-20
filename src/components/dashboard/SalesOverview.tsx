@@ -492,41 +492,70 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 )}
               </div>
               
-              {salesData?.hourly ? (
-                <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                  <BarChart data={salesData.hourly} barCategoryGap="15%">
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="hour" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
-                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
-                    <Tooltip 
-                      content={({ active, payload, label }) => {
-                        if (!active || !payload?.length) return null;
-                        const data = payload[0]?.payload;
-                        return (
-                          <div className="bg-card border border-border rounded-md p-2 shadow-lg">
-                            <p className="font-medium">{label}</p>
-                            <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
-                            <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
-                            {hasLaborData && data?.laborPercent !== undefined && data.laborPercent > 0 && (
-                              <p className="text-orange-500">Labor: <span className="font-medium">{data.laborPercent.toFixed(1)}%</span></p>
-                            )}
-                          </div>
-                        );
-                      }}
-                    />
-                    <Legend 
-                      formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
-                      wrapperStyle={{ fontSize: '12px' }}
-                    />
-                    <Bar dataKey="projected" fill="hsl(var(--muted-foreground))" radius={[8, 8, 0, 0]} opacity={0.4} />
-                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
-                  No sales data available
-                </div>
-              )}
+{(() => {
+                if (!salesData?.hourly) {
+                  return (
+                    <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
+                      No sales data available
+                    </div>
+                  );
+                }
+                
+                // Calculate total hourly sales for pizza distribution
+                let totalHourlySales = 0;
+                for (const h of salesData.hourly) {
+                  totalHourlySales += h.sales || 0;
+                }
+                const pizzaCount = salesData.pizzaCount || 0;
+                
+                // Add estimated pizzas to each hour based on sales proportion
+                const hourlyWithPizzas = salesData.hourly.map(h => {
+                  const sales = h.sales || 0;
+                  return {
+                    ...h,
+                    estimatedPizzas: totalHourlySales > 0 && pizzaCount > 0
+                      ? Math.round((sales / totalHourlySales) * pizzaCount * 10) / 10
+                      : 0
+                  };
+                });
+                
+                return (
+                  <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
+                    <BarChart data={hourlyWithPizzas} barCategoryGap="15%">
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="hour" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
+                      <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
+                      <Tooltip 
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null;
+                          const data = payload[0]?.payload;
+                          return (
+                            <div className="bg-card border border-border rounded-md p-2 shadow-lg">
+                              <p className="font-medium">{label}</p>
+                              <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
+                              <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
+                              {hasLaborData && data?.laborPercent !== undefined && data.laborPercent > 0 && (
+                                <p className="text-orange-500">Labor: <span className="font-medium">{data.laborPercent.toFixed(1)}%</span></p>
+                              )}
+                              {data?.estimatedPizzas > 0 && (
+                                <p className="text-amber-600 flex items-center gap-1">
+                                  <span>🍕</span> Pizzas: <span className="font-medium">{data.estimatedPizzas}</span>
+                                </p>
+                              )}
+                            </div>
+                          );
+                        }}
+                      />
+                      <Legend 
+                        formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
+                        wrapperStyle={{ fontSize: '12px' }}
+                      />
+                      <Bar dataKey="projected" fill="hsl(var(--muted-foreground))" radius={[8, 8, 0, 0]} opacity={0.4} />
+                      <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                );
+              })()}
 
               {/* Product Mix Section */}
               {salesData?.productMix && salesData.productMix.length > 0 && (
