@@ -377,25 +377,9 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
   return (
     <div>
-      <div className="flex items-center gap-2 mb-4">
-        <h3 className="text-xl font-semibold">
-          {hasLaborData ? 'Sales & Labor Overview' : 'Sales Overview'}
-        </h3>
-        {pacingStatus && (
-          <Badge 
-            variant="outline" 
-            className={`text-xs ${
-              pacingStatus === 'ahead'
-                ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950'
-                : pacingStatus === 'onTrack' 
-                  ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
-                  : 'border-sky-400 text-sky-500 bg-sky-50 dark:bg-sky-950'
-            }`}
-          >
-            {pacingStatus === 'ahead' ? '🔥 On Fire' : pacingStatus === 'onTrack' ? '🏃 On Track' : '🧊 Behind Pace'}
-          </Badge>
-        )}
-      </div>
+      <h3 className="text-xl font-semibold mb-4">
+        {hasLaborData ? 'Sales & Labor Overview' : 'Sales Overview'}
+      </h3>
       <Card>
         <CardContent className="pt-4">
           <Tabs defaultValue="today" className="w-full">
@@ -417,9 +401,25 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               <div className="grid grid-cols-4 gap-2 sm:gap-4 mb-4">
               <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">Sales</p>
-                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
+                      {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
+                    </p>
+                    {pacingStatus && (
+                      <Badge 
+                        variant="outline" 
+                        className={`text-[10px] px-1.5 py-0 h-5 ${
+                          pacingStatus === 'ahead'
+                            ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950'
+                            : pacingStatus === 'onTrack' 
+                              ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
+                              : 'border-sky-400 text-sky-500 bg-sky-50 dark:bg-sky-950'
+                        }`}
+                      >
+                        {pacingStatus === 'ahead' ? '🔥' : pacingStatus === 'onTrack' ? '🏃' : '🧊'}
+                      </Badge>
+                    )}
+                  </div>
                   {salesData?.comparison?.prevDay !== undefined && salesData.daily !== undefined && (
                     <ComparisonBadge 
                       current={salesData.daily} 
