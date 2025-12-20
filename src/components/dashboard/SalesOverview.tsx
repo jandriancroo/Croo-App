@@ -15,6 +15,7 @@ import { setCachedProjections, getCachedProjections, getCachedLiveSales, setCach
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
 import { DateNavigator } from '@/components/ui/date-navigator';
+import { toast } from '@/components/ui/sonner';
 
 interface SalesData {
   daily: number;
@@ -51,6 +52,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const isBackgroundRefreshing = useRef(false);
+  const lastIntegrationErrorKey = useRef<string | null>(null);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { 
@@ -107,11 +109,29 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     });
     if (error) {
       console.error("Error fetching sales data:", error);
+      const key = `${currentLocation?.id || 'unknown'}:${dateStr}`;
+      if (lastIntegrationErrorKey.current !== key) {
+        lastIntegrationErrorKey.current = key;
+        toast.error("Sales integration error", {
+          description: error.message || "Unable to fetch sales data."
+        });
+      }
       return null;
     }
-    
+
+    // Surface backend integration errors (returned as 200 with { authenticated:false })
+    if (data && typeof data === 'object' && 'authenticated' in data && (data as any).authenticated === false) {
+      const msg = (data as any).error || "Sales integration is not configured for this location.";
+      const key = `${currentLocation?.id || 'unknown'}:${dateStr}`;
+      if (lastIntegrationErrorKey.current !== key) {
+        lastIntegrationErrorKey.current = key;
+        toast.error("Sales integration error", { description: msg });
+      }
+      return null;
+    }
+
     const salesData = data as SalesData;
-    
+
     // If we skipped projections but have cached ones, merge them in
     if (skipProjections && cachedProjections && salesData) {
       salesData.projections = {
