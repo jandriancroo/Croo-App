@@ -370,7 +370,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     
     const paceVsProjection = (salesData.projections.todayPaceAdjusted / salesData.projections.todayProjected) * 100;
     
-    if (paceVsProjection >= 105) return 'ahead';
+    if (paceVsProjection >= 102) return 'ahead';
     if (paceVsProjection >= 95) return 'onTrack';
     return 'behind';
   }, [isToday, salesData?.daily, salesData?.projections?.todayProjected, salesData?.projections?.todayPaceAdjusted]);
@@ -408,7 +408,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     {pacingStatus && (
                       <Badge 
                         variant="outline" 
-                        className={`text-[10px] px-1.5 py-0 h-5 ${
+                        className={`text-[10px] px-1.5 py-0 h-5 whitespace-nowrap ${
                           pacingStatus === 'ahead'
                             ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950'
                             : pacingStatus === 'onTrack' 
@@ -416,7 +416,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                               : 'border-sky-400 text-sky-500 bg-sky-50 dark:bg-sky-950'
                         }`}
                       >
-                        {pacingStatus === 'ahead' ? '🔥' : pacingStatus === 'onTrack' ? '🏃' : '🧊'}
+                        {pacingStatus === 'ahead' ? '🔥 On Fire' : pacingStatus === 'onTrack' ? '🏃 On Track' : '🧊 Behind'}
                       </Badge>
                     )}
                   </div>
