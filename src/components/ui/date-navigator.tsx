@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
 interface DateNavigatorProps {
   onPrev: () => void;
   onNext: () => void;
@@ -9,28 +10,55 @@ interface DateNavigatorProps {
   canGoNext?: boolean;
   canGoPrev?: boolean;
   className?: string;
+  /** When true, makes the navigator slightly narrower (90%) - use when there's a row above it */
+  narrow?: boolean;
 }
-export function DateNavigator({
-  onPrev,
-  onNext,
+
+export function DateNavigator({ 
+  onPrev, 
+  onNext, 
   label,
   sublabel,
   canGoNext = true,
   canGoPrev = true,
-  className
+  className,
+  narrow = false
 }: DateNavigatorProps) {
-  return <div className={cn("flex justify-center w-[75%] mx-auto", className)}>
-      <div className="bg-primary rounded-full py-3 w-full flex-row flex items-center justify-between gap-[8px] mx-0 px-1">
-        <Button variant="ghost" size="sm" onClick={onPrev} disabled={!canGoPrev} className="h-10 w-10 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full">
-          <ChevronLeft className="h-6 w-6" />
+  return (
+    <div className={cn(
+      "flex justify-center",
+      narrow && "px-[5%]",
+      className
+    )}>
+      <div className={cn(
+        "inline-flex items-center justify-between bg-primary rounded-full px-2 py-1 gap-2",
+        className?.includes("w-full") && "w-full"
+      )}>
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={onPrev}
+          disabled={!canGoPrev}
+          className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
+        >
+          <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div className="text-center flex-1">
-          <span className="text-lg text-primary-foreground font-medium whitespace-nowrap">{label}</span>
-          {sublabel && <span className="text-lg text-primary-foreground/80 ml-1">{sublabel}</span>}
+        <div className="text-center px-2">
+          <span className="text-sm text-primary-foreground font-medium whitespace-nowrap">{label}</span>
+          {sublabel && (
+            <span className="text-sm text-primary-foreground/80 ml-1">{sublabel}</span>
+          )}
         </div>
-        <Button variant="ghost" size="sm" onClick={onNext} disabled={!canGoNext} className="h-10 w-10 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full">
-          <ChevronRight className="h-6 w-6" />
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={onNext} 
+          disabled={!canGoNext}
+          className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
+        >
+          <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
-    </div>;
+    </div>
+  );
 }
