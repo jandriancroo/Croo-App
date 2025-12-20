@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, Clock, FileCheck, Plus, Pencil, MoreVertical, Trash2, EyeOff, AlertCircle, GripVertical } from "lucide-react";
-import { DateNavigator } from "@/components/ui/date-navigator";
+import { CheckCircle2, Clock, FileCheck, Plus, Pencil, MoreVertical, Trash2, EyeOff, ChevronLeft, ChevronRight, AlertCircle, GripVertical } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -441,12 +440,27 @@ export default function Tasks() {
             {/* Completion History */}
             <Card>
               <CardHeader className="py-3">
-              <DateNavigator
-                  onPrev={() => setHistoryDate(subDays(historyDate, 1))}
-                  onNext={() => setHistoryDate(addDays(historyDate, 1))}
-                  label={`${format(historyDate, 'EEEE')}, ${format(historyDate, 'MMM d')}`}
-                  canGoNext={format(historyDate, 'yyyy-MM-dd') < format(new Date(), 'yyyy-MM-dd')}
-                />
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setHistoryDate(subDays(historyDate, 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <div className="text-center">
+                    <div className="text-base font-semibold">{format(historyDate, 'EEEE')}</div>
+                    <div className="text-sm text-muted-foreground">{format(historyDate, 'MMMM d, yyyy')}</div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setHistoryDate(addDays(historyDate, 1))}
+                    disabled={format(historyDate, 'yyyy-MM-dd') >= format(new Date(), 'yyyy-MM-dd')}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-6">

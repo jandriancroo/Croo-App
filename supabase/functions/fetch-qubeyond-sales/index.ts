@@ -244,8 +244,8 @@ async function fetchDailyBreakdown(
 ): Promise<{ date: string; sales: number; guestCount: number }[]> {
   const dailyData: { date: string; sales: number; guestCount: number }[] = [];
   
-  // Fetch ALL days in parallel - QuBeyond can handle concurrent requests
-  const batchSize = 10; // Increased from 3 for better parallelism
+  // Fetch each day's hourly data in parallel (batches of 3 to avoid rate limits)
+  const batchSize = 3;
   
   for (let i = 0; i < dates.length; i += batchSize) {
     const batch = dates.slice(i, i + batchSize);
@@ -978,7 +978,7 @@ serve(async (req) => {
   }
 
   try {
-    const { locationId, targetDate, testCredentials, skipProjections, fastMode } = await req.json().catch(() => ({}));
+    const { locationId, targetDate, testCredentials, skipProjections } = await req.json().catch(() => ({}));
     
     let credentials: QuBeyondCredentials;
     let hoursOpen = 11;
@@ -1266,11 +1266,19 @@ serve(async (req) => {
     console.log(`Weekly breakdown totals: sales=${weeklySales}, guests=${weeklyGuestCount}`);
     console.log(`Monthly breakdown totals: sales=${monthlySales}, guests=${monthlyGuestCount}`);
 
+    // Fetch previous week/month breakdowns for real-time comparison
+    const [prevWeekBreakdown, prevMonthBreakdown] = await Promise.all([
+      fetchDailyBreakdown(tokenGw, prevWeekDates, qbLocationId),
+      fetchDailyBreakdown(tokenGw, prevMonthDates, qbLocationId)
+    ]);
+    
+    const prevWeekSales = prevWeekBreakdown.reduce((sum, d) => sum + d.sales, 0);
+    const prevMonthSales = prevMonthBreakdown.reduce((sum, d) => sum + d.sales, 0);
+
     const avgTicket = dailyGuestCount > 0 ? dailySales / dailyGuestCount : 0;
 
-    // In fast mode, skip expensive historical data fetching for faster initial load
-    let prevWeekSales = 0;
-    let prevMonthSales = 0;
+    // Fetch last year data and 4-week historical data for better projections
+    // Always fetch this data - we need it for chart projections even when header projections are cached
     let lastYearData: { 
       sameDay: number; 
       sameWeek: number; 
@@ -1284,161 +1292,148 @@ serve(async (req) => {
       weeks: { weekStart: string; total: number }[];
     } | undefined;
     
-    let fourWeekHourlyPattern: { hour: number; avgPercent: number }[] | undefined;
-
-    if (!fastMode) {
-      // Fetch previous week/month breakdowns for real-time comparison
-      const [prevWeekBreakdown, prevMonthBreakdown] = await Promise.all([
-        fetchDailyBreakdown(tokenGw, prevWeekDates, qbLocationId),
-        fetchDailyBreakdown(tokenGw, prevMonthDates, qbLocationId)
-      ]);
+    // Always fetch historical data for chart projections
+    console.log('Fetching historical data for projections...');
       
-      prevWeekSales = prevWeekBreakdown.reduce((sum, d) => sum + d.sales, 0);
-      prevMonthSales = prevMonthBreakdown.reduce((sum, d) => sum + d.sales, 0);
-
-      // Fetch last year data and 4-week historical data for better projections
-      console.log('Fetching historical data for projections...');
-        
-        // Generate 4-week historical date ranges (past 4 complete weeks)
-        const fourWeekRanges: { weekStart: string; weekEnd: string }[] = [];
-        for (let i = 1; i <= 4; i++) {
-          const weekStartOffset = i * 7;
-          const weekEndOffset = (i - 1) * 7 + 1;
-          fourWeekRanges.push({
-            weekStart: adjustDate(weekStartStr, -weekStartOffset),
-            weekEnd: adjustDate(weekStartStr, -weekEndOffset)
-          });
-        }
-        
-        console.log('4-week historical ranges:', fourWeekRanges.map(r => `${r.weekStart} to ${r.weekEnd}`).join(', '));
-        
-        try {
-          // Fetch all 4 weeks of data in parallel
-          const fourWeekPromises = fourWeekRanges.map(range => {
-            const dates = getDateRange(range.weekStart, range.weekEnd);
-            return fetchDailyBreakdown(tokenGw, dates, qbLocationId);
-          });
-          
-          // Also fetch last year data
-          const [lastYearDayHourly, lastYearWeekBreakdown, lastYearMonthResult, ...fourWeekResults] = await Promise.all([
-            fetchHourlySales(tokenGw, lastYearTodayStr, qbLocationId),
-            fetchDailyBreakdown(tokenGw, lastYearWeekDates, qbLocationId),
-            fetchSalesForDates(tokenGw, lastYearMonthDates, qbLocationId, 'last_year_month'),
-            ...fourWeekPromises
-          ]);
-          
-          // Process last year data
-          const lastYearSameDay = lastYearDayHourly.reduce((sum, h) => sum + h.sales, 0);
-          const lastYearSameWeek = lastYearWeekBreakdown.reduce((sum, d) => sum + d.sales, 0);
-          
-          lastYearData = {
-            sameDay: lastYearSameDay,
-            sameWeek: lastYearSameWeek,
-            sameMonth: lastYearMonthResult.total,
-            weeklyBreakdown: lastYearWeekBreakdown.map(d => ({ date: d.date, sales: d.sales }))
-          };
-          
-          console.log(`Last year same day: $${lastYearSameDay}, same week: $${lastYearSameWeek}, same month: $${lastYearMonthResult.total}`);
-          
-          // Process 4-week historical data
-          const allFourWeekDays: { date: string; sales: number; dayOfWeek: number }[] = [];
-          const weekTotals: { weekStart: string; total: number }[] = [];
-          
-          fourWeekResults.forEach((weekData, idx) => {
-            const weekTotal = weekData.reduce((sum, d) => sum + d.sales, 0);
-            weekTotals.push({
-              weekStart: fourWeekRanges[idx].weekStart,
-              total: weekTotal
-            });
-            
-            weekData.forEach(d => {
-              const date = new Date(d.date + 'T12:00:00');
-              allFourWeekDays.push({
-                date: d.date,
-                sales: d.sales,
-                dayOfWeek: date.getDay()
-              });
-            });
-          });
-          
-          // Calculate averages by day of week
-          const salesByDayOfWeek: { [key: number]: number[] } = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
-          allFourWeekDays.forEach(d => {
-            if (d.sales > 0) {
-              salesByDayOfWeek[d.dayOfWeek].push(d.sales);
-            }
-          });
-          
-          const avgDailyByDayOfWeek = Object.entries(salesByDayOfWeek).map(([dow, sales]) => ({
-            dayOfWeek: parseInt(dow),
-            avgSales: sales.length > 0 ? sales.reduce((sum, s) => sum + s, 0) / sales.length : 0
-          }));
-          
-          const avgWeekTotal = weekTotals.length > 0 
-            ? weekTotals.reduce((sum, w) => sum + w.total, 0) / weekTotals.length 
-            : 0;
-          
-          fourWeekAverage = {
-            avgWeekTotal,
-            avgDailyByDayOfWeek,
-            weeks: weekTotals
-          };
-          
-          console.log(`4-week average weekly total: $${avgWeekTotal.toFixed(2)}`);
-          console.log('Average by day of week:', avgDailyByDayOfWeek.map(d => `${d.dayOfWeek}: $${d.avgSales.toFixed(2)}`).join(', '));
-          
-      } catch (error) {
-        console.error('Failed to fetch historical data:', error);
-        // Continue without historical data
+      // Generate 4-week historical date ranges (past 4 complete weeks)
+      const fourWeekRanges: { weekStart: string; weekEnd: string }[] = [];
+      for (let i = 1; i <= 4; i++) {
+        const weekStartOffset = i * 7;
+        const weekEndOffset = (i - 1) * 7 + 1;
+        fourWeekRanges.push({
+          weekStart: adjustDate(weekStartStr, -weekStartOffset),
+          weekEnd: adjustDate(weekStartStr, -weekEndOffset)
+        });
       }
-
-      // Fetch hourly data for the last 4 same-day-of-weeks to build hourly pattern
+      
+      console.log('4-week historical ranges:', fourWeekRanges.map(r => `${r.weekStart} to ${r.weekEnd}`).join(', '));
+      
       try {
-        const sameDayDates = getSameDayOfWeekDates(todayStr, 4);
-        console.log('Fetching hourly data for same-day-of-weeks:', sameDayDates.join(', '));
+        // Fetch all 4 weeks of data in parallel
+        const fourWeekPromises = fourWeekRanges.map(range => {
+          const dates = getDateRange(range.weekStart, range.weekEnd);
+          return fetchDailyBreakdown(tokenGw, dates, qbLocationId);
+        });
         
-        // Fetch hourly data for all 4 same-day-of-week dates in parallel
-        const hourlyDataPromises = sameDayDates.map(dateStr => fetchHourlySales(tokenGw, dateStr, qbLocationId));
-        const hourlyDataResults = await Promise.all(hourlyDataPromises);
+        // Also fetch last year data
+        const [lastYearDayHourly, lastYearWeekBreakdown, lastYearMonthResult, ...fourWeekResults] = await Promise.all([
+          fetchHourlySales(tokenGw, lastYearTodayStr, qbLocationId),
+          fetchDailyBreakdown(tokenGw, lastYearWeekDates, qbLocationId),
+          fetchSalesForDates(tokenGw, lastYearMonthDates, qbLocationId, 'last_year_month'),
+          ...fourWeekPromises
+        ]);
         
-        // Aggregate hourly sales across all 4 days
-        const hourlyTotals: { [hour: number]: number[] } = {};
-        const dailyTotals: number[] = [];
+        // Process last year data
+        const lastYearSameDay = lastYearDayHourly.reduce((sum, h) => sum + h.sales, 0);
+        const lastYearSameWeek = lastYearWeekBreakdown.reduce((sum, d) => sum + d.sales, 0);
         
-        hourlyDataResults.forEach(dayData => {
-          const dayTotal = dayData.reduce((sum, h) => sum + h.sales, 0);
-          if (dayTotal > 0) {
-            dailyTotals.push(dayTotal);
-            dayData.forEach(h => {
-              const hourNum = parseInt(h.hour.split(':')[0]);
-              if (!hourlyTotals[hourNum]) hourlyTotals[hourNum] = [];
-              hourlyTotals[hourNum].push(h.sales);
+        lastYearData = {
+          sameDay: lastYearSameDay,
+          sameWeek: lastYearSameWeek,
+          sameMonth: lastYearMonthResult.total,
+          weeklyBreakdown: lastYearWeekBreakdown.map(d => ({ date: d.date, sales: d.sales }))
+        };
+        
+        console.log(`Last year same day: $${lastYearSameDay}, same week: $${lastYearSameWeek}, same month: $${lastYearMonthResult.total}`);
+        
+        // Process 4-week historical data
+        const allFourWeekDays: { date: string; sales: number; dayOfWeek: number }[] = [];
+        const weekTotals: { weekStart: string; total: number }[] = [];
+        
+        fourWeekResults.forEach((weekData, idx) => {
+          const weekTotal = weekData.reduce((sum, d) => sum + d.sales, 0);
+          weekTotals.push({
+            weekStart: fourWeekRanges[idx].weekStart,
+            total: weekTotal
+          });
+          
+          weekData.forEach(d => {
+            const date = new Date(d.date + 'T12:00:00');
+            allFourWeekDays.push({
+              date: d.date,
+              sales: d.sales,
+              dayOfWeek: date.getDay()
             });
+          });
+        });
+        
+        // Calculate averages by day of week
+        const salesByDayOfWeek: { [key: number]: number[] } = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+        allFourWeekDays.forEach(d => {
+          if (d.sales > 0) {
+            salesByDayOfWeek[d.dayOfWeek].push(d.sales);
           }
         });
         
-        // Calculate average percentage for each hour
-        if (dailyTotals.length > 0) {
-          const avgDailyTotal = dailyTotals.reduce((sum, t) => sum + t, 0) / dailyTotals.length;
-          
-          fourWeekHourlyPattern = Object.entries(hourlyTotals).map(([hourStr, sales]) => {
-            const avgHourlySales = sales.reduce((sum, s) => sum + s, 0) / sales.length;
-            return {
-              hour: parseInt(hourStr),
-              avgPercent: avgDailyTotal > 0 ? avgHourlySales / avgDailyTotal : 0
-            };
-          }).sort((a, b) => a.hour - b.hour);
-          
-          console.log('Hourly pattern calculated:', fourWeekHourlyPattern.map(p => 
-            `${p.hour}:00 = ${(p.avgPercent * 100).toFixed(1)}%`
-          ).join(', '));
+        const avgDailyByDayOfWeek = Object.entries(salesByDayOfWeek).map(([dow, sales]) => ({
+          dayOfWeek: parseInt(dow),
+          avgSales: sales.length > 0 ? sales.reduce((sum, s) => sum + s, 0) / sales.length : 0
+        }));
+        
+        const avgWeekTotal = weekTotals.length > 0 
+          ? weekTotals.reduce((sum, w) => sum + w.total, 0) / weekTotals.length 
+          : 0;
+        
+        fourWeekAverage = {
+          avgWeekTotal,
+          avgDailyByDayOfWeek,
+          weeks: weekTotals
+        };
+        
+        console.log(`4-week average weekly total: $${avgWeekTotal.toFixed(2)}`);
+        console.log('Average by day of week:', avgDailyByDayOfWeek.map(d => `${d.dayOfWeek}: $${d.avgSales.toFixed(2)}`).join(', '));
+        
+    } catch (error) {
+      console.error('Failed to fetch historical data:', error);
+      // Continue without historical data
+    }
+
+    // Fetch hourly data for the last 4 same-day-of-weeks to build hourly pattern
+    let fourWeekHourlyPattern: { hour: number; avgPercent: number }[] | undefined;
+    
+    try {
+      const sameDayDates = getSameDayOfWeekDates(todayStr, 4);
+      console.log('Fetching hourly data for same-day-of-weeks:', sameDayDates.join(', '));
+      
+      // Fetch hourly data for all 4 same-day-of-week dates in parallel
+      const hourlyDataPromises = sameDayDates.map(dateStr => fetchHourlySales(tokenGw, dateStr, qbLocationId));
+      const hourlyDataResults = await Promise.all(hourlyDataPromises);
+      
+      // Aggregate hourly sales across all 4 days
+      const hourlyTotals: { [hour: number]: number[] } = {};
+      const dailyTotals: number[] = [];
+      
+      hourlyDataResults.forEach(dayData => {
+        const dayTotal = dayData.reduce((sum, h) => sum + h.sales, 0);
+        if (dayTotal > 0) {
+          dailyTotals.push(dayTotal);
+          dayData.forEach(h => {
+            const hourNum = parseInt(h.hour.split(':')[0]);
+            if (!hourlyTotals[hourNum]) hourlyTotals[hourNum] = [];
+            hourlyTotals[hourNum].push(h.sales);
+          });
         }
-      } catch (error) {
-        console.error('Failed to fetch hourly pattern data:', error);
-        // Continue with default pattern
+      });
+      
+      // Calculate average percentage for each hour
+      if (dailyTotals.length > 0) {
+        const avgDailyTotal = dailyTotals.reduce((sum, t) => sum + t, 0) / dailyTotals.length;
+        
+        fourWeekHourlyPattern = Object.entries(hourlyTotals).map(([hourStr, sales]) => {
+          const avgHourlySales = sales.reduce((sum, s) => sum + s, 0) / sales.length;
+          return {
+            hour: parseInt(hourStr),
+            avgPercent: avgDailyTotal > 0 ? avgHourlySales / avgDailyTotal : 0
+          };
+        }).sort((a, b) => a.hour - b.hour);
+        
+        console.log('Hourly pattern calculated:', fourWeekHourlyPattern.map(p => 
+          `${p.hour}:00 = ${(p.avgPercent * 100).toFixed(1)}%`
+        ).join(', '));
       }
-    } else {
-      console.log('Fast mode enabled - skipping historical data fetch for faster response');
+    } catch (error) {
+      console.error('Failed to fetch hourly pattern data:', error);
+      // Continue with default pattern
     }
 
     // First, calculate preliminary daily projection for hourly distribution

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, TrendingUp, TrendingDown, Package, Sparkles } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,7 +14,6 @@ import { formatTime12Hour } from '@/lib/utils';
 import { setCachedProjections, getCachedProjections, getCachedLiveSales, setCachedLiveSales } from '@/utils/salesCache';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DateNavigator } from '@/components/ui/date-navigator';
 
 interface SalesData {
   daily: number;
@@ -80,7 +79,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   const isToday = isSameDay(targetDate, new Date());
 
   // Fetch fresh data from API
-  const fetchSalesData = async (): Promise<SalesData | null> => {
+  const fetchSalesData = async () => {
     const dateStr = getDateString(targetDate);
     const isTodayCheck = isSameDay(targetDate, new Date());
     
@@ -93,16 +92,11 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     const hasValidWeeklyMonthlyCache = cachedProjections?.weekProjected !== undefined && cachedProjections?.monthProjected !== undefined;
     const skipProjections = isTodayCheck && hasValidDailyCache && hasValidWeeklyMonthlyCache;
     
-    // Check if we have cached data - if so, use fast mode for quicker refresh
-    const cached = currentLocation?.id ? getCachedLiveSales(currentLocation.id) : null;
-    const useFastMode = cached?.data ? true : false;
-    
     const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
       body: { 
         locationId: currentLocation?.id,
         targetDate: dateStr,
-        skipProjections,
-        fastMode: useFastMode // Skip historical data for faster refresh when we have cached data
+        skipProjections
       }
     });
     if (error) {
@@ -298,6 +292,33 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     );
   };
 
+  const DateNavigator = ({ 
+    onPrev, 
+    onNext, 
+    label, 
+    canGoNext 
+  }: { 
+    onPrev: () => void; 
+    onNext: () => void; 
+    label: string;
+    canGoNext: boolean;
+  }) => (
+    <div className="flex items-center justify-between mb-2 bg-primary rounded-md px-1 py-0.5">
+      <Button variant="ghost" size="sm" onClick={onPrev} className="h-6 px-1.5 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground">
+        <ChevronLeft className="h-4 w-4" />
+      </Button>
+      <span className="text-xs text-primary-foreground font-medium">{label}</span>
+      <Button 
+        variant="ghost" 
+        size="sm" 
+        onClick={onNext} 
+        disabled={!canGoNext}
+        className="h-6 px-1.5 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50"
+      >
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
+  );
 
   // Show skeleton shimmer only on first load with no cached data
   // If we have cached data, show it immediately (stale-while-revalidate)
@@ -364,21 +385,18 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
           <Tabs defaultValue="today" className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-4">
               <TabsTrigger value="today">Today</TabsTrigger>
-              <TabsTrigger value="week">Week</TabsTrigger>
-              <TabsTrigger value="month">Month</TabsTrigger>
+              <TabsTrigger value="week">This Week</TabsTrigger>
+              <TabsTrigger value="month">This Month</TabsTrigger>
             </TabsList>
             
             {/* TODAY TAB */}
             <TabsContent value="today" className="space-y-4">
-              <div className="mb-2">
-                <DateNavigator 
-                  onPrev={() => navigateDay('prev')}
-                  onNext={() => navigateDay('next')}
-                  label={isToday ? 'Today' : format(targetDate, 'EEEE, MMM d')}
-                  canGoNext={!isToday}
-                  narrow
-                />
-              </div>
+              <DateNavigator 
+                onPrev={() => navigateDay('prev')}
+                onNext={() => navigateDay('next')}
+                label={isToday ? 'Today' : format(targetDate, 'EEEE, MMM d')}
+                canGoNext={!isToday}
+              />
               
               <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
               <div className="flex-1 min-w-0">
@@ -388,6 +406,11 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   </p>
                   {salesData?.comparison?.prevDay !== undefined && salesData.daily !== undefined && (
                     <div className="flex items-center gap-1.5 flex-wrap">
+                      <ComparisonBadge 
+                        current={salesData.daily} 
+                        previous={salesData.comparison.prevDay} 
+                        label={`same time last ${format(targetDate, 'EEEE').slice(0, 3)}`}
+                      />
                       {pacingStatus && (
                         <Badge 
                           variant="outline" 
@@ -402,11 +425,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                           {pacingStatus === 'ahead' ? '🔥 On Fire' : pacingStatus === 'onTrack' ? '🏃 On Track' : '🧊 Behind'}
                         </Badge>
                       )}
-                      <ComparisonBadge 
-                        current={salesData.daily} 
-                        previous={salesData.comparison.prevDay} 
-                        label={`same time last ${format(targetDate, 'EEEE').slice(0, 3)}`}
-                      />
                     </div>
                   )}
                 </div>
@@ -530,7 +548,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
                     <BarChart data={hourlyWithPizzas} barCategoryGap="10%" margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="hour" className="text-xs" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} interval="preserveStartEnd" angle={-45} textAnchor="end" height={50} />
+                      <XAxis dataKey="hour" className="text-xs" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} interval={0} />
                       <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} tickFormatter={value => `$${value}`} width={40} />
                       <Tooltip 
                         content={({ active, payload, label }) => {
@@ -614,7 +632,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   : 'This Week'
                 }
                 canGoNext={!isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })}
-                narrow
               />
               
               <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4">
@@ -770,7 +787,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   : 'This Month'
                 }
                 canGoNext={!isSameMonth(targetDate, new Date())}
-                narrow
               />
               
               <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4">

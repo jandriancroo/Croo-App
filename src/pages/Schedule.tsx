@@ -8,8 +8,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown, AlertTriangle } from "lucide-react";
-import { DateNavigator } from "@/components/ui/date-navigator";
+import { ChevronLeft, ChevronRight, Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown, AlertTriangle } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -1100,69 +1099,73 @@ export default function Schedule() {
       ) : (
         <div className="space-y-6 pb-20">
         {/* Header */}
-        <div className="flex items-center gap-4 mb-2">
-          <div className="flex-1 flex justify-center">
-            <div className="w-[75%]">
-              <DateNavigator
-                onPrev={handlePreviousWeek}
-                onNext={handleNextWeek}
-                label={`${format(currentWeekStart, "MMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMM d, yyyy")}`}
-                className="w-full"
-              />
-            </div>
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="icon" onClick={handlePreviousWeek}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="text-3xl font-bold">
+              {format(currentWeekStart, "MMM d, yyyy")} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMM d, yyyy")}
+            </h1>
+            <Button variant="outline" size="icon" onClick={handleNextWeek}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
-          {(isAdmin || isManager) && (
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={() => setIsCreatingShift(true)}
-                className="opacity-60 hover:opacity-100 transition-opacity"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <Wrench className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-background">
-                  <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
-                    <Calendar className="h-4 w-4" />
-                    View Availability
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/schedule-templates")} className="gap-2 cursor-pointer">
-                    <Settings className="h-4 w-4" />
-                    Manage Templates
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setCopyScheduleDialogOpen(true)} className="gap-2 cursor-pointer">
-                    <Copy className="h-4 w-4" />
-                    Copy Schedule to Future Week
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setClearScheduleDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                    Clear Schedule
-                  </DropdownMenuItem>
-                  {isPublished && (
-                    <DropdownMenuItem onClick={() => setWithdrawDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
-                      <AlertTriangle className="h-4 w-4" />
-                      Withdraw Schedule
+
+          <div className="flex gap-2">
+            {(isAdmin || isManager) && (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setIsCreatingShift(true)}
+                  className="opacity-60 hover:opacity-100 transition-opacity"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <Wrench className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-background">
+                    <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
+                      <Calendar className="h-4 w-4" />
+                      View Availability
                     </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {scheduleId && (
-                <LiveStatusBadge
-                  isPublished={isPublished}
-                  isPublishing={isPublishing}
-                  hasPendingChanges={hasPendingChanges}
-                  onGoLive={handleGoLive}
-                  onUpdate={handleUpdate}
-                />
-              )}
-            </div>
-          )}
+                    <DropdownMenuItem onClick={() => navigate("/schedule-templates")} className="gap-2 cursor-pointer">
+                      <Settings className="h-4 w-4" />
+                      Manage Templates
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setCopyScheduleDialogOpen(true)} className="gap-2 cursor-pointer">
+                      <Copy className="h-4 w-4" />
+                      Copy Schedule to Future Week
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setClearScheduleDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                      Clear Schedule
+                    </DropdownMenuItem>
+                    {isPublished && (
+                      <DropdownMenuItem onClick={() => setWithdrawDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
+                        <AlertTriangle className="h-4 w-4" />
+                        Withdraw Schedule
+                      </DropdownMenuItem>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {scheduleId && (
+                  <LiveStatusBadge
+                    isPublished={isPublished}
+                    isPublishing={isPublishing}
+                    hasPendingChanges={hasPendingChanges}
+                    onGoLive={handleGoLive}
+                    onUpdate={handleUpdate}
+                  />
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         {/* Team member view-only badge */}
