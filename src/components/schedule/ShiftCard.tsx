@@ -104,7 +104,7 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
         )}
       </div>
       {!shift.isTemplate && position && (
-        <div className="text-white text-xs opacity-90 mt-0.5">{position}</div>
+        <div className="text-white text-xs opacity-90 mt-0.5 hidden 2xl:block">{position}</div>
       )}
       {shift.is_time_off && <div className="text-white text-sm font-medium">TIME OFF</div>}
       {!shift.isTemplate && onDelete && (
