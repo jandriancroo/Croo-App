@@ -398,10 +398,10 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 canGoNext={!isToday}
               />
               
-              <div className="grid grid-cols-4 gap-2 sm:gap-4 mb-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
               <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">Sales</p>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
                     <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
                       {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
                     </p>
@@ -427,12 +427,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                       label={`same time last ${format(targetDate, 'EEEE').slice(0, 3)}`}
                     />
                   )}
-                </div>
-                <div className="text-center min-w-0">
-                  <p className="text-xs text-muted-foreground">Guests</p>
-                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.guestCount?.daily ?? "--"}
-                  </p>
                 </div>
                 <div className="text-center min-w-0">
                   <p className="text-xs text-muted-foreground">Pizzas</p>
@@ -640,7 +634,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 canGoNext={!isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })}
               />
               
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
+              <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4">
               <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">WTD</p>
                   <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
@@ -653,12 +647,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                       label="last week"
                     />
                   )}
-                </div>
-                <div className="text-center min-w-0">
-                  <p className="text-xs text-muted-foreground">Guests</p>
-                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.guestCount?.weekly ?? "--"}
-                  </p>
                 </div>
                 <div className="text-right min-w-0">
                   <p className="text-xs text-muted-foreground">Avg Ticket</p>
@@ -801,7 +789,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 canGoNext={!isSameMonth(targetDate, new Date())}
               />
               
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
+              <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4">
               <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">MTD</p>
                   <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
@@ -814,12 +802,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                       label="last month"
                     />
                   )}
-                </div>
-                <div className="text-center min-w-0">
-                  <p className="text-xs text-muted-foreground">Guests</p>
-                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.guestCount?.monthly ?? "--"}
-                  </p>
                 </div>
                 <div className="text-right min-w-0">
                   <p className="text-xs text-muted-foreground">Avg Ticket</p>
