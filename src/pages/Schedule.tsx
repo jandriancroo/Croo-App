@@ -1101,13 +1101,13 @@ export default function Schedule() {
         <div className="space-y-6 pb-20">
         {/* Header */}
         <div className="flex items-center justify-between mb-2">
-          <div className="flex-1" />
           <DateNavigator
             onPrev={handlePreviousWeek}
             onNext={handleNextWeek}
             label={`${format(currentWeekStart, "MMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMM d, yyyy")}`}
+            className="w-auto flex-1 mx-0 justify-start"
           />
-          <div className="flex-1 flex justify-end gap-2">
+          <div className="flex justify-end gap-2 ml-6">
             {(isAdmin || isManager) && (
               <>
                 <Button 
