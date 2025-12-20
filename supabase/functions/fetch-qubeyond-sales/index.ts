@@ -353,53 +353,68 @@ async function fetchProductMix(
 ): Promise<{ name: string; quantity: number; sales: number; category: string }[]> {
   console.log(`Fetching product mix for ${dates.length} days`);
   
-  const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'Authorization': tokenGw,
-      'Origin': 'https://admin.qubeyond.com',
-      'Referer': 'https://admin.qubeyond.com/',
-    },
-    body: JSON.stringify({
-      fields: [
-        { fieldName: "productName" },
-        { fieldName: "categoryName" },
-        { fieldName: "quantity" },
-        { fieldName: "netSales" },
-        { fieldName: "netSalesPercentage" }
-      ],
-      filters: {
-        date: { from: null, to: null, values: dates, type: "custom" },
-        singleLocation: parseInt(qbLocationId)
+  try {
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': tokenGw,
+        'Origin': 'https://admin.qubeyond.com',
+        'Referer': 'https://admin.qubeyond.com/',
       },
-      params: { sectionId: "main", pageNumber: 1, pageSize: 100, totalRecords: null, sort: { field: "netSales", dir: "desc" }, showTotals: true }
-    }),
-  });
+      body: JSON.stringify({
+        fields: [
+          { fieldName: "itemGroup" },
+          { fieldName: "itemName" },
+          { fieldName: "quantity" },
+          { fieldName: "netSales" }
+        ],
+        filters: {
+          date: { from: null, to: null, values: dates, type: "custom" },
+          singleLocation: parseInt(qbLocationId)
+        },
+        params: { sectionId: "main", pageNumber: 1, pageSize: 200, totalRecords: null, sort: { field: "quantity", dir: "desc" }, showTotals: false }
+      }),
+    });
 
-  if (!response.ok) {
-    console.error('Product mix fetch failed:', response.status);
-    return [];
-  }
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Product mix fetch failed:', response.status, errorText);
+      return [];
+    }
 
-  const data = await response.json();
-  const products: { name: string; quantity: number; sales: number; category: string }[] = [];
-  
-  if (data.items && Array.isArray(data.items)) {
-    for (const item of data.items) {
-      const name = item.productName || '';
-      const category = item.categoryName || '';
-      const quantity = parseInt(String(item.quantity || '0').replace(/,/g, '')) || 0;
-      const sales = parseFloat(String(item.netSales || '0').replace(/[$,]/g, '')) || 0;
-      if (name && quantity > 0) {
-        products.push({ name, quantity, sales, category });
+    const data = await response.json();
+    console.log('Product mix response keys:', Object.keys(data));
+    console.log('Product mix first item sample:', JSON.stringify(data.items?.[0] || 'no items'));
+    
+    const products: { name: string; quantity: number; sales: number; category: string }[] = [];
+    
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        // Try multiple field name variations
+        const name = item.itemName || item.productName || item.name || '';
+        const category = item.itemGroup || item.categoryName || item.category || '';
+        const quantity = parseInt(String(item.quantity || '0').replace(/,/g, '')) || 0;
+        const sales = parseFloat(String(item.netSales || item.sales || '0').replace(/[$,]/g, '')) || 0;
+        if (name && quantity > 0) {
+          products.push({ name, quantity, sales, category });
+        }
       }
     }
+    
+    // Log Crusts category items specifically
+    const crusts = products.filter(p => p.category.toLowerCase() === 'crusts');
+    console.log(`Found ${products.length} products total, ${crusts.length} in Crusts category`);
+    if (crusts.length > 0) {
+      console.log('Crusts items:', JSON.stringify(crusts.slice(0, 10)));
+    }
+    
+    return products.slice(0, 100);
+  } catch (error) {
+    console.error('Product mix fetch error:', error);
+    return [];
   }
-  
-  console.log(`Found ${products.length} products`);
-  return products.slice(0, 50);
 }
 
 // Fetch labor data from Real Time Summary
