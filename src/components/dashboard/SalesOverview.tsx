@@ -110,7 +110,12 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     console.log(`[CACHE HIT] Using cached data for ${dateStr}`);
     
     // Convert cached data to SalesData format
-    const hourlyData = (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number }>) || [];
+    // For historical dates, set projected = sales since the day is complete
+    const rawHourlyData = (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number }>) || [];
+    const hourlyData = rawHourlyData.map(h => ({
+      ...h,
+      projected: h.sales // For completed days, projected equals actual
+    }));
     
     return {
       daily: Number(cached.net_sales) || 0,
