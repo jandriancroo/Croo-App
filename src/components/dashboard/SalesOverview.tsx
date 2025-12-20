@@ -325,37 +325,32 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   };
 
   const ComparisonBadge = ({ current, previous, label, previousFullDay }: { current: number; previous: number; label: string; previousFullDay?: number }) => {
-    const change = getChangePercent(current, previous);
+    // Try to calculate change - prefer previous, fall back to previousFullDay for historical days
+    let change = getChangePercent(current, previous);
     
-    // If we can calculate percentage, show it
-    if (change !== null) {
-      const isPositive = change >= 0;
-      return (
-        <div className="flex items-center gap-1 text-xs whitespace-nowrap">
-          {isPositive ? (
-            <TrendingUp className="h-3 w-3 text-green-500 flex-shrink-0" />
-          ) : (
-            <TrendingDown className="h-3 w-3 text-red-500 flex-shrink-0" />
-          )}
-          <span className={isPositive ? "text-green-500" : "text-red-500"}>
-            {isPositive ? "+" : ""}{change.toFixed(1)}%
-          </span>
-          <span className="text-muted-foreground hidden sm:inline">vs {label}</span>
-        </div>
-      );
+    // If previous is 0 but we have full day data, use that for comparison
+    if (change === null && previousFullDay && previousFullDay > 0 && current > 0) {
+      change = getChangePercent(current, previousFullDay);
     }
     
-    // If previous is 0 but we have full day data, show comparison against that
-    if (previous === 0 && previousFullDay && previousFullDay > 0 && current > 0) {
-      const pctOfFullDay = (current / previousFullDay) * 100;
-      return (
-        <div className="flex items-center gap-1 text-xs whitespace-nowrap text-muted-foreground">
-          <span>{pctOfFullDay.toFixed(0)}% of last {label.replace('same time ', '')}</span>
-        </div>
-      );
-    }
+    // Don't show badge if we can't calculate a meaningful change
+    if (change === null) return null;
     
-    return null;
+    const isPositive = change >= 0;
+    
+    return (
+      <div className="flex items-center gap-1 text-xs whitespace-nowrap">
+        {isPositive ? (
+          <TrendingUp className="h-3 w-3 text-green-500 flex-shrink-0" />
+        ) : (
+          <TrendingDown className="h-3 w-3 text-red-500 flex-shrink-0" />
+        )}
+        <span className={isPositive ? "text-green-500" : "text-red-500"}>
+          {isPositive ? "+" : ""}{change.toFixed(1)}%
+        </span>
+        <span className="text-muted-foreground hidden sm:inline">vs {label}</span>
+      </div>
+    );
   };
 
 
