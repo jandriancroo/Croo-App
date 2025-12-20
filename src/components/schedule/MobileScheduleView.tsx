@@ -3,7 +3,8 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks } from 'dat
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, ChevronLeft, Plus, RefreshCw, Circle, Pencil } from 'lucide-react';
+import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, Plus, RefreshCw, Circle, Pencil } from 'lucide-react';
+import { DateNavigator } from '@/components/ui/date-navigator';
 import { FaFistRaised } from 'react-icons/fa';
 import { Button } from '@/components/ui/button';
 import { BreakIndicator } from './BreakIndicator';
@@ -391,14 +392,13 @@ export function MobileScheduleView({
       ) : (
         <>
           {/* Month Header - Condensed */}
-          <div className="flex items-center justify-between px-4 py-1 border-b">
-            <Button variant="ghost" size="icon" onClick={handlePreviousWeek}>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <h2 className="text-sm font-semibold">{format(currentWeekStart, 'MMMM yyyy')}</h2>
-            <Button variant="ghost" size="icon" onClick={handleNextWeek}>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+          <div className="px-4 py-2 border-b">
+            <DateNavigator
+              onPrev={handlePreviousWeek}
+              onNext={handleNextWeek}
+              label={format(currentWeekStart, 'MMMM yyyy')}
+              size="sm"
+            />
           </div>
 
       {/* Week Calendar */}
