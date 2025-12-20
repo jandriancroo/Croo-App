@@ -10,8 +10,6 @@ interface DateNavigatorProps {
   canGoNext?: boolean;
   canGoPrev?: boolean;
   className?: string;
-  /** When true, makes the navigator slightly narrower (90%) - use when there's a row above it */
-  narrow?: boolean;
 }
 
 export function DateNavigator({ 
@@ -21,19 +19,14 @@ export function DateNavigator({
   sublabel,
   canGoNext = true,
   canGoPrev = true,
-  className,
-  narrow = false
+  className
 }: DateNavigatorProps) {
   return (
     <div className={cn(
-      "flex justify-center",
-      narrow && "px-[5%]",
+      "flex justify-center w-[75%] mx-auto",
       className
     )}>
-      <div className={cn(
-        "inline-flex items-center justify-between bg-primary rounded-full px-2 py-1 gap-2",
-        className?.includes("w-full") && "w-full"
-      )}>
+      <div className="flex items-center justify-between bg-primary rounded-full px-2 py-1 gap-2 w-full">
         <Button 
           variant="ghost" 
           size="sm" 
@@ -43,7 +36,7 @@ export function DateNavigator({
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <div className="text-center px-2">
+        <div className="text-center flex-1">
           <span className="text-sm text-primary-foreground font-medium whitespace-nowrap">{label}</span>
           {sublabel && (
             <span className="text-sm text-primary-foreground/80 ml-1">{sublabel}</span>
