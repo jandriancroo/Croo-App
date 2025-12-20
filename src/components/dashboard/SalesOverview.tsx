@@ -371,7 +371,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   onNext={() => navigateDay('next')}
                   label={isToday ? 'Today' : format(targetDate, 'EEEE, MMM d')}
                   canGoNext={!isToday}
-                  narrow
                 />
               </div>
               
@@ -609,7 +608,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   : 'This Week'
                 }
                 canGoNext={!isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })}
-                narrow
               />
               
               <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4">
@@ -755,7 +753,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               )}
             </TabsContent>
             
-            {/* MONTH TAB */}
             <TabsContent value="month" className="space-y-4">
               <DateNavigator 
                 onPrev={() => navigateMonth('prev')}
@@ -765,7 +762,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   : 'This Month'
                 }
                 canGoNext={!isSameMonth(targetDate, new Date())}
-                narrow
               />
               
               <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4">
