@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronLeft, ChevronRight, ChevronDown, TrendingUp, TrendingDown, Package, Sparkles } from 'lucide-react';
+import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,6 +14,7 @@ import { formatTime12Hour } from '@/lib/utils';
 import { setCachedProjections, getCachedProjections, getCachedLiveSales, setCachedLiveSales } from '@/utils/salesCache';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DateNavigator } from '@/components/ui/date-navigator';
 
 interface SalesData {
   daily: number;
@@ -292,33 +293,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     );
   };
 
-  const DateNavigator = ({ 
-    onPrev, 
-    onNext, 
-    label, 
-    canGoNext 
-  }: { 
-    onPrev: () => void; 
-    onNext: () => void; 
-    label: string;
-    canGoNext: boolean;
-  }) => (
-    <div className="flex items-center justify-between mb-2 bg-primary rounded-md px-1 py-0.5">
-      <Button variant="ghost" size="sm" onClick={onPrev} className="h-6 px-1.5 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground">
-        <ChevronLeft className="h-4 w-4" />
-      </Button>
-      <span className="text-xs text-primary-foreground font-medium">{label}</span>
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        onClick={onNext} 
-        disabled={!canGoNext}
-        className="h-6 px-1.5 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50"
-      >
-        <ChevronRight className="h-4 w-4" />
-      </Button>
-    </div>
-  );
 
   // Show skeleton shimmer only on first load with no cached data
   // If we have cached data, show it immediately (stale-while-revalidate)
@@ -391,12 +365,14 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
             
             {/* TODAY TAB */}
             <TabsContent value="today" className="space-y-4">
-              <DateNavigator 
-                onPrev={() => navigateDay('prev')}
-                onNext={() => navigateDay('next')}
-                label={isToday ? 'Today' : format(targetDate, 'EEEE, MMM d')}
-                canGoNext={!isToday}
-              />
+              <div className="mb-2">
+                <DateNavigator 
+                  onPrev={() => navigateDay('prev')}
+                  onNext={() => navigateDay('next')}
+                  label={isToday ? 'Today' : format(targetDate, 'EEEE, MMM d')}
+                  canGoNext={!isToday}
+                />
+              </div>
               
               <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
               <div className="flex-1 min-w-0">
@@ -406,11 +382,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   </p>
                   {salesData?.comparison?.prevDay !== undefined && salesData.daily !== undefined && (
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <ComparisonBadge 
-                        current={salesData.daily} 
-                        previous={salesData.comparison.prevDay} 
-                        label={`same time last ${format(targetDate, 'EEEE').slice(0, 3)}`}
-                      />
                       {pacingStatus && (
                         <Badge 
                           variant="outline" 
@@ -425,6 +396,11 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                           {pacingStatus === 'ahead' ? '🔥 On Fire' : pacingStatus === 'onTrack' ? '🏃 On Track' : '🧊 Behind'}
                         </Badge>
                       )}
+                      <ComparisonBadge 
+                        current={salesData.daily} 
+                        previous={salesData.comparison.prevDay} 
+                        label={`same time last ${format(targetDate, 'EEEE').slice(0, 3)}`}
+                      />
                     </div>
                   )}
                 </div>
