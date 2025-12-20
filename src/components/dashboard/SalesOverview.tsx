@@ -303,17 +303,17 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     label: string;
     canGoNext: boolean;
   }) => (
-    <div className="flex items-center justify-between mb-2">
-      <Button variant="ghost" size="sm" onClick={onPrev} className="h-7 px-2">
+    <div className="flex items-center justify-between mb-2 bg-primary rounded-md px-1 py-0.5">
+      <Button variant="ghost" size="sm" onClick={onPrev} className="h-6 px-1.5 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground">
         <ChevronLeft className="h-4 w-4" />
       </Button>
-      <span className="text-xs text-muted-foreground font-medium">{label}</span>
+      <span className="text-xs text-primary-foreground font-medium">{label}</span>
       <Button 
         variant="ghost" 
         size="sm" 
         onClick={onNext} 
         disabled={!canGoNext}
-        className="h-7 px-2"
+        className="h-6 px-1.5 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50"
       >
         <ChevronRight className="h-4 w-4" />
       </Button>
@@ -401,31 +401,31 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
               <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">Sales</p>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                      {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
-                    </p>
-                    {pacingStatus && (
-                      <Badge 
-                        variant="outline" 
-                        className={`text-[10px] px-1.5 py-0 h-5 whitespace-nowrap ${
-                          pacingStatus === 'ahead'
-                            ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950'
-                            : pacingStatus === 'onTrack' 
-                              ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
-                              : 'border-sky-400 text-sky-500 bg-sky-50 dark:bg-sky-950'
-                        }`}
-                      >
-                        {pacingStatus === 'ahead' ? '🔥 On Fire' : pacingStatus === 'onTrack' ? '🏃 On Track' : '🧊 Behind'}
-                      </Badge>
-                    )}
-                  </div>
+                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
+                    {salesData?.daily ? formatCurrency(salesData.daily) : "--"}
+                  </p>
                   {salesData?.comparison?.prevDay !== undefined && salesData.daily !== undefined && (
-                    <ComparisonBadge 
-                      current={salesData.daily} 
-                      previous={salesData.comparison.prevDay} 
-                      label={`same time last ${format(targetDate, 'EEEE').slice(0, 3)}`}
-                    />
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <ComparisonBadge 
+                        current={salesData.daily} 
+                        previous={salesData.comparison.prevDay} 
+                        label={`same time last ${format(targetDate, 'EEEE').slice(0, 3)}`}
+                      />
+                      {pacingStatus && (
+                        <Badge 
+                          variant="outline" 
+                          className={`text-[10px] px-1.5 py-0 h-5 whitespace-nowrap ${
+                            pacingStatus === 'ahead'
+                              ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950'
+                              : pacingStatus === 'onTrack' 
+                                ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
+                                : 'border-sky-400 text-sky-500 bg-sky-50 dark:bg-sky-950'
+                          }`}
+                        >
+                          {pacingStatus === 'ahead' ? '🔥 On Fire' : pacingStatus === 'onTrack' ? '🏃 On Track' : '🧊 Behind'}
+                        </Badge>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div className="text-center min-w-0">
