@@ -41,3 +41,6 @@ verify_jwt = true
 
 [functions.fetch-ovation-scores]
 verify_jwt = true
+
+[functions.backfill-sales-cache]
+verify_jwt = true

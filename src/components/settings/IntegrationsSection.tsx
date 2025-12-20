@@ -69,6 +69,26 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     }
   }, [integration]);
 
+  // Trigger background backfill of historical sales data
+  const triggerBackfill = async (integrationId: string) => {
+    try {
+      console.log('[BACKFILL] Triggering backfill for integration:', integrationId);
+      // Fire and forget - don't await, let it run in background
+      supabase.functions.invoke('backfill-sales-cache', {
+        body: { locationId, integrationId }
+      }).then(({ error }) => {
+        if (error) {
+          console.error('[BACKFILL] Background job error:', error);
+        } else {
+          console.log('[BACKFILL] Background job started successfully');
+        }
+      });
+      toast.info("Downloading historical sales data in background...", { duration: 5000 });
+    } catch (error) {
+      console.error('[BACKFILL] Failed to trigger:', error);
+    }
+  };
+
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -76,10 +96,13 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       
       const { data: existing } = await supabase
         .from('location_integrations')
-        .select('id')
+        .select('id, backfill_status')
         .eq('location_id', locationId)
         .eq('integration_type', 'qubeyond')
         .maybeSingle();
+      
+      let integrationId: string;
+      const isNewIntegration = !existing;
       
       if (existing) {
         const { error: updateError } = await supabase
@@ -90,21 +113,36 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
           })
           .eq('id', existing.id);
         if (updateError) throw updateError;
+        integrationId = existing.id;
       } else {
-        const { error: insertError } = await supabase
+        const { data: inserted, error: insertError } = await supabase
           .from('location_integrations')
           .insert({
             location_id: locationId,
             integration_type: 'qubeyond',
             credentials: JSON.parse(JSON.stringify(credentials)),
             is_active: isActive
-          });
+          })
+          .select('id')
+          .single();
         if (insertError) throw insertError;
+        integrationId = inserted.id;
       }
+      
+      // Trigger backfill for new integrations or if never completed
+      if (isNewIntegration || (existing && existing.backfill_status !== 'completed')) {
+        return { integrationId, shouldBackfill: true };
+      }
+      return { integrationId, shouldBackfill: false };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast.success("Integration settings saved");
       queryClient.invalidateQueries({ queryKey: ['location-integration'] });
+      
+      // Trigger backfill if needed
+      if (result?.shouldBackfill && result.integrationId) {
+        triggerBackfill(result.integrationId);
+      }
     },
     onError: (error) => {
       toast.error("Failed to save: " + (error instanceof Error ? error.message : "Unknown error"));

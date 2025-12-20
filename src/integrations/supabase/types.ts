@@ -1530,6 +1530,11 @@ export type Database = {
       }
       location_integrations: {
         Row: {
+          backfill_completed_at: string | null
+          backfill_days_completed: number | null
+          backfill_error: string | null
+          backfill_started_at: string | null
+          backfill_status: string | null
           created_at: string
           credentials: Json
           id: string
@@ -1539,6 +1544,11 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          backfill_completed_at?: string | null
+          backfill_days_completed?: number | null
+          backfill_error?: string | null
+          backfill_started_at?: string | null
+          backfill_status?: string | null
           created_at?: string
           credentials?: Json
           id?: string
@@ -1548,6 +1558,11 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          backfill_completed_at?: string | null
+          backfill_days_completed?: number | null
+          backfill_error?: string | null
+          backfill_started_at?: string | null
+          backfill_status?: string | null
           created_at?: string
           credentials?: Json
           id?: string
@@ -2480,6 +2495,53 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      sales_cache: {
+        Row: {
+          avg_ticket: number | null
+          created_at: string
+          fetched_at: string
+          guest_count: number
+          hourly_data: Json | null
+          id: string
+          location_id: string
+          net_sales: number
+          pizza_count: number
+          sale_date: string
+        }
+        Insert: {
+          avg_ticket?: number | null
+          created_at?: string
+          fetched_at?: string
+          guest_count?: number
+          hourly_data?: Json | null
+          id?: string
+          location_id: string
+          net_sales?: number
+          pizza_count?: number
+          sale_date: string
+        }
+        Update: {
+          avg_ticket?: number | null
+          created_at?: string
+          fetched_at?: string
+          guest_count?: number
+          hourly_data?: Json | null
+          id?: string
+          location_id?: string
+          net_sales?: number
+          pizza_count?: number
+          sale_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_cache_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       schedule_change_log: {
         Row: {
