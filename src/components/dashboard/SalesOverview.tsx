@@ -525,7 +525,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
                     <BarChart data={hourlyWithPizzas} barCategoryGap="10%" margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="hour" className="text-xs" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} interval={0} />
+                      <XAxis dataKey="hour" className="text-xs" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} interval="preserveStartEnd" angle={-45} textAnchor="end" height={50} />
                       <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} tickFormatter={value => `$${value}`} width={40} />
                       <Tooltip 
                         content={({ active, payload, label }) => {
