@@ -383,6 +383,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                       </p>
                     </div>
                   )}
+                </>
+              )}
+            </div>
           </CardContent>
         </CollapsibleContent>
       </Card>
