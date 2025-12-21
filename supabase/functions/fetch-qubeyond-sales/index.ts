@@ -770,6 +770,7 @@ function generateHourlyProjections(
 }
 
 // Generate daily projections for week view
+// Uses same logic as month view for consistency
 function generateDailyProjectionsForWeek(
   weeklyBreakdown: { date: string; sales: number }[],
   weekStartStr: string,
@@ -777,7 +778,24 @@ function generateDailyProjectionsForWeek(
   fourWeekAverage?: { avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[] }
 ): { date: string; sales: number; projected: number }[] {
   const result: { date: string; sales: number; projected: number }[] = [];
-  const randomFactor = getSeededRandomFactor(`week-${weekStartStr}-${locationId}`);
+  
+  // Fallback averages from week data we already have (for days with sales)
+  const observedDays = weeklyBreakdown.filter(d => (d.sales || 0) > 0);
+  const overallAvg = observedDays.length > 0
+    ? observedDays.reduce((sum, d) => sum + (d.sales || 0), 0) / observedDays.length
+    : 0;
+
+  const observedByDow: Record<number, number[]> = {};
+  for (const d of observedDays) {
+    const dow = new Date(d.date + 'T12:00:00').getDay();
+    (observedByDow[dow] ||= []).push(d.sales || 0);
+  }
+  const avgByDow: Record<number, number> = {};
+  for (const key of Object.keys(observedByDow)) {
+    const dow = Number(key);
+    const vals = observedByDow[dow];
+    avgByDow[dow] = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  }
   
   // Generate all 7 days of the week
   for (let i = 0; i < 7; i++) {
@@ -786,19 +804,18 @@ function generateDailyProjectionsForWeek(
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const dayOfWeek = date.getDay();
     
+    // Each day gets its own unique random factor seeded by date+location
+    const randomFactor = getSeededRandomFactor(`${dateStr}-${locationId}`);
+    
     const actual = weeklyBreakdown.find(d => d.date === dateStr)?.sales || 0;
-    let projected = 0;
     
-    if (fourWeekAverage) {
-      const avgForDay = fourWeekAverage.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek);
-      projected = avgForDay ? avgForDay.avgSales * randomFactor : 0;
-    }
-    
-    // CRITICAL: If we have actual sales but no projection, use actual as the projection
-    // This ensures historical days with completed sales still show projections
-    if (projected === 0 && actual > 0) {
-      projected = actual;
-    }
+    // Prefer 4-week by-DOW average when available; otherwise fall back to observed week averages
+    const fourWeekBase = fourWeekAverage
+      ? (fourWeekAverage.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0)
+      : 0;
+
+    const base = fourWeekBase > 0 ? fourWeekBase : (avgByDow[dayOfWeek] || overallAvg);
+    const projected = base > 0 ? base * randomFactor : 0;
     
     result.push({ date: dateStr, sales: actual, projected: Math.round(projected) });
   }
