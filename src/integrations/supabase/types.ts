@@ -17,7 +17,7 @@ export type Database = {
       alarm_task_completions: {
         Row: {
           completed_at: string
-          completed_by: string
+          completed_by: string | null
           created_at: string
           id: string
           interval_key: string
@@ -25,7 +25,7 @@ export type Database = {
         }
         Insert: {
           completed_at?: string
-          completed_by: string
+          completed_by?: string | null
           created_at?: string
           id?: string
           interval_key: string
@@ -33,7 +33,7 @@ export type Database = {
         }
         Update: {
           completed_at?: string
-          completed_by?: string
+          completed_by?: string | null
           created_at?: string
           id?: string
           interval_key?: string

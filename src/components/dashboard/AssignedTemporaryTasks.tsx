@@ -58,6 +58,43 @@ export function AssignedTemporaryTasks() {
         .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
 
       if (tasksError) throw tasksError;
+
+      // For alarm tasks, filter out those that have been completed for the current interval
+      const now = new Date();
+      const currentIntervalKey = `${now.toISOString().split('T')[0]}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+
+      // Get alarm task IDs
+      const alarmTaskIds = tasksData?.filter(t => t.task_style === 'alarm').map(t => t.id) || [];
+      
+      if (alarmTaskIds.length > 0) {
+        // Check for recent completions (within the last hour to cover most intervals)
+        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+        const { data: recentCompletions } = await supabase
+          .from('alarm_task_completions')
+          .select('task_id, interval_key')
+          .in('task_id', alarmTaskIds)
+          .gte('completed_at', oneHourAgo);
+
+        // Create a set of completed task intervals
+        const completedIntervals = new Set(
+          recentCompletions?.map(c => `${c.task_id}_${c.interval_key}`) || []
+        );
+
+        // Filter out alarm tasks that have been completed for their current interval
+        return tasksData?.filter(task => {
+          if (task.task_style !== 'alarm') return true;
+          
+          // For alarm tasks, check if the current interval is completed
+          // We check based on the task's last_triggered_at
+          if (task.last_triggered_at) {
+            const triggeredAt = new Date(task.last_triggered_at);
+            const taskIntervalKey = `${triggeredAt.toISOString().split('T')[0]}_${String(triggeredAt.getHours()).padStart(2, '0')}${String(triggeredAt.getMinutes()).padStart(2, '0')}`;
+            return !completedIntervals.has(`${task.id}_${taskIntervalKey}`);
+          }
+          return true;
+        }) || [];
+      }
+
       return tasksData || [];
     },
     enabled: !!currentLocation?.id && !!user?.id,

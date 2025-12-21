@@ -13,6 +13,7 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getTodayInPST, getDateInPSTOffset } from '@/utils/dateUtils';
 import { PostClockInTasks } from '@/components/punchclock/PostClockInTasks';
+import { AlarmTaskOverlay } from '@/components/punchclock/AlarmTaskOverlay';
 
 // Function to calculate average brightness of an image
 const getImageBrightness = (imageUrl: string): Promise<number> => {
@@ -727,6 +728,11 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
 
   return (
     <>
+      {/* Alarm Task Overlay */}
+      {currentLocation?.id && (
+        <AlarmTaskOverlay locationId={currentLocation.id} />
+      )}
+      
       {/* Master code 0223 on keypad exits to dashboard */}
 
       {!currentUser ? (
