@@ -1740,6 +1740,69 @@ serve(async (req) => {
     
     console.log(`Pizza count (Crusts category, 1/2 items counted as 0.5): ${pizzaCount}`);
 
+    // Store calculated projections in sales_cache for future reference
+    // This ensures week and month views read from the same source
+    if (locationId && !fastMode) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      // Upsert projections for all days in current week and month
+      const allProjections: { location_id: string; sale_date: string; projected_sales: number }[] = [];
+      
+      // Add weekly projections
+      for (const day of weeklyWithProjections) {
+        if (day.projected > 0) {
+          allProjections.push({
+            location_id: locationId,
+            sale_date: day.date,
+            projected_sales: day.projected
+          });
+        }
+      }
+      
+      // Add monthly projections (for days not in weekly)
+      const weekDates = new Set(weeklyWithProjections.map(d => d.date));
+      for (const day of monthlyWithProjections) {
+        if (day.projected > 0 && !weekDates.has(day.date)) {
+          allProjections.push({
+            location_id: locationId,
+            sale_date: day.date,
+            projected_sales: day.projected
+          });
+        }
+      }
+      
+      // Batch upsert projections (only update projected_sales, don't overwrite other fields)
+      if (allProjections.length > 0) {
+        console.log(`Upserting ${allProjections.length} daily projections to sales_cache...`);
+        
+        // Use individual updates to only set projected_sales without overwriting other data
+        for (const proj of allProjections) {
+          const { error } = await supabase
+            .from('sales_cache')
+            .upsert({
+              location_id: proj.location_id,
+              sale_date: proj.sale_date,
+              projected_sales: proj.projected_sales,
+              // Set defaults for required fields if inserting new row
+              net_sales: 0,
+              guest_count: 0
+            }, {
+              onConflict: 'location_id,sale_date',
+              ignoreDuplicates: false
+            })
+            .select();
+          
+          if (error) {
+            console.error(`Failed to upsert projection for ${proj.sale_date}:`, error.message);
+          }
+        }
+        
+        console.log('Projections stored successfully');
+      }
+    }
+
     const result = {
       daily: dailySales,
       weekly: weeklySales,
