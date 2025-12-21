@@ -794,6 +794,12 @@ function generateDailyProjectionsForWeek(
       projected = avgForDay ? avgForDay.avgSales * randomFactor : 0;
     }
     
+    // CRITICAL: If we have actual sales but no projection, use actual as the projection
+    // This ensures historical days with completed sales still show projections
+    if (projected === 0 && actual > 0) {
+      projected = actual;
+    }
+    
     result.push({ date: dateStr, sales: actual, projected: Math.round(projected) });
   }
   
