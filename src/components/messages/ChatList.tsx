@@ -99,27 +99,26 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           : 'hover:bg-muted'
       }`}
     >
-      <Avatar className="h-12 w-12">
+      <Avatar className="h-9 w-9 flex-shrink-0">
         {chat.is_announcement ? (
           <AvatarFallback className="bg-primary/10">
-            <Megaphone className="h-5 w-5 text-primary" />
+            <Megaphone className="h-4 w-4 text-primary" />
           </AvatarFallback>
         ) : chat.is_group ? (
           <>
             <AvatarImage src={chat.group_image_url || undefined} />
             <AvatarFallback>
-              <Users className="h-5 w-5" />
+              <Users className="h-4 w-4" />
             </AvatarFallback>
           </>
         ) : (
           <>
             <AvatarImage src={
-              // For DM chats, show the OTHER person's photo (not the logged-in user)
               chat.chat_members?.find(m => m.user_id !== currentUserId)?.profiles?.profile_photo_url || 
               chat.chat_members?.[0]?.profiles?.profile_photo_url || 
               undefined
             } />
-            <AvatarFallback>
+            <AvatarFallback className="text-xs">
               {chat.title?.charAt(0) || 'C'}
             </AvatarFallback>
           </>
@@ -128,7 +127,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 min-w-0">
-            <p className={`truncate text-base ${
+            <p className={`truncate text-sm ${
               chat.unreadCount && chat.unreadCount > 0 ? 'font-bold' : 'font-medium'
             }`}>
               {chat.title || (chat.is_group ? 'Group Chat' : 'Direct Message')}
@@ -152,14 +151,14 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
                 )}
               </Button>
             )}
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {formatLastMessageTime(chat.updated_at)}
             </span>
           </div>
         </div>
-        {chat.messagePreview && searchQuery && (
-          <p className="text-sm text-muted-foreground truncate mt-1">
-            {highlightSearchTerm(chat.messagePreview, searchQuery)}
+        {chat.messagePreview && (
+          <p className="text-xs text-muted-foreground truncate mt-0.5">
+            {searchQuery ? highlightSearchTerm(chat.messagePreview, searchQuery) : chat.messagePreview}
           </p>
         )}
       </div>

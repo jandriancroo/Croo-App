@@ -2035,6 +2035,7 @@ export type Database = {
           created_at: string
           id: string
           parent_message_id: string | null
+          scheduled_at: string | null
           sender_id: string
           updated_at: string
         }
@@ -2046,6 +2047,7 @@ export type Database = {
           created_at?: string
           id?: string
           parent_message_id?: string | null
+          scheduled_at?: string | null
           sender_id: string
           updated_at?: string
         }
@@ -2057,6 +2059,7 @@ export type Database = {
           created_at?: string
           id?: string
           parent_message_id?: string | null
+          scheduled_at?: string | null
           sender_id?: string
           updated_at?: string
         }

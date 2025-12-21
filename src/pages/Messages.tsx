@@ -155,15 +155,19 @@ export default function Messages() {
           // Get last message in this chat
           const { data: messages } = await supabase
             .from('messages')
-            .select('id, created_at, sender_id')
+            .select('id, created_at, sender_id, content')
             .eq('chat_id', chat.id)
             .order('created_at', { ascending: false })
             .limit(1);
 
           let unreadCount = 0;
+          let messagePreview = '';
+          let lastMessageTime = chat.updated_at;
           
           if (messages && messages.length > 0) {
             const lastMessage = messages[0];
+            messagePreview = lastMessage.content || '';
+            lastMessageTime = lastMessage.created_at;
             
             // Only count as unread if last message wasn't sent by current user
             if (lastMessage.sender_id !== user.id) {
@@ -191,7 +195,7 @@ export default function Messages() {
           const currentMember = chat.chat_members.find((m: any) => m.user_id === user.id);
           const isPinned = currentMember?.is_pinned || false;
 
-          return { ...chat, unreadCount, isPinned };
+          return { ...chat, unreadCount, isPinned, messagePreview, updated_at: lastMessageTime };
         })
       );
 

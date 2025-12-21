@@ -8,8 +8,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
-import { Paperclip, X } from 'lucide-react';
+import { Paperclip, X, Clock, Calendar } from 'lucide-react';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
+import { format, addDays, setHours, setMinutes, isAfter } from 'date-fns';
 
 interface Profile {
   id: string;
@@ -32,11 +33,18 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
   const [creating, setCreating] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [uploadedFileUrl, setUploadedFileUrl] = useState<string | null>(null);
+  const [isScheduled, setIsScheduled] = useState(false);
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
       fetchProfiles();
+      // Reset scheduling when dialog opens
+      setIsScheduled(false);
+      setScheduledDate('');
+      setScheduledTime('');
     }
   }, [open]);
 
@@ -63,7 +71,6 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check file size (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       toast.error('File size must be less than 10MB');
       return;
@@ -73,7 +80,6 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Compress images to reduce memory usage on mobile
       let fileToUpload: File | Blob = file;
       let fileName = `${user.id}/${Date.now()}.${file.name.split('.').pop()}`;
       
@@ -82,7 +88,6 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
         fileName = `${user.id}/${Date.now()}.jpg`;
       }
 
-      // Use retry logic for flaky mobile connections
       const { publicUrl } = await uploadWithRetry(supabase, 'message-attachments', fileName, fileToUpload as File, 3);
 
       setUploadedFile(file);
@@ -98,6 +103,27 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
     setUploadedFile(null);
     setUploadedFileUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const setQuickSchedule = (option: 'tonight' | 'tomorrow') => {
+    const now = new Date();
+    let targetDate: Date;
+    
+    if (option === 'tonight') {
+      // Tonight at 6pm
+      targetDate = setMinutes(setHours(now, 18), 0);
+      // If it's already past 6pm, schedule for next day
+      if (!isAfter(targetDate, now)) {
+        targetDate = setMinutes(setHours(addDays(now, 1), 18), 0);
+      }
+    } else {
+      // Tomorrow at 9am
+      targetDate = setMinutes(setHours(addDays(now, 1), 9), 0);
+    }
+    
+    setScheduledDate(format(targetDate, 'yyyy-MM-dd'));
+    setScheduledTime(format(targetDate, 'HH:mm'));
+    setIsScheduled(true);
   };
 
   const handleCreate = async () => {
@@ -116,10 +142,24 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
       return;
     }
 
+    if (isScheduled) {
+      if (!scheduledDate || !scheduledTime) {
+        toast.error('Please select a date and time for scheduling');
+        return;
+      }
+      const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}`);
+      if (!isAfter(scheduledDateTime, new Date())) {
+        toast.error('Scheduled time must be in the future');
+        return;
+      }
+    }
+
     setCreating(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
+
+      const scheduledAt = isScheduled ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString() : null;
 
       // Create announcement chat
       const { data: chat, error: chatError } = await supabase
@@ -148,7 +188,7 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
 
       if (membersError) throw membersError;
 
-      // Send the announcement message
+      // Send the announcement message (with optional scheduled_at)
       const { error: messageError } = await supabase
         .from('messages')
         .insert({
@@ -157,44 +197,51 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
           content: message.trim(),
           attachment_url: uploadedFileUrl,
           attachment_type: uploadedFile?.type || null,
+          scheduled_at: scheduledAt,
         });
 
       if (messageError) throw messageError;
 
-      // Send push notifications for announcement
-      try {
-        const { data: senderProfile } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', user.id)
-          .single();
+      // Send push notifications only if not scheduled
+      if (!isScheduled) {
+        try {
+          const { data: senderProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
 
-        console.log('Sending announcement push notification to', selectedUsers.length, 'users');
-
-        await supabase.functions.invoke('send-push-notification', {
-          body: {
-            user_ids: selectedUsers,
-            title: `📢 ${title.trim()}`,
-            body: message.trim().substring(0, 100),
-            notification_type: 'announcements',
-            data: {
-              chat_id: chat.id,
-              type: 'announcement'
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              user_ids: selectedUsers,
+              title: `📢 ${title.trim()}`,
+              body: message.trim().substring(0, 100),
+              notification_type: 'announcements',
+              data: {
+                chat_id: chat.id,
+                type: 'announcement'
+              }
             }
-          }
-        });
-      } catch (notifError) {
-        console.error('Error sending announcement push notification:', notifError);
-        // Don't fail the announcement if notifications fail
+          });
+        } catch (notifError) {
+          console.error('Error sending announcement push notification:', notifError);
+        }
       }
 
-      toast.success('Announcement sent');
+      if (isScheduled) {
+        toast.success(`Announcement scheduled for ${format(new Date(`${scheduledDate}T${scheduledTime}`), 'MMM d, h:mm a')}`);
+      } else {
+        toast.success('Announcement sent');
+      }
       onAnnouncementCreated(chat.id);
       
       // Reset form
       setSelectedUsers([]);
       setTitle('');
       setMessage('');
+      setIsScheduled(false);
+      setScheduledDate('');
+      setScheduledTime('');
       removeAttachment();
     } catch (error: any) {
       console.error('Error creating announcement:', error);
@@ -288,6 +335,75 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
             </p>
           </div>
 
+          {/* Scheduling Section */}
+          <div className="space-y-3 border rounded-lg p-3 bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="schedule"
+                checked={isScheduled}
+                onCheckedChange={(checked) => setIsScheduled(checked === true)}
+              />
+              <Label htmlFor="schedule" className="flex items-center gap-2 cursor-pointer">
+                <Clock className="h-4 w-4" />
+                Schedule for later
+              </Label>
+            </div>
+
+            {isScheduled && (
+              <div className="space-y-3 pt-2">
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setQuickSchedule('tonight')}
+                    className="flex-1"
+                  >
+                    Tonight 6pm
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setQuickSchedule('tomorrow')}
+                    className="flex-1"
+                  >
+                    Tomorrow 9am
+                  </Button>
+                </div>
+                
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Label htmlFor="date" className="text-xs">Date</Label>
+                    <Input
+                      id="date"
+                      type="date"
+                      value={scheduledDate}
+                      onChange={(e) => setScheduledDate(e.target.value)}
+                      min={format(new Date(), 'yyyy-MM-dd')}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <Label htmlFor="time" className="text-xs">Time</Label>
+                    <Input
+                      id="time"
+                      type="time"
+                      value={scheduledTime}
+                      onChange={(e) => setScheduledTime(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {scheduledDate && scheduledTime && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Will send on {format(new Date(`${scheduledDate}T${scheduledTime}`), 'EEEE, MMM d \'at\' h:mm a')}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Select Recipients</Label>
@@ -338,7 +454,7 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
               Cancel
             </Button>
             <Button onClick={handleCreate} disabled={creating}>
-              {creating ? 'Sending...' : 'Send Announcement'}
+              {creating ? 'Sending...' : isScheduled ? 'Schedule Announcement' : 'Send Announcement'}
             </Button>
           </div>
         </div>
