@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Save, TestTube, Check, X, Eye, EyeOff, Plug, ChevronDown } from "lucide-react";
+import { Loader2, Save, TestTube, Check, X, Eye, EyeOff, Plug, ChevronDown, RefreshCw } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface QuBeyondCredentials {
@@ -35,6 +36,9 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   // Fetch existing integration
   const { data: integration, isLoading } = useQuery({
@@ -73,19 +77,52 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const triggerBackfill = async (integrationId: string) => {
     try {
       console.log('[BACKFILL] Triggering backfill for integration:', integrationId);
-      // Fire and forget - don't await, let it run in background
+      setIsSyncing(true);
+      setSyncProgress(0);
+      setSyncStatus("Starting sync...");
+      
+      // Start polling for progress
+      const pollInterval = setInterval(async () => {
+        const { data } = await supabase
+          .from('location_integrations')
+          .select('backfill_status, backfill_days_completed, backfill_error')
+          .eq('id', integrationId)
+          .single();
+        
+        if (data) {
+          const progress = Math.min((data.backfill_days_completed || 0) / 365 * 100, 100);
+          setSyncProgress(progress);
+          setSyncStatus(data.backfill_error || `${data.backfill_days_completed || 0}/365 days`);
+          
+          if (data.backfill_status === 'completed' || data.backfill_status === 'failed') {
+            clearInterval(pollInterval);
+            setIsSyncing(false);
+            if (data.backfill_status === 'completed') {
+              toast.success("Sales data sync completed!");
+            } else {
+              toast.error("Sync failed: " + (data.backfill_error || "Unknown error"));
+            }
+            queryClient.invalidateQueries({ queryKey: ['location-integration'] });
+          }
+        }
+      }, 2000);
+      
+      // Fire the backfill
       supabase.functions.invoke('backfill-sales-cache', {
         body: { locationId, integrationId }
       }).then(({ error }) => {
         if (error) {
           console.error('[BACKFILL] Background job error:', error);
-        } else {
-          console.log('[BACKFILL] Background job started successfully');
+          clearInterval(pollInterval);
+          setIsSyncing(false);
+          toast.error("Sync failed: " + error.message);
         }
       });
-      toast.info("Downloading historical sales data in background...", { duration: 5000 });
+      
+      toast.info("Syncing 365 days of sales data...", { duration: 5000 });
     } catch (error) {
       console.error('[BACKFILL] Failed to trigger:', error);
+      setIsSyncing(false);
     }
   };
 
@@ -320,10 +357,32 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                       )}
                       Save
                     </Button>
+                    
+                    {integration && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => triggerBackfill(integration.id)}
+                        disabled={isSyncing}
+                      >
+                        {isSyncing ? (
+                          <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-4 w-4 mr-1.5" />
+                        )}
+                        Sync Sales
+                      </Button>
+                    )}
                   </div>
-                </>
-              )}
-            </div>
+                  
+                  {isSyncing && (
+                    <div className="space-y-2">
+                      <Progress value={syncProgress} className="h-2" />
+                      <p className="text-xs text-muted-foreground text-center">
+                        {syncStatus}
+                      </p>
+                    </div>
+                  )}
           </CardContent>
         </CollapsibleContent>
       </Card>

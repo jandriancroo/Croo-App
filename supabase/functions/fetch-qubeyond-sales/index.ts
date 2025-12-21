@@ -703,10 +703,11 @@ function getSeededRandomFactor(seed: string): number {
 }
 
 // Generate sales projections using deterministic formula (no AI)
+// Hourly: (4-week same weekday+hour avg + last year same day hour) / 2 * random factor
 // Daily: (4-week avg for day + last year same day) / 2 * random factor
 // Weekly: (4-week avg + last year same week) / 2 * random factor
-// Monthly: last year same month * random factor
-// Generate hourly projections based on historical patterns
+// Monthly: (last month + last year same month) / 2 * random factor
+// Generate hourly projections based on historical patterns with YoY blending
 function generateHourlyProjections(
   hourlyActuals: { hour: string; sales: number }[],
   hoursOpen: number,
@@ -714,13 +715,24 @@ function generateHourlyProjections(
   todayStr: string,
   locationId: string,
   todayProjectedTotal: number,
-  fourWeekHourlyPattern?: { hour: number; avgPercent: number }[]
+  fourWeekHourlyPattern?: { hour: number; avgPercent: number }[],
+  yoyHourlyData?: { hour: string; sales: number }[]
 ): { hour: string; sales: number; projected: number }[] {
   const result: { hour: string; sales: number; projected: number }[] = [];
-  const totalActualSales = hourlyActuals.reduce((sum, h) => sum + h.sales, 0);
+  
+  // Calculate YoY hourly pattern percentages if available
+  const yoyHourlyPattern: { [hour: number]: number } = {};
+  if (yoyHourlyData && yoyHourlyData.length > 0) {
+    const yoyTotal = yoyHourlyData.reduce((sum, h) => sum + h.sales, 0);
+    if (yoyTotal > 0) {
+      for (const h of yoyHourlyData) {
+        const hourNum = parseInt(h.hour.split(':')[0]);
+        yoyHourlyPattern[hourNum] = h.sales / yoyTotal;
+      }
+    }
+  }
   
   // Default hourly distribution if no historical pattern (typical restaurant curve)
-  // Extended to cover stores open late (until midnight)
   const defaultPattern: { [hour: number]: number } = {
     10: 0.02, 11: 0.07, 12: 0.14, 13: 0.11, 14: 0.05, 15: 0.04,
     16: 0.06, 17: 0.11, 18: 0.13, 19: 0.10, 20: 0.07, 21: 0.05,
@@ -730,15 +742,25 @@ function generateHourlyProjections(
   for (let hour = hoursOpen; hour < hoursClose; hour++) {
     const hourStr = `${hour.toString().padStart(2, '0')}:00`;
     const actual = hourlyActuals.find(h => parseInt(h.hour.split(':')[0]) === hour)?.sales || 0;
+    const randomFactor = getSeededRandomFactor(`${todayStr}-${locationId}-hr${hour}`);
     
-    // Calculate projected for this hour
+    // Get 4-week average percentage for this hour
+    const fourWeekPercent = fourWeekHourlyPattern?.find(p => p.hour === hour)?.avgPercent || 0;
+    // Get YoY percentage for this hour
+    const yoyPercent = yoyHourlyPattern[hour] || 0;
+    
     let hourlyProjected = 0;
-    if (fourWeekHourlyPattern) {
-      const pattern = fourWeekHourlyPattern.find(p => p.hour === hour);
-      hourlyProjected = pattern ? todayProjectedTotal * pattern.avgPercent : 0;
+    if (fourWeekPercent > 0 && yoyPercent > 0) {
+      // Blend: (4-week pattern + YoY pattern) / 2 applied to daily projection
+      const blendedPercent = (fourWeekPercent + yoyPercent) / 2;
+      hourlyProjected = todayProjectedTotal * blendedPercent * randomFactor;
+    } else if (fourWeekPercent > 0) {
+      hourlyProjected = todayProjectedTotal * fourWeekPercent * randomFactor;
+    } else if (yoyPercent > 0) {
+      hourlyProjected = todayProjectedTotal * yoyPercent * randomFactor;
     } else {
       const percent = defaultPattern[hour] || 0.05;
-      hourlyProjected = todayProjectedTotal * percent;
+      hourlyProjected = todayProjectedTotal * percent * randomFactor;
     }
     
     result.push({ hour: hourStr, sales: actual, projected: Math.round(hourlyProjected) });
@@ -898,7 +920,9 @@ function generateProjections(
     sameDay: number; 
     sameWeek: number; 
     sameMonth: number;
+    lastMonth?: number;
     weeklyBreakdown: { date: string; sales: number }[];
+    yoyHourlyData?: { hour: string; sales: number }[];
   },
   fourWeekAverage?: {
     avgWeekTotal: number;
@@ -976,13 +1000,20 @@ function generateProjections(
   weekProjected = Math.max(weekProjected, weeklySales);
   
   // === MONTHLY PROJECTION ===
-  // Last year same month * random factor (simpler formula per user request)
+  // (Last month + last year same month) / 2 * random factor
   let monthProjected = 0;
   const lastYearSameMonth = lastYearData?.sameMonth || 0;
+  const lastMonthSales = lastYearData?.lastMonth || 0;
   
-  if (lastYearSameMonth > 0) {
-    // Use last year's same month with random factor
+  if (lastMonthSales > 0 && lastYearSameMonth > 0) {
+    // Both available: average them and apply random factor
+    monthProjected = ((lastMonthSales + lastYearSameMonth) / 2) * randomFactor;
+  } else if (lastYearSameMonth > 0) {
+    // Only last year same month available
     monthProjected = lastYearSameMonth * randomFactor;
+  } else if (lastMonthSales > 0) {
+    // Only last month available
+    monthProjected = lastMonthSales * randomFactor;
   } else {
     // Fallback: project from current month data
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
