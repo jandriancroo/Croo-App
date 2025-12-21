@@ -177,33 +177,36 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
 
   const playAlarmSound = () => {
     try {
-      // Create a simple beep pattern using Web Audio API
+      // Create a loud, attention-grabbing alarm using Web Audio API
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
       
-      const playBeep = (time: number, freq: number) => {
+      const playBeep = (time: number, freq: number, duration: number = 0.2) => {
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
         
-        oscillator.type = 'sine';
+        oscillator.type = 'square'; // More attention-grabbing than sine
         oscillator.frequency.setValueAtTime(freq, audioContext.currentTime + time);
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime + time);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + time + 0.15);
+        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime + time); // Louder
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + time + duration);
         
         oscillator.start(audioContext.currentTime + time);
-        oscillator.stop(audioContext.currentTime + time + 0.15);
+        oscillator.stop(audioContext.currentTime + time + duration);
       };
       
-      // Play alarm pattern
-      playBeep(0, 880);
-      playBeep(0.2, 660);
-      playBeep(0.4, 880);
-      playBeep(0.6, 660);
-      playBeep(0.8, 880);
+      // Play loud alarm pattern - 3 cycles
+      for (let cycle = 0; cycle < 3; cycle++) {
+        const offset = cycle * 1.2;
+        playBeep(offset + 0, 880, 0.15);
+        playBeep(offset + 0.2, 660, 0.15);
+        playBeep(offset + 0.4, 880, 0.15);
+        playBeep(offset + 0.6, 660, 0.15);
+        playBeep(offset + 0.8, 988, 0.25); // Higher note at end of each cycle
+      }
     } catch (e) {
-      console.log('Could not play alarm sound');
+      console.log('Could not play alarm sound:', e);
     }
   };
 
@@ -249,65 +252,77 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   return (
     <div 
       className={cn(
-        "fixed inset-0 z-50 flex items-center justify-center p-4 transition-all duration-300",
+        "fixed inset-0 z-50 flex items-center justify-center transition-all duration-300",
         isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
       )}
       onClick={handleDismiss}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm" />
+      {/* Full screen colored backdrop */}
+      <div 
+        className="absolute inset-0 animate-pulse"
+        style={{ backgroundColor: `${activeAlarm.accent_color}15` }}
+      />
+      <div className="absolute inset-0 bg-background/60 backdrop-blur-md" />
       
-      {/* Alarm Card */}
+      {/* Large Alarm Card - takes up most of the screen */}
       <Card 
         className={cn(
-          "relative max-w-md w-full shadow-2xl animate-pulse",
-          "border-4"
+          "relative w-[90vw] max-w-2xl min-h-[60vh] shadow-2xl flex flex-col justify-center",
+          "border-8 rounded-3xl"
         )}
-        style={{ borderColor: activeAlarm.accent_color }}
+        style={{ 
+          borderColor: activeAlarm.accent_color,
+          boxShadow: `0 0 60px ${activeAlarm.accent_color}40, 0 0 120px ${activeAlarm.accent_color}20`
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <CardContent className="p-6 space-y-4">
-          {/* Alarm Icon */}
+        <CardContent className="p-8 md:p-12 space-y-8 flex flex-col items-center justify-center">
+          {/* Large Alarm Icon */}
           <div 
-            className="w-16 h-16 rounded-full mx-auto flex items-center justify-center animate-bounce"
-            style={{ backgroundColor: `${activeAlarm.accent_color}20` }}
+            className="w-32 h-32 md:w-40 md:h-40 rounded-full flex items-center justify-center animate-bounce"
+            style={{ 
+              backgroundColor: `${activeAlarm.accent_color}25`,
+              boxShadow: `0 0 40px ${activeAlarm.accent_color}30`
+            }}
           >
             <AlarmClock 
-              className="h-8 w-8" 
+              className="h-16 w-16 md:h-20 md:w-20" 
               style={{ color: activeAlarm.accent_color }} 
             />
           </div>
           
-          {/* Title */}
-          <div className="text-center space-y-2">
-            <h2 className="text-xl font-bold">{activeAlarm.title}</h2>
+          {/* Large Title */}
+          <div className="text-center space-y-4">
+            <h2 className="text-4xl md:text-5xl font-bold tracking-tight">{activeAlarm.title}</h2>
             {activeAlarm.description && (
-              <p className="text-sm text-muted-foreground">{activeAlarm.description}</p>
+              <p className="text-xl text-muted-foreground max-w-md">{activeAlarm.description}</p>
             )}
             <div 
-              className="inline-flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold"
               style={{ 
                 backgroundColor: `${activeAlarm.accent_color}20`, 
                 color: activeAlarm.accent_color 
               }}
             >
-              <AlarmClock className="h-3 w-3" />
+              <AlarmClock className="h-4 w-4" />
               RECURRING TASK
             </div>
           </div>
           
-          {/* Actions */}
-          <div className="flex gap-3">
+          {/* Large Action Buttons */}
+          <div className="flex gap-4 w-full max-w-md">
             <Button
               variant="outline"
-              className="flex-1 gap-2"
+              size="lg"
+              className="flex-1 gap-2 h-16 text-lg rounded-xl"
               onClick={handleDismiss}
             >
-              <X className="h-4 w-4" />
+              <X className="h-6 w-6" />
               Dismiss
             </Button>
             <Button
-              className="flex-1 gap-2"
+              size="lg"
+              className="flex-1 gap-2 h-16 text-lg rounded-xl text-white"
               onClick={handleComplete}
               disabled={isCompleting}
               style={{ 
@@ -315,13 +330,13 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
                 borderColor: activeAlarm.accent_color 
               }}
             >
-              <Check className="h-4 w-4" />
+              <Check className="h-6 w-6" />
               {isCompleting ? 'Completing...' : 'Complete'}
             </Button>
           </div>
           
-          <p className="text-xs text-center text-muted-foreground">
-            Tap anywhere to dismiss • Auto-dismisses in 30s
+          <p className="text-sm text-center text-muted-foreground">
+            Tap outside to dismiss • Auto-dismisses in 30s
           </p>
         </CardContent>
       </Card>
