@@ -2,11 +2,12 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Clock, User, Users, Trash2, Eye, Camera, CheckSquare } from "lucide-react";
+import { Plus, Clock, User, Users, Trash2, Eye, Camera, CheckSquare, Pencil, AlarmClock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CreateTemporaryTaskDialog } from "./CreateTemporaryTaskDialog";
+import { EditTemporaryTaskDialog } from "./EditTemporaryTaskDialog";
 import { formatDistanceToNow, isPast, format } from "date-fns";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -33,6 +34,7 @@ export function TemporaryTasksSection() {
   const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [editTask, setEditTask] = useState<any>(null);
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null);
 
   // Fetch temporary tasks
@@ -136,6 +138,16 @@ export function TemporaryTasksSection() {
                       >
                         <div className="flex items-center gap-2">
                           <p className="font-medium text-sm truncate">{task.title}</p>
+                          {task.task_style === 'alarm' && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-[10px] px-1.5 gap-0.5"
+                              style={{ borderColor: task.accent_color, color: task.accent_color }}
+                            >
+                              <AlarmClock className="h-2.5 w-2.5" />
+                              ALARM
+                            </Badge>
+                          )}
                           {hasSubtasks && (
                             <Badge variant="outline" className="text-[10px] px-1.5">
                               {completedSubtasks}/{totalSubtasks}
@@ -166,8 +178,20 @@ export function TemporaryTasksSection() {
                           ))}
                         </div>
 
-                        {/* Expiry */}
-                        {task.expires_at && (
+                        {/* Expiry or Alarm info */}
+                        {task.task_style === 'alarm' ? (
+                          <div className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground">
+                            <AlarmClock className="h-3 w-3" />
+                            {task.frequency_type === 'custom' 
+                              ? `${(task.custom_times || []).length} times/day`
+                              : task.frequency_minutes === 30 
+                                ? 'Every 30 min'
+                                : task.frequency_minutes === 60 
+                                  ? 'Every hour'
+                                  : 'Every 2 hours'
+                            }
+                          </div>
+                        ) : task.expires_at && (
                           <div className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground">
                             <Clock className="h-3 w-3" />
                             {formatDistanceToNow(new Date(task.expires_at), { addSuffix: true })}
@@ -180,7 +204,17 @@ export function TemporaryTasksSection() {
                           size="icon"
                           variant="ghost"
                           className="h-7 w-7"
+                          onClick={() => setEditTask(task)}
+                          title="Edit"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
                           onClick={() => setSelectedTask(task)}
+                          title="View"
                         >
                           <Eye className="h-3.5 w-3.5" />
                         </Button>
@@ -189,6 +223,7 @@ export function TemporaryTasksSection() {
                           variant="ghost"
                           className="h-7 w-7 text-destructive hover:text-destructive"
                           onClick={() => setDeleteTaskId(task.id)}
+                          title="Delete"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
                         </Button>
@@ -206,6 +241,13 @@ export function TemporaryTasksSection() {
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onSuccess={handleRefresh}
+      />
+
+      <EditTemporaryTaskDialog
+        open={!!editTask}
+        onOpenChange={(open) => !open && setEditTask(null)}
+        onSuccess={handleRefresh}
+        task={editTask}
       />
 
       {/* View-only Task Details Dialog (no completion) */}

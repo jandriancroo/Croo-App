@@ -15,26 +15,12 @@ import { useAuth } from "@/lib/auth";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-interface CreateTemporaryTaskDialogProps {
+interface EditTemporaryTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  task: any;
 }
-
-interface Subtask {
-  title: string;
-  item_type: "checkbox" | "photo";
-}
-
-const DURATION_OPTIONS = [
-  { value: "1h", label: "1 Hour", hours: 1 },
-  { value: "3h", label: "3 Hours", hours: 3 },
-  { value: "1d", label: "1 Day", hours: 24 },
-  { value: "3d", label: "3 Days", hours: 72 },
-  { value: "1w", label: "1 Week", hours: 168 },
-  { value: "1m", label: "1 Month", hours: 720 },
-  { value: "none", label: "Until Complete", hours: null },
-];
 
 const ACCENT_COLORS = [
   { value: "#8B5CF6", label: "Purple" },
@@ -70,7 +56,7 @@ const FREQUENCY_OPTIONS = [
   { value: "custom", label: "Custom times", minutes: null },
 ];
 
-export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: CreateTemporaryTaskDialogProps) {
+export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }: EditTemporaryTaskDialogProps) {
   const { currentLocation } = useAppLocation();
   const { user } = useAuth();
   
@@ -79,14 +65,11 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
   const [description, setDescription] = useState("");
   const [accentColor, setAccentColor] = useState("#8B5CF6");
   
-  // Task style
+  // Task style (read-only for editing)
   const [taskStyle, setTaskStyle] = useState<"standard" | "alarm">("standard");
   
-  // Standard task fields
-  const [duration, setDuration] = useState("none");
-  
   // Alarm task fields
-  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]); // Mon-Fri default
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]);
   const [frequencyType, setFrequencyType] = useState("60");
   const [customTimes, setCustomTimes] = useState<string[]>([]);
   const [newCustomTime, setNewCustomTime] = useState("");
@@ -98,11 +81,6 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
   const [assignmentType, setAssignmentType] = useState<"employees" | "roles">("employees");
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-  
-  // Subtasks
-  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
-  const [newSubtask, setNewSubtask] = useState("");
-  const [newSubtaskType, setNewSubtaskType] = useState<"checkbox" | "photo">("checkbox");
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -133,43 +111,40 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
     enabled: open && !!currentLocation?.id,
   });
 
-  const resetForm = () => {
-    setTitle("");
-    setDescription("");
-    setAccentColor("#8B5CF6");
-    setTaskStyle("standard");
-    setDuration("none");
-    setDaysOfWeek([1, 2, 3, 4, 5]);
-    setFrequencyType("60");
-    setCustomTimes([]);
-    setNewCustomTime("");
-    setNotifyOnlyWorking(true);
-    setPushEnabled(true);
-    setShowOnPunchClock(false);
-    setAssignmentType("employees");
-    setSelectedEmployees([]);
-    setSelectedRoles([]);
-    setSubtasks([]);
-    setNewSubtask("");
-    setNewSubtaskType("checkbox");
-  };
-
+  // Load task data when dialog opens
   useEffect(() => {
-    if (!open) {
-      resetForm();
+    if (open && task) {
+      setTitle(task.title || "");
+      setDescription(task.description || "");
+      setAccentColor(task.accent_color || "#8B5CF6");
+      setTaskStyle(task.task_style || "standard");
+      setDaysOfWeek(task.days_of_week || [1, 2, 3, 4, 5]);
+      setFrequencyType(
+        task.frequency_type === "custom" 
+          ? "custom" 
+          : task.frequency_minutes?.toString() || "60"
+      );
+      setCustomTimes(task.custom_times || []);
+      setNotifyOnlyWorking(task.notify_only_working ?? true);
+      setPushEnabled(task.push_enabled ?? true);
+      setShowOnPunchClock(task.show_on_punch_clock ?? false);
+      
+      // Load assignments
+      const assignments = task.assignments || [];
+      const hasUserAssignments = assignments.some((a: any) => a.user_id);
+      const hasRoleAssignments = assignments.some((a: any) => a.role);
+      
+      if (hasUserAssignments) {
+        setAssignmentType("employees");
+        setSelectedEmployees(assignments.filter((a: any) => a.user_id).map((a: any) => a.user_id));
+        setSelectedRoles([]);
+      } else if (hasRoleAssignments) {
+        setAssignmentType("roles");
+        setSelectedRoles(assignments.filter((a: any) => a.role).map((a: any) => a.role));
+        setSelectedEmployees([]);
+      }
     }
-  }, [open]);
-
-  const handleAddSubtask = () => {
-    if (newSubtask.trim()) {
-      setSubtasks([...subtasks, { title: newSubtask.trim(), item_type: newSubtaskType }]);
-      setNewSubtask("");
-    }
-  };
-
-  const handleRemoveSubtask = (index: number) => {
-    setSubtasks(subtasks.filter((_, i) => i !== index));
-  };
+  }, [open, task]);
 
   const handleAddCustomTime = () => {
     if (newCustomTime && !customTimes.includes(newCustomTime)) {
@@ -220,30 +195,14 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
     setIsSubmitting(true);
     
     try {
-      // Calculate expiry time (only for standard tasks)
-      let expiresAt = null;
-      if (taskStyle === "standard") {
-        const durationOption = DURATION_OPTIONS.find(d => d.value === duration);
-        if (durationOption?.hours) {
-          expiresAt = new Date(Date.now() + durationOption.hours * 60 * 60 * 1000).toISOString();
-        }
-      }
-
       // Prepare task data
       const taskData: any = {
-        location_id: currentLocation!.id,
         title: title.trim(),
         description: description.trim() || null,
         accent_color: accentColor,
-        created_by: user!.id,
-        task_style: taskStyle,
-        is_recurring: taskStyle === "alarm",
       };
 
-      if (taskStyle === "standard") {
-        taskData.expires_at = expiresAt;
-      } else {
-        // Alarm task fields
+      if (taskStyle === "alarm") {
         taskData.days_of_week = daysOfWeek;
         taskData.frequency_type = frequencyType === "custom" ? "custom" : "interval";
         taskData.frequency_minutes = frequencyType !== "custom" ? parseInt(frequencyType) : null;
@@ -253,16 +212,20 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
         taskData.show_on_punch_clock = showOnPunchClock;
       }
 
-      // Create the task
-      const { data: task, error: taskError } = await supabase
+      // Update the task
+      const { error: taskError } = await supabase
         .from('temporary_tasks')
-        .insert(taskData)
-        .select()
-        .single();
+        .update(taskData)
+        .eq('id', task.id);
 
       if (taskError) throw taskError;
 
-      // Create assignments
+      // Delete existing assignments and create new ones
+      await supabase
+        .from('temporary_task_assignments')
+        .delete()
+        .eq('task_id', task.id);
+
       const assignments = assignmentType === "employees"
         ? selectedEmployees.map(userId => ({ task_id: task.id, user_id: userId, role: null }))
         : selectedRoles.map(role => ({ task_id: task.id, user_id: null, role }));
@@ -273,28 +236,12 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
 
       if (assignmentError) throw assignmentError;
 
-      // Create subtasks
-      if (subtasks.length > 0) {
-        const subtaskRecords = subtasks.map((subtask, index) => ({
-          task_id: task.id,
-          title: subtask.title,
-          item_type: subtask.item_type,
-          order_index: index,
-        }));
-
-        const { error: subtaskError } = await supabase
-          .from('temporary_task_subtasks')
-          .insert(subtaskRecords);
-
-        if (subtaskError) throw subtaskError;
-      }
-
-      toast.success(taskStyle === "alarm" ? "Alarm task created" : "Quick task created");
+      toast.success("Task updated");
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Error creating task:", error);
-      toast.error("Failed to create task");
+      console.error("Error updating task:", error);
+      toast.error("Failed to update task");
     } finally {
       setIsSubmitting(false);
     }
@@ -320,43 +267,17 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Quick Task</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            {taskStyle === "alarm" ? (
+              <AlarmClock className="h-5 w-5" />
+            ) : (
+              <ClipboardList className="h-5 w-5" />
+            )}
+            Edit {taskStyle === "alarm" ? "Alarm" : "Standard"} Task
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Task Style Toggle */}
-          <div className="space-y-2">
-            <Label>Task Style</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={taskStyle === "standard" ? "default" : "outline"}
-                size="sm"
-                className="gap-2 flex-1"
-                onClick={() => setTaskStyle("standard")}
-              >
-                <ClipboardList className="h-4 w-4" />
-                Standard
-              </Button>
-              <Button
-                type="button"
-                variant={taskStyle === "alarm" ? "default" : "outline"}
-                size="sm"
-                className="gap-2 flex-1"
-                onClick={() => setTaskStyle("alarm")}
-              >
-                <AlarmClock className="h-4 w-4" />
-                Alarm
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {taskStyle === "standard" 
-                ? "One-time task that stays until completed or expired"
-                : "Recurring task with scheduled reminders for clocked-in staff"
-              }
-            </p>
-          </div>
-
           {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title">Task Title *</Label>
@@ -380,58 +301,39 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
             />
           </div>
 
-          {/* Standard Task: Duration */}
-          {taskStyle === "standard" && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Visibility Duration</Label>
-                <Select value={duration} onValueChange={setDuration}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {DURATION_OPTIONS.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Accent Color</Label>
-                <Select value={accentColor} onValueChange={setAccentColor}>
-                  <SelectTrigger>
+          {/* Accent Color */}
+          <div className="space-y-2">
+            <Label>Accent Color</Label>
+            <Select value={accentColor} onValueChange={setAccentColor}>
+              <SelectTrigger>
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-4 h-4 rounded-full" 
+                    style={{ backgroundColor: accentColor }}
+                  />
+                  <SelectValue />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                {ACCENT_COLORS.map(color => (
+                  <SelectItem key={color.value} value={color.value}>
                     <div className="flex items-center gap-2">
                       <div 
                         className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: accentColor }}
+                        style={{ backgroundColor: color.value }}
                       />
-                      <SelectValue />
+                      {color.label}
                     </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ACCENT_COLORS.map(color => (
-                      <SelectItem key={color.value} value={color.value}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-4 h-4 rounded-full" 
-                            style={{ backgroundColor: color.value }}
-                          />
-                          {color.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          {/* Alarm Task: Days of Week */}
+          {/* Alarm Task Fields */}
           {taskStyle === "alarm" && (
             <>
+              {/* Days of Week */}
               <div className="space-y-2">
                 <Label>Active Days *</Label>
                 <div className="flex gap-1">
@@ -502,35 +404,6 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
                   )}
                 </div>
               )}
-
-              {/* Accent Color for Alarm */}
-              <div className="space-y-2">
-                <Label>Accent Color</Label>
-                <Select value={accentColor} onValueChange={setAccentColor}>
-                  <SelectTrigger>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-4 h-4 rounded-full" 
-                        style={{ backgroundColor: accentColor }}
-                      />
-                      <SelectValue />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {ACCENT_COLORS.map(color => (
-                      <SelectItem key={color.value} value={color.value}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-4 h-4 rounded-full" 
-                            style={{ backgroundColor: color.value }}
-                          />
-                          {color.label}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
 
               {/* Only Working Toggle */}
               <div className="flex items-center justify-between">
@@ -616,15 +489,18 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
                 {employees.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No employees found</p>
                 ) : (
-                  employees.map((emp: any) => (
-                    <div key={emp.id} className="flex items-center gap-2">
+                  employees.map((employee: any) => (
+                    <div key={employee.id} className="flex items-center gap-2">
                       <Checkbox
-                        id={emp.id}
-                        checked={selectedEmployees.includes(emp.id)}
-                        onCheckedChange={() => toggleEmployee(emp.id)}
+                        id={`edit-emp-${employee.id}`}
+                        checked={selectedEmployees.includes(employee.id)}
+                        onCheckedChange={() => toggleEmployee(employee.id)}
                       />
-                      <label htmlFor={emp.id} className="text-sm cursor-pointer">
-                        {emp.full_name || emp.email}
+                      <label
+                        htmlFor={`edit-emp-${employee.id}`}
+                        className="text-sm cursor-pointer flex-1"
+                      >
+                        {employee.full_name}
                       </label>
                     </div>
                   ))
@@ -632,14 +508,14 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
               </div>
               {selectedEmployees.length > 0 && (
                 <div className="flex flex-wrap gap-1">
-                  {selectedEmployees.map(id => {
-                    const emp = employees.find((e: any) => e.id === id);
+                  {selectedEmployees.map(empId => {
+                    const emp = employees.find((e: any) => e.id === empId);
                     return emp ? (
-                      <Badge key={id} variant="secondary" className="gap-1">
-                        {emp.full_name?.split(' ')[0] || emp.email}
-                        <X 
-                          className="h-3 w-3 cursor-pointer" 
-                          onClick={() => toggleEmployee(id)}
+                      <Badge key={empId} variant="secondary" className="gap-1">
+                        {emp.full_name}
+                        <X
+                          className="h-3 w-3 cursor-pointer"
+                          onClick={() => toggleEmployee(empId)}
                         />
                       </Badge>
                     ) : null;
@@ -657,11 +533,14 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
                 {ROLE_OPTIONS.map(role => (
                   <div key={role.value} className="flex items-center gap-2">
                     <Checkbox
-                      id={role.value}
+                      id={`edit-role-${role.value}`}
                       checked={selectedRoles.includes(role.value)}
                       onCheckedChange={() => toggleRole(role.value)}
                     />
-                    <label htmlFor={role.value} className="text-sm cursor-pointer">
+                    <label
+                      htmlFor={`edit-role-${role.value}`}
+                      className="text-sm cursor-pointer flex-1"
+                    >
                       {role.label}
                     </label>
                   </div>
@@ -669,75 +548,6 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
               </div>
             </div>
           )}
-
-          {/* Subtasks */}
-          <div className="space-y-2">
-            <Label>Subtasks (Optional)</Label>
-            <div className="flex gap-2">
-              <Input
-                value={newSubtask}
-                onChange={(e) => setNewSubtask(e.target.value)}
-                placeholder="Add a subtask"
-                className="flex-1"
-                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddSubtask())}
-              />
-              <Select value={newSubtaskType} onValueChange={(v) => setNewSubtaskType(v as "checkbox" | "photo")}>
-                <SelectTrigger className="w-28">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="checkbox">
-                    <div className="flex items-center gap-2">
-                      <CheckSquare className="h-3.5 w-3.5" />
-                      Check
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="photo">
-                    <div className="flex items-center gap-2">
-                      <Camera className="h-3.5 w-3.5" />
-                      Photo
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-              <Button 
-                type="button" 
-                size="icon" 
-                variant="outline"
-                onClick={handleAddSubtask}
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            {subtasks.length > 0 && (
-              <div className="border rounded-lg p-3 space-y-2">
-                {subtasks.map((subtask, index) => (
-                  <div key={index} className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      {subtask.item_type === "photo" ? (
-                        <Camera className="h-3.5 w-3.5 text-muted-foreground" />
-                      ) : (
-                        <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                      )}
-                      <span className="text-sm">{subtask.title}</span>
-                      <Badge variant="outline" className="text-[10px] px-1.5">
-                        {subtask.item_type === "photo" ? "Photo" : "Check"}
-                      </Badge>
-                    </div>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                      onClick={() => handleRemoveSubtask(index)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         <DialogFooter>
@@ -745,7 +555,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : taskStyle === "alarm" ? "Create Alarm" : "Create Task"}
+            {isSubmitting ? "Saving..." : "Save Changes"}
           </Button>
         </DialogFooter>
       </DialogContent>

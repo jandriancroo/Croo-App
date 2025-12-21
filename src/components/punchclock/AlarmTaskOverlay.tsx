@@ -79,8 +79,8 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         async (payload: any) => {
           const task = payload.new;
           
-          // Check if this is an alarm task that was just triggered
-          if (task.task_style === 'alarm' && task.last_triggered_at) {
+          // Check if this is an alarm task that was just triggered AND has punch clock display enabled
+          if (task.task_style === 'alarm' && task.last_triggered_at && task.show_on_punch_clock) {
             const triggeredAt = new Date(task.last_triggered_at);
             const now = new Date();
             const secondsSinceTrigger = (now.getTime() - triggeredAt.getTime()) / 1000;
