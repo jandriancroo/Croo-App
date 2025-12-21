@@ -23,42 +23,43 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
   const [activeAlarm, setActiveAlarm] = useState<AlarmTask | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Create alarm sound on mount
+  const getAudioContext = () => {
+    if (!audioCtxRef.current) {
+      const Ctx = window.AudioContext || (window as any).webkitAudioContext;
+      audioCtxRef.current = new Ctx();
+    }
+    return audioCtxRef.current;
+  };
+
+  // Unlock audio on first user interaction (autoplay policies can block alarms)
   useEffect(() => {
-    // Create audio context for alarm sound
-    const createAlarmSound = () => {
+    const unlock = async () => {
       try {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        
-        // Pulse the alarm
-        const pulseAlarm = () => {
-          if (!activeAlarm) return;
-          oscillator.frequency.setValueAtTime(880, audioContext.currentTime);
-          oscillator.frequency.setValueAtTime(660, audioContext.currentTime + 0.1);
-          oscillator.frequency.setValueAtTime(880, audioContext.currentTime + 0.2);
-        };
-        
-        return { audioContext, oscillator, gainNode, pulseAlarm };
+        const ctx = getAudioContext();
+        if (ctx.state === "suspended") {
+          await ctx.resume();
+        }
+        setAudioUnlocked(true);
       } catch (e) {
-        console.log('Audio context not available');
-        return null;
+        console.log("Audio could not be unlocked", e);
       }
     };
 
+    const onFirst = () => {
+      void unlock();
+    };
+
+    window.addEventListener("pointerdown", onFirst, { once: true });
+    window.addEventListener("keydown", onFirst, { once: true });
+
     return () => {
-      // Cleanup
+      window.removeEventListener("pointerdown", onFirst);
+      window.removeEventListener("keydown", onFirst);
     };
   }, []);
 
@@ -87,12 +88,17 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
         const intervalKey = `${triggeredAt.toISOString().split('T')[0]}_${String(triggeredAt.getHours()).padStart(2, '0')}${String(triggeredAt.getMinutes()).padStart(2, '0')}`;
 
         // Check if already completed
-        const { data: completion } = await supabase
+        const { data: completion, error: completionError } = await supabase
           .from('alarm_task_completions')
           .select('id')
           .eq('task_id', task.id)
           .eq('interval_key', intervalKey)
-          .single();
+          .maybeSingle();
+
+        if (completionError) {
+          console.error('Error checking alarm completion:', completionError);
+          return;
+        }
 
         if (!completion) {
           setActiveAlarm({
@@ -103,7 +109,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
             interval_key: intervalKey,
           });
           setIsVisible(true);
-          playAlarmSound();
+          void playAlarmSound();
           
           // Calculate remaining time (30s from trigger)
           const elapsed = (now.getTime() - triggeredAt.getTime()) / 1000;
@@ -151,7 +157,7 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
               setIsVisible(true);
               
               // Play alarm sound
-              playAlarmSound();
+              void playAlarmSound();
               
               // Auto-dismiss 30s after trigger (with a minimum of 5s)
               if (timeoutRef.current) {
@@ -175,63 +181,80 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     };
   }, [locationId]);
 
-  const playAlarmSound = () => {
+  const playAlarmSound = async () => {
     try {
-      // Create a loud, attention-grabbing alarm using Web Audio API
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-      
+      const audioContext = getAudioContext();
+      if (audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
+
+      // If we still couldn't unlock audio, bail quietly.
+      if (audioContext.state !== "running") {
+        console.log("Audio context is not running; alarm sound suppressed");
+        return;
+      }
+
       const playBeep = (time: number, freq: number, duration: number = 0.2) => {
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
-        
+
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
-        
-        oscillator.type = 'square'; // More attention-grabbing than sine
+
+        oscillator.type = "square";
         oscillator.frequency.setValueAtTime(freq, audioContext.currentTime + time);
-        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime + time); // Louder
+
+        // Louder, but start from 0 to avoid clicks
+        gainNode.gain.setValueAtTime(0.001, audioContext.currentTime + time);
+        gainNode.gain.exponentialRampToValueAtTime(0.6, audioContext.currentTime + time + 0.01);
         gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + time + duration);
-        
+
         oscillator.start(audioContext.currentTime + time);
         oscillator.stop(audioContext.currentTime + time + duration);
       };
-      
-      // Play loud alarm pattern - 3 cycles
+
+      // Alarm pattern - 3 cycles
       for (let cycle = 0; cycle < 3; cycle++) {
         const offset = cycle * 1.2;
         playBeep(offset + 0, 880, 0.15);
         playBeep(offset + 0.2, 660, 0.15);
         playBeep(offset + 0.4, 880, 0.15);
         playBeep(offset + 0.6, 660, 0.15);
-        playBeep(offset + 0.8, 988, 0.25); // Higher note at end of each cycle
+        playBeep(offset + 0.8, 988, 0.25);
       }
     } catch (e) {
-      console.log('Could not play alarm sound:', e);
+      console.log("Could not play alarm sound:", e);
     }
   };
 
   const handleComplete = async () => {
     if (!activeAlarm) return;
-    
+
     setIsCompleting(true);
     try {
-      // Record completion with "Store" as the completer
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      if (!userData.user) {
+        toast.error("Please sign in to complete this task");
+        return;
+      }
+
       const { error } = await supabase
-        .from('alarm_task_completions')
+        .from("alarm_task_completions")
         .insert({
           task_id: activeAlarm.id,
           interval_key: activeAlarm.interval_key,
-          completed_by: null, // null indicates "Store" completion
+          completed_by: userData.user.id,
         });
 
       if (error) throw error;
 
-      toast.success('Task completed!');
+      toast.success("Task completed!");
       handleDismiss();
       onComplete?.();
     } catch (error: any) {
-      console.error('Error completing alarm task:', error);
-      toast.error('Failed to complete task');
+      console.error("Error completing alarm task:", error);
+      toast.error(error?.message ? `Failed to complete task: ${error.message}` : "Failed to complete task");
     } finally {
       setIsCompleting(false);
     }
@@ -322,12 +345,13 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
             </Button>
             <Button
               size="lg"
-              className="flex-1 gap-2 h-16 text-lg rounded-xl text-white"
+              className="flex-1 gap-2 h-16 text-lg rounded-xl text-primary-foreground"
               onClick={handleComplete}
               disabled={isCompleting}
               style={{ 
                 backgroundColor: activeAlarm.accent_color,
-                borderColor: activeAlarm.accent_color 
+                borderColor: activeAlarm.accent_color,
+                color: "hsl(var(--primary-foreground))",
               }}
             >
               <Check className="h-6 w-6" />
