@@ -135,22 +135,63 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
         .order('sale_date')
     ]);
     
-    if (dailyResult.error || !dailyResult.data) return null;
+    // Check if we have ANY cached data for the period (week or month)
+    const hasWeekData = weekResult.data && weekResult.data.length > 0;
+    const hasMonthData = monthResult.data && monthResult.data.length > 0;
+    
+    // If no daily data but we have week/month data, we can still return historical view
+    if (dailyResult.error && !hasWeekData && !hasMonthData) return null;
+    
     const cached = dailyResult.data;
     
-    console.log(`[CACHE HIT] Using cached data for ${dateStr}`);
+    console.log(`[CACHE] Date ${dateStr}: daily=${!!cached}, week=${weekResult.data?.length || 0} days, month=${monthResult.data?.length || 0} days`);
     
-    // Aggregate weekly data
+    // Aggregate weekly data - always include all 7 days Mon-Sun
     const weekData = weekResult.data || [];
-    const weeklySales = weekData.reduce((sum, d) => sum + (Number(d.net_sales) || 0), 0);
-    const weeklyGuests = weekData.reduce((sum, d) => sum + (d.guest_count || 0), 0);
-    const weeklyProjected = weekData.reduce((sum, d) => sum + (Number(d.projected_sales) || 0), 0);
-    const weeklyBreakdown = weekData.map(d => ({
-      date: d.sale_date,
-      sales: Number(d.net_sales) || 0,
-      projected: Number(d.projected_sales) || 0,
-      guestCount: d.guest_count || 0
-    }));
+    const weekDataMap = new Map(weekData.map(d => [d.sale_date, d]));
+    
+    // Calculate average projection per day of week from week data for fallback
+    const weekProjectionsByDow: { [dow: number]: number[] } = {};
+    weekData.forEach(d => {
+      const dow = new Date(d.sale_date + 'T00:00:00').getDay();
+      if (!weekProjectionsByDow[dow]) weekProjectionsByDow[dow] = [];
+      const proj = Number(d.projected_sales) || 0;
+      if (proj > 0) weekProjectionsByDow[dow].push(proj);
+    });
+    
+    // Build full 7-day breakdown
+    const weeklyBreakdown: { date: string; sales: number; projected: number; guestCount: number }[] = [];
+    for (let i = 0; i < 7; i++) {
+      const dayDate = addDays(weekStart, i);
+      const dayStr = format(dayDate, 'yyyy-MM-dd');
+      const dow = dayDate.getDay();
+      const existingData = weekDataMap.get(dayStr);
+      
+      if (existingData) {
+        weeklyBreakdown.push({
+          date: dayStr,
+          sales: Number(existingData.net_sales) || 0,
+          projected: Number(existingData.projected_sales) || 0,
+          guestCount: existingData.guest_count || 0
+        });
+      } else {
+        // No data for this day - use day-of-week average projection or 0
+        const dowProjections = weekProjectionsByDow[dow] || [];
+        const avgProjection = dowProjections.length > 0 
+          ? dowProjections.reduce((a, b) => a + b, 0) / dowProjections.length 
+          : 0;
+        weeklyBreakdown.push({
+          date: dayStr,
+          sales: 0,
+          projected: Math.round(avgProjection),
+          guestCount: 0
+        });
+      }
+    }
+    
+    const weeklySales = weeklyBreakdown.reduce((sum, d) => sum + d.sales, 0);
+    const weeklyGuests = weeklyBreakdown.reduce((sum, d) => sum + d.guestCount, 0);
+    const weeklyProjected = weeklyBreakdown.reduce((sum, d) => sum + d.projected, 0);
     
     // Aggregate monthly data and fill in missing days with projections
     const monthData = monthResult.data || [];
@@ -217,25 +258,27 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     
     const monthlyProjected = monthlyBreakdownFull.reduce((sum, d) => sum + d.projected, 0);
     
-    // Hourly data should already have projections from backfill
-    const hourlyData = (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number; projected?: number }>) || [];
+    // Hourly data should already have projections from backfill (only if we have daily data)
+    const hourlyData = cached?.hourly_data 
+      ? (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number; projected?: number }>)
+      : [];
     
     return {
-      daily: Number(cached.net_sales) || 0,
+      daily: cached ? (Number(cached.net_sales) || 0) : 0,
       weekly: weeklySales,
       monthly: monthlySales,
       hourly: hourlyData,
       weeklyBreakdown,
       monthlyBreakdown: monthlyBreakdownFull,
       guestCount: { 
-        daily: cached.guest_count || 0, 
+        daily: cached?.guest_count || 0, 
         weekly: weeklyGuests, 
         monthly: monthlyGuests 
       },
-      avgTicket: cached.avg_ticket ? Number(cached.avg_ticket) : undefined,
-      pizzaCount: cached.pizza_count || 0,
+      avgTicket: cached?.avg_ticket ? Number(cached.avg_ticket) : undefined,
+      pizzaCount: cached?.pizza_count || 0,
       projections: {
-        todayProjected: Number(cached.projected_sales) || 0,
+        todayProjected: cached ? (Number(cached.projected_sales) || 0) : 0,
         weekProjected: weeklyProjected,
         monthProjected: monthlyProjected
       },
