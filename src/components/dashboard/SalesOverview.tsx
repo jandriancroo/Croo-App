@@ -152,17 +152,61 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       guestCount: d.guest_count || 0
     }));
     
-    // Aggregate monthly data
+    // Aggregate monthly data and fill in missing days with projections
     const monthData = monthResult.data || [];
     const monthlySales = monthData.reduce((sum, d) => sum + (Number(d.net_sales) || 0), 0);
     const monthlyGuests = monthData.reduce((sum, d) => sum + (d.guest_count || 0), 0);
-    const monthlyProjected = monthData.reduce((sum, d) => sum + (Number(d.projected_sales) || 0), 0);
-    const monthlyBreakdown = monthData.map(d => ({
-      date: d.sale_date,
-      sales: Number(d.net_sales) || 0,
-      projected: Number(d.projected_sales) || 0,
-      guestCount: d.guest_count || 0
-    }));
+    
+    // Create a map of existing data
+    const monthDataMap = new Map(monthData.map(d => [d.sale_date, d]));
+    
+    // Generate all days in the month
+    const daysInMonth = monthEnd.getDate();
+    const monthlyBreakdownFull: { date: string; sales: number; projected: number; guestCount: number }[] = [];
+    
+    // Calculate average projection per day of week from existing data for fallback
+    const projectionsByDayOfWeek: { [dow: number]: number[] } = {};
+    monthData.forEach(d => {
+      const dow = new Date(d.sale_date + 'T00:00:00').getDay();
+      if (!projectionsByDayOfWeek[dow]) projectionsByDayOfWeek[dow] = [];
+      if (Number(d.projected_sales) > 0) {
+        projectionsByDayOfWeek[dow].push(Number(d.projected_sales));
+      }
+    });
+    const avgProjectionByDow: { [dow: number]: number } = {};
+    Object.keys(projectionsByDayOfWeek).forEach(dow => {
+      const values = projectionsByDayOfWeek[Number(dow)];
+      avgProjectionByDow[Number(dow)] = values.length > 0 
+        ? values.reduce((a, b) => a + b, 0) / values.length 
+        : 0;
+    });
+    
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayDate = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
+      const dayStr = format(dayDate, 'yyyy-MM-dd');
+      const dow = dayDate.getDay();
+      
+      const existingData = monthDataMap.get(dayStr);
+      if (existingData) {
+        monthlyBreakdownFull.push({
+          date: dayStr,
+          sales: Number(existingData.net_sales) || 0,
+          projected: Number(existingData.projected_sales) || 0,
+          guestCount: existingData.guest_count || 0
+        });
+      } else {
+        // No cached data for this day - generate projection based on day of week average
+        const projectedForDay = avgProjectionByDow[dow] || 0;
+        monthlyBreakdownFull.push({
+          date: dayStr,
+          sales: 0,
+          projected: Math.round(projectedForDay),
+          guestCount: 0
+        });
+      }
+    }
+    
+    const monthlyProjected = monthlyBreakdownFull.reduce((sum, d) => sum + d.projected, 0);
     
     // Hourly data should already have projections from backfill
     const hourlyData = (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number; projected?: number }>) || [];
@@ -173,7 +217,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       monthly: monthlySales,
       hourly: hourlyData,
       weeklyBreakdown,
-      monthlyBreakdown,
+      monthlyBreakdown: monthlyBreakdownFull,
       guestCount: { 
         daily: cached.guest_count || 0, 
         weekly: weeklyGuests, 
