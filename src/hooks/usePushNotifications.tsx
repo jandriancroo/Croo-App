@@ -123,19 +123,37 @@ export const usePushNotifications = () => {
 
         console.log('[Push Web] ✅ Push subscription created:', subscription.endpoint);
 
-        // Save subscription to database
+        // Save subscription to database - use token as unique key to support multiple devices
         const subscriptionData = JSON.stringify(subscription);
         console.log('[Push Web] Saving subscription to database...');
         
-        const { error } = await supabase
+        // First try to find existing token for this exact subscription
+        const { data: existingToken } = await supabase
           .from('push_notification_tokens')
-          .upsert({
-            user_id: userId,
-            token: subscriptionData,
-            platform: 'web',
-          }, {
-            onConflict: 'user_id,platform'
-          });
+          .select('id')
+          .eq('user_id', userId)
+          .eq('token', subscriptionData)
+          .maybeSingle();
+        
+        let error;
+        if (existingToken) {
+          // Update existing token (updates updated_at)
+          const result = await supabase
+            .from('push_notification_tokens')
+            .update({ updated_at: new Date().toISOString() })
+            .eq('id', existingToken.id);
+          error = result.error;
+        } else {
+          // Insert new token for this device
+          const result = await supabase
+            .from('push_notification_tokens')
+            .insert({
+              user_id: userId,
+              token: subscriptionData,
+              platform: 'web',
+            });
+          error = result.error;
+        }
 
         if (error) {
           console.error('[Push Web] ❌ Failed to save subscription:', error);
@@ -230,17 +248,36 @@ export const usePushNotifications = () => {
               console.warn('[Push] ⚠️ Token does not look like FCM format, might be APNs token');
             }
 
-            // Save token to database
+            // Save token to database - use token as unique key to support multiple devices
             console.log('[Push] Saving FCM token to database for user:', userId);
-            const { error } = await supabase
+            
+            // First try to find existing token for this exact device
+            const { data: existingToken } = await supabase
               .from('push_notification_tokens')
-              .upsert({
-                user_id: userId,
-                token: fcmToken,
-                platform: Capacitor.getPlatform(),
-              }, {
-                onConflict: 'user_id,platform'
-              });
+              .select('id')
+              .eq('user_id', userId)
+              .eq('token', fcmToken)
+              .maybeSingle();
+            
+            let error;
+            if (existingToken) {
+              // Update existing token (updates updated_at)
+              const result = await supabase
+                .from('push_notification_tokens')
+                .update({ updated_at: new Date().toISOString() })
+                .eq('id', existingToken.id);
+              error = result.error;
+            } else {
+              // Insert new token for this device
+              const result = await supabase
+                .from('push_notification_tokens')
+                .insert({
+                  user_id: userId,
+                  token: fcmToken,
+                  platform: Capacitor.getPlatform(),
+                });
+              error = result.error;
+            }
 
             if (error) {
               console.error('[Push] ❌ Failed to save push token:', error);
