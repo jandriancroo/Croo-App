@@ -999,46 +999,41 @@ function generateProjections(
     hourlyProjections
   );
   
-  // === WEEKLY PROJECTION ===
-  // (4-week avg week + last year same week) / 2 * random factor
+  // === WEEKLY PROJECTION (Pace-adjusted) ===
+  // Sum of: actuals for past days + MAX(actual, projection) for today + projections for future
+  // NOTE: This will be recalculated after we have daily projections, for now use estimate
   let weekProjected = 0;
   const fourWeekAvgWeek = fourWeekAverage?.avgWeekTotal || 0;
   const lastYearSameWeek = lastYearData?.sameWeek || 0;
   
   if (fourWeekAvgWeek > 0 && lastYearSameWeek > 0) {
-    // Both available: average them and apply random factor
     weekProjected = ((fourWeekAvgWeek + lastYearSameWeek) / 2) * randomFactor;
   } else if (fourWeekAvgWeek > 0) {
     weekProjected = fourWeekAvgWeek * randomFactor;
   } else if (lastYearSameWeek > 0) {
     weekProjected = lastYearSameWeek * randomFactor;
   } else {
-    // Fallback: project from current week data
     const daysRemainingInWeek = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
     const avgDailySales = weeklyBreakdown.length > 0 ? weeklySales / weeklyBreakdown.length : todayProjected;
     weekProjected = (weeklySales + (avgDailySales * daysRemainingInWeek)) * randomFactor;
   }
   
-  // Ensure at least actual weekly sales
   weekProjected = Math.max(weekProjected, weeklySales);
   
-  // === MONTHLY PROJECTION ===
-  // (Last month + last year same month) / 2 * random factor
+  // === MONTHLY PROJECTION (Pace-adjusted) ===
+  // Sum of: actuals for past days + MAX(actual, projection) for today + projections for future
+  // NOTE: This will be recalculated after we have daily projections, for now use estimate
   let monthProjected = 0;
   const lastYearSameMonth = lastYearData?.sameMonth || 0;
   const lastMonthSales = lastYearData?.lastMonth || 0;
   
   if (lastMonthSales > 0 && lastYearSameMonth > 0) {
-    // Both available: average them and apply random factor
     monthProjected = ((lastMonthSales + lastYearSameMonth) / 2) * randomFactor;
   } else if (lastYearSameMonth > 0) {
-    // Only last year same month available
     monthProjected = lastYearSameMonth * randomFactor;
   } else if (lastMonthSales > 0) {
-    // Only last month available
     monthProjected = lastMonthSales * randomFactor;
   } else {
-    // Fallback: project from current month data
     const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
     const daysRemainingInMonth = daysInMonth - today.getDate();
     const daysOfData = monthlyBreakdown.length;
@@ -1046,13 +1041,59 @@ function generateProjections(
     monthProjected = (monthlySales + (monthAvgDaily * daysRemainingInMonth)) * randomFactor;
   }
   
-  // Ensure at least actual monthly sales
   monthProjected = Math.max(monthProjected, monthlySales);
   
   console.log(`Deterministic projections: daily=${todayProjected.toFixed(2)}, pace=${todayPaceAdjusted}, weekly=${weekProjected.toFixed(2)}, monthly=${monthProjected.toFixed(2)}`);
   console.log(`  Inputs: 4wkDayAvg=${fourWeekDayAvg.toFixed(2)}, lastYrDay=${lastYearSameDay.toFixed(2)}, 4wkWeekAvg=${fourWeekAvgWeek.toFixed(2)}, lastYrWeek=${lastYearSameWeek.toFixed(2)}, lastYrMonth=${lastYearSameMonth.toFixed(2)}`);
   
   return { todayProjected, todayPaceAdjusted, weekProjected, monthProjected };
+}
+
+// Calculate pace-adjusted week/month projections
+// Logic: past days use actuals, today uses MAX(actual, projection), future days use projections
+function calculatePaceAdjustedTotals(
+  weeklyWithProjections: { date: string; sales: number; projected: number }[],
+  monthlyWithProjections: { date: string; sales: number; projected: number }[],
+  todayStr: string,
+  dailySales: number,
+  todayProjected: number
+): { weekProjected: number; monthProjected: number } {
+  // For today: use MAX(actual, projection) - once you beat the target, the total adjusts up
+  const todayContribution = Math.max(dailySales, todayProjected);
+  
+  // Calculate pace-adjusted weekly total
+  let weekProjected = 0;
+  for (const day of weeklyWithProjections) {
+    if (day.date < todayStr) {
+      // Past day: use actual sales
+      weekProjected += day.sales;
+    } else if (day.date === todayStr) {
+      // Today: use MAX(actual, projection)
+      weekProjected += todayContribution;
+    } else {
+      // Future day: use projection
+      weekProjected += day.projected;
+    }
+  }
+  
+  // Calculate pace-adjusted monthly total
+  let monthProjected = 0;
+  for (const day of monthlyWithProjections) {
+    if (day.date < todayStr) {
+      // Past day: use actual sales
+      monthProjected += day.sales;
+    } else if (day.date === todayStr) {
+      // Today: use MAX(actual, projection)
+      monthProjected += todayContribution;
+    } else {
+      // Future day: use projection
+      monthProjected += day.projected;
+    }
+  }
+  
+  console.log(`Pace-adjusted totals: week=$${weekProjected.toFixed(2)}, month=$${monthProjected.toFixed(2)} (today contribution: $${todayContribution.toFixed(2)} = max(${dailySales}, ${todayProjected.toFixed(2)}))`);
+  
+  return { weekProjected, monthProjected };
 }
 
 serve(async (req) => {
@@ -1697,7 +1738,20 @@ serve(async (req) => {
       locationId || 'default',
       fourWeekAverage
     );
-
+    
+    // Recalculate week/month projections using pace logic:
+    // Past days: actuals, Today: MAX(actual, projection), Future: projections
+    if (!skipProjections && projections.todayProjected > 0) {
+      const paceAdjusted = calculatePaceAdjustedTotals(
+        weeklyWithProjections,
+        monthlyWithProjections,
+        todayStr,
+        dailySales,
+        projections.todayProjected
+      );
+      projections.weekProjected = paceAdjusted.weekProjected;
+      projections.monthProjected = paceAdjusted.monthProjected;
+    }
     // Add labor % to hourly data if we have labor data (use daily labor % for all hours as approximation)
     let hourlyWithLabor = hourlyWithProjections;
     if (laborData && laborData.laborPercent > 0) {
