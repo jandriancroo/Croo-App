@@ -3162,6 +3162,7 @@ export type Database = {
           location_id: string
           notify_only_working: boolean
           push_enabled: boolean
+          show_on_punch_clock: boolean | null
           task_style: string
           title: string
         }
@@ -3188,6 +3189,7 @@ export type Database = {
           location_id: string
           notify_only_working?: boolean
           push_enabled?: boolean
+          show_on_punch_clock?: boolean | null
           task_style?: string
           title: string
         }
@@ -3214,6 +3216,7 @@ export type Database = {
           location_id?: string
           notify_only_working?: boolean
           push_enabled?: boolean
+          show_on_punch_clock?: boolean | null
           task_style?: string
           title?: string
         }
