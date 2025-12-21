@@ -62,9 +62,61 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
     };
   }, []);
 
-  // Subscribe to alarm task triggers
+  // Check for recently triggered alarms on mount and subscribe to updates
   useEffect(() => {
     if (!locationId) return;
+
+    // Check for any alarms triggered in the last 30 seconds on page load
+    const checkPendingAlarms = async () => {
+      const thirtySecondsAgo = new Date(Date.now() - 30000).toISOString();
+      
+      const { data: pendingTasks } = await supabase
+        .from('temporary_tasks')
+        .select('*')
+        .eq('location_id', locationId)
+        .eq('task_style', 'alarm')
+        .eq('show_on_punch_clock', true)
+        .gte('last_triggered_at', thirtySecondsAgo)
+        .order('last_triggered_at', { ascending: false })
+        .limit(1);
+
+      if (pendingTasks && pendingTasks.length > 0) {
+        const task = pendingTasks[0];
+        const triggeredAt = new Date(task.last_triggered_at);
+        const now = new Date();
+        const intervalKey = `${triggeredAt.toISOString().split('T')[0]}_${String(triggeredAt.getHours()).padStart(2, '0')}${String(triggeredAt.getMinutes()).padStart(2, '0')}`;
+
+        // Check if already completed
+        const { data: completion } = await supabase
+          .from('alarm_task_completions')
+          .select('id')
+          .eq('task_id', task.id)
+          .eq('interval_key', intervalKey)
+          .single();
+
+        if (!completion) {
+          setActiveAlarm({
+            id: task.id,
+            title: task.title,
+            description: task.description,
+            accent_color: task.accent_color || '#8B5CF6',
+            interval_key: intervalKey,
+          });
+          setIsVisible(true);
+          playAlarmSound();
+          
+          // Calculate remaining time (30s from trigger)
+          const elapsed = (now.getTime() - triggeredAt.getTime()) / 1000;
+          const remaining = Math.max(30 - elapsed, 5) * 1000;
+          
+          timeoutRef.current = setTimeout(() => {
+            handleDismiss();
+          }, remaining);
+        }
+      }
+    };
+
+    checkPendingAlarms();
 
     const channel = supabase
       .channel('alarm-tasks-overlay')

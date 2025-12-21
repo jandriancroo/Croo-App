@@ -622,7 +622,11 @@ const handler = async (req: Request): Promise<Response> => {
         console.log('Access token obtained');
 
         const fcmResults = await Promise.allSettled(
-          nativeTokens.map(async ({ token }) => {
+          nativeTokens.map(async ({ token, user_id }) => {
+            const userName = userNameMap.get(user_id) || 'Unknown';
+            console.log(`[${userName}] Sending native iOS push via FCM...`);
+            console.log(`[${userName}] Token: ${token.substring(0, 50)}...`);
+            
             const fcmResponse = await fetch(
               `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
               {
@@ -656,13 +660,17 @@ const handler = async (req: Request): Promise<Response> => {
               }
             );
 
+            console.log(`[${userName}] FCM Response status: ${fcmResponse.status} ${fcmResponse.statusText}`);
+            
             if (!fcmResponse.ok) {
               const error = await fcmResponse.text();
-              console.error('FCM error:', error);
+              console.error(`[${userName}] ❌ FCM error:`, error);
               throw new Error(`FCM request failed: ${error}`);
             }
-
-            return await fcmResponse.json();
+            
+            const result = await fcmResponse.json();
+            console.log(`[${userName}] ✅ FCM push sent successfully`);
+            return result;
           })
         );
         results.push(...fcmResults);
