@@ -150,6 +150,9 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     const weekData = weekResult.data || [];
     const weekDataMap = new Map(weekData.map(d => [d.sale_date, d]));
     
+    // Get today's date string for pace logic
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    
     // Build full 7-day breakdown
     const weeklyBreakdown: { date: string; sales: number; projected: number; guestCount: number }[] = [];
     for (let i = 0; i < 7; i++) {
@@ -173,7 +176,21 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     
     const weeklySales = weeklyBreakdown.reduce((sum, d) => sum + d.sales, 0);
     const weeklyGuests = weeklyBreakdown.reduce((sum, d) => sum + d.guestCount, 0);
-    const weeklyProjected = weeklyBreakdown.reduce((sum, d) => sum + d.projected, 0);
+    
+    // Pace-adjusted weekly projection:
+    // Past days: use actuals, Today: MAX(actual, projection), Future: use projections
+    const weeklyProjected = weeklyBreakdown.reduce((sum, d) => {
+      if (d.date < todayStr) {
+        // Past day: use actual
+        return sum + d.sales;
+      } else if (d.date === todayStr) {
+        // Today: use MAX(actual, projection)
+        return sum + Math.max(d.sales, d.projected);
+      } else {
+        // Future day: use projection
+        return sum + d.projected;
+      }
+    }, 0);
     
     // Aggregate monthly data and fill in missing days with projections
     const monthData = monthResult.data || [];
@@ -204,7 +221,20 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       });
     }
     
-    const monthlyProjected = monthlyBreakdownFull.reduce((sum, d) => sum + d.projected, 0);
+    // Pace-adjusted monthly projection:
+    // Past days: use actuals, Today: MAX(actual, projection), Future: use projections
+    const monthlyProjected = monthlyBreakdownFull.reduce((sum, d) => {
+      if (d.date < todayStr) {
+        // Past day: use actual
+        return sum + d.sales;
+      } else if (d.date === todayStr) {
+        // Today: use MAX(actual, projection)
+        return sum + Math.max(d.sales, d.projected);
+      } else {
+        // Future day: use projection
+        return sum + d.projected;
+      }
+    }, 0);
     
     // Hourly data should already have projections from backfill (only if we have daily data)
     const hourlyData = cached?.hourly_data 
