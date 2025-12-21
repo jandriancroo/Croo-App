@@ -150,22 +150,11 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     const weekData = weekResult.data || [];
     const weekDataMap = new Map(weekData.map(d => [d.sale_date, d]));
     
-    // Calculate average SALES per day of week (since backfill doesn't store projections)
-    // Use actual sales as the projection basis for historical data
-    const weekSalesByDow: { [dow: number]: number[] } = {};
-    weekData.forEach(d => {
-      const dow = new Date(d.sale_date + 'T00:00:00').getDay();
-      if (!weekSalesByDow[dow]) weekSalesByDow[dow] = [];
-      const sales = Number(d.net_sales) || 0;
-      if (sales > 0) weekSalesByDow[dow].push(sales);
-    });
-    
     // Build full 7-day breakdown
     const weeklyBreakdown: { date: string; sales: number; projected: number; guestCount: number }[] = [];
     for (let i = 0; i < 7; i++) {
       const dayDate = addDays(weekStart, i);
       const dayStr = format(dayDate, 'yyyy-MM-dd');
-      const dow = dayDate.getDay();
       const existingData = weekDataMap.get(dayStr);
       
       // For projections: use stored projected_sales if > 0, otherwise use actual sales as projection
@@ -173,29 +162,13 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       const storedProjection = existingData ? Number(existingData.projected_sales) || 0 : 0;
       const actualSales = existingData ? Number(existingData.net_sales) || 0 : 0;
       
-      // Calculate day-of-week average from existing sales data for missing days
-      const dowSales = weekSalesByDow[dow] || [];
-      const avgSalesForDow = dowSales.length > 0 
-        ? dowSales.reduce((a, b) => a + b, 0) / dowSales.length 
-        : 0;
-      
-      if (existingData) {
-        weeklyBreakdown.push({
-          date: dayStr,
-          sales: actualSales,
-          // Use stored projection if available, otherwise use actual sales as the "projection"
-          projected: storedProjection > 0 ? storedProjection : actualSales,
-          guestCount: existingData.guest_count || 0
-        });
-      } else {
-        // No data for this day - use day-of-week average
-        weeklyBreakdown.push({
-          date: dayStr,
-          sales: 0,
-          projected: Math.round(avgSalesForDow),
-          guestCount: 0
-        });
-      }
+      weeklyBreakdown.push({
+        date: dayStr,
+        sales: actualSales,
+        // Use stored projection if available, otherwise use actual sales as the "projection"
+        projected: storedProjection > 0 ? storedProjection : actualSales,
+        guestCount: existingData?.guest_count || 0
+      });
     }
     
     const weeklySales = weeklyBreakdown.reduce((sum, d) => sum + d.sales, 0);
@@ -214,59 +187,21 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     const daysInMonth = monthEnd.getDate();
     const monthlyBreakdownFull: { date: string; sales: number; projected: number; guestCount: number }[] = [];
     
-    // Calculate average projection per day of week from existing data for fallback
-    const projectionsByDayOfWeek: { [dow: number]: number[] } = {};
-    const allProjections: number[] = [];
-    monthData.forEach(d => {
-      const dow = new Date(d.sale_date + 'T00:00:00').getDay();
-      if (!projectionsByDayOfWeek[dow]) projectionsByDayOfWeek[dow] = [];
-      const proj = Number(d.projected_sales) || 0;
-      if (proj > 0) {
-        projectionsByDayOfWeek[dow].push(proj);
-        allProjections.push(proj);
-      }
-    });
-    
-    // Calculate overall average as fallback
-    const overallAvgProjection = allProjections.length > 0 
-      ? allProjections.reduce((a, b) => a + b, 0) / allProjections.length 
-      : 0;
-    
-    const avgProjectionByDow: { [dow: number]: number } = {};
-    Object.keys(projectionsByDayOfWeek).forEach(dow => {
-      const values = projectionsByDayOfWeek[Number(dow)];
-      avgProjectionByDow[Number(dow)] = values.length > 0 
-        ? values.reduce((a, b) => a + b, 0) / values.length 
-        : 0;
-    });
-    
     for (let day = 1; day <= daysInMonth; day++) {
       const dayDate = new Date(monthStart.getFullYear(), monthStart.getMonth(), day);
       const dayStr = format(dayDate, 'yyyy-MM-dd');
-      const dow = dayDate.getDay();
       
       const existingData = monthDataMap.get(dayStr);
       const storedProjection = existingData ? Number(existingData.projected_sales) || 0 : 0;
       const actualSales = existingData ? Number(existingData.net_sales) || 0 : 0;
       
-      if (existingData) {
-        monthlyBreakdownFull.push({
-          date: dayStr,
-          sales: actualSales,
-          // Use stored projection if available, otherwise use actual sales as "projection"
-          projected: storedProjection > 0 ? storedProjection : actualSales,
-          guestCount: existingData.guest_count || 0
-        });
-      } else {
-        // No cached data for this day - use day of week average, or overall average as fallback
-        const projectedForDay = avgProjectionByDow[dow] || overallAvgProjection;
-        monthlyBreakdownFull.push({
-          date: dayStr,
-          sales: 0,
-          projected: Math.round(projectedForDay),
-          guestCount: 0
-        });
-      }
+      monthlyBreakdownFull.push({
+        date: dayStr,
+        sales: actualSales,
+        // Use stored projection if available, otherwise use actual sales as "projection"
+        projected: storedProjection > 0 ? storedProjection : actualSales,
+        guestCount: existingData?.guest_count || 0
+      });
     }
     
     const monthlyProjected = monthlyBreakdownFull.reduce((sum, d) => sum + d.projected, 0);
