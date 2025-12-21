@@ -786,29 +786,49 @@ function generateDailyProjectionsForMonth(
   fourWeekAverage?: { avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[] }
 ): { date: string; sales: number; projected: number }[] {
   const result: { date: string; sales: number; projected: number }[] = [];
-  
+
   const monthDate = new Date(monthStartStr + 'T12:00:00');
   const daysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
-  
+
+  // Fallback averages from whatever month data we already have (typically up to today)
+  const observedDays = monthlyBreakdown.filter(d => (d.sales || 0) > 0);
+  const overallAvg = observedDays.length > 0
+    ? observedDays.reduce((sum, d) => sum + (d.sales || 0), 0) / observedDays.length
+    : 0;
+
+  const observedByDow: Record<number, number[]> = {};
+  for (const d of observedDays) {
+    const dow = new Date(d.date + 'T12:00:00').getDay();
+    (observedByDow[dow] ||= []).push(d.sales || 0);
+  }
+  const avgByDow: Record<number, number> = {};
+  for (const key of Object.keys(observedByDow)) {
+    const dow = Number(key);
+    const vals = observedByDow[dow];
+    avgByDow[dow] = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0;
+  }
+
   for (let day = 1; day <= daysInMonth; day++) {
     const date = new Date(monthDate.getFullYear(), monthDate.getMonth(), day);
     const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     const dayOfWeek = date.getDay();
-    
+
     // Each day gets its own unique random factor seeded by date+location
     const randomFactor = getSeededRandomFactor(`${dateStr}-${locationId}`);
-    
+
     const actual = monthlyBreakdown.find(d => d.date === dateStr)?.sales || 0;
-    let projected = 0;
-    
-    if (fourWeekAverage) {
-      const avgForDay = fourWeekAverage.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek);
-      projected = avgForDay ? avgForDay.avgSales * randomFactor : 0;
-    }
-    
+
+    // Prefer 4-week by-DOW average when available; otherwise fall back to observed month averages
+    const fourWeekBase = fourWeekAverage
+      ? (fourWeekAverage.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0)
+      : 0;
+
+    const base = fourWeekBase > 0 ? fourWeekBase : (avgByDow[dayOfWeek] || overallAvg);
+    const projected = base > 0 ? base * randomFactor : 0;
+
     result.push({ date: dateStr, sales: actual, projected: Math.round(projected) });
   }
-  
+
   return result;
 }
 
