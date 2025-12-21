@@ -530,6 +530,63 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     return total > 0 ? total : (salesData?.projections?.weekProjected || 0);
   }, [salesData?.weeklyBreakdown, salesData?.projections?.weekProjected]);
 
+  // Calculate accumulated week delta: sum of (actual - projection) for all completed days + today's pace delta
+  // This shows the true accumulated position, not just today's delta
+  const accumulatedWeekDelta = useMemo(() => {
+    if (!salesData?.weeklyBreakdown) return 0;
+    
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    let delta = 0;
+    
+    for (const day of salesData.weeklyBreakdown) {
+      const actual = day.sales || 0;
+      const projected = day.projected || 0;
+      
+      if (day.date < todayStr && actual > 0) {
+        // Past day with sales: add the difference (actual - projected)
+        delta += actual - projected;
+      } else if (day.date === todayStr && isToday) {
+        // Today: use pace delta if available, otherwise use actual - projected
+        if (salesData?.projections?.todayPaceAdjusted && salesData?.projections?.todayProjected) {
+          delta += salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected;
+        } else if (actual > 0) {
+          delta += actual - projected;
+        }
+      }
+      // Future days: no delta yet
+    }
+    
+    return delta;
+  }, [salesData?.weeklyBreakdown, salesData?.projections?.todayPaceAdjusted, salesData?.projections?.todayProjected, isToday]);
+
+  // Calculate accumulated month delta: sum of (actual - projection) for all completed days + today's pace delta
+  const accumulatedMonthDelta = useMemo(() => {
+    if (!salesData?.monthlyBreakdown) return 0;
+    
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    let delta = 0;
+    
+    for (const day of salesData.monthlyBreakdown) {
+      const actual = day.sales || 0;
+      const projected = day.projected || 0;
+      
+      if (day.date < todayStr && actual > 0) {
+        // Past day with sales: add the difference (actual - projected)
+        delta += actual - projected;
+      } else if (day.date === todayStr && isToday) {
+        // Today: use pace delta if available, otherwise use actual - projected
+        if (salesData?.projections?.todayPaceAdjusted && salesData?.projections?.todayProjected) {
+          delta += salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected;
+        } else if (actual > 0) {
+          delta += actual - projected;
+        }
+      }
+      // Future days: no delta yet
+    }
+    
+    return delta;
+  }, [salesData?.monthlyBreakdown, salesData?.projections?.todayPaceAdjusted, salesData?.projections?.todayProjected, isToday]);
+
   const navigateMonth = (direction: 'prev' | 'next') => {
     setTargetDate(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1));
   };
@@ -983,24 +1040,21 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                     {/* Divider */}
                     <div className="w-px bg-border/50 self-stretch" />
                     
-                    {/* Pacing To - Right (only show if we have daily pacing data) */}
-                    {salesData?.projections?.todayPaceAdjusted !== undefined && 
-                     salesData?.projections?.todayProjected !== undefined && 
-                     salesData.projections.todayProjected > 0 && (
+                    {/* Pacing To - Right (show accumulated pace delta) */}
+                    {isToday && (salesData?.weeklyBreakdown?.length || 0) > 0 && (
                       <div className="flex items-center gap-2 flex-1 justify-end">
                         <div className="flex flex-col items-end">
                           <span className="text-xs text-muted-foreground">Pace</span>
                           {(() => {
-                            const pacingDelta = salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected;
-                            const weekPacing = calculatedWeekProjected + pacingDelta;
-                            const isPositive = pacingDelta >= 0;
+                            const weekPacing = calculatedWeekProjected + accumulatedWeekDelta;
+                            const isPositive = accumulatedWeekDelta >= 0;
                             return (
                               <>
                                 <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
                                   {formatCurrency(weekPacing)}
                                 </span>
                                 <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                                  ({isPositive ? '+' : ''}{formatCurrency(pacingDelta)})
+                                  ({isPositive ? '+' : ''}{formatCurrency(accumulatedWeekDelta)})
                                 </span>
                               </>
                             );
@@ -1134,24 +1188,21 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                   {/* Divider */}
                   <div className="w-px bg-border/50 self-stretch" />
                   
-                  {/* Pacing To - Right (only show if we have daily pacing data) */}
-                  {salesData?.projections?.todayPaceAdjusted !== undefined && 
-                   salesData?.projections?.todayProjected !== undefined && 
-                   salesData.projections.todayProjected > 0 && (
+                  {/* Pacing To - Right (show accumulated pace delta) */}
+                  {isToday && (salesData?.monthlyBreakdown?.length || 0) > 0 && (
                     <div className="flex items-center gap-2 flex-1 justify-end">
                       <div className="flex flex-col items-end">
                         <span className="text-xs text-muted-foreground">Pace</span>
                         {(() => {
-                          const pacingDelta = salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected;
-                          const monthPacing = salesData.projections.monthProjected + pacingDelta;
-                          const isPositive = pacingDelta >= 0;
+                          const monthPacing = (salesData?.projections?.monthProjected || 0) + accumulatedMonthDelta;
+                          const isPositive = accumulatedMonthDelta >= 0;
                           return (
                             <>
                               <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
                                 {formatCurrency(monthPacing)}
                               </span>
                               <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                                ({isPositive ? '+' : ''}{formatCurrency(pacingDelta)})
+                                ({isPositive ? '+' : ''}{formatCurrency(accumulatedMonthDelta)})
                               </span>
                             </>
                           );
