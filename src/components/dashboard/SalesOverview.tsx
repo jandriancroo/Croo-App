@@ -243,14 +243,12 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     const dateStr = getDateString(targetDate);
     const isTodayCheck = isSameDay(targetDate, new Date());
     
-    // For historical dates, check database cache first
+    // For historical dates, use database cache only
+    // Don't call the edge function for past dates - it won't have data
     if (!isTodayCheck && currentLocation?.id) {
       const cachedData = await checkDatabaseCache(dateStr);
-      if (cachedData) {
-        // We have cached daily data, but still need to fetch comparison data
-        // Return cached data immediately for fast render
-        return cachedData;
-      }
+      // Return cached data (or null if no data exists for this period)
+      return cachedData;
     }
     
     // Check cache INSIDE the query function to get fresh values
