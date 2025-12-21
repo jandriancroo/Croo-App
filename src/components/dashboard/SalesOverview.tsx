@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, Bug } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
+import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -103,12 +103,15 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     const weekStart = startOfWeek(targetDateObj, { weekStartsOn: 1 }); // Monday
     const weekEnd = endOfWeek(targetDateObj, { weekStartsOn: 1 }); // Sunday
     const monthStart = startOfMonth(targetDateObj);
+    const monthEnd = endOfMonth(targetDateObj);
     
     const weekStartStr = format(weekStart, 'yyyy-MM-dd');
     const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
     const monthStartStr = format(monthStart, 'yyyy-MM-dd');
+    const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
     
     // Fetch daily data + week range + month range in parallel
+    // For month, always fetch full month (1st to last day)
     const [dailyResult, weekResult, monthResult] = await Promise.all([
       supabase
         .from('sales_cache')
@@ -128,7 +131,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
         .select('sale_date, net_sales, guest_count, projected_sales')
         .eq('location_id', currentLocation.id)
         .gte('sale_date', monthStartStr)
-        .lte('sale_date', dateStr)
+        .lte('sale_date', monthEndStr)
         .order('sale_date')
     ]);
     
