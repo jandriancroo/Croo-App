@@ -1,0 +1,230 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
+Deno.serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const now = new Date();
+    const currentDayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+    const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    console.log(`[Alarm Tasks] Running at ${now.toISOString()}, day: ${currentDayOfWeek}, time: ${currentTimeStr}`);
+
+    // Fetch all active alarm tasks
+    const { data: alarmTasks, error: tasksError } = await supabase
+      .from('temporary_tasks')
+      .select(`
+        *,
+        temporary_task_assignments (
+          user_id,
+          role
+        )
+      `)
+      .eq('task_style', 'alarm')
+      .eq('is_active', true)
+      .eq('is_recurring', true);
+
+    if (tasksError) {
+      console.error('[Alarm Tasks] Error fetching tasks:', tasksError);
+      throw tasksError;
+    }
+
+    console.log(`[Alarm Tasks] Found ${alarmTasks?.length || 0} alarm tasks`);
+
+    if (!alarmTasks || alarmTasks.length === 0) {
+      return new Response(
+        JSON.stringify({ message: 'No alarm tasks to process', triggered: 0 }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    let triggeredCount = 0;
+    const results: any[] = [];
+
+    for (const task of alarmTasks) {
+      // Check if task is active on current day
+      const daysOfWeek: number[] = task.days_of_week || [];
+      if (!daysOfWeek.includes(currentDayOfWeek)) {
+        console.log(`[Alarm Tasks] Task ${task.id} not active on day ${currentDayOfWeek}`);
+        continue;
+      }
+
+      // Check if it's time to trigger this task
+      let shouldTrigger = false;
+      
+      if (task.frequency_type === 'interval' && task.frequency_minutes) {
+        // Check if enough time has passed since last trigger
+        const lastTriggered = task.last_triggered_at ? new Date(task.last_triggered_at) : null;
+        const minutesSinceLastTrigger = lastTriggered 
+          ? Math.floor((now.getTime() - lastTriggered.getTime()) / (1000 * 60))
+          : Infinity;
+        
+        shouldTrigger = minutesSinceLastTrigger >= task.frequency_minutes;
+        console.log(`[Alarm Tasks] Task ${task.id}: interval=${task.frequency_minutes}min, lastTrigger=${lastTriggered?.toISOString()}, sinceLastTrigger=${minutesSinceLastTrigger}min, shouldTrigger=${shouldTrigger}`);
+      } else if (task.frequency_type === 'custom' && task.custom_times) {
+        // Check if current time matches any custom time
+        const customTimes: string[] = task.custom_times || [];
+        shouldTrigger = customTimes.includes(currentTimeStr);
+        console.log(`[Alarm Tasks] Task ${task.id}: customTimes=${customTimes.join(',')}, currentTime=${currentTimeStr}, shouldTrigger=${shouldTrigger}`);
+      }
+
+      if (!shouldTrigger) {
+        continue;
+      }
+
+      // Get the interval key for this trigger (to track completions)
+      const intervalKey = `${now.toISOString().split('T')[0]}_${currentTimeStr.replace(':', '')}`;
+
+      // Check if this interval was already completed
+      const { data: existingCompletion } = await supabase
+        .from('alarm_task_completions')
+        .select('id')
+        .eq('task_id', task.id)
+        .eq('interval_key', intervalKey)
+        .maybeSingle();
+
+      if (existingCompletion) {
+        console.log(`[Alarm Tasks] Task ${task.id} already completed for interval ${intervalKey}`);
+        continue;
+      }
+
+      // Get users to notify
+      const assignments = task.temporary_task_assignments || [];
+      let userIdsToNotify: string[] = [];
+      let rolesToNotify: string[] = [];
+
+      for (const assignment of assignments) {
+        if (assignment.user_id) {
+          userIdsToNotify.push(assignment.user_id);
+        } else if (assignment.role) {
+          rolesToNotify.push(assignment.role);
+        }
+      }
+
+      // If notify_only_working is enabled, filter to only clocked-in users
+      if (task.notify_only_working) {
+        // Get users who are currently clocked in or on break at this location
+        const { data: clockedInUsers } = await supabase
+          .from('timeclock_entries')
+          .select('user_id')
+          .eq('location_id', task.location_id)
+          .is('clock_out', null);
+
+        const clockedInUserIds = new Set(clockedInUsers?.map(u => u.user_id) || []);
+
+        if (userIdsToNotify.length > 0) {
+          // Filter assigned users to only those clocked in
+          userIdsToNotify = userIdsToNotify.filter(id => clockedInUserIds.has(id));
+        }
+
+        if (rolesToNotify.length > 0) {
+          // Get users with these roles who are clocked in at this location
+          const { data: roleUsers } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .in('role', rolesToNotify);
+
+          const roleUserIds = roleUsers?.map(u => u.user_id) || [];
+          
+          // Only include role users who are clocked in
+          const workingRoleUsers = roleUserIds.filter(id => clockedInUserIds.has(id));
+          
+          // Merge with any direct user assignments
+          userIdsToNotify = [...new Set([...userIdsToNotify, ...workingRoleUsers])];
+        }
+
+        console.log(`[Alarm Tasks] Task ${task.id}: After filtering for working staff, ${userIdsToNotify.length} users to notify`);
+      } else {
+        // Not filtering by working status - include all assigned users and role users
+        if (rolesToNotify.length > 0) {
+          const { data: roleUsers } = await supabase
+            .from('user_roles')
+            .select('user_id')
+            .in('role', rolesToNotify);
+
+          const roleUserIds = roleUsers?.map(u => u.user_id) || [];
+          userIdsToNotify = [...new Set([...userIdsToNotify, ...roleUserIds])];
+        }
+      }
+
+      if (userIdsToNotify.length === 0) {
+        console.log(`[Alarm Tasks] Task ${task.id}: No users to notify`);
+        continue;
+      }
+
+      // Send push notification if enabled
+      if (task.push_enabled) {
+        console.log(`[Alarm Tasks] Sending push notification for task ${task.id} to ${userIdsToNotify.length} users`);
+        
+        try {
+          const { error: pushError } = await supabase.functions.invoke('send-push-notification', {
+            body: {
+              user_ids: userIdsToNotify,
+              title: '⏰ ' + task.title,
+              body: task.description || 'Recurring task reminder',
+              type: 'alarm_task',
+              data: {
+                task_id: task.id,
+                interval_key: intervalKey,
+              }
+            }
+          });
+
+          if (pushError) {
+            console.error(`[Alarm Tasks] Error sending push notification:`, pushError);
+          }
+        } catch (pushErr) {
+          console.error(`[Alarm Tasks] Exception sending push notification:`, pushErr);
+        }
+      }
+
+      // Update last_triggered_at
+      await supabase
+        .from('temporary_tasks')
+        .update({ last_triggered_at: now.toISOString() })
+        .eq('id', task.id);
+
+      triggeredCount++;
+      results.push({
+        task_id: task.id,
+        title: task.title,
+        users_notified: userIdsToNotify.length,
+        interval_key: intervalKey,
+      });
+    }
+
+    console.log(`[Alarm Tasks] Triggered ${triggeredCount} tasks`);
+
+    return new Response(
+      JSON.stringify({ 
+        message: `Triggered ${triggeredCount} alarm tasks`,
+        triggered: triggeredCount,
+        results 
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error: any) {
+    console.error('[Alarm Tasks] Error:', error);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
+});

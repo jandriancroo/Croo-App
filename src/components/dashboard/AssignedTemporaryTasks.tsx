@@ -89,6 +89,7 @@ export function AssignedTemporaryTasks() {
           buttonLabel="View"
           buttonVariant="view"
           onAction={() => setSelectedTask(task)}
+          taskStyle={(task.task_style as "standard" | "alarm") || "standard"}
         />
       ))}
 
