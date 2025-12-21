@@ -376,43 +376,59 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   }, [rawSalesData, locationSettings]);
 
   // Aggregate monthly breakdown into weekly buckets (Mon-Sun) for mobile view
+  // Only include days that fall within the selected month to avoid bleeding into other months
   const monthlyWeeklyAggregated = useMemo(() => {
     if (!salesData?.monthlyBreakdown || salesData.monthlyBreakdown.length === 0) return [];
     
-    // Group by Monday-Sunday weeks
-    const weeklyBuckets: Array<{ weekStart: Date; sales: number; projected: number; startDate: string; endDate: string }> = [];
+    // Get the month we're viewing
+    const viewingMonth = targetDate.getMonth();
+    const viewingYear = targetDate.getFullYear();
+    
+    // Group by Monday-Sunday weeks, but only count days within the target month
+    const weeklyBuckets: Array<{ weekStart: Date; sales: number; projected: number; daysInMonth: number; firstDayInMonth: Date; lastDayInMonth: Date }> = [];
     
     salesData.monthlyBreakdown.forEach(day => {
       const date = new Date(day.date + 'T00:00:00');
+      
+      // Only include days that are in the viewing month
+      if (date.getMonth() !== viewingMonth || date.getFullYear() !== viewingYear) {
+        return;
+      }
+      
       const weekStart = startOfWeek(date, { weekStartsOn: 1 }); // Monday
       
       // Find existing bucket or create new one
       let bucket = weeklyBuckets.find(b => b.weekStart.getTime() === weekStart.getTime());
       if (!bucket) {
-        const weekEnd = endOfWeek(date, { weekStartsOn: 1 }); // Sunday
         bucket = { 
           weekStart, 
           sales: 0, 
-          projected: 0, 
-          startDate: format(weekStart, 'MMM d'),
-          endDate: format(weekEnd, 'MMM d')
+          projected: 0,
+          daysInMonth: 0,
+          firstDayInMonth: date,
+          lastDayInMonth: date
         };
         weeklyBuckets.push(bucket);
       }
       bucket.sales += day.sales;
       bucket.projected += (day.projected || 0);
+      bucket.daysInMonth += 1;
+      if (date < bucket.firstDayInMonth) bucket.firstDayInMonth = date;
+      if (date > bucket.lastDayInMonth) bucket.lastDayInMonth = date;
     });
     
-    // Sort by week start date
+    // Sort by week start date and format labels to show only dates within the month
     return weeklyBuckets
       .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime())
       .map((bucket, index) => ({
         label: `Week ${index + 1}`,
         sales: bucket.sales,
         projected: bucket.projected,
-        dateRange: `${bucket.startDate} - ${bucket.endDate}`
+        dateRange: bucket.firstDayInMonth.getTime() === bucket.lastDayInMonth.getTime()
+          ? format(bucket.firstDayInMonth, 'MMM d')
+          : `${format(bucket.firstDayInMonth, 'MMM d')} - ${format(bucket.lastDayInMonth, 'MMM d')}`
       }));
-  }, [salesData?.monthlyBreakdown]);
+  }, [salesData?.monthlyBreakdown, targetDate]);
 
   const navigateDay = (direction: 'prev' | 'next') => {
     setTargetDate(prev => direction === 'prev' ? subDays(prev, 1) : addDays(prev, 1));
@@ -822,9 +838,9 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               <DateNavigator 
                 onPrev={() => navigateWeek('prev')}
                 onNext={() => navigateWeek('next')}
-                label={salesData?.dateRange?.weekStart 
-                  ? `Week of ${format(new Date(salesData.dateRange.weekStart + 'T00:00:00'), 'MMM d, yyyy')}`
-                  : 'This Week'
+                label={isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })
+                  ? 'This Week'
+                  : `${format(startOfWeek(targetDate, { weekStartsOn: 1 }), 'MMM d')} - ${format(endOfWeek(targetDate, { weekStartsOn: 1 }), 'MMM d')}`
                 }
                 canGoNext={!isSameWeek(targetDate, new Date(), { weekStartsOn: 1 })}
                 narrow
@@ -978,10 +994,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               <DateNavigator 
                 onPrev={() => navigateMonth('prev')}
                 onNext={() => navigateMonth('next')}
-                label={salesData?.dateRange?.monthStart 
-                  ? format(new Date(salesData.dateRange.monthStart + 'T00:00:00'), 'MMMM yyyy')
-                  : 'This Month'
-                }
+                label={format(targetDate, 'MMMM yyyy')}
                 canGoNext={!isSameMonth(targetDate, new Date())}
                 narrow
               />
