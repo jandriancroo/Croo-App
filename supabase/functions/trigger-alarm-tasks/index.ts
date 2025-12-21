@@ -5,6 +5,37 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Helper to get current time in a specific timezone
+function getTimeInTimezone(timezone: string): { dayOfWeek: number; timeStr: string; date: Date } {
+  const now = new Date();
+  
+  // Get the time string in the target timezone
+  const options: Intl.DateTimeFormatOptions = {
+    timeZone: timezone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    weekday: 'short',
+  };
+  
+  const formatter = new Intl.DateTimeFormat('en-US', options);
+  const parts = formatter.formatToParts(now);
+  
+  const hour = parts.find(p => p.type === 'hour')?.value || '00';
+  const minute = parts.find(p => p.type === 'minute')?.value || '00';
+  const weekday = parts.find(p => p.type === 'weekday')?.value || 'Sun';
+  
+  const dayMap: Record<string, number> = {
+    'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+  };
+  
+  return {
+    dayOfWeek: dayMap[weekday] ?? 0,
+    timeStr: `${hour}:${minute}`,
+    date: now,
+  };
+}
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -17,13 +48,9 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const now = new Date();
-    const currentDayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-    const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
-    const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    console.log(`[Alarm Tasks] Running at ${now.toISOString()} (UTC)`);
 
-    console.log(`[Alarm Tasks] Running at ${now.toISOString()}, day: ${currentDayOfWeek}, time: ${currentTimeStr}`);
-
-    // Fetch all active alarm tasks
+    // Fetch all active alarm tasks with their location settings for timezone
     const { data: alarmTasks, error: tasksError } = await supabase
       .from('temporary_tasks')
       .select(`
@@ -31,6 +58,12 @@ Deno.serve(async (req) => {
         temporary_task_assignments (
           user_id,
           role
+        ),
+        locations!temporary_tasks_location_id_fkey (
+          id,
+          location_settings (
+            timezone
+          )
         )
       `)
       .eq('task_style', 'alarm')
@@ -55,7 +88,16 @@ Deno.serve(async (req) => {
     const results: any[] = [];
 
     for (const task of alarmTasks) {
-      // Check if task is active on current day
+      // Get timezone for this task's location
+      const locationSettings = (task.locations as any)?.location_settings;
+      const timezone = locationSettings?.timezone || 'America/Los_Angeles';
+      
+      // Get current time in the location's timezone
+      const { dayOfWeek: currentDayOfWeek, timeStr: currentTimeStr, date: nowInTz } = getTimeInTimezone(timezone);
+      
+      console.log(`[Alarm Tasks] Task ${task.id} (${task.title}): timezone=${timezone}, localDay=${currentDayOfWeek}, localTime=${currentTimeStr}`);
+
+      // Check if task is active on current day (in local timezone)
       const daysOfWeek: number[] = task.days_of_week || [];
       if (!daysOfWeek.includes(currentDayOfWeek)) {
         console.log(`[Alarm Tasks] Task ${task.id} not active on day ${currentDayOfWeek}`);
@@ -73,12 +115,12 @@ Deno.serve(async (req) => {
           : Infinity;
         
         shouldTrigger = minutesSinceLastTrigger >= task.frequency_minutes;
-        console.log(`[Alarm Tasks] Task ${task.id}: interval=${task.frequency_minutes}min, lastTrigger=${lastTriggered?.toISOString()}, sinceLastTrigger=${minutesSinceLastTrigger}min, shouldTrigger=${shouldTrigger}`);
+        console.log(`[Alarm Tasks] Task ${task.id}: interval=${task.frequency_minutes}min, sinceLastTrigger=${minutesSinceLastTrigger}min, shouldTrigger=${shouldTrigger}`);
       } else if (task.frequency_type === 'custom' && task.custom_times) {
-        // Check if current time matches any custom time
+        // Check if current time matches any custom time (in local timezone)
         const customTimes: string[] = task.custom_times || [];
         shouldTrigger = customTimes.includes(currentTimeStr);
-        console.log(`[Alarm Tasks] Task ${task.id}: customTimes=${customTimes.join(',')}, currentTime=${currentTimeStr}, shouldTrigger=${shouldTrigger}`);
+        console.log(`[Alarm Tasks] Task ${task.id}: customTimes=${customTimes.join(',')}, localTime=${currentTimeStr}, shouldTrigger=${shouldTrigger}`);
       }
 
       if (!shouldTrigger) {
@@ -162,11 +204,11 @@ Deno.serve(async (req) => {
 
       if (userIdsToNotify.length === 0) {
         console.log(`[Alarm Tasks] Task ${task.id}: No users to notify`);
-        continue;
+        // Still trigger the task even if no one to notify - this updates last_triggered_at for punch clock
       }
 
-      // Send push notification if enabled
-      if (task.push_enabled) {
+      // Send push notification if enabled and there are users
+      if (task.push_enabled && userIdsToNotify.length > 0) {
         console.log(`[Alarm Tasks] Sending push notification for task ${task.id} to ${userIdsToNotify.length} users`);
         
         try {
@@ -203,6 +245,8 @@ Deno.serve(async (req) => {
         title: task.title,
         users_notified: userIdsToNotify.length,
         interval_key: intervalKey,
+        timezone,
+        local_time: currentTimeStr,
       });
     }
 
