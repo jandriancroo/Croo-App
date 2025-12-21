@@ -73,6 +73,8 @@ export default function CompleteChecklist() {
   const [completionPercentage, setCompletionPercentage] = useState(0);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [showNotes, setShowNotes] = useState(false);
+  const [manualTempOpen, setManualTempOpen] = useState<Record<string, boolean>>({});
+  const [manualTempValue, setManualTempValue] = useState<Record<string, string>>({});
   const notesTimeoutRef = useRef<NodeJS.Timeout>();
   const {
     user
@@ -519,6 +521,92 @@ export default function CompleteChecklist() {
     return response ? [response] : [];
   };
 
+  const getTemperatureValidity = (tempF: number): boolean => {
+    // Food safety guidelines: cold holding ≤ 41°F, hot holding ≥ 135°F
+    return tempF <= 41 || tempF >= 135;
+  };
+
+  const saveManualTemperature = async (itemId: string, tempText: string) => {
+    const tempF = Number(tempText);
+    if (!Number.isFinite(tempF)) {
+      toast.error('Enter a valid temperature');
+      return;
+    }
+    if (!submissionId || !user?.id) return;
+
+    const tempValid = getTemperatureValidity(tempF);
+
+    try {
+      const { data: existing, error: existingError } = await supabase
+        .from('checklist_responses')
+        .select('id')
+        .eq('submission_id', submissionId)
+        .eq('item_id', itemId)
+        .maybeSingle();
+
+      if (existingError) throw existingError;
+
+      const responseData = {
+        response_image_url: null,
+        response_text: String(tempF),
+        completed_by: user.id,
+        extracted_temperature: tempF,
+        temperature_valid: tempValid,
+        temperature_validated_at: new Date().toISOString(),
+      };
+
+      let responseId: string | undefined;
+      if (existing?.id) {
+        const { error: updateError } = await supabase
+          .from('checklist_responses')
+          .update(responseData)
+          .eq('id', existing.id);
+        if (updateError) throw updateError;
+        responseId = existing.id;
+      } else {
+        const { data: newResponse, error: insertError } = await supabase
+          .from('checklist_responses')
+          .insert({ submission_id: submissionId, item_id: itemId, ...responseData })
+          .select('id')
+          .single();
+        if (insertError) throw insertError;
+        responseId = newResponse?.id;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, profile_photo_url')
+        .eq('id', user.id)
+        .single();
+
+      setResponses(prev => ({ ...prev, [itemId]: String(tempF) }));
+      setResponsesWithCompleters(prev => ({
+        ...prev,
+        [itemId]: {
+          responseId: responseId || '',
+          value: String(tempF),
+          isImage: false,
+          extractedTemperature: tempF,
+          temperatureValid: tempValid,
+          completedBy: profile
+            ? {
+                userId: user.id,
+                fullName: profile.full_name || 'Unknown',
+                profilePhoto: profile.profile_photo_url,
+                completedAt: new Date().toISOString(),
+              }
+            : undefined,
+        },
+      }));
+
+      setManualTempOpen(prev => ({ ...prev, [itemId]: false }));
+      toast.success('Temperature saved');
+    } catch (error: any) {
+      console.error('Error saving manual temperature:', error);
+      toast.error('Failed to save temperature');
+    }
+  };
+
   const handleImageUpload = async (itemId: string, file: File, photoIndex?: number) => {
     const item = items.find(i => i.id === itemId);
     const minPhotos = item ? getMinPhotos(item) : 1;
@@ -648,7 +736,12 @@ export default function CompleteChecklist() {
 
       toast.success('Image uploaded successfully');
     } catch (error: any) {
-      toast.error('Failed to upload image');
+      const msg = String(error?.message || '').toLowerCase();
+      if (msg.includes('memory') || msg.includes('out of memory') || msg.includes('low memory')) {
+        toast.error('Low memory: try choosing an existing photo instead');
+      } else {
+        toast.error('Failed to upload image');
+      }
     }
   };
   if (loading) {
@@ -805,7 +898,8 @@ export default function CompleteChecklist() {
                   {(item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature') && (() => {
                     const minPhotos = getMinPhotos(item);
                     const isMultiPhoto = minPhotos > 1;
-                    const currentPhotos = getPhotosForItem(item.id);
+                    const showManualTemp = item.item_type === 'temperature';
+                    const currentPhotos = getPhotosForItem(item.id).filter(p => typeof p === 'string' && p.startsWith('http'));
                     const photosNeeded = Math.max(minPhotos - currentPhotos.length, 0);
                     const isComplete = currentPhotos.length >= minPhotos;
 
@@ -822,10 +916,11 @@ export default function CompleteChecklist() {
                           <div className={`grid gap-2 ${isMultiPhoto ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1'}`}>
                             {currentPhotos.map((photoUrl, idx) => (
                               <div key={idx} className="relative">
-                                <img 
-                                  src={photoUrl} 
-                                  alt={`Photo ${idx + 1}`} 
-                                  className="rounded max-h-32 object-cover border w-full" 
+                                <img
+                                  src={photoUrl}
+                                  alt={`Checklist photo ${idx + 1}`}
+                                  className="rounded max-h-32 object-cover border w-full"
+                                  loading="lazy"
                                 />
                                 <div className="absolute top-1 left-1 bg-background/80 text-xs px-1.5 py-0.5 rounded">
                                   {idx + 1}
@@ -838,33 +933,96 @@ export default function CompleteChecklist() {
                         {/* Upload buttons for remaining photos needed */}
                         {!isComplete && (
                           <div className={`grid gap-2 ${isMultiPhoto && photosNeeded > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                            {Array.from({ length: isMultiPhoto ? photosNeeded : 1 }).map((_, idx) => (
-                              <div key={idx}>
-                                <Label htmlFor={`image-${item.id}-${currentPhotos.length + idx}`} className="cursor-pointer">
-                                  <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-border rounded hover:border-primary transition-colors">
-                                    <Upload className="h-4 w-4" />
-                                    <span className="text-sm">
-                                      {isMultiPhoto 
-                                        ? `Photo ${currentPhotos.length + idx + 1}` 
-                                        : 'Tap to take photo'}
-                                    </span>
-                                  </div>
-                                </Label>
-                                <Input 
-                                  id={`image-${item.id}-${currentPhotos.length + idx}`} 
-                                  type="file" 
-                                  accept="image/*" 
-                                  capture="environment" 
-                                  className="hidden" 
-                                  onChange={e => {
-                                    const file = e.target.files?.[0];
-                                    if (file) handleImageUpload(item.id, file);
-                                    e.target.value = '';
-                                  }} 
-                                  required={item.is_required && !isComplete} 
-                                />
+                            {Array.from({ length: isMultiPhoto ? photosNeeded : 1 }).map((_, idx) => {
+                              const slotNumber = currentPhotos.length + idx + 1;
+                              const cameraId = `image-camera-${item.id}-${slotNumber}`;
+                              const galleryId = `image-gallery-${item.id}-${slotNumber}`;
+
+                              return (
+                                <div key={idx} className="space-y-2">
+                                  <Label htmlFor={cameraId} className="cursor-pointer">
+                                    <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-border rounded hover:border-primary transition-colors">
+                                      <Upload className="h-4 w-4" />
+                                      <span className="text-sm">
+                                        {isMultiPhoto ? `Take photo ${slotNumber}` : 'Tap to take photo'}
+                                      </span>
+                                    </div>
+                                  </Label>
+                                  <Input
+                                    id={cameraId}
+                                    type="file"
+                                    accept="image/*"
+                                    capture="environment"
+                                    className="hidden"
+                                    onChange={e => {
+                                      const file = e.target.files?.[0];
+                                      if (file) handleImageUpload(item.id, file);
+                                      e.target.value = '';
+                                    }}
+                                    required={item.is_required && !isComplete}
+                                  />
+
+                                  <Label htmlFor={galleryId} className="cursor-pointer">
+                                    <div className="w-full rounded-md border border-border bg-background px-4 py-2 text-center text-sm hover:bg-muted transition-colors">
+                                      Choose existing photo
+                                    </div>
+                                  </Label>
+                                  <Input
+                                    id={galleryId}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={e => {
+                                      const file = e.target.files?.[0];
+                                      if (file) handleImageUpload(item.id, file);
+                                      e.target.value = '';
+                                    }}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Temperature manual override (for low-memory camera failures) */}
+                        {showManualTemp && !isComplete && (
+                          <div className="rounded border border-border bg-muted/20 p-3 space-y-2">
+                            <div className="text-sm font-medium">Can’t take a photo?</div>
+                            {!manualTempOpen[item.id] ? (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={() => setManualTempOpen(prev => ({ ...prev, [item.id]: true }))}
+                              >
+                                Enter temperature instead
+                              </Button>
+                            ) : (
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2">
+                                  <Input
+                                    value={manualTempValue[item.id] || ''}
+                                    onChange={e => setManualTempValue(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                    inputMode="decimal"
+                                    type="number"
+                                    step="0.1"
+                                    placeholder="Temperature (°F)"
+                                  />
+                                  <Button
+                                    type="button"
+                                    onClick={() => saveManualTemperature(item.id, manualTempValue[item.id] || '')}
+                                  >
+                                    Save
+                                  </Button>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  onClick={() => setManualTempOpen(prev => ({ ...prev, [item.id]: false }))}
+                                >
+                                  Cancel
+                                </Button>
                               </div>
-                            ))}
+                            )}
                           </div>
                         )}
                       </div>
