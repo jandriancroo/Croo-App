@@ -189,16 +189,38 @@ export function TemporaryTaskDetailsDialog({
 
     setIsCompleting(true);
     try {
-      const { error } = await supabase
-        .from('temporary_tasks')
-        .update({ 
-          completed_at: new Date().toISOString(),
-          completed_by: user!.id,
-          is_active: false
-        })
-        .eq('id', task.id);
+      // For alarm tasks, record completion in alarm_task_completions with null completed_by (represents "Store")
+      if (task.task_style === 'alarm') {
+        const now = new Date();
+        const intervalKey = task.last_triggered_at 
+          ? (() => {
+              const triggeredAt = new Date(task.last_triggered_at);
+              return `${triggeredAt.toISOString().split('T')[0]}_${String(triggeredAt.getHours()).padStart(2, '0')}${String(triggeredAt.getMinutes()).padStart(2, '0')}`;
+            })()
+          : `${now.toISOString().split('T')[0]}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
 
-      if (error) throw error;
+        const { error } = await supabase
+          .from('alarm_task_completions')
+          .insert({
+            task_id: task.id,
+            interval_key: intervalKey,
+            completed_by: null, // null = "Store" completion
+          });
+
+        if (error) throw error;
+      } else {
+        // Standard task - mark as completed with user
+        const { error } = await supabase
+          .from('temporary_tasks')
+          .update({ 
+            completed_at: new Date().toISOString(),
+            completed_by: user!.id,
+            is_active: false
+          })
+          .eq('id', task.id);
+
+        if (error) throw error;
+      }
 
       toast.success("Task completed!");
       onComplete();
