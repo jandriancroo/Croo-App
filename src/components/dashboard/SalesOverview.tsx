@@ -166,13 +166,22 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     
     // Calculate average projection per day of week from existing data for fallback
     const projectionsByDayOfWeek: { [dow: number]: number[] } = {};
+    const allProjections: number[] = [];
     monthData.forEach(d => {
       const dow = new Date(d.sale_date + 'T00:00:00').getDay();
       if (!projectionsByDayOfWeek[dow]) projectionsByDayOfWeek[dow] = [];
-      if (Number(d.projected_sales) > 0) {
-        projectionsByDayOfWeek[dow].push(Number(d.projected_sales));
+      const proj = Number(d.projected_sales) || 0;
+      if (proj > 0) {
+        projectionsByDayOfWeek[dow].push(proj);
+        allProjections.push(proj);
       }
     });
+    
+    // Calculate overall average as fallback
+    const overallAvgProjection = allProjections.length > 0 
+      ? allProjections.reduce((a, b) => a + b, 0) / allProjections.length 
+      : 0;
+    
     const avgProjectionByDow: { [dow: number]: number } = {};
     Object.keys(projectionsByDayOfWeek).forEach(dow => {
       const values = projectionsByDayOfWeek[Number(dow)];
@@ -195,8 +204,8 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
           guestCount: existingData.guest_count || 0
         });
       } else {
-        // No cached data for this day - generate projection based on day of week average
-        const projectedForDay = avgProjectionByDow[dow] || 0;
+        // No cached data for this day - use day of week average, or overall average as fallback
+        const projectedForDay = avgProjectionByDow[dow] || overallAvgProjection;
         monthlyBreakdownFull.push({
           date: dayStr,
           sales: 0,
