@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Plus, X, Trash2, Camera, CheckSquare } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Plus, X, Trash2, Camera, CheckSquare, AlarmClock, ClipboardList, Bell } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
@@ -52,19 +53,56 @@ const ROLE_OPTIONS = [
   { value: "team_member", label: "Team Member" },
 ];
 
+const DAYS_OF_WEEK = [
+  { value: 0, label: "Sun" },
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
+];
+
+const FREQUENCY_OPTIONS = [
+  { value: "30", label: "Every 30 minutes", minutes: 30 },
+  { value: "60", label: "Every hour", minutes: 60 },
+  { value: "120", label: "Every 2 hours", minutes: 120 },
+  { value: "custom", label: "Custom times", minutes: null },
+];
+
 export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: CreateTemporaryTaskDialogProps) {
   const { currentLocation } = useAppLocation();
   const { user } = useAuth();
+  
+  // Basic fields
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [duration, setDuration] = useState("none");
   const [accentColor, setAccentColor] = useState("#8B5CF6");
+  
+  // Task style
+  const [taskStyle, setTaskStyle] = useState<"standard" | "alarm">("standard");
+  
+  // Standard task fields
+  const [duration, setDuration] = useState("none");
+  
+  // Alarm task fields
+  const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]); // Mon-Fri default
+  const [frequencyType, setFrequencyType] = useState("60");
+  const [customTimes, setCustomTimes] = useState<string[]>([]);
+  const [newCustomTime, setNewCustomTime] = useState("");
+  const [notifyOnlyWorking, setNotifyOnlyWorking] = useState(true);
+  const [pushEnabled, setPushEnabled] = useState(true);
+  
+  // Assignment
   const [assignmentType, setAssignmentType] = useState<"employees" | "roles">("employees");
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  
+  // Subtasks
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [newSubtask, setNewSubtask] = useState("");
   const [newSubtaskType, setNewSubtaskType] = useState<"checkbox" | "photo">("checkbox");
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch employees at the location
@@ -97,8 +135,15 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
   const resetForm = () => {
     setTitle("");
     setDescription("");
-    setDuration("none");
     setAccentColor("#8B5CF6");
+    setTaskStyle("standard");
+    setDuration("none");
+    setDaysOfWeek([1, 2, 3, 4, 5]);
+    setFrequencyType("60");
+    setCustomTimes([]);
+    setNewCustomTime("");
+    setNotifyOnlyWorking(true);
+    setPushEnabled(true);
     setAssignmentType("employees");
     setSelectedEmployees([]);
     setSelectedRoles([]);
@@ -124,6 +169,25 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
     setSubtasks(subtasks.filter((_, i) => i !== index));
   };
 
+  const handleAddCustomTime = () => {
+    if (newCustomTime && !customTimes.includes(newCustomTime)) {
+      setCustomTimes([...customTimes, newCustomTime].sort());
+      setNewCustomTime("");
+    }
+  };
+
+  const handleRemoveCustomTime = (time: string) => {
+    setCustomTimes(customTimes.filter(t => t !== time));
+  };
+
+  const toggleDayOfWeek = (day: number) => {
+    setDaysOfWeek(prev =>
+      prev.includes(day)
+        ? prev.filter(d => d !== day)
+        : [...prev, day].sort((a, b) => a - b)
+    );
+  };
+
   const handleSubmit = async () => {
     if (!title.trim()) {
       toast.error("Please enter a task title");
@@ -140,27 +204,56 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
       return;
     }
 
+    if (taskStyle === "alarm") {
+      if (daysOfWeek.length === 0) {
+        toast.error("Please select at least one day of the week");
+        return;
+      }
+      if (frequencyType === "custom" && customTimes.length === 0) {
+        toast.error("Please add at least one custom time");
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     
     try {
-      // Calculate expiry time
-      const durationOption = DURATION_OPTIONS.find(d => d.value === duration);
+      // Calculate expiry time (only for standard tasks)
       let expiresAt = null;
-      if (durationOption?.hours) {
-        expiresAt = new Date(Date.now() + durationOption.hours * 60 * 60 * 1000).toISOString();
+      if (taskStyle === "standard") {
+        const durationOption = DURATION_OPTIONS.find(d => d.value === duration);
+        if (durationOption?.hours) {
+          expiresAt = new Date(Date.now() + durationOption.hours * 60 * 60 * 1000).toISOString();
+        }
+      }
+
+      // Prepare task data
+      const taskData: any = {
+        location_id: currentLocation!.id,
+        title: title.trim(),
+        description: description.trim() || null,
+        accent_color: accentColor,
+        created_by: user!.id,
+        task_style: taskStyle,
+        is_recurring: taskStyle === "alarm",
+      };
+
+      if (taskStyle === "standard") {
+        taskData.expires_at = expiresAt;
+      } else {
+        // Alarm task fields
+        taskData.days_of_week = daysOfWeek;
+        taskData.frequency_type = frequencyType === "custom" ? "custom" : "interval";
+        taskData.frequency_minutes = frequencyType !== "custom" ? parseInt(frequencyType) : null;
+        taskData.custom_times = frequencyType === "custom" ? customTimes : null;
+        taskData.notify_only_working = notifyOnlyWorking;
+        taskData.push_enabled = pushEnabled;
       }
 
       // Create the task
       const { data: task, error: taskError } = await supabase
         .from('temporary_tasks')
-        .insert({
-          location_id: currentLocation!.id,
-          title: title.trim(),
-          description: description.trim() || null,
-          accent_color: accentColor,
-          created_by: user!.id,
-          expires_at: expiresAt,
-        })
+        .insert(taskData)
         .select()
         .single();
 
@@ -193,7 +286,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
         if (subtaskError) throw subtaskError;
       }
 
-      toast.success("Temporary task created");
+      toast.success(taskStyle === "alarm" ? "Alarm task created" : "Quick task created");
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
@@ -224,10 +317,43 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create Temporary Task</DialogTitle>
+          <DialogTitle>Create Quick Task</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {/* Task Style Toggle */}
+          <div className="space-y-2">
+            <Label>Task Style</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={taskStyle === "standard" ? "default" : "outline"}
+                size="sm"
+                className="gap-2 flex-1"
+                onClick={() => setTaskStyle("standard")}
+              >
+                <ClipboardList className="h-4 w-4" />
+                Standard
+              </Button>
+              <Button
+                type="button"
+                variant={taskStyle === "alarm" ? "default" : "outline"}
+                size="sm"
+                className="gap-2 flex-1"
+                onClick={() => setTaskStyle("alarm")}
+              >
+                <AlarmClock className="h-4 w-4" />
+                Alarm
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {taskStyle === "standard" 
+                ? "One-time task that stays until completed or expired"
+                : "Recurring task with scheduled reminders for clocked-in staff"
+              }
+            </p>
+          </div>
+
           {/* Title */}
           <div className="space-y-2">
             <Label htmlFor="title">Task Title *</Label>
@@ -251,52 +377,190 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
             />
           </div>
 
-          {/* Duration & Color Row */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Visibility Duration</Label>
-              <Select value={duration} onValueChange={setDuration}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DURATION_OPTIONS.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Accent Color</Label>
-              <Select value={accentColor} onValueChange={setAccentColor}>
-                <SelectTrigger>
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-4 h-4 rounded-full" 
-                      style={{ backgroundColor: accentColor }}
-                    />
+          {/* Standard Task: Duration */}
+          {taskStyle === "standard" && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Visibility Duration</Label>
+                <Select value={duration} onValueChange={setDuration}>
+                  <SelectTrigger>
                     <SelectValue />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {ACCENT_COLORS.map(color => (
-                    <SelectItem key={color.value} value={color.value}>
-                      <div className="flex items-center gap-2">
-                        <div 
-                          className="w-4 h-4 rounded-full" 
-                          style={{ backgroundColor: color.value }}
-                        />
-                        {color.label}
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DURATION_OPTIONS.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Accent Color</Label>
+                <Select value={accentColor} onValueChange={setAccentColor}>
+                  <SelectTrigger>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-4 h-4 rounded-full" 
+                        style={{ backgroundColor: accentColor }}
+                      />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCENT_COLORS.map(color => (
+                      <SelectItem key={color.value} value={color.value}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-4 h-4 rounded-full" 
+                            style={{ backgroundColor: color.value }}
+                          />
+                          {color.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Alarm Task: Days of Week */}
+          {taskStyle === "alarm" && (
+            <>
+              <div className="space-y-2">
+                <Label>Active Days *</Label>
+                <div className="flex gap-1">
+                  {DAYS_OF_WEEK.map(day => (
+                    <Button
+                      key={day.value}
+                      type="button"
+                      size="sm"
+                      variant={daysOfWeek.includes(day.value) ? "default" : "outline"}
+                      className="flex-1 px-1 text-xs"
+                      onClick={() => toggleDayOfWeek(day.value)}
+                    >
+                      {day.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Frequency */}
+              <div className="space-y-2">
+                <Label>Reminder Frequency</Label>
+                <Select value={frequencyType} onValueChange={setFrequencyType}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FREQUENCY_OPTIONS.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Custom Times */}
+              {frequencyType === "custom" && (
+                <div className="space-y-2">
+                  <Label>Custom Times</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="time"
+                      value={newCustomTime}
+                      onChange={(e) => setNewCustomTime(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button 
+                      type="button" 
+                      size="icon" 
+                      variant="outline"
+                      onClick={handleAddCustomTime}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {customTimes.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {customTimes.map(time => (
+                        <Badge key={time} variant="secondary" className="gap-1">
+                          {time}
+                          <X 
+                            className="h-3 w-3 cursor-pointer" 
+                            onClick={() => handleRemoveCustomTime(time)}
+                          />
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Accent Color for Alarm */}
+              <div className="space-y-2">
+                <Label>Accent Color</Label>
+                <Select value={accentColor} onValueChange={setAccentColor}>
+                  <SelectTrigger>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-4 h-4 rounded-full" 
+                        style={{ backgroundColor: accentColor }}
+                      />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ACCENT_COLORS.map(color => (
+                      <SelectItem key={color.value} value={color.value}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-4 h-4 rounded-full" 
+                            style={{ backgroundColor: color.value }}
+                          />
+                          {color.label}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Only Working Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Only notify working staff</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Only sends to assigned staff who are clocked in or on break
+                  </p>
+                </div>
+                <Switch
+                  checked={notifyOnlyWorking}
+                  onCheckedChange={setNotifyOnlyWorking}
+                />
+              </div>
+
+              {/* Push Notification Toggle */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Bell className="h-4 w-4 text-muted-foreground" />
+                  <div className="space-y-0.5">
+                    <Label>Push notifications</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Send push notification at each reminder time
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={pushEnabled}
+                  onCheckedChange={setPushEnabled}
+                />
+              </div>
+            </>
+          )}
 
           {/* Assignment Type */}
           <div className="space-y-2">
@@ -464,7 +728,7 @@ export function CreateTemporaryTaskDialog({ open, onOpenChange, onSuccess }: Cre
             Cancel
           </Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "Creating..." : "Create Task"}
+            {isSubmitting ? "Creating..." : taskStyle === "alarm" ? "Create Alarm" : "Create Task"}
           </Button>
         </DialogFooter>
       </DialogContent>

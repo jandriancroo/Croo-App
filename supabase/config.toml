@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.sync-live-sales]
 verify_jwt = false
+
+[functions.trigger-alarm-tasks]
+verify_jwt = false

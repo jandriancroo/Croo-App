@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      alarm_task_completions: {
+        Row: {
+          completed_at: string
+          completed_by: string
+          created_at: string
+          id: string
+          interval_key: string
+          task_id: string
+        }
+        Insert: {
+          completed_at?: string
+          completed_by: string
+          created_at?: string
+          id?: string
+          interval_key: string
+          task_id: string
+        }
+        Update: {
+          completed_at?: string
+          completed_by?: string
+          created_at?: string
+          id?: string
+          interval_key?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alarm_task_completions_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alarm_task_completions_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "temporary_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       announcement_reads: {
         Row: {
           chat_id: string
@@ -3106,12 +3148,21 @@ export type Database = {
           completed_by: string | null
           created_at: string
           created_by: string
+          custom_times: string[] | null
+          days_of_week: number[] | null
           description: string | null
           expires_at: string | null
+          frequency_minutes: number | null
+          frequency_type: string | null
           icon_name: string | null
           id: string
           is_active: boolean
+          is_recurring: boolean
+          last_triggered_at: string | null
           location_id: string
+          notify_only_working: boolean
+          push_enabled: boolean
+          task_style: string
           title: string
         }
         Insert: {
@@ -3123,12 +3174,21 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           created_by: string
+          custom_times?: string[] | null
+          days_of_week?: number[] | null
           description?: string | null
           expires_at?: string | null
+          frequency_minutes?: number | null
+          frequency_type?: string | null
           icon_name?: string | null
           id?: string
           is_active?: boolean
+          is_recurring?: boolean
+          last_triggered_at?: string | null
           location_id: string
+          notify_only_working?: boolean
+          push_enabled?: boolean
+          task_style?: string
           title: string
         }
         Update: {
@@ -3140,12 +3200,21 @@ export type Database = {
           completed_by?: string | null
           created_at?: string
           created_by?: string
+          custom_times?: string[] | null
+          days_of_week?: number[] | null
           description?: string | null
           expires_at?: string | null
+          frequency_minutes?: number | null
+          frequency_type?: string | null
           icon_name?: string | null
           id?: string
           is_active?: boolean
+          is_recurring?: boolean
+          last_triggered_at?: string | null
           location_id?: string
+          notify_only_working?: boolean
+          push_enabled?: boolean
+          task_style?: string
           title?: string
         }
         Relationships: [
