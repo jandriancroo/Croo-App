@@ -2496,11 +2496,65 @@ export type Database = {
         }
         Relationships: []
       }
+      sales_aggregates: {
+        Row: {
+          aggregate_type: string
+          avg_daily_sales: number | null
+          created_at: string
+          days_with_sales: number
+          guest_count: number
+          id: string
+          location_id: string
+          net_sales: number
+          period_end: string
+          period_start: string
+          pizza_count: number
+          updated_at: string
+        }
+        Insert: {
+          aggregate_type: string
+          avg_daily_sales?: number | null
+          created_at?: string
+          days_with_sales?: number
+          guest_count?: number
+          id?: string
+          location_id: string
+          net_sales?: number
+          period_end: string
+          period_start: string
+          pizza_count?: number
+          updated_at?: string
+        }
+        Update: {
+          aggregate_type?: string
+          avg_daily_sales?: number | null
+          created_at?: string
+          days_with_sales?: number
+          guest_count?: number
+          id?: string
+          location_id?: string
+          net_sales?: number
+          period_end?: string
+          period_start?: string
+          pizza_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sales_aggregates_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_cache: {
         Row: {
           avg_ticket: number | null
           created_at: string
           fetched_at: string
+          flagged_no_sales: boolean | null
           guest_count: number
           hourly_data: Json | null
           id: string
@@ -2509,11 +2563,17 @@ export type Database = {
           pizza_count: number
           projected_sales: number | null
           sale_date: string
+          validation_attempts: number | null
+          validation_status: string | null
+          yoy_hourly_data: Json | null
+          yoy_net_sales: number | null
+          yoy_sale_date: string | null
         }
         Insert: {
           avg_ticket?: number | null
           created_at?: string
           fetched_at?: string
+          flagged_no_sales?: boolean | null
           guest_count?: number
           hourly_data?: Json | null
           id?: string
@@ -2522,11 +2582,17 @@ export type Database = {
           pizza_count?: number
           projected_sales?: number | null
           sale_date: string
+          validation_attempts?: number | null
+          validation_status?: string | null
+          yoy_hourly_data?: Json | null
+          yoy_net_sales?: number | null
+          yoy_sale_date?: string | null
         }
         Update: {
           avg_ticket?: number | null
           created_at?: string
           fetched_at?: string
+          flagged_no_sales?: boolean | null
           guest_count?: number
           hourly_data?: Json | null
           id?: string
@@ -2535,6 +2601,11 @@ export type Database = {
           pizza_count?: number
           projected_sales?: number | null
           sale_date?: string
+          validation_attempts?: number | null
+          validation_status?: string | null
+          yoy_hourly_data?: Json | null
+          yoy_net_sales?: number | null
+          yoy_sale_date?: string | null
         }
         Relationships: [
           {

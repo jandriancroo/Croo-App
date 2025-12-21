@@ -12,13 +12,48 @@ interface QuBeyondCredentials {
   location_id?: string;
 }
 
+interface HourlyData {
+  hour: string;
+  sales: number;
+  checksCount: number;
+}
+
 interface DaySalesData {
   dateStr: string;
   dayOfWeek: number;
-  hourlyData: { hour: string; sales: number; checksCount: number }[];
+  hourlyData: HourlyData[];
   netSales: number;
   guestCount: number;
   pizzaCount: number;
+  validationStatus: 'valid' | 'pending' | 'flagged';
+  validationAttempts: number;
+}
+
+// Major US holidays where stores are typically closed
+const CLOSED_HOLIDAYS = [
+  // Thanksgiving (4th Thursday of November) and Christmas
+  // We check by month-day for Christmas, dynamically calculate Thanksgiving
+];
+
+function isKnownClosedHoliday(dateStr: string): boolean {
+  const date = new Date(dateStr + 'T12:00:00');
+  const month = date.getMonth() + 1; // 1-based
+  const day = date.getDate();
+  const dayOfWeek = date.getDay();
+  
+  // Christmas
+  if (month === 12 && day === 25) return true;
+  
+  // Thanksgiving (4th Thursday of November)
+  if (month === 11 && dayOfWeek === 4) {
+    // Find which Thursday this is
+    const firstOfMonth = new Date(date.getFullYear(), 10, 1);
+    const firstThursday = (4 - firstOfMonth.getDay() + 7) % 7 + 1;
+    const fourthThursday = firstThursday + 21;
+    if (day === fourthThursday) return true;
+  }
+  
+  return false;
 }
 
 function decodeJwtPayload(token: string): Record<string, unknown> {
@@ -39,20 +74,41 @@ function getSeededRandomFactor(seed: string): number {
     hash = hash & hash;
   }
   const normalized = Math.abs(hash % 1000) / 1000;
-  // Map to -3% to +2% range (0.97 to 1.02)
   return 0.97 + (normalized * 0.05);
 }
 
-// Authenticate with QuBeyond
+// Get same weekday in same week of year from last year
+function getYoYComparisonDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T12:00:00');
+  const dayOfWeek = date.getDay();
+  
+  // Get ISO week number for current date
+  const startOfYear = new Date(date.getFullYear(), 0, 1);
+  const days = Math.floor((date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+  const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+  
+  // Find the same week of last year
+  const lastYear = date.getFullYear() - 1;
+  const startOfLastYear = new Date(lastYear, 0, 1);
+  
+  // Find first day of that week in last year
+  const daysToAdd = (weekNumber - 1) * 7 - startOfLastYear.getDay();
+  const weekStart = new Date(lastYear, 0, 1 + daysToAdd);
+  
+  // Add days to get to the same day of week
+  weekStart.setDate(weekStart.getDate() + dayOfWeek);
+  
+  const year = weekStart.getFullYear();
+  const month = String(weekStart.getMonth() + 1).padStart(2, '0');
+  const day = String(weekStart.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 async function authenticateQuBeyond(username: string, password: string): Promise<{ tokenGw: string; qbLocationId: string } | null> {
-  console.log('[AUTH] Starting QuBeyond authentication...');
+  console.log('[BACKFILL] Starting QuBeyond authentication...');
   
   const loginPayload = {
-    payload: {
-      username,
-      password,
-      captchaToken: ''
-    }
+    payload: { username, password, captchaToken: '' }
   };
   
   const loginResponse = await fetch('https://admin.qubeyond.com/api/auth/login', {
@@ -68,20 +124,20 @@ async function authenticateQuBeyond(username: string, password: string): Promise
   });
 
   if (!loginResponse.ok) {
-    console.error('[AUTH] Authentication failed:', loginResponse.status);
+    console.error('[BACKFILL] Authentication failed:', loginResponse.status);
     return null;
   }
 
   const loginData = await loginResponse.json();
   if (!loginData.token) {
-    console.error('[AUTH] No token in login response');
+    console.error('[BACKFILL] No token in login response');
     return null;
   }
 
   const jwtPayload = decodeJwtPayload(loginData.token);
   const tokenGw = jwtPayload.tokenGw as string;
   if (!tokenGw) {
-    console.error('[AUTH] No tokenGw found in JWT payload');
+    console.error('[BACKFILL] No tokenGw found in JWT payload');
     return null;
   }
 
@@ -94,16 +150,15 @@ async function authenticateQuBeyond(username: string, password: string): Promise
     qbLocationId = (user.locationId || user.storeId || user.defaultLocation) as string || '';
   }
   
-  console.log(`[AUTH] Authenticated successfully, location ID: ${qbLocationId}`);
+  console.log(`[BACKFILL] Authenticated successfully, location ID: ${qbLocationId}`);
   return { tokenGw, qbLocationId };
 }
 
-// Fetch hourly sales for a specific day
 async function fetchHourlySales(
   tokenGw: string, 
   dateStr: string,
   qbLocationId: string
-): Promise<{ hour: string; sales: number; checksCount: number }[]> {
+): Promise<HourlyData[]> {
   const requestPayload = {
     fields: [
       { fieldName: "hour" }, { fieldName: "checksCount" }, { fieldName: "netSales" },
@@ -130,12 +185,10 @@ async function fetchHourlySales(
     body: JSON.stringify(requestPayload),
   });
 
-  if (!response.ok) {
-    return [];
-  }
+  if (!response.ok) return [];
 
   const data = await response.json();
-  const hourlyData: { hour: string; sales: number; checksCount: number }[] = [];
+  const hourlyData: HourlyData[] = [];
 
   const convertTo24Hour = (time12h: string): string => {
     const match = time12h.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
@@ -160,7 +213,6 @@ async function fetchHourlySales(
   return hourlyData;
 }
 
-// Fetch product mix for a specific day to get pizza count
 async function fetchProductMix(
   tokenGw: string, 
   dateStr: string,
@@ -178,29 +230,21 @@ async function fetchProductMix(
       },
       body: JSON.stringify({
         fields: [
-          { fieldName: "itemGroup" },
-          { fieldName: "itemName" },
-          { fieldName: "quantity" },
-          { fieldName: "netSales" }
+          { fieldName: "itemGroup" }, { fieldName: "itemName" },
+          { fieldName: "quantity" }, { fieldName: "netSales" }
         ],
         filters: {
           date: { from: null, to: null, values: [dateStr], type: "custom" },
           singleLocation: parseInt(qbLocationId)
         },
         params: {
-          sectionId: "main",
-          pageNumber: 1,
-          pageSize: 200,
-          totalRecords: null,
-          sort: [{ field: "netSales", dir: "desc" }],
-          showTotals: true
+          sectionId: "main", pageNumber: 1, pageSize: 200,
+          totalRecords: null, sort: [{ field: "netSales", dir: "desc" }], showTotals: true
         }
       }),
     });
 
-    if (!response.ok) {
-      return 0;
-    }
+    if (!response.ok) return 0;
 
     const data = await response.json();
     const products: { name: string; quantity: number; category: string }[] = [];
@@ -208,37 +252,20 @@ async function fetchProductMix(
     const addRow = (row: any, fallbackCategory?: string) => {
       const name = row.itemName || row.productName || row.name || '';
       if (!name || name === 'Totals') return;
-
-      const category =
-        row.itemGroupName ||
-        row.itemGroup ||
-        row.categoryName ||
-        row.category ||
-        fallbackCategory ||
-        '';
-
+      const category = row.itemGroupName || row.itemGroup || row.categoryName || row.category || fallbackCategory || '';
       const quantity = parseFloat(String(row.quantity || '0').replace(/,/g, '')) || 0;
-
-      if (quantity > 0) {
-        products.push({ name, quantity, category });
-      }
+      if (quantity > 0) products.push({ name, quantity, category });
     };
 
     if (data.items && Array.isArray(data.items)) {
       for (const item of data.items) {
         if (item.items && Array.isArray(item.items)) {
           const groupName = item.itemGroupName || item.itemGroup || item.categoryName || item.category || '';
-          for (const child of item.items) {
-            addRow(child, groupName);
-          }
-        } else {
-          addRow(item);
-        }
+          for (const child of item.items) addRow(child, groupName);
+        } else addRow(item);
       }
     }
     
-    // Calculate pizza count from "Crusts" category
-    // Items with "1/2" in the name count as 0.5 pizzas each
     const pizzaCount = products
       .filter(item => item.category.toLowerCase() === 'crusts')
       .reduce((sum, item) => {
@@ -253,7 +280,65 @@ async function fetchProductMix(
   }
 }
 
-// Get dates for backfill (last 365 days)
+// Fetch a single day's data with retry logic
+async function fetchDayData(
+  tokenGw: string,
+  qbLocationId: string,
+  dateStr: string,
+  maxRetries: number = 3
+): Promise<DaySalesData> {
+  const date = new Date(dateStr + 'T12:00:00');
+  let attempts = 0;
+  let lastResult: DaySalesData | null = null;
+  
+  while (attempts < maxRetries) {
+    attempts++;
+    
+    const [hourlyData, pizzaCount] = await Promise.all([
+      fetchHourlySales(tokenGw, dateStr, qbLocationId),
+      fetchProductMix(tokenGw, dateStr, qbLocationId)
+    ]);
+    
+    const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
+    const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
+    
+    lastResult = {
+      dateStr,
+      dayOfWeek: date.getDay(),
+      hourlyData,
+      netSales,
+      guestCount,
+      pizzaCount,
+      validationStatus: 'pending',
+      validationAttempts: attempts
+    };
+    
+    // If we got sales, it's valid
+    if (netSales > 0) {
+      lastResult.validationStatus = 'valid';
+      return lastResult;
+    }
+    
+    // Known holiday - valid zero
+    if (isKnownClosedHoliday(dateStr)) {
+      lastResult.validationStatus = 'valid';
+      return lastResult;
+    }
+    
+    // Wait before retry
+    if (attempts < maxRetries) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+  }
+  
+  // After max retries, flag if still zero
+  if (lastResult && lastResult.netSales === 0 && !isKnownClosedHoliday(dateStr)) {
+    lastResult.validationStatus = 'flagged';
+  }
+  
+  return lastResult!;
+}
+
 function getBackfillDates(daysBack: number = 365): string[] {
   const dates: string[] = [];
   const today = new Date();
@@ -270,73 +355,71 @@ function getBackfillDates(daysBack: number = 365): string[] {
   return dates;
 }
 
-// Calculate 4-week rolling average for each day of week
-function calculate4WeekAverages(
+// Calculate weekly aggregates
+function calculateWeeklyAggregates(
   allData: DaySalesData[],
-  targetDateStr: string,
   locationId: string
-): { avgByDayOfWeek: Map<number, number>; hourlyPatternByDayOfWeek: Map<number, { hour: number; avgPercent: number }[]> } {
-  const targetDate = new Date(targetDateStr + 'T12:00:00');
+): { period_start: string; period_end: string; net_sales: number; guest_count: number; pizza_count: number; days_with_sales: number }[] {
+  const weeklyMap = new Map<string, { start: Date; end: Date; sales: number; guests: number; pizzas: number; daysWithSales: number }>();
   
-  // Get data from 4 weeks before target date
-  const fourWeeksAgo = new Date(targetDate);
-  fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-  
-  const relevantData = allData.filter(d => {
-    const date = new Date(d.dateStr + 'T12:00:00');
-    return date >= fourWeeksAgo && date < targetDate && d.netSales > 0;
-  });
-  
-  // Group by day of week
-  const byDayOfWeek = new Map<number, DaySalesData[]>();
-  for (let dow = 0; dow < 7; dow++) {
-    byDayOfWeek.set(dow, []);
+  for (const day of allData) {
+    const date = new Date(day.dateStr + 'T12:00:00');
+    // Get start of week (Sunday)
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - date.getDay());
+    const weekKey = weekStart.toISOString().split('T')[0];
+    
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    
+    const existing = weeklyMap.get(weekKey) || { start: weekStart, end: weekEnd, sales: 0, guests: 0, pizzas: 0, daysWithSales: 0 };
+    existing.sales += day.netSales;
+    existing.guests += day.guestCount;
+    existing.pizzas += day.pizzaCount;
+    if (day.netSales > 0) existing.daysWithSales++;
+    weeklyMap.set(weekKey, existing);
   }
   
-  for (const d of relevantData) {
-    const arr = byDayOfWeek.get(d.dayOfWeek) || [];
-    arr.push(d);
-    byDayOfWeek.set(d.dayOfWeek, arr);
+  return Array.from(weeklyMap.entries()).map(([key, val]) => ({
+    period_start: key,
+    period_end: val.end.toISOString().split('T')[0],
+    net_sales: val.sales,
+    guest_count: val.guests,
+    pizza_count: val.pizzas,
+    days_with_sales: val.daysWithSales
+  }));
+}
+
+// Calculate monthly aggregates
+function calculateMonthlyAggregates(
+  allData: DaySalesData[],
+  locationId: string
+): { period_start: string; period_end: string; net_sales: number; guest_count: number; pizza_count: number; days_with_sales: number }[] {
+  const monthlyMap = new Map<string, { start: Date; end: Date; sales: number; guests: number; pizzas: number; daysWithSales: number }>();
+  
+  for (const day of allData) {
+    const date = new Date(day.dateStr + 'T12:00:00');
+    const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+    const monthKey = monthStart.toISOString().split('T')[0];
+    
+    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    
+    const existing = monthlyMap.get(monthKey) || { start: monthStart, end: monthEnd, sales: 0, guests: 0, pizzas: 0, daysWithSales: 0 };
+    existing.sales += day.netSales;
+    existing.guests += day.guestCount;
+    existing.pizzas += day.pizzaCount;
+    if (day.netSales > 0) existing.daysWithSales++;
+    monthlyMap.set(monthKey, existing);
   }
   
-  // Calculate averages
-  const avgByDayOfWeek = new Map<number, number>();
-  const hourlyPatternByDayOfWeek = new Map<number, { hour: number; avgPercent: number }[]>();
-  
-  for (let dow = 0; dow < 7; dow++) {
-    const days = byDayOfWeek.get(dow) || [];
-    if (days.length === 0) {
-      avgByDayOfWeek.set(dow, 0);
-      hourlyPatternByDayOfWeek.set(dow, []);
-      continue;
-    }
-    
-    const totalSales = days.reduce((sum, d) => sum + d.netSales, 0);
-    const avgSales = totalSales / days.length;
-    avgByDayOfWeek.set(dow, avgSales);
-    
-    // Calculate hourly pattern as percentage of daily total
-    const hourlyTotals = new Map<number, { sales: number; count: number }>();
-    for (const d of days) {
-      for (const h of d.hourlyData) {
-        const hourNum = parseInt(h.hour.split(':')[0]);
-        const existing = hourlyTotals.get(hourNum) || { sales: 0, count: 0 };
-        existing.sales += h.sales;
-        existing.count += 1;
-        hourlyTotals.set(hourNum, existing);
-      }
-    }
-    
-    const pattern: { hour: number; avgPercent: number }[] = [];
-    for (const [hour, data] of hourlyTotals.entries()) {
-      const avgHourlySales = data.sales / data.count;
-      const percent = avgSales > 0 ? avgHourlySales / avgSales : 0;
-      pattern.push({ hour, avgPercent: percent });
-    }
-    hourlyPatternByDayOfWeek.set(dow, pattern.sort((a, b) => a.hour - b.hour));
-  }
-  
-  return { avgByDayOfWeek, hourlyPatternByDayOfWeek };
+  return Array.from(monthlyMap.entries()).map(([key, val]) => ({
+    period_start: key,
+    period_end: val.end.toISOString().split('T')[0],
+    net_sales: val.sales,
+    guest_count: val.guests,
+    pizza_count: val.pizzas,
+    days_with_sales: val.daysWithSales
+  }));
 }
 
 serve(async (req) => {
@@ -354,7 +437,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[BACKFILL] Starting backfill for location ${locationId}`);
+    console.log(`[BACKFILL] Starting full 365-day backfill for location ${locationId}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -383,7 +466,8 @@ serve(async (req) => {
       .update({
         backfill_status: 'in_progress',
         backfill_started_at: new Date().toISOString(),
-        backfill_error: null
+        backfill_error: null,
+        backfill_days_completed: 0
       })
       .eq('id', integrationId);
 
@@ -404,92 +488,63 @@ serve(async (req) => {
     const qbLocationId = credentials.location_id || auth.qbLocationId;
     const dates = getBackfillDates(365);
     
-    console.log(`[BACKFILL] Will fetch ${dates.length} days of data`);
+    console.log(`[BACKFILL] Will fetch ${dates.length} days of data with validation`);
 
-    // PHASE 1: Fetch all raw data first
+    // PHASE 1: Fetch all data with retry logic
     const allRawData: DaySalesData[] = [];
-    const BATCH_SIZE = 7;
+    const BATCH_SIZE = 5; // Smaller batches for more reliable fetching
     let daysCompleted = 0;
+    let daysWithSales = 0;
 
     for (let i = 0; i < dates.length; i += BATCH_SIZE) {
       const batch = dates.slice(i, i + BATCH_SIZE);
       
       const batchResults = await Promise.all(
-        batch.map(async (dateStr) => {
-          try {
-            const [hourlyData, pizzaCount] = await Promise.all([
-              fetchHourlySales(auth.tokenGw, dateStr, qbLocationId),
-              fetchProductMix(auth.tokenGw, dateStr, qbLocationId)
-            ]);
-            const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
-            const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
-            const date = new Date(dateStr + 'T12:00:00');
-            
-            return {
-              dateStr,
-              dayOfWeek: date.getDay(),
-              hourlyData,
-              netSales,
-              guestCount,
-              pizzaCount
-            };
-          } catch (error) {
-            console.error(`[BACKFILL] Error fetching ${dateStr}:`, error);
-            return null;
-          }
-        })
+        batch.map(dateStr => fetchDayData(auth.tokenGw, qbLocationId, dateStr, 3))
       );
 
       for (const result of batchResults) {
-        if (result) allRawData.push(result);
+        if (result) {
+          allRawData.push(result);
+          if (result.netSales > 0) daysWithSales++;
+        }
       }
 
       daysCompleted += batch.length;
       
       await supabase
         .from('location_integrations')
-        .update({ backfill_days_completed: Math.floor(daysCompleted / 2) }) // Show as 50% during fetch phase
+        .update({ 
+          backfill_days_completed: daysCompleted,
+          backfill_error: `Fetching: ${daysWithSales}/${daysCompleted} days with sales`
+        })
         .eq('id', integrationId);
       
-      console.log(`[BACKFILL] Fetch progress: ${daysCompleted}/${dates.length} days`);
+      console.log(`[BACKFILL] Progress: ${daysCompleted}/${dates.length} days (${daysWithSales} with sales)`);
       
       if (i + BATCH_SIZE < dates.length) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
     }
 
-    console.log(`[BACKFILL] Fetched ${allRawData.length} days, now calculating projections...`);
+    console.log(`[BACKFILL] Fetched ${allRawData.length} days (${daysWithSales} with sales), building YoY references...`);
 
-    // Sort by date (oldest first) for proper 4-week lookback
+    // Sort by date (oldest first)
     allRawData.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
 
-    // PHASE 2: Calculate projections and save to database
+    // Create a lookup map for YoY
+    const dataByDate = new Map<string, DaySalesData>();
+    for (const d of allRawData) {
+      dataByDate.set(d.dateStr, d);
+    }
+
+    // PHASE 2: Save to database with YoY references
     const cacheRecords = [];
     
-    for (let i = 0; i < allRawData.length; i++) {
-      const dayData = allRawData[i];
-      
-      // Calculate 4-week average for this date
-      const { avgByDayOfWeek, hourlyPatternByDayOfWeek } = calculate4WeekAverages(
-        allRawData,
-        dayData.dateStr,
-        locationId
-      );
-      
-      const avgForDayOfWeek = avgByDayOfWeek.get(dayData.dayOfWeek) || 0;
-      const hourlyPattern = hourlyPatternByDayOfWeek.get(dayData.dayOfWeek) || [];
-      
-      // Apply seeded random factor for projected sales
-      const randomFactor = getSeededRandomFactor(`${dayData.dateStr}-${locationId}`);
-      const projectedSales = Math.round(avgForDayOfWeek * randomFactor);
-      
-      // Add projections to hourly data
-      const hourlyWithProjections = dayData.hourlyData.map(h => {
-        const hourNum = parseInt(h.hour.split(':')[0]);
-        const pattern = hourlyPattern.find(p => p.hour === hourNum);
-        const hourlyProjected = pattern ? Math.round(projectedSales * pattern.avgPercent) : 0;
-        return { ...h, projected: hourlyProjected };
-      });
+    for (const dayData of allRawData) {
+      // Get YoY comparison date
+      const yoyDateStr = getYoYComparisonDate(dayData.dateStr);
+      const yoyData = dataByDate.get(yoyDateStr);
       
       const avgTicket = dayData.guestCount > 0 ? dayData.netSales / dayData.guestCount : null;
       
@@ -500,13 +555,19 @@ serve(async (req) => {
         guest_count: dayData.guestCount,
         pizza_count: dayData.pizzaCount,
         avg_ticket: avgTicket,
-        hourly_data: hourlyWithProjections,
-        projected_sales: projectedSales,
-        fetched_at: new Date().toISOString()
+        hourly_data: dayData.hourlyData,
+        projected_sales: 0, // Will be calculated on-demand with new formula
+        fetched_at: new Date().toISOString(),
+        validation_status: dayData.validationStatus,
+        validation_attempts: dayData.validationAttempts,
+        flagged_no_sales: dayData.validationStatus === 'flagged',
+        yoy_sale_date: yoyData ? yoyDateStr : null,
+        yoy_net_sales: yoyData?.netSales || null,
+        yoy_hourly_data: yoyData?.hourlyData || null
       });
     }
 
-    // Save in batches
+    // Save daily data in batches
     const SAVE_BATCH_SIZE = 50;
     for (let i = 0; i < cacheRecords.length; i += SAVE_BATCH_SIZE) {
       const batch = cacheRecords.slice(i, i + SAVE_BATCH_SIZE);
@@ -518,28 +579,73 @@ serve(async (req) => {
       if (upsertError) {
         console.error('[BACKFILL] Upsert error:', upsertError);
       }
-      
-      const progress = Math.floor(50 + (i / cacheRecords.length) * 50);
+    }
+
+    // PHASE 3: Calculate and save weekly/monthly aggregates
+    console.log('[BACKFILL] Calculating weekly and monthly aggregates...');
+    
+    const weeklyAggregates = calculateWeeklyAggregates(allRawData, locationId);
+    const monthlyAggregates = calculateMonthlyAggregates(allRawData, locationId);
+    
+    // Save weekly aggregates
+    for (const week of weeklyAggregates) {
+      const avgDaily = week.days_with_sales > 0 ? week.net_sales / week.days_with_sales : null;
       await supabase
-        .from('location_integrations')
-        .update({ backfill_days_completed: progress })
-        .eq('id', integrationId);
+        .from('sales_aggregates')
+        .upsert({
+          location_id: locationId,
+          aggregate_type: 'weekly',
+          period_start: week.period_start,
+          period_end: week.period_end,
+          net_sales: week.net_sales,
+          guest_count: week.guest_count,
+          pizza_count: week.pizza_count,
+          avg_daily_sales: avgDaily,
+          days_with_sales: week.days_with_sales
+        }, { onConflict: 'location_id,aggregate_type,period_start' });
+    }
+    
+    // Save monthly aggregates
+    for (const month of monthlyAggregates) {
+      const avgDaily = month.days_with_sales > 0 ? month.net_sales / month.days_with_sales : null;
+      await supabase
+        .from('sales_aggregates')
+        .upsert({
+          location_id: locationId,
+          aggregate_type: 'monthly',
+          period_start: month.period_start,
+          period_end: month.period_end,
+          net_sales: month.net_sales,
+          guest_count: month.guest_count,
+          pizza_count: month.pizza_count,
+          avg_daily_sales: avgDaily,
+          days_with_sales: month.days_with_sales
+        }, { onConflict: 'location_id,aggregate_type,period_start' });
     }
 
     // Mark as complete
+    const flaggedCount = cacheRecords.filter(r => r.flagged_no_sales).length;
     await supabase
       .from('location_integrations')
       .update({
         backfill_status: 'completed',
         backfill_completed_at: new Date().toISOString(),
-        backfill_days_completed: dates.length
+        backfill_days_completed: dates.length,
+        backfill_error: flaggedCount > 0 ? `${flaggedCount} days flagged with no sales` : null
       })
       .eq('id', integrationId);
 
-    console.log(`[BACKFILL] Completed! Processed ${allRawData.length} days with projections`);
+    console.log(`[BACKFILL] Completed! ${daysWithSales}/${dates.length} days with sales, ${flaggedCount} flagged`);
 
     return new Response(
-      JSON.stringify({ success: true, daysProcessed: allRawData.length }),
+      JSON.stringify({ 
+        success: true, 
+        daysProcessed: allRawData.length,
+        daysWithSales,
+        flaggedDays: flaggedCount,
+        weeklyPeriods: weeklyAggregates.length,
+        monthlyPeriods: monthlyAggregates.length
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
