@@ -137,9 +137,9 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
             const now = new Date();
             const secondsSinceTrigger = (now.getTime() - triggeredAt.getTime()) / 1000;
             
-            // Only show if triggered within last 5 seconds
-            if (secondsSinceTrigger <= 5) {
-              const intervalKey = `${now.toISOString().split('T')[0]}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+            // Show if triggered within last 30 seconds (realtime events can arrive late)
+            if (secondsSinceTrigger <= 30) {
+              const intervalKey = `${triggeredAt.toISOString().split('T')[0]}_${String(triggeredAt.getHours()).padStart(2, '0')}${String(triggeredAt.getMinutes()).padStart(2, '0')}`;
               
               setActiveAlarm({
                 id: task.id,
@@ -153,13 +153,14 @@ export function AlarmTaskOverlay({ locationId, onComplete }: AlarmTaskOverlayPro
               // Play alarm sound
               playAlarmSound();
               
-              // Auto-dismiss after 30 seconds
+              // Auto-dismiss 30s after trigger (with a minimum of 5s)
               if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
               }
+              const remaining = Math.max(30 - secondsSinceTrigger, 5) * 1000;
               timeoutRef.current = setTimeout(() => {
                 handleDismiss();
-              }, 30000);
+              }, remaining);
             }
           }
         }
