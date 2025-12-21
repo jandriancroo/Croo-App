@@ -30,7 +30,7 @@ function decodeJwtPayload(token: string): Record<string, unknown> {
   return JSON.parse(jsonPayload);
 }
 
-// Generate deterministic seeded random factor between -2% and +3%
+// Generate deterministic seeded random factor between -3% and +2%
 function getSeededRandomFactor(seed: string): number {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
@@ -39,7 +39,8 @@ function getSeededRandomFactor(seed: string): number {
     hash = hash & hash;
   }
   const normalized = Math.abs(hash % 1000) / 1000;
-  return 0.98 + (normalized * 0.05);
+  // Map to -3% to +2% range (0.97 to 1.02)
+  return 0.97 + (normalized * 0.05);
 }
 
 // Authenticate with QuBeyond
