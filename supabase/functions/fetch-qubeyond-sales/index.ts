@@ -1740,19 +1740,22 @@ serve(async (req) => {
     
     console.log(`Pizza count (Crusts category, 1/2 items counted as 0.5): ${pizzaCount}`);
 
-    // Store calculated projections in sales_cache for future reference
-    // This ensures week and month views read from the same source
+    // Store calculated projections in sales_cache for FUTURE dates only
+    // Once a projection is saved, it should not change (immutable)
+    // Past dates already have actuals, so projections aren't needed
     if (locationId && !fastMode) {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
       const supabase = createClient(supabaseUrl, supabaseKey);
       
-      // Upsert projections for all days in current week and month
+      // Collect projections for future dates only (today and beyond)
+      const futureDates = new Set<string>();
       const allProjections: { location_id: string; sale_date: string; projected_sales: number }[] = [];
       
-      // Add weekly projections
+      // Add weekly projections for today and future
       for (const day of weeklyWithProjections) {
-        if (day.projected > 0) {
+        if (day.projected > 0 && day.date >= todayStr) {
+          futureDates.add(day.date);
           allProjections.push({
             location_id: locationId,
             sale_date: day.date,
@@ -1761,10 +1764,9 @@ serve(async (req) => {
         }
       }
       
-      // Add monthly projections (for days not in weekly)
-      const weekDates = new Set(weeklyWithProjections.map(d => d.date));
+      // Add monthly projections for future dates not in weekly
       for (const day of monthlyWithProjections) {
-        if (day.projected > 0 && !weekDates.has(day.date)) {
+        if (day.projected > 0 && day.date >= todayStr && !futureDates.has(day.date)) {
           allProjections.push({
             location_id: locationId,
             sale_date: day.date,
@@ -1773,33 +1775,69 @@ serve(async (req) => {
         }
       }
       
-      // Batch upsert projections (only update projected_sales, don't overwrite other fields)
       if (allProjections.length > 0) {
-        console.log(`Upserting ${allProjections.length} daily projections to sales_cache...`);
+        // First, check which dates already have projections saved
+        const datesToCheck = allProjections.map(p => p.sale_date);
+        const { data: existingData } = await supabase
+          .from('sales_cache')
+          .select('sale_date, projected_sales')
+          .eq('location_id', locationId)
+          .in('sale_date', datesToCheck);
         
-        // Use individual updates to only set projected_sales without overwriting other data
-        for (const proj of allProjections) {
-          const { error } = await supabase
-            .from('sales_cache')
-            .upsert({
-              location_id: proj.location_id,
-              sale_date: proj.sale_date,
-              projected_sales: proj.projected_sales,
-              // Set defaults for required fields if inserting new row
-              net_sales: 0,
-              guest_count: 0
-            }, {
-              onConflict: 'location_id,sale_date',
-              ignoreDuplicates: false
-            })
-            .select();
+        // Only save projections for dates that don't already have one
+        const existingProjections = new Set(
+          (existingData || [])
+            .filter(d => d.projected_sales && d.projected_sales > 0)
+            .map(d => d.sale_date)
+        );
+        
+        const newProjections = allProjections.filter(p => !existingProjections.has(p.sale_date));
+        
+        if (newProjections.length > 0) {
+          console.log(`Saving ${newProjections.length} NEW projections (skipping ${existingProjections.size} existing)...`);
           
-          if (error) {
-            console.error(`Failed to upsert projection for ${proj.sale_date}:`, error.message);
+          for (const proj of newProjections) {
+            // Check if row exists first
+            const { data: existing } = await supabase
+              .from('sales_cache')
+              .select('id')
+              .eq('location_id', proj.location_id)
+              .eq('sale_date', proj.sale_date)
+              .single();
+            
+            if (existing) {
+              // Row exists - only update projected_sales
+              const { error } = await supabase
+                .from('sales_cache')
+                .update({ projected_sales: proj.projected_sales })
+                .eq('location_id', proj.location_id)
+                .eq('sale_date', proj.sale_date);
+              
+              if (error) {
+                console.error(`Failed to update projection for ${proj.sale_date}:`, error.message);
+              }
+            } else {
+              // Row doesn't exist - insert new row
+              const { error } = await supabase
+                .from('sales_cache')
+                .insert({
+                  location_id: proj.location_id,
+                  sale_date: proj.sale_date,
+                  projected_sales: proj.projected_sales,
+                  net_sales: 0,
+                  guest_count: 0
+                });
+              
+              if (error) {
+                console.error(`Failed to insert projection for ${proj.sale_date}:`, error.message);
+              }
+            }
           }
+          
+          console.log('Projections stored successfully');
+        } else {
+          console.log('All projections already exist, no updates needed');
         }
-        
-        console.log('Projections stored successfully');
       }
     }
 
