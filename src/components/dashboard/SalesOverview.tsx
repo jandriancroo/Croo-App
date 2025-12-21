@@ -438,6 +438,23 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     setTargetDate(prev => direction === 'prev' ? subWeeks(prev, 1) : addWeeks(prev, 1));
   };
 
+  // Calculate Target EOW from weekly breakdown: actual sales + projected for days without actuals
+  const calculatedWeekProjected = useMemo(() => {
+    if (!salesData?.weeklyBreakdown || salesData.weeklyBreakdown.length === 0) {
+      return salesData?.projections?.weekProjected || 0;
+    }
+    
+    // Sum: for each day, use actual if > 0, otherwise use projected
+    let total = 0;
+    for (const day of salesData.weeklyBreakdown) {
+      total += day.sales > 0 ? day.sales : (day.projected || 0);
+    }
+    
+    // If we have 7 days with projections, use our calculated total
+    // Otherwise fall back to the backend's weekProjected
+    return total > 0 ? total : (salesData?.projections?.weekProjected || 0);
+  }, [salesData?.weeklyBreakdown, salesData?.projections?.weekProjected]);
+
   const navigateMonth = (direction: 'prev' | 'next') => {
     setTargetDate(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1));
   };
@@ -873,7 +890,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               {/* Croo AI Projection & Pacing & WTD Labor for Week */}
               <div className="flex flex-col gap-2 mb-2">
                 {/* Week Projection with Pacing */}
-                {salesData?.projections?.weekProjected && salesData.projections.weekProjected > 0 && (
+                {calculatedWeekProjected > 0 && (
                   <div className="flex items-stretch gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 via-purple-500/10 to-amber-500/10 border border-primary/20">
                     {/* Target EOW - Left */}
                     <div className="flex items-center gap-2 flex-1">
@@ -883,7 +900,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                       <div className="flex flex-col">
                         <span className="text-xs text-muted-foreground">Target EOW</span>
                         <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
-                          {formatCurrency(salesData.projections.weekProjected)}
+                          {formatCurrency(calculatedWeekProjected)}
                         </span>
                       </div>
                     </div>
@@ -900,7 +917,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                           <span className="text-xs text-muted-foreground">Pace</span>
                           {(() => {
                             const pacingDelta = salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected;
-                            const weekPacing = salesData.projections.weekProjected + pacingDelta;
+                            const weekPacing = calculatedWeekProjected + pacingDelta;
                             const isPositive = pacingDelta >= 0;
                             return (
                               <>
