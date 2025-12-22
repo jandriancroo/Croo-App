@@ -291,7 +291,7 @@ function getBackfillDates(daysBack: number = 365): string[] {
   return dates;
 }
 
-// Calculate weekly aggregates
+// Calculate weekly aggregates (Monday-Sunday weeks)
 function calculateWeeklyAggregates(
   allData: DaySalesData[],
   locationId: string
@@ -300,11 +300,14 @@ function calculateWeeklyAggregates(
   
   for (const day of allData) {
     const date = new Date(day.dateStr + 'T12:00:00');
-    // Get start of week (Sunday)
+    // Get start of week (Monday) - getDay() returns 0 for Sunday, so we need to adjust
+    const dayOfWeek = date.getDay();
+    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Sunday goes back 6 days, other days go back to Monday
     const weekStart = new Date(date);
-    weekStart.setDate(date.getDate() - date.getDay());
+    weekStart.setDate(date.getDate() - daysToSubtract);
     const weekKey = weekStart.toISOString().split('T')[0];
     
+    // Week ends on Sunday (6 days after Monday)
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
     
