@@ -342,30 +342,36 @@ serve(async (req) => {
         });
       }
 
-      // Upsert to sales_cache
-      const { error: upsertError } = await supabase
-        .from('sales_cache')
-        .upsert({
-          location_id: locationId,
-          sale_date: todayStr,
-          net_sales: netSales,
-          guest_count: guestCount,
-          pizza_count: pizzaCount,
-          hourly_data: formattedHourly,
-          validation_status: 'valid',
-          validation_attempts: 1,
-          flagged_no_sales: false,
-          fetched_at: new Date().toISOString()
-        }, {
-          onConflict: 'location_id,sale_date'
-        });
+      // Only upsert if we have sales data, or if no valid record exists yet
+      // This prevents early-morning zero-sales syncs from overwriting valid EOD data
+      if (netSales > 0) {
+        const { error: upsertError } = await supabase
+          .from('sales_cache')
+          .upsert({
+            location_id: locationId,
+            sale_date: todayStr,
+            net_sales: netSales,
+            guest_count: guestCount,
+            pizza_count: pizzaCount,
+            hourly_data: formattedHourly,
+            validation_status: 'valid',
+            validation_attempts: 1,
+            flagged_no_sales: false,
+            fetched_at: new Date().toISOString()
+          }, {
+            onConflict: 'location_id,sale_date'
+          });
 
-      if (upsertError) {
-        console.error(`${locationName}: Upsert error:`, upsertError);
-        results.push({ locationId, name: locationName, status: 'upsert_error' });
+        if (upsertError) {
+          console.error(`${locationName}: Upsert error:`, upsertError);
+          results.push({ locationId, name: locationName, status: 'upsert_error' });
+        } else {
+          console.log(`${locationName}: Updated - $${netSales.toFixed(2)}, ${guestCount} guests, ${pizzaCount} pizzas`);
+          results.push({ locationId, name: locationName, status: 'success', salesUpdated: netSales });
+        }
       } else {
-        console.log(`${locationName}: Updated - $${netSales.toFixed(2)}, ${guestCount} guests`);
-        results.push({ locationId, name: locationName, status: 'success', salesUpdated: netSales });
+        console.log(`${locationName}: No sales data yet (${netSales}), skipping update to preserve existing data`);
+        results.push({ locationId, name: locationName, status: 'no_sales_yet' });
       }
     }
 
