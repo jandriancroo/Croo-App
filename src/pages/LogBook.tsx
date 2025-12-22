@@ -621,6 +621,18 @@ export default function LogBook() {
                     console.error('Error generating weekly summary:', summaryError);
                   }
                 }
+
+                // Trigger daily logbook summary email (checks if both PM Safe Count and Drawer Count are done)
+                try {
+                  await supabase.functions.invoke('send-daily-logbook-summary', {
+                    body: {
+                      location_id: currentLocation?.id,
+                      entry_date: getDateInTimezone(selectedDate),
+                    }
+                  });
+                } catch (emailError) {
+                  console.error('Error triggering daily summary email:', emailError);
+                }
               } catch (error: any) {
                 toast({ title: "Error saving drawer count", description: error.message, variant: "destructive" });
               }
