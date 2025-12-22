@@ -1575,19 +1575,53 @@ serve(async (req) => {
     console.log(`Last year same day: ${lastYearTodayStr}`);
     console.log(`Last year week dates: ${lastYearWeekDates.join(', ')}`);
 
+    // === NEW APPROACH: Only fetch TODAY live, get past days from sales_cache ===
+    // For WTD/MTD, we already save each day's data to sales_cache after fetching
+    // So we only need to live-fetch today, then combine with cached past days
+    
+    // Get past WTD/MTD days from sales_cache (exclude today - we'll get that live)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const cacheSupabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Dates before today for WTD and MTD
+    const pastWeekDates = weekDates.filter(d => d < todayStr);
+    const pastMonthDates = monthDates.filter(d => d < todayStr);
+    
+    // Fetch cached data for past days
+    const allPastDates = [...new Set([...pastWeekDates, ...pastMonthDates])];
+    let cachedPastData: { sale_date: string; net_sales: number; guest_count: number }[] = [];
+    
+    if (allPastDates.length > 0 && locationId) {
+      const { data: pastCacheData } = await cacheSupabase
+        .from('sales_cache')
+        .select('sale_date, net_sales, guest_count')
+        .eq('location_id', locationId)
+        .in('sale_date', allPastDates);
+      
+      cachedPastData = pastCacheData || [];
+      console.log(`[CACHE] Loaded ${cachedPastData.length} past days from sales_cache for WTD/MTD`);
+    }
+    
+    // Build a quick lookup map for cached past days
+    const pastCacheMap = new Map<string, { sales: number; guestCount: number }>();
+    for (const row of cachedPastData) {
+      pastCacheMap.set(row.sale_date, { 
+        sales: row.net_sales || 0, 
+        guestCount: row.guest_count || 0 
+      });
+    }
+
     // Fetch hourly data for today and previous day (for real-time comparison)
+    // ONLY TODAY is fetched live - past days come from cache
     const [
       todayHourly,
       prevDayHourly,
-      weeklyBreakdown,
-      monthlyBreakdown,
       productMix,
       tillsData
     ] = await Promise.all([
       fetchHourlySales(tokenGw, todayStr, qbLocationId),
       fetchHourlySales(tokenGw, prevDayStr, qbLocationId),
-      fetchDailyBreakdown(tokenGw, weekDates, qbLocationId),
-      fetchDailyBreakdown(tokenGw, monthDates, qbLocationId),
       fetchProductMix(tokenGw, [todayStr], qbLocationId),
       fetchTillsData(tokenGw, todayStr, qbLocationId)
     ]);
@@ -1602,7 +1636,8 @@ serve(async (req) => {
     
     if (credentials.pull_labor) {
       console.log('Pull labor enabled - fetching labor data from Real Time Summary');
-      // Fetch today's labor, weekly labor, and tips data in parallel
+      // For labor, we still need to fetch all week days to get labor breakdown
+      // Labor data isn't cached in sales_cache, so we fetch it live
       const [todayLabor, weekLabor, todayTips, weekTips] = await Promise.all([
         fetchLaborData(tokenGw, todayStr, qbLocationId),
         fetchLaborDataForDates(tokenGw, weekDates, qbLocationId),
@@ -1623,7 +1658,7 @@ serve(async (req) => {
       weeklyTipsData = weekTips;
     }
 
-    // Calculate today's metrics from hourly data
+    // Calculate today's metrics from hourly data (LIVE)
     const dailySales = todayHourly.reduce((sum, h) => sum + h.sales, 0);
     const dailyGuestCount = todayHourly.reduce((sum, h) => sum + h.checksCount, 0);
     
@@ -1641,26 +1676,59 @@ serve(async (req) => {
     // Previous day full day total
     const prevDayTotalSales = prevDayHourly.reduce((sum, h) => sum + h.sales, 0);
 
-    // Calculate weekly/monthly from breakdown data (accurate guest counts)
+    // === BUILD WTD/MTD FROM CACHE + TODAY ===
+    // Weekly breakdown: past days from cache + today live
+    const weeklyBreakdown: { date: string; sales: number; guestCount: number }[] = [];
+    for (const dateStr of weekDates) {
+      if (dateStr === todayStr) {
+        // Today - use live data
+        weeklyBreakdown.push({ date: dateStr, sales: dailySales, guestCount: dailyGuestCount });
+      } else {
+        // Past day - use cache
+        const cached = pastCacheMap.get(dateStr);
+        weeklyBreakdown.push({ 
+          date: dateStr, 
+          sales: cached?.sales || 0, 
+          guestCount: cached?.guestCount || 0 
+        });
+      }
+    }
+    
+    // Monthly breakdown: past days from cache + today live
+    const monthlyBreakdown: { date: string; sales: number; guestCount: number }[] = [];
+    for (const dateStr of monthDates) {
+      if (dateStr === todayStr) {
+        // Today - use live data
+        monthlyBreakdown.push({ date: dateStr, sales: dailySales, guestCount: dailyGuestCount });
+      } else {
+        // Past day - use cache
+        const cached = pastCacheMap.get(dateStr);
+        monthlyBreakdown.push({ 
+          date: dateStr, 
+          sales: cached?.sales || 0, 
+          guestCount: cached?.guestCount || 0 
+        });
+      }
+    }
+
+    // Calculate weekly/monthly totals from combined breakdown
     const weeklySales = weeklyBreakdown.reduce((sum, d) => sum + d.sales, 0);
     const weeklyGuestCount = weeklyBreakdown.reduce((sum, d) => sum + d.guestCount, 0);
     const monthlySales = monthlyBreakdown.reduce((sum, d) => sum + d.sales, 0);
     const monthlyGuestCount = monthlyBreakdown.reduce((sum, d) => sum + d.guestCount, 0);
     
-    console.log(`Weekly breakdown totals: sales=${weeklySales}, guests=${weeklyGuestCount}`);
-    console.log(`Monthly breakdown totals: sales=${monthlySales}, guests=${monthlyGuestCount}`);
+    console.log(`[OPTIMIZED] WTD: ${pastWeekDates.length} days from cache + today live = $${weeklySales}, ${weeklyGuestCount} guests`);
+    console.log(`[OPTIMIZED] MTD: ${pastMonthDates.length} days from cache + today live = $${monthlySales}, ${monthlyGuestCount} guests`);
 
     const avgTicket = dailyGuestCount > 0 ? dailySales / dailyGuestCount : 0;
 
     // ALWAYS use sales_cache for historical projection data (not live API calls)
     // This ensures projections use your 365-day cached history consistently
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    // (Reuse cacheSupabase client from above)
     
     console.log('Fetching historical projection data from sales_cache...');
     const historicalData = await fetchHistoricalDataFromCache(
-      supabase,
+      cacheSupabase,
       locationId || '',
       todayStr,
       timezone
@@ -1807,9 +1875,7 @@ serve(async (req) => {
     // Once a projection is saved, it should not change (immutable)
     // Past dates already have actuals, so projections aren't needed
     if (locationId && !fastMode) {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      // Reuse cacheSupabase client from above
       
       // Collect projections for future dates only (today and beyond)
       const futureDates = new Set<string>();
@@ -1841,7 +1907,7 @@ serve(async (req) => {
       if (allProjections.length > 0) {
         // First, check which dates already have projections saved
         const datesToCheck = allProjections.map(p => p.sale_date);
-        const { data: existingData } = await supabase
+        const { data: existingData } = await cacheSupabase
           .from('sales_cache')
           .select('sale_date, projected_sales')
           .eq('location_id', locationId)
@@ -1850,8 +1916,8 @@ serve(async (req) => {
         // Only save projections for dates that don't already have one
         const existingProjections = new Set(
           (existingData || [])
-            .filter(d => d.projected_sales && d.projected_sales > 0)
-            .map(d => d.sale_date)
+            .filter((d: { projected_sales: number | null; sale_date: string }) => d.projected_sales && d.projected_sales > 0)
+            .map((d: { sale_date: string }) => d.sale_date)
         );
         
         const newProjections = allProjections.filter(p => !existingProjections.has(p.sale_date));
@@ -1861,7 +1927,7 @@ serve(async (req) => {
           
           for (const proj of newProjections) {
             // Check if row exists first
-            const { data: existing } = await supabase
+            const { data: existing } = await cacheSupabase
               .from('sales_cache')
               .select('id')
               .eq('location_id', proj.location_id)
@@ -1870,7 +1936,7 @@ serve(async (req) => {
             
             if (existing) {
               // Row exists - only update projected_sales
-              const { error } = await supabase
+              const { error } = await cacheSupabase
                 .from('sales_cache')
                 .update({ projected_sales: proj.projected_sales })
                 .eq('location_id', proj.location_id)
@@ -1881,7 +1947,7 @@ serve(async (req) => {
               }
             } else {
               // Row doesn't exist - insert new row
-              const { error } = await supabase
+              const { error } = await cacheSupabase
                 .from('sales_cache')
                 .insert({
                   location_id: proj.location_id,
@@ -1907,12 +1973,10 @@ serve(async (req) => {
     // ALSO save today's ACTUAL sales to the cache so Week/Month views have the data
     // This runs every time we fetch live data (not just projections)
     if (locationId && dailySales > 0) {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
+      // Reuse cacheSupabase client from above
       
       // Get pizza estimation settings
-      const { data: locSettings } = await supabase
+      const { data: locSettings } = await cacheSupabase
         .from('location_settings')
         .select('pizza_sales_percentage, average_pizza_price')
         .eq('location_id', locationId)
@@ -1923,7 +1987,7 @@ serve(async (req) => {
       const estimatedPizzaCount = Math.round((dailySales * (pizzaSalesPercentage / 100)) / averagePizzaPrice);
       
       // Upsert today's actual sales data
-      const { error: upsertError } = await supabase
+      const { error: upsertError } = await cacheSupabase
         .from('sales_cache')
         .upsert({
           location_id: locationId,
