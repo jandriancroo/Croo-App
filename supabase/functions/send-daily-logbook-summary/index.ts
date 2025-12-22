@@ -651,7 +651,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email
     const emailResponse = await resend.emails.send({
-      from: "Croo <logbook@croo.app>",
+      from: "Croo <onboarding@resend.dev>",
       to: recipientEmails,
       subject: `📋 Daily Summary - ${location.name} - ${formatDateForDisplay(entry_date)}`,
       html: emailHtml,
