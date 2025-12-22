@@ -314,110 +314,225 @@ function generateEmailHtml(data: {
       `
     : '<p style="color: #9ca3af; text-align: center;">No drawer count data available</p>';
 
+  // Croo brand colors from the design system
+  const primaryColor = "#0a7a8a"; // teal
+  const accentColor = "#f58220"; // orange
+  const backgroundColor = "#f0ebe1"; // beige
+  const textColor = "#0f1215"; // dark
+
   return `
     <!DOCTYPE html>
-    <html>
+    <html lang="en">
     <head>
-      <meta charset="utf-8">
+      <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Daily Logbook Summary</title>
     </head>
-    <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-      <div style="max-width: 600px; margin: 0 auto; padding: 24px;">
-        
-        <!-- Header -->
-        <div style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 16px 16px 0 0; padding: 32px 24px; text-align: center;">
-          <h1 style="margin: 0 0 8px 0; color: #ffffff; font-size: 24px; font-weight: 700;">Daily Logbook Summary</h1>
-          <p style="margin: 0; color: rgba(255,255,255,0.9); font-size: 16px;">${data.locationName}</p>
-          <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.75); font-size: 14px;">${formatDateForDisplay(data.dateStr)}</p>
-        </div>
+    <body style="margin: 0; padding: 0; background-color: ${backgroundColor}; font-family: 'Lexend', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;">
+      <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+          <td style="padding: 40px 20px;">
+            <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+              
+              <!-- Header with Brand Gradient -->
+              <tr>
+                <td style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d5a65 100%); padding: 40px 40px 32px; text-align: center;">
+                  <div style="font-size: 40px; margin-bottom: 12px;">📋</div>
+                  <h1 style="color: #ffffff; font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px;">
+                    Daily Logbook Summary
+                  </h1>
+                  <p style="color: rgba(255,255,255,0.95); font-size: 18px; margin: 12px 0 0; font-weight: 500;">
+                    ${data.locationName}
+                  </p>
+                  <p style="color: rgba(255,255,255,0.8); font-size: 14px; margin: 8px 0 0;">
+                    ${formatDateForDisplay(data.dateStr)}
+                  </p>
+                </td>
+              </tr>
+              
+              <!-- Sales Performance -->
+              <tr>
+                <td style="padding: 32px 40px; border-bottom: 1px solid #e8e5df;">
+                  <h2 style="color: ${textColor}; font-size: 16px; font-weight: 600; margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    📊 Sales Performance
+                  </h2>
+                  <div style="background: linear-gradient(135deg, ${backgroundColor} 0%, #e8e3d9 100%); border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+                    <table style="width: 100%;">
+                      <tr>
+                        <td style="padding-bottom: 12px;">
+                          <p style="margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Actual Sales</p>
+                          <p style="margin: 4px 0 0; color: ${textColor}; font-size: 32px; font-weight: 700;">${formatCurrency(data.actualSales)}</p>
+                        </td>
+                        <td style="text-align: right; padding-bottom: 12px;">
+                          <p style="margin: 0; color: #6b7280; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Projected</p>
+                          <p style="margin: 4px 0 0; color: #6b7280; font-size: 24px; font-weight: 600;">${formatCurrency(data.projectedSales)}</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </div>
+                  <div style="text-align: center; padding: 14px; background: ${salesVariance >= 0 ? '#ecfdf5' : '#fef2f2'}; border-radius: 10px; border: 1px solid ${salesVariance >= 0 ? '#a7f3d0' : '#fecaca'};">
+                    <span style="color: ${salesColor}; font-weight: 700; font-size: 18px;">
+                      ${salesVariance >= 0 ? '▲' : '▼'} ${formatCurrency(Math.abs(salesVariance))} (${salesVariancePercent >= 0 ? '+' : ''}${salesVariancePercent.toFixed(1)}%)
+                    </span>
+                  </div>
+                </td>
+              </tr>
 
-        <!-- Main Content -->
-        <div style="background: #ffffff; padding: 0; border-radius: 0 0 16px 16px; overflow: hidden;">
-          
-          <!-- Sales Section -->
-          <div style="padding: 24px; border-bottom: 1px solid #e5e7eb;">
-            <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 18px; display: flex; align-items: center;">
-              <span style="margin-right: 8px;">📊</span> Sales Performance
-            </h2>
-            <div style="display: flex; justify-content: space-between; align-items: center; background: #f9fafb; padding: 16px; border-radius: 12px; margin-bottom: 12px;">
-              <div>
-                <p style="margin: 0 0 4px 0; color: #6b7280; font-size: 12px; text-transform: uppercase;">Actual Sales</p>
-                <p style="margin: 0; color: #1f2937; font-size: 28px; font-weight: 700;">${formatCurrency(data.actualSales)}</p>
-              </div>
-              <div style="text-align: right;">
-                <p style="margin: 0 0 4px 0; color: #6b7280; font-size: 12px; text-transform: uppercase;">Projected</p>
-                <p style="margin: 0; color: #6b7280; font-size: 20px; font-weight: 600;">${formatCurrency(data.projectedSales)}</p>
-              </div>
-            </div>
-            <div style="text-align: center; padding: 12px; background: ${salesVariance >= 0 ? '#f0fdf4' : '#fef2f2'}; border-radius: 8px;">
-              <span style="color: ${salesColor}; font-weight: 600; font-size: 16px;">
-                ${salesVariance >= 0 ? '↑' : '↓'} ${formatCurrency(Math.abs(salesVariance))} (${salesVariancePercent >= 0 ? '+' : ''}${salesVariancePercent.toFixed(1)}%)
-              </span>
-            </div>
-          </div>
+              <!-- Labor Section -->
+              <tr>
+                <td style="padding: 32px 40px; border-bottom: 1px solid #e8e5df;">
+                  <h2 style="color: ${textColor}; font-size: 16px; font-weight: 600; margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    👥 Labor
+                  </h2>
+                  <div style="background: linear-gradient(135deg, ${backgroundColor} 0%, #e8e3d9 100%); border-radius: 12px; padding: 20px;">
+                    ${data.hasLaborData ? `
+                      <table style="width: 100%;">
+                        <tr>
+                          <td style="padding: 8px 0; color: #6b7280;">Labor Cost:</td>
+                          <td style="padding: 8px 0; text-align: right; color: ${textColor}; font-weight: 600;">${formatCurrency(data.laborCost)}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 8px 0; color: #6b7280;">Labor %:</td>
+                          <td style="padding: 8px 0; text-align: right; color: ${data.laborPercent > 30 ? '#ef4444' : '#10b981'}; font-weight: 700; font-size: 18px;">${formatPercent(data.laborPercent)}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 8px 0; color: #6b7280;">Hours Worked:</td>
+                          <td style="padding: 8px 0; text-align: right; color: ${textColor}; font-weight: 600;">${data.hoursWorked.toFixed(1)} hrs</td>
+                        </tr>
+                      </table>
+                    ` : `
+                      <p style="color: #9ca3af; text-align: center; margin: 0; padding: 12px;">No labor data available</p>
+                    `}
+                  </div>
+                </td>
+              </tr>
 
-          <!-- Labor Section -->
-          <div style="padding: 24px; border-bottom: 1px solid #e5e7eb;">
-            <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 18px; display: flex; align-items: center;">
-              <span style="margin-right: 8px;">👥</span> Labor
-            </h2>
-            ${laborHtml}
-          </div>
+              <!-- Top 5 Items -->
+              <tr>
+                <td style="padding: 32px 40px; border-bottom: 1px solid #e8e5df;">
+                  <h2 style="color: ${textColor}; font-size: 16px; font-weight: 600; margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    🏆 Top 5 Sold Items
+                  </h2>
+                  <table style="width: 100%; border-collapse: collapse; background: #ffffff; border-radius: 10px; overflow: hidden; border: 1px solid #e8e5df;">
+                    <thead>
+                      <tr style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d5a65 100%);">
+                        <th style="padding: 12px 14px; text-align: left; color: #ffffff; font-size: 11px; font-weight: 600; text-transform: uppercase;">#</th>
+                        <th style="padding: 12px 14px; text-align: left; color: #ffffff; font-size: 11px; font-weight: 600; text-transform: uppercase;">Item</th>
+                        <th style="padding: 12px 14px; text-align: right; color: #ffffff; font-size: 11px; font-weight: 600; text-transform: uppercase;">Qty</th>
+                        <th style="padding: 12px 14px; text-align: right; color: #ffffff; font-size: 11px; font-weight: 600; text-transform: uppercase;">Sales</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${topItemsHtml}
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
 
-          <!-- Top 5 Items -->
-          <div style="padding: 24px; border-bottom: 1px solid #e5e7eb;">
-            <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 18px; display: flex; align-items: center;">
-              <span style="margin-right: 8px;">🏆</span> Top 5 Sold Items
-            </h2>
-            <table style="width: 100%; border-collapse: collapse;">
-              <thead>
-                <tr style="background: #f9fafb;">
-                  <th style="padding: 10px 12px; text-align: left; color: #6b7280; font-size: 12px; font-weight: 600;">#</th>
-                  <th style="padding: 10px 12px; text-align: left; color: #6b7280; font-size: 12px; font-weight: 600;">Item</th>
-                  <th style="padding: 10px 12px; text-align: right; color: #6b7280; font-size: 12px; font-weight: 600;">Qty</th>
-                  <th style="padding: 10px 12px; text-align: right; color: #6b7280; font-size: 12px; font-weight: 600;">Sales</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${topItemsHtml}
-              </tbody>
+              <!-- Drawer Count / Deposit -->
+              <tr>
+                <td style="padding: 32px 40px; border-bottom: 1px solid #e8e5df;">
+                  <h2 style="color: ${textColor}; font-size: 16px; font-weight: 600; margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    💰 Drawer Count / Deposit
+                  </h2>
+                  ${data.drawerCountData ? `
+                    <div style="background: linear-gradient(135deg, ${backgroundColor} 0%, #e8e3d9 100%); border-radius: 12px; padding: 20px;">
+                      <table style="width: 100%;">
+                        <tr>
+                          <td style="padding: 10px 0; color: #6b7280;">Expected:</td>
+                          <td style="padding: 10px 0; text-align: right; color: ${textColor}; font-weight: 600;">${formatCurrency(data.drawerCountData.expected)}</td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 10px 0; color: #6b7280;">Actual Count:</td>
+                          <td style="padding: 10px 0; text-align: right; color: ${textColor}; font-weight: 600;">${formatCurrency(data.drawerCountData.actual)}</td>
+                        </tr>
+                        <tr style="border-top: 2px solid #d4cfc4;">
+                          <td style="padding: 14px 0 10px; color: ${textColor}; font-weight: 600;">Over/Under:</td>
+                          <td style="padding: 14px 0 10px; text-align: right; color: ${data.drawerCountData.variance >= 0 ? '#10b981' : '#ef4444'}; font-weight: 700; font-size: 20px;">
+                            ${data.drawerCountData.variance >= 0 ? '+' : ''}${formatCurrency(data.drawerCountData.variance)}
+                          </td>
+                        </tr>
+                        <tr style="border-top: 1px solid #d4cfc4;">
+                          <td style="padding: 14px 0 0; color: #6b7280;">Total Deposit:</td>
+                          <td style="padding: 14px 0 0; text-align: right; color: ${accentColor}; font-weight: 700; font-size: 18px;">${formatCurrency(data.drawerCountData.totalDeposit)}</td>
+                        </tr>
+                      </table>
+                    </div>
+                  ` : `
+                    <div style="background: ${backgroundColor}; border-radius: 12px; padding: 24px; text-align: center;">
+                      <p style="color: #9ca3af; margin: 0;">No drawer count data available</p>
+                    </div>
+                  `}
+                </td>
+              </tr>
+
+              <!-- Guest Remakes -->
+              <tr>
+                <td style="padding: 32px 40px; border-bottom: 1px solid #e8e5df;">
+                  <h2 style="color: ${textColor}; font-size: 16px; font-weight: 600; margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    🔄 Guest Remakes (${data.remakes.length})
+                  </h2>
+                  ${data.remakes.length > 0 
+                    ? data.remakes.map(r => `
+                        <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 14px 16px; margin-bottom: 10px; border-radius: 0 10px 10px 0;">
+                          <p style="margin: 0 0 6px 0; font-weight: 600; color: #991b1b;">${r.guestName}</p>
+                          <p style="margin: 0; color: #7f1d1d; font-size: 14px;">${r.details}</p>
+                        </div>
+                      `).join('')
+                    : `<div style="background: #ecfdf5; border-radius: 10px; padding: 20px; text-align: center; border: 1px solid #a7f3d0;">
+                        <p style="color: #059669; margin: 0; font-weight: 500;">No remakes today 🎉</p>
+                      </div>`
+                  }
+                </td>
+              </tr>
+
+              <!-- Refunds -->
+              <tr>
+                <td style="padding: 32px 40px;">
+                  <h2 style="color: ${textColor}; font-size: 16px; font-weight: 600; margin: 0 0 20px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    💳 Refunds (${data.refunds.length})
+                  </h2>
+                  ${data.refunds.length > 0 
+                    ? data.refunds.map(r => `
+                        <div style="background: #fef3c7; border-left: 4px solid ${accentColor}; padding: 14px 16px; margin-bottom: 10px; border-radius: 0 10px 10px 0;">
+                          <p style="margin: 0 0 6px 0; font-weight: 600; color: #92400e;">${r.guestName}</p>
+                          <p style="margin: 0; color: #78350f; font-size: 14px;">${r.details}</p>
+                        </div>
+                      `).join('')
+                    : `<div style="background: #ecfdf5; border-radius: 10px; padding: 20px; text-align: center; border: 1px solid #a7f3d0;">
+                        <p style="color: #059669; margin: 0; font-weight: 500;">No refunds today 🎉</p>
+                      </div>`
+                  }
+                </td>
+              </tr>
+              
+              <!-- Footer -->
+              <tr>
+                <td style="background-color: #f8f7f5; padding: 30px 40px; border-top: 1px solid #e8e5df;">
+                  <table role="presentation" style="width: 100%;">
+                    <tr>
+                      <td style="text-align: center;">
+                        <img 
+                          src="https://croohq.com/assets/croo-logo-eWOfbANR.png" 
+                          alt="Powered by Croo" 
+                          style="height: 28px; width: auto; margin-bottom: 12px; opacity: 0.7;"
+                        />
+                        <p style="color: #aaa; font-size: 12px; margin: 0;">
+                          Powered by Croo • Team management made simple
+                        </p>
+                        <p style="color: #c4c4c4; font-size: 11px; margin: 10px 0 0;">
+                          Sent when both Safe Count and Deposit were completed
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              
             </table>
-          </div>
-
-          <!-- Cash Handling Section -->
-          <div style="padding: 24px; border-bottom: 1px solid #e5e7eb;">
-            <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 18px; display: flex; align-items: center;">
-              <span style="margin-right: 8px;">💰</span> Drawer Count / Deposit
-            </h2>
-            ${drawerCountHtml}
-          </div>
-
-          <!-- Remakes Section -->
-          <div style="padding: 24px; border-bottom: 1px solid #e5e7eb;">
-            <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 18px; display: flex; align-items: center;">
-              <span style="margin-right: 8px;">🔄</span> Guest Remakes (${data.remakes.length})
-            </h2>
-            ${remakesHtml}
-          </div>
-
-          <!-- Refunds Section -->
-          <div style="padding: 24px;">
-            <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 18px; display: flex; align-items: center;">
-              <span style="margin-right: 8px;">💳</span> Refunds (${data.refunds.length})
-            </h2>
-            ${refundsHtml}
-          </div>
-
-        </div>
-
-        <!-- Footer -->
-        <div style="text-align: center; padding: 24px; color: #9ca3af; font-size: 12px;">
-          <p style="margin: 0;">This summary was generated automatically by Croo</p>
-          <p style="margin: 8px 0 0 0;">Sent when both Safe Count and Deposit were completed</p>
-        </div>
-        
-      </div>
+          </td>
+        </tr>
+      </table>
     </body>
     </html>
   `;
