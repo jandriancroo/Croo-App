@@ -702,6 +702,266 @@ function getSeededRandomFactor(seed: string): number {
   return 0.97 + (normalized * 0.05);
 }
 
+// Fetch historical projection data from sales_cache (NOT live API)
+// This ensures projections always use your 365-day cached history
+async function fetchHistoricalDataFromCache(
+  supabase: any,
+  locationId: string,
+  todayStr: string,
+  timezone: string
+): Promise<{
+  fourWeekAverage: {
+    avgWeekTotal: number;
+    avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[];
+    weeks: { weekStart: string; total: number }[];
+  } | undefined;
+  fourWeekHourlyPattern: { hour: number; avgPercent: number }[] | undefined;
+  lastYearData: {
+    sameDay: number;
+    sameWeek: number;
+    sameMonth: number;
+    weeklyBreakdown: { date: string; sales: number }[];
+    hourlyData?: { hour: string; sales: number }[];
+  } | undefined;
+  prevWeekSales: number;
+  prevMonthSales: number;
+}> {
+  const today = new Date(todayStr + 'T12:00:00');
+  const dayOfWeek = today.getDay();
+  
+  // Calculate date ranges needed
+  // Last 4 same-day-of-weeks (e.g., last 4 Fridays if today is Friday)
+  const fourWeekDates: string[] = [];
+  for (let i = 1; i <= 4; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - (i * 7));
+    fourWeekDates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+  }
+  
+  // Last year same day of week
+  const lastYearDate = new Date(today);
+  lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
+  const lastYearDayOfWeek = lastYearDate.getDay();
+  const dayDiff = dayOfWeek - lastYearDayOfWeek;
+  lastYearDate.setDate(lastYearDate.getDate() + dayDiff);
+  const lastYearTodayStr = `${lastYearDate.getFullYear()}-${String(lastYearDate.getMonth() + 1).padStart(2, '0')}-${String(lastYearDate.getDate()).padStart(2, '0')}`;
+  
+  // Last year same week (Mon-Sun)
+  const lastYearWeekStart = new Date(lastYearDate);
+  const lyDow = lastYearWeekStart.getDay();
+  const lyDiff = lyDow === 0 ? 6 : lyDow - 1;
+  lastYearWeekStart.setDate(lastYearWeekStart.getDate() - lyDiff);
+  const lastYearWeekDates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(lastYearWeekStart);
+    d.setDate(d.getDate() + i);
+    lastYearWeekDates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+  }
+  
+  // Last year same month
+  const lastYearMonthStart = new Date(today.getFullYear() - 1, today.getMonth(), 1);
+  const lastYearMonthEnd = new Date(today.getFullYear() - 1, today.getMonth() + 1, 0);
+  const lastYearMonthDates: string[] = [];
+  for (let d = new Date(lastYearMonthStart); d <= lastYearMonthEnd; d.setDate(d.getDate() + 1)) {
+    lastYearMonthDates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+  }
+  
+  // Previous week (Mon-Sun of last week)
+  const prevWeekStart = new Date(today);
+  const todayDow = prevWeekStart.getDay();
+  const todayDiff = todayDow === 0 ? 6 : todayDow - 1;
+  prevWeekStart.setDate(prevWeekStart.getDate() - todayDiff - 7);
+  const prevWeekDates: string[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(prevWeekStart);
+    d.setDate(d.getDate() + i);
+    prevWeekDates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+  }
+  
+  // Previous month (full month)
+  const prevMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+  const prevMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const prevMonthDates: string[] = [];
+  for (let d = new Date(prevMonthStart); d <= prevMonthEnd; d.setDate(d.getDate() + 1)) {
+    prevMonthDates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+  }
+  
+  // Fetch all needed data from sales_cache in parallel
+  const allDatesToFetch = [...new Set([
+    ...fourWeekDates,
+    lastYearTodayStr,
+    ...lastYearWeekDates,
+    ...lastYearMonthDates,
+    ...prevWeekDates,
+    ...prevMonthDates
+  ])];
+  
+  console.log(`[CACHE] Fetching ${allDatesToFetch.length} dates from sales_cache for projections...`);
+  console.log(`[CACHE] 4-week same-DOW dates: ${fourWeekDates.join(', ')}`);
+  console.log(`[CACHE] Last year same day: ${lastYearTodayStr}`);
+  console.log(`[CACHE] Last year week: ${lastYearWeekDates[0]} to ${lastYearWeekDates[6]}`);
+  
+  const { data: cacheData, error } = await supabase
+    .from('sales_cache')
+    .select('sale_date, net_sales, hourly_data')
+    .eq('location_id', locationId)
+    .in('sale_date', allDatesToFetch);
+  
+  if (error) {
+    console.error('[CACHE] Failed to fetch from sales_cache:', error.message);
+    return {
+      fourWeekAverage: undefined,
+      fourWeekHourlyPattern: undefined,
+      lastYearData: undefined,
+      prevWeekSales: 0,
+      prevMonthSales: 0
+    };
+  }
+  
+  const cacheMap = new Map<string, { net_sales: number; hourly_data: any }>();
+  for (const row of (cacheData || []) as Array<{ sale_date: string; net_sales: number | null; hourly_data: any }>) {
+    cacheMap.set(row.sale_date, { net_sales: row.net_sales || 0, hourly_data: row.hourly_data });
+  }
+  
+  console.log(`[CACHE] Found ${cacheMap.size} cached days out of ${allDatesToFetch.length} requested`);
+  
+  // Process 4-week same-day-of-week average
+  let fourWeekAverage: {
+    avgWeekTotal: number;
+    avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[];
+    weeks: { weekStart: string; total: number }[];
+  } | undefined;
+  let fourWeekHourlyPattern: { hour: number; avgPercent: number }[] | undefined;
+  
+  const fourWeekSales = fourWeekDates.map(d => cacheMap.get(d)?.net_sales || 0).filter(s => s > 0);
+  if (fourWeekSales.length > 0) {
+    const avgSales = fourWeekSales.reduce((sum, s) => sum + s, 0) / fourWeekSales.length;
+    
+    // Calculate hourly pattern from cached hourly data
+    const hourlyTotals = new Map<number, { sales: number; count: number }>();
+    let totalDailySales = 0;
+    let validDayCount = 0;
+    
+    for (const dateStr of fourWeekDates) {
+      const cached = cacheMap.get(dateStr);
+      if (cached && cached.net_sales > 0 && cached.hourly_data) {
+        totalDailySales += cached.net_sales;
+        validDayCount++;
+        const hourlyData = cached.hourly_data as { hour: string; sales: number }[];
+        for (const h of hourlyData) {
+          const hourNum = parseInt(h.hour.split(':')[0]);
+          const existing = hourlyTotals.get(hourNum) || { sales: 0, count: 0 };
+          existing.sales += h.sales;
+          existing.count += 1;
+          hourlyTotals.set(hourNum, existing);
+        }
+      }
+    }
+    
+    if (hourlyTotals.size > 0 && validDayCount > 0) {
+      const avgDailyTotal = totalDailySales / validDayCount;
+      fourWeekHourlyPattern = [];
+      for (const [hour, data] of hourlyTotals.entries()) {
+        const avgHourlySales = data.sales / data.count;
+        fourWeekHourlyPattern.push({ 
+          hour, 
+          avgPercent: avgDailyTotal > 0 ? avgHourlySales / avgDailyTotal : 0 
+        });
+      }
+      fourWeekHourlyPattern.sort((a, b) => a.hour - b.hour);
+      console.log(`[CACHE] Hourly pattern: ${fourWeekHourlyPattern.map(p => `${p.hour}:00=${(p.avgPercent * 100).toFixed(1)}%`).join(', ')}`);
+    }
+    
+    // Also calculate full week averages for week projection
+    // Get last 4 full weeks of data
+    const weekTotals: { weekStart: string; total: number }[] = [];
+    for (let i = 1; i <= 4; i++) {
+      const wStart = new Date(today);
+      const wDow = wStart.getDay();
+      const wDiff = wDow === 0 ? 6 : wDow - 1;
+      wStart.setDate(wStart.getDate() - wDiff - (i * 7));
+      const wStartStr = `${wStart.getFullYear()}-${String(wStart.getMonth() + 1).padStart(2, '0')}-${String(wStart.getDate()).padStart(2, '0')}`;
+      
+      let weekTotal = 0;
+      for (let d = 0; d < 7; d++) {
+        const dayDate = new Date(wStart);
+        dayDate.setDate(dayDate.getDate() + d);
+        const dayStr = `${dayDate.getFullYear()}-${String(dayDate.getMonth() + 1).padStart(2, '0')}-${String(dayDate.getDate()).padStart(2, '0')}`;
+        weekTotal += cacheMap.get(dayStr)?.net_sales || 0;
+      }
+      if (weekTotal > 0) {
+        weekTotals.push({ weekStart: wStartStr, total: weekTotal });
+      }
+    }
+    
+    const avgWeekTotal = weekTotals.length > 0 
+      ? weekTotals.reduce((sum, w) => sum + w.total, 0) / weekTotals.length 
+      : avgSales * 7;
+    
+    // Build avgDailyByDayOfWeek for all days (using last 4 weeks of ALL days)
+    const salesByDow: { [dow: number]: number[] } = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
+    for (const wt of weekTotals) {
+      const wStart = new Date(wt.weekStart + 'T12:00:00');
+      for (let d = 0; d < 7; d++) {
+        const dayDate = new Date(wStart);
+        dayDate.setDate(dayDate.getDate() + d);
+        const dayStr = `${dayDate.getFullYear()}-${String(dayDate.getMonth() + 1).padStart(2, '0')}-${String(dayDate.getDate()).padStart(2, '0')}`;
+        const sales = cacheMap.get(dayStr)?.net_sales || 0;
+        if (sales > 0) {
+          salesByDow[dayDate.getDay()].push(sales);
+        }
+      }
+    }
+    
+    const avgDailyByDayOfWeek = Object.entries(salesByDow).map(([dow, sales]) => ({
+      dayOfWeek: parseInt(dow),
+      avgSales: sales.length > 0 ? sales.reduce((sum, s) => sum + s, 0) / sales.length : 0
+    }));
+    
+    fourWeekAverage = { avgWeekTotal, avgDailyByDayOfWeek, weeks: weekTotals };
+    
+    console.log(`[CACHE] 4-week avg: daily for DOW ${dayOfWeek}=$${avgSales.toFixed(2)}, weekly=$${avgWeekTotal.toFixed(2)}`);
+    console.log(`[CACHE] DOW averages: ${avgDailyByDayOfWeek.map(d => `${d.dayOfWeek}=$${d.avgSales.toFixed(0)}`).join(', ')}`);
+  } else {
+    console.log(`[CACHE] No 4-week data found for DOW ${dayOfWeek}`);
+  }
+  
+  // Process last year data
+  let lastYearData: {
+    sameDay: number;
+    sameWeek: number;
+    sameMonth: number;
+    weeklyBreakdown: { date: string; sales: number }[];
+    hourlyData?: { hour: string; sales: number }[];
+  } | undefined;
+  
+  const lastYearDayCached = cacheMap.get(lastYearTodayStr);
+  const lastYearSameDay = lastYearDayCached?.net_sales || 0;
+  const lastYearSameWeek = lastYearWeekDates.reduce((sum, d) => sum + (cacheMap.get(d)?.net_sales || 0), 0);
+  const lastYearSameMonth = lastYearMonthDates.reduce((sum, d) => sum + (cacheMap.get(d)?.net_sales || 0), 0);
+  
+  if (lastYearSameDay > 0 || lastYearSameWeek > 0 || lastYearSameMonth > 0) {
+    lastYearData = {
+      sameDay: lastYearSameDay,
+      sameWeek: lastYearSameWeek,
+      sameMonth: lastYearSameMonth,
+      weeklyBreakdown: lastYearWeekDates.map(d => ({ date: d, sales: cacheMap.get(d)?.net_sales || 0 })),
+      hourlyData: lastYearDayCached?.hourly_data as { hour: string; sales: number }[] | undefined
+    };
+    console.log(`[CACHE] Last year: day=$${lastYearSameDay}, week=$${lastYearSameWeek}, month=$${lastYearSameMonth}`);
+  } else {
+    console.log(`[CACHE] No last year data found`);
+  }
+  
+  // Previous week/month for comparison
+  const prevWeekSales = prevWeekDates.reduce((sum, d) => sum + (cacheMap.get(d)?.net_sales || 0), 0);
+  const prevMonthSales = prevMonthDates.reduce((sum, d) => sum + (cacheMap.get(d)?.net_sales || 0), 0);
+  
+  console.log(`[CACHE] Previous week: $${prevWeekSales}, Previous month: $${prevMonthSales}`);
+  
+  return { fourWeekAverage, fourWeekHourlyPattern, lastYearData, prevWeekSales, prevMonthSales };
+}
+
 // Generate sales projections using deterministic formula (no AI)
 // Hourly: (4-week same weekday+hour avg + last year same day hour) / 2 * random factor
 // Daily: (4-week avg for day + last year same day) / 2 * random factor
@@ -1392,280 +1652,29 @@ serve(async (req) => {
 
     const avgTicket = dailyGuestCount > 0 ? dailySales / dailyGuestCount : 0;
 
-    // In fast mode, skip expensive historical data fetching for faster initial load
-    let prevWeekSales = 0;
-    let prevMonthSales = 0;
-    let lastYearData: { 
-      sameDay: number; 
-      sameWeek: number; 
-      sameMonth: number;
-      weeklyBreakdown: { date: string; sales: number }[];
-    } | undefined;
+    // ALWAYS use sales_cache for historical projection data (not live API calls)
+    // This ensures projections use your 365-day cached history consistently
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
     
-    let fourWeekAverage: {
-      avgWeekTotal: number;
-      avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[];
-      weeks: { weekStart: string; total: number }[];
-    } | undefined;
+    console.log('Fetching historical projection data from sales_cache...');
+    const historicalData = await fetchHistoricalDataFromCache(
+      supabase,
+      locationId || '',
+      todayStr,
+      timezone
+    );
     
-    let fourWeekHourlyPattern: { hour: number; avgPercent: number }[] | undefined;
-
-    if (!fastMode) {
-      // Fetch previous week/month breakdowns for real-time comparison
-      const [prevWeekBreakdown, prevMonthBreakdown] = await Promise.all([
-        fetchDailyBreakdown(tokenGw, prevWeekDates, qbLocationId),
-        fetchDailyBreakdown(tokenGw, prevMonthDates, qbLocationId)
-      ]);
-      
-      prevWeekSales = prevWeekBreakdown.reduce((sum, d) => sum + d.sales, 0);
-      prevMonthSales = prevMonthBreakdown.reduce((sum, d) => sum + d.sales, 0);
-
-      // Fetch last year data and 4-week historical data for better projections
-      console.log('Fetching historical data for projections...');
-        
-        // Generate 4-week historical date ranges (past 4 complete weeks)
-        const fourWeekRanges: { weekStart: string; weekEnd: string }[] = [];
-        for (let i = 1; i <= 4; i++) {
-          const weekStartOffset = i * 7;
-          const weekEndOffset = (i - 1) * 7 + 1;
-          fourWeekRanges.push({
-            weekStart: adjustDate(weekStartStr, -weekStartOffset),
-            weekEnd: adjustDate(weekStartStr, -weekEndOffset)
-          });
-        }
-        
-        console.log('4-week historical ranges:', fourWeekRanges.map(r => `${r.weekStart} to ${r.weekEnd}`).join(', '));
-        
-        try {
-          // Fetch all 4 weeks of data in parallel
-          const fourWeekPromises = fourWeekRanges.map(range => {
-            const dates = getDateRange(range.weekStart, range.weekEnd);
-            return fetchDailyBreakdown(tokenGw, dates, qbLocationId);
-          });
-          
-          // Also fetch last year data
-          const [lastYearDayHourly, lastYearWeekBreakdown, lastYearMonthResult, ...fourWeekResults] = await Promise.all([
-            fetchHourlySales(tokenGw, lastYearTodayStr, qbLocationId),
-            fetchDailyBreakdown(tokenGw, lastYearWeekDates, qbLocationId),
-            fetchSalesForDates(tokenGw, lastYearMonthDates, qbLocationId, 'last_year_month'),
-            ...fourWeekPromises
-          ]);
-          
-          // Process last year data
-          const lastYearSameDay = lastYearDayHourly.reduce((sum, h) => sum + h.sales, 0);
-          const lastYearSameWeek = lastYearWeekBreakdown.reduce((sum, d) => sum + d.sales, 0);
-          
-          lastYearData = {
-            sameDay: lastYearSameDay,
-            sameWeek: lastYearSameWeek,
-            sameMonth: lastYearMonthResult.total,
-            weeklyBreakdown: lastYearWeekBreakdown.map(d => ({ date: d.date, sales: d.sales }))
-          };
-          
-          console.log(`Last year same day: $${lastYearSameDay}, same week: $${lastYearSameWeek}, same month: $${lastYearMonthResult.total}`);
-          
-          // Process 4-week historical data
-          const allFourWeekDays: { date: string; sales: number; dayOfWeek: number }[] = [];
-          const weekTotals: { weekStart: string; total: number }[] = [];
-          
-          fourWeekResults.forEach((weekData, idx) => {
-            const weekTotal = weekData.reduce((sum, d) => sum + d.sales, 0);
-            weekTotals.push({
-              weekStart: fourWeekRanges[idx].weekStart,
-              total: weekTotal
-            });
-            
-            weekData.forEach(d => {
-              const date = new Date(d.date + 'T12:00:00');
-              allFourWeekDays.push({
-                date: d.date,
-                sales: d.sales,
-                dayOfWeek: date.getDay()
-              });
-            });
-          });
-          
-          // Calculate averages by day of week
-          const salesByDayOfWeek: { [key: number]: number[] } = { 0: [], 1: [], 2: [], 3: [], 4: [], 5: [], 6: [] };
-          allFourWeekDays.forEach(d => {
-            if (d.sales > 0) {
-              salesByDayOfWeek[d.dayOfWeek].push(d.sales);
-            }
-          });
-          
-          const avgDailyByDayOfWeek = Object.entries(salesByDayOfWeek).map(([dow, sales]) => ({
-            dayOfWeek: parseInt(dow),
-            avgSales: sales.length > 0 ? sales.reduce((sum, s) => sum + s, 0) / sales.length : 0
-          }));
-          
-          const avgWeekTotal = weekTotals.length > 0 
-            ? weekTotals.reduce((sum, w) => sum + w.total, 0) / weekTotals.length 
-            : 0;
-          
-          fourWeekAverage = {
-            avgWeekTotal,
-            avgDailyByDayOfWeek,
-            weeks: weekTotals
-          };
-          
-          console.log(`4-week average weekly total: $${avgWeekTotal.toFixed(2)}`);
-          console.log('Average by day of week:', avgDailyByDayOfWeek.map(d => `${d.dayOfWeek}: $${d.avgSales.toFixed(2)}`).join(', '));
-          
-      } catch (error) {
-        console.error('Failed to fetch historical data:', error);
-        // Continue without historical data
-      }
-
-      // Fetch hourly data for the last 4 same-day-of-weeks to build hourly pattern
-      try {
-        const sameDayDates = getSameDayOfWeekDates(todayStr, 4);
-        console.log('Fetching hourly data for same-day-of-weeks:', sameDayDates.join(', '));
-        
-        // Fetch hourly data for all 4 same-day-of-week dates in parallel
-        const hourlyDataPromises = sameDayDates.map(dateStr => fetchHourlySales(tokenGw, dateStr, qbLocationId));
-        const hourlyDataResults = await Promise.all(hourlyDataPromises);
-        
-        // Aggregate hourly sales across all 4 days
-        const hourlyTotals: { [hour: number]: number[] } = {};
-        const dailyTotals: number[] = [];
-        
-        hourlyDataResults.forEach(dayData => {
-          const dayTotal = dayData.reduce((sum, h) => sum + h.sales, 0);
-          if (dayTotal > 0) {
-            dailyTotals.push(dayTotal);
-            dayData.forEach(h => {
-              const hourNum = parseInt(h.hour.split(':')[0]);
-              if (!hourlyTotals[hourNum]) hourlyTotals[hourNum] = [];
-              hourlyTotals[hourNum].push(h.sales);
-            });
-          }
-        });
-        
-        // Calculate average percentage for each hour
-        if (dailyTotals.length > 0) {
-          const avgDailyTotal = dailyTotals.reduce((sum, t) => sum + t, 0) / dailyTotals.length;
-          
-          fourWeekHourlyPattern = Object.entries(hourlyTotals).map(([hourStr, sales]) => {
-            const avgHourlySales = sales.reduce((sum, s) => sum + s, 0) / sales.length;
-            return {
-              hour: parseInt(hourStr),
-              avgPercent: avgDailyTotal > 0 ? avgHourlySales / avgDailyTotal : 0
-            };
-          }).sort((a, b) => a.hour - b.hour);
-          
-          console.log('Hourly pattern calculated:', fourWeekHourlyPattern.map(p => 
-            `${p.hour}:00 = ${(p.avgPercent * 100).toFixed(1)}%`
-          ).join(', '));
-        }
-      } catch (error) {
-        console.error('Failed to fetch hourly pattern data:', error);
-        // Continue with default pattern
-      }
-    } else {
-      // Fast mode: fetch historical data from database cache instead of live API calls
-      console.log('Fast mode enabled - fetching historical data from sales_cache...');
-      
-      try {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-        const supabase = createClient(supabaseUrl, supabaseKey);
-        
-        const today = new Date(todayStr + 'T12:00:00');
-        const dayOfWeek = today.getDay();
-        
-        // Calculate last year same day of week (find the Saturday before Christmas last year)
-        const lastYearDate = new Date(today);
-        lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
-        // Adjust to same day of week
-        const lastYearDayOfWeek = lastYearDate.getDay();
-        const dayDiff = dayOfWeek - lastYearDayOfWeek;
-        lastYearDate.setDate(lastYearDate.getDate() + dayDiff);
-        const lastYearTodayStr = `${lastYearDate.getFullYear()}-${String(lastYearDate.getMonth() + 1).padStart(2, '0')}-${String(lastYearDate.getDate()).padStart(2, '0')}`;
-        
-        // Get last 4 weeks of same day-of-week from cache
-        const fourWeekDates: string[] = [];
-        for (let i = 1; i <= 4; i++) {
-          const d = new Date(today);
-          d.setDate(d.getDate() - (i * 7));
-          fourWeekDates.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
-        }
-        
-        // Fetch from sales_cache in parallel
-        const [fourWeekResult, lastYearResult] = await Promise.all([
-          supabase
-            .from('sales_cache')
-            .select('sale_date, net_sales, hourly_data')
-            .eq('location_id', locationId)
-            .in('sale_date', fourWeekDates),
-          supabase
-            .from('sales_cache')
-            .select('sale_date, net_sales')
-            .eq('location_id', locationId)
-            .eq('sale_date', lastYearTodayStr)
-            .maybeSingle()
-        ]);
-        
-        if (fourWeekResult.data && fourWeekResult.data.length > 0) {
-          const validDays = fourWeekResult.data.filter(d => d.net_sales > 0);
-          const avgSales = validDays.length > 0 
-            ? validDays.reduce((sum, d) => sum + d.net_sales, 0) / validDays.length 
-            : 0;
-          
-          // Build 4-week average structure
-          const avgDailyByDayOfWeek = [{ dayOfWeek, avgSales }];
-          
-          // Calculate weekly totals for the past 4 weeks
-          const weekTotals: { weekStart: string; total: number }[] = [];
-          
-          fourWeekAverage = {
-            avgWeekTotal: avgSales * 7, // Rough estimate
-            avgDailyByDayOfWeek,
-            weeks: weekTotals
-          };
-          
-          console.log(`Fast mode: 4-week avg for day ${dayOfWeek}: $${avgSales.toFixed(2)} (from ${validDays.length} days)`);
-          
-          // Calculate hourly pattern from cached data
-          const hourlyTotals = new Map<number, { sales: number; count: number }>();
-          for (const day of validDays) {
-            const hourlyData = day.hourly_data as { hour: string; sales: number }[] | null;
-            if (hourlyData) {
-              for (const h of hourlyData) {
-                const hourNum = parseInt(h.hour.split(':')[0]);
-                const existing = hourlyTotals.get(hourNum) || { sales: 0, count: 0 };
-                existing.sales += h.sales;
-                existing.count += 1;
-                hourlyTotals.set(hourNum, existing);
-              }
-            }
-          }
-          
-          if (hourlyTotals.size > 0) {
-            fourWeekHourlyPattern = [];
-            for (const [hour, data] of hourlyTotals.entries()) {
-              const avgHourlySales = data.sales / data.count;
-              const percent = avgSales > 0 ? avgHourlySales / avgSales : 0;
-              fourWeekHourlyPattern.push({ hour, avgPercent: percent });
-            }
-            fourWeekHourlyPattern.sort((a, b) => a.hour - b.hour);
-          }
-        }
-        
-        if (lastYearResult.data && lastYearResult.data.net_sales > 0) {
-          lastYearData = {
-            sameDay: lastYearResult.data.net_sales,
-            sameWeek: 0, // Not needed for daily projection
-            sameMonth: 0, // Not needed for daily projection
-            weeklyBreakdown: []
-          };
-          console.log(`Fast mode: Last year same day (${lastYearTodayStr}): $${lastYearResult.data.net_sales.toFixed(2)}`);
-        }
-        
-      } catch (error) {
-        console.error('Fast mode: Failed to fetch from sales_cache:', error);
-        // Continue without historical data - will use fallback
-      }
-    }
+    const { fourWeekAverage, fourWeekHourlyPattern, prevWeekSales, prevMonthSales } = historicalData;
+    
+    // Map lastYearData to expected shape (without hourlyData field for compatibility)
+    const lastYearData = historicalData.lastYearData ? {
+      sameDay: historicalData.lastYearData.sameDay,
+      sameWeek: historicalData.lastYearData.sameWeek,
+      sameMonth: historicalData.lastYearData.sameMonth,
+      weeklyBreakdown: historicalData.lastYearData.weeklyBreakdown
+    } : undefined;
 
     // First, calculate preliminary daily projection for hourly distribution
     // This is needed before we can calculate pace-adjusted projection
