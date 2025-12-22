@@ -340,6 +340,16 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
     if (error) {
       console.error("Error fetching sales data:", error);
+
+      // Fallback: if live fetch fails (e.g. integration outage), try DB cache for the selected date
+      const fallback = await checkDatabaseCache(dateStr);
+      if (fallback) {
+        toast.message('Showing cached sales (live sync unavailable)', {
+          description: 'Live sales sync is temporarily unavailable, but historical cache is available.'
+        });
+        return fallback;
+      }
+
       const key = `${currentLocation?.id || 'unknown'}:${dateStr}`;
       if (lastIntegrationErrorKey.current !== key) {
         lastIntegrationErrorKey.current = key;
@@ -353,6 +363,16 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     // Surface backend integration errors (returned as 200 with { authenticated:false })
     if (data && typeof data === 'object' && 'authenticated' in data && (data as any).authenticated === false) {
       const msg = (data as any).error || "Sales integration is not configured for this location.";
+
+      // Fallback: if integration says not authenticated/configured, try DB cache
+      const fallback = await checkDatabaseCache(dateStr);
+      if (fallback) {
+        toast.message('Showing cached sales (integration not configured)', {
+          description: 'This location’s live sales integration isn’t configured, but cached history exists.'
+        });
+        return fallback;
+      }
+
       const key = `${currentLocation?.id || 'unknown'}:${dateStr}`;
       if (lastIntegrationErrorKey.current !== key) {
         lastIntegrationErrorKey.current = key;
