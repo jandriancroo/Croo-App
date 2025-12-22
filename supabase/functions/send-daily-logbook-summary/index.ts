@@ -429,9 +429,9 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { location_id, entry_date }: DailyLogbookSummaryRequest = await req.json();
+    const { location_id, entry_date, test_mode, test_email }: DailyLogbookSummaryRequest & { test_mode?: boolean; test_email?: string } = await req.json();
     
-    console.log(`Processing daily logbook summary for location ${location_id}, date ${entry_date}`);
+    console.log(`Processing daily logbook summary for location ${location_id}, date ${entry_date}, test_mode: ${test_mode}`);
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -527,8 +527,8 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Only send email if both PM Safe Count AND Drawer Count (Deposit) are completed
-    if (!hasPmSafeCount || !hasDeposit) {
+    // Only send email if both PM Safe Count AND Drawer Count (Deposit) are completed (unless test_mode)
+    if (!test_mode && (!hasPmSafeCount || !hasDeposit)) {
       console.log(`Email not sent - PM Safe Count: ${hasPmSafeCount}, Deposit: ${hasDeposit}`);
       return new Response(JSON.stringify({ 
         success: false, 
@@ -620,7 +620,7 @@ const handler = async (req: Request): Promise<Response> => {
       .in('role', ['admin', 'manager', 'general_manager', 'shift_manager'])
       .eq('is_active', true);
 
-    if (!profiles || profiles.length === 0) {
+    if (!test_mode && (!profiles || profiles.length === 0)) {
       console.log('No managers found for location');
       return new Response(JSON.stringify({ success: false, reason: 'No managers to email' }), {
         status: 200,
@@ -628,7 +628,8 @@ const handler = async (req: Request): Promise<Response> => {
       });
     }
 
-    const recipientEmails = profiles.map(p => p.email).filter(Boolean);
+    // Use test_email in test mode, otherwise send to managers
+    const recipientEmails = test_mode && test_email ? [test_email] : (profiles || []).map(p => p.email).filter(Boolean);
     console.log(`Sending email to ${recipientEmails.length} recipients:`, recipientEmails);
 
     // Generate email HTML
