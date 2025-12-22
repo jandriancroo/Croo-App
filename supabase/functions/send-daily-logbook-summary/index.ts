@@ -227,6 +227,7 @@ function generateEmailHtml(data: {
   remakes: { guestName: string; details: string }[];
   refunds: { guestName: string; details: string }[];
   safeCountData: { shift: string; totalCash: number; variance: number }[];
+  drawerCountData: { expected: number; actual: number; variance: number; totalDeposit: number } | null;
 }): string {
   const salesVariance = data.actualSales - data.projectedSales;
   const salesVariancePercent = data.projectedSales > 0 ? ((salesVariance / data.projectedSales) * 100) : 0;
@@ -287,6 +288,31 @@ function generateEmailHtml(data: {
         </div>
       `).join('')
     : '';
+
+  const drawerCountHtml = data.drawerCountData
+    ? `
+        <div style="background: #f9fafb; padding: 16px; border-radius: 12px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+            <span style="color: #6b7280;">Expected:</span>
+            <span style="color: #374151; font-weight: 600;">${formatCurrency(data.drawerCountData.expected)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+            <span style="color: #6b7280;">Actual Count:</span>
+            <span style="color: #374151; font-weight: 600;">${formatCurrency(data.drawerCountData.actual)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+            <span style="color: #6b7280; font-weight: 600;">Over/Under:</span>
+            <span style="color: ${data.drawerCountData.variance >= 0 ? '#10b981' : '#ef4444'}; font-weight: 700; font-size: 18px;">
+              ${data.drawerCountData.variance >= 0 ? '+' : ''}${formatCurrency(data.drawerCountData.variance)}
+            </span>
+          </div>
+          <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid #e5e7eb;">
+            <span style="color: #6b7280;">Total Deposit:</span>
+            <span style="color: #1d4ed8; font-weight: 700;">${formatCurrency(data.drawerCountData.totalDeposit)}</span>
+          </div>
+        </div>
+      `
+    : '<p style="color: #9ca3af; text-align: center;">No drawer count data available</p>';
 
   return `
     <!DOCTYPE html>
@@ -357,6 +383,14 @@ function generateEmailHtml(data: {
                 ${topItemsHtml}
               </tbody>
             </table>
+          </div>
+
+          <!-- Cash Handling Section -->
+          <div style="padding: 24px; border-bottom: 1px solid #e5e7eb;">
+            <h2 style="margin: 0 0 16px 0; color: #1f2937; font-size: 18px; display: flex; align-items: center;">
+              <span style="margin-right: 8px;">💰</span> Drawer Count / Deposit
+            </h2>
+            ${drawerCountHtml}
           </div>
 
           <!-- Remakes Section -->
@@ -464,7 +498,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Check for Drawer Count (deposit)
+    // Check for Drawer Count (deposit) and parse data
     const { data: drawerCountEntries } = await supabase
       .from('logbook_entries')
       .select('*, logbook_entry_values(*)')
@@ -473,6 +507,25 @@ const handler = async (req: Request): Promise<Response> => {
       .eq('location_id', location_id);
 
     const hasDeposit = (drawerCountEntries?.length || 0) > 0;
+    
+    // Parse drawer count data
+    let drawerCountData: { expected: number; actual: number; variance: number; totalDeposit: number } | null = null;
+    if (hasDeposit && drawerCountEntries && drawerCountEntries.length > 0) {
+      try {
+        const valueText = drawerCountEntries[0].logbook_entry_values?.[0]?.value_text;
+        if (valueText) {
+          const parsed = JSON.parse(valueText);
+          drawerCountData = {
+            expected: parsed.expectedDeposit || 0,
+            actual: parsed.actualDeposit || 0,
+            variance: (parsed.actualDeposit || 0) - (parsed.expectedDeposit || 0),
+            totalDeposit: parsed.totalDeposit || 0
+          };
+        }
+      } catch (e) {
+        console.error('Error parsing drawer count data:', e);
+      }
+    }
 
     // Only send email if both PM Safe Count AND Drawer Count (Deposit) are completed
     if (!hasPmSafeCount || !hasDeposit) {
@@ -591,7 +644,8 @@ const handler = async (req: Request): Promise<Response> => {
       topItems: qbData?.topItems || [],
       remakes,
       refunds,
-      safeCountData
+      safeCountData,
+      drawerCountData
     });
 
     // Send email
