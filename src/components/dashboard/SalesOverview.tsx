@@ -135,14 +135,37 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
         .lte('sale_date', monthEndStr)
         .order('sale_date')
     ]);
-    
+
+    // If RLS blocks access (or any other DB error), surface it clearly.
+    const dbError = dailyResult.error || weekResult.error || monthResult.error;
+    if (dbError) {
+      console.error('[SalesOverview] sales_cache query error:', dbError);
+      setDiagnosticInfo({
+        lastFetchTime: new Date().toISOString(),
+        locationId: currentLocation?.id || null,
+        locationName: currentLocation?.name || null,
+        targetDate: dateStr,
+        rawResponse: {
+          dailyError: dailyResult.error,
+          weekError: weekResult.error,
+          monthError: monthResult.error
+        },
+        error: dbError.message || String(dbError)
+      });
+
+      toast.error('Unable to load historical sales', {
+        description: dbError.message || 'Your account may not have access to sales history for this location.'
+      });
+      return null;
+    }
+
     // Check if we have ANY cached data for the period (week or month)
     const hasWeekData = weekResult.data && weekResult.data.length > 0;
     const hasMonthData = monthResult.data && monthResult.data.length > 0;
-    
+
     // If no daily data but we have week/month data, we can still return historical view
-    if (dailyResult.error && !hasWeekData && !hasMonthData) return null;
-    
+    if (!dailyResult.data && !hasWeekData && !hasMonthData) return null;
+
     const cached = dailyResult.data;
     
     console.log(`[CACHE] Date ${dateStr}: daily=${!!cached}, week=${weekResult.data?.length || 0} days, month=${monthResult.data?.length || 0} days`);
