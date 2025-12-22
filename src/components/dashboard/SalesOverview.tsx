@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, Bug } from 'lucide-react';
+import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, Bug, RefreshCcw } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,6 +62,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   const [showProductMix, setShowProductMix] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [diagnosticInfo, setDiagnosticInfo] = useState<DiagnosticInfo | null>(null);
+  const [isRepairingWeek, setIsRepairingWeek] = useState(false);
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
   const isBackgroundRefreshing = useRef(false);
@@ -721,17 +722,60 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
             ) : (
               <p className="text-xs text-muted-foreground">No API call made yet. Switch locations or dates to trigger a fetch.</p>
             )}
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-3"
-              onClick={() => {
-                queryClient.invalidateQueries({ queryKey: ["qubeyond-sales"] });
-                refetch();
-              }}
-            >
-              Force Refresh
-            </Button>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  queryClient.invalidateQueries({ queryKey: ["qubeyond-sales"] });
+                  refetch();
+                }}
+              >
+                Force Refresh
+              </Button>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={isRepairingWeek || !currentLocation?.id}
+                onClick={async () => {
+                  if (!currentLocation?.id) return;
+
+                  setIsRepairingWeek(true);
+                  try {
+                    const weekStart = startOfWeek(targetDate, { weekStartsOn: 1 });
+                    const dates = Array.from({ length: 7 }).map((_, i) => format(addDays(weekStart, i), 'yyyy-MM-dd'));
+
+                    const results = await Promise.allSettled(
+                      dates.map((date) =>
+                        supabase.functions.invoke('sync-day-sales', {
+                          body: { locationId: currentLocation.id, date },
+                        })
+                      )
+                    );
+
+                    const updatedCount = results.filter(
+                      (r) => r.status === 'fulfilled' && (r.value as any)?.data?.status === 'updated'
+                    ).length;
+
+                    toast.success('Re-synced week from source', {
+                      description: `${updatedCount}/7 days updated for ${format(weekStart, 'MMM d')}-${format(addDays(weekStart, 6), 'MMM d')}.`,
+                    });
+                  } catch (e) {
+                    toast.error('Week resync failed', {
+                      description: e instanceof Error ? e.message : 'Unknown error',
+                    });
+                  } finally {
+                    setIsRepairingWeek(false);
+                    queryClient.invalidateQueries({ queryKey: ['qubeyond-sales'] });
+                    refetch();
+                  }
+                }}
+              >
+                <RefreshCcw className={"mr-2 h-4 w-4" + (isRepairingWeek ? ' animate-spin' : '')} />
+                Repair week
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
