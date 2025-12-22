@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+// Declare EdgeRuntime for background tasks
+declare const EdgeRuntime: {
+  waitUntil(promise: Promise<unknown>): void;
+};
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -1362,7 +1366,7 @@ serve(async (req) => {
   }
 
   try {
-    const { locationId, targetDate, testCredentials, skipProjections, fastMode } = await req.json().catch(() => ({}));
+    const { locationId, targetDate, testCredentials, skipProjections } = await req.json().catch(() => ({}));
     
     let credentials: QuBeyondCredentials;
     let hoursOpen = 11;
@@ -1588,14 +1592,14 @@ serve(async (req) => {
     const pastWeekDates = weekDates.filter(d => d < todayStr);
     const pastMonthDates = monthDates.filter(d => d < todayStr);
     
-    // Fetch cached data for past days
+    // Fetch cached data for past days (including pizza_count for aggregation)
     const allPastDates = [...new Set([...pastWeekDates, ...pastMonthDates])];
-    let cachedPastData: { sale_date: string; net_sales: number; guest_count: number }[] = [];
+    let cachedPastData: { sale_date: string; net_sales: number; guest_count: number; pizza_count: number | null }[] = [];
     
     if (allPastDates.length > 0 && locationId) {
       const { data: pastCacheData } = await cacheSupabase
         .from('sales_cache')
-        .select('sale_date, net_sales, guest_count')
+        .select('sale_date, net_sales, guest_count, pizza_count')
         .eq('location_id', locationId)
         .in('sale_date', allPastDates);
       
@@ -1604,11 +1608,12 @@ serve(async (req) => {
     }
     
     // Build a quick lookup map for cached past days
-    const pastCacheMap = new Map<string, { sales: number; guestCount: number }>();
+    const pastCacheMap = new Map<string, { sales: number; guestCount: number; pizzaCount: number }>();
     for (const row of cachedPastData) {
       pastCacheMap.set(row.sale_date, { 
         sales: row.net_sales || 0, 
-        guestCount: row.guest_count || 0 
+        guestCount: row.guest_count || 0,
+        pizzaCount: row.pizza_count || 0
       });
     }
 
@@ -1677,48 +1682,60 @@ serve(async (req) => {
     const prevDayTotalSales = prevDayHourly.reduce((sum, h) => sum + h.sales, 0);
 
     // === BUILD WTD/MTD FROM CACHE + TODAY ===
-    // Weekly breakdown: past days from cache + today live
-    const weeklyBreakdown: { date: string; sales: number; guestCount: number }[] = [];
+    // Calculate today's pizza count from product mix (will be estimated if no product mix)
+    const todayPizzaCount = productMix
+      .filter(item => item.category.toLowerCase() === 'crusts')
+      .reduce((sum, item) => {
+        const isHalf = item.name.includes('1/2') || item.name.includes('(1/2)');
+        return sum + (isHalf ? item.quantity * 0.5 : item.quantity);
+      }, 0);
+    
+    // Weekly breakdown: past days from cache + today live (now includes pizza count)
+    const weeklyBreakdown: { date: string; sales: number; guestCount: number; pizzaCount: number }[] = [];
     for (const dateStr of weekDates) {
       if (dateStr === todayStr) {
         // Today - use live data
-        weeklyBreakdown.push({ date: dateStr, sales: dailySales, guestCount: dailyGuestCount });
+        weeklyBreakdown.push({ date: dateStr, sales: dailySales, guestCount: dailyGuestCount, pizzaCount: todayPizzaCount });
       } else {
         // Past day - use cache
         const cached = pastCacheMap.get(dateStr);
         weeklyBreakdown.push({ 
           date: dateStr, 
           sales: cached?.sales || 0, 
-          guestCount: cached?.guestCount || 0 
+          guestCount: cached?.guestCount || 0,
+          pizzaCount: cached?.pizzaCount || 0
         });
       }
     }
     
-    // Monthly breakdown: past days from cache + today live
-    const monthlyBreakdown: { date: string; sales: number; guestCount: number }[] = [];
+    // Monthly breakdown: past days from cache + today live (now includes pizza count)
+    const monthlyBreakdown: { date: string; sales: number; guestCount: number; pizzaCount: number }[] = [];
     for (const dateStr of monthDates) {
       if (dateStr === todayStr) {
         // Today - use live data
-        monthlyBreakdown.push({ date: dateStr, sales: dailySales, guestCount: dailyGuestCount });
+        monthlyBreakdown.push({ date: dateStr, sales: dailySales, guestCount: dailyGuestCount, pizzaCount: todayPizzaCount });
       } else {
         // Past day - use cache
         const cached = pastCacheMap.get(dateStr);
         monthlyBreakdown.push({ 
           date: dateStr, 
           sales: cached?.sales || 0, 
-          guestCount: cached?.guestCount || 0 
+          guestCount: cached?.guestCount || 0,
+          pizzaCount: cached?.pizzaCount || 0
         });
       }
     }
 
-    // Calculate weekly/monthly totals from combined breakdown
+    // Calculate weekly/monthly totals from combined breakdown (now includes pizza counts)
     const weeklySales = weeklyBreakdown.reduce((sum, d) => sum + d.sales, 0);
     const weeklyGuestCount = weeklyBreakdown.reduce((sum, d) => sum + d.guestCount, 0);
+    const weeklyPizzaCount = weeklyBreakdown.reduce((sum, d) => sum + d.pizzaCount, 0);
     const monthlySales = monthlyBreakdown.reduce((sum, d) => sum + d.sales, 0);
     const monthlyGuestCount = monthlyBreakdown.reduce((sum, d) => sum + d.guestCount, 0);
+    const monthlyPizzaCount = monthlyBreakdown.reduce((sum, d) => sum + d.pizzaCount, 0);
     
-    console.log(`[OPTIMIZED] WTD: ${pastWeekDates.length} days from cache + today live = $${weeklySales}, ${weeklyGuestCount} guests`);
-    console.log(`[OPTIMIZED] MTD: ${pastMonthDates.length} days from cache + today live = $${monthlySales}, ${monthlyGuestCount} guests`);
+    console.log(`[OPTIMIZED] WTD: $${weeklySales}, ${weeklyGuestCount} guests, ${weeklyPizzaCount} pizzas`);
+    console.log(`[OPTIMIZED] MTD: $${monthlySales}, ${monthlyGuestCount} guests, ${monthlyPizzaCount} pizzas`);
 
     const avgTicket = dailyGuestCount > 0 ? dailySales / dailyGuestCount : 0;
 
@@ -1860,157 +1877,139 @@ serve(async (req) => {
       overtimeHours: weeklyLaborData.overtimeHours
     } : null;
 
-    // Calculate pizza count from "Crusts" category in product mix
-    // Items with "1/2" in the name count as 0.5 pizzas each
-    const pizzaCount = productMix
-      .filter(item => item.category.toLowerCase() === 'crusts')
-      .reduce((sum, item) => {
-        const isHalf = item.name.includes('1/2') || item.name.includes('(1/2)');
-        return sum + (isHalf ? item.quantity * 0.5 : item.quantity);
-      }, 0);
-    
+    // pizzaCount for today already calculated above as todayPizzaCount
+    const pizzaCount = todayPizzaCount;
     console.log(`Pizza count (Crusts category, 1/2 items counted as 0.5): ${pizzaCount}`);
 
-    // Store calculated projections in sales_cache for FUTURE dates only
-    // Once a projection is saved, it should not change (immutable)
-    // Past dates already have actuals, so projections aren't needed
-    if (locationId && !fastMode) {
-      // Reuse cacheSupabase client from above
-      
-      // Collect projections for future dates only (today and beyond)
-      const futureDates = new Set<string>();
-      const allProjections: { location_id: string; sale_date: string; projected_sales: number }[] = [];
-      
-      // Add weekly projections for today and future
-      for (const day of weeklyWithProjections) {
-        if (day.projected > 0 && day.date >= todayStr) {
-          futureDates.add(day.date);
-          allProjections.push({
-            location_id: locationId,
-            sale_date: day.date,
-            projected_sales: day.projected
-          });
-        }
-      }
-      
-      // Add monthly projections for future dates not in weekly
-      for (const day of monthlyWithProjections) {
-        if (day.projected > 0 && day.date >= todayStr && !futureDates.has(day.date)) {
-          allProjections.push({
-            location_id: locationId,
-            sale_date: day.date,
-            projected_sales: day.projected
-          });
-        }
-      }
-      
-      if (allProjections.length > 0) {
-        // First, check which dates already have projections saved
-        const datesToCheck = allProjections.map(p => p.sale_date);
-        const { data: existingData } = await cacheSupabase
-          .from('sales_cache')
-          .select('sale_date, projected_sales')
-          .eq('location_id', locationId)
-          .in('sale_date', datesToCheck);
-        
-        // Only save projections for dates that don't already have one
-        const existingProjections = new Set(
-          (existingData || [])
-            .filter((d: { projected_sales: number | null; sale_date: string }) => d.projected_sales && d.projected_sales > 0)
-            .map((d: { sale_date: string }) => d.sale_date)
-        );
-        
-        const newProjections = allProjections.filter(p => !existingProjections.has(p.sale_date));
-        
-        if (newProjections.length > 0) {
-          console.log(`Saving ${newProjections.length} NEW projections (skipping ${existingProjections.size} existing)...`);
+    // === BACKGROUND TASK: Save projections and today's sales to DB ===
+    // This runs asynchronously so response returns immediately
+    const backgroundSaveTask = async () => {
+      try {
+        // Store calculated projections in sales_cache for FUTURE dates only
+        if (locationId) {
+          // Collect projections for future dates only (today and beyond)
+          const futureDates = new Set<string>();
+          const allProjections: { location_id: string; sale_date: string; projected_sales: number }[] = [];
           
-          for (const proj of newProjections) {
-            // Check if row exists first
-            const { data: existing } = await cacheSupabase
-              .from('sales_cache')
-              .select('id')
-              .eq('location_id', proj.location_id)
-              .eq('sale_date', proj.sale_date)
-              .single();
-            
-            if (existing) {
-              // Row exists - only update projected_sales
-              const { error } = await cacheSupabase
-                .from('sales_cache')
-                .update({ projected_sales: proj.projected_sales })
-                .eq('location_id', proj.location_id)
-                .eq('sale_date', proj.sale_date);
-              
-              if (error) {
-                console.error(`Failed to update projection for ${proj.sale_date}:`, error.message);
-              }
-            } else {
-              // Row doesn't exist - insert new row
-              const { error } = await cacheSupabase
-                .from('sales_cache')
-                .insert({
-                  location_id: proj.location_id,
-                  sale_date: proj.sale_date,
-                  projected_sales: proj.projected_sales,
-                  net_sales: 0,
-                  guest_count: 0
-                });
-              
-              if (error) {
-                console.error(`Failed to insert projection for ${proj.sale_date}:`, error.message);
-              }
+          // Add weekly projections for today and future
+          for (const day of weeklyWithProjections) {
+            if (day.projected > 0 && day.date >= todayStr) {
+              futureDates.add(day.date);
+              allProjections.push({
+                location_id: locationId,
+                sale_date: day.date,
+                projected_sales: day.projected
+              });
             }
           }
           
-          console.log('Projections stored successfully');
-        } else {
-          console.log('All projections already exist, no updates needed');
+          // Add monthly projections for future dates not in weekly
+          for (const day of monthlyWithProjections) {
+            if (day.projected > 0 && day.date >= todayStr && !futureDates.has(day.date)) {
+              allProjections.push({
+                location_id: locationId,
+                sale_date: day.date,
+                projected_sales: day.projected
+              });
+            }
+          }
+          
+          if (allProjections.length > 0) {
+            // First, check which dates already have projections saved
+            const datesToCheck = allProjections.map(p => p.sale_date);
+            const { data: existingData } = await cacheSupabase
+              .from('sales_cache')
+              .select('sale_date, projected_sales')
+              .eq('location_id', locationId)
+              .in('sale_date', datesToCheck);
+            
+            // Only save projections for dates that don't already have one
+            const existingProjections = new Set(
+              (existingData || [])
+                .filter((d: { projected_sales: number | null; sale_date: string }) => d.projected_sales && d.projected_sales > 0)
+                .map((d: { sale_date: string }) => d.sale_date)
+            );
+            
+            const newProjections = allProjections.filter(p => !existingProjections.has(p.sale_date));
+            
+            if (newProjections.length > 0) {
+              console.log(`[BACKGROUND] Saving ${newProjections.length} NEW projections...`);
+              
+              for (const proj of newProjections) {
+                const { data: existing } = await cacheSupabase
+                  .from('sales_cache')
+                  .select('id')
+                  .eq('location_id', proj.location_id)
+                  .eq('sale_date', proj.sale_date)
+                  .single();
+                
+                if (existing) {
+                  await cacheSupabase
+                    .from('sales_cache')
+                    .update({ projected_sales: proj.projected_sales })
+                    .eq('location_id', proj.location_id)
+                    .eq('sale_date', proj.sale_date);
+                } else {
+                  await cacheSupabase
+                    .from('sales_cache')
+                    .insert({
+                      location_id: proj.location_id,
+                      sale_date: proj.sale_date,
+                      projected_sales: proj.projected_sales,
+                      net_sales: 0,
+                      guest_count: 0
+                    });
+                }
+              }
+              console.log('[BACKGROUND] Projections stored successfully');
+            }
+          }
         }
+        
+        // Save today's actual sales to the cache
+        if (locationId && dailySales > 0) {
+          const { data: locSettings } = await cacheSupabase
+            .from('location_settings')
+            .select('pizza_sales_percentage, average_pizza_price')
+            .eq('location_id', locationId)
+            .single();
+          
+          const pizzaSalesPercentage = locSettings?.pizza_sales_percentage ?? 80;
+          const averagePizzaPrice = locSettings?.average_pizza_price ?? 10.50;
+          // Use actual pizza count from product mix if available, otherwise estimate
+          const finalPizzaCount = pizzaCount > 0 ? pizzaCount : Math.round((dailySales * (pizzaSalesPercentage / 100)) / averagePizzaPrice);
+          
+          const { error: upsertError } = await cacheSupabase
+            .from('sales_cache')
+            .upsert({
+              location_id: locationId,
+              sale_date: todayStr,
+              net_sales: dailySales,
+              guest_count: dailyGuestCount,
+              pizza_count: finalPizzaCount,
+              avg_ticket: avgTicket || null,
+              hourly_data: hourlyWithLabor,
+              validation_status: 'valid',
+              validation_attempts: 1,
+              flagged_no_sales: false,
+              fetched_at: new Date().toISOString()
+            }, {
+              onConflict: 'location_id,sale_date'
+            });
+          
+          if (upsertError) {
+            console.error(`[BACKGROUND] Failed to save today's sales:`, upsertError.message);
+          } else {
+            console.log(`[BACKGROUND] Saved today's sales: $${dailySales}, ${dailyGuestCount} guests, ${finalPizzaCount} pizzas`);
+          }
+        }
+      } catch (bgError) {
+        console.error('[BACKGROUND] Error in background save task:', bgError);
       }
-    }
+    };
     
-    // ALSO save today's ACTUAL sales to the cache so Week/Month views have the data
-    // This runs every time we fetch live data (not just projections)
-    if (locationId && dailySales > 0) {
-      // Reuse cacheSupabase client from above
-      
-      // Get pizza estimation settings
-      const { data: locSettings } = await cacheSupabase
-        .from('location_settings')
-        .select('pizza_sales_percentage, average_pizza_price')
-        .eq('location_id', locationId)
-        .single();
-      
-      const pizzaSalesPercentage = locSettings?.pizza_sales_percentage ?? 80;
-      const averagePizzaPrice = locSettings?.average_pizza_price ?? 10.50;
-      const estimatedPizzaCount = Math.round((dailySales * (pizzaSalesPercentage / 100)) / averagePizzaPrice);
-      
-      // Upsert today's actual sales data
-      const { error: upsertError } = await cacheSupabase
-        .from('sales_cache')
-        .upsert({
-          location_id: locationId,
-          sale_date: todayStr,
-          net_sales: dailySales,
-          guest_count: dailyGuestCount,
-          pizza_count: estimatedPizzaCount,
-          avg_ticket: avgTicket || null,
-          hourly_data: hourlyWithLabor,
-          validation_status: 'valid',
-          validation_attempts: 1,
-          flagged_no_sales: false,
-          fetched_at: new Date().toISOString()
-        }, {
-          onConflict: 'location_id,sale_date'
-        });
-      
-      if (upsertError) {
-        console.error(`Failed to save today's sales to cache:`, upsertError.message);
-      } else {
-        console.log(`Saved today's sales to cache: $${dailySales}, ${dailyGuestCount} guests, ${estimatedPizzaCount} pizzas`);
-      }
-    }
+    // Start background task (doesn't block response)
+    EdgeRuntime.waitUntil(backgroundSaveTask());
 
     const result = {
       daily: dailySales,
@@ -2025,7 +2024,11 @@ serve(async (req) => {
         monthly: monthlyGuestCount
       },
       avgTicket,
-      pizzaCount, // Total crusts sold today
+      pizzaCount: {
+        daily: pizzaCount,
+        weekly: weeklyPizzaCount,
+        monthly: monthlyPizzaCount
+      },
       comparison: {
         prevDay: prevDaySalesRealTime, // Real-time: same hours last week
         prevDayFullDay: prevDayTotalSales, // Full day total for reference

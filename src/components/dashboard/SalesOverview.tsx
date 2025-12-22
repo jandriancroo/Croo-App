@@ -26,7 +26,7 @@ interface SalesData {
   monthlyBreakdown?: Array<{ date: string; sales: number; projected?: number; guestCount?: number }>;
   guestCount?: { daily: number; weekly: number; monthly: number };
   avgTicket?: number;
-  pizzaCount?: number;
+  pizzaCount?: number | { daily: number; weekly: number; monthly: number };
   comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevMonth: number };
   projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number };
   currentHour?: number;
@@ -881,7 +881,9 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 <div className="text-center min-w-0">
                   <p className="text-xs text-muted-foreground">Pizzas</p>
                   <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
-                    {salesData?.pizzaCount ?? "--"}
+                    {salesData?.pizzaCount !== undefined 
+                      ? (typeof salesData.pizzaCount === 'object' ? salesData.pizzaCount.daily : salesData.pizzaCount)
+                      : "--"}
                   </p>
                 </div>
                 <div className="text-right min-w-0">
@@ -981,7 +983,9 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 for (const h of salesData.hourly) {
                   totalHourlySales += h.sales || 0;
                 }
-                const pizzaCount = salesData.pizzaCount || 0;
+                const pizzaCount = salesData.pizzaCount 
+                  ? (typeof salesData.pizzaCount === 'object' ? salesData.pizzaCount.daily : salesData.pizzaCount) 
+                  : 0;
                 
                 // Add estimated pizzas to each hour based on sales proportion
                 const hourlyWithPizzas = salesData.hourly.map(h => {
@@ -1085,7 +1089,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 narrow
               />
               
-              <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
               <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">WTD</p>
                   <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
@@ -1098,6 +1102,14 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                       label="last week"
                     />
                   )}
+                </div>
+                <div className="text-center min-w-0">
+                  <p className="text-xs text-muted-foreground">Pizzas</p>
+                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
+                    {salesData?.pizzaCount !== undefined 
+                      ? (typeof salesData.pizzaCount === 'object' ? Math.round(salesData.pizzaCount.weekly) : "--")
+                      : "--"}
+                  </p>
                 </div>
                 <div className="text-right min-w-0">
                   <p className="text-xs text-muted-foreground">Avg Ticket</p>
@@ -1235,7 +1247,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 narrow
               />
               
-              <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 mb-4">
               <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground">MTD</p>
                   <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
@@ -1248,6 +1260,14 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                       label="last month"
                     />
                   )}
+                </div>
+                <div className="text-center min-w-0">
+                  <p className="text-xs text-muted-foreground">Pizzas</p>
+                  <p className="text-lg sm:text-2xl font-bold transition-all duration-300 ease-out">
+                    {salesData?.pizzaCount !== undefined 
+                      ? (typeof salesData.pizzaCount === 'object' ? Math.round(salesData.pizzaCount.monthly) : "--")
+                      : "--"}
+                  </p>
                 </div>
                 <div className="text-right min-w-0">
                   <p className="text-xs text-muted-foreground">Avg Ticket</p>
