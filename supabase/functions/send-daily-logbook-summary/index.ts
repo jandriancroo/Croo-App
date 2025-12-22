@@ -657,17 +657,34 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Get QuBeyond data (sales, labor, top items)
-    const qbData = await fetchQuBeyondData(supabase, location_id, entry_date);
+    let qbData = await fetchQuBeyondData(supabase, location_id, entry_date);
 
-    // Get projected sales from sales_cache if available
+    // Get sales data from sales_cache as fallback or primary source
     const { data: salesCache } = await supabase
       .from('sales_cache')
-      .select('projected_sales')
+      .select('net_sales, projected_sales')
       .eq('location_id', location_id)
       .eq('sale_date', entry_date)
       .maybeSingle();
 
     const projectedSales = salesCache?.projected_sales || 0;
+    
+    // Use cached data if QuBeyond fetch failed
+    if (!qbData && salesCache) {
+      console.log('Using sales_cache data as fallback');
+      qbData = {
+        actualSales: salesCache.net_sales || 0,
+        laborPercent: 0,
+        laborCost: 0,
+        hoursWorked: 0,
+        topItems: [],
+        hasData: true
+      };
+    } else if (qbData && salesCache?.net_sales && qbData.actualSales === 0) {
+      // If QB returned 0 but cache has data, use cache
+      console.log('QuBeyond returned 0 sales, using cached net_sales');
+      qbData.actualSales = salesCache.net_sales;
+    }
 
     // Fetch Guest Remakes
     const remakesCategoryId = categories?.find(c => c.name?.toLowerCase() === 'guest remakes')?.id;
