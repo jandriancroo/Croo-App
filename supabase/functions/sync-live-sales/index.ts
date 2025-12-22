@@ -184,57 +184,6 @@ async function fetchHourlySales(
   return hourlyData;
 }
 
-async function fetchProductMix(
-  tokenGw: string,
-  dateStr: string,
-  qbLocationId: string
-): Promise<number> {
-  try {
-    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': tokenGw,
-        'Origin': 'https://admin.qubeyond.com',
-        'Referer': 'https://admin.qubeyond.com/',
-      },
-      body: JSON.stringify({
-        fields: [
-          { fieldName: "category" }, { fieldName: "name" }, { fieldName: "itemCount" },
-          { fieldName: "netSales" }, { fieldName: "netSalesPercentage" },
-          { fieldName: "itemCountPercentage" }
-        ],
-        filters: {
-          date: { from: null, to: null, values: [dateStr], type: "custom" },
-          singleLocation: parseInt(qbLocationId),
-          location: { operationalUnits: [parseInt(qbLocationId)] }
-        },
-        params: { sectionId: "main", pageNumber: 1, pageSize: 1000, totalRecords: null, sort: null, showTotals: true }
-      }),
-    });
-
-    if (!response.ok) return 0;
-
-    const data = await response.json();
-    let pizzaCount = 0;
-    
-    if (data.items && Array.isArray(data.items)) {
-      for (const item of data.items) {
-        const category = String(item.category || '').toLowerCase();
-        const name = String(item.name || '').toLowerCase();
-        if (category.includes('pizza') || name.includes('pizza')) {
-          pizzaCount += parseInt(String(item.itemCount || '0').replace(/,/g, '')) || 0;
-        }
-      }
-    }
-    
-    return pizzaCount;
-  } catch (error) {
-    console.error('Product mix fetch error:', error);
-    return 0;
-  }
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -262,21 +211,23 @@ serve(async (req) => {
 
     // Fetch location settings separately
     const locationIds = integrations?.map(i => i.location_id) || [];
-    const { data: locationSettings } = await supabase
-      .from('location_settings')
-      .select('location_id, timezone, hours_open, hours_close')
-      .in('location_id', locationIds);
-    
-    const settingsByLocation: Record<string, { timezone: string; hours_open: string | null; hours_close: string | null }> = {};
-    if (locationSettings) {
-      for (const ls of locationSettings) {
-        settingsByLocation[ls.location_id] = {
-          timezone: ls.timezone || 'America/Los_Angeles',
-          hours_open: ls.hours_open,
-          hours_close: ls.hours_close
-        };
-      }
+  const { data: locationSettings } = await supabase
+    .from('location_settings')
+    .select('location_id, timezone, hours_open, hours_close, pizza_sales_percentage, average_pizza_price')
+    .in('location_id', locationIds);
+  
+  const settingsByLocation: Record<string, { timezone: string; hours_open: string | null; hours_close: string | null; pizza_sales_percentage: number; average_pizza_price: number }> = {};
+  if (locationSettings) {
+    for (const ls of locationSettings) {
+      settingsByLocation[ls.location_id] = {
+        timezone: ls.timezone || 'America/Los_Angeles',
+        hours_open: ls.hours_open,
+        hours_close: ls.hours_close,
+        pizza_sales_percentage: ls.pizza_sales_percentage ?? 80,
+        average_pizza_price: ls.average_pizza_price ?? 10.50
+      };
     }
+  }
 
     if (intError) {
       console.error('Error fetching integrations:', intError);
@@ -373,8 +324,11 @@ serve(async (req) => {
       const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
       const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
       
-      // Fetch pizza count
-      const pizzaCount = await fetchProductMix(auth.tokenGw, todayStr, auth.qbLocationId);
+      // Calculate pizza count using revenue-based estimation
+      const pizzaSalesPercentage = settings?.pizza_sales_percentage ?? 80;
+      const averagePizzaPrice = settings?.average_pizza_price ?? 10.50;
+      const pizzaRevenue = netSales * (pizzaSalesPercentage / 100);
+      const pizzaCount = Math.round(pizzaRevenue / averagePizzaPrice);
 
       // Format hourly data for storage
       const formattedHourly = [];
