@@ -428,21 +428,24 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     return cached?.data || null;
   };
 
+  // Historical dates: always fresh from DB cache (staleTime: 0)
+  // Today: use 5-minute stale time for live data
+  const isTodayQuery = isSameDay(targetDate, new Date());
+  
   const { data: rawSalesData, isLoading, refetch } = useQuery({
     queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
     queryFn: fetchSalesData,
     enabled: !!currentLocation?.id,
-    staleTime: 5 * 60 * 1000, // Consider data stale after 5 minutes
-    refetchOnWindowFocus: false, // Don't refetch just because user switched tabs
-    initialData: getInitialData, // Show cached data instantly
-    initialDataUpdatedAt: () => {
-      // Tell React Query when the initial data was fetched
+    staleTime: isTodayQuery ? 5 * 60 * 1000 : 0, // Historical dates always refetch from DB cache
+    gcTime: isTodayQuery ? 30 * 60 * 1000 : 0, // Don't cache historical queries in memory
+    refetchOnWindowFocus: false,
+    initialData: isTodayQuery ? getInitialData : undefined, // Only use localStorage cache for today
+    initialDataUpdatedAt: isTodayQuery ? () => {
       if (!currentLocation?.id) return 0;
       const cached = getCachedLiveSales(currentLocation.id);
       if (!cached) return 0;
-      // Return timestamp to let React Query know if it should background refresh
       return cached.isStale ? 0 : Date.now();
-    }
+    } : undefined
   });
 
   // Background refresh when cache is stale but we have data to show
