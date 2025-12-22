@@ -121,7 +121,20 @@ serve(async (req) => {
     let totalTasksExpected = 0;
     let totalTasksCompleted = 0;
 
+    // Group submissions by checklist_id and date, keeping only the best (most responses) per group
+    const bestSubmissions: Record<string, any> = {};
+    
     submissions?.forEach((sub: any) => {
+      const submissionDate = new Date(sub.submitted_at).toISOString().split('T')[0];
+      const key = `${sub.checklist_id}_${submissionDate}`;
+      const responseCount = sub.checklist_responses?.length || 0;
+      
+      if (!bestSubmissions[key] || responseCount > (bestSubmissions[key].checklist_responses?.length || 0)) {
+        bestSubmissions[key] = sub;
+      }
+    });
+
+    Object.values(bestSubmissions).forEach((sub: any) => {
       // Get the day of week for this submission (0 = Sunday, 6 = Saturday)
       const submissionDate = new Date(sub.submitted_at);
       const dayOfWeek = submissionDate.getDay();
