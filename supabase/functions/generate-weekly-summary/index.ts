@@ -107,12 +107,27 @@ serve(async (req) => {
     }
 
     // 3. Get task completion stats for the week
+    // First, get all active non-monthly checklists for this location
+    const { data: checklists } = await supabase
+      .from('checklists')
+      .select(`
+        id,
+        title,
+        frequency,
+        assigned_day_of_week,
+        checklist_items(id, days_of_week)
+      `)
+      .eq('location_id', location_id)
+      .eq('is_active', true)
+      .neq('frequency', 'monthly');
+
+    // Get all submissions for the week
     const { data: submissions } = await supabase
       .from('checklist_submissions')
       .select(`
         *,
         checklist_responses(*),
-        checklists(title, frequency, checklist_items(id, days_of_week))
+        checklists(id, title, frequency)
       `)
       .eq('location_id', location_id)
       .gte('submitted_at', week_start)
@@ -121,45 +136,61 @@ serve(async (req) => {
     let totalTasksExpected = 0;
     let totalTasksCompleted = 0;
 
-    // Group submissions by checklist_id and date, keeping only the best (most responses) per group
-    // Also exclude monthly checklists from weekly summary
-    const bestSubmissions: Record<string, any> = {};
+    // Get all dates in the week
+    const weekDates = getDateRange(week_start, week_end);
     
-    submissions?.forEach((sub: any) => {
-      // Skip monthly checklists - they shouldn't be counted in weekly summaries
-      if (sub.checklists?.frequency === 'monthly') {
-        return;
-      }
+    // For each day, check each checklist
+    for (const dateStr of weekDates) {
+      const date = new Date(dateStr + 'T12:00:00');
+      const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
       
-      const submissionDate = new Date(sub.submitted_at).toISOString().split('T')[0];
-      const key = `${sub.checklist_id}_${submissionDate}`;
-      const responseCount = sub.checklist_responses?.length || 0;
-      
-      if (!bestSubmissions[key] || responseCount > (bestSubmissions[key].checklist_responses?.length || 0)) {
-        bestSubmissions[key] = sub;
-      }
-    });
-
-    Object.values(bestSubmissions).forEach((sub: any) => {
-      // Get the day of week for this submission (0 = Sunday, 6 = Saturday)
-      const submissionDate = new Date(sub.submitted_at);
-      const dayOfWeek = submissionDate.getDay();
-      
-      // Count only items that are applicable on this day
-      const applicableItems = sub.checklists?.checklist_items?.filter((item: any) => {
-        // If days_of_week is null or empty, item applies to all days
-        if (!item.days_of_week || item.days_of_week.length === 0) {
-          return true;
+      for (const checklist of (checklists || [])) {
+        // Determine if this checklist is expected on this day
+        let isExpected = false;
+        
+        if (checklist.frequency === 'daily') {
+          isExpected = true;
+        } else if (checklist.frequency === 'weekly') {
+          // Weekly checklists - check if assigned_day_of_week matches, or if it's a dynamic list (always expected)
+          if (checklist.assigned_day_of_week === null || checklist.assigned_day_of_week === dayOfWeek) {
+            isExpected = true;
+          }
         }
-        // Otherwise, check if this day is included
-        return item.days_of_week.includes(dayOfWeek);
-      }) || [];
-      
-      const expectedItems = applicableItems.length;
-      const completedItems = sub.checklist_responses?.length || 0;
-      totalTasksExpected += expectedItems;
-      totalTasksCompleted += completedItems;
-    });
+        
+        if (!isExpected) continue;
+        
+        // Count applicable items for this day
+        const applicableItems = checklist.checklist_items?.filter((item: any) => {
+          if (!item.days_of_week || item.days_of_week.length === 0) {
+            return true;
+          }
+          return item.days_of_week.includes(dayOfWeek);
+        }) || [];
+        
+        const expectedItems = applicableItems.length;
+        if (expectedItems === 0) continue; // Skip if no items applicable today
+        
+        totalTasksExpected += expectedItems;
+        
+        // Find the best submission for this checklist on this day
+        const daySubmissions = submissions?.filter((sub: any) => {
+          const subDate = new Date(sub.submitted_at).toISOString().split('T')[0];
+          return sub.checklists?.id === checklist.id && subDate === dateStr;
+        }) || [];
+        
+        if (daySubmissions.length > 0) {
+          // Get the submission with most responses
+          const bestSubmission = daySubmissions.reduce((best: any, current: any) => {
+            const bestCount = best?.checklist_responses?.length || 0;
+            const currentCount = current?.checklist_responses?.length || 0;
+            return currentCount > bestCount ? current : best;
+          }, daySubmissions[0]);
+          
+          totalTasksCompleted += bestSubmission.checklist_responses?.length || 0;
+        }
+        // If no submission exists, completed stays at 0 for this checklist/day
+      }
+    }
 
     const taskCompletionRate = totalTasksExpected > 0 
       ? Math.round((totalTasksCompleted / totalTasksExpected) * 100) 
