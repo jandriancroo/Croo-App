@@ -396,16 +396,18 @@ export default function Messages() {
             
             <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
               <TabsList className={`grid w-full ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                <TabsTrigger value="chats">Chats</TabsTrigger>
-                <TabsTrigger value="announcements">Announce</TabsTrigger>
-                <TabsTrigger value="marketplace" className="gap-1">
-                  <ArrowLeftRight className="h-3 w-3" />
-                  Shifts
+                <TabsTrigger value="chats" title="Chats">
+                  <MessageCircle className="h-4 w-4" />
+                </TabsTrigger>
+                <TabsTrigger value="announcements" title="Announcements">
+                  <Megaphone className="h-4 w-4" />
+                </TabsTrigger>
+                <TabsTrigger value="marketplace" title="Shift Marketplace">
+                  <ArrowLeftRight className="h-4 w-4" />
                 </TabsTrigger>
                 {(isAdmin || isManager) && (
-                  <TabsTrigger value="hiring" className="gap-1">
-                    <Briefcase className="h-3 w-3" />
-                    Hiring
+                  <TabsTrigger value="hiring" title="Hiring">
+                    <Briefcase className="h-4 w-4" />
                   </TabsTrigger>
                 )}
               </TabsList>
@@ -498,17 +500,17 @@ export default function Messages() {
               
               <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
                 <TabsList className={`grid w-full ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                  <TabsTrigger value="chats" className="px-2">
+                  <TabsTrigger value="chats" className="px-2" title="Chats">
                     <MessageCircle className="h-4 w-4" />
                   </TabsTrigger>
-                  <TabsTrigger value="announcements" className="px-2">
+                  <TabsTrigger value="announcements" className="px-2" title="Announcements">
                     <Megaphone className="h-4 w-4" />
                   </TabsTrigger>
-                  <TabsTrigger value="marketplace" className="px-2">
+                  <TabsTrigger value="marketplace" className="px-2" title="Shift Marketplace">
                     <ArrowLeftRight className="h-4 w-4" />
                   </TabsTrigger>
                   {(isAdmin || isManager) && (
-                    <TabsTrigger value="hiring" className="px-2">
+                    <TabsTrigger value="hiring" className="px-2" title="Hiring">
                       <Briefcase className="h-4 w-4" />
                     </TabsTrigger>
                   )}
