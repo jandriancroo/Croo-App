@@ -213,78 +213,13 @@ async function fetchHourlySales(
   return hourlyData;
 }
 
-async function fetchProductMix(
-  tokenGw: string, 
-  dateStr: string,
-  qbLocationId: string
-): Promise<number> {
-  try {
-    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': tokenGw,
-        'Origin': 'https://admin.qubeyond.com',
-        'Referer': 'https://admin.qubeyond.com/',
-      },
-      body: JSON.stringify({
-        fields: [
-          { fieldName: "itemGroup" }, { fieldName: "itemName" },
-          { fieldName: "quantity" }, { fieldName: "netSales" }
-        ],
-        filters: {
-          date: { from: null, to: null, values: [dateStr], type: "custom" },
-          singleLocation: parseInt(qbLocationId)
-        },
-        params: {
-          sectionId: "main", pageNumber: 1, pageSize: 200,
-          totalRecords: null, sort: [{ field: "netSales", dir: "desc" }], showTotals: true
-        }
-      }),
-    });
-
-    if (!response.ok) return 0;
-
-    const data = await response.json();
-    const products: { name: string; quantity: number; category: string }[] = [];
-
-    const addRow = (row: any, fallbackCategory?: string) => {
-      const name = row.itemName || row.productName || row.name || '';
-      if (!name || name === 'Totals') return;
-      const category = row.itemGroupName || row.itemGroup || row.categoryName || row.category || fallbackCategory || '';
-      const quantity = parseFloat(String(row.quantity || '0').replace(/,/g, '')) || 0;
-      if (quantity > 0) products.push({ name, quantity, category });
-    };
-
-    if (data.items && Array.isArray(data.items)) {
-      for (const item of data.items) {
-        if (item.items && Array.isArray(item.items)) {
-          const groupName = item.itemGroupName || item.itemGroup || item.categoryName || item.category || '';
-          for (const child of item.items) addRow(child, groupName);
-        } else addRow(item);
-      }
-    }
-    
-    const pizzaCount = products
-      .filter(item => item.category.toLowerCase() === 'crusts')
-      .reduce((sum, item) => {
-        const isHalf = item.name.includes('1/2') || item.name.includes('(1/2)');
-        return sum + (isHalf ? item.quantity * 0.5 : item.quantity);
-      }, 0);
-    
-    return Math.round(pizzaCount);
-  } catch (error) {
-    console.error(`[BACKFILL] Product mix fetch error for ${dateStr}:`, error);
-    return 0;
-  }
-}
-
 // Fetch a single day's data with retry logic
 async function fetchDayData(
   tokenGw: string,
   qbLocationId: string,
   dateStr: string,
+  pizzaSalesPercentage: number = 80,
+  averagePizzaPrice: number = 10.50,
   maxRetries: number = 3
 ): Promise<DaySalesData> {
   const date = new Date(dateStr + 'T12:00:00');
@@ -294,13 +229,14 @@ async function fetchDayData(
   while (attempts < maxRetries) {
     attempts++;
     
-    const [hourlyData, pizzaCount] = await Promise.all([
-      fetchHourlySales(tokenGw, dateStr, qbLocationId),
-      fetchProductMix(tokenGw, dateStr, qbLocationId)
-    ]);
+    const hourlyData = await fetchHourlySales(tokenGw, dateStr, qbLocationId);
     
     const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
     const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
+    
+    // Calculate pizza count using revenue-based estimation
+    const pizzaRevenue = netSales * (pizzaSalesPercentage / 100);
+    const pizzaCount = Math.round(pizzaRevenue / averagePizzaPrice);
     
     lastResult = {
       dateStr,
@@ -488,7 +424,17 @@ serve(async (req) => {
     const qbLocationId = credentials.location_id || auth.qbLocationId;
     const dates = getBackfillDates(365);
     
-    console.log(`[BACKFILL] Will fetch ${dates.length} days of data with validation`);
+    // Fetch pizza estimation settings
+    const { data: locationSettings } = await supabase
+      .from('location_settings')
+      .select('pizza_sales_percentage, average_pizza_price')
+      .eq('location_id', locationId)
+      .single();
+    
+    const pizzaSalesPercentage = locationSettings?.pizza_sales_percentage ?? 80;
+    const averagePizzaPrice = locationSettings?.average_pizza_price ?? 10.50;
+    
+    console.log(`[BACKFILL] Will fetch ${dates.length} days of data with pizza estimation: ${pizzaSalesPercentage}% @ $${averagePizzaPrice}`);
 
     // PHASE 1: Fetch all data with retry logic
     const allRawData: DaySalesData[] = [];
@@ -500,7 +446,7 @@ serve(async (req) => {
       const batch = dates.slice(i, i + BATCH_SIZE);
       
       const batchResults = await Promise.all(
-        batch.map(dateStr => fetchDayData(auth.tokenGw, qbLocationId, dateStr, 3))
+        batch.map(dateStr => fetchDayData(auth.tokenGw, qbLocationId, dateStr, pizzaSalesPercentage, averagePizzaPrice, 3))
       );
 
       for (const result of batchResults) {

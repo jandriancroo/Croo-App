@@ -1626,6 +1626,7 @@ export type Database = {
       location_settings: {
         Row: {
           am_safe_count_window_minutes: number
+          average_pizza_price: number | null
           birthday_events_enabled: boolean | null
           blackout_dates: string[] | null
           created_at: string
@@ -1635,6 +1636,7 @@ export type Database = {
           hours_open: string | null
           id: string
           location_id: string
+          pizza_sales_percentage: number | null
           pm_safe_count_window_minutes: number
           punch_clock_background_url: string | null
           punch_clock_overlay_text: string | null
@@ -1647,6 +1649,7 @@ export type Database = {
         }
         Insert: {
           am_safe_count_window_minutes?: number
+          average_pizza_price?: number | null
           birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null
           created_at?: string
@@ -1656,6 +1659,7 @@ export type Database = {
           hours_open?: string | null
           id?: string
           location_id: string
+          pizza_sales_percentage?: number | null
           pm_safe_count_window_minutes?: number
           punch_clock_background_url?: string | null
           punch_clock_overlay_text?: string | null
@@ -1668,6 +1672,7 @@ export type Database = {
         }
         Update: {
           am_safe_count_window_minutes?: number
+          average_pizza_price?: number | null
           birthday_events_enabled?: boolean | null
           blackout_dates?: string[] | null
           created_at?: string
@@ -1677,6 +1682,7 @@ export type Database = {
           hours_open?: string | null
           id?: string
           location_id?: string
+          pizza_sales_percentage?: number | null
           pm_safe_count_window_minutes?: number
           punch_clock_background_url?: string | null
           punch_clock_overlay_text?: string | null
