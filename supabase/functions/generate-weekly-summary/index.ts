@@ -112,7 +112,7 @@ serve(async (req) => {
       .select(`
         *,
         checklist_responses(*),
-        checklists(title, checklist_items(id, days_of_week))
+        checklists(title, frequency, checklist_items(id, days_of_week))
       `)
       .eq('location_id', location_id)
       .gte('submitted_at', week_start)
@@ -122,9 +122,15 @@ serve(async (req) => {
     let totalTasksCompleted = 0;
 
     // Group submissions by checklist_id and date, keeping only the best (most responses) per group
+    // Also exclude monthly checklists from weekly summary
     const bestSubmissions: Record<string, any> = {};
     
     submissions?.forEach((sub: any) => {
+      // Skip monthly checklists - they shouldn't be counted in weekly summaries
+      if (sub.checklists?.frequency === 'monthly') {
+        return;
+      }
+      
       const submissionDate = new Date(sub.submitted_at).toISOString().split('T')[0];
       const key = `${sub.checklist_id}_${submissionDate}`;
       const responseCount = sub.checklist_responses?.length || 0;
