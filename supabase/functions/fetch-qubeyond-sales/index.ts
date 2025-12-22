@@ -1894,6 +1894,50 @@ serve(async (req) => {
         }
       }
     }
+    
+    // ALSO save today's ACTUAL sales to the cache so Week/Month views have the data
+    // This runs every time we fetch live data (not just projections)
+    if (locationId && dailySales > 0) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      // Get pizza estimation settings
+      const { data: locSettings } = await supabase
+        .from('location_settings')
+        .select('pizza_sales_percentage, average_pizza_price')
+        .eq('location_id', locationId)
+        .single();
+      
+      const pizzaSalesPercentage = locSettings?.pizza_sales_percentage ?? 80;
+      const averagePizzaPrice = locSettings?.average_pizza_price ?? 10.50;
+      const estimatedPizzaCount = Math.round((dailySales * (pizzaSalesPercentage / 100)) / averagePizzaPrice);
+      
+      // Upsert today's actual sales data
+      const { error: upsertError } = await supabase
+        .from('sales_cache')
+        .upsert({
+          location_id: locationId,
+          sale_date: todayStr,
+          net_sales: dailySales,
+          guest_count: dailyGuestCount,
+          pizza_count: estimatedPizzaCount,
+          avg_ticket: avgTicket || null,
+          hourly_data: hourlyWithLabor,
+          validation_status: 'valid',
+          validation_attempts: 1,
+          flagged_no_sales: false,
+          fetched_at: new Date().toISOString()
+        }, {
+          onConflict: 'location_id,sale_date'
+        });
+      
+      if (upsertError) {
+        console.error(`Failed to save today's sales to cache:`, upsertError.message);
+      } else {
+        console.log(`Saved today's sales to cache: $${dailySales}, ${dailyGuestCount} guests, ${estimatedPizzaCount} pizzas`);
+      }
+    }
 
     const result = {
       daily: dailySales,
