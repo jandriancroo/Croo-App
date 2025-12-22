@@ -161,8 +161,10 @@ serve(async (req) => {
         
         // Count applicable items for this day
         const applicableItems = checklist.checklist_items?.filter((item: any) => {
+          // For daily checklists: items with null days_of_week apply to all days
+          // For weekly/dynamic checklists: items with null days_of_week are unassigned and should be ignored
           if (!item.days_of_week || item.days_of_week.length === 0) {
-            return true;
+            return checklist.frequency === 'daily';
           }
           return item.days_of_week.includes(dayOfWeek);
         }) || [];
