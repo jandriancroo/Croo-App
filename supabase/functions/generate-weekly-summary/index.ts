@@ -112,7 +112,7 @@ serve(async (req) => {
       .select(`
         *,
         checklist_responses(*),
-        checklists(title, checklist_items(id))
+        checklists(title, checklist_items(id, days_of_week))
       `)
       .eq('location_id', location_id)
       .gte('submitted_at', week_start)
@@ -122,7 +122,21 @@ serve(async (req) => {
     let totalTasksCompleted = 0;
 
     submissions?.forEach((sub: any) => {
-      const expectedItems = sub.checklists?.checklist_items?.length || 0;
+      // Get the day of week for this submission (0 = Sunday, 6 = Saturday)
+      const submissionDate = new Date(sub.submitted_at);
+      const dayOfWeek = submissionDate.getDay();
+      
+      // Count only items that are applicable on this day
+      const applicableItems = sub.checklists?.checklist_items?.filter((item: any) => {
+        // If days_of_week is null or empty, item applies to all days
+        if (!item.days_of_week || item.days_of_week.length === 0) {
+          return true;
+        }
+        // Otherwise, check if this day is included
+        return item.days_of_week.includes(dayOfWeek);
+      }) || [];
+      
+      const expectedItems = applicableItems.length;
       const completedItems = sub.checklist_responses?.length || 0;
       totalTasksExpected += expectedItems;
       totalTasksCompleted += completedItems;
