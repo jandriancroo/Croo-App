@@ -3726,6 +3726,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_role_or_higher: {
+        Args: { _minimum_role: string; _user_id: string }
+        Returns: boolean
+      }
       increment_croo_cash: {
         Args: { amount: number; user_id: string }
         Returns: undefined
