@@ -52,4 +52,4 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-daily-logbook-summary]
-verify_jwt = true
+verify_jwt = false
