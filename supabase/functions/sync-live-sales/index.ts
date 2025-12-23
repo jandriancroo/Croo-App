@@ -435,7 +435,7 @@ serve(async (req) => {
             sale_date: todayStr,
             net_sales: netSales,
             guest_count: guestCount,
-            pizza_count: pizzaCount,
+            pizza_count: Math.round(pizzaCount),
             hourly_data: formattedHourly,
             validation_status: 'valid',
             validation_attempts: 1,

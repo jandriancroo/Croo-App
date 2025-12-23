@@ -380,7 +380,7 @@ serve(async (req) => {
           sale_date: date,
           net_sales: netSales,
           guest_count: guestCount,
-          pizza_count: pizzaCount,
+          pizza_count: Math.round(pizzaCount),
           avg_ticket: avgTicket,
           hourly_data: formattedHourly,
           validation_status: "valid",

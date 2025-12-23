@@ -1986,7 +1986,7 @@ serve(async (req) => {
               sale_date: todayStr,
               net_sales: dailySales,
               guest_count: dailyGuestCount,
-              pizza_count: finalPizzaCount,
+              pizza_count: Math.round(finalPizzaCount),
               avg_ticket: avgTicket || null,
               hourly_data: hourlyWithLabor,
               validation_status: 'valid',
