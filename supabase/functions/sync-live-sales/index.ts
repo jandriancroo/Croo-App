@@ -63,10 +63,11 @@ function isWithinBusinessHours(
   return currentMinutesTotal >= openMinutes && currentMinutesTotal <= closeMinutes;
 }
 
+// Returns just the tokenGw - we use the location_id from our database credentials
 async function authenticateQuBeyond(
   username: string,
   password: string,
-): Promise<{ tokenGw: string; qbLocationId: string } | null> {
+): Promise<{ tokenGw: string } | null> {
   console.log(`[sync-live-sales] Authenticating with QuBeyond for ${username}...`);
 
   try {
@@ -105,28 +106,8 @@ async function authenticateQuBeyond(
       return null;
     }
 
-    let qbLocationId = String(
-      jwtPayload?.locationId ??
-        jwtPayload?.location_id ??
-        jwtPayload?.storeId ??
-        jwtPayload?.store_id ??
-        jwtPayload?.singleLocation ??
-        jwtPayload?.defaultLocation ??
-        '',
-    );
-
-    if (!qbLocationId && jwtPayload?.user) {
-      const user = jwtPayload.user as Record<string, unknown>;
-      qbLocationId = String(
-        (user.locationId as string | undefined) ??
-          (user.storeId as string | undefined) ??
-          (user.defaultLocation as string | undefined) ??
-          '',
-      );
-    }
-
-    console.log(`[sync-live-sales] Auth OK, qbLocationId=${qbLocationId || '(missing)'}`);
-    return { tokenGw, qbLocationId };
+    console.log(`[sync-live-sales] Auth OK`);
+    return { tokenGw };
   } catch (error) {
     console.error('[sync-live-sales] Authentication error:', error);
     return null;
@@ -367,9 +348,17 @@ serve(async (req) => {
     for (const integration of integrations) {
       const locationId = integration.location_id;
       const locationName = (integration.locations as any)?.name || 'Unknown';
-      const credentials = integration.credentials as { username?: string; password?: string };
+      const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
       const settings = settingsByLocation[locationId];
       const timezone = settings?.timezone || 'America/Los_Angeles';
+
+      // Use the QuBeyond location_id from our database credentials (not from JWT)
+      const qbLocationId = credentials?.location_id || '';
+      if (!qbLocationId) {
+        console.log(`${locationName}: Missing QuBeyond location_id in credentials`);
+        results.push({ locationId, name: locationName, status: 'missing_qb_location_id' });
+        continue;
+      }
 
       // Check if within business hours
       const currentTime = getCurrentTimeInTimezone(timezone);
@@ -404,7 +393,7 @@ serve(async (req) => {
         continue;
       }
 
-      console.log(`${locationName}: Syncing live sales...`);
+      console.log(`${locationName}: Syncing live sales with QuBeyond location_id=${qbLocationId}...`);
 
       // Authenticate
       const auth = await authenticateQuBeyond(credentials.username, credentials.password);
@@ -414,11 +403,11 @@ serve(async (req) => {
         continue;
       }
 
-      // Fetch today's hourly sales and product mix in parallel
+      // Fetch today's hourly sales and product mix in parallel using DB location_id
       const todayStr = getDateStringForTimezone(new Date(), timezone);
       const [hourlyData, pizzaCount] = await Promise.all([
-        fetchHourlySales(auth.tokenGw, todayStr, auth.qbLocationId),
-        fetchProductMix(auth.tokenGw, todayStr, auth.qbLocationId)
+        fetchHourlySales(auth.tokenGw, todayStr, qbLocationId),
+        fetchProductMix(auth.tokenGw, todayStr, qbLocationId)
       ]);
       
       // Calculate totals

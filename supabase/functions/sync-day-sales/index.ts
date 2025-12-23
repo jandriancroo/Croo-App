@@ -15,10 +15,11 @@ function decodeJwtPayload(token: string): any {
   return JSON.parse(jsonPayload);
 }
 
+// Returns just the tokenGw - we use the location_id from our database credentials
 async function authenticateQuBeyond(
   username: string,
   password: string,
-): Promise<{ tokenGw: string; qbLocationId: string } | null> {
+): Promise<{ tokenGw: string } | null> {
   console.log(`[sync-day-sales] Authenticating with QuBeyond for ${username}...`);
 
   try {
@@ -57,28 +58,8 @@ async function authenticateQuBeyond(
       return null;
     }
 
-    let qbLocationId = String(
-      jwtPayload?.locationId ??
-        jwtPayload?.location_id ??
-        jwtPayload?.storeId ??
-        jwtPayload?.store_id ??
-        jwtPayload?.singleLocation ??
-        jwtPayload?.defaultLocation ??
-        '',
-    );
-
-    if (!qbLocationId && jwtPayload?.user) {
-      const user = jwtPayload.user as Record<string, unknown>;
-      qbLocationId = String(
-        (user.locationId as string | undefined) ??
-          (user.storeId as string | undefined) ??
-          (user.defaultLocation as string | undefined) ??
-          '',
-      );
-    }
-
-    console.log(`[sync-day-sales] Auth OK, qbLocationId=${qbLocationId || '(missing)'}`);
-    return { tokenGw, qbLocationId };
+    console.log(`[sync-day-sales] Auth OK`);
+    return { tokenGw };
   } catch (error) {
     console.error('[sync-day-sales] Authentication error:', error);
     return null;
@@ -334,13 +315,24 @@ serve(async (req) => {
       });
     }
 
-    const credentials = integration.credentials as { username?: string; password?: string };
+    const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
     if (!credentials?.username || !credentials?.password) {
       return new Response(JSON.stringify({ error: "Missing integration credentials" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    // Use the QuBeyond location_id from our database credentials (not from JWT)
+    const qbLocationId = credentials?.location_id || '';
+    if (!qbLocationId) {
+      return new Response(JSON.stringify({ error: "Missing QuBeyond location_id in credentials" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log(`[sync-day-sales] Using QuBeyond location_id=${qbLocationId} from DB credentials`);
 
     const auth = await authenticateQuBeyond(credentials.username, credentials.password);
     if (!auth) {
@@ -350,10 +342,10 @@ serve(async (req) => {
       });
     }
 
-    // Fetch hourly sales and product mix in parallel
+    // Fetch hourly sales and product mix in parallel using DB location_id
     const [hourly, pizzaCount] = await Promise.all([
-      fetchHourlySales(auth.tokenGw, date, auth.qbLocationId),
-      fetchProductMix(auth.tokenGw, date, auth.qbLocationId)
+      fetchHourlySales(auth.tokenGw, date, qbLocationId),
+      fetchProductMix(auth.tokenGw, date, qbLocationId)
     ]);
 
     const netSales = hourly.reduce((sum, h) => sum + h.sales, 0);
