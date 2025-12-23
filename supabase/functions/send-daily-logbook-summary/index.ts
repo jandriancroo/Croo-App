@@ -744,13 +744,34 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Get manager emails for this location
-    const { data: profiles } = await supabase
+    // Get users at this location
+    const { data: locationUsers } = await supabase
+      .from('user_locations')
+      .select('user_id')
+      .eq('location_id', location_id);
+    
+    const userIds = (locationUsers || []).map(u => u.user_id);
+    console.log(`Found ${userIds.length} users at location`);
+    
+    // Get roles for these users
+    const { data: userRolesData } = await supabase
+      .from('user_roles')
+      .select('user_id, role')
+      .in('user_id', userIds)
+      .in('role', ['admin', 'manager', 'general_manager', 'shift_manager', 'super_admin']);
+    
+    const managerUserIds = [...new Set((userRolesData || []).map(r => r.user_id))];
+    console.log(`Found ${managerUserIds.length} managers at location`);
+    
+    // Get profiles for managers
+    const { data: managerProfilesData } = await supabase
       .from('profiles')
-      .select('email, full_name, role, location_id')
-      .eq('location_id', location_id)
-      .in('role', ['admin', 'manager', 'general_manager', 'shift_manager'])
+      .select('id, email, full_name, is_active')
+      .in('id', managerUserIds)
       .eq('is_active', true);
+    
+    const profiles = (managerProfilesData || []).filter(p => p.email);
+    console.log(`Found ${profiles.length} active manager profiles with emails`);
 
     if (!test_mode && (!profiles || profiles.length === 0)) {
       console.log('No managers found for location');
