@@ -505,8 +505,8 @@ serve(async (req) => {
         location_id: locationId,
         sale_date: dayData.dateStr,
         net_sales: dayData.netSales,
-        guest_count: dayData.guestCount,
-        pizza_count: dayData.pizzaCount,
+        guest_count: Math.round(dayData.guestCount), // Round to integer for DB
+        pizza_count: Math.round(dayData.pizzaCount), // Round to integer for DB
         avg_ticket: avgTicket,
         hourly_data: dayData.hourlyData,
         projected_sales: 0, // Will be calculated on-demand with new formula
