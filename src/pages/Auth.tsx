@@ -151,11 +151,11 @@ export default function Auth() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
       <Card className="w-full max-w-md shadow-2xl border-2 hover:shadow-3xl transition-all duration-300 hover:scale-[1.02]">
-        <CardHeader className="space-y-1 text-center">
-          <div className="mx-auto">
+        <CardHeader className="text-center pb-2">
+          <div className="mx-auto mb-1">
             <img src={crooLogo} alt="Croo Logo" className="h-24 w-auto mx-auto" />
           </div>
-          <p className="font-pacifico text-2xl text-[#E67E22] drop-shadow-sm">
+          <p className="font-pacifico text-2xl text-[#E67E22] drop-shadow-sm -mt-2">
             food service made smart
           </p>
         </CardHeader>
