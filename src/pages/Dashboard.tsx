@@ -602,7 +602,7 @@ export default function Dashboard() {
 
                   {/* Bottom Button - Contoured to card shape */}
                   <Button 
-                    className="w-full h-10 text-sm rounded-none rounded-b-xl mt-auto"
+                    className="w-full h-10 text-sm rounded-none rounded-b-lg mt-auto"
                     onClick={() => navigate(`/complete/${checklist.id}`)}
                   >
                     {isComplete ? 'Review' : 'Complete'}
