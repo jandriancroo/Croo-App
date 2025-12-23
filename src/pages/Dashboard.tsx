@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,6 +29,7 @@ import { formatTime12Hour } from '@/lib/utils';
 import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 
 interface CateringOrder {
   id: string;
@@ -89,7 +90,9 @@ export default function Dashboard() {
   });
   const [crooCashBalance, setCrooCashBalance] = useState<number>(0);
   const [userName, setUserName] = useState<string>('');
+  const [showWelcomeAnimation, setShowWelcomeAnimation] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const {
     isAdmin, isManager, isShiftManager, isGeneralManager
   } = useUserRole();
@@ -98,6 +101,15 @@ export default function Dashboard() {
   const { getTodayInTimezone } = useLocationTimezone();
   const { animationAmount } = useCrooCashAnimation();
   const isMobile = useIsMobile();
+
+  // Check for welcome animation from login
+  useEffect(() => {
+    if (location.state?.showWelcomeAnimation) {
+      setShowWelcomeAnimation(true);
+      // Clear the state so it doesn't show again on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
   
   // Fetch location hours for current day of week
   const { data: locationSettings } = useQuery({
@@ -788,5 +800,10 @@ export default function Dashboard() {
             </SortableContext>
           </DndContext>}
       </div>
+      
+      {/* Welcome animation overlay */}
+      {showWelcomeAnimation && (
+        <CrowSplashAnimation onComplete={() => setShowWelcomeAnimation(false)} />
+      )}
     </Layout>;
 }
