@@ -18,7 +18,8 @@ self.addEventListener('push', function(event) {
   const title = data.title || 'CrooHQ';
   const options = {
     body: data.body || 'You have a new notification',
-    icon: '/favicon.png',
+    icon: '/notification-icon.png',
+    badge: '/notification-icon.png',
     tag: data.tag || 'croo-notification',
     data: data.data || {}
   };
