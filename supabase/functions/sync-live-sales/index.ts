@@ -64,59 +64,73 @@ function isWithinBusinessHours(
   return currentMinutesTotal >= openMinutes && currentMinutesTotal <= closeMinutes;
 }
 
-async function authenticateQuBeyond(username: string, password: string): Promise<{ tokenGw: string; qbLocationId: string } | null> {
-  console.log(`Authenticating with QuBeyond for ${username}...`);
-  
+async function authenticateQuBeyond(
+  username: string,
+  password: string,
+): Promise<{ tokenGw: string; qbLocationId: string } | null> {
+  console.log(`[sync-live-sales] Authenticating with QuBeyond for ${username}...`);
+
   try {
-    const authResponse = await fetch('https://api.qubeyond.com/api/v2.0/auth/login', {
+    // Use the same login endpoint as our historical backfill (avoids api.qubeyond.com DNS issues)
+    const loginPayload = {
+      payload: { username, password, captchaToken: '' },
+    };
+
+    const loginResponse = await fetch('https://admin.qubeyond.com/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        username,
-        password,
-        rememberMe: false,
-        siteCode: null
-      }),
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/plain, */*',
+        Origin: 'https://admin.qubeyond.com',
+        Referer: 'https://admin.qubeyond.com/login',
+        'User-Agent': 'Mozilla/5.0',
+      },
+      body: JSON.stringify(loginPayload),
     });
 
-    if (!authResponse.ok) {
-      console.error('Auth failed:', authResponse.status);
+    if (!loginResponse.ok) {
+      console.error('[sync-live-sales] Auth failed:', loginResponse.status);
       return null;
     }
 
-    const authData = await authResponse.json();
-    const tokenApi = authData?.token;
-    if (!tokenApi) {
-      console.error('No token in auth response');
+    const loginData = await loginResponse.json();
+    const token = loginData?.token;
+    if (!token) {
+      console.error('[sync-live-sales] No token in login response');
       return null;
     }
 
-    // Exchange for gateway token
-    const gwResponse = await fetch('https://api.qubeyond.com/api/v2.0/auth/gw-token', {
-      method: 'GET',
-      headers: { 'Authorization': tokenApi },
-    });
-
-    if (!gwResponse.ok) {
-      console.error('GW token fetch failed:', gwResponse.status);
-      return null;
-    }
-
-    const gwData = await gwResponse.json();
-    const tokenGw = gwData?.accessToken;
+    const jwtPayload = decodeJwtPayload(token);
+    const tokenGw = jwtPayload?.tokenGw as string | undefined;
     if (!tokenGw) {
-      console.error('No accessToken in GW response');
+      console.error('[sync-live-sales] No tokenGw found in JWT payload');
       return null;
     }
 
-    // Decode to get location ID
-    const decoded = decodeJwtPayload(tokenGw);
-    const qbLocationId = String(decoded?.loc || decoded?.locations?.[0] || '');
-    
-    console.log(`Authenticated successfully, location ID: ${qbLocationId}`);
+    let qbLocationId = String(
+      jwtPayload?.locationId ??
+        jwtPayload?.location_id ??
+        jwtPayload?.storeId ??
+        jwtPayload?.store_id ??
+        jwtPayload?.singleLocation ??
+        jwtPayload?.defaultLocation ??
+        '',
+    );
+
+    if (!qbLocationId && jwtPayload?.user) {
+      const user = jwtPayload.user as Record<string, unknown>;
+      qbLocationId = String(
+        (user.locationId as string | undefined) ??
+          (user.storeId as string | undefined) ??
+          (user.defaultLocation as string | undefined) ??
+          '',
+      );
+    }
+
+    console.log(`[sync-live-sales] Auth OK, qbLocationId=${qbLocationId || '(missing)'}`);
     return { tokenGw, qbLocationId };
   } catch (error) {
-    console.error('Authentication error:', error);
+    console.error('[sync-live-sales] Authentication error:', error);
     return null;
   }
 }
