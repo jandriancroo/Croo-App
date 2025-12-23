@@ -680,6 +680,21 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     );
   };
 
+  const hasLaborData = !!(salesData?.labor && salesData.labor.laborPercent > 0);
+
+  // Calculate pacing status for "On Track" badge
+  const pacingStatus = useMemo(() => {
+    if (!isToday || !salesData?.projections?.todayProjected || !salesData?.projections?.todayPaceAdjusted) {
+      return null;
+    }
+    if (salesData.daily < 100) return null; // Not enough data yet
+
+    const paceVsProjection = (salesData.projections.todayPaceAdjusted / salesData.projections.todayProjected) * 100;
+
+    if (paceVsProjection >= 102) return 'ahead';
+    if (paceVsProjection >= 95) return 'onTrack';
+    return 'behind';
+  }, [isToday, salesData?.daily, salesData?.projections?.todayProjected, salesData?.projections?.todayPaceAdjusted]);
 
   // Show skeleton shimmer only on first load with no cached data
   // If we have cached data, show it immediately (stale-while-revalidate)
@@ -719,22 +734,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
       </div>
     );
   }
-
-  const hasLaborData = salesData?.labor && salesData.labor.laborPercent > 0;
-
-  // Calculate pacing status for "On Track" badge
-  const pacingStatus = useMemo(() => {
-    if (!isToday || !salesData?.projections?.todayProjected || !salesData?.projections?.todayPaceAdjusted) {
-      return null;
-    }
-    if (salesData.daily < 100) return null; // Not enough data yet
-    
-    const paceVsProjection = (salesData.projections.todayPaceAdjusted / salesData.projections.todayProjected) * 100;
-    
-    if (paceVsProjection >= 102) return 'ahead';
-    if (paceVsProjection >= 95) return 'onTrack';
-    return 'behind';
-  }, [isToday, salesData?.daily, salesData?.projections?.todayProjected, salesData?.projections?.todayPaceAdjusted]);
 
   return (
     <div>
