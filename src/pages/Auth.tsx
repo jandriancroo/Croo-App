@@ -146,7 +146,13 @@ export default function Auth() {
     }
   };
 
-  if (showSplash || showCrowAnimation) {
+  // If logged in and animation playing, navigate to dashboard with overlay
+  if (showCrowAnimation && user) {
+    navigate('/dashboard', { state: { showWelcomeAnimation: true } });
+    return null;
+  }
+
+  if (showSplash) {
     return <CrowSplashAnimation onComplete={handleSplashComplete} />;
   }
 
