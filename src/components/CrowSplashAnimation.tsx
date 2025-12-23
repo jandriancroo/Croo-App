@@ -6,9 +6,9 @@ const CrowSplashAnimation: React.FC<{ onComplete: () => void }> = ({ onComplete 
   const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
-    const welcomeTimer = setTimeout(() => setShowWelcome(true), 200);
-    const fadeTimer = setTimeout(() => setFadeOut(true), 1500);
-    const completeTimer = setTimeout(() => onComplete(), 2000);
+    const welcomeTimer = setTimeout(() => setShowWelcome(true), 100);
+    const fadeTimer = setTimeout(() => setFadeOut(true), 1200);
+    const completeTimer = setTimeout(() => onComplete(), 1500);
     
     return () => {
       clearTimeout(welcomeTimer);
@@ -19,7 +19,7 @@ const CrowSplashAnimation: React.FC<{ onComplete: () => void }> = ({ onComplete 
 
   return (
     <div 
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden transition-opacity duration-500 ${
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden transition-opacity duration-300 ${
         fadeOut ? 'opacity-0' : 'opacity-100'
       }`}
       style={{
@@ -37,7 +37,7 @@ const CrowSplashAnimation: React.FC<{ onComplete: () => void }> = ({ onComplete 
 
       {/* Welcome text */}
       <div 
-        className={`mt-4 transition-all duration-700 ${
+        className={`mt-4 transition-all duration-400 ${
           showWelcome 
             ? 'opacity-100 translate-y-0' 
             : 'opacity-0 translate-y-4'
