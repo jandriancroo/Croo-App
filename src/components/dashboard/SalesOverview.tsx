@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -432,6 +432,19 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   // Today: use 5-minute stale time for live data
   const isTodayQuery = isSameDay(targetDate, new Date());
   
+  // Memoize initial data getter to avoid re-creating function on every render
+  const initialDataFn = useCallback(() => {
+    if (!isTodayQuery) return undefined;
+    return getInitialData();
+  }, [isTodayQuery, currentLocation?.id]);
+  
+  const initialDataUpdatedAtFn = useCallback(() => {
+    if (!isTodayQuery || !currentLocation?.id) return 0;
+    const cached = getCachedLiveSales(currentLocation.id);
+    if (!cached) return 0;
+    return cached.isStale ? 0 : Date.now();
+  }, [isTodayQuery, currentLocation?.id]);
+  
   const { data: rawSalesData, isLoading, refetch } = useQuery({
     queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
     queryFn: fetchSalesData,
@@ -439,13 +452,8 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     staleTime: isTodayQuery ? 5 * 60 * 1000 : 0, // Historical dates always refetch from DB cache
     gcTime: isTodayQuery ? 30 * 60 * 1000 : 0, // Don't cache historical queries in memory
     refetchOnWindowFocus: false,
-    initialData: isTodayQuery ? getInitialData : undefined, // Only use localStorage cache for today
-    initialDataUpdatedAt: isTodayQuery ? () => {
-      if (!currentLocation?.id) return 0;
-      const cached = getCachedLiveSales(currentLocation.id);
-      if (!cached) return 0;
-      return cached.isStale ? 0 : Date.now();
-    } : undefined
+    initialData: initialDataFn,
+    initialDataUpdatedAt: initialDataUpdatedAtFn
   });
 
   // Background refresh when cache is stale but we have data to show
