@@ -449,13 +449,13 @@ export default function Dashboard() {
   const getFrequencyColor = (frequency: string) => {
     switch (frequency) {
       case 'daily':
-        return 'bg-accent';
+        return 'bg-accent text-accent-foreground';
       case 'weekly':
-        return 'bg-primary';
+        return 'bg-primary text-primary-foreground';
       case 'monthly':
-        return 'bg-secondary';
+        return 'bg-primary/80 text-primary-foreground';
       default:
-        return 'bg-muted';
+        return 'bg-muted text-muted-foreground';
     }
   };
   const getCompletionData = (checklistId: string) => {
