@@ -236,7 +236,8 @@ async function fetchDayData(
     
     // Calculate pizza count using revenue-based estimation
     const pizzaRevenue = netSales * (pizzaSalesPercentage / 100);
-    const pizzaCount = Math.round(pizzaRevenue / averagePizzaPrice);
+    // Round to nearest even number
+    const pizzaCount = Math.round(pizzaRevenue / averagePizzaPrice / 2) * 2;
     
     lastResult = {
       dateStr,
