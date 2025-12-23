@@ -578,7 +578,7 @@ export const Layout = ({
         <span className="text-base">Powered by</span>
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-lg border-t border-border/30 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-accent backdrop-blur-lg border-t border-accent-foreground/10 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-center justify-around py-2 px-4">
           {mobileMainNavItems.map(item => {
           const Icon = item.icon;
@@ -590,8 +590,8 @@ export const Layout = ({
               onClick={() => navigate(item.path)}
               className={`flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-colors relative ${
                 isActive 
-                  ? 'bg-primary/10 text-primary' 
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? 'bg-white/20 text-white' 
+                  : 'text-white/70 hover:text-white'
               }`}
             >
               <Icon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
@@ -609,8 +609,8 @@ export const Layout = ({
               <button
                 className={`flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-colors ${
                   menuOpen 
-                    ? 'bg-primary/10 text-primary' 
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? 'bg-white/20 text-white' 
+                    : 'text-white/70 hover:text-white'
                 }`}
               >
                 <Menu className="h-7 w-7" strokeWidth={menuOpen ? 2.5 : 2} />
@@ -633,17 +633,7 @@ export const Layout = ({
                   </div>
                 </div>
 
-                {isSuperAdmin && (
-                  <Button variant="outline" onClick={() => {
-                    openDiagnosticMode();
-                    setMenuOpen(false);
-                  }} className="justify-start gap-3 h-11">
-                    <FlaskConical className="h-5 w-5" />
-                    <span className="text-base">Diagnostics</span>
-                  </Button>
-                )}
-
-                {hasMultiLocationAccess && (
+                {(isSuperAdmin || hasMultiLocationAccess) && (
                   <Button variant="outline" onClick={() => {
                     openDiagnosticMode();
                     setMenuOpen(false);
