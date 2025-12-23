@@ -33,7 +33,9 @@ export default defineConfig(({ mode }) => ({
     react(), 
     mode === "development" && componentTagger(),
     VitePWA({
-      registerType: 'prompt',
+      // Keep users on the latest build automatically (no manual update prompt)
+      registerType: 'autoUpdate',
+      injectRegister: 'auto',
       includeAssets: ['favicon.png'],
       manifest: {
         name: 'CrooHQ - Food Service Made Smart',
@@ -67,10 +69,14 @@ export default defineConfig(({ mode }) => ({
         ]
       },
       workbox: {
-        globPatterns: ['**/*.{css,html,ico,png,svg}'],
+        // Precache the actual app bundle too (JS), so new publishes reliably update PWAs
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,json,woff2}'],
         navigateFallback: null,
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         runtimeCaching: [],
+        cleanupOutdatedCaches: true,
+        clientsClaim: true,
+        skipWaiting: true,
         // Import the push notification handler into the service worker
         importScripts: ['/sw-push.js']
       },
