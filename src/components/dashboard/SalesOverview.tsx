@@ -421,21 +421,21 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     return salesData;
   };
 
-  // Get initial data from cache for instant render
-  const getInitialData = (): SalesData | null => {
-    if (!currentLocation?.id || !isSameDay(targetDate, new Date())) return null;
-    const cached = getCachedLiveSales(currentLocation.id);
-    return cached?.data || null;
-  };
-
   // Historical dates: always fresh from DB cache (staleTime: 0)
   // Today: use 5-minute stale time for live data
   const isTodayQuery = isSameDay(targetDate, new Date());
   
-  // Get initial data synchronously - only for today's query
+  // Get initial data from cache for instant render - computed directly in useMemo
   const initialData = useMemo(() => {
-    if (!isTodayQuery) return undefined;
-    return getInitialData();
+    if (!isTodayQuery || !currentLocation?.id) return undefined;
+    const cached = getCachedLiveSales(currentLocation.id);
+    console.log('[SalesOverview] Checking cache for initial data:', { 
+      isTodayQuery, 
+      locationId: currentLocation?.id,
+      hasCached: !!cached,
+      cachedData: cached?.data ? 'has data' : 'no data'
+    });
+    return cached?.data || undefined;
   }, [isTodayQuery, currentLocation?.id]);
   
   const initialDataUpdatedAt = useMemo(() => {
