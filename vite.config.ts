@@ -51,6 +51,18 @@ export default defineConfig(({ mode }) => ({
             sizes: '512x512',
             type: 'image/png',
             purpose: 'any maskable'
+          },
+          {
+            src: '/notification-icon.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any'
+          },
+          {
+            src: '/notification-icon-monochrome.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'monochrome'
           }
         ]
       },
