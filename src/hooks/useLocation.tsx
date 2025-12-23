@@ -90,9 +90,9 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     setCurrentLocationState(location);
     localStorage.setItem('currentLocationId', location.id);
     
-    // Remove all location-scoped cached data - queries will refetch on-demand
-    // This clears stale data without blocking the UI
-    queryClient.removeQueries();
+    // Invalidate queries instead of removing them - this triggers refetch
+    // without causing "fewer hooks" errors from removed query state mid-render
+    queryClient.invalidateQueries();
   }, [queryClient]);
 
   const isChecklistOnlyLocation = currentLocation?.location_type === 'checklist_only';
