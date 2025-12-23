@@ -183,7 +183,7 @@ export default function History() {
       case 'weekly':
         return 'bg-orange-400 text-white';
       case 'monthly':
-        return 'bg-rose-300 text-rose-900';
+        return 'bg-rose-300 text-white';
       default:
         return 'bg-muted text-muted-foreground';
     }
