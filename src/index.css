@@ -429,4 +429,44 @@ All colors MUST be HSL.
   .dark .glass-button:hover {
     background: hsl(220 25% 16% / 0.8);
   }
+
+  /* Crow animation keyframes */
+  @keyframes fly-across {
+    0% {
+      transform: translateX(-100px) translateY(0);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    90% {
+      opacity: 1;
+    }
+    100% {
+      transform: translateX(calc(100vw + 100px)) translateY(-20px);
+      opacity: 0;
+    }
+  }
+
+  @keyframes flapWing {
+    0% {
+      transform: scaleY(1) rotate(0deg);
+    }
+    100% {
+      transform: scaleY(-1) rotate(-10deg);
+    }
+  }
+
+  @keyframes floatCrow {
+    0%, 100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-10px) rotate(3deg);
+    }
+  }
+
+  .animate-fly-across {
+    animation: fly-across 2s ease-in-out forwards;
+  }
 }
