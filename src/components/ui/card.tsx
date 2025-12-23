@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const cardVariants = cva(
-  "rounded-xl text-card-foreground overflow-hidden shadow-[0_2px_10px_-2px_hsl(220_25%_10%/0.12),0_6px_20px_-4px_hsl(220_25%_10%/0.15)]",
+  "rounded-xl text-card-foreground overflow-hidden",
   {
     variants: {
       variant: {
