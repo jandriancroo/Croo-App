@@ -426,7 +426,9 @@ serve(async (req) => {
       );
     }
 
-    const qbLocationId = credentials.location_id || auth.qbLocationId;
+    // Prefer the location id returned from authentication; fall back to stored credentials.
+    // This avoids syncing empty "$0" data when a stored location_id is wrong/outdated.
+    const qbLocationId = auth.qbLocationId || credentials.location_id || '';
     const dates = getBackfillDates(365);
     
     // Fetch pizza estimation settings
