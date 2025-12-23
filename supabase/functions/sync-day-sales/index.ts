@@ -22,7 +22,6 @@ async function authenticateQuBeyond(
   console.log(`[sync-day-sales] Authenticating with QuBeyond for ${username}...`);
 
   try {
-    // Use the same login endpoint as our historical backfill (avoids api.qubeyond.com DNS issues)
     const loginPayload = {
       payload: { username, password, captchaToken: '' },
     };
@@ -167,6 +166,95 @@ async function fetchHourlySales(
   return hourlyData;
 }
 
+// Fetch product mix to get actual crust count
+async function fetchProductMix(
+  tokenGw: string,
+  dateStr: string,
+  qbLocationId: string
+): Promise<number> {
+  console.log(`[sync-day-sales] Fetching product mix for ${dateStr}`);
+
+  try {
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': tokenGw,
+        'Origin': 'https://admin.qubeyond.com',
+        'Referer': 'https://admin.qubeyond.com/',
+      },
+      body: JSON.stringify({
+        fields: [
+          { fieldName: "itemGroup" },
+          { fieldName: "itemName" },
+          { fieldName: "quantity" },
+          { fieldName: "netSales" }
+        ],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: "custom" },
+          singleLocation: parseInt(qbLocationId)
+        },
+        params: {
+          sectionId: "main",
+          pageNumber: 1,
+          pageSize: 200,
+          totalRecords: null,
+          sort: [{ field: "netSales", dir: "desc" }],
+          showTotals: true
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[sync-day-sales] Product mix fetch failed:', response.status);
+      return 0;
+    }
+
+    const data = await response.json();
+    let crustCount = 0;
+
+    const processRow = (row: any, fallbackCategory?: string) => {
+      const name = row.itemName || row.productName || row.name || '';
+      if (!name || name === 'Totals') return;
+
+      const category = (
+        row.itemGroupName ||
+        row.itemGroup ||
+        row.categoryName ||
+        row.category ||
+        fallbackCategory ||
+        ''
+      ).toLowerCase();
+
+      if (category === 'crusts') {
+        const quantity = parseFloat(String(row.quantity || '0').replace(/,/g, '')) || 0;
+        const isHalf = name.includes('1/2') || name.includes('(1/2)');
+        crustCount += isHalf ? quantity * 0.5 : quantity;
+      }
+    };
+
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        if (item.items && Array.isArray(item.items)) {
+          const groupName = item.itemGroupName || item.itemGroup || item.categoryName || item.category || '';
+          for (const child of item.items) {
+            processRow(child, groupName);
+          }
+        } else {
+          processRow(item);
+        }
+      }
+    }
+
+    console.log(`[sync-day-sales] Actual crust count: ${crustCount}`);
+    return crustCount;
+  } catch (error) {
+    console.error('[sync-day-sales] Product mix error:', error);
+    return 0;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -254,15 +342,6 @@ serve(async (req) => {
       });
     }
 
-    const { data: locSettings } = await supabase
-      .from("location_settings")
-      .select("pizza_sales_percentage, average_pizza_price")
-      .eq("location_id", locationId)
-      .maybeSingle();
-
-    const pizzaSalesPercentage = locSettings?.pizza_sales_percentage ?? 80;
-    const averagePizzaPrice = locSettings?.average_pizza_price ?? 10.5;
-
     const auth = await authenticateQuBeyond(credentials.username, credentials.password);
     if (!auth) {
       return new Response(JSON.stringify({ error: "QuBeyond authentication failed" }), {
@@ -271,12 +350,14 @@ serve(async (req) => {
       });
     }
 
-    const hourly = await fetchHourlySales(auth.tokenGw, date, auth.qbLocationId);
+    // Fetch hourly sales and product mix in parallel
+    const [hourly, pizzaCount] = await Promise.all([
+      fetchHourlySales(auth.tokenGw, date, auth.qbLocationId),
+      fetchProductMix(auth.tokenGw, date, auth.qbLocationId)
+    ]);
+
     const netSales = hourly.reduce((sum, h) => sum + h.sales, 0);
     const guestCount = hourly.reduce((sum, h) => sum + h.checksCount, 0);
-    // Round to nearest half pizza
-    const rawPizzaCount = (netSales * (pizzaSalesPercentage / 100)) / averagePizzaPrice;
-    const pizzaCount = Math.round(rawPizzaCount * 2) / 2;
 
     const formattedHourly = [] as Array<{ hour: string; sales: number; checksCount: number }>;
     for (let h = 0; h < 24; h++) {
@@ -326,7 +407,7 @@ serve(async (req) => {
       });
     }
 
-    console.log(`[sync-day-sales] Upsert OK: ${locationId} ${date} $${netSales.toFixed(2)} (${guestCount} guests)`);
+    console.log(`[sync-day-sales] Upsert OK: ${locationId} ${date} $${netSales.toFixed(2)} (${guestCount} guests, ${pizzaCount} pizzas from crusts)`);
 
     return new Response(
       JSON.stringify({

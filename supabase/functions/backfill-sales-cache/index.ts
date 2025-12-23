@@ -30,11 +30,6 @@ interface DaySalesData {
 }
 
 // Major US holidays where stores are typically closed
-const CLOSED_HOLIDAYS = [
-  // Thanksgiving (4th Thursday of November) and Christmas
-  // We check by month-day for Christmas, dynamically calculate Thanksgiving
-];
-
 function isKnownClosedHoliday(dateStr: string): boolean {
   const date = new Date(dateStr + 'T12:00:00');
   const month = date.getMonth() + 1; // 1-based
@@ -213,13 +208,95 @@ async function fetchHourlySales(
   return hourlyData;
 }
 
-// Fetch a single day's data with retry logic
+// Fetch product mix to get actual crust count for a single date
+async function fetchProductMixCrustCount(
+  tokenGw: string,
+  dateStr: string,
+  qbLocationId: string
+): Promise<number> {
+  try {
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': tokenGw,
+        'Origin': 'https://admin.qubeyond.com',
+        'Referer': 'https://admin.qubeyond.com/',
+      },
+      body: JSON.stringify({
+        fields: [
+          { fieldName: "itemGroup" },
+          { fieldName: "itemName" },
+          { fieldName: "quantity" },
+          { fieldName: "netSales" }
+        ],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: "custom" },
+          singleLocation: parseInt(qbLocationId)
+        },
+        params: {
+          sectionId: "main",
+          pageNumber: 1,
+          pageSize: 200,
+          totalRecords: null,
+          sort: [{ field: "netSales", dir: "desc" }],
+          showTotals: true
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      return 0;
+    }
+
+    const data = await response.json();
+    let crustCount = 0;
+
+    const processRow = (row: any, fallbackCategory?: string) => {
+      const name = row.itemName || row.productName || row.name || '';
+      if (!name || name === 'Totals') return;
+
+      const category = (
+        row.itemGroupName ||
+        row.itemGroup ||
+        row.categoryName ||
+        row.category ||
+        fallbackCategory ||
+        ''
+      ).toLowerCase();
+
+      if (category === 'crusts') {
+        const quantity = parseFloat(String(row.quantity || '0').replace(/,/g, '')) || 0;
+        const isHalf = name.includes('1/2') || name.includes('(1/2)');
+        crustCount += isHalf ? quantity * 0.5 : quantity;
+      }
+    };
+
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        if (item.items && Array.isArray(item.items)) {
+          const groupName = item.itemGroupName || item.itemGroup || item.categoryName || item.category || '';
+          for (const child of item.items) {
+            processRow(child, groupName);
+          }
+        } else {
+          processRow(item);
+        }
+      }
+    }
+
+    return crustCount;
+  } catch (error) {
+    return 0;
+  }
+}
+
+// Fetch a single day's data with retry logic - now fetches actual crust count
 async function fetchDayData(
   tokenGw: string,
   qbLocationId: string,
   dateStr: string,
-  pizzaSalesPercentage: number = 80,
-  averagePizzaPrice: number = 10.50,
   maxRetries: number = 3
 ): Promise<DaySalesData> {
   const date = new Date(dateStr + 'T12:00:00');
@@ -229,16 +306,14 @@ async function fetchDayData(
   while (attempts < maxRetries) {
     attempts++;
     
-    const hourlyData = await fetchHourlySales(tokenGw, dateStr, qbLocationId);
+    // Fetch hourly sales and product mix in parallel
+    const [hourlyData, pizzaCount] = await Promise.all([
+      fetchHourlySales(tokenGw, dateStr, qbLocationId),
+      fetchProductMixCrustCount(tokenGw, dateStr, qbLocationId)
+    ]);
     
     const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
     const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
-    
-    // Calculate pizza count using revenue-based estimation
-    const pizzaRevenue = netSales * (pizzaSalesPercentage / 100);
-    // Round to nearest half pizza
-    const rawPizzaCount = pizzaRevenue / averagePizzaPrice;
-    const pizzaCount = Math.round(rawPizzaCount * 2) / 2;
     
     lastResult = {
       dateStr,
@@ -378,7 +453,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[BACKFILL] Starting full 365-day backfill for location ${locationId}`);
+    console.log(`[BACKFILL] Starting full 365-day backfill for location ${locationId} with actual crust counts`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -427,25 +502,14 @@ serve(async (req) => {
     }
 
     // Prefer the location id returned from authentication; fall back to stored credentials.
-    // This avoids syncing empty "$0" data when a stored location_id is wrong/outdated.
     const qbLocationId = auth.qbLocationId || credentials.location_id || '';
     const dates = getBackfillDates(365);
     
-    // Fetch pizza estimation settings
-    const { data: locationSettings } = await supabase
-      .from('location_settings')
-      .select('pizza_sales_percentage, average_pizza_price')
-      .eq('location_id', locationId)
-      .single();
-    
-    const pizzaSalesPercentage = locationSettings?.pizza_sales_percentage ?? 80;
-    const averagePizzaPrice = locationSettings?.average_pizza_price ?? 10.50;
-    
-    console.log(`[BACKFILL] Will fetch ${dates.length} days of data with pizza estimation: ${pizzaSalesPercentage}% @ $${averagePizzaPrice}`);
+    console.log(`[BACKFILL] Will fetch ${dates.length} days of data with actual crust counts from product mix`);
 
     // PHASE 1: Fetch all data with retry logic
     const allRawData: DaySalesData[] = [];
-    const BATCH_SIZE = 5; // Smaller batches for more reliable fetching
+    const BATCH_SIZE = 3; // Smaller batches since we're making 2 API calls per day now
     let daysCompleted = 0;
     let daysWithSales = 0;
 
@@ -453,7 +517,7 @@ serve(async (req) => {
       const batch = dates.slice(i, i + BATCH_SIZE);
       
       const batchResults = await Promise.all(
-        batch.map(dateStr => fetchDayData(auth.tokenGw, qbLocationId, dateStr, pizzaSalesPercentage, averagePizzaPrice, 3))
+        batch.map(dateStr => fetchDayData(auth.tokenGw, qbLocationId, dateStr, 3))
       );
 
       for (const result of batchResults) {
@@ -476,7 +540,7 @@ serve(async (req) => {
       console.log(`[BACKFILL] Progress: ${daysCompleted}/${dates.length} days (${daysWithSales} with sales)`);
       
       if (i + BATCH_SIZE < dates.length) {
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
     }
 
@@ -505,8 +569,8 @@ serve(async (req) => {
         location_id: locationId,
         sale_date: dayData.dateStr,
         net_sales: dayData.netSales,
-        guest_count: Math.round(dayData.guestCount), // Round to integer for DB
-        pizza_count: Math.round(dayData.pizzaCount), // Round to integer for DB
+        guest_count: Math.round(dayData.guestCount),
+        pizza_count: Math.round(dayData.pizzaCount), // Now from actual crust count
         avg_ticket: avgTicket,
         hourly_data: dayData.hourlyData,
         projected_sales: 0, // Will be calculated on-demand with new formula
@@ -588,7 +652,7 @@ serve(async (req) => {
       })
       .eq('id', integrationId);
 
-    console.log(`[BACKFILL] Completed! ${daysWithSales}/${dates.length} days with sales, ${flaggedCount} flagged`);
+    console.log(`[BACKFILL] Completed! ${daysWithSales}/${dates.length} days with sales, ${flaggedCount} flagged. All pizza counts from actual crusts.`);
 
     return new Response(
       JSON.stringify({ 
@@ -597,7 +661,8 @@ serve(async (req) => {
         daysWithSales,
         flaggedDays: flaggedCount,
         weeklyPeriods: weeklyAggregates.length,
-        monthlyPeriods: monthlyAggregates.length
+        monthlyPeriods: monthlyAggregates.length,
+        pizzaCountSource: 'actual_crusts'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
