@@ -59,6 +59,7 @@ interface DiagnosticInfo {
 export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   const { currentLocation } = useAppLocation();
   const [targetDate, setTargetDate] = useState<Date>(new Date());
+  const [activeTab, setActiveTab] = useState<string>('today');
   const [showProductMix, setShowProductMix] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
   const [diagnosticInfo, setDiagnosticInfo] = useState<DiagnosticInfo | null>(null);
@@ -835,7 +836,7 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
       <Card>
         <CardContent className="pt-4">
-          <Tabs defaultValue="today" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-4">
               <TabsTrigger value="today">Today</TabsTrigger>
               <TabsTrigger value="week">Week</TabsTrigger>
