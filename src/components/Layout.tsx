@@ -362,7 +362,7 @@ export const Layout = ({
 
   return <div className="flex min-h-screen flex-col bg-background overflow-x-hidden">
       <header className="sticky top-0 z-50 glass border-b border-border/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className={`container max-w-7xl mx-auto flex items-center ${isMobile ? 'h-14' : 'h-16'}`}>
+        <div className={`container max-w-7xl mx-auto flex items-center relative ${isMobile ? 'h-14' : 'h-16'}`}>
           <div className="flex items-center gap-2 mr-4 flex-shrink-0 min-w-[120px] md:min-w-[150px]">
             <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <img 
@@ -427,22 +427,24 @@ export const Layout = ({
             )}
           </nav>
           
-          {/* Mobile Location Picker - centered */}
+          {/* Mobile Location Picker - truly centered with absolute positioning */}
           {isMobile && currentLocation && (
-            <Button 
-              variant="ghost" 
-              className="flex-1 justify-center gap-1.5 h-9 mx-2 text-sm font-medium"
-              onClick={() => setLocationDialogOpen(true)}
-            >
-              <MapPin className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate max-w-[140px]">{currentLocation.name}</span>
-              <ChevronDown className="h-3 w-3 flex-shrink-0 opacity-60" />
-            </Button>
+            <div className="absolute left-1/2 -translate-x-1/2">
+              <Button 
+                variant="ghost" 
+                className="gap-1.5 h-9 text-sm font-medium"
+                onClick={() => setLocationDialogOpen(true)}
+              >
+                <MapPin className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate max-w-[140px]">{currentLocation.name}</span>
+                <ChevronDown className="h-3 w-3 flex-shrink-0 opacity-60" />
+              </Button>
+            </div>
           )}
           
           {/* Mobile Alerts Button - hidden for checklist-only locations */}
           {!isChecklistOnlyLocation && (
-            <button onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative p-2 hover:opacity-80 transition-opacity">
+            <button onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative p-2 ml-auto hover:opacity-80 transition-opacity">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
