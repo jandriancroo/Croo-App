@@ -427,9 +427,22 @@ export const Layout = ({
             )}
           </nav>
           
+          {/* Mobile Location Picker - centered */}
+          {isMobile && currentLocation && (
+            <Button 
+              variant="ghost" 
+              className="flex-1 justify-center gap-1.5 h-9 mx-2 text-sm font-medium"
+              onClick={() => setLocationDialogOpen(true)}
+            >
+              <MapPin className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate max-w-[140px]">{currentLocation.name}</span>
+              <ChevronDown className="h-3 w-3 flex-shrink-0 opacity-60" />
+            </Button>
+          )}
+          
           {/* Mobile Alerts Button - hidden for checklist-only locations */}
           {!isChecklistOnlyLocation && (
-            <button onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative p-2 ml-auto hover:opacity-80 transition-opacity">
+            <button onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative p-2 hover:opacity-80 transition-opacity">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
@@ -607,31 +620,28 @@ export const Layout = ({
                 <SheetTitle>Menu</SheetTitle>
               </SheetHeader>
               <div className="grid gap-2 py-4">
-                {/* Profile Section - clickable to change location */}
-                <button 
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setLocationDialogOpen(true);
-                  }}
-                  className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2 w-full text-left hover:bg-muted/50 transition-colors"
-                >
+                {/* Profile Section */}
+                <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2">
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={userProfile?.profile_photo_url || ''} />
                     <AvatarFallback>{initials}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{userProfile?.full_name || 'User'}</p>
-                    {currentLocation && (
-                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        {currentLocation.name}
-                      </p>
-                    )}
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </button>
+                </div>
 
                 {isSuperAdmin && (
+                  <Button variant="outline" onClick={() => {
+                    openDiagnosticMode();
+                    setMenuOpen(false);
+                  }} className="justify-start gap-3 h-11">
+                    <FlaskConical className="h-5 w-5" />
+                    <span className="text-base">Diagnostics</span>
+                  </Button>
+                )}
+
+                {hasMultiLocationAccess && (
                   <Button variant="outline" onClick={() => {
                     openDiagnosticMode();
                     setMenuOpen(false);
