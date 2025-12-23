@@ -578,8 +578,8 @@ export const Layout = ({
         <span className="text-base">Powered by</span>
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-accent backdrop-blur-lg border-t border-accent-foreground/10 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className="flex items-center justify-around pt-4 pb-2 px-4">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-accent backdrop-blur-lg border-t border-accent-foreground/10 md:hidden">
+        <div className="flex min-h-[72px] items-end justify-around px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+10px)]">
           {mobileMainNavItems.map(item => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -588,13 +588,13 @@ export const Layout = ({
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-colors relative ${
+              className={`flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors relative ${
                 isActive 
                   ? 'bg-white/20 text-white' 
                   : 'text-white/70 hover:text-white'
               }`}
             >
-              <Icon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
+              <Icon className="h-6 w-6" strokeWidth={isActive ? 2.5 : 2} />
               <span className={`text-[11px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
               {showBadge && (
                 <span className="absolute top-1 right-2 h-2 w-2 bg-destructive rounded-full" />
