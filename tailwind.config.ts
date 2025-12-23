@@ -106,6 +106,27 @@ export default {
             opacity: "1",
           }
         },
+        "fly-crow": {
+          "0%": {
+            transform: "translate(var(--start-x), var(--start-y)) scale(0.5)",
+            opacity: "0",
+          },
+          "20%": {
+            opacity: "1",
+          },
+          "100%": {
+            transform: "translate(var(--end-x), var(--end-y)) scale(1)",
+            opacity: "1",
+          },
+        },
+        "flap": {
+          "0%, 100%": {
+            transform: "scaleY(1)",
+          },
+          "50%": {
+            transform: "scaleY(0.7)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -114,6 +135,8 @@ export default {
         "wifi-bar-2": "wifi-bar 1.5s ease-in-out 0.2s infinite",
         "wifi-bar-3": "wifi-bar 1.5s ease-in-out 0.4s infinite",
         "wifi-bar-4": "wifi-bar 1.5s ease-in-out 0.6s infinite",
+        "fly-crow": "fly-crow 1.5s ease-out forwards",
+        "flap": "flap 0.15s ease-in-out infinite",
       },
     },
   },
