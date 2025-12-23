@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "@/hooks/useLocation";
 import { MapPin } from "lucide-react";
@@ -6,6 +7,7 @@ import { LocationPickerDialog } from "./LocationPickerDialog";
 import { formatLocationName } from "@/utils/locationUtils";
 
 export const LocationSelector = () => {
+  const navigate = useNavigate();
   const { currentLocation, setCurrentLocation } = useLocation();
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -35,6 +37,7 @@ export const LocationSelector = () => {
             location_type: loc.location_type,
             store_number: loc.store_number,
           });
+          navigate('/dashboard');
         }}
       />
     </>
