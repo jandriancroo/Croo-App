@@ -328,7 +328,8 @@ serve(async (req) => {
       const pizzaSalesPercentage = settings?.pizza_sales_percentage ?? 80;
       const averagePizzaPrice = settings?.average_pizza_price ?? 10.50;
       const pizzaRevenue = netSales * (pizzaSalesPercentage / 100);
-      const pizzaCount = Math.round(pizzaRevenue / averagePizzaPrice);
+      // Round to nearest even number
+      const pizzaCount = Math.round(pizzaRevenue / averagePizzaPrice / 2) * 2;
 
       // Format hourly data for storage
       const formattedHourly = [];
