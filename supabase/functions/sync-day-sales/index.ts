@@ -261,8 +261,9 @@ serve(async (req) => {
     const hourly = await fetchHourlySales(auth.tokenGw, date, auth.qbLocationId);
     const netSales = hourly.reduce((sum, h) => sum + h.sales, 0);
     const guestCount = hourly.reduce((sum, h) => sum + h.checksCount, 0);
-    // Round to nearest even number
-    const pizzaCount = Math.round((netSales * (pizzaSalesPercentage / 100)) / averagePizzaPrice / 2) * 2;
+    // Round to nearest half pizza
+    const rawPizzaCount = (netSales * (pizzaSalesPercentage / 100)) / averagePizzaPrice;
+    const pizzaCount = Math.round(rawPizzaCount * 2) / 2;
 
     const formattedHourly = [] as Array<{ hour: string; sales: number; checksCount: number }>;
     for (let h = 0; h < 24; h++) {
