@@ -494,7 +494,6 @@ export default function Dashboard() {
     'alerts': null,
     'sales-overview': hasQuBeyondIntegration ? <SalesOverview locationSettings={locationSettings} /> : null,
     'checklists-grid': <div>
-        <h3 className="text-xl font-semibold mb-4">Tasks</h3>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {/* Assigned Temporary Tasks */}
           <AssignedTemporaryTasks />
