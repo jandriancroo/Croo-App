@@ -99,7 +99,8 @@ function getYoYComparisonDate(dateStr: string): string {
   return `${year}-${month}-${day}`;
 }
 
-async function authenticateQuBeyond(username: string, password: string): Promise<{ tokenGw: string; qbLocationId: string } | null> {
+// Returns just the tokenGw - we use the location_id from our database credentials
+async function authenticateQuBeyond(username: string, password: string): Promise<{ tokenGw: string } | null> {
   console.log('[BACKFILL] Starting QuBeyond authentication...');
   
   const loginPayload = {
@@ -136,17 +137,8 @@ async function authenticateQuBeyond(username: string, password: string): Promise
     return null;
   }
 
-  let qbLocationId = (jwtPayload.locationId || jwtPayload.location_id || 
-                     jwtPayload.storeId || jwtPayload.store_id ||
-                     jwtPayload.singleLocation || jwtPayload.defaultLocation) as string || '';
-  
-  if (!qbLocationId && jwtPayload.user) {
-    const user = jwtPayload.user as Record<string, unknown>;
-    qbLocationId = (user.locationId || user.storeId || user.defaultLocation) as string || '';
-  }
-  
-  console.log(`[BACKFILL] Authenticated successfully, location ID: ${qbLocationId}`);
-  return { tokenGw, qbLocationId };
+  console.log(`[BACKFILL] Authenticated successfully`);
+  return { tokenGw };
 }
 
 async function fetchHourlySales(
@@ -501,8 +493,21 @@ serve(async (req) => {
       );
     }
 
-    // Prefer the location id returned from authentication; fall back to stored credentials.
-    const qbLocationId = auth.qbLocationId || credentials.location_id || '';
+    // Use the QuBeyond location_id from our database credentials (not from JWT)
+    const qbLocationId = credentials.location_id || '';
+    if (!qbLocationId) {
+      await supabase
+        .from('location_integrations')
+        .update({ backfill_status: 'failed', backfill_error: 'Missing QuBeyond location_id in credentials' })
+        .eq('id', integrationId);
+      
+      return new Response(
+        JSON.stringify({ error: 'Missing QuBeyond location_id in credentials' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`[BACKFILL] Using QuBeyond location_id=${qbLocationId} from DB credentials`);
     const dates = getBackfillDates(365);
     
     console.log(`[BACKFILL] Will fetch ${dates.length} days of data with actual crust counts from product mix`);
