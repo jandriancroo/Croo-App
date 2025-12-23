@@ -53,7 +53,6 @@ function isWithinBusinessHours(
   openTime: string | null, 
   closeTime: string | null
 ): boolean {
-  // Default hours if not set: 10:00 - 22:00
   const openStr = openTime || '10:00';
   const closeStr = closeTime || '22:00';
   
@@ -71,7 +70,6 @@ async function authenticateQuBeyond(
   console.log(`[sync-live-sales] Authenticating with QuBeyond for ${username}...`);
 
   try {
-    // Use the same login endpoint as our historical backfill (avoids api.qubeyond.com DNS issues)
     const loginPayload = {
       payload: { username, password, captchaToken: '' },
     };
@@ -198,6 +196,94 @@ async function fetchHourlySales(
   return hourlyData;
 }
 
+// Fetch product mix to get actual crust count
+async function fetchProductMix(
+  tokenGw: string,
+  dateStr: string,
+  qbLocationId: string
+): Promise<number> {
+  console.log(`[sync-live-sales] Fetching product mix for ${dateStr}`);
+
+  try {
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': tokenGw,
+        'Origin': 'https://admin.qubeyond.com',
+        'Referer': 'https://admin.qubeyond.com/',
+      },
+      body: JSON.stringify({
+        fields: [
+          { fieldName: "itemGroup" },
+          { fieldName: "itemName" },
+          { fieldName: "quantity" },
+          { fieldName: "netSales" }
+        ],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: "custom" },
+          singleLocation: parseInt(qbLocationId)
+        },
+        params: {
+          sectionId: "main",
+          pageNumber: 1,
+          pageSize: 200,
+          totalRecords: null,
+          sort: [{ field: "netSales", dir: "desc" }],
+          showTotals: true
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('[sync-live-sales] Product mix fetch failed:', response.status);
+      return 0;
+    }
+
+    const data = await response.json();
+    let crustCount = 0;
+
+    const processRow = (row: any, fallbackCategory?: string) => {
+      const name = row.itemName || row.productName || row.name || '';
+      if (!name || name === 'Totals') return;
+
+      const category = (
+        row.itemGroupName ||
+        row.itemGroup ||
+        row.categoryName ||
+        row.category ||
+        fallbackCategory ||
+        ''
+      ).toLowerCase();
+
+      if (category === 'crusts') {
+        const quantity = parseFloat(String(row.quantity || '0').replace(/,/g, '')) || 0;
+        const isHalf = name.includes('1/2') || name.includes('(1/2)');
+        crustCount += isHalf ? quantity * 0.5 : quantity;
+      }
+    };
+
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        if (item.items && Array.isArray(item.items)) {
+          const groupName = item.itemGroupName || item.itemGroup || item.categoryName || item.category || '';
+          for (const child of item.items) {
+            processRow(child, groupName);
+          }
+        } else {
+          processRow(item);
+        }
+      }
+    }
+
+    console.log(`[sync-live-sales] Actual crust count: ${crustCount}`);
+    return crustCount;
+  } catch (error) {
+    console.error('[sync-live-sales] Product mix error:', error);
+    return 0;
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -225,23 +311,21 @@ serve(async (req) => {
 
     // Fetch location settings separately
     const locationIds = integrations?.map(i => i.location_id) || [];
-  const { data: locationSettings } = await supabase
-    .from('location_settings')
-    .select('location_id, timezone, hours_open, hours_close, pizza_sales_percentage, average_pizza_price')
-    .in('location_id', locationIds);
+    const { data: locationSettings } = await supabase
+      .from('location_settings')
+      .select('location_id, timezone, hours_open, hours_close')
+      .in('location_id', locationIds);
   
-  const settingsByLocation: Record<string, { timezone: string; hours_open: string | null; hours_close: string | null; pizza_sales_percentage: number; average_pizza_price: number }> = {};
-  if (locationSettings) {
-    for (const ls of locationSettings) {
-      settingsByLocation[ls.location_id] = {
-        timezone: ls.timezone || 'America/Los_Angeles',
-        hours_open: ls.hours_open,
-        hours_close: ls.hours_close,
-        pizza_sales_percentage: ls.pizza_sales_percentage ?? 80,
-        average_pizza_price: ls.average_pizza_price ?? 10.50
-      };
+    const settingsByLocation: Record<string, { timezone: string; hours_open: string | null; hours_close: string | null }> = {};
+    if (locationSettings) {
+      for (const ls of locationSettings) {
+        settingsByLocation[ls.location_id] = {
+          timezone: ls.timezone || 'America/Los_Angeles',
+          hours_open: ls.hours_open,
+          hours_close: ls.hours_close
+        };
+      }
     }
-  }
 
     if (intError) {
       console.error('Error fetching integrations:', intError);
@@ -260,7 +344,7 @@ serve(async (req) => {
 
     console.log(`Found ${integrations.length} active QU integrations`);
 
-    // Also fetch location_hours for business hours (reuse locationIds from above)
+    // Also fetch location_hours for business hours
     const { data: locationHours } = await supabase
       .from('location_hours')
       .select('location_id, day_of_week, open_time, close_time, is_closed')
@@ -278,7 +362,7 @@ serve(async (req) => {
       }
     }
 
-    const results: { locationId: string; name: string; status: string; salesUpdated?: number }[] = [];
+    const results: { locationId: string; name: string; status: string; salesUpdated?: number; pizzaCount?: number }[] = [];
 
     for (const integration of integrations) {
       const locationId = integration.location_id;
@@ -330,21 +414,16 @@ serve(async (req) => {
         continue;
       }
 
-      // Fetch today's hourly sales
+      // Fetch today's hourly sales and product mix in parallel
       const todayStr = getDateStringForTimezone(new Date(), timezone);
-      const hourlyData = await fetchHourlySales(auth.tokenGw, todayStr, auth.qbLocationId);
+      const [hourlyData, pizzaCount] = await Promise.all([
+        fetchHourlySales(auth.tokenGw, todayStr, auth.qbLocationId),
+        fetchProductMix(auth.tokenGw, todayStr, auth.qbLocationId)
+      ]);
       
       // Calculate totals
       const netSales = hourlyData.reduce((sum, h) => sum + h.sales, 0);
       const guestCount = hourlyData.reduce((sum, h) => sum + h.checksCount, 0);
-      
-      // Calculate pizza count using revenue-based estimation
-      const pizzaSalesPercentage = settings?.pizza_sales_percentage ?? 80;
-      const averagePizzaPrice = settings?.average_pizza_price ?? 10.50;
-      const pizzaRevenue = netSales * (pizzaSalesPercentage / 100);
-      // Round to nearest half pizza
-      const rawPizzaCount = pizzaRevenue / averagePizzaPrice;
-      const pizzaCount = Math.round(rawPizzaCount * 2) / 2;
 
       // Format hourly data for storage
       const formattedHourly = [];
@@ -358,8 +437,7 @@ serve(async (req) => {
         });
       }
 
-      // Only upsert if we have sales data, or if no valid record exists yet
-      // This prevents early-morning zero-sales syncs from overwriting valid EOD data
+      // Only upsert if we have sales data
       if (netSales > 0) {
         const { error: upsertError } = await supabase
           .from('sales_cache')
@@ -382,8 +460,8 @@ serve(async (req) => {
           console.error(`${locationName}: Upsert error:`, upsertError);
           results.push({ locationId, name: locationName, status: 'upsert_error' });
         } else {
-          console.log(`${locationName}: Updated - $${netSales.toFixed(2)}, ${guestCount} guests, ${pizzaCount} pizzas`);
-          results.push({ locationId, name: locationName, status: 'success', salesUpdated: netSales });
+          console.log(`${locationName}: Updated - $${netSales.toFixed(2)}, ${guestCount} guests, ${pizzaCount} pizzas (from crusts)`);
+          results.push({ locationId, name: locationName, status: 'success', salesUpdated: netSales, pizzaCount });
         }
       } else {
         console.log(`${locationName}: No sales data yet (${netSales}), skipping update to preserve existing data`);
