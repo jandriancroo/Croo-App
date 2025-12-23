@@ -368,7 +368,7 @@ export const Layout = ({
               <img 
                 src={headerLogo} 
                 alt={headerLogoAlt} 
-                className={`${isMobile ? 'h-8' : 'h-10'} w-auto max-w-[100px] object-contain rounded-lg`}
+                className={`${isMobile ? 'h-10' : 'h-12'} w-auto max-w-[120px] object-contain rounded-lg`}
                 style={{ background: 'transparent' }}
               />
             </button>
@@ -432,12 +432,12 @@ export const Layout = ({
             <div className="absolute left-1/2 -translate-x-1/2">
               <Button 
                 variant="ghost" 
-                className="gap-1.5 h-9 text-sm font-medium"
+                className="gap-1.5 h-10 text-base font-medium"
                 onClick={() => setLocationDialogOpen(true)}
               >
                 <MapPin className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate max-w-[140px]">{currentLocation.name}</span>
-                <ChevronDown className="h-3 w-3 flex-shrink-0 opacity-60" />
+                <span className="truncate max-w-[160px]">{currentLocation.name}</span>
+                <ChevronDown className="h-3.5 w-3.5 flex-shrink-0 opacity-60" />
               </Button>
             </div>
           )}
