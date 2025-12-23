@@ -936,7 +936,6 @@ export default function CompleteChecklist() {
                             {Array.from({ length: isMultiPhoto ? photosNeeded : 1 }).map((_, idx) => {
                               const slotNumber = currentPhotos.length + idx + 1;
                               const cameraId = `image-camera-${item.id}-${slotNumber}`;
-                              const galleryId = `image-gallery-${item.id}-${slotNumber}`;
 
                               return (
                                 <div key={idx} className="space-y-2">
@@ -960,23 +959,6 @@ export default function CompleteChecklist() {
                                       e.target.value = '';
                                     }}
                                     required={item.is_required && !isComplete}
-                                  />
-
-                                  <Label htmlFor={galleryId} className="cursor-pointer">
-                                    <div className="w-full rounded-md border border-border bg-background px-4 py-2 text-center text-sm hover:bg-muted transition-colors">
-                                      Choose existing photo
-                                    </div>
-                                  </Label>
-                                  <Input
-                                    id={galleryId}
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={e => {
-                                      const file = e.target.files?.[0];
-                                      if (file) handleImageUpload(item.id, file);
-                                      e.target.value = '';
-                                    }}
                                   />
                                 </div>
                               );
