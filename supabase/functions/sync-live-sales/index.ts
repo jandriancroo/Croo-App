@@ -204,7 +204,8 @@ async function fetchProductMix(
         ],
         filters: {
           date: { from: null, to: null, values: [dateStr], type: "custom" },
-          singleLocation: parseInt(qbLocationId)
+          singleLocation: parseInt(qbLocationId),
+          location: { operationalUnits: [parseInt(qbLocationId)] }
         },
         params: {
           sectionId: "main",
