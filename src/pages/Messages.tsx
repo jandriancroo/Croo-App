@@ -499,23 +499,19 @@ export default function Messages() {
               </div>
               
               <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
-                <TabsList className="grid w-full grid-cols-2 gap-1 h-auto p-1">
-                  <TabsTrigger value="chats" className="flex items-center justify-center gap-1.5 py-2 text-xs" title="Chats">
-                    <MessageCircle className="h-4 w-4 shrink-0" />
-                    <span>Chats</span>
+                <TabsList className={`grid w-full ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                  <TabsTrigger value="chats" className="px-2" title="Chats">
+                    <MessageCircle className="h-4 w-4" />
                   </TabsTrigger>
-                  <TabsTrigger value="announcements" className="flex items-center justify-center gap-1.5 py-2 text-xs" title="Announcements">
-                    <Megaphone className="h-4 w-4 shrink-0" />
-                    <span>Announce</span>
+                  <TabsTrigger value="announcements" className="px-2" title="Announcements">
+                    <Megaphone className="h-4 w-4" />
                   </TabsTrigger>
-                  <TabsTrigger value="marketplace" className="flex items-center justify-center gap-1.5 py-2 text-xs" title="Shift Marketplace">
-                    <ArrowLeftRight className="h-4 w-4 shrink-0" />
-                    <span>Shifts</span>
+                  <TabsTrigger value="marketplace" className="px-2" title="Shift Marketplace">
+                    <ArrowLeftRight className="h-4 w-4" />
                   </TabsTrigger>
                   {(isAdmin || isManager) && (
-                    <TabsTrigger value="hiring" className="flex items-center justify-center gap-1.5 py-2 text-xs" title="Hiring">
-                      <Briefcase className="h-4 w-4 shrink-0" />
-                      <span>Hiring</span>
+                    <TabsTrigger value="hiring" className="px-2" title="Hiring">
+                      <Briefcase className="h-4 w-4" />
                     </TabsTrigger>
                   )}
                 </TabsList>
