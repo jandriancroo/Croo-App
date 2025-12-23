@@ -1,21 +1,41 @@
 /**
+ * Detect if running on Android device
+ */
+function isAndroid(): boolean {
+  return /android/i.test(navigator.userAgent);
+}
+
+/**
  * Compress and resize an image file to reduce memory usage
- * Optimized for low-memory Android devices like Samsung Galaxy A14
+ * Uses higher quality for iOS/Desktop, more conservative for Android
  */
 export async function compressImage(
   file: File,
-  maxWidth: number = 800,
-  maxHeight: number = 800,
-  quality: number = 0.6
+  maxWidth?: number,
+  maxHeight?: number,
+  quality?: number
 ): Promise<File> {
   return new Promise((resolve, reject) => {
-    // For very large files, use even more aggressive compression
     const fileSize = file.size;
     const isLargeFile = fileSize > 3 * 1024 * 1024; // > 3MB
+    const isAndroidDevice = isAndroid();
     
-    const targetMaxWidth = isLargeFile ? 600 : maxWidth;
-    const targetMaxHeight = isLargeFile ? 600 : maxHeight;
-    const targetQuality = isLargeFile ? 0.5 : quality;
+    // Set defaults based on platform
+    let targetMaxWidth: number;
+    let targetMaxHeight: number;
+    let targetQuality: number;
+    
+    if (isAndroidDevice) {
+      // Android: More conservative to handle low-memory devices
+      targetMaxWidth = maxWidth ?? (isLargeFile ? 800 : 1000);
+      targetMaxHeight = maxHeight ?? (isLargeFile ? 800 : 1000);
+      targetQuality = quality ?? (isLargeFile ? 0.55 : 0.65);
+    } else {
+      // iOS/Desktop: Higher quality
+      targetMaxWidth = maxWidth ?? (isLargeFile ? 1200 : 1400);
+      targetMaxHeight = maxHeight ?? (isLargeFile ? 1200 : 1400);
+      targetQuality = quality ?? (isLargeFile ? 0.65 : 0.75);
+    }
 
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
