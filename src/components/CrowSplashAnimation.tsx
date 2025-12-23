@@ -8,7 +8,7 @@ const CrowSplashAnimation: React.FC<{ onComplete: () => void }> = ({ onComplete 
   useEffect(() => {
     const welcomeTimer = setTimeout(() => setShowWelcome(true), 100);
     const fadeTimer = setTimeout(() => setFadeOut(true), 1200);
-    const completeTimer = setTimeout(() => onComplete(), 1500);
+    const completeTimer = setTimeout(() => onComplete(), 1700);
     
     return () => {
       clearTimeout(welcomeTimer);
@@ -19,8 +19,8 @@ const CrowSplashAnimation: React.FC<{ onComplete: () => void }> = ({ onComplete 
 
   return (
     <div 
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden transition-opacity duration-300 ${
-        fadeOut ? 'opacity-0' : 'opacity-100'
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center overflow-hidden transition-all duration-500 ease-out ${
+        fadeOut ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'
       }`}
       style={{
         background: 'linear-gradient(135deg, #ff6b35 0%, #f7931e 30%, #fbb034 60%, #ffdd00 100%)'
