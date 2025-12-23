@@ -19,7 +19,7 @@ export default function Auth() {
   const [locationCode, setLocationCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
-  const [showCrowAnimation, setShowCrowAnimation] = useState(true);
+  const [showCrowAnimation, setShowCrowAnimation] = useState(false);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -54,10 +54,10 @@ export default function Auth() {
 
   useEffect(() => {
     // Don't auto-redirect if we're showing the splash screen
-    if (user && !showSplash) {
+    if (user && !showSplash && !showCrowAnimation) {
       navigate('/dashboard');
     }
-  }, [user, navigate, showSplash]);
+  }, [user, navigate, showSplash, showCrowAnimation]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +69,7 @@ export default function Auth() {
       toast.error(error.message);
       setLoading(false);
     } else {
-      setShowSplash(true);
+      setShowCrowAnimation(true);
     }
   };
 
@@ -146,15 +146,12 @@ export default function Auth() {
     }
   };
 
-  if (showSplash) {
-    return <LoginSplashScreen onComplete={handleSplashComplete} />;
+  if (showSplash || showCrowAnimation) {
+    return <CrowSplashAnimation onComplete={handleSplashComplete} />;
   }
 
   return (
     <>
-      {showCrowAnimation && (
-        <CrowSplashAnimation onComplete={() => setShowCrowAnimation(false)} />
-      )}
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
       <Card className="w-full max-w-md shadow-2xl border-2 hover:shadow-3xl transition-all duration-300 hover:scale-[1.02]">
         <CardHeader className="text-center pb-2">
