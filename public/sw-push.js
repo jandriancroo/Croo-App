@@ -19,7 +19,7 @@ self.addEventListener('push', function(event) {
   const options = {
     body: data.body || 'You have a new notification',
     icon: '/notification-icon.png',
-    badge: '/notification-icon.png',
+    badge: '/notification-icon-monochrome.png',
     tag: data.tag || 'croo-notification',
     data: data.data || {}
   };
