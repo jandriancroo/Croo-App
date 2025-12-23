@@ -179,11 +179,11 @@ export default function History() {
   const getFrequencyColor = (frequency: string) => {
     switch (frequency) {
       case 'daily':
-        return 'bg-accent text-accent-foreground';
+        return 'bg-teal-500 text-white';
       case 'weekly':
-        return 'bg-primary text-primary-foreground';
+        return 'bg-orange-400 text-white';
       case 'monthly':
-        return 'bg-violet-500 text-white';
+        return 'bg-rose-300 text-rose-900';
       default:
         return 'bg-muted text-muted-foreground';
     }
