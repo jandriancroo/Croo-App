@@ -6,9 +6,9 @@ const CrowSplashAnimation: React.FC<{ onComplete: () => void }> = ({ onComplete 
   const [showWelcome, setShowWelcome] = useState(false);
 
   useEffect(() => {
-    const welcomeTimer = setTimeout(() => setShowWelcome(true), 300);
-    const fadeTimer = setTimeout(() => setFadeOut(true), 2500);
-    const completeTimer = setTimeout(() => onComplete(), 3000);
+    const welcomeTimer = setTimeout(() => setShowWelcome(true), 200);
+    const fadeTimer = setTimeout(() => setFadeOut(true), 1500);
+    const completeTimer = setTimeout(() => onComplete(), 2000);
     
     return () => {
       clearTimeout(welcomeTimer);
