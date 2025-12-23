@@ -1,11 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import crooLogo from '@/assets/croo-logo.png';
+import { usePrefetchDashboard } from '@/hooks/usePrefetchDashboard';
 
 const CrowSplashAnimation: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
   const [fadeOut, setFadeOut] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
+  const { prefetchDashboardData } = usePrefetchDashboard();
 
   useEffect(() => {
+    // Start prefetching dashboard data immediately
+    prefetchDashboardData();
+
     const welcomeTimer = setTimeout(() => setShowWelcome(true), 300);
     const fadeTimer = setTimeout(() => setFadeOut(true), 2500);
     const completeTimer = setTimeout(() => onComplete(), 3000);
@@ -15,7 +20,7 @@ const CrowSplashAnimation: React.FC<{ onComplete: () => void }> = ({ onComplete 
       clearTimeout(fadeTimer);
       clearTimeout(completeTimer);
     };
-  }, [onComplete]);
+  }, [onComplete, prefetchDashboardData]);
 
   return (
     <div 
