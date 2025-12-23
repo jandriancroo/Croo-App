@@ -570,7 +570,7 @@ export default function Dashboard() {
           } = getCompletionData(checklist.id);
           const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
           const isComplete = completionRate === 100;
-          return <Card key={checklist.id} className="hover:shadow-lg transition-shadow overflow-hidden p-0 flex flex-col">
+          return <Card key={checklist.id} className="hover:shadow-lg transition-shadow p-0 flex flex-col">
                   {/* Header Section - Original style */}
                   <CardHeader className="py-2 px-3">
                     <div className="flex items-center gap-2">
@@ -602,7 +602,7 @@ export default function Dashboard() {
 
                   {/* Bottom Button - Contoured to card shape */}
                   <Button 
-                    className="w-full h-10 text-sm rounded-none rounded-b-lg mt-auto"
+                    className="w-full h-10 text-sm rounded-none rounded-b-xl mt-auto"
                     onClick={() => navigate(`/complete/${checklist.id}`)}
                   >
                     {isComplete ? 'Review' : 'Complete'}
