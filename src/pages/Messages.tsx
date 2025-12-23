@@ -475,7 +475,7 @@ export default function Messages() {
         {isMobile && (
           <>
             <div className="flex-1 bg-card rounded-lg p-4 flex flex-col">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-2">
                 <h2 className="text-lg font-semibold">Chat</h2>
                 <div className="flex gap-2">
                   {isAdmin && (
@@ -498,19 +498,19 @@ export default function Messages() {
                 </div>
               </div>
               
-              <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
-                <TabsList className={`grid w-full ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                  <TabsTrigger value="chats" className="px-2" title="Chats">
+              <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-3">
+                <TabsList className={`grid w-full h-8 ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                  <TabsTrigger value="chats" className="px-2 py-1 h-6" title="Chats">
                     <MessageCircle className="h-4 w-4" />
                   </TabsTrigger>
-                  <TabsTrigger value="announcements" className="px-2" title="Announcements">
+                  <TabsTrigger value="announcements" className="px-2 py-1 h-6" title="Announcements">
                     <Megaphone className="h-4 w-4" />
                   </TabsTrigger>
-                  <TabsTrigger value="marketplace" className="px-2" title="Shift Marketplace">
+                  <TabsTrigger value="marketplace" className="px-2 py-1 h-6" title="Shift Marketplace">
                     <ArrowLeftRight className="h-4 w-4" />
                   </TabsTrigger>
                   {(isAdmin || isManager) && (
-                    <TabsTrigger value="hiring" className="px-2" title="Hiring">
+                    <TabsTrigger value="hiring" className="px-2 py-1 h-6" title="Hiring">
                       <Briefcase className="h-4 w-4" />
                     </TabsTrigger>
                   )}
@@ -524,7 +524,7 @@ export default function Messages() {
                 />
               ) : viewMode !== 'marketplace' && (
                 <>
-                  <div className="mb-4">
+                  <div className="mb-2">
                     <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
                   </div>
                   <ChatList
