@@ -436,7 +436,7 @@ serve(async (req) => {
   }
 
   try {
-    const { locationId, integrationId } = await req.json();
+    const { locationId, integrationId, days } = await req.json();
     
     if (!locationId || !integrationId) {
       return new Response(
@@ -445,7 +445,8 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[BACKFILL] Starting full 365-day backfill for location ${locationId} with actual crust counts`);
+    const daysToBackfill = days || 365;
+    console.log(`[BACKFILL] Starting ${daysToBackfill}-day backfill for location ${locationId} with actual crust counts`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -508,7 +509,7 @@ serve(async (req) => {
     }
 
     console.log(`[BACKFILL] Using QuBeyond location_id=${qbLocationId} from DB credentials`);
-    const dates = getBackfillDates(365);
+    const dates = getBackfillDates(daysToBackfill);
     
     console.log(`[BACKFILL] Will fetch ${dates.length} days of data with actual crust counts from product mix`);
 
