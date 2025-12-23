@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import crooLogo from '@/assets/croo-logo.png';
 import { LoginSplashScreen } from '@/components/LoginSplashScreen';
+import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 
 export default function Auth() {
   const [email, setEmail] = useState('');
@@ -18,6 +19,7 @@ export default function Auth() {
   const [locationCode, setLocationCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
+  const [showCrowAnimation, setShowCrowAnimation] = useState(true);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -149,7 +151,11 @@ export default function Auth() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
+    <>
+      {showCrowAnimation && (
+        <CrowSplashAnimation onComplete={() => setShowCrowAnimation(false)} />
+      )}
+      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-primary/5 to-accent/10 p-4">
       <Card className="w-full max-w-md shadow-2xl border-2 hover:shadow-3xl transition-all duration-300 hover:scale-[1.02]">
         <CardHeader className="text-center pb-2">
           <div className="mx-auto mb-0">
@@ -260,5 +266,6 @@ export default function Auth() {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 }
