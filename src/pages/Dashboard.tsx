@@ -453,7 +453,7 @@ export default function Dashboard() {
       case 'weekly':
         return 'bg-primary text-primary-foreground';
       case 'monthly':
-        return 'bg-primary/80 text-primary-foreground';
+        return 'bg-violet-500 text-white';
       default:
         return 'bg-muted text-muted-foreground';
     }
