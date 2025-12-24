@@ -21,7 +21,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth, subYears } from 'date-fns';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Cell, LabelList, ReferenceLine } from 'recharts';
+import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { getCachedLiveSales, setCachedLiveSales } from '@/utils/salesCache';
 
 interface ChecklistMetric {
@@ -517,83 +517,104 @@ export default function MultiLocationDashboard() {
     return { diff, percent, isPositive, lastYear };
   };
 
-  // Daily chart - includes pacing with reference lines
-  const DailySalesChart = ({ sales }: { sales: LocationSalesData }) => {
-    const data = sales.daily;
-    const chartData = [
-      { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))', label: formatCurrency(data.actual) },
-      { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrency(data.projected) },
-      { name: 'Pace', value: data.pacing, fill: 'hsl(142 76% 36%)', label: formatCurrency(data.pacing) }
-    ];
-    const maxVal = Math.max(data.actual, data.projected, data.pacing, 1);
-    const lyComparison = formatLastYearComparison(data.actual, data.lastYear);
-
-    return (
-      <div className="w-full">
-        <div className="h-[80px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 55 }}>
-              <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
-              <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
-              <ReferenceLine x={maxVal * 0.5} stroke="hsl(var(--border))" strokeDasharray="2 2" />
-              <ReferenceLine x={maxVal * 0.75} stroke="hsl(var(--border))" strokeDasharray="2 2" />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14} background={{ fill: 'hsl(var(--muted)/0.3)' }}>
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-                <LabelList dataKey="label" position="right" style={{ fontSize: 11, fill: 'hsl(var(--foreground))', fontWeight: 600 }} />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        {lyComparison && (
-          <p className={`text-xs mt-1 font-medium ${lyComparison.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-            vs LY: {formatCurrencyCompact(lyComparison.lastYear)} ({lyComparison.isPositive ? '+' : ''}{lyComparison.percent}%)
-          </p>
-        )}
-      </div>
-    );
-  };
-
-  // Weekly/Monthly chart - includes pacing with reference lines
-  const PeriodSalesChart = ({ sales, period }: { sales: LocationSalesData; period: 'weekly' | 'monthly' }) => {
+  // Unified chart - bars for actuals, line for projections/pace
+  const SalesChart = ({ sales, period }: { sales: LocationSalesData; period: 'daily' | 'weekly' | 'monthly' }) => {
     const data = sales[period];
-    const chartData = [
-      { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))', label: formatCurrency(data.actual) },
-      { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrency(data.projected) },
-      { name: 'Pace', value: data.pacing, fill: 'hsl(142 76% 36%)', label: formatCurrency(data.pacing) }
-    ];
-    const maxVal = Math.max(data.actual, data.projected, data.pacing, 1);
     const lyComparison = formatLastYearComparison(data.actual, data.lastYear);
+    
+    // Single data point for the current period
+    const chartData = [
+      { 
+        name: period === 'daily' ? 'Today' : period === 'weekly' ? 'This Week' : 'This Month',
+        actual: data.actual,
+        projected: data.projected,
+        pace: data.pacing
+      }
+    ];
+
+    const maxVal = Math.max(data.actual, data.projected, data.pacing, 1);
 
     return (
       <div className="w-full">
-        <div className="h-[80px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 55 }}>
-              <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
-              <YAxis type="category" dataKey="name" width={70} tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-              <ReferenceLine x={maxVal * 0.25} stroke="hsl(var(--border))" strokeDasharray="2 2" />
-              <ReferenceLine x={maxVal * 0.5} stroke="hsl(var(--border))" strokeDasharray="2 2" />
-              <ReferenceLine x={maxVal * 0.75} stroke="hsl(var(--border))" strokeDasharray="2 2" />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={14} background={{ fill: 'hsl(var(--muted)/0.3)' }}>
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-                <LabelList dataKey="label" position="right" style={{ fontSize: 11, fill: 'hsl(var(--foreground))', fontWeight: 600 }} />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="flex items-center gap-4 mb-2">
+          {/* Actual */}
+          <div className="flex-1">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="w-3 h-3 rounded-sm bg-orange-500" />
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Actual</span>
+            </div>
+            <p className="text-lg font-bold">{formatCurrencyCompact(data.actual)}</p>
+          </div>
+          {/* Projected */}
+          <div className="flex-1">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="w-3 h-0.5 bg-amber-700 rounded" />
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Projected</span>
+            </div>
+            <p className="text-lg font-semibold text-muted-foreground">{formatCurrencyCompact(data.projected)}</p>
+          </div>
+          {/* Pace */}
+          <div className="flex-1">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="w-3 h-3 rounded-sm bg-emerald-500" />
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Pace</span>
+            </div>
+            <p className={`text-lg font-bold ${data.pacing >= data.projected ? 'text-emerald-600' : 'text-amber-600'}`}>
+              {formatCurrencyCompact(data.pacing)}
+            </p>
+          </div>
         </div>
+        
+        {/* Progress bar visualization */}
+        <div className="space-y-1.5">
+          {/* Actual bar */}
+          <div className="flex items-center gap-2">
+            <div className="w-16 text-[10px] text-muted-foreground">Actual</div>
+            <div className="flex-1 h-4 bg-muted/30 rounded-full overflow-hidden relative">
+              <div 
+                className="h-full bg-gradient-to-r from-orange-500 to-orange-400 rounded-full transition-all duration-500"
+                style={{ width: `${Math.min(100, (data.actual / maxVal) * 100)}%` }}
+              />
+              {/* Projected line marker */}
+              <div 
+                className="absolute top-0 h-full w-0.5 bg-amber-700"
+                style={{ left: `${Math.min(100, (data.projected / maxVal) * 100)}%` }}
+              />
+            </div>
+          </div>
+          {/* Pace bar */}
+          <div className="flex items-center gap-2">
+            <div className="w-16 text-[10px] text-muted-foreground">Pace</div>
+            <div className="flex-1 h-4 bg-muted/30 rounded-full overflow-hidden relative">
+              <div 
+                className={`h-full rounded-full transition-all duration-500 ${
+                  data.pacing >= data.projected 
+                    ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' 
+                    : 'bg-gradient-to-r from-amber-500 to-amber-400'
+                }`}
+                style={{ width: `${Math.min(100, (data.pacing / maxVal) * 100)}%` }}
+              />
+              {/* Projected line marker */}
+              <div 
+                className="absolute top-0 h-full w-0.5 bg-amber-700"
+                style={{ left: `${Math.min(100, (data.projected / maxVal) * 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
         {lyComparison && (
-          <p className={`text-xs mt-1 font-medium ${lyComparison.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+          <p className={`text-xs mt-2 font-medium ${lyComparison.isPositive ? 'text-green-600' : 'text-red-600'}`}>
             vs LY: {formatCurrencyCompact(lyComparison.lastYear)} ({lyComparison.isPositive ? '+' : ''}{lyComparison.percent}%)
           </p>
         )}
       </div>
     );
   };
+
+  // Backwards compatible wrappers
+  const DailySalesChart = ({ sales }: { sales: LocationSalesData }) => <SalesChart sales={sales} period="daily" />;
+  const PeriodSalesChart = ({ sales, period }: { sales: LocationSalesData; period: 'weekly' | 'monthly' }) => <SalesChart sales={sales} period={period} />;
 
   // Loading skeleton for sales section
   const SalesLoadingSkeleton = () => (
