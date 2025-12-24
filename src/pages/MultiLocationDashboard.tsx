@@ -477,7 +477,8 @@ export default function MultiLocationDashboard() {
   };
 
   const formatLocationName = (name: string, storeNumber: string | null) => {
-    return storeNumber ? `${name} - ${storeNumber}` : name;
+    // Just return name, store number is shown in the badge
+    return name;
   };
 
   const formatCurrency = (amount: number) => {
@@ -555,19 +556,20 @@ export default function MultiLocationDashboard() {
     );
   };
 
-  // Weekly/Monthly chart - no pacing, with reference lines
+  // Weekly/Monthly chart - includes pacing with reference lines
   const PeriodSalesChart = ({ sales, period }: { sales: LocationSalesData; period: 'weekly' | 'monthly' }) => {
     const data = sales[period];
     const chartData = [
       { name: 'Actual', value: data.actual, fill: 'hsl(var(--primary))', label: formatCurrency(data.actual) },
-      { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrency(data.projected) }
+      { name: 'Projected', value: data.projected, fill: 'hsl(var(--muted-foreground))', label: formatCurrency(data.projected) },
+      { name: 'Pace', value: data.pacing, fill: 'hsl(142 76% 36%)', label: formatCurrency(data.pacing) }
     ];
-    const maxVal = Math.max(data.actual, data.projected, 1);
+    const maxVal = Math.max(data.actual, data.projected, data.pacing, 1);
     const lyComparison = formatLastYearComparison(data.actual, data.lastYear);
 
     return (
       <div className="w-full">
-        <div className="h-[56px]">
+        <div className="h-[80px]">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} layout="vertical" margin={{ left: 0, right: 55 }}>
               <XAxis type="number" hide domain={[0, maxVal * 1.1]} />
@@ -693,49 +695,6 @@ export default function MultiLocationDashboard() {
               {locations.length} locations
             </Badge>
           </div>
-        </div>
-
-        {/* Summary Cards - More refined */}
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 dark:from-emerald-500/20 dark:to-emerald-500/10">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-emerald-500/20 dark:bg-emerald-500/30">
-                  <Users className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Clocked In</p>
-                  <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{totals.clockedIn}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-500/10 to-amber-500/5 dark:from-amber-500/20 dark:to-amber-500/10">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-amber-500/20 dark:bg-amber-500/30">
-                  <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Scheduled</p>
-                  <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{totals.scheduled}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-500/10 to-blue-500/5 dark:from-blue-500/20 dark:to-blue-500/10">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-blue-500/20 dark:bg-blue-500/30">
-                  <ClipboardCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Checklists</p>
-                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{totals.checklistsCompleted}<span className="text-lg font-normal text-muted-foreground">/{totals.totalChecklists}</span></p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Search bar - only show when more than 5 locations */}
