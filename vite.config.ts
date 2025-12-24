@@ -71,7 +71,8 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         // Precache the actual app bundle too (JS), so new publishes reliably update PWAs
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,json,woff2}'],
-        navigateFallback: null,
+        // SPA routing: serve index.html for navigations (keeps SW precache consistent)
+        navigateFallback: '/index.html',
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         runtimeCaching: [],
         cleanupOutdatedCaches: true,
