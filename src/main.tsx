@@ -18,12 +18,14 @@ try {
   const updateSW = registerSW({
     immediate: true,
     onNeedRefresh() {
-      // New content available - apply once per page load to avoid refresh loops.
+      // New content available. DO NOT auto-reload here (can cause refresh loops on some browsers).
+      // Instead, signal the UI to show an "Install Update" action.
       if (sessionStorage.getItem(UPDATE_GUARD_KEY) === '1') return;
       sessionStorage.setItem(UPDATE_GUARD_KEY, '1');
 
-      console.log('[PWA] New version available, updating...');
-      updateSW(true);
+      (window as any).__PWA_UPDATE_READY__ = true;
+      window.dispatchEvent(new CustomEvent('pwa:need-refresh'));
+      console.log('[PWA] Update ready (waiting). Tap Install Update in the app.');
     },
     onOfflineReady() {
       console.log('[PWA] App ready for offline use');
@@ -53,6 +55,7 @@ try {
   });
 
   // Expose a manual hook for debugging in Safari devtools if needed
+  (window as any).__PWA_APPLY_UPDATE__ = () => updateSW(true);
   (window as any).__PWA_UPDATE__ = () => updateSW(true);
   (window as any).__PWA_FORCE_RELOAD__ = () => {
     caches.keys().then(names => {
