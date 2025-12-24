@@ -12,10 +12,16 @@ document.documentElement.setAttribute('data-theme', savedTheme);
 
 // In production, proactively check for updates.
 try {
+  // Guard against infinite reload loops (some browsers repeatedly emit onNeedRefresh)
+  const UPDATE_GUARD_KEY = '__PWA_UPDATE_TRIGGERED__';
+
   const updateSW = registerSW({
     immediate: true,
     onNeedRefresh() {
-      // New content available - auto-apply since we use autoUpdate
+      // New content available - apply once per page load to avoid refresh loops.
+      if (sessionStorage.getItem(UPDATE_GUARD_KEY) === '1') return;
+      sessionStorage.setItem(UPDATE_GUARD_KEY, '1');
+
       console.log('[PWA] New version available, updating...');
       updateSW(true);
     },
@@ -27,16 +33,15 @@ try {
       if (registration) {
         // Check immediately on load
         registration.update();
-        // Check every 30 seconds (more aggressive for iOS PWAs)
+
+        // Check periodically (less aggressive to avoid iOS/Safari refresh loops)
         setInterval(() => {
-          console.log('[PWA] Checking for updates...');
           registration.update();
-        }, 30 * 1000);
-        
+        }, 5 * 60 * 1000);
+
         // Also check on visibility change (when user returns to app)
         document.addEventListener('visibilitychange', () => {
           if (document.visibilityState === 'visible') {
-            console.log('[PWA] App visible, checking for updates...');
             registration.update();
           }
         });
@@ -59,7 +64,6 @@ try {
   // Safe no-op in environments where the virtual module isn't available
   console.warn('[PWA] SW init skipped', e);
 }
-
 const rootElement = document.getElementById("root");
 
 if (rootElement) {
