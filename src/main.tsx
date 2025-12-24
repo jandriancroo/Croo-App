@@ -19,20 +19,39 @@ try {
     (window.navigator as any).standalone === true;
 
   if (!isStandalone) {
-    // Website mode: remove any previously-installed SW/caches once, then skip SW registration.
-    const PURGE_KEY = '__SW_PURGED_WEBSITE__';
-    if (sessionStorage.getItem(PURGE_KEY) !== '1') {
+    // Website mode: remove any previously-installed SW/caches once per build, then skip SW registration.
+    // IMPORTANT: Safari can keep an old SW-controlled shell alive until *after* a reload.
+    // So after purging, we do a single forced reload to guarantee the newest build loads.
+    const PURGE_KEY = `__SW_PURGED_WEBSITE__:${__APP_VERSION__}`;
+    const RELOAD_KEY = `__SW_PURGE_RELOAD__:${__APP_VERSION__}`;
+
+    const needsPurge = sessionStorage.getItem(PURGE_KEY) !== '1';
+    if (needsPurge) {
       sessionStorage.setItem(PURGE_KEY, '1');
 
+      const tasks: Promise<unknown>[] = [];
+
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then((regs) => {
-          regs.forEach((r) => r.unregister());
-        });
+        tasks.push(
+          navigator.serviceWorker.getRegistrations().then((regs) => {
+            regs.forEach((r) => r.unregister());
+          })
+        );
       }
 
       if ('caches' in window) {
-        caches.keys().then((names) => names.forEach((n) => caches.delete(n)));
+        tasks.push(
+          caches.keys().then((names) => Promise.all(names.map((n) => caches.delete(n))))
+        );
       }
+
+      Promise.allSettled(tasks).finally(() => {
+        // One reload per build to drop any SW-controlled HTML shell.
+        if (sessionStorage.getItem(RELOAD_KEY) !== '1') {
+          sessionStorage.setItem(RELOAD_KEY, '1');
+          window.location.reload();
+        }
+      });
     }
   } else {
     // PWA mode: register SW and surface updates without auto-refreshing.
