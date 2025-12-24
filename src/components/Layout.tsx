@@ -52,6 +52,19 @@ export const Layout = ({
   const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
 
+  // If the service worker reports an update, surface it in the UI (no auto-refresh).
+  useEffect(() => {
+    const onNeedRefresh = () => {
+      setUpdateAvailable(true);
+      toast.success('Update ready — tap Install Update.');
+    };
+
+    window.addEventListener('pwa:need-refresh', onNeedRefresh);
+    if ((window as any).__PWA_UPDATE_READY__ === true) onNeedRefresh();
+
+    return () => window.removeEventListener('pwa:need-refresh', onNeedRefresh);
+  }, []);
+
   // Manual check for updates - force SW update + reload to pick up latest assets.
   // Note: when Workbox is configured with skipWaiting/clientsClaim, registration.waiting
   // is often null even when a new version exists, so we treat "check" as "refresh to latest".
@@ -723,7 +736,12 @@ export const Layout = ({
                   <Button 
                     variant="outline" 
                     onClick={() => {
-                      handleRefreshApp();
+                      const apply = (window as any).__PWA_APPLY_UPDATE__ as undefined | (() => void);
+                      if (apply) {
+                        apply();
+                      } else {
+                        handleRefreshApp();
+                      }
                       setMenuOpen(false);
                     }} 
                     className="justify-start gap-3 h-11 border-0 bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70"
