@@ -639,13 +639,13 @@ export const Layout = ({
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
               <button
-                className={`flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-colors ${
+                className={`flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors ${
                   menuOpen 
                     ? 'bg-white/20 text-white' 
                     : 'text-white/70 hover:text-white'
                 }`}
               >
-                <Menu className="h-7 w-7" strokeWidth={menuOpen ? 2.5 : 2} />
+                <Menu className="h-6 w-6" strokeWidth={menuOpen ? 2.5 : 2} />
                 <span className={`text-[11px] ${menuOpen ? 'font-semibold' : 'font-medium'}`}>More</span>
               </button>
             </SheetTrigger>
