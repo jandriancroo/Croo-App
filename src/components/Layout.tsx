@@ -52,40 +52,46 @@ export const Layout = ({
   const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
 
-  // Manual check for updates - forces service worker to check against server
+  // Manual check for updates - force SW update + reload to pick up latest assets.
+  // Note: when Workbox is configured with skipWaiting/clientsClaim, registration.waiting
+  // is often null even when a new version exists, so we treat "check" as "refresh to latest".
   const checkForUpdate = async () => {
     setIsCheckingUpdate(true);
+    setUpdateAvailable(null);
+
     try {
-      if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.getRegistration();
-        if (registration) {
-          // Force the browser to check for a new service worker
-          await registration.update();
-          
-          // Wait a moment for the update check to complete
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Re-fetch registration to get latest state
-          const updatedRegistration = await navigator.serviceWorker.getRegistration();
-          
-          if (updatedRegistration?.waiting || updatedRegistration?.installing) {
-            setUpdateAvailable(true);
-            toast.success('Update available! Tap to install.');
-          } else {
-            setUpdateAvailable(false);
-            toast.success('You\'re on the latest version!');
-          }
-        } else {
-          setUpdateAvailable(false);
-          toast.info('No service worker registered.');
-        }
-      } else {
-        setUpdateAvailable(false);
-        toast.info('Service workers not supported.');
+      if (!('serviceWorker' in navigator)) {
+        toast.info('Updates not supported in this browser.');
+        return;
       }
+
+      const registration = await navigator.serviceWorker.getRegistration();
+      if (!registration) {
+        toast.info('No update system is active yet.');
+        return;
+      }
+
+      // Ask the browser to fetch a newer SW if one exists.
+      await registration.update();
+
+      // Give it a beat to install/activate.
+      await new Promise((r) => setTimeout(r, 750));
+
+      const refreshedRegistration = await navigator.serviceWorker.getRegistration();
+
+      // If a SW is waiting (some browsers), show "Install Update".
+      if (refreshedRegistration?.waiting) {
+        setUpdateAvailable(true);
+        toast.success('Update ready! Tap Install Update.');
+        return;
+      }
+
+      // Otherwise, reload the page. If a new version exists, this will load it.
+      toast.message('Refreshing to load the latest version…');
+      window.location.reload();
     } catch (error) {
       console.error('Error checking for updates:', error);
-      toast.error('Failed to check for updates.');
+      toast.error('Failed to refresh to the latest version.');
       setUpdateAvailable(null);
     } finally {
       setIsCheckingUpdate(false);
