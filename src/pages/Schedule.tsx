@@ -92,6 +92,7 @@ interface Holiday {
   holiday_name: string;
   holiday_date: string;
   holiday_type: string;
+  location_id?: string | null;
 }
 
 export default function Schedule() {
@@ -420,7 +421,10 @@ export default function Schedule() {
       if (holidaysResult.error) {
         console.error('Error fetching holidays:', holidaysResult.error);
       } else {
-        setHolidays(holidaysResult.data || []);
+        const allHolidays = (holidaysResult.data || []) as Holiday[];
+        // Birthdays must be location-specific; ignore legacy "global" birthday rows.
+        const filtered = allHolidays.filter(h => h.holiday_type !== 'birthday' || h.location_id === currentLocation?.id);
+        setHolidays(filtered);
       }
 
       // Handle location settings
