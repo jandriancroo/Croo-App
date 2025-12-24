@@ -42,9 +42,10 @@ interface Chat {
 }
 
 export default function Messages() {
-  const { isAdmin, isManager } = useUserRole();
+  const { isAdmin, isManager, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
+  const showHiringTab = isAdmin || isManager;
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
@@ -394,24 +395,26 @@ export default function Messages() {
               </div>
             </div>
             
-            <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
-              <TabsList className={`grid w-full !h-8 p-0.5 ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                <TabsTrigger value="chats" className="!px-2 !py-1 !h-6" title="Chats">
-                  <MessageCircle className="h-4 w-4" />
-                </TabsTrigger>
-                <TabsTrigger value="announcements" className="!px-2 !py-1 !h-6" title="Announcements">
-                  <Megaphone className="h-4 w-4" />
-                </TabsTrigger>
-                <TabsTrigger value="marketplace" className="!px-2 !py-1 !h-6" title="Shift Marketplace">
-                  <ArrowLeftRight className="h-4 w-4" />
-                </TabsTrigger>
-                {(isAdmin || isManager) && (
-                  <TabsTrigger value="hiring" className="!px-2 !py-1 !h-6" title="Hiring">
-                    <Briefcase className="h-4 w-4" />
+            {!roleLoading && (
+              <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
+                <TabsList className={`grid w-full !h-8 p-0.5 ${showHiringTab ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                  <TabsTrigger value="chats" className="!px-2 !py-1 !h-6" title="Chats">
+                    <MessageCircle className="h-4 w-4" />
                   </TabsTrigger>
-                )}
-              </TabsList>
-            </Tabs>
+                  <TabsTrigger value="announcements" className="!px-2 !py-1 !h-6" title="Announcements">
+                    <Megaphone className="h-4 w-4" />
+                  </TabsTrigger>
+                  <TabsTrigger value="marketplace" className="!px-2 !py-1 !h-6" title="Shift Marketplace">
+                    <ArrowLeftRight className="h-4 w-4" />
+                  </TabsTrigger>
+                  {showHiringTab && (
+                    <TabsTrigger value="hiring" className="!px-2 !py-1 !h-6" title="Hiring">
+                      <Briefcase className="h-4 w-4" />
+                    </TabsTrigger>
+                  )}
+                </TabsList>
+              </Tabs>
+            )}
             
             {viewMode === 'hiring' ? (
               <HiringChatList
@@ -498,24 +501,26 @@ export default function Messages() {
                 </div>
               </div>
               
-              <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-3">
-                <TabsList className={`grid w-full !h-8 p-0.5 ${(isAdmin || isManager) ? 'grid-cols-4' : 'grid-cols-3'}`}>
-                  <TabsTrigger value="chats" className="!px-2 !py-1 !h-6" title="Chats">
-                    <MessageCircle className="h-4 w-4" />
-                  </TabsTrigger>
-                  <TabsTrigger value="announcements" className="!px-2 !py-1 !h-6" title="Announcements">
-                    <Megaphone className="h-4 w-4" />
-                  </TabsTrigger>
-                  <TabsTrigger value="marketplace" className="!px-2 !py-1 !h-6" title="Shift Marketplace">
-                    <ArrowLeftRight className="h-4 w-4" />
-                  </TabsTrigger>
-                  {(isAdmin || isManager) && (
-                    <TabsTrigger value="hiring" className="!px-2 !py-1 !h-6" title="Hiring">
-                      <Briefcase className="h-4 w-4" />
+              {!roleLoading && (
+                <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-3">
+                  <TabsList className={`grid w-full !h-8 p-0.5 ${showHiringTab ? 'grid-cols-4' : 'grid-cols-3'}`}>
+                    <TabsTrigger value="chats" className="!px-2 !py-1 !h-6" title="Chats">
+                      <MessageCircle className="h-4 w-4" />
                     </TabsTrigger>
-                  )}
-                </TabsList>
-              </Tabs>
+                    <TabsTrigger value="announcements" className="!px-2 !py-1 !h-6" title="Announcements">
+                      <Megaphone className="h-4 w-4" />
+                    </TabsTrigger>
+                    <TabsTrigger value="marketplace" className="!px-2 !py-1 !h-6" title="Shift Marketplace">
+                      <ArrowLeftRight className="h-4 w-4" />
+                    </TabsTrigger>
+                    {showHiringTab && (
+                      <TabsTrigger value="hiring" className="!px-2 !py-1 !h-6" title="Hiring">
+                        <Briefcase className="h-4 w-4" />
+                      </TabsTrigger>
+                    )}
+                  </TabsList>
+                </Tabs>
+              )}
               
               {viewMode === 'hiring' ? (
                 <HiringChatList
