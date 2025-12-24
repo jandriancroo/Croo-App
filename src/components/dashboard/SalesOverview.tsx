@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, Bug, RefreshCcw } from 'lucide-react';
-import { ResponsiveContainer, Tooltip, BarChart, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -1008,10 +1008,10 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 
                 return (
                   <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                    <BarChart data={hourlyWithPizzas} barCategoryGap="10%" margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="hour" className="text-xs" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} interval="preserveStartEnd" angle={-45} textAnchor="end" height={50} />
-                      <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} tickFormatter={value => `$${value}`} width={40} />
+                    <ComposedChart data={hourlyWithPizzas} barCategoryGap="10%" margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+                      <XAxis dataKey="hour" className="text-xs" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} interval="preserveStartEnd" angle={-45} textAnchor="end" height={50} axisLine={false} tickLine={false} />
+                      <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))', fontSize: 10 }} tickFormatter={value => `$${value}`} width={40} axisLine={false} tickLine={false} />
                       <Tooltip 
                         content={({ active, payload, label }) => {
                           if (!active || !payload?.length) return null;
@@ -1037,9 +1037,17 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                         formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
                         wrapperStyle={{ fontSize: '12px' }}
                       />
-                      <Bar dataKey="projected" fill="hsl(var(--muted-foreground))" radius={[8, 8, 0, 0]} opacity={0.4} />
-                      <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                    </BarChart>
+                      <Bar dataKey="sales" name="Actual" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="projected" 
+                        name="Projected" 
+                        stroke="hsl(var(--muted-foreground))" 
+                        strokeWidth={2} 
+                        dot={{ fill: 'hsl(var(--muted-foreground))', strokeWidth: 2, r: 3, stroke: 'hsl(var(--card))' }}
+                        activeDot={{ r: 5, stroke: 'hsl(var(--card))', strokeWidth: 2 }}
+                      />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 );
               })()}
@@ -1221,8 +1229,8 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                         return (
                           <div className="bg-card border border-border rounded-md p-2 shadow-lg">
                             <p className="font-medium">{format(new Date(data?.date + 'T00:00:00'), 'EEEE, MMM d')}</p>
-                            <p className="text-amber-700">Projected: <span className="font-medium">{formatCurrency(data?.projected || 0)}</span></p>
-                            <p className="text-orange-500">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
+                            <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
+                            <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
                             {hasWeeklyLabor && data?.laborPercent !== undefined && data.laborPercent > 0 && (
                               <p className="text-blue-500">Labor: <span className="font-medium">{data.laborPercent.toFixed(1)}%</span></p>
                             )}
@@ -1235,16 +1243,16 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                       wrapperStyle={{ fontSize: '12px' }}
                     />
                     {/* Bars for actuals */}
-                    <Bar dataKey="sales" name="Actual Sales" fill="#f97316" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="sales" name="Actual Sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                     {/* Line for projections */}
                     <Line 
                       type="monotone" 
                       dataKey="projected" 
                       name="Projected" 
-                      stroke="#92400e" 
+                      stroke="hsl(var(--muted-foreground))" 
                       strokeWidth={2} 
-                      dot={{ fill: '#92400e', strokeWidth: 2, r: 4, stroke: '#fff' }}
-                      activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
+                      dot={{ fill: 'hsl(var(--muted-foreground))', strokeWidth: 2, r: 4, stroke: 'hsl(var(--card))' }}
+                      activeDot={{ r: 6, stroke: 'hsl(var(--card))', strokeWidth: 2 }}
                     />
                   </ComposedChart>
                 </ResponsiveContainer>
@@ -1360,8 +1368,8 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                           return (
                             <div className="bg-card border border-border rounded-md p-2 shadow-lg">
                               <p className="font-medium">{data?.dateRange || label}</p>
-                              <p className="text-amber-700">Projected: <span className="font-medium">{formatCurrency(data?.projected || 0)}</span></p>
-                              <p className="text-orange-500">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
+                              <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
+                              <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
                             </div>
                           );
                         }}
@@ -1370,14 +1378,14 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                         formatter={(value) => value === 'projected' ? 'Projected' : 'Actual Sales'}
                         wrapperStyle={{ fontSize: '12px' }}
                       />
-                      <Bar dataKey="sales" name="Actual Sales" fill="#f97316" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="sales" name="Actual Sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                       <Line 
                         type="monotone" 
                         dataKey="projected" 
                         name="Projected" 
-                        stroke="#92400e" 
+                        stroke="hsl(var(--muted-foreground))" 
                         strokeWidth={2} 
-                        dot={{ fill: '#92400e', strokeWidth: 2, r: 4, stroke: '#fff' }}
+                        dot={{ fill: 'hsl(var(--muted-foreground))', strokeWidth: 2, r: 4, stroke: 'hsl(var(--card))' }}
                       />
                     </ComposedChart>
                   </ResponsiveContainer>
@@ -1404,8 +1412,8 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                           return (
                             <div className="bg-card border border-border rounded-md p-2 shadow-lg">
                               <p className="font-medium">{data?.date ? format(new Date(data.date + 'T00:00:00'), 'EEEE, MMM d') : ''}</p>
-                              <p className="text-amber-700">Projected: <span className="font-medium">{formatCurrency(data?.projected || 0)}</span></p>
-                              <p className="text-orange-500">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
+                              <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
+                              <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
                             </div>
                           );
                         }}
@@ -1414,12 +1422,12 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                         formatter={(value) => value === 'projected' ? 'Projected' : 'Actual Sales'}
                         wrapperStyle={{ fontSize: '12px' }}
                       />
-                      <Bar dataKey="sales" name="Actual Sales" fill="#f97316" radius={[2, 2, 0, 0]} />
+                      <Bar dataKey="sales" name="Actual Sales" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
                       <Line 
                         type="monotone" 
                         dataKey="projected" 
                         name="Projected" 
-                        stroke="#92400e" 
+                        stroke="hsl(var(--muted-foreground))" 
                         strokeWidth={2} 
                         dot={false}
                       />
