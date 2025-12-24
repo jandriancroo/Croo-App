@@ -679,51 +679,59 @@ export default function MultiLocationDashboard() {
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold">Multi-Location Overview</h1>
-          <p className="text-muted-foreground">
-            {format(new Date(), 'EEEE, MMMM d, yyyy')}
-          </p>
+        {/* Header with gradient accent */}
+        <div className="relative">
+          <div className="absolute -inset-x-4 -top-4 h-32 bg-gradient-to-br from-primary/5 via-primary/10 to-transparent rounded-3xl -z-10" />
+          <div className="flex items-end justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
+              <p className="text-muted-foreground mt-1">
+                {format(new Date(), 'EEEE, MMMM d, yyyy')}
+              </p>
+            </div>
+            <Badge variant="outline" className="text-xs font-medium">
+              {locations.length} locations
+            </Badge>
+          </div>
         </div>
 
-        {/* Summary Cards */}
-        <div className="flex flex-wrap gap-3">
-          <Card className="flex-1 min-w-[120px]">
-            <CardContent className="p-3">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-green-500/10">
-                  <Users className="h-4 w-4 text-green-600" />
+        {/* Summary Cards - More refined */}
+        <div className="grid grid-cols-3 gap-3">
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 dark:from-emerald-500/20 dark:to-emerald-500/10">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-emerald-500/20 dark:bg-emerald-500/30">
+                  <Users className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Clocked In</p>
-                  <p className="text-xl font-bold">{totals.clockedIn}</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Clocked In</p>
+                  <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{totals.clockedIn}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="flex-1 min-w-[120px]">
-            <CardContent className="p-3">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-amber-500/10">
-                  <Clock className="h-4 w-4 text-amber-600" />
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-amber-500/10 to-amber-500/5 dark:from-amber-500/20 dark:to-amber-500/10">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-amber-500/20 dark:bg-amber-500/30">
+                  <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Scheduled</p>
-                  <p className="text-xl font-bold">{totals.scheduled}</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Scheduled</p>
+                  <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{totals.scheduled}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="flex-1 min-w-[120px]">
-            <CardContent className="p-3">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 rounded-lg bg-blue-500/10">
-                  <ClipboardCheck className="h-4 w-4 text-blue-600" />
+          <Card className="border-0 shadow-sm bg-gradient-to-br from-blue-500/10 to-blue-500/5 dark:from-blue-500/20 dark:to-blue-500/10">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-blue-500/20 dark:bg-blue-500/30">
+                  <ClipboardCheck className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Checklists</p>
-                  <p className="text-xl font-bold">{totals.checklistsCompleted}/{totals.totalChecklists}</p>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Checklists</p>
+                  <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{totals.checklistsCompleted}<span className="text-lg font-normal text-muted-foreground">/{totals.totalChecklists}</span></p>
                 </div>
               </div>
             </CardContent>
@@ -744,11 +752,13 @@ export default function MultiLocationDashboard() {
         )}
 
         {/* Location Cards */}
-        <div className="space-y-4">
-          {sortedAndFilteredLocations.map((loc) => (
+        <div className="space-y-3">
+          {sortedAndFilteredLocations.map((loc, index) => (
             <Card 
               key={loc.id} 
-              className="cursor-pointer hover:shadow-lg transition-shadow"
+              className={`cursor-pointer transition-all duration-200 hover:shadow-md hover:border-primary/20 ${
+                loc.id === defaultLocationId ? 'ring-2 ring-primary/20 border-primary/30' : ''
+              }`}
               onClick={() => navigate(`/location/${loc.id}`)}
             >
               <CardContent className="p-4">
@@ -756,64 +766,64 @@ export default function MultiLocationDashboard() {
                   {/* Location Header */}
                   <div className="lg:w-48 flex-shrink-0">
                     <div className="flex items-center justify-between lg:flex-col lg:items-start gap-2">
-                      <div>
-                        <h3 className="font-semibold text-lg">
-                          {formatLocationName(loc.name, loc.store_number)}
-                        </h3>
-                        {loc.organization_name && (
-                          <p className="text-xs text-muted-foreground">{loc.organization_name}</p>
-                        )}
+                      <div className="flex items-center gap-2">
+                        <div className="hidden lg:flex h-8 w-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 items-center justify-center text-sm font-bold text-primary">
+                          {loc.store_number || (index + 1)}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-base leading-tight">
+                            {formatLocationName(loc.name, loc.store_number)}
+                          </h3>
+                          {loc.organization_name && (
+                            <p className="text-xs text-muted-foreground">{loc.organization_name}</p>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         {loc.hasQuBeyond && loc.sales && loc.sales.daily.pacing > 0 && loc.sales.daily.actual >= 100 ? (() => {
-                          // Grace period: first 2 hours show "Warming Up" instead of behind
                           const inGracePeriod = loc.hoursSinceOpen !== null && loc.hoursSinceOpen < 2;
-                          
-                          // "Ahead/On Fire" requires pace to exceed original projection
-                          // "On Track" means pace meets projection (95-105% of projection)
-                          // "Behind" means pace is below projection (<95% of projection)
                           const paceVsProjection = loc.sales.daily.projected > 0 
                             ? (loc.sales.daily.pacing / loc.sales.daily.projected) * 100 
                             : 0;
                           
-                          const isAhead = paceVsProjection >= 105; // Pace is 105%+ of projection
+                          const isAhead = paceVsProjection >= 105;
                           const isOnTrack = paceVsProjection >= 95 && paceVsProjection < 105;
                           const isBehind = paceVsProjection < 95;
-                          
-                          // During grace period, show "Warming Up" instead of "Behind Pace"
                           const showWarmingUp = inGracePeriod && isBehind;
                           
                           return (
                             <Badge 
                               variant="outline" 
-                              className={`text-xs ${
+                              className={`text-xs font-medium ${
                                 isAhead
-                                  ? 'border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-950'
+                                  ? 'border-orange-400/50 text-orange-600 bg-orange-50 dark:bg-orange-950/50'
                                   : isOnTrack 
-                                    ? 'border-green-500 text-green-600 bg-green-50 dark:bg-green-950' 
+                                    ? 'border-emerald-400/50 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50' 
                                     : showWarmingUp
-                                      ? 'border-amber-400 text-amber-600 bg-amber-50 dark:bg-amber-950'
-                                      : 'border-sky-400 text-sky-500 bg-sky-50 dark:bg-sky-950'
+                                      ? 'border-amber-400/50 text-amber-600 bg-amber-50 dark:bg-amber-950/50'
+                                      : 'border-sky-400/50 text-sky-600 bg-sky-50 dark:bg-sky-950/50'
                               }`}
                             >
-                              {isAhead ? '🔥 On Fire' : isOnTrack ? '🏃 On Track' : showWarmingUp ? '☕ Warming Up' : '🧊 Behind Pace'}
+                              {isAhead ? '🔥 On Fire' : isOnTrack ? '✓ On Track' : showWarmingUp ? '☕ Warming Up' : '↓ Behind'}
                             </Badge>
                           );
                         })() : !loc.isOpen && loc.openTime ? (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge variant="secondary" className="text-xs font-medium">
                             Opens {loc.openTime}
                           </Badge>
                         ) : null}
-                        <div className="flex items-center gap-1 text-sm">
+                        <div className="flex items-center gap-1.5 text-sm bg-muted/50 px-2 py-0.5 rounded-full">
                           <Users className="h-3 w-3 text-muted-foreground" />
-                          <span>{loc.clockedInCount ?? '-'}/{loc.scheduledCount ?? '-'}</span>
+                          <span className="font-medium">{loc.clockedInCount ?? '-'}</span>
+                          <span className="text-muted-foreground">/</span>
+                          <span className="text-muted-foreground">{loc.scheduledCount ?? '-'}</span>
                         </div>
                       </div>
                     </div>
                     {(loc.openShifts ?? 0) > 0 && (
-                      <div className="flex items-center gap-1 text-amber-600 text-xs mt-2">
+                      <div className="flex items-center gap-1.5 text-amber-600 text-xs mt-2 bg-amber-50 dark:bg-amber-950/50 px-2 py-1 rounded-md w-fit">
                         <AlertTriangle className="h-3 w-3" />
-                        <span>{loc.openShifts} open shift{loc.openShifts !== 1 ? 's' : ''}</span>
+                        <span className="font-medium">{loc.openShifts} open shift{loc.openShifts !== 1 ? 's' : ''}</span>
                       </div>
                     )}
                   </div>
@@ -864,79 +874,81 @@ export default function MultiLocationDashboard() {
                   )}
 
                   {!loc.hasQuBeyond && (
-                    <div className="flex-1 flex items-center justify-center py-4 text-sm text-muted-foreground border rounded-lg bg-muted/20">
-                      No sales integration
+                    <div className="flex-1 flex items-center justify-center py-6 text-sm text-muted-foreground border border-dashed rounded-xl bg-muted/10">
+                      <div className="text-center">
+                        <DollarSign className="h-5 w-5 mx-auto mb-1 opacity-40" />
+                        <span className="text-xs">No sales data</span>
+                      </div>
                     </div>
                   )}
 
                   {/* Checklists Section */}
                   <div 
-                    className="lg:w-64 flex-shrink-0 space-y-1.5 cursor-pointer hover:bg-muted/30 rounded-lg p-1.5 -m-1.5 transition-colors"
+                    className="lg:w-64 flex-shrink-0 space-y-2 cursor-pointer hover:bg-muted/40 rounded-xl p-2 -m-2 transition-all"
                     onClick={(e) => navigateToChecklist(loc.id, e)}
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                        <ClipboardCheck className="h-3 w-3" />
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                        <ClipboardCheck className="h-3.5 w-3.5" />
                         Checklists
-                        <ChevronRight className="h-3 w-3" />
                       </p>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
                     </div>
                     {(loc.checklists?.length || 0) > 0 ? (
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         {loc.checklists?.map((cl) => (
                           <div key={cl.id} className="flex items-center gap-2">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between text-xs">
-                                <span className="truncate">{cl.title}</span>
-                                <span className={`font-medium ml-1 ${getCompletionColor(cl.percent)}`}>
-                                  {cl.completedCount}/{cl.totalCount} ({cl.percent.toFixed(0)}%)
+                              <div className="flex items-center justify-between text-xs mb-0.5">
+                                <span className="truncate font-medium">{cl.title}</span>
+                                <span className={`font-semibold ml-1 ${getCompletionColor(cl.percent)}`}>
+                                  {cl.percent.toFixed(0)}%
                                 </span>
                               </div>
-                              <Progress value={cl.percent} className="h-1 mt-0.5" />
+                              <Progress value={cl.percent} className="h-1.5" />
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground">No checklists</p>
+                      <p className="text-xs text-muted-foreground/60 italic">No checklists</p>
                     )}
                   </div>
 
                   {/* Audit Section */}
                   <div 
-                    className="lg:w-40 flex-shrink-0 cursor-pointer"
+                    className="lg:w-44 flex-shrink-0 cursor-pointer group"
                     onClick={(e) => {
                       e.stopPropagation();
                       navigateToAudit(loc.id);
                     }}
                   >
-                    <p className="text-xs font-medium text-muted-foreground flex items-center gap-1 mb-1">
-                      <FileText className="h-3 w-3" />
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5 mb-2">
+                      <FileText className="h-3.5 w-3.5" />
                       Latest Audit
                     </p>
                     {loc.latestAudit ? (
-                      <div className="bg-muted/30 rounded-lg p-2 hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center justify-between">
+                      <div className="bg-gradient-to-br from-muted/40 to-muted/20 rounded-xl p-3 group-hover:from-muted/60 group-hover:to-muted/40 transition-all border border-border/50">
+                        <div className="flex items-center justify-between mb-1">
                           <span className="text-xs text-muted-foreground">
-                            {format(new Date(loc.latestAudit.audit_date), 'MMM d, yyyy')}
+                            {format(new Date(loc.latestAudit.audit_date), 'MMM d')}
                           </span>
                           {loc.latestAudit.visit_score && (
-                            <Badge variant="outline" className="font-bold text-xs">
+                            <Badge className="font-bold text-xs bg-primary/10 text-primary border-0 hover:bg-primary/20">
                               {loc.latestAudit.visit_score}
                             </Badge>
                           )}
                         </div>
                         {loc.latestAudit.manager_name && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            MOD: {loc.latestAudit.manager_name}
+                          <p className="text-xs text-muted-foreground truncate">
+                            {loc.latestAudit.manager_name}
                           </p>
                         )}
-                        <div className="flex items-center justify-end mt-1">
-                          <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                        </div>
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground">No audits</p>
+                      <div className="bg-muted/20 rounded-xl p-3 border border-dashed border-border/50">
+                        <p className="text-xs text-muted-foreground/60 italic">No audits yet</p>
+                      </div>
                     )}
                   </div>
                 </div>
