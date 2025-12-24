@@ -86,10 +86,18 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
   const unpinnedChats = chats.filter(chat => !chat.isPinned);
 
   const renderChat = (chat: Chat) => (
-    <button
+    <div
       key={chat.id}
+      role="button"
+      tabIndex={0}
       onClick={() => onSelectChat(chat.id)}
-      className={`group w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left ${
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelectChat(chat.id);
+        }
+      }}
+      className={`group w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background ${
         selectedChatId === chat.id
           ? 'bg-accent text-accent-foreground'
           : chat.isPinned
@@ -113,11 +121,13 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           </>
         ) : (
           <>
-            <AvatarImage src={
-              chat.chat_members?.find(m => m.user_id !== currentUserId)?.profiles?.profile_photo_url || 
-              chat.chat_members?.[0]?.profiles?.profile_photo_url || 
-              undefined
-            } />
+            <AvatarImage
+              src={
+                chat.chat_members?.find((m) => m.user_id !== currentUserId)?.profiles?.profile_photo_url ||
+                chat.chat_members?.[0]?.profiles?.profile_photo_url ||
+                undefined
+              }
+            />
             <AvatarFallback className="text-xs">
               {chat.title?.charAt(0) || 'C'}
             </AvatarFallback>
@@ -127,15 +137,18 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 min-w-0">
-            <p className={`truncate text-sm ${
-              chat.unreadCount && chat.unreadCount > 0 ? 'font-bold' : 'font-medium'
-            }`}>
+            <p
+              className={`truncate text-sm ${
+                chat.unreadCount && chat.unreadCount > 0 ? 'font-bold' : 'font-medium'
+              }`}
+            >
               {chat.title || (chat.is_group ? 'Group Chat' : 'Direct Message')}
             </p>
           </div>
           <div className="flex items-center gap-1 flex-shrink-0">
             {onTogglePin && (
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
@@ -162,7 +175,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           </p>
         )}
       </div>
-    </button>
+    </div>
   );
 
   return (
