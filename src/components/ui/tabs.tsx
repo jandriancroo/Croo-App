@@ -8,18 +8,23 @@ const Tabs = TabsPrimitive.Root;
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.List
-    ref={ref}
-    className={cn(
-      "h-10 items-center justify-center rounded-xl p-1 text-muted-foreground glass-subtle",
-      // Only add inline-flex if no grid class is present
-      className?.includes('grid') ? '' : 'inline-flex',
-      className,
-    )}
-    {...props}
-  />
-));
+>(({ className, ...props }, ref) => {
+  const isGrid = className?.includes('grid');
+
+  return (
+    <TabsPrimitive.List
+      ref={ref}
+      className={cn(
+        // Neutral base styling (works for both flex + grid)
+        "rounded-xl p-1 text-muted-foreground glass-subtle",
+        // Layout defaults (only when caller didn't specify grid)
+        isGrid ? '' : 'inline-flex h-10 items-center justify-center',
+        className,
+      )}
+      {...props}
+    />
+  );
+});
 TabsList.displayName = TabsPrimitive.List.displayName;
 
 const TabsTrigger = React.forwardRef<
