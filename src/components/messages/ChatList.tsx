@@ -60,11 +60,11 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
     return (
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-3 p-3">
-            <Skeleton className="h-10 w-10 rounded-full" />
+          <div key={i} className="flex items-center gap-4 p-4">
+            <Skeleton className="h-14 w-14 rounded-full" />
             <div className="flex-1 space-y-2">
-              <Skeleton className="h-4 w-3/4" />
-              <Skeleton className="h-3 w-1/2" />
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
             </div>
           </div>
         ))}
@@ -97,7 +97,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           onSelectChat(chat.id);
         }
       }}
-      className={`group w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background ${
+      className={`group w-full flex items-center gap-4 p-4 rounded-lg transition-colors text-left cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background ${
         selectedChatId === chat.id
           ? 'bg-accent text-accent-foreground'
           : chat.isPinned
@@ -107,16 +107,16 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           : 'hover:bg-muted'
       }`}
     >
-      <Avatar className="h-9 w-9 flex-shrink-0">
+      <Avatar className="h-14 w-14 flex-shrink-0">
         {chat.is_announcement ? (
           <AvatarFallback className="bg-primary/10">
-            <Megaphone className="h-4 w-4 text-primary" />
+            <Megaphone className="h-6 w-6 text-primary" />
           </AvatarFallback>
         ) : chat.is_group ? (
           <>
             <AvatarImage src={chat.group_image_url || undefined} />
             <AvatarFallback>
-              <Users className="h-4 w-4" />
+              <Users className="h-6 w-6" />
             </AvatarFallback>
           </>
         ) : (
@@ -128,7 +128,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
                 undefined
               }
             />
-            <AvatarFallback className="text-xs">
+            <AvatarFallback className="text-base font-medium">
               {chat.title?.charAt(0) || 'C'}
             </AvatarFallback>
           </>
@@ -138,7 +138,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1 min-w-0">
             <p
-              className={`truncate text-sm ${
+              className={`truncate text-base ${
                 chat.unreadCount && chat.unreadCount > 0 ? 'font-bold' : 'font-medium'
               }`}
             >
@@ -151,26 +151,26 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => {
                   e.stopPropagation();
                   onTogglePin(chat.id, chat.isPinned || false);
                 }}
               >
                 {chat.isPinned ? (
-                  <PinOff className="h-3 w-3" />
+                  <PinOff className="h-4 w-4" />
                 ) : (
-                  <Pin className="h-3 w-3" />
+                  <Pin className="h-4 w-4" />
                 )}
               </Button>
             )}
-            <span className="text-xs text-muted-foreground">
+            <span className="text-sm text-muted-foreground">
               {formatLastMessageTime(chat.updated_at)}
             </span>
           </div>
         </div>
         {chat.messagePreview && (
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
+          <p className="text-sm text-muted-foreground truncate mt-1">
             {searchQuery ? highlightSearchTerm(chat.messagePreview, searchQuery) : chat.messagePreview}
           </p>
         )}
