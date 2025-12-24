@@ -571,8 +571,8 @@ export const Layout = ({
         <span className="text-base">Powered by</span>
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
-      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-accent backdrop-blur-lg border-t border-accent-foreground/10 md:hidden">
-        <div className="flex min-h-[72px] items-end justify-around px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+10px)]">
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-accent backdrop-blur-lg border-t border-accent-foreground/10 md:hidden pb-safe">
+        <div className="flex min-h-[72px] items-end justify-around px-3 pt-2 pb-3">
           {mobileMainNavItems.map(item => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
