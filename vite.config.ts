@@ -36,9 +36,9 @@ export default defineConfig(({ mode }) => {
     react(), 
     mode === "development" && componentTagger(),
     VitePWA({
-      // Keep users on the latest build automatically (no manual update prompt)
+      // We handle SW registration manually in main.tsx
       registerType: 'autoUpdate',
-      injectRegister: 'auto',
+      injectRegister: false,
       includeAssets: ['favicon.png'],
       manifest: {
         name: 'CrooHQ - Food Service Made Smart',
@@ -49,7 +49,7 @@ export default defineConfig(({ mode }) => {
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
-        start_url: `/?v=${buildVersion}`,
+        start_url: '/',
         icons: [
           {
             src: '/favicon.png',
@@ -71,18 +71,17 @@ export default defineConfig(({ mode }) => {
         ]
       },
       workbox: {
-        // Give every build a unique cache namespace so updates can't get stuck.
-        cacheId: `croohq-${buildVersion}`,
-        // Precache the actual app bundle too (JS), so new publishes reliably update PWAs
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,json,woff2}'],
-        // SPA routing: serve index.html for navigations (keeps SW precache consistent)
-        navigateFallback: '/index.html',
-        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // NO PRECACHING - rely on browser/CDN cache for freshness
+        globPatterns: [],
+        // No runtime caching either
         runtimeCaching: [],
+        // Only import push handler
+        importScripts: ['/sw-push.js'],
+        // Take control immediately
         clientsClaim: true,
         skipWaiting: true,
-        // Import the push notification handler into the service worker
-        importScripts: ['/sw-push.js']
+        // Minimal SW - no navigation fallback (let network handle it)
+        navigateFallback: null
       },
       devOptions: {
         enabled: false
