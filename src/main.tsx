@@ -14,11 +14,33 @@ document.documentElement.setAttribute('data-theme', savedTheme);
 try {
   const updateSW = registerSW({
     immediate: true,
-    onRegisteredSW(_swUrl, registration) {
-      // Check once soon after load
-      registration?.update();
-      // Then periodically (helps iOS PWAs)
-      window.setInterval(() => registration?.update(), 60 * 1000);
+    onNeedRefresh() {
+      // New content available - auto-apply since we use autoUpdate
+      console.log('[PWA] New version available, updating...');
+      updateSW(true);
+    },
+    onOfflineReady() {
+      console.log('[PWA] App ready for offline use');
+    },
+    onRegisteredSW(swUrl, registration) {
+      console.log('[PWA] Service worker registered:', swUrl);
+      if (registration) {
+        // Check immediately on load
+        registration.update();
+        // Check every 30 seconds (more aggressive for iOS PWAs)
+        setInterval(() => {
+          console.log('[PWA] Checking for updates...');
+          registration.update();
+        }, 30 * 1000);
+        
+        // Also check on visibility change (when user returns to app)
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            console.log('[PWA] App visible, checking for updates...');
+            registration.update();
+          }
+        });
+      }
     },
     onRegisterError(error) {
       console.warn('[PWA] SW registration error', error);
@@ -27,6 +49,12 @@ try {
 
   // Expose a manual hook for debugging in Safari devtools if needed
   (window as any).__PWA_UPDATE__ = () => updateSW(true);
+  (window as any).__PWA_FORCE_RELOAD__ = () => {
+    caches.keys().then(names => {
+      names.forEach(name => caches.delete(name));
+    });
+    window.location.reload();
+  };
 } catch (e) {
   // Safe no-op in environments where the virtual module isn't available
   console.warn('[PWA] SW init skipped', e);
