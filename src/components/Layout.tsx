@@ -391,11 +391,9 @@ export const Layout = ({
                 style={{ background: 'transparent' }}
               />
             </button>
-            {isSuperAdmin && !isMobile && (
-              <span className="text-[10px] text-muted-foreground font-mono bg-muted/50 px-1.5 py-0.5 rounded whitespace-nowrap">
-                v{__APP_VERSION__}
-              </span>
-            )}
+            <span className="text-[10px] text-muted-foreground font-mono bg-muted/50 px-1.5 py-0.5 rounded whitespace-nowrap">
+              v{__APP_VERSION__}
+            </span>
           </div>
           <nav className="hidden items-center gap-1 md:flex flex-1 min-w-0">
             {mainNavItems.map(item => {

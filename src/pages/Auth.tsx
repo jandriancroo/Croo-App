@@ -169,6 +169,7 @@ export default function Auth() {
           <p className="font-pacifico text-2xl text-[#E67E22] drop-shadow-sm -mt-4">
             food service made smart
           </p>
+          <p className="mt-2 text-xs font-mono text-muted-foreground">v{__APP_VERSION__}</p>
         </CardHeader>
         <CardContent>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
