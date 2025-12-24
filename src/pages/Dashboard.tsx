@@ -319,7 +319,20 @@ export default function Dashboard() {
         itemCount = checklistItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).length;
       }
 
-      // Get submissions and count unique completed items for today (location-filtered)
+      // For monthly checklists, use start/end of month; otherwise use today
+      const isMonthly = checklist.frequency === 'monthly';
+      let periodStart: Date;
+      let periodEnd: Date;
+      
+      if (isMonthly) {
+        periodStart = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0, 0);
+        periodEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+      } else {
+        periodStart = startOfToday;
+        periodEnd = endOfToday;
+      }
+
+      // Get submissions and count unique completed items for the period (location-filtered)
       const {
         data: submissions
       } = await supabase.from('checklist_submissions').select(`
@@ -328,8 +341,8 @@ export default function Dashboard() {
         `)
         .eq('checklist_id', checklist.id)
         .eq('location_id', currentLocation?.id)
-        .gte('submitted_at', startOfToday.toISOString())
-        .lte('submitted_at', endOfToday.toISOString());
+        .gte('submitted_at', periodStart.toISOString())
+        .lte('submitted_at', periodEnd.toISOString());
       
       // Count unique item_ids to avoid double-counting collaborative completions
       const uniqueItemIds = new Set();
