@@ -396,7 +396,7 @@ export default function Messages() {
             </div>
             
             <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
-              <TabsList className="grid w-full grid-cols-4 h-10 p-1">
+              <TabsList className="grid w-full grid-cols-4 h-10 p-1 gap-1">
                 <TabsTrigger value="chats" className="h-8" title="Chats">
                   <MessageCircle className="h-4 w-4" />
                 </TabsTrigger>
@@ -406,13 +406,14 @@ export default function Messages() {
                 <TabsTrigger value="marketplace" className="h-8" title="Shift Marketplace">
                   <ArrowLeftRight className="h-4 w-4" />
                 </TabsTrigger>
-                {showHiringTab ? (
-                  <TabsTrigger value="hiring" className="h-8" title="Hiring">
-                    <Briefcase className="h-4 w-4" />
-                  </TabsTrigger>
-                ) : (
-                  <div aria-hidden className="h-8" />
-                )}
+                <TabsTrigger 
+                  value="hiring" 
+                  className={`h-8 ${!showHiringTab ? 'invisible' : ''}`} 
+                  title="Hiring"
+                  disabled={!showHiringTab}
+                >
+                  <Briefcase className="h-4 w-4" />
+                </TabsTrigger>
               </TabsList>
             </Tabs>
             
@@ -502,7 +503,7 @@ export default function Messages() {
               </div>
               
               <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-3">
-                <TabsList className="grid w-full grid-cols-4 h-10 p-1">
+                <TabsList className="grid w-full grid-cols-4 h-10 p-1 gap-1">
                   <TabsTrigger value="chats" className="h-8" title="Chats">
                     <MessageCircle className="h-4 w-4" />
                   </TabsTrigger>
@@ -512,13 +513,14 @@ export default function Messages() {
                   <TabsTrigger value="marketplace" className="h-8" title="Shift Marketplace">
                     <ArrowLeftRight className="h-4 w-4" />
                   </TabsTrigger>
-                  {showHiringTab ? (
-                    <TabsTrigger value="hiring" className="h-8" title="Hiring">
-                      <Briefcase className="h-4 w-4" />
-                    </TabsTrigger>
-                  ) : (
-                    <div aria-hidden className="h-8" />
-                  )}
+                  <TabsTrigger 
+                    value="hiring" 
+                    className={`h-8 ${!showHiringTab ? 'invisible' : ''}`} 
+                    title="Hiring"
+                    disabled={!showHiringTab}
+                  >
+                    <Briefcase className="h-4 w-4" />
+                  </TabsTrigger>
                 </TabsList>
               </Tabs>
               
