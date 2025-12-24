@@ -565,7 +565,7 @@ export const Layout = ({
 
         </div>
       </header>
-      <main className="container max-w-7xl mx-auto flex-1 px-2 md:px-4 py-3 md:py-8 pb-24 md:pb-8 overflow-x-hidden relative">
+      <main className="container max-w-7xl mx-auto flex-1 px-3 md:px-4 py-3 md:py-8 pb-24 md:pb-8 overflow-x-hidden relative">
         {isMobile ? (
           <PullToRefresh>
             {children}
