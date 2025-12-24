@@ -243,6 +243,7 @@ export default function Tasks() {
           id,
           title,
           template_type,
+          frequency,
           checklist_items(id, days_of_week)
         `)
         .eq('is_active', true)
@@ -264,7 +265,20 @@ export default function Tasks() {
 
           if (itemCount === 0) return null;
 
-          // Check submissions and responses on this date (using local timezone)
+          // For monthly checklists, use start/end of month; otherwise use the specific day
+          const isMonthly = checklist.frequency === 'monthly';
+          let periodStart: Date;
+          let periodEnd: Date;
+          
+          if (isMonthly) {
+            periodStart = new Date(historyDate.getFullYear(), historyDate.getMonth(), 1, 0, 0, 0, 0);
+            periodEnd = new Date(historyDate.getFullYear(), historyDate.getMonth() + 1, 0, 23, 59, 59, 999);
+          } else {
+            periodStart = startOfDay;
+            periodEnd = endOfDay;
+          }
+
+          // Check submissions and responses for this period (using local timezone)
           const { data: submissions } = await supabase
             .from('checklist_submissions')
             .select(`
@@ -273,8 +287,8 @@ export default function Tasks() {
               profiles(full_name, profile_photo_url)
             `)
             .eq('checklist_id', checklist.id)
-            .gte('submitted_at', startOfDay.toISOString())
-            .lte('submitted_at', endOfDay.toISOString());
+            .gte('submitted_at', periodStart.toISOString())
+            .lte('submitted_at', periodEnd.toISOString());
 
           // Get completed responses (those with completed_by set)
           const submissionIds = submissions?.map(s => s.id) || [];

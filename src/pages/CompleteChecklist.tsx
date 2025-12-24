@@ -36,6 +36,7 @@ interface Checklist {
   title: string;
   description: string | null;
   location_id: string | null;
+  frequency: string;
 }
 interface ResponseWithCompleter {
   responseId: string;
@@ -120,30 +121,43 @@ export default function CompleteChecklist() {
     setCompletionPercentage(Math.round(completedCount / items.length * 100));
   }, [responses, items, isMultiPhotoComplete]);
 
-  // Create or get shared daily submission (one per checklist per day, not per user)
+  // Create or get shared submission (daily for daily/weekly, monthly for monthly checklists)
   useEffect(() => {
     // Get location_id from currentLocation or fall back to checklist's location_id
     const locationId = currentLocation?.id || checklist?.location_id;
+    const isMonthly = checklist?.frequency === 'monthly';
     
-    console.log('Submission effect triggered:', { id, userId: user?.id, locationId, checklistLocationId: checklist?.location_id, submissionId });
-    if (!id || !user?.id || !locationId || submissionId) return;
+    console.log('Submission effect triggered:', { id, userId: user?.id, locationId, checklistLocationId: checklist?.location_id, submissionId, frequency: checklist?.frequency });
+    if (!id || !user?.id || !locationId || submissionId || !checklist) return;
     
     const createDraftSubmission = async () => {
       try {
-        const startOfDay = new Date(viewDate);
-        startOfDay.setHours(0, 0, 0, 0);
+        // For monthly checklists, use start of month; for daily/weekly use start of day
+        let periodStart: Date;
+        let periodEnd: Date;
         
-        const endOfDay = new Date(viewDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        if (isMonthly) {
+          // Start of current month
+          periodStart = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1, 0, 0, 0, 0);
+          // End of current month
+          periodEnd = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0, 23, 59, 59, 999);
+        } else {
+          // Daily/weekly: use the specific day
+          periodStart = new Date(viewDate);
+          periodStart.setHours(0, 0, 0, 0);
+          periodEnd = new Date(viewDate);
+          periodEnd.setHours(23, 59, 59, 999);
+        }
 
         console.log('Querying for existing submission:', { 
           checklistId: id, 
           locationId,
-          startOfDay: startOfDay.toISOString(),
-          endOfDay: endOfDay.toISOString()
+          periodStart: periodStart.toISOString(),
+          periodEnd: periodEnd.toISOString(),
+          isMonthly
         });
 
-        // Check if there's already ANY submission for this day (shared by all users)
+        // Check if there's already ANY submission for this period (shared by all users)
         // Get the submission with responses, or the most recent one if there are duplicates from race conditions
         const {
           data: submissions,
@@ -156,8 +170,8 @@ export default function CompleteChecklist() {
           `)
           .eq('checklist_id', id)
           .eq('location_id', locationId)
-          .gte('submitted_at', startOfDay.toISOString())
-          .lte('submitted_at', endOfDay.toISOString())
+          .gte('submitted_at', periodStart.toISOString())
+          .lte('submitted_at', periodEnd.toISOString())
           .order('submitted_at', { ascending: false });
 
         console.log('Submission query result:', { submissions, submissionsError });
@@ -196,7 +210,7 @@ export default function CompleteChecklist() {
       }
     };
     createDraftSubmission();
-  }, [id, user, submissionId, viewDate, currentLocation?.id, checklist?.location_id]);
+  }, [id, user, submissionId, viewDate, currentLocation?.id, checklist]);
 
   // Load existing responses (and completer info) whenever we have a submissionId
   useEffect(() => {
