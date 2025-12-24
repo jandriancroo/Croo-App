@@ -366,9 +366,10 @@ export default function Messages() {
 
   return (
     <Layout>
-      <div className="flex h-[calc(100vh-12rem)] md:h-[calc(100vh-12rem)] gap-4">
-        {/* Desktop: Chat List Sidebar - hidden on mobile via CSS */}
-        <div className="hidden md:flex w-80 border-r border-border bg-card rounded-lg p-4 flex-col">
+      {/* Desktop Layout */}
+      <div className="hidden md:flex h-[calc(100vh-12rem)] gap-4">
+        {/* Desktop: Chat List Sidebar */}
+        <div className="w-80 border-r border-border bg-card rounded-lg p-4 flex flex-col">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-bold">Chat</h1>
             <div className="flex gap-2">
@@ -439,8 +440,8 @@ export default function Messages() {
           )}
         </div>
 
-        {/* Desktop: Chat Window - hidden on mobile via CSS */}
-        <div className="hidden md:flex flex-1 bg-card rounded-lg">
+        {/* Desktop: Chat Window */}
+        <div className="flex-1 bg-card rounded-lg flex">
           {viewMode === 'hiring' && selectedHiringConversation ? (
             <div className="p-4 w-full">
               <HiringChatPanel
@@ -470,167 +471,169 @@ export default function Messages() {
             </div>
           )}
         </div>
+      </div>
 
-        {/* Mobile: Chat List and Slide-Over Chat Window - hidden on desktop via CSS */}
-        <div className="flex md:hidden flex-1 flex-col bg-card rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-semibold">Chat</h2>
-                <div className="flex gap-2">
-                  {isAdmin && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setIsAnnouncementOpen(true)}
-                      className="gap-2"
-                    >
-                      <Megaphone className="h-4 w-4" />
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    onClick={() => setIsNewChatOpen(true)}
-                    className="gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              
-              <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-3">
-                <TabsList className="grid w-full grid-cols-4 h-10 p-1 gap-1">
-                  <TabsTrigger value="chats" className="h-8" title="Chats">
-                    <MessageCircle className="h-4 w-4" />
-                  </TabsTrigger>
-                  <TabsTrigger value="announcements" className="h-8" title="Announcements">
-                    <Megaphone className="h-4 w-4" />
-                  </TabsTrigger>
-                  <TabsTrigger value="marketplace" className="h-8" title="Shift Marketplace">
-                    <ArrowLeftRight className="h-4 w-4" />
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="hiring" 
-                    className={`h-8 ${!showHiringTab ? 'invisible' : ''}`} 
-                    title="Hiring"
-                    disabled={!showHiringTab}
-                  >
-                    <Briefcase className="h-4 w-4" />
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
-              
-              {viewMode === 'hiring' ? (
-                <HiringChatList
-                  onSelectConversation={(conv) => setSelectedHiringConversation(conv)}
-                  selectedId={selectedHiringConversation?.id}
-                />
-              ) : viewMode !== 'marketplace' && (
-                <>
-                  <div className="mb-2">
-                    <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
-                  </div>
-                  <ChatList
-                    chats={filteredChats}
-                    selectedChatId={selectedChatId}
-                    onSelectChat={setSelectedChatId}
-                    onTogglePin={handleTogglePin}
-                    loading={loading}
-                    searchQuery={searchQuery}
-                    currentUserId={currentUserId}
-                  />
-                </>
-              )}
+      {/* Mobile Layout */}
+      <div className="flex md:hidden h-[calc(100vh-12rem)] flex-col bg-card rounded-lg p-4">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-lg font-semibold">Chat</h2>
+          <div className="flex gap-2">
+            {isAdmin && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsAnnouncementOpen(true)}
+                className="gap-2"
+              >
+                <Megaphone className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              size="sm"
+              onClick={() => setIsNewChatOpen(true)}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-            
-        {/* Mobile Slide-Over Chat Window */}
-        <Sheet 
-          open={(!!selectedChatId || viewMode === 'marketplace') && !isMobile ? false : (!!selectedChatId || viewMode === 'marketplace')} 
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedChatId(null);
-              if (viewMode === 'marketplace') {
-                setViewMode('chats');
-              }
+        
+        <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-3">
+          <TabsList className="grid w-full grid-cols-4 h-10 p-1 gap-1">
+            <TabsTrigger value="chats" className="h-8" title="Chats">
+              <MessageCircle className="h-4 w-4" />
+            </TabsTrigger>
+            <TabsTrigger value="announcements" className="h-8" title="Announcements">
+              <Megaphone className="h-4 w-4" />
+            </TabsTrigger>
+            <TabsTrigger value="marketplace" className="h-8" title="Shift Marketplace">
+              <ArrowLeftRight className="h-4 w-4" />
+            </TabsTrigger>
+            <TabsTrigger 
+              value="hiring" 
+              className={`h-8 ${!showHiringTab ? 'invisible' : ''}`} 
+              title="Hiring"
+              disabled={!showHiringTab}
+            >
+              <Briefcase className="h-4 w-4" />
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        
+        <div className="flex-1 overflow-hidden">
+          {viewMode === 'hiring' ? (
+            <HiringChatList
+              onSelectConversation={(conv) => setSelectedHiringConversation(conv)}
+              selectedId={selectedHiringConversation?.id}
+            />
+          ) : viewMode !== 'marketplace' && (
+            <>
+              <div className="mb-2">
+                <ChatSearch onSearch={handleSearch} placeholder="Search all chats..." />
+              </div>
+              <ChatList
+                chats={filteredChats}
+                selectedChatId={selectedChatId}
+                onSelectChat={setSelectedChatId}
+                onTogglePin={handleTogglePin}
+                loading={loading}
+                searchQuery={searchQuery}
+                currentUserId={currentUserId}
+              />
+            </>
+          )}
+        </div>
+      </div>
+      
+      {/* Mobile Slide-Over Chat Window */}
+      <Sheet 
+        open={isMobile && (!!selectedChatId || viewMode === 'marketplace')} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedChatId(null);
+            if (viewMode === 'marketplace') {
+              setViewMode('chats');
             }
-          }}
-        >
-          <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-safe md:hidden">
-            <div className="flex flex-col h-full">
-              <div className="flex items-center gap-2 p-4 border-b border-border">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
+          }
+        }}
+      >
+        <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-safe">
+          <div className="flex flex-col h-full">
+            <div className="flex items-center gap-2 p-4 border-b border-border">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedChatId(null);
+                  if (viewMode === 'marketplace') {
+                    setViewMode('chats');
+                  }
+                }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <h2 className="text-lg font-semibold">
+                {viewMode === 'marketplace' ? 'Shift Marketplace' : 'Chat'}
+              </h2>
+            </div>
+            <div className="flex-1 overflow-hidden pb-4">
+              {(selectedChatId || viewMode === 'marketplace') && (
+                <ChatWindow
+                  chatId={viewMode === 'marketplace' ? marketplaceChatId : selectedChatId}
+                  chatDetails={chats.find(c => c.id === (viewMode === 'marketplace' ? marketplaceChatId : selectedChatId)) || null}
+                  onChatDeleted={() => {
                     setSelectedChatId(null);
                     if (viewMode === 'marketplace') {
                       setViewMode('chats');
                     }
+                    fetchChats();
                   }}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <h2 className="text-lg font-semibold">
-                  {viewMode === 'marketplace' ? 'Shift Marketplace' : 'Chat'}
-                </h2>
-              </div>
-              <div className="flex-1 overflow-hidden pb-4">
-                {(selectedChatId || viewMode === 'marketplace') && (
-                  <ChatWindow
-                    chatId={viewMode === 'marketplace' ? marketplaceChatId : selectedChatId}
-                    chatDetails={chats.find(c => c.id === (viewMode === 'marketplace' ? marketplaceChatId : selectedChatId)) || null}
-                    onChatDeleted={() => {
-                      setSelectedChatId(null);
-                      if (viewMode === 'marketplace') {
-                        setViewMode('chats');
-                      }
-                      fetchChats();
-                    }}
-                    onChatUpdated={fetchChats}
-                  />
-                )}
-              </div>
+                  onChatUpdated={fetchChats}
+                />
+              )}
             </div>
-          </SheetContent>
-        </Sheet>
+          </div>
+        </SheetContent>
+      </Sheet>
 
-        {/* Mobile Hiring Chat Sheet */}
-        <Sheet 
-          open={viewMode === 'hiring' && !!selectedHiringConversation && isMobile} 
-          onOpenChange={(open) => {
-            if (!open) {
-              setSelectedHiringConversation(null);
-            }
-          }}
-        >
-          <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-safe md:hidden">
-            <div className="flex flex-col h-full">
-              <div className="flex items-center gap-2 p-4 border-b border-border">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedHiringConversation(null);
-                  }}
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <h2 className="text-lg font-semibold truncate">
-                  {selectedHiringConversation?.application?.full_name || 'Applicant'}
-                </h2>
-              </div>
-              <div className="flex-1 overflow-hidden">
-                {selectedHiringConversation && (
-                  <HiringChatPanel
-                    applicationId={selectedHiringConversation.application_id}
-                    applicantName={selectedHiringConversation.application?.full_name || 'Applicant'}
-                  />
-                )}
-              </div>
+      {/* Mobile Hiring Chat Sheet */}
+      <Sheet 
+        open={isMobile && viewMode === 'hiring' && !!selectedHiringConversation} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedHiringConversation(null);
+          }
+        }}
+      >
+        <SheetContent side="right" className="w-full sm:max-w-full p-0 pt-[env(safe-area-inset-top)] pb-safe">
+          <div className="flex flex-col h-full">
+            <div className="flex items-center gap-2 p-4 border-b border-border">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedHiringConversation(null);
+                }}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <h2 className="text-lg font-semibold truncate">
+                {selectedHiringConversation?.application?.full_name || 'Applicant'}
+              </h2>
             </div>
-          </SheetContent>
-        </Sheet>
-      </div>
+            <div className="flex-1 overflow-hidden">
+              {selectedHiringConversation && (
+                <HiringChatPanel
+                  applicationId={selectedHiringConversation.application_id}
+                  applicantName={selectedHiringConversation.application?.full_name || 'Applicant'}
+                />
+              )}
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <NewChatDialog
         open={isNewChatOpen}
