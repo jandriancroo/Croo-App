@@ -935,7 +935,7 @@ export default function LogBook() {
 
   return (
     <Layout>
-      <div className="container max-w-6xl mx-auto p-4 md:p-6">
+      <div className="space-y-4">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
           <h1 className="text-3xl font-bold">Logs</h1>
           {isAdmin && (
