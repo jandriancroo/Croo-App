@@ -5,26 +5,29 @@ import { componentTagger } from "lovable-tagger";
 import { VitePWA } from 'vite-plugin-pwa';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  define: {
-    // Auto version: YY.MM.DD.HHMM format in PST (e.g., "24.12.13.1530")
-    __APP_VERSION__: JSON.stringify((() => {
-      const pst = new Date().toLocaleString('en-US', { 
-        timeZone: 'America/Los_Angeles',
-        year: '2-digit',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-      // Format: "12/13/24, 15:30" -> "24.12.13.1530"
-      const [datePart, timePart] = pst.split(', ');
-      const [month, day, year] = datePart.split('/');
-      const time = timePart.replace(':', '');
-      return `${year}.${month}.${day}.${time}`;
-    })()),
-  },
+export default defineConfig(({ mode }) => {
+  const buildVersion = (() => {
+    const pst = new Date().toLocaleString('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: '2-digit',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    // Format: "12/13/24, 15:30" -> "24.12.13.1530"
+    const [datePart, timePart] = pst.split(', ');
+    const [month, day, year] = datePart.split('/');
+    const time = timePart.replace(':', '');
+    return `${year}.${month}.${day}.${time}`;
+  })();
+
+  return {
+    define: {
+      // Auto version: YY.MM.DD.HHMM format in PST (e.g., "24.12.13.1530")
+      __APP_VERSION__: JSON.stringify(buildVersion),
+    },
   server: {
     host: "::",
     port: 8080,
@@ -46,12 +49,11 @@ export default defineConfig(({ mode }) => ({
         display: 'standalone',
         orientation: 'portrait',
         scope: '/',
-        start_url: '/',
+        start_url: `/?v=${buildVersion}`,
         icons: [
           {
             src: '/favicon.png',
             sizes: '512x512',
-            type: 'image/png',
             purpose: 'any maskable'
           },
           {
@@ -69,13 +71,14 @@ export default defineConfig(({ mode }) => ({
         ]
       },
       workbox: {
+        // Give every build a unique cache namespace so updates can't get stuck.
+        cacheId: `croohq-${buildVersion}`,
         // Precache the actual app bundle too (JS), so new publishes reliably update PWAs
         globPatterns: ['**/*.{js,css,html,ico,png,svg,webmanifest,json,woff2}'],
         // SPA routing: serve index.html for navigations (keeps SW precache consistent)
         navigateFallback: '/index.html',
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         runtimeCaching: [],
-        cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
         // Import the push notification handler into the service worker
@@ -91,4 +94,5 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
-}));
+  };
+});
