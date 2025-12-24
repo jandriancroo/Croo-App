@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation } from '@/hooks/useLocation';
+import { useIsIOS } from '@/hooks/useIsIOS';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,6 +56,7 @@ export default function CompleteChecklist() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const dateParam = searchParams.get('date');
+  const isIOS = useIsIOS();
 
   // Parse YYYY-MM-DD as a LOCAL date (not UTC) to avoid off-by-one day issues
   const viewDate = useMemo(() => {
@@ -965,7 +967,7 @@ export default function CompleteChecklist() {
                                     id={cameraId}
                                     type="file"
                                     accept="image/*"
-                                    capture="environment"
+                                    capture={isIOS ? "environment" : undefined}
                                     className="hidden"
                                     onChange={e => {
                                       const file = e.target.files?.[0];

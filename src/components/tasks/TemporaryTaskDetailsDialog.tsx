@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, Clock, User, Users, Camera, Image, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { useIsIOS } from "@/hooks/useIsIOS";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
@@ -33,6 +34,7 @@ export function TemporaryTaskDetailsDialog({
 }: TemporaryTaskDetailsDialogProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const isIOS = useIsIOS();
   const [isCompleting, setIsCompleting] = useState(false);
   const [uploadingSubtaskId, setUploadingSubtaskId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -253,7 +255,7 @@ export function TemporaryTaskDetailsDialog({
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          capture="environment"
+          capture={isIOS ? "environment" : undefined}
           className="hidden"
           onChange={handleFileChange}
         />
