@@ -396,23 +396,22 @@ export default function Messages() {
             </div>
             
             <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
-              <TabsList className="grid w-full grid-cols-4 !h-8 p-0.5">
-                <TabsTrigger value="chats" className="!px-2 !py-1 !h-6" title="Chats">
+              <TabsList className="grid w-full grid-cols-4 h-10 p-1">
+                <TabsTrigger value="chats" className="h-8" title="Chats">
                   <MessageCircle className="h-4 w-4" />
                 </TabsTrigger>
-                <TabsTrigger value="announcements" className="!px-2 !py-1 !h-6" title="Announcements">
+                <TabsTrigger value="announcements" className="h-8" title="Announcements">
                   <Megaphone className="h-4 w-4" />
                 </TabsTrigger>
-                <TabsTrigger value="marketplace" className="!px-2 !py-1 !h-6" title="Shift Marketplace">
+                <TabsTrigger value="marketplace" className="h-8" title="Shift Marketplace">
                   <ArrowLeftRight className="h-4 w-4" />
                 </TabsTrigger>
                 {showHiringTab ? (
-                  <TabsTrigger value="hiring" className="!px-2 !py-1 !h-6" title="Hiring">
+                  <TabsTrigger value="hiring" className="h-8" title="Hiring">
                     <Briefcase className="h-4 w-4" />
                   </TabsTrigger>
                 ) : (
-                  // Keep a 4th slot so the selector bar never reflows on mobile/slow role loads
-                  <div aria-hidden className="h-6" />
+                  <div aria-hidden className="h-8" />
                 )}
               </TabsList>
             </Tabs>
@@ -503,22 +502,22 @@ export default function Messages() {
               </div>
               
               <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-3">
-                <TabsList className="grid w-full grid-cols-4 !h-8 p-0.5">
-                  <TabsTrigger value="chats" className="!px-2 !py-1 !h-6" title="Chats">
+                <TabsList className="grid w-full grid-cols-4 h-10 p-1">
+                  <TabsTrigger value="chats" className="h-8" title="Chats">
                     <MessageCircle className="h-4 w-4" />
                   </TabsTrigger>
-                  <TabsTrigger value="announcements" className="!px-2 !py-1 !h-6" title="Announcements">
+                  <TabsTrigger value="announcements" className="h-8" title="Announcements">
                     <Megaphone className="h-4 w-4" />
                   </TabsTrigger>
-                  <TabsTrigger value="marketplace" className="!px-2 !py-1 !h-6" title="Shift Marketplace">
+                  <TabsTrigger value="marketplace" className="h-8" title="Shift Marketplace">
                     <ArrowLeftRight className="h-4 w-4" />
                   </TabsTrigger>
                   {showHiringTab ? (
-                    <TabsTrigger value="hiring" className="!px-2 !py-1 !h-6" title="Hiring">
+                    <TabsTrigger value="hiring" className="h-8" title="Hiring">
                       <Briefcase className="h-4 w-4" />
                     </TabsTrigger>
                   ) : (
-                    <div aria-hidden className="h-6" />
+                    <div aria-hidden className="h-8" />
                   )}
                 </TabsList>
               </Tabs>
