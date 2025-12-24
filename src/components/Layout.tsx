@@ -52,17 +52,35 @@ export const Layout = ({
   const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
 
-  // If the service worker reports an update, surface it in the UI (no auto-refresh).
+  // Auto-show update toast when new version detected
   useEffect(() => {
-    const onNeedRefresh = () => {
+    const showUpdateToast = () => {
       setUpdateAvailable(true);
-      toast.success('Update ready — tap Install Update.');
+      toast('New version available', {
+        description: 'Tap to update now',
+        duration: Infinity, // Stay until dismissed or clicked
+        action: {
+          label: 'Update',
+          onClick: () => {
+            window.location.reload();
+          },
+        },
+      });
     };
 
-    window.addEventListener('pwa:need-refresh', onNeedRefresh);
-    if ((window as any).__PWA_UPDATE_READY__ === true) onNeedRefresh();
+    // Listen for update events from service worker
+    window.addEventListener('pwa:update-available', showUpdateToast);
+    window.addEventListener('pwa:need-refresh', showUpdateToast);
+    
+    // Check if update was already detected before component mounted
+    if ((window as any).__PWA_UPDATE_READY__ === true) {
+      showUpdateToast();
+    }
 
-    return () => window.removeEventListener('pwa:need-refresh', onNeedRefresh);
+    return () => {
+      window.removeEventListener('pwa:update-available', showUpdateToast);
+      window.removeEventListener('pwa:need-refresh', showUpdateToast);
+    };
   }, []);
 
   // Manual check for updates - force SW update + reload to pick up latest assets.
