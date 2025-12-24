@@ -146,11 +146,13 @@ export default function Auth() {
     }
   };
 
-  // If logged in and animation playing, navigate to dashboard with overlay
-  if (showCrowAnimation && user) {
-    navigate('/dashboard', { state: { showWelcomeAnimation: true } });
-    return null;
-  }
+  // Navigate once after successful sign-in animation trigger
+  useEffect(() => {
+    if (showCrowAnimation && user) {
+      navigate('/dashboard', { state: { showWelcomeAnimation: true } });
+    }
+  }, [showCrowAnimation, user, navigate]);
+
 
   if (showSplash) {
     return <CrowSplashAnimation onComplete={handleSplashComplete} />;
