@@ -537,36 +537,6 @@ export const Layout = ({
                     <DropdownMenuSeparator />
                   </>
                 )}
-                {updateAvailable === true ? (
-                  <DropdownMenuItem 
-                    onClick={handleRefreshApp}
-                    className="gap-2 rounded-md bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70 cursor-pointer"
-                  >
-                    <Download className="h-4 w-4 flex-shrink-0" />
-                    <span className="flex-1 whitespace-nowrap">Install Update</span>
-                    <span className="text-[10px] font-mono text-red-700 dark:text-red-200 whitespace-nowrap">
-                      v{__APP_VERSION__}
-                    </span>
-                  </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    onClick={checkForUpdate}
-                    disabled={isCheckingUpdate}
-                    className={`gap-2 rounded-md cursor-pointer ${
-                      updateAvailable === false 
-                        ? 'bg-green-200 text-green-900 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-100 dark:hover:bg-green-900/70' 
-                        : 'hover:bg-muted'
-                    }`}
-                  >
-                    <RefreshCw className={`h-4 w-4 flex-shrink-0 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
-                    <span className="flex-1 whitespace-nowrap">
-                      {isCheckingUpdate ? 'Checking...' : updateAvailable === false ? 'Up to Date' : 'Check for Update'}
-                    </span>
-                    <span className={`text-[10px] font-mono whitespace-nowrap ${updateAvailable === false ? 'text-green-700 dark:text-green-200' : 'text-muted-foreground'}`}>
-                      v{__APP_VERSION__}
-                    </span>
-                  </DropdownMenuItem>
-                )}
 
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
                   <SettingsIcon className="h-4 w-4" />
@@ -745,48 +715,6 @@ export const Layout = ({
                       <span className="text-base">{item.label}</span>
                     </Button>;
               })}
-                {updateAvailable === true ? (
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      const apply = (window as any).__PWA_APPLY_UPDATE__ as undefined | (() => void);
-                      if (apply) {
-                        apply();
-                      } else {
-                        handleRefreshApp();
-                      }
-                      setMenuOpen(false);
-                    }} 
-                    className="justify-start gap-3 h-11 border-0 bg-red-200 text-red-900 hover:bg-red-300 dark:bg-red-900/50 dark:text-red-100 dark:hover:bg-red-900/70"
-                  >
-                    <Download className="h-5 w-5" />
-                    <span className="text-base flex-1 text-left">Install Update</span>
-                    <span className="text-[10px] font-mono text-red-700 dark:text-red-200">
-                      v{__APP_VERSION__}
-                    </span>
-                  </Button>
-                ) : (
-                  <Button 
-                    variant="outline" 
-                    onClick={() => {
-                      checkForUpdate();
-                    }}
-                    disabled={isCheckingUpdate}
-                    className={`justify-start gap-3 h-11 border-0 ${
-                      updateAvailable === false 
-                        ? 'bg-green-200 text-green-900 hover:bg-green-300 dark:bg-green-900/50 dark:text-green-100 dark:hover:bg-green-900/70' 
-                        : 'hover:bg-muted'
-                    }`}
-                  >
-                    <RefreshCw className={`h-5 w-5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
-                    <span className="text-base flex-1 text-left">
-                      {isCheckingUpdate ? 'Checking...' : updateAvailable === false ? 'Up to Date' : 'Check for Update'}
-                    </span>
-                    <span className={`text-[10px] font-mono ${updateAvailable === false ? 'text-green-700 dark:text-green-200' : 'text-muted-foreground'}`}>
-                      v{__APP_VERSION__}
-                    </span>
-                  </Button>
-                )}
 
                 <Button variant="outline" onClick={() => {
                 signOut();
