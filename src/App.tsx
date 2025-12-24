@@ -109,7 +109,7 @@ const AppContent = () => {
       <Route path="/role-management" element={<ProtectedRoute><RoleManagement /></ProtectedRoute>} />
       <Route path="/hiring" element={<ProtectedRoute><Hiring /></ProtectedRoute>} />
       <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
-      <Route path="/fbc-dashboard" element={<ProtectedRoute><FBCDashboard /></ProtectedRoute>} />
+      {/* FBC Dashboard hidden - <Route path="/fbc-dashboard" element={<ProtectedRoute><FBCDashboard /></ProtectedRoute>} /> */}
       <Route path="/multi-location" element={<ProtectedRoute><MultiLocationDashboard /></ProtectedRoute>} />
       <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
