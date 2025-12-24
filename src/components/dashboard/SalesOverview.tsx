@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, Bug, RefreshCcw } from 'lucide-react';
-import { ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { ResponsiveContainer, Tooltip, BarChart, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -1206,13 +1206,13 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
               
               {salesData?.weeklyBreakdown && salesData.weeklyBreakdown.length > 0 ? (
                 <ResponsiveContainer width="100%" height={200} className="md:h-[280px]">
-                  <BarChart data={salesData.weeklyBreakdown.map(d => ({
+                  <ComposedChart data={salesData.weeklyBreakdown.map(d => ({
                     ...d,
                     label: format(new Date(d.date + 'T00:00:00'), 'EEE')
-                  }))} barCategoryGap="15%">
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
-                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
+                  }))} barCategoryGap="20%">
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+                    <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} axisLine={false} tickLine={false} />
+                    <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} axisLine={false} tickLine={false} />
                     <Tooltip 
                       content={({ active, payload }) => {
                         if (!active || !payload?.length) return null;
@@ -1221,22 +1221,32 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                         return (
                           <div className="bg-card border border-border rounded-md p-2 shadow-lg">
                             <p className="font-medium">{format(new Date(data?.date + 'T00:00:00'), 'EEEE, MMM d')}</p>
-                            <p className="text-muted-foreground">Projected: <span className="text-foreground">{formatCurrency(data?.projected || 0)}</span></p>
-                            <p className="text-primary">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
+                            <p className="text-amber-700">Projected: <span className="font-medium">{formatCurrency(data?.projected || 0)}</span></p>
+                            <p className="text-orange-500">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
                             {hasWeeklyLabor && data?.laborPercent !== undefined && data.laborPercent > 0 && (
-                              <p className="text-orange-500">Labor: <span className="font-medium">{data.laborPercent.toFixed(1)}%</span></p>
+                              <p className="text-blue-500">Labor: <span className="font-medium">{data.laborPercent.toFixed(1)}%</span></p>
                             )}
                           </div>
                         );
                       }}
                     />
                     <Legend 
-                      formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
+                      formatter={(value) => value === 'projected' ? 'Projected' : value === 'sales' ? 'Actual Sales' : value}
                       wrapperStyle={{ fontSize: '12px' }}
                     />
-                    <Bar dataKey="projected" fill="hsl(var(--muted-foreground))" radius={[8, 8, 0, 0]} opacity={0.4} />
-                    <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                  </BarChart>
+                    {/* Bars for actuals */}
+                    <Bar dataKey="sales" name="Actual Sales" fill="#f97316" radius={[4, 4, 0, 0]} />
+                    {/* Line for projections */}
+                    <Line 
+                      type="monotone" 
+                      dataKey="projected" 
+                      name="Projected" 
+                      stroke="#92400e" 
+                      strokeWidth={2} 
+                      dot={{ fill: '#92400e', strokeWidth: 2, r: 4, stroke: '#fff' }}
+                      activeDot={{ r: 6, stroke: '#fff', strokeWidth: 2 }}
+                    />
+                  </ComposedChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="h-[200px] md:h-[280px] flex items-center justify-center text-muted-foreground">
@@ -1339,31 +1349,37 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 // Mobile weekly aggregated view
                 monthlyWeeklyAggregated.length > 0 ? (
                   <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={monthlyWeeklyAggregated} barCategoryGap="15%">
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} />
-                      <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
+                    <ComposedChart data={monthlyWeeklyAggregated} barCategoryGap="20%">
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+                      <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} axisLine={false} tickLine={false} />
+                      <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} axisLine={false} tickLine={false} />
                       <Tooltip 
-                        formatter={(value, name) => [formatCurrency(value as number), name === 'projected' ? 'Projected' : 'Actual']}
-                        labelFormatter={(label, payload) => {
-                          if (payload?.[0]?.payload?.dateRange) {
-                            return payload[0].payload.dateRange;
-                          }
-                          return label;
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null;
+                          const data = payload[0]?.payload;
+                          return (
+                            <div className="bg-card border border-border rounded-md p-2 shadow-lg">
+                              <p className="font-medium">{data?.dateRange || label}</p>
+                              <p className="text-amber-700">Projected: <span className="font-medium">{formatCurrency(data?.projected || 0)}</span></p>
+                              <p className="text-orange-500">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
+                            </div>
+                          );
                         }}
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '6px'
-                        }} 
                       />
                       <Legend 
-                        formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
+                        formatter={(value) => value === 'projected' ? 'Projected' : 'Actual Sales'}
                         wrapperStyle={{ fontSize: '12px' }}
                       />
-                      <Bar dataKey="projected" fill="hsl(var(--muted-foreground))" radius={[8, 8, 0, 0]} opacity={0.4} />
-                      <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                    </BarChart>
+                      <Bar dataKey="sales" name="Actual Sales" fill="#f97316" radius={[4, 4, 0, 0]} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="projected" 
+                        name="Projected" 
+                        stroke="#92400e" 
+                        strokeWidth={2} 
+                        dot={{ fill: '#92400e', strokeWidth: 2, r: 4, stroke: '#fff' }}
+                      />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-[200px] flex items-center justify-center text-muted-foreground">
@@ -1374,34 +1390,40 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
                 // Desktop daily view
                 salesData?.monthlyBreakdown && salesData.monthlyBreakdown.length > 0 ? (
                   <ResponsiveContainer width="100%" height={280}>
-                    <BarChart data={salesData.monthlyBreakdown.map(d => ({
+                    <ComposedChart data={salesData.monthlyBreakdown.map(d => ({
                       ...d,
                       label: format(new Date(d.date + 'T00:00:00'), 'd')
                     }))} barCategoryGap="5%">
-                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                      <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} interval={2} />
-                      <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} />
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" vertical={false} />
+                      <XAxis dataKey="label" className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} interval={2} axisLine={false} tickLine={false} />
+                      <YAxis className="text-xs" tick={{ fill: 'hsl(var(--foreground))' }} tickFormatter={value => `$${value}`} axisLine={false} tickLine={false} />
                       <Tooltip 
-                        formatter={(value, name) => [formatCurrency(value as number), name === 'projected' ? 'Projected' : 'Actual']}
-                        labelFormatter={(label, payload) => {
-                          if (payload?.[0]?.payload?.date) {
-                            return format(new Date(payload[0].payload.date + 'T00:00:00'), 'EEEE, MMM d');
-                          }
-                          return label;
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const data = payload[0]?.payload;
+                          return (
+                            <div className="bg-card border border-border rounded-md p-2 shadow-lg">
+                              <p className="font-medium">{data?.date ? format(new Date(data.date + 'T00:00:00'), 'EEEE, MMM d') : ''}</p>
+                              <p className="text-amber-700">Projected: <span className="font-medium">{formatCurrency(data?.projected || 0)}</span></p>
+                              <p className="text-orange-500">Actual: <span className="font-medium">{formatCurrency(data?.sales || 0)}</span></p>
+                            </div>
+                          );
                         }}
-                        contentStyle={{
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '6px'
-                        }} 
                       />
                       <Legend 
-                        formatter={(value) => value === 'projected' ? 'Projected' : 'Actual'}
+                        formatter={(value) => value === 'projected' ? 'Projected' : 'Actual Sales'}
                         wrapperStyle={{ fontSize: '12px' }}
                       />
-                      <Bar dataKey="projected" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} opacity={0.4} />
-                      <Bar dataKey="sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                    </BarChart>
+                      <Bar dataKey="sales" name="Actual Sales" fill="#f97316" radius={[2, 2, 0, 0]} />
+                      <Line 
+                        type="monotone" 
+                        dataKey="projected" 
+                        name="Projected" 
+                        stroke="#92400e" 
+                        strokeWidth={2} 
+                        dot={false}
+                      />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="h-[280px] flex items-center justify-center text-muted-foreground">
