@@ -20,7 +20,7 @@ import { compressImage } from '@/utils/imageCompression';
 interface ChecklistItem {
   id?: string;
   question: string;
-  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature';
+  item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation';
   is_required: boolean;
   requires_temperature_validation?: boolean;
   temperature_alert_enabled?: boolean;
@@ -81,7 +81,6 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem }: Sort
             <SelectItem value="text">Text</SelectItem>
             <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
             <SelectItem value="image">Photo</SelectItem>
-            <SelectItem value="temperature">Temperature Photo</SelectItem>
             <SelectItem value="confirmation">Checkmark</SelectItem>
           </SelectContent>
         </Select>
@@ -222,20 +221,26 @@ export default function EditChecklist() {
       setTemplateType((checklist.template_type || 'standard') as 'standard' | 'dynamic');
       setVisibleDaysBeforeMonthEnd(checklist.visible_days_before_month_end || 7);
       setSelectedRoles(roleTags?.map(rt => rt.role) || []);
-      setItems(checklistItems.map(item => ({
-        id: item.id,
-        question: item.question,
-        item_type: item.item_type as 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature',
-        is_required: item.is_required,
-        requires_temperature_validation: item.requires_temperature_validation || false,
-        temperature_alert_enabled: (item as any).temperature_alert_enabled || false,
-        options: item.options as string[] | undefined,
-        reference_image_url: item.reference_image_url || undefined,
-        reference_link: item.reference_link || undefined,
-        reference_video_url: item.reference_video_url || undefined,
-        reference_notes: item.reference_notes || undefined,
-        order_index: item.order_index,
-      })));
+      setItems(checklistItems.map(item => {
+        // Map legacy 'temperature' type to 'image' with requires_temperature_validation
+        const itemType = item.item_type === 'temperature' ? 'image' : item.item_type;
+        const requiresTempValidation = item.item_type === 'temperature' || item.requires_temperature_validation || false;
+        
+        return {
+          id: item.id,
+          question: item.question,
+          item_type: itemType as 'text' | 'multiple_choice' | 'image' | 'confirmation',
+          is_required: item.is_required,
+          requires_temperature_validation: requiresTempValidation,
+          temperature_alert_enabled: (item as any).temperature_alert_enabled || false,
+          options: item.options as string[] | undefined,
+          reference_image_url: item.reference_image_url || undefined,
+          reference_link: item.reference_link || undefined,
+          reference_video_url: item.reference_video_url || undefined,
+          reference_notes: item.reference_notes || undefined,
+          order_index: item.order_index,
+        };
+      }));
     } catch (error) {
       console.error('Error fetching checklist:', error);
       toast({
