@@ -168,6 +168,7 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
   const [localCategories, setLocalCategories] = useState<any[]>([]);
   const [copyTargetLocationId, setCopyTargetLocationId] = useState<string>("");
   const [isCopying, setIsCopying] = useState(false);
+  const [targetExistingCategories, setTargetExistingCategories] = useState<string[]>([]);
   const [safeTarget, setSafeTarget] = useState<number>(300);
   const [drawerBank, setDrawerBank] = useState<number>(200);
   const [amSafeCountWindow, setAmSafeCountWindow] = useState<number>(120);
@@ -738,82 +739,159 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
             {locations && locations.filter(l => l.id !== currentLocation?.id).length > 0 && (
               <div className="border rounded-lg p-3 bg-muted/30">
                 <Label className="text-sm font-medium mb-2 block">Copy All Categories To Another Location</Label>
-                <div className="flex gap-2">
-                  <Select value={copyTargetLocationId} onValueChange={setCopyTargetLocationId}>
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select destination location..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {locations
-                        .filter(l => l.id !== currentLocation?.id)
-                        .map(location => (
-                          <SelectItem key={location.id} value={location.id}>
-                            {location.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  <Button 
-                    variant="outline"
-                    disabled={!copyTargetLocationId || isCopying || displayCategories.length === 0}
-                    onClick={async () => {
-                      if (!copyTargetLocationId || !user) return;
-                      setIsCopying(true);
-                      try {
-                        // Get categories with their fields
-                        for (const category of displayCategories) {
-                          // Create category in target location
-                          const { data: newCategory, error: catError } = await supabase
+                <div className="flex flex-col gap-3">
+                  <div className="flex gap-2">
+                    <Select 
+                      value={copyTargetLocationId} 
+                      onValueChange={async (locationId) => {
+                        setCopyTargetLocationId(locationId);
+                        // Fetch existing categories at target location
+                        if (locationId) {
+                          const { data } = await supabase
                             .from('logbook_categories')
-                            .insert({
-                              name: category.name,
-                              display_order: category.display_order,
-                              is_active: category.is_active,
-                              alert_enabled: category.alert_enabled,
-                              push_notification_enabled: category.push_notification_enabled,
-                              location_id: copyTargetLocationId,
-                              created_by: user.id
-                            })
-                            .select()
-                            .single();
-                          
-                          if (catError) throw catError;
-                          
-                          // Copy fields for this category
-                          if (category.logbook_fields && category.logbook_fields.length > 0) {
-                            const fieldsToInsert = category.logbook_fields.map((field: any) => ({
-                              category_id: newCategory.id,
-                              field_name: field.field_name,
-                              field_type: field.field_type,
-                              is_required: field.is_required,
-                              display_order: field.display_order
-                            }));
-                            
-                            const { error: fieldsError } = await supabase
-                              .from('logbook_fields')
-                              .insert(fieldsToInsert);
-                            
-                            if (fieldsError) throw fieldsError;
-                          }
+                            .select('name')
+                            .eq('location_id', locationId);
+                          setTargetExistingCategories(data?.map(c => c.name.toLowerCase()) || []);
+                        } else {
+                          setTargetExistingCategories([]);
                         }
+                      }}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select destination location..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {locations
+                          .filter(l => l.id !== currentLocation?.id)
+                          .map(location => (
+                            <SelectItem key={location.id} value={location.id}>
+                              {location.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      variant="outline"
+                      disabled={!copyTargetLocationId || isCopying || displayCategories.length === 0}
+                      onClick={async () => {
+                        if (!copyTargetLocationId || !user) return;
+                        setIsCopying(true);
+                        try {
+                          for (const category of displayCategories) {
+                            const categoryNameLower = category.name.toLowerCase();
+                            
+                            // Check if category exists at target - if so, delete it first
+                            if (targetExistingCategories.includes(categoryNameLower)) {
+                              const { data: existingCat } = await supabase
+                                .from('logbook_categories')
+                                .select('id')
+                                .eq('location_id', copyTargetLocationId)
+                                .ilike('name', category.name)
+                                .single();
+                              
+                              if (existingCat) {
+                                await supabase
+                                  .from('logbook_categories')
+                                  .delete()
+                                  .eq('id', existingCat.id);
+                              }
+                            }
+                            
+                            // Create category in target location
+                            const { data: newCategory, error: catError } = await supabase
+                              .from('logbook_categories')
+                              .insert({
+                                name: category.name,
+                                display_order: category.display_order,
+                                is_active: category.is_active,
+                                alert_enabled: category.alert_enabled,
+                                push_notification_enabled: category.push_notification_enabled,
+                                location_id: copyTargetLocationId,
+                                created_by: user.id
+                              })
+                              .select()
+                              .single();
+                            
+                            if (catError) throw catError;
+                            
+                            // Copy fields for this category
+                            if (category.logbook_fields && category.logbook_fields.length > 0) {
+                              const fieldsToInsert = category.logbook_fields.map((field: any) => ({
+                                category_id: newCategory.id,
+                                field_name: field.field_name,
+                                field_type: field.field_type,
+                                is_required: field.is_required,
+                                display_order: field.display_order
+                              }));
+                              
+                              const { error: fieldsError } = await supabase
+                                .from('logbook_fields')
+                                .insert(fieldsToInsert);
+                              
+                              if (fieldsError) throw fieldsError;
+                            }
+                          }
+                          
+                          const replacedCount = displayCategories.filter(c => 
+                            targetExistingCategories.includes(c.name.toLowerCase())
+                          ).length;
+                          const createdCount = displayCategories.length - replacedCount;
+                          
+                          toast({ 
+                            title: `Copied ${displayCategories.length} categories`,
+                            description: replacedCount > 0 
+                              ? `${createdCount} created, ${replacedCount} replaced`
+                              : undefined
+                          });
+                          setCopyTargetLocationId("");
+                          setTargetExistingCategories([]);
+                          queryClient.invalidateQueries({ queryKey: ['logbook-categories'] });
+                        } catch (error: any) {
+                          toast({
+                            title: "Error copying categories",
+                            description: error.message,
+                            variant: "destructive"
+                          });
+                        } finally {
+                          setIsCopying(false);
+                        }
+                      }}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      {isCopying ? 'Copying...' : 'Copy'}
+                    </Button>
+                  </div>
+                  
+                  {/* Preview of what will happen */}
+                  {copyTargetLocationId && displayCategories.length > 0 && (
+                    <div className="text-xs space-y-1">
+                      {(() => {
+                        const willReplace = displayCategories.filter(c => 
+                          targetExistingCategories.includes(c.name.toLowerCase())
+                        );
+                        const willCreate = displayCategories.filter(c => 
+                          !targetExistingCategories.includes(c.name.toLowerCase())
+                        );
                         
-                        toast({ title: `Copied ${displayCategories.length} categories to destination` });
-                        setCopyTargetLocationId("");
-                        queryClient.invalidateQueries({ queryKey: ['logbook-categories'] });
-                      } catch (error: any) {
-                        toast({
-                          title: "Error copying categories",
-                          description: error.message,
-                          variant: "destructive"
-                        });
-                      } finally {
-                        setIsCopying(false);
-                      }
-                    }}
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    {isCopying ? 'Copying...' : 'Copy'}
-                  </Button>
+                        return (
+                          <>
+                            {willCreate.length > 0 && (
+                              <p className="text-muted-foreground">
+                                <span className="text-green-600 font-medium">Will create:</span>{' '}
+                                {willCreate.map(c => c.name).join(', ')}
+                              </p>
+                            )}
+                            {willReplace.length > 0 && (
+                              <p className="text-muted-foreground">
+                                <span className="text-amber-600 font-medium">Will replace:</span>{' '}
+                                {willReplace.map(c => c.name).join(', ')}
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
