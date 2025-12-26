@@ -23,6 +23,7 @@ interface ChecklistItem {
   item_type: 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature';
   is_required: boolean;
   requires_temperature_validation?: boolean;
+  temperature_alert_enabled?: boolean;
   options?: string[] | { minPhotos?: number };
   reference_image_url?: string;
   reference_link?: string;
@@ -117,13 +118,25 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem }: Sort
             <div className="flex items-center space-x-2">
               <Checkbox
                 id={`temp-validation-${index}`}
-                checked={(item as any).requires_temperature_validation || false}
-                onCheckedChange={(checked) => updateItem(index, 'requires_temperature_validation' as any, checked)}
+                checked={item.requires_temperature_validation || false}
+                onCheckedChange={(checked) => updateItem(index, 'requires_temperature_validation', checked)}
               />
               <Label htmlFor={`temp-validation-${index}`} className="text-sm font-normal">
                 Requires Temperature Validation
               </Label>
             </div>
+            {item.requires_temperature_validation && (
+              <div className="flex items-center space-x-2 ml-6">
+                <Checkbox
+                  id={`temp-alert-${index}`}
+                  checked={item.temperature_alert_enabled || false}
+                  onCheckedChange={(checked) => updateItem(index, 'temperature_alert_enabled', checked)}
+                />
+                <Label htmlFor={`temp-alert-${index}`} className="text-sm font-normal text-muted-foreground">
+                  Send push notification to managers when out of range
+                </Label>
+              </div>
+            )}
           </div>
         )}
 
@@ -214,7 +227,8 @@ export default function EditChecklist() {
         question: item.question,
         item_type: item.item_type as 'text' | 'multiple_choice' | 'image' | 'confirmation' | 'temperature',
         is_required: item.is_required,
-        requires_temperature_validation: (item as any).requires_temperature_validation || false,
+        requires_temperature_validation: item.requires_temperature_validation || false,
+        temperature_alert_enabled: (item as any).temperature_alert_enabled || false,
         options: item.options as string[] | undefined,
         reference_image_url: item.reference_image_url || undefined,
         reference_link: item.reference_link || undefined,
@@ -287,6 +301,7 @@ export default function EditChecklist() {
           item_type: item.item_type,
           is_required: item.is_required,
           requires_temperature_validation: item.item_type === 'image' ? (item.requires_temperature_validation || false) : false,
+          temperature_alert_enabled: item.item_type === 'image' && item.requires_temperature_validation ? (item.temperature_alert_enabled || false) : false,
           options: item.item_type === 'multiple_choice' ? item.options : null,
           reference_image_url: item.reference_image_url || null,
           reference_link: item.reference_link || null,
