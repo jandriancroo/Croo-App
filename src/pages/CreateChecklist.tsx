@@ -23,6 +23,7 @@ interface ChecklistItem {
   options?: string[];
   is_required: boolean;
   requires_temperature_validation?: boolean;
+  temperature_alert_enabled?: boolean;
   reference_image_url?: string;
   reference_link?: string;
   reference_video_url?: string;
@@ -303,6 +304,7 @@ export default function CreateChecklist() {
       order_index: index,
       is_required: item.is_required,
       requires_temperature_validation: item.item_type === 'image' ? (item.requires_temperature_validation || false) : false,
+      temperature_alert_enabled: item.item_type === 'image' && item.requires_temperature_validation ? (item.temperature_alert_enabled || false) : false,
       reference_image_url: item.reference_image_url || null,
       reference_link: item.reference_link || null,
       reference_video_url: item.reference_video_url || null,
@@ -625,15 +627,29 @@ export default function CreateChecklist() {
                         )}
 
                         {item.item_type === 'image' && (
-                          <div className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`temp-validation-${index}`}
-                              checked={item.requires_temperature_validation || false}
-                              onCheckedChange={(checked) => updateItem(index, 'requires_temperature_validation', checked)}
-                            />
-                            <Label htmlFor={`temp-validation-${index}`} className="text-sm font-normal">
-                              Requires Temperature Validation
-                            </Label>
+                          <div className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                id={`temp-validation-${index}`}
+                                checked={item.requires_temperature_validation || false}
+                                onCheckedChange={(checked) => updateItem(index, 'requires_temperature_validation', checked)}
+                              />
+                              <Label htmlFor={`temp-validation-${index}`} className="text-sm font-normal">
+                                Requires Temperature Validation
+                              </Label>
+                            </div>
+                            {item.requires_temperature_validation && (
+                              <div className="flex items-center space-x-2 ml-6">
+                                <Checkbox
+                                  id={`temp-alert-${index}`}
+                                  checked={item.temperature_alert_enabled || false}
+                                  onCheckedChange={(checked) => updateItem(index, 'temperature_alert_enabled', checked)}
+                                />
+                                <Label htmlFor={`temp-alert-${index}`} className="text-sm font-normal text-muted-foreground">
+                                  Send push notification to managers when out of range
+                                </Label>
+                              </div>
+                            )}
                           </div>
                         )}
 
