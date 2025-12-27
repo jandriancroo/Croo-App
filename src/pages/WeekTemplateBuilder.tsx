@@ -320,6 +320,7 @@ export default function WeekTemplateBuilder() {
   
   const [templateName, setTemplateName] = useState("");
   const [description, setDescription] = useState("");
+  const [templateLocationId, setTemplateLocationId] = useState<string | null>(null);
   const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
   const [assignmentsByDay, setAssignmentsByDay] = useState<Map<number, Assignment[]>>(new Map());
   const [daySettingsMap, setDaySettingsMap] = useState<Map<number, DaySettings>>(new Map());
@@ -414,6 +415,7 @@ export default function WeekTemplateBuilder() {
         
         setTemplateName(weekTemplate.template_name);
         setDescription(weekTemplate.description || "");
+        setTemplateLocationId(weekTemplate.location_id);
 
         // Fetch assignments
         const { data: assignments, error: assignError } = await supabase
@@ -536,8 +538,10 @@ export default function WeekTemplateBuilder() {
   };
 
   const handleSyncSales = async (dayIndex: number) => {
-    if (!currentLocation?.id) {
-      toast.error("No location selected");
+    // Use template's location_id if available (for existing templates), otherwise current location
+    const locationId = templateLocationId || currentLocation?.id;
+    if (!locationId) {
+      toast.error("No location available for sync");
       return;
     }
 
@@ -575,7 +579,7 @@ export default function WeekTemplateBuilder() {
       const { data: salesData, error } = await supabase
         .from("sales_cache")
         .select("sale_date, net_sales, hourly_data")
-        .eq("location_id", currentLocation.id)
+        .eq("location_id", locationId)
         .in("sale_date", allDates);
 
       if (error) throw error;
@@ -594,10 +598,20 @@ export default function WeekTemplateBuilder() {
         });
       });
 
-      // Calculate 4-week average
-      const fourWeekSales = fourWeekDates
-        .map(d => salesMap.get(d)?.net_sales || 0)
-        .filter(s => s > 0);
+      // Calculate 4-week average, filtering out anomalously low days (likely incomplete data)
+      const allFourWeekSales = fourWeekDates
+        .map(d => ({ date: d, sales: salesMap.get(d)?.net_sales || 0 }))
+        .filter(d => d.sales > 0);
+      
+      // Calculate median to identify outliers
+      const sortedSales = [...allFourWeekSales].sort((a, b) => a.sales - b.sales);
+      const median = sortedSales.length > 0 ? sortedSales[Math.floor(sortedSales.length / 2)].sales : 0;
+      
+      // Filter out days with less than 50% of median (likely incomplete/partial days)
+      const validDays = allFourWeekSales.filter(d => d.sales >= median * 0.5);
+      const validDayDates = new Set(validDays.map(d => d.date));
+      
+      const fourWeekSales = validDays.map(d => d.sales);
       const fourWeekAvg = fourWeekSales.length > 0 
         ? fourWeekSales.reduce((sum, s) => sum + s, 0) / fourWeekSales.length 
         : 0;
@@ -629,19 +643,25 @@ export default function WeekTemplateBuilder() {
       });
 
       // Also sync hourly projections using same formula
-      // Calculate hourly averages from 4-week data
+      // Calculate hourly averages from 4-week data (only using valid days)
       const hourlyTotals = new Map<number, { total: number; count: number }>();
       fourWeekDates.forEach(dateStr => {
+        // Only use valid days (not filtered out as incomplete)
+        if (!validDayDates.has(dateStr)) return;
+        
         const cached = salesMap.get(dateStr);
         if (cached?.hourly_data && cached.net_sales > 0) {
           const hourlyArray = cached.hourly_data as Array<{ hour: string | number; sales: number }>;
           hourlyArray.forEach((h) => {
             const hourNum = typeof h.hour === 'string' ? parseInt(h.hour.split(':')[0]) : h.hour;
-            const existing = hourlyTotals.get(hourNum) || { total: 0, count: 0 };
-            hourlyTotals.set(hourNum, {
-              total: existing.total + (h.sales || 0),
-              count: existing.count + 1,
-            });
+            // Skip hours with 0 sales (likely incomplete data)
+            if ((h.sales || 0) > 0) {
+              const existing = hourlyTotals.get(hourNum) || { total: 0, count: 0 };
+              hourlyTotals.set(hourNum, {
+                total: existing.total + (h.sales || 0),
+                count: existing.count + 1,
+              });
+            }
           });
         }
       });
