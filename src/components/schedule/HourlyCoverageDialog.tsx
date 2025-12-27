@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Clock } from "lucide-react";
+import { Users, Clock, DollarSign } from "lucide-react";
 
 interface HourlyCoverageDialogProps {
   open: boolean;
@@ -16,9 +16,9 @@ interface HourlyCoverageDialogProps {
   dayName: string;
 }
 
-interface HourlyCoverage {
-  hour: number;
+interface HourlyData {
   min_staff: number;
+  projected_sales: number;
 }
 
 export function HourlyCoverageDialog({
@@ -28,7 +28,7 @@ export function HourlyCoverageDialog({
   dayOfWeek,
   dayName,
 }: HourlyCoverageDialogProps) {
-  const [coverage, setCoverage] = useState<Map<number, number>>(new Map());
+  const [hourlyData, setHourlyData] = useState<Map<number, HourlyData>>(new Map());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [startHour, setStartHour] = useState(6);
@@ -47,11 +47,9 @@ export function HourlyCoverageDialog({
       }
     } else if (endHour < startHour) {
       // Overnight (e.g., 6am to 2am next day)
-      // First, hours from start to midnight
       for (let h = startHour; h <= 23; h++) {
         hours.push(h);
       }
-      // Then hours from midnight to end
       for (let h = 0; h <= endHour; h++) {
         hours.push(h);
       }
@@ -64,6 +62,20 @@ export function HourlyCoverageDialog({
     return hours;
   }, [startHour, endHour]);
 
+  // Calculate totals
+  const totals = useMemo(() => {
+    let totalSales = 0;
+    let totalStaff = 0;
+    displayHours.forEach(hour => {
+      const data = hourlyData.get(hour);
+      if (data) {
+        totalSales += data.projected_sales || 0;
+        totalStaff += data.min_staff || 0;
+      }
+    });
+    return { totalSales, totalStaff };
+  }, [hourlyData, displayHours]);
+
   useEffect(() => {
     if (open && weekTemplateId) {
       fetchCoverage();
@@ -75,28 +87,30 @@ export function HourlyCoverageDialog({
       setLoading(true);
       const { data, error } = await supabase
         .from("week_template_hourly_coverage")
-        .select("hour, min_staff")
+        .select("hour, min_staff, projected_sales")
         .eq("week_template_id", weekTemplateId)
         .eq("day_of_week", dayOfWeek);
 
       if (error) throw error;
 
-      const coverageMap = new Map<number, number>();
+      const dataMap = new Map<number, HourlyData>();
       let minHour = 23;
       let maxHour = 0;
       
-      (data || []).forEach((item) => {
-        coverageMap.set(item.hour, item.min_staff);
+      (data || []).forEach((item: any) => {
+        dataMap.set(item.hour, {
+          min_staff: item.min_staff || 0,
+          projected_sales: item.projected_sales || 0,
+        });
         if (item.hour < minHour) minHour = item.hour;
         if (item.hour > maxHour) maxHour = item.hour;
       });
       
-      setCoverage(coverageMap);
+      setHourlyData(dataMap);
       
       // If we have existing data, try to infer start/end hours
       if (data && data.length > 0) {
-        // Check if it's an overnight setup by looking for gaps
-        const sortedHours = [...coverageMap.keys()].sort((a, b) => a - b);
+        const sortedHours = [...dataMap.keys()].sort((a, b) => a - b);
         
         // Detect overnight: if there's a large gap in the middle
         let maxGap = 0;
@@ -110,12 +124,9 @@ export function HourlyCoverageDialog({
         }
         
         if (maxGap > 3) {
-          // Likely overnight - gap is the closed period
-          // End is before the gap, start is after
           setEndHour(gapStart);
           setStartHour(sortedHours[sortedHours.indexOf(gapStart) + 1] || sortedHours[0]);
         } else {
-          // Normal day - use first and last
           setStartHour(minHour);
           setEndHour(maxHour);
         }
@@ -128,28 +139,22 @@ export function HourlyCoverageDialog({
     }
   };
 
-  const handleCoverageChange = (hour: number, value: string) => {
+  const handleDataChange = (hour: number, field: 'min_staff' | 'projected_sales', value: string) => {
     const numValue = parseInt(value) || 0;
-    setCoverage((prev) => {
+    setHourlyData((prev) => {
       const newMap = new Map(prev);
-      if (numValue > 0) {
-        newMap.set(hour, numValue);
-      } else {
-        newMap.delete(hour);
-      }
+      const existing = newMap.get(hour) || { min_staff: 0, projected_sales: 0 };
+      newMap.set(hour, { ...existing, [field]: numValue });
       return newMap;
     });
   };
 
-  const handleApplyToAll = (value: number) => {
-    setCoverage((prev) => {
+  const handleApplyStaffToAll = (value: number) => {
+    setHourlyData((prev) => {
       const newMap = new Map(prev);
       displayHours.forEach((hour) => {
-        if (value > 0) {
-          newMap.set(hour, value);
-        } else {
-          newMap.delete(hour);
-        }
+        const existing = newMap.get(hour) || { min_staff: 0, projected_sales: 0 };
+        newMap.set(hour, { ...existing, min_staff: value });
       });
       return newMap;
     });
@@ -171,16 +176,18 @@ export function HourlyCoverageDialog({
         week_template_id: string; 
         day_of_week: number; 
         hour: number; 
-        min_staff: number 
+        min_staff: number;
+        projected_sales: number;
       }[] = [];
 
-      coverage.forEach((minStaff, hour) => {
-        if (minStaff > 0) {
+      hourlyData.forEach((data, hour) => {
+        if (data.min_staff > 0 || data.projected_sales > 0) {
           coverageRows.push({
             week_template_id: weekTemplateId,
             day_of_week: dayOfWeek,
             hour,
-            min_staff: minStaff,
+            min_staff: data.min_staff || 0,
+            projected_sales: data.projected_sales || 0,
           });
         }
       });
@@ -214,11 +221,11 @@ export function HourlyCoverageDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
-            {dayName} - Minimum Staff Coverage
+            {dayName} - Hourly Planning
           </DialogTitle>
         </DialogHeader>
 
@@ -229,8 +236,7 @@ export function HourlyCoverageDialog({
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Set minimum staff required for each hour. The auto-scheduler will
-              respect these minimums when generating schedules.
+              Set projected hourly sales and minimum staff coverage. This helps the auto-scheduler place shifts where demand is highest.
             </p>
 
             {/* Time Range Selectors */}
@@ -238,7 +244,7 @@ export function HourlyCoverageDialog({
               <div>
                 <Label className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  Coverage Start
+                  Start
                 </Label>
                 <Select
                   value={startHour.toString()}
@@ -259,7 +265,7 @@ export function HourlyCoverageDialog({
               <div>
                 <Label className="text-xs text-muted-foreground flex items-center gap-1">
                   <Clock className="h-3 w-3" />
-                  Coverage End
+                  End
                 </Label>
                 <Select
                   value={endHour.toString()}
@@ -281,19 +287,19 @@ export function HourlyCoverageDialog({
 
             {isOvernight && (
               <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 p-2 rounded">
-                ⏰ Overnight coverage: {formatHour(startHour)} → {formatHour(endHour)} (next day)
+                ⏰ Overnight: {formatHour(startHour)} → {formatHour(endHour)} (next day)
               </p>
             )}
 
-            {/* Quick fill */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Quick fill:</span>
+            {/* Quick fill for staff */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-muted-foreground">Fill staff:</span>
               {[1, 2, 3, 4, 5].map((val) => (
                 <Button
                   key={val}
                   variant="outline"
                   size="sm"
-                  onClick={() => handleApplyToAll(val)}
+                  onClick={() => handleApplyStaffToAll(val)}
                   className="h-7 w-7 p-0"
                 >
                   {val}
@@ -302,37 +308,82 @@ export function HourlyCoverageDialog({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleApplyToAll(0)}
+                onClick={() => handleApplyStaffToAll(0)}
                 className="h-7 px-2"
               >
                 Clear
               </Button>
             </div>
 
-            {/* Hourly grid */}
-            <div className="grid grid-cols-2 gap-2 max-h-[40vh] overflow-y-auto pr-1">
-              {displayHours.map((hour, idx) => (
-                <div
-                  key={`${hour}-${idx}`}
-                  className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg"
-                >
-                  <span className="text-sm font-medium w-16">
-                    {formatHour(hour)}
-                    {isOvernight && hour < startHour && (
-                      <span className="text-[10px] text-muted-foreground ml-1">+1</span>
-                    )}
-                  </span>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="50"
-                    value={coverage.get(hour) || ""}
-                    onChange={(e) => handleCoverageChange(hour, e.target.value)}
-                    className="h-8 w-16 text-center"
-                    placeholder="0"
-                  />
-                </div>
-              ))}
+            {/* Column Headers */}
+            <div className="flex items-center gap-2 px-2 text-xs font-medium text-muted-foreground border-b pb-2">
+              <span className="w-16">Hour</span>
+              <span className="flex-1 text-center flex items-center justify-center gap-1">
+                <DollarSign className="h-3 w-3" />
+                Proj. Sales
+              </span>
+              <span className="w-16 text-center flex items-center justify-center gap-1">
+                <Users className="h-3 w-3" />
+                Staff
+              </span>
+            </div>
+
+            {/* Hourly rows */}
+            <div className="space-y-1 max-h-[40vh] overflow-y-auto pr-1">
+              {displayHours.map((hour, idx) => {
+                const data = hourlyData.get(hour) || { min_staff: 0, projected_sales: 0 };
+                return (
+                  <div
+                    key={`${hour}-${idx}`}
+                    className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="text-sm font-medium w-16">
+                      {formatHour(hour)}
+                      {isOvernight && hour < startHour && (
+                        <span className="text-[10px] text-muted-foreground ml-1">+1</span>
+                      )}
+                    </span>
+                    <div className="flex-1">
+                      <div className="relative">
+                        <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                        <Input
+                          type="number"
+                          min="0"
+                          step="50"
+                          value={data.projected_sales || ""}
+                          onChange={(e) => handleDataChange(hour, 'projected_sales', e.target.value)}
+                          className="h-8 pl-6 text-sm"
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="50"
+                      value={data.min_staff || ""}
+                      onChange={(e) => handleDataChange(hour, 'min_staff', e.target.value)}
+                      className="h-8 w-16 text-center"
+                      placeholder="0"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Totals */}
+            <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
+              <span className="text-sm font-medium">Day Totals:</span>
+              <div className="flex items-center gap-4 text-sm">
+                <span className="flex items-center gap-1">
+                  <DollarSign className="h-3 w-3" />
+                  ${totals.totalSales.toLocaleString()}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Users className="h-3 w-3" />
+                  {totals.totalStaff} staff-hrs
+                </span>
+              </div>
             </div>
           </div>
         )}
@@ -342,7 +393,7 @@ export function HourlyCoverageDialog({
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save Coverage"}
+            {saving ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
