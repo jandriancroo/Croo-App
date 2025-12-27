@@ -39,6 +39,7 @@ interface SafeCountFormProps {
   isSaving?: boolean;
   existingShifts?: ('AM' | 'PM')[];
   safeTarget?: number;
+  defaultShift?: 'AM' | 'PM';
 }
 
 export interface SafeCountData {
@@ -57,10 +58,10 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export function SafeCountForm({ onSave, isSaving, existingShifts = [], safeTarget = DEFAULT_SAFE_TARGET }: SafeCountFormProps) {
-  // Default to first available shift
-  const defaultShift = existingShifts.includes('AM') ? 'PM' : 'AM';
-  const [shift, setShift] = useState<'AM' | 'PM'>(defaultShift);
+export function SafeCountForm({ onSave, isSaving, existingShifts = [], safeTarget = DEFAULT_SAFE_TARGET, defaultShift: initialShift }: SafeCountFormProps) {
+  // Use provided defaultShift, or auto-select based on existing shifts
+  const computedDefaultShift = initialShift || (existingShifts.includes('AM') ? 'PM' : 'AM');
+  const [shift, setShift] = useState<'AM' | 'PM'>(computedDefaultShift);
   const SAFE_TARGET = safeTarget;
   const [counts, setCounts] = useState<Record<string, number>>(
     DENOMINATIONS.reduce((acc, d) => ({ ...acc, [d.name]: 0 }), {})

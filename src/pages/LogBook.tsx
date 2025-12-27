@@ -53,6 +53,7 @@ export default function LogBook() {
   const [showNewEntrySheet, setShowNewEntrySheet] = useState(false);
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [showCateringUpload, setShowCateringUpload] = useState(false);
+  const [preselectedShift, setPreselectedShift] = useState<'AM' | 'PM' | null>(null);
   const navigate = useNavigate();
 
   // Redirect team members away from logs page
@@ -99,6 +100,7 @@ export default function LogBook() {
   // Set initial category or handle URL parameter
   useEffect(() => {
     const categoryParam = searchParams.get('category');
+    const shiftParam = searchParams.get('shift')?.toUpperCase() as 'AM' | 'PM' | undefined;
     
     if (categoryParam && categories.length > 0) {
       // Find category by name (case-insensitive)
@@ -108,7 +110,13 @@ export default function LogBook() {
       if (matchedCategory) {
         setSelectedCategory(matchedCategory.id);
         setActiveTab('entry');
-        // Clear the URL param after setting
+        // Auto-open the entry sheet to go directly to the form
+        setShowNewEntrySheet(true);
+        // Set preselected shift if provided
+        if (shiftParam === 'AM' || shiftParam === 'PM') {
+          setPreselectedShift(shiftParam);
+        }
+        // Clear the URL params after setting
         setSearchParams({});
       }
     } else if (!selectedCategory && categories.length > 0) {
@@ -675,7 +683,7 @@ export default function LogBook() {
             </p>
           )}
           <SafeCountForm
-            key={`${getDateInTimezone(selectedDate)}`}
+            key={`${getDateInTimezone(selectedDate)}-${preselectedShift || ''}`}
             onSave={async (data: SafeCountData) => {
               try {
                 const dateStr = getDateInTimezone(selectedDate);
@@ -754,6 +762,8 @@ export default function LogBook() {
                 queryClient.invalidateQueries({ queryKey: ['safe-count-entries'] });
                 setShowNewEntrySheet(false);
                 setActiveTab('search');
+                // Clear preselected shift after saving
+                setPreselectedShift(null);
 
                 if (locationSettings?.safe_count_notifications_enabled !== false) {
                   try {
@@ -777,6 +787,7 @@ export default function LogBook() {
             isSaving={saveEntryMutation.isPending}
             existingShifts={existingSafeCountShifts}
             safeTarget={locationSettings?.safe_target ?? 300}
+            defaultShift={preselectedShift || undefined}
           />
         </div>
       );
