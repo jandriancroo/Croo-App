@@ -598,36 +598,66 @@ export default function WeekTemplateBuilder() {
         });
       });
 
-      // Calculate 4-week average, filtering out anomalously low days (likely incomplete data)
-      const allFourWeekSales = fourWeekDates
-        .map(d => ({ date: d, sales: salesMap.get(d)?.net_sales || 0 }))
-        .filter(d => d.sales > 0);
-      
-      // Calculate median to identify outliers
-      const sortedSales = [...allFourWeekSales].sort((a, b) => a.sales - b.sales);
-      const median = sortedSales.length > 0 ? sortedSales[Math.floor(sortedSales.length / 2)].sales : 0;
-      
-      // Filter out days with less than 70% of median (likely incomplete/partial days)
-      const validDays = allFourWeekSales.filter(d => d.sales >= median * 0.7);
-      const validDayDates = new Set(validDays.map(d => d.date));
-      
-      const fourWeekSales = validDays.map(d => d.sales);
-      const fourWeekAvg = fourWeekSales.length > 0 
-        ? fourWeekSales.reduce((sum, s) => sum + s, 0) / fourWeekSales.length 
-        : 0;
-      
-      // Get last year same day
-      const lastYearSales = salesMap.get(lastYearDateStr)?.net_sales || 0;
-      
-      // Calculate projection: (4-week avg + last year) / 2
-      let projectedSales = 0;
-      if (fourWeekAvg > 0 && lastYearSales > 0) {
-        projectedSales = Math.round((fourWeekAvg + lastYearSales) / 2);
-      } else if (fourWeekAvg > 0) {
-        projectedSales = Math.round(fourWeekAvg);
-      } else if (lastYearSales > 0) {
-        projectedSales = Math.round(lastYearSales);
+      // Calculate hourly projections first, then sum for daily
+      // This approach: skip hours with 0 sales (store was closed)
+      const hourlyTotals = new Map<number, { total: number; count: number }>();
+      fourWeekDates.forEach(dateStr => {
+        const cached = salesMap.get(dateStr);
+        if (cached?.hourly_data) {
+          const hourlyArray = cached.hourly_data as Array<{ hour: string | number; sales: number }>;
+          hourlyArray.forEach((h) => {
+            const hourNum = typeof h.hour === 'string' ? parseInt(h.hour.split(':')[0]) : h.hour;
+            const sales = h.sales || 0;
+            // Only count hours with actual sales (0 means closed)
+            if (sales > 0) {
+              const existing = hourlyTotals.get(hourNum) || { total: 0, count: 0 };
+              hourlyTotals.set(hourNum, {
+                total: existing.total + sales,
+                count: existing.count + 1,
+              });
+            }
+          });
+        }
+      });
+
+      // Get last year hourly pattern (also skip 0 values)
+      const lastYearHourly = salesMap.get(lastYearDateStr)?.hourly_data as Array<{ hour: string | number; sales: number }> | undefined;
+      const lastYearHourlyMap = new Map<number, number>();
+      if (lastYearHourly) {
+        lastYearHourly.forEach((h) => {
+          const hourNum = typeof h.hour === 'string' ? parseInt(h.hour.split(':')[0]) : h.hour;
+          const sales = h.sales || 0;
+          if (sales > 0) {
+            lastYearHourlyMap.set(hourNum, sales);
+          }
+        });
       }
+
+      // Build hourly projections
+      const hourlyProjections = new Map<number, number>();
+      const allHours = new Set([...hourlyTotals.keys(), ...lastYearHourlyMap.keys()]);
+      
+      allHours.forEach((hour) => {
+        const fourWeekData = hourlyTotals.get(hour);
+        const fourWeekHourlyAvg = fourWeekData ? fourWeekData.total / fourWeekData.count : 0;
+        const lastYearHourlySales = lastYearHourlyMap.get(hour) || 0;
+        
+        let hourlyProjection = 0;
+        if (fourWeekHourlyAvg > 0 && lastYearHourlySales > 0) {
+          hourlyProjection = Math.round((fourWeekHourlyAvg + lastYearHourlySales) / 2);
+        } else if (fourWeekHourlyAvg > 0) {
+          hourlyProjection = Math.round(fourWeekHourlyAvg);
+        } else if (lastYearHourlySales > 0) {
+          hourlyProjection = Math.round(lastYearHourlySales);
+        }
+        
+        if (hourlyProjection > 0) {
+          hourlyProjections.set(hour, hourlyProjection);
+        }
+      });
+
+      // Daily projection = sum of hourly projections
+      const projectedSales = Array.from(hourlyProjections.values()).reduce((sum, v) => sum + v, 0);
 
       if (projectedSales === 0) {
         toast.info(`No ${dayNames[dayIndex]} sales data found`);
@@ -642,46 +672,9 @@ export default function WeekTemplateBuilder() {
         return newMap;
       });
 
-      // Also sync hourly projections using same formula
-      // Calculate hourly averages from 4-week data (only using valid days)
-      const hourlyTotals = new Map<number, { total: number; count: number }>();
-      fourWeekDates.forEach(dateStr => {
-        // Only use valid days (not filtered out as incomplete)
-        if (!validDayDates.has(dateStr)) return;
-        
-        const cached = salesMap.get(dateStr);
-        if (cached?.hourly_data && cached.net_sales > 0) {
-          const hourlyArray = cached.hourly_data as Array<{ hour: string | number; sales: number }>;
-          hourlyArray.forEach((h) => {
-            const hourNum = typeof h.hour === 'string' ? parseInt(h.hour.split(':')[0]) : h.hour;
-            // Skip hours with 0 sales (likely incomplete data)
-            if ((h.sales || 0) > 0) {
-              const existing = hourlyTotals.get(hourNum) || { total: 0, count: 0 };
-              hourlyTotals.set(hourNum, {
-                total: existing.total + (h.sales || 0),
-                count: existing.count + 1,
-              });
-            }
-          });
-        }
-      });
-
-      // Get last year hourly pattern
-      const lastYearHourly = salesMap.get(lastYearDateStr)?.hourly_data as Array<{ hour: string | number; sales: number }> | undefined;
-      const lastYearHourlyMap = new Map<number, number>();
-      if (lastYearHourly && lastYearSales > 0) {
-        lastYearHourly.forEach((h) => {
-          const hourNum = typeof h.hour === 'string' ? parseInt(h.hour.split(':')[0]) : h.hour;
-          lastYearHourlyMap.set(hourNum, h.sales || 0);
-        });
-      }
-
-      // Build hourly projections and save to database
-      if ((hourlyTotals.size > 0 || lastYearHourlyMap.size > 0) && id) {
-        // Get all hours from both sources
-        const allHours = new Set([...hourlyTotals.keys(), ...lastYearHourlyMap.keys()]);
-        
-        // First fetch existing min_staff values
+      // Save hourly projections to database
+      if (hourlyProjections.size > 0 && id) {
+        // Fetch existing min_staff values
         const { data: existingCoverage } = await supabase
           .from("week_template_hourly_coverage")
           .select("hour, min_staff")
@@ -692,33 +685,6 @@ export default function WeekTemplateBuilder() {
         existingCoverage?.forEach((row: any) => {
           existingStaffMap.set(row.hour, row.min_staff || 0);
         });
-
-        // Calculate raw hourly projections first
-        const rawHourlyProjections = new Map<number, number>();
-        let rawTotal = 0;
-        
-        allHours.forEach((hour) => {
-          const fourWeekData = hourlyTotals.get(hour);
-          const fourWeekHourlyAvg = fourWeekData ? fourWeekData.total / fourWeekData.count : 0;
-          const lastYearHourlySales = lastYearHourlyMap.get(hour) || 0;
-          
-          let hourlyProjection = 0;
-          if (fourWeekHourlyAvg > 0 && lastYearHourlySales > 0) {
-            hourlyProjection = (fourWeekHourlyAvg + lastYearHourlySales) / 2;
-          } else if (fourWeekHourlyAvg > 0) {
-            hourlyProjection = fourWeekHourlyAvg;
-          } else if (lastYearHourlySales > 0) {
-            hourlyProjection = lastYearHourlySales;
-          }
-          
-          if (hourlyProjection > 0) {
-            rawHourlyProjections.set(hour, hourlyProjection);
-            rawTotal += hourlyProjection;
-          }
-        });
-
-        // Scale hourly projections so they sum to the daily projection
-        const scaleFactor = rawTotal > 0 && projectedSales > 0 ? projectedSales / rawTotal : 1;
         
         const hourlyCoverageRows: { 
           week_template_id: string; 
@@ -728,12 +694,12 @@ export default function WeekTemplateBuilder() {
           min_staff: number;
         }[] = [];
         
-        rawHourlyProjections.forEach((rawValue, hour) => {
+        hourlyProjections.forEach((projection, hour) => {
           hourlyCoverageRows.push({
             week_template_id: id!,
             day_of_week: dayIndex,
             hour,
-            projected_sales: Math.round(rawValue * scaleFactor),
+            projected_sales: projection,
             min_staff: existingStaffMap.get(hour) || 0,
           });
         });
@@ -753,10 +719,10 @@ export default function WeekTemplateBuilder() {
       }
 
       const sources = [];
-      if (fourWeekSales.length > 0) sources.push(`${fourWeekSales.length}wk avg`);
-      if (lastYearSales > 0) sources.push('YoY');
+      if (hourlyTotals.size > 0) sources.push(`${Math.max(...Array.from(hourlyTotals.values()).map(h => h.count))}wk avg`);
+      if (lastYearHourlyMap.size > 0) sources.push('YoY');
       
-      toast.success(`Synced ${dayNames[dayIndex]}: $${projectedSales.toLocaleString()} (${sources.join(' + ')})`);
+      toast.success(`Synced ${dayNames[dayIndex]}: $${projectedSales.toLocaleString()} (${sources.join(' + ')})`)
     } catch (error) {
       console.error("Error syncing sales:", error);
       toast.error("Failed to sync sales data");
