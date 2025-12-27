@@ -536,8 +536,61 @@ export default function WeekTemplateBuilder() {
   };
 
   const handleSyncSales = async (dayIndex: number) => {
-    // TODO: Implement sales sync from location integrations
-    toast.info("Sales sync coming soon - enter manually for now");
+    if (!currentLocation?.id) {
+      toast.error("No location selected");
+      return;
+    }
+
+    try {
+      // Convert our day_of_week (0=Monday) to JS day (0=Sunday)
+      const jsDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
+      
+      // Fetch last 8 weeks of sales data
+      const eightWeeksAgo = new Date();
+      eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
+      const startDate = eightWeeksAgo.toISOString().split('T')[0];
+      
+      const { data: salesData, error } = await supabase
+        .from("sales_cache")
+        .select("sale_date, net_sales")
+        .eq("location_id", currentLocation.id)
+        .gte("sale_date", startDate)
+        .not("net_sales", "is", null);
+
+      if (error) throw error;
+
+      if (!salesData || salesData.length === 0) {
+        toast.info("No historical sales data available");
+        return;
+      }
+
+      // Filter to matching day of week and calculate average
+      const matchingDays = salesData.filter((row: any) => {
+        const saleDate = new Date(row.sale_date + "T00:00:00");
+        return saleDate.getDay() === jsDayOfWeek;
+      });
+
+      if (matchingDays.length === 0) {
+        toast.info(`No ${dayNames[dayIndex]} sales data found`);
+        return;
+      }
+
+      const totalSales = matchingDays.reduce((sum: number, row: any) => sum + (Number(row.net_sales) || 0), 0);
+      const avgSales = Math.round(totalSales / matchingDays.length);
+
+      // Update the day settings with synced sales
+      setDaySettingsMap(prev => {
+        const newMap = new Map(prev);
+        const settings = newMap.get(dayIndex) || { laborPercent: '', projectedSales: '' };
+        newMap.set(dayIndex, { ...settings, projectedSales: avgSales.toString() });
+        return newMap;
+      });
+
+      toast.success(`Synced avg from ${matchingDays.length} ${dayNames[dayIndex]}s: $${avgSales.toLocaleString()}`);
+    } catch (error) {
+      console.error("Error syncing sales:", error);
+      toast.error("Failed to sync sales data");
+    }
   };
 
   const handleCopyClick = (fromDay: number, direction: 'prev' | 'next') => {

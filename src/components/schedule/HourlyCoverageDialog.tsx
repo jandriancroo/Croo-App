@@ -37,10 +37,8 @@ export function HourlyCoverageDialog({
   const [startHour, setStartHour] = useState(6);
   const [endHour, setEndHour] = useState(22);
 
-  // Generate all 24 hours for the selectors
   const allHours = Array.from({ length: 24 }, (_, i) => i);
 
-  // Generate hours array based on start/end, handling overnight
   const displayHours = useMemo(() => {
     const hours: number[] = [];
     if (endHour > startHour) {
@@ -62,7 +60,6 @@ export function HourlyCoverageDialog({
     return hours;
   }, [startHour, endHour]);
 
-  // Calculate totals
   const totals = useMemo(() => {
     let totalSales = 0;
     let totalStaff = 0;
@@ -137,6 +134,7 @@ export function HourlyCoverageDialog({
     }
   };
 
+  // Sync using same logic as dashboard - fetch from sales_cache hourly_data
   const handleSyncSales = async () => {
     if (!currentLocation?.id) {
       toast.error("No location selected");
@@ -147,18 +145,16 @@ export function HourlyCoverageDialog({
       setSyncing(true);
       
       // Convert our day_of_week (0=Monday) to JS day (0=Sunday)
-      // Our system: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
-      // JS system: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
       const jsDayOfWeek = dayOfWeek === 6 ? 0 : dayOfWeek + 1;
       
-      // Fetch last 8 weeks of sales data for this location
+      // Fetch last 8 weeks of sales data with hourly breakdowns
       const eightWeeksAgo = new Date();
       eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
       const startDate = eightWeeksAgo.toISOString().split('T')[0];
       
       const { data: salesData, error } = await supabase
         .from("sales_cache")
-        .select("sale_date, hourly_data")
+        .select("sale_date, hourly_data, net_sales")
         .eq("location_id", currentLocation.id)
         .gte("sale_date", startDate)
         .not("hourly_data", "is", null);
@@ -170,12 +166,15 @@ export function HourlyCoverageDialog({
         return;
       }
 
-      // Filter to only matching day of week and aggregate hourly averages
+      // Filter to matching day of week and aggregate hourly averages
       const hourlyTotals = new Map<number, { total: number; count: number }>();
+      let matchingDays = 0;
       
       salesData.forEach((row: any) => {
         const saleDate = new Date(row.sale_date + "T00:00:00");
         if (saleDate.getDay() === jsDayOfWeek && row.hourly_data) {
+          matchingDays++;
+          // hourly_data format: [{ hour: number, sales: number, guests?: number, checksCount?: number }]
           const hourlyArray = row.hourly_data as Array<{ hour: number; sales: number }>;
           hourlyArray.forEach((h) => {
             const existing = hourlyTotals.get(h.hour) || { total: 0, count: 0 };
@@ -203,19 +202,14 @@ export function HourlyCoverageDialog({
         return newMap;
       });
 
-      // Also update start/end hours based on sales data
+      // Update start/end hours based on sales data
       const salesHours = [...hourlyTotals.keys()].sort((a, b) => a - b);
       if (salesHours.length > 0) {
         setStartHour(salesHours[0]);
         setEndHour(salesHours[salesHours.length - 1]);
       }
 
-      const weeksUsed = new Set(salesData.filter((row: any) => {
-        const d = new Date(row.sale_date + "T00:00:00");
-        return d.getDay() === jsDayOfWeek;
-      }).map((row: any) => row.sale_date)).size;
-
-      toast.success(`Synced averages from ${weeksUsed} ${dayName}s`);
+      toast.success(`Synced averages from ${matchingDays} ${dayName}s`);
     } catch (error) {
       console.error("Error syncing sales:", error);
       toast.error("Failed to sync sales data");
