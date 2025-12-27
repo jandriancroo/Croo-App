@@ -123,13 +123,25 @@ Deno.serve(async (req) => {
         const [currentHour, currentMinute] = currentTimeStr.split(':').map(Number);
         const currentTotalMinutes = currentHour * 60 + currentMinute;
         
+        // Also check last_triggered_at to prevent duplicate notifications within tolerance window
+        const lastTriggered = task.last_triggered_at ? new Date(task.last_triggered_at) : null;
+        const minutesSinceLastTrigger = lastTriggered 
+          ? Math.floor((now.getTime() - lastTriggered.getTime()) / (1000 * 60))
+          : Infinity;
+        
+        // Don't trigger if we already triggered within the last 3 minutes
+        if (minutesSinceLastTrigger < 3) {
+          console.log(`[Alarm Tasks] Task ${task.id}: Already triggered ${minutesSinceLastTrigger} minutes ago, skipping`);
+          continue;
+        }
+        
         for (const customTime of customTimes) {
           const [targetHour, targetMinute] = customTime.split(':').map(Number);
           const targetTotalMinutes = targetHour * 60 + targetMinute;
           const diff = Math.abs(currentTotalMinutes - targetTotalMinutes);
           
-          // Match if within 2 minutes of the target time
-          if (diff <= 2 || diff >= 1438) { // 1438 = 24*60 - 2 for midnight wraparound
+          // Match if within 1 minute of the target time (reduced from 2 to be more precise)
+          if (diff <= 1 || diff >= 1439) { // 1439 = 24*60 - 1 for midnight wraparound
             shouldTrigger = true;
             break;
           }
@@ -142,6 +154,7 @@ Deno.serve(async (req) => {
       }
 
       // Get the interval key for this trigger (to track completions)
+      // Use the matched custom time for custom frequency, or current time for intervals
       const intervalKey = `${now.toISOString().split('T')[0]}_${currentTimeStr.replace(':', '')}`;
 
       // Check if this interval was already completed
