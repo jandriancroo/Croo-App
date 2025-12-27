@@ -552,69 +552,45 @@ export default function WeekTemplateBuilder() {
     }
 
     try {
-      // Convert our day_of_week (0=Monday) to JS day (0=Sunday)
-      const jsDayOfWeek = dayIndex === 6 ? 0 : dayIndex + 1;
+      // Convert our day_of_week (0=Monday) to Postgres DOW (0=Sunday)
+      const postgresDow = dayIndex === 6 ? 0 : dayIndex + 1;
       
-      // Calculate date ranges needed for projection formula:
-      // (4-week average + last year same day) / 2
-      const today = new Date();
-      
-      // Last 4 same-day-of-weeks
-      const fourWeekDates: string[] = [];
-      for (let i = 1; i <= 4; i++) {
-        const d = new Date(today);
-        // Find the next occurrence of the target day of week going back
-        const currentDow = d.getDay();
-        const daysBack = ((currentDow - jsDayOfWeek + 7) % 7) + (i * 7);
-        d.setDate(d.getDate() - daysBack);
-        fourWeekDates.push(d.toISOString().split('T')[0]);
-      }
-      
-      // Last year same day of week (same week of year)
-      const lastYearDate = new Date(today);
-      lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
-      // Adjust to same day of week
-      const lyDow = lastYearDate.getDay();
-      const dayDiff = jsDayOfWeek - lyDow;
-      lastYearDate.setDate(lastYearDate.getDate() + dayDiff);
-      const lastYearDateStr = lastYearDate.toISOString().split('T')[0];
-      
-      // Fetch all needed dates
-      const allDates = [...fourWeekDates, lastYearDateStr];
-      
-      const { data: salesData, error } = await supabase
+      // Query the last 4 OPERATING days for this weekday (net_sales > 0)
+      // This automatically skips holidays and early closures
+      const { data: recentSalesData, error: recentError } = await supabase
         .from("sales_cache")
         .select("sale_date, net_sales, hourly_data")
         .eq("location_id", locationId)
-        .in("sale_date", allDates);
+        .gt("net_sales", 0)
+        .order("sale_date", { ascending: false })
+        .limit(100); // Get enough to find 4 matching days
 
-      if (error) throw error;
+      if (recentError) throw recentError;
 
-      if (!salesData || salesData.length === 0) {
+      if (!recentSalesData || recentSalesData.length === 0) {
         toast.info("No historical sales data available");
         return;
       }
 
-      // Create lookup map
-      const salesMap = new Map<string, { net_sales: number; hourly_data: any }>();
-      salesData.forEach((row: any) => {
-        salesMap.set(row.sale_date, { 
-          net_sales: Number(row.net_sales) || 0, 
-          hourly_data: row.hourly_data 
-        });
-      });
+      // Filter to only days matching this weekday and take the last 4
+      const matchingDays = recentSalesData.filter((row: any) => {
+        const date = new Date(row.sale_date + 'T12:00:00'); // Use noon to avoid timezone issues
+        return date.getDay() === postgresDow;
+      }).slice(0, 4);
 
-      // Calculate hourly projections first, then sum for daily
-      // This approach: skip hours with 0 sales (store was closed)
+      if (matchingDays.length === 0) {
+        toast.info(`No ${dayNames[dayIndex]} sales data found`);
+        return;
+      }
+
+      // Calculate 4-week average using only complete operating days
       const hourlyTotals = new Map<number, { total: number; count: number }>();
-      fourWeekDates.forEach(dateStr => {
-        const cached = salesMap.get(dateStr);
-        if (cached?.hourly_data) {
-          const hourlyArray = cached.hourly_data as Array<{ hour: string | number; sales: number }>;
+      matchingDays.forEach((row: any) => {
+        if (row.hourly_data) {
+          const hourlyArray = row.hourly_data as Array<{ hour: string | number; sales: number }>;
           hourlyArray.forEach((h) => {
             const hourNum = typeof h.hour === 'string' ? parseInt(h.hour.split(':')[0]) : h.hour;
             const sales = h.sales || 0;
-            // Only count hours with actual sales (0 means closed)
             if (sales > 0) {
               const existing = hourlyTotals.get(hourNum) || { total: 0, count: 0 };
               hourlyTotals.set(hourNum, {
@@ -626,11 +602,28 @@ export default function WeekTemplateBuilder() {
         }
       });
 
-      // Get last year hourly pattern (also skip 0 values)
-      const lastYearHourly = salesMap.get(lastYearDateStr)?.hourly_data as Array<{ hour: string | number; sales: number }> | undefined;
+      // Get last year same weekday with sales (skip if closed)
+      const today = new Date();
+      const lastYearDate = new Date(today);
+      lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
+      // Adjust to same day of week
+      const lyDow = lastYearDate.getDay();
+      const dayDiff = postgresDow - lyDow;
+      lastYearDate.setDate(lastYearDate.getDate() + dayDiff);
+      const lastYearDateStr = lastYearDate.toISOString().split('T')[0];
+      
+      const { data: lastYearData } = await supabase
+        .from("sales_cache")
+        .select("sale_date, net_sales, hourly_data")
+        .eq("location_id", locationId)
+        .eq("sale_date", lastYearDateStr)
+        .gt("net_sales", 0)
+        .maybeSingle();
+
       const lastYearHourlyMap = new Map<number, number>();
-      if (lastYearHourly) {
-        lastYearHourly.forEach((h) => {
+      if (lastYearData?.hourly_data) {
+        const hourlyArray = lastYearData.hourly_data as Array<{ hour: string | number; sales: number }>;
+        hourlyArray.forEach((h) => {
           const hourNum = typeof h.hour === 'string' ? parseInt(h.hour.split(':')[0]) : h.hour;
           const sales = h.sales || 0;
           if (sales > 0) {
@@ -725,7 +718,7 @@ export default function WeekTemplateBuilder() {
       }
 
       const sources = [];
-      if (hourlyTotals.size > 0) sources.push(`${Math.max(...Array.from(hourlyTotals.values()).map(h => h.count))}wk avg`);
+      if (matchingDays.length > 0) sources.push(`${matchingDays.length}wk avg`);
       if (lastYearHourlyMap.size > 0) sources.push('YoY');
       
       toast.success(`Synced ${dayNames[dayIndex]}: $${projectedSales.toLocaleString()} (${sources.join(' + ')})`)
