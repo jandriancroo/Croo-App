@@ -105,8 +105,9 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
   
   // Visibility logic
   // AM Safe Count: 2 hours before open to 2 hours after open (or until submitted)
-  const amWindowStart = openMinutes !== null ? openMinutes - 120 : null;
-  const amWindowEnd = openMinutes !== null ? openMinutes + 120 : null;
+  // TEMP: Show all day for testing - revert to original logic after testing
+  const amWindowStart = openMinutes !== null ? 0 : null; // Was: openMinutes - 120
+  const amWindowEnd = openMinutes !== null ? 1440 : null; // Was: openMinutes + 120 (1440 = end of day)
   const showAmSafeCount = !amSafeCountSubmitted && 
     amWindowStart !== null && 
     amWindowEnd !== null && 
