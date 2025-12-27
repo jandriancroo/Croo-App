@@ -37,7 +37,13 @@ export const LocationSelector = () => {
             location_type: loc.location_type,
             store_number: loc.store_number,
           });
-          navigate('/dashboard');
+          // If on a week template detail page, go to the templates list instead
+          const currentPath = window.location.pathname;
+          if (currentPath.startsWith('/week-template/')) {
+            navigate('/schedule-templates?tab=weeks');
+          } else {
+            navigate('/dashboard');
+          }
         }}
       />
     </>
