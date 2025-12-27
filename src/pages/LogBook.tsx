@@ -109,7 +109,8 @@ export default function LogBook() {
       );
       if (matchedCategory) {
         setSelectedCategory(matchedCategory.id);
-        setActiveTab('entry');
+        // Stay on 'search' tab so the Sheet can be displayed
+        setActiveTab('search');
         // Auto-open the entry sheet to go directly to the form
         setShowNewEntrySheet(true);
         // Set preselected shift if provided
