@@ -117,31 +117,18 @@ Deno.serve(async (req) => {
         shouldTrigger = minutesSinceLastTrigger >= task.frequency_minutes;
         console.log(`[Alarm Tasks] Task ${task.id}: interval=${task.frequency_minutes}min, sinceLastTrigger=${minutesSinceLastTrigger}min, shouldTrigger=${shouldTrigger}`);
       } else if (task.frequency_type === 'custom' && task.custom_times) {
-        // Check if current time is within 2 minutes of any custom time (in local timezone)
-        // This accounts for cron timing variations
+        // Check if current time matches any custom time (in local timezone)
         const customTimes: string[] = task.custom_times || [];
         const [currentHour, currentMinute] = currentTimeStr.split(':').map(Number);
         const currentTotalMinutes = currentHour * 60 + currentMinute;
-        
-        // Also check last_triggered_at to prevent duplicate notifications within tolerance window
-        const lastTriggered = task.last_triggered_at ? new Date(task.last_triggered_at) : null;
-        const minutesSinceLastTrigger = lastTriggered 
-          ? Math.floor((now.getTime() - lastTriggered.getTime()) / (1000 * 60))
-          : Infinity;
-        
-        // Don't trigger if we already triggered within the last 3 minutes
-        if (minutesSinceLastTrigger < 3) {
-          console.log(`[Alarm Tasks] Task ${task.id}: Already triggered ${minutesSinceLastTrigger} minutes ago, skipping`);
-          continue;
-        }
         
         for (const customTime of customTimes) {
           const [targetHour, targetMinute] = customTime.split(':').map(Number);
           const targetTotalMinutes = targetHour * 60 + targetMinute;
           const diff = Math.abs(currentTotalMinutes - targetTotalMinutes);
           
-          // Match if within 1 minute of the target time (reduced from 2 to be more precise)
-          if (diff <= 1 || diff >= 1439) { // 1439 = 24*60 - 1 for midnight wraparound
+          // Exact minute match only
+          if (diff === 0 || diff === 1440) { // 1440 = 24*60 for midnight wraparound
             shouldTrigger = true;
             break;
           }
@@ -218,14 +205,26 @@ Deno.serve(async (req) => {
         console.log(`[Alarm Tasks] Task ${task.id}: After filtering for working staff, ${userIdsToNotify.length} users to notify`);
       } else {
         // Not filtering by working status - include all assigned users and role users
+        // BUT still filter by location - only notify users assigned to this location
         if (rolesToNotify.length > 0) {
+          // Get users with these roles who are assigned to this location
+          const { data: locationUsers } = await supabase
+            .from('user_locations')
+            .select('user_id')
+            .eq('location_id', task.location_id);
+          
+          const locationUserIds = new Set(locationUsers?.map(u => u.user_id) || []);
+          
           const { data: roleUsers } = await supabase
             .from('user_roles')
             .select('user_id')
             .in('role', rolesToNotify);
 
-          const roleUserIds = roleUsers?.map(u => u.user_id) || [];
+          // Only include role users who are also assigned to this location
+          const roleUserIds = (roleUsers?.map(u => u.user_id) || []).filter(id => locationUserIds.has(id));
           userIdsToNotify = [...new Set([...userIdsToNotify, ...roleUserIds])];
+          
+          console.log(`[Alarm Tasks] Task ${task.id}: Found ${roleUserIds.length} users with roles ${rolesToNotify.join(',')} at this location`);
         }
       }
 
