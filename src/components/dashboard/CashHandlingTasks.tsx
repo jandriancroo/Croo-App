@@ -5,15 +5,17 @@ import { Vault, Banknote } from "lucide-react";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useUserRole } from "@/hooks/useUserRole";
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { TemporaryTaskCard } from "./TemporaryTaskCard";
 
 interface CashHandlingTasksProps {
   locationHours: { hours_open: string | null; hours_close: string | null } | null;
+  timezone?: string;
 }
 
 const TEAL_COLOR = "#14b8a6";
 
-export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
+export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angeles" }: CashHandlingTasksProps) {
   const navigate = useNavigate();
   const { currentLocation } = useAppLocation();
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
@@ -21,8 +23,8 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
   // Only show to shift_manager and above
   const canAccessCashHandling = isShiftManager || isGeneralManager || isManager || isAdmin;
   
-  // Get today's date string
-  const today = format(new Date(), "yyyy-MM-dd");
+  // Get today's date string in location timezone
+  const today = formatInTimeZone(new Date(), timezone, "yyyy-MM-dd");
   
   // Fetch logbook categories to get Safe Count and Drawer Count IDs
   const { data: categories } = useQuery({
@@ -95,8 +97,11 @@ export function CashHandlingTasks({ locationHours }: CashHandlingTasksProps) {
   const openMinutes = parseTime(locationHours.hours_open);
   const closeMinutes = parseTime(locationHours.hours_close);
   
+  // Get current time in location timezone
   const now = new Date();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const currentTimeInTz = formatInTimeZone(now, timezone, "HH:mm");
+  const [currentHours, currentMins] = currentTimeInTz.split(":").map(Number);
+  const currentMinutes = currentHours * 60 + currentMins;
   
   // Visibility logic
   // AM Safe Count: 2 hours before open to 2 hours after open (or until submitted)

@@ -98,7 +98,7 @@ export default function Dashboard() {
   } = useUserRole();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, isChecklistOnlyLocation } = useAppLocation();
-  const { getTodayInTimezone } = useLocationTimezone();
+  const { getTodayInTimezone, timezone } = useLocationTimezone();
   const { animationAmount } = useCrooCashAnimation();
   const isMobile = useIsMobile();
 
@@ -515,7 +515,7 @@ export default function Dashboard() {
           {currentLocation?.id && <EventDailyTasks locationId={currentLocation.id} />}
           
           {/* Cash Handling Task Cards */}
-          <CashHandlingTasks locationHours={locationSettings} />
+          <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
           
           {/* Catering Order Cards */}
           {todaysCateringOrders.map(order => {
