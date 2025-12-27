@@ -658,14 +658,6 @@ export default function WeekTemplateBuilder() {
 
       // Build hourly projections and save to database
       if ((hourlyTotals.size > 0 || lastYearHourlyMap.size > 0) && id) {
-        const hourlyCoverageRows: { 
-          week_template_id: string; 
-          day_of_week: number; 
-          hour: number; 
-          projected_sales: number;
-          min_staff: number;
-        }[] = [];
-
         // Get all hours from both sources
         const allHours = new Set([...hourlyTotals.keys(), ...lastYearHourlyMap.keys()]);
         
@@ -681,6 +673,10 @@ export default function WeekTemplateBuilder() {
           existingStaffMap.set(row.hour, row.min_staff || 0);
         });
 
+        // Calculate raw hourly projections first
+        const rawHourlyProjections = new Map<number, number>();
+        let rawTotal = 0;
+        
         allHours.forEach((hour) => {
           const fourWeekData = hourlyTotals.get(hour);
           const fourWeekHourlyAvg = fourWeekData ? fourWeekData.total / fourWeekData.count : 0;
@@ -688,22 +684,38 @@ export default function WeekTemplateBuilder() {
           
           let hourlyProjection = 0;
           if (fourWeekHourlyAvg > 0 && lastYearHourlySales > 0) {
-            hourlyProjection = Math.round((fourWeekHourlyAvg + lastYearHourlySales) / 2);
+            hourlyProjection = (fourWeekHourlyAvg + lastYearHourlySales) / 2;
           } else if (fourWeekHourlyAvg > 0) {
-            hourlyProjection = Math.round(fourWeekHourlyAvg);
+            hourlyProjection = fourWeekHourlyAvg;
           } else if (lastYearHourlySales > 0) {
-            hourlyProjection = Math.round(lastYearHourlySales);
+            hourlyProjection = lastYearHourlySales;
           }
           
           if (hourlyProjection > 0) {
-            hourlyCoverageRows.push({
-              week_template_id: id!,
-              day_of_week: dayIndex,
-              hour,
-              projected_sales: hourlyProjection,
-              min_staff: existingStaffMap.get(hour) || 0,
-            });
+            rawHourlyProjections.set(hour, hourlyProjection);
+            rawTotal += hourlyProjection;
           }
+        });
+
+        // Scale hourly projections so they sum to the daily projection
+        const scaleFactor = rawTotal > 0 && projectedSales > 0 ? projectedSales / rawTotal : 1;
+        
+        const hourlyCoverageRows: { 
+          week_template_id: string; 
+          day_of_week: number; 
+          hour: number; 
+          projected_sales: number;
+          min_staff: number;
+        }[] = [];
+        
+        rawHourlyProjections.forEach((rawValue, hour) => {
+          hourlyCoverageRows.push({
+            week_template_id: id!,
+            day_of_week: dayIndex,
+            hour,
+            projected_sales: Math.round(rawValue * scaleFactor),
+            min_staff: existingStaffMap.get(hour) || 0,
+          });
         });
 
         if (hourlyCoverageRows.length > 0) {
