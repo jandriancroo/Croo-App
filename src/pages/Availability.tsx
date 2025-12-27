@@ -45,6 +45,7 @@ import { Check, X, Calendar, Clock, Plus, MoreVertical, Pencil, Trash2 } from "l
 import { useUserRole } from "@/hooks/useUserRole";
 import { RequestAvailabilityDialog } from "@/components/availability/RequestAvailabilityDialog";
 import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
+import { WeeklyHoursSection } from "@/components/availability/WeeklyHoursSection";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 
 interface AvailabilityRequest {
@@ -416,6 +417,9 @@ export default function Availability() {
 
         {/* Shift Pool - Admin Only */}
         {isAdmin && <ShiftPoolSection />}
+
+        {/* Weekly Hours - Admin Only */}
+        {isAdmin && <WeeklyHoursSection />}
 
         {/* Time Off Used - Admin Only */}
         {isAdmin && employeeHours.length > 0 && (
