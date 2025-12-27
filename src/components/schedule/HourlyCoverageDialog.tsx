@@ -226,7 +226,7 @@ export function HourlyCoverageDialog({
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Set projected hourly sales and minimum staff. Sync pulls averages from recent {dayName}s.
+              Set projected hourly sales and minimum staff for each hour.
             </p>
 
             {/* Time Range Selectors */}
