@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Clock, DollarSign } from "lucide-react";
+import { Users, Clock, DollarSign, RefreshCw } from "lucide-react";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
 
 interface HourlyCoverageDialogProps {
   open: boolean;
@@ -28,9 +29,11 @@ export function HourlyCoverageDialog({
   dayOfWeek,
   dayName,
 }: HourlyCoverageDialogProps) {
+  const { currentLocation } = useAppLocation();
   const [hourlyData, setHourlyData] = useState<Map<number, HourlyData>>(new Map());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [startHour, setStartHour] = useState(6);
   const [endHour, setEndHour] = useState(22);
 
@@ -41,12 +44,10 @@ export function HourlyCoverageDialog({
   const displayHours = useMemo(() => {
     const hours: number[] = [];
     if (endHour > startHour) {
-      // Normal day (e.g., 6am to 10pm)
       for (let h = startHour; h <= endHour; h++) {
         hours.push(h);
       }
     } else if (endHour < startHour) {
-      // Overnight (e.g., 6am to 2am next day)
       for (let h = startHour; h <= 23; h++) {
         hours.push(h);
       }
@@ -54,7 +55,6 @@ export function HourlyCoverageDialog({
         hours.push(h);
       }
     } else {
-      // Same hour (24-hour coverage)
       for (let h = 0; h <= 23; h++) {
         hours.push(h);
       }
@@ -108,11 +108,9 @@ export function HourlyCoverageDialog({
       
       setHourlyData(dataMap);
       
-      // If we have existing data, try to infer start/end hours
       if (data && data.length > 0) {
         const sortedHours = [...dataMap.keys()].sort((a, b) => a - b);
         
-        // Detect overnight: if there's a large gap in the middle
         let maxGap = 0;
         let gapStart = -1;
         for (let i = 0; i < sortedHours.length - 1; i++) {
@@ -136,6 +134,93 @@ export function HourlyCoverageDialog({
       toast.error("Failed to load coverage");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSyncSales = async () => {
+    if (!currentLocation?.id) {
+      toast.error("No location selected");
+      return;
+    }
+
+    try {
+      setSyncing(true);
+      
+      // Convert our day_of_week (0=Monday) to JS day (0=Sunday)
+      // Our system: 0=Mon, 1=Tue, 2=Wed, 3=Thu, 4=Fri, 5=Sat, 6=Sun
+      // JS system: 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+      const jsDayOfWeek = dayOfWeek === 6 ? 0 : dayOfWeek + 1;
+      
+      // Fetch last 8 weeks of sales data for this location
+      const eightWeeksAgo = new Date();
+      eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
+      const startDate = eightWeeksAgo.toISOString().split('T')[0];
+      
+      const { data: salesData, error } = await supabase
+        .from("sales_cache")
+        .select("sale_date, hourly_data")
+        .eq("location_id", currentLocation.id)
+        .gte("sale_date", startDate)
+        .not("hourly_data", "is", null);
+
+      if (error) throw error;
+
+      if (!salesData || salesData.length === 0) {
+        toast.info("No historical sales data available to sync");
+        return;
+      }
+
+      // Filter to only matching day of week and aggregate hourly averages
+      const hourlyTotals = new Map<number, { total: number; count: number }>();
+      
+      salesData.forEach((row: any) => {
+        const saleDate = new Date(row.sale_date + "T00:00:00");
+        if (saleDate.getDay() === jsDayOfWeek && row.hourly_data) {
+          const hourlyArray = row.hourly_data as Array<{ hour: number; sales: number }>;
+          hourlyArray.forEach((h) => {
+            const existing = hourlyTotals.get(h.hour) || { total: 0, count: 0 };
+            hourlyTotals.set(h.hour, {
+              total: existing.total + (h.sales || 0),
+              count: existing.count + 1,
+            });
+          });
+        }
+      });
+
+      if (hourlyTotals.size === 0) {
+        toast.info(`No ${dayName} sales data found in recent history`);
+        return;
+      }
+
+      // Calculate averages and update hourlyData
+      setHourlyData((prev) => {
+        const newMap = new Map(prev);
+        hourlyTotals.forEach((totals, hour) => {
+          const avgSales = Math.round(totals.total / totals.count);
+          const existing = newMap.get(hour) || { min_staff: 0, projected_sales: 0 };
+          newMap.set(hour, { ...existing, projected_sales: avgSales });
+        });
+        return newMap;
+      });
+
+      // Also update start/end hours based on sales data
+      const salesHours = [...hourlyTotals.keys()].sort((a, b) => a - b);
+      if (salesHours.length > 0) {
+        setStartHour(salesHours[0]);
+        setEndHour(salesHours[salesHours.length - 1]);
+      }
+
+      const weeksUsed = new Set(salesData.filter((row: any) => {
+        const d = new Date(row.sale_date + "T00:00:00");
+        return d.getDay() === jsDayOfWeek;
+      }).map((row: any) => row.sale_date)).size;
+
+      toast.success(`Synced averages from ${weeksUsed} ${dayName}s`);
+    } catch (error) {
+      console.error("Error syncing sales:", error);
+      toast.error("Failed to sync sales data");
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -164,14 +249,12 @@ export function HourlyCoverageDialog({
     try {
       setSaving(true);
 
-      // Delete existing coverage for this day
       await supabase
         .from("week_template_hourly_coverage")
         .delete()
         .eq("week_template_id", weekTemplateId)
         .eq("day_of_week", dayOfWeek);
 
-      // Insert new coverage
       const coverageRows: { 
         week_template_id: string; 
         day_of_week: number; 
@@ -236,7 +319,7 @@ export function HourlyCoverageDialog({
         ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Set projected hourly sales and minimum staff coverage. This helps the auto-scheduler place shifts where demand is highest.
+              Set projected hourly sales and minimum staff. Sync pulls averages from recent {dayName}s.
             </p>
 
             {/* Time Range Selectors */}
@@ -291,9 +374,20 @@ export function HourlyCoverageDialog({
               </p>
             )}
 
-            {/* Quick fill for staff */}
+            {/* Action buttons */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-muted-foreground">Fill staff:</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSyncSales}
+                disabled={syncing}
+                className="h-8"
+              >
+                <RefreshCw className={`h-3 w-3 mr-1 ${syncing ? "animate-spin" : ""}`} />
+                {syncing ? "Syncing..." : "Sync Sales"}
+              </Button>
+              <div className="h-4 w-px bg-border" />
+              <span className="text-xs text-muted-foreground">Staff:</span>
               {[1, 2, 3, 4, 5].map((val) => (
                 <Button
                   key={val}
@@ -306,10 +400,10 @@ export function HourlyCoverageDialog({
                 </Button>
               ))}
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => handleApplyStaffToAll(0)}
-                className="h-7 px-2"
+                className="h-7 px-2 text-xs"
               >
                 Clear
               </Button>
@@ -317,14 +411,14 @@ export function HourlyCoverageDialog({
 
             {/* Column Headers */}
             <div className="flex items-center gap-2 px-2 text-xs font-medium text-muted-foreground border-b pb-2">
-              <span className="w-16">Hour</span>
-              <span className="flex-1 text-center flex items-center justify-center gap-1">
+              <span className="w-14">Hour</span>
+              <span className="flex-1 flex items-center gap-1">
                 <DollarSign className="h-3 w-3" />
                 Proj. Sales
               </span>
-              <span className="w-16 text-center flex items-center justify-center gap-1">
+              <span className="w-14 text-center flex items-center justify-center gap-1">
                 <Users className="h-3 w-3" />
-                Staff
+                Min
               </span>
             </div>
 
@@ -337,7 +431,7 @@ export function HourlyCoverageDialog({
                     key={`${hour}-${idx}`}
                     className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg hover:bg-muted/50 transition-colors"
                   >
-                    <span className="text-sm font-medium w-16">
+                    <span className="text-sm font-medium w-14">
                       {formatHour(hour)}
                       {isOvernight && hour < startHour && (
                         <span className="text-[10px] text-muted-foreground ml-1">+1</span>
@@ -363,7 +457,7 @@ export function HourlyCoverageDialog({
                       max="50"
                       value={data.min_staff || ""}
                       onChange={(e) => handleDataChange(hour, 'min_staff', e.target.value)}
-                      className="h-8 w-16 text-center"
+                      className="h-8 w-14 text-center"
                       placeholder="0"
                     />
                   </div>
@@ -373,7 +467,7 @@ export function HourlyCoverageDialog({
 
             {/* Totals */}
             <div className="flex items-center justify-between p-3 bg-primary/5 rounded-lg border border-primary/20">
-              <span className="text-sm font-medium">Day Totals:</span>
+              <span className="text-sm font-medium">Totals:</span>
               <div className="flex items-center gap-4 text-sm">
                 <span className="flex items-center gap-1">
                   <DollarSign className="h-3 w-3" />
