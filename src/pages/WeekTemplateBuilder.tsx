@@ -413,6 +413,12 @@ export default function WeekTemplateBuilder() {
 
         if (weekError) throw weekError;
         
+        // Redirect to templates list if template belongs to different location
+        if (weekTemplate.location_id !== currentLocation.id) {
+          navigate('/schedule-templates?tab=weeks');
+          return;
+        }
+        
         setTemplateName(weekTemplate.template_name);
         setDescription(weekTemplate.description || "");
         setTemplateLocationId(weekTemplate.location_id);
