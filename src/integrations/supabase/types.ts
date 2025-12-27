@@ -2343,6 +2343,8 @@ export type Database = {
           hourly_wage: number | null
           id: string
           is_active: boolean | null
+          max_weekly_hours: number | null
+          min_weekly_hours: number | null
           phone_number: string | null
           profile_photo_url: string | null
           role: string | null
@@ -2361,6 +2363,8 @@ export type Database = {
           hourly_wage?: number | null
           id: string
           is_active?: boolean | null
+          max_weekly_hours?: number | null
+          min_weekly_hours?: number | null
           phone_number?: string | null
           profile_photo_url?: string | null
           role?: string | null
@@ -2379,6 +2383,8 @@ export type Database = {
           hourly_wage?: number | null
           id?: string
           is_active?: boolean | null
+          max_weekly_hours?: number | null
+          min_weekly_hours?: number | null
           phone_number?: string | null
           profile_photo_url?: string | null
           role?: string | null
@@ -3632,6 +3638,82 @@ export type Database = {
           },
           {
             foreignKeyName: "week_template_assignments_week_template_id_fkey"
+            columns: ["week_template_id"]
+            isOneToOne: false
+            referencedRelation: "week_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      week_template_day_settings: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          id: string
+          labor_percentage_target: number | null
+          projected_sales: number | null
+          updated_at: string
+          week_template_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          id?: string
+          labor_percentage_target?: number | null
+          projected_sales?: number | null
+          updated_at?: string
+          week_template_id: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          id?: string
+          labor_percentage_target?: number | null
+          projected_sales?: number | null
+          updated_at?: string
+          week_template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "week_template_day_settings_week_template_id_fkey"
+            columns: ["week_template_id"]
+            isOneToOne: false
+            referencedRelation: "week_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      week_template_hourly_coverage: {
+        Row: {
+          created_at: string
+          day_of_week: number
+          hour: number
+          id: string
+          min_staff: number
+          updated_at: string
+          week_template_id: string
+        }
+        Insert: {
+          created_at?: string
+          day_of_week: number
+          hour: number
+          id?: string
+          min_staff?: number
+          updated_at?: string
+          week_template_id: string
+        }
+        Update: {
+          created_at?: string
+          day_of_week?: number
+          hour?: number
+          id?: string
+          min_staff?: number
+          updated_at?: string
+          week_template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "week_template_hourly_coverage_week_template_id_fkey"
             columns: ["week_template_id"]
             isOneToOne: false
             referencedRelation: "week_templates"
