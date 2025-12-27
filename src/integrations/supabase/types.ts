@@ -3690,6 +3690,7 @@ export type Database = {
           hour: number
           id: string
           min_staff: number
+          projected_sales: number | null
           updated_at: string
           week_template_id: string
         }
@@ -3699,6 +3700,7 @@ export type Database = {
           hour: number
           id?: string
           min_staff?: number
+          projected_sales?: number | null
           updated_at?: string
           week_template_id: string
         }
@@ -3708,6 +3710,7 @@ export type Database = {
           hour?: number
           id?: string
           min_staff?: number
+          projected_sales?: number | null
           updated_at?: string
           week_template_id?: string
         }
