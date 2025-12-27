@@ -22,6 +22,7 @@ import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSo
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
 import { SalesOverview } from '@/components/dashboard/SalesOverview';
 import { format } from 'date-fns';
+import { getBusinessDateInTimezone, getBusinessDayRangeInTimezone } from '@/utils/timezoneUtils';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -297,14 +298,19 @@ export default function Dashboard() {
     }
   };
   const loadCompletionData = async () => {
+    // Use business date which accounts for late-night operations
+    // (submissions before 5 AM count as previous day)
+    const businessDateStr = getBusinessDateInTimezone(timezone);
+    
+    // Get current day of week for dynamic checklists
     const today = new Date();
-    // Convert JS getDay() (Sun=0..Sat=6) to calendar index (Mon=0..Sun=6)
     const jsDay = today.getDay();
     const currentDay = jsDay === 0 ? 6 : jsDay - 1;
-    const startOfToday = new Date(today);
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date(today);
-    endOfToday.setHours(23, 59, 59, 999);
+    
+    // Calculate business day period in location timezone
+    // Business day runs from 5 AM today to 5 AM tomorrow
+    const { start: periodStartBusiness, end: periodEndBusiness } = getBusinessDayRangeInTimezone(businessDateStr, timezone);
+    
     const dataMap: Record<string, {
       expected: number;
       completed: number;
@@ -319,7 +325,7 @@ export default function Dashboard() {
         itemCount = checklistItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).length;
       }
 
-      // For monthly checklists, use start/end of month; otherwise use today
+      // For monthly checklists, use start/end of month; otherwise use business day period
       const isMonthly = checklist.frequency === 'monthly';
       let periodStart: Date;
       let periodEnd: Date;
@@ -328,8 +334,9 @@ export default function Dashboard() {
         periodStart = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0, 0);
         periodEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
       } else {
-        periodStart = startOfToday;
-        periodEnd = endOfToday;
+        // Use business day range (5 AM to 5 AM) for daily checklists
+        periodStart = periodStartBusiness;
+        periodEnd = periodEndBusiness;
       }
 
       // Get submissions and count unique completed items for the period (location-filtered)
