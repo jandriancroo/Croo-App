@@ -6,8 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Clock, DollarSign, RefreshCw } from "lucide-react";
-import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { Users, Clock, DollarSign } from "lucide-react";
 
 interface HourlyCoverageDialogProps {
   open: boolean;
@@ -29,11 +28,9 @@ export function HourlyCoverageDialog({
   dayOfWeek,
   dayName,
 }: HourlyCoverageDialogProps) {
-  const { currentLocation } = useAppLocation();
   const [hourlyData, setHourlyData] = useState<Map<number, HourlyData>>(new Map());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [startHour, setStartHour] = useState(6);
   const [endHour, setEndHour] = useState(22);
 
@@ -131,90 +128,6 @@ export function HourlyCoverageDialog({
       toast.error("Failed to load coverage");
     } finally {
       setLoading(false);
-    }
-  };
-
-  // Sync using same logic as dashboard - fetch from sales_cache hourly_data
-  const handleSyncSales = async () => {
-    if (!currentLocation?.id) {
-      toast.error("No location selected");
-      return;
-    }
-
-    try {
-      setSyncing(true);
-      
-      // Convert our day_of_week (0=Monday) to JS day (0=Sunday)
-      const jsDayOfWeek = dayOfWeek === 6 ? 0 : dayOfWeek + 1;
-      
-      // Fetch last 8 weeks of sales data with hourly breakdowns
-      const eightWeeksAgo = new Date();
-      eightWeeksAgo.setDate(eightWeeksAgo.getDate() - 56);
-      const startDate = eightWeeksAgo.toISOString().split('T')[0];
-      
-      const { data: salesData, error } = await supabase
-        .from("sales_cache")
-        .select("sale_date, hourly_data, net_sales")
-        .eq("location_id", currentLocation.id)
-        .gte("sale_date", startDate)
-        .not("hourly_data", "is", null);
-
-      if (error) throw error;
-
-      if (!salesData || salesData.length === 0) {
-        toast.info("No historical sales data available to sync");
-        return;
-      }
-
-      // Filter to matching day of week and aggregate hourly averages
-      const hourlyTotals = new Map<number, { total: number; count: number }>();
-      let matchingDays = 0;
-      
-      salesData.forEach((row: any) => {
-        const saleDate = new Date(row.sale_date + "T00:00:00");
-        if (saleDate.getDay() === jsDayOfWeek && row.hourly_data) {
-          matchingDays++;
-          // hourly_data format: [{ hour: number, sales: number, guests?: number, checksCount?: number }]
-          const hourlyArray = row.hourly_data as Array<{ hour: number; sales: number }>;
-          hourlyArray.forEach((h) => {
-            const existing = hourlyTotals.get(h.hour) || { total: 0, count: 0 };
-            hourlyTotals.set(h.hour, {
-              total: existing.total + (h.sales || 0),
-              count: existing.count + 1,
-            });
-          });
-        }
-      });
-
-      if (hourlyTotals.size === 0) {
-        toast.info(`No ${dayName} sales data found in recent history`);
-        return;
-      }
-
-      // Calculate averages and update hourlyData
-      setHourlyData((prev) => {
-        const newMap = new Map(prev);
-        hourlyTotals.forEach((totals, hour) => {
-          const avgSales = Math.round(totals.total / totals.count);
-          const existing = newMap.get(hour) || { min_staff: 0, projected_sales: 0 };
-          newMap.set(hour, { ...existing, projected_sales: avgSales });
-        });
-        return newMap;
-      });
-
-      // Update start/end hours based on sales data
-      const salesHours = [...hourlyTotals.keys()].sort((a, b) => a - b);
-      if (salesHours.length > 0) {
-        setStartHour(salesHours[0]);
-        setEndHour(salesHours[salesHours.length - 1]);
-      }
-
-      toast.success(`Synced averages from ${matchingDays} ${dayName}s`);
-    } catch (error) {
-      console.error("Error syncing sales:", error);
-      toast.error("Failed to sync sales data");
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -368,20 +281,9 @@ export function HourlyCoverageDialog({
               </p>
             )}
 
-            {/* Action buttons */}
+            {/* Action buttons - Staff quick fill only */}
             <div className="flex items-center gap-2 flex-wrap">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSyncSales}
-                disabled={syncing}
-                className="h-8"
-              >
-                <RefreshCw className={`h-3 w-3 mr-1 ${syncing ? "animate-spin" : ""}`} />
-                {syncing ? "Syncing..." : "Sync Sales"}
-              </Button>
-              <div className="h-4 w-px bg-border" />
-              <span className="text-xs text-muted-foreground">Staff:</span>
+              <span className="text-xs text-muted-foreground">Set all staff to:</span>
               {[1, 2, 3, 4, 5].map((val) => (
                 <Button
                   key={val}
@@ -402,6 +304,10 @@ export function HourlyCoverageDialog({
                 Clear
               </Button>
             </div>
+
+            <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
+              💡 Hourly projections sync automatically when you use "Sync Sales" on the day card.
+            </p>
 
             {/* Column Headers */}
             <div className="flex items-center gap-2 px-2 text-xs font-medium text-muted-foreground border-b pb-2">
