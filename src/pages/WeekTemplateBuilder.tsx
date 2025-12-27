@@ -603,13 +603,18 @@ export default function WeekTemplateBuilder() {
       });
 
       // Get last year same weekday with sales (skip if closed)
+      // Use a stable mid-day timestamp to avoid UTC date shifting when calling toISOString()
       const today = new Date();
+      today.setHours(12, 0, 0, 0);
+
       const lastYearDate = new Date(today);
       lastYearDate.setFullYear(lastYearDate.getFullYear() - 1);
       // Adjust to same day of week
       const lyDow = lastYearDate.getDay();
       const dayDiff = postgresDow - lyDow;
       lastYearDate.setDate(lastYearDate.getDate() + dayDiff);
+      lastYearDate.setHours(12, 0, 0, 0);
+
       const lastYearDateStr = lastYearDate.toISOString().split('T')[0];
       
       const { data: lastYearData } = await supabase
