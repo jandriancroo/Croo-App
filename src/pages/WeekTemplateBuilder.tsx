@@ -717,11 +717,36 @@ export default function WeekTemplateBuilder() {
         }
       }
 
+      // Diagnostics (helps explain where the number comes from)
+      const usedDates = matchingDays.map((d: any) => d.sale_date);
+      const usedTotals = matchingDays.map((d: any) => Number(d.net_sales) || 0);
+      const fourWeekDailyAvg = Math.round(usedTotals.reduce((a, b) => a + b, 0) / Math.max(usedTotals.length, 1));
+      const yoyDailyTotal = lastYearData ? Math.round(Number(lastYearData.net_sales) || 0) : null;
+
+      console.groupCollapsed(`[WeekTemplateBuilder] Sync ${dayNames[dayIndex]} projections`);
+      console.log("Used dates:", usedDates);
+      console.log("Used day totals:", usedTotals);
+      console.log("4wk daily avg:", fourWeekDailyAvg);
+      console.log("YoY date:", lastYearDateStr, "YoY total:", yoyDailyTotal);
+      console.log("Projected total (sum hourly):", projectedSales);
+      console.table(
+        Array.from(hourlyProjections.entries())
+          .sort((a, b) => a[0] - b[0])
+          .map(([hour, proj]) => ({ hour, projected_sales: proj }))
+      );
+      console.groupEnd();
+
       const sources = [];
       if (matchingDays.length > 0) sources.push(`${matchingDays.length}wk avg`);
       if (lastYearHourlyMap.size > 0) sources.push('YoY');
-      
-      toast.success(`Synced ${dayNames[dayIndex]}: $${projectedSales.toLocaleString()} (${sources.join(' + ')})`)
+
+      const diagnosticBits: string[] = [];
+      diagnosticBits.push(`4wk daily avg ~$${fourWeekDailyAvg.toLocaleString()}`);
+      if (yoyDailyTotal !== null) diagnosticBits.push(`YoY ~$${yoyDailyTotal.toLocaleString()}`);
+
+      toast.success(
+        `Synced ${dayNames[dayIndex]}: $${projectedSales.toLocaleString()} (${sources.join(' + ')}) — ${diagnosticBits.join(' • ')}`
+      );
     } catch (error) {
       console.error("Error syncing sales:", error);
       toast.error("Failed to sync sales data");
