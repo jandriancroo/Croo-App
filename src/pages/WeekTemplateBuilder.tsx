@@ -1084,11 +1084,20 @@ export default function WeekTemplateBuilder() {
       {!isNew && id && (
         <HourlyCoverageDialog
           open={coverageDialogOpen}
-          onOpenChange={(open) => {
+          onOpenChange={async (open) => {
             setCoverageDialogOpen(open);
-            if (!open) {
-              // Refresh coverage data when dialog closes
-              fetchData();
+            if (!open && id) {
+              // Only refresh hourly coverage data, not day settings
+              const { data: coverageData } = await supabase
+                .from("week_template_hourly_coverage")
+                .select("day_of_week")
+                .eq("week_template_id", id);
+              
+              const coverageByDay = new Map<number, boolean>();
+              (coverageData || []).forEach((c: any) => {
+                coverageByDay.set(c.day_of_week, true);
+              });
+              setHourlyCoverageByDay(coverageByDay);
             }
           }}
           weekTemplateId={id}
