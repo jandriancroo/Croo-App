@@ -8,7 +8,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown, AlertTriangle } from "lucide-react";
+import { Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown, AlertTriangle, Sparkles } from "lucide-react";
 import { DateNavigator } from "@/components/ui/date-navigator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -30,6 +30,7 @@ import { LaborTotals } from "@/components/schedule/LaborTotals";
 import { LiveStatusBadge } from "@/components/schedule/LiveStatusBadge";
 import { DayBreakdownDialog } from "@/components/schedule/DayBreakdownDialog";
 import { PortraitOnlyMessage } from "@/components/schedule/PortraitOnlyMessage";
+import { AutoScheduleWizard } from "@/components/schedule/AutoScheduleWizard";
 
 interface Profile {
   id: string;
@@ -128,6 +129,7 @@ export default function Schedule() {
   const [blackoutDates, setBlackoutDates] = useState<string[]>([]);
   const [locationSettings, setLocationSettings] = useState<{ hours_open?: string; hours_close?: string } | null>(null);
   const [isCreatingShift, setIsCreatingShift] = useState(false);
+  const [autoScheduleOpen, setAutoScheduleOpen] = useState(false);
   const [roleChangeDialogOpen, setRoleChangeDialogOpen] = useState(false);
   const [pendingRoleChange, setPendingRoleChange] = useState<{
     userId: string;
@@ -1119,6 +1121,15 @@ export default function Schedule() {
             <div className="flex items-center gap-2 flex-shrink-0">
               <Button 
                 variant="outline" 
+                size="sm"
+                onClick={() => setAutoScheduleOpen(true)}
+                className="gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Croo AI
+              </Button>
+              <Button 
+                variant="outline" 
                 size="icon"
                 onClick={() => setIsCreatingShift(true)}
                 className="opacity-60 hover:opacity-100 transition-opacity"
@@ -1560,6 +1571,18 @@ export default function Schedule() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
+      )}
+
+      {/* Auto Schedule Wizard */}
+      {currentLocation && (
+        <AutoScheduleWizard
+          open={autoScheduleOpen}
+          onOpenChange={setAutoScheduleOpen}
+          currentWeekStart={currentWeekStart}
+          locationId={currentLocation.id}
+          scheduleId={scheduleId}
+          onScheduleGenerated={() => fetchScheduleData(false)}
+        />
       )}
     </Layout>
   );
