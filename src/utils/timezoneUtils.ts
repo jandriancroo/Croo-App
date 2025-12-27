@@ -212,3 +212,61 @@ export const formatDateTimeDisplay = (
     hour12: true
   }).format(date);
 };
+
+/**
+ * Business day cutoff hour (5 AM) - submissions before this time belong to the previous business day.
+ * This handles businesses that close past midnight where a 1 AM closing submission
+ * should count as the previous day's closing, not the current day.
+ */
+const BUSINESS_DAY_CUTOFF_HOUR = 5;
+
+/**
+ * Get the current "business date" in specified timezone.
+ * If it's before the cutoff hour (5 AM), returns yesterday's date.
+ * This is useful for closing checklists and late-night operations.
+ */
+export const getBusinessDateInTimezone = (timezone: string = DEFAULT_TIMEZONE): string => {
+  const now = new Date();
+  
+  // Get current hour in the timezone
+  const hourStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    hour: '2-digit',
+    hour12: false
+  }).format(now);
+  const currentHour = parseInt(hourStr, 10);
+  
+  // If before cutoff, use yesterday's date
+  if (currentHour < BUSINESS_DAY_CUTOFF_HOUR) {
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    return getDateInTimezone(yesterday, timezone);
+  }
+  
+  return getTodayInTimezone(timezone);
+};
+
+/**
+ * Get the business day start and end for checklist completion tracking.
+ * The business day runs from 5 AM today to 5 AM tomorrow.
+ * This allows late-night submissions (after midnight) to count for the previous business day.
+ */
+export const getBusinessDayRangeInTimezone = (
+  dateStr: string,
+  timezone: string = DEFAULT_TIMEZONE
+): { start: Date; end: Date } => {
+  const referenceDate = new Date(`${dateStr}T12:00:00Z`);
+  const offset = getTimezoneOffset(timezone, referenceDate);
+  
+  // Business day starts at 5 AM on the given date
+  const start = new Date(`${dateStr}T0${BUSINESS_DAY_CUTOFF_HOUR}:00:00${offset}`);
+  
+  // Business day ends at 5 AM the next day
+  const nextDay = new Date(referenceDate);
+  nextDay.setDate(nextDay.getDate() + 1);
+  const nextDateStr = getDateInTimezone(nextDay, timezone);
+  const nextOffset = getTimezoneOffset(timezone, nextDay);
+  const end = new Date(`${nextDateStr}T0${BUSINESS_DAY_CUTOFF_HOUR}:00:00${nextOffset}`);
+  
+  return { start, end };
+};
