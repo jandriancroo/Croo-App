@@ -607,8 +607,8 @@ export default function WeekTemplateBuilder() {
       const sortedSales = [...allFourWeekSales].sort((a, b) => a.sales - b.sales);
       const median = sortedSales.length > 0 ? sortedSales[Math.floor(sortedSales.length / 2)].sales : 0;
       
-      // Filter out days with less than 50% of median (likely incomplete/partial days)
-      const validDays = allFourWeekSales.filter(d => d.sales >= median * 0.5);
+      // Filter out days with less than 70% of median (likely incomplete/partial days)
+      const validDays = allFourWeekSales.filter(d => d.sales >= median * 0.7);
       const validDayDates = new Set(validDays.map(d => d.date));
       
       const fourWeekSales = validDays.map(d => d.sales);
