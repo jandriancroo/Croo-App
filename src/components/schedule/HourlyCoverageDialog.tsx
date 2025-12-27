@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users } from "lucide-react";
+import { Users, Clock } from "lucide-react";
 
 interface HourlyCoverageDialogProps {
   open: boolean;
@@ -12,7 +14,6 @@ interface HourlyCoverageDialogProps {
   weekTemplateId: string;
   dayOfWeek: number;
   dayName: string;
-  locationHours?: { open: string; close: string } | null;
 }
 
 interface HourlyCoverage {
@@ -26,28 +27,42 @@ export function HourlyCoverageDialog({
   weekTemplateId,
   dayOfWeek,
   dayName,
-  locationHours,
 }: HourlyCoverageDialogProps) {
   const [coverage, setCoverage] = useState<Map<number, number>>(new Map());
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [startHour, setStartHour] = useState(6);
+  const [endHour, setEndHour] = useState(22);
 
-  // Default hours if location hours not set
-  const defaultOpenHour = 6;
-  const defaultCloseHour = 22;
+  // Generate all 24 hours for the selectors
+  const allHours = Array.from({ length: 24 }, (_, i) => i);
 
-  const openHour = locationHours?.open 
-    ? parseInt(locationHours.open.split(':')[0]) 
-    : defaultOpenHour;
-  const closeHour = locationHours?.close 
-    ? parseInt(locationHours.close.split(':')[0]) 
-    : defaultCloseHour;
-
-  // Generate hours array for the day
-  const hours = [];
-  for (let h = openHour; h <= closeHour; h++) {
-    hours.push(h);
-  }
+  // Generate hours array based on start/end, handling overnight
+  const displayHours = useMemo(() => {
+    const hours: number[] = [];
+    if (endHour > startHour) {
+      // Normal day (e.g., 6am to 10pm)
+      for (let h = startHour; h <= endHour; h++) {
+        hours.push(h);
+      }
+    } else if (endHour < startHour) {
+      // Overnight (e.g., 6am to 2am next day)
+      // First, hours from start to midnight
+      for (let h = startHour; h <= 23; h++) {
+        hours.push(h);
+      }
+      // Then hours from midnight to end
+      for (let h = 0; h <= endHour; h++) {
+        hours.push(h);
+      }
+    } else {
+      // Same hour (24-hour coverage)
+      for (let h = 0; h <= 23; h++) {
+        hours.push(h);
+      }
+    }
+    return hours;
+  }, [startHour, endHour]);
 
   useEffect(() => {
     if (open && weekTemplateId) {
@@ -67,10 +82,44 @@ export function HourlyCoverageDialog({
       if (error) throw error;
 
       const coverageMap = new Map<number, number>();
+      let minHour = 23;
+      let maxHour = 0;
+      
       (data || []).forEach((item) => {
         coverageMap.set(item.hour, item.min_staff);
+        if (item.hour < minHour) minHour = item.hour;
+        if (item.hour > maxHour) maxHour = item.hour;
       });
+      
       setCoverage(coverageMap);
+      
+      // If we have existing data, try to infer start/end hours
+      if (data && data.length > 0) {
+        // Check if it's an overnight setup by looking for gaps
+        const sortedHours = [...coverageMap.keys()].sort((a, b) => a - b);
+        
+        // Detect overnight: if there's a large gap in the middle
+        let maxGap = 0;
+        let gapStart = -1;
+        for (let i = 0; i < sortedHours.length - 1; i++) {
+          const gap = sortedHours[i + 1] - sortedHours[i];
+          if (gap > maxGap) {
+            maxGap = gap;
+            gapStart = sortedHours[i];
+          }
+        }
+        
+        if (maxGap > 3) {
+          // Likely overnight - gap is the closed period
+          // End is before the gap, start is after
+          setEndHour(gapStart);
+          setStartHour(sortedHours[sortedHours.indexOf(gapStart) + 1] || sortedHours[0]);
+        } else {
+          // Normal day - use first and last
+          setStartHour(minHour);
+          setEndHour(maxHour);
+        }
+      }
     } catch (error) {
       console.error("Error fetching coverage:", error);
       toast.error("Failed to load coverage");
@@ -88,6 +137,20 @@ export function HourlyCoverageDialog({
       } else {
         newMap.delete(hour);
       }
+      return newMap;
+    });
+  };
+
+  const handleApplyToAll = (value: number) => {
+    setCoverage((prev) => {
+      const newMap = new Map(prev);
+      displayHours.forEach((hour) => {
+        if (value > 0) {
+          newMap.set(hour, value);
+        } else {
+          newMap.delete(hour);
+        }
+      });
       return newMap;
     });
   };
@@ -147,9 +210,11 @@ export function HourlyCoverageDialog({
     return `${hour - 12} PM`;
   };
 
+  const isOvernight = endHour < startHour;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
@@ -162,20 +227,100 @@ export function HourlyCoverageDialog({
             <p className="text-muted-foreground">Loading...</p>
           </div>
         ) : (
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground mb-4">
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
               Set minimum staff required for each hour. The auto-scheduler will
               respect these minimums when generating schedules.
             </p>
 
-            <div className="grid grid-cols-2 gap-2">
-              {hours.map((hour) => (
+            {/* Time Range Selectors */}
+            <div className="grid grid-cols-2 gap-4 p-3 bg-muted/50 rounded-lg">
+              <div>
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Coverage Start
+                </Label>
+                <Select
+                  value={startHour.toString()}
+                  onValueChange={(val) => setStartHour(parseInt(val))}
+                >
+                  <SelectTrigger className="h-9 mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allHours.map((h) => (
+                      <SelectItem key={h} value={h.toString()}>
+                        {formatHour(h)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  Coverage End
+                </Label>
+                <Select
+                  value={endHour.toString()}
+                  onValueChange={(val) => setEndHour(parseInt(val))}
+                >
+                  <SelectTrigger className="h-9 mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {allHours.map((h) => (
+                      <SelectItem key={h} value={h.toString()}>
+                        {formatHour(h)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {isOvernight && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 p-2 rounded">
+                ⏰ Overnight coverage: {formatHour(startHour)} → {formatHour(endHour)} (next day)
+              </p>
+            )}
+
+            {/* Quick fill */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Quick fill:</span>
+              {[1, 2, 3, 4, 5].map((val) => (
+                <Button
+                  key={val}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleApplyToAll(val)}
+                  className="h-7 w-7 p-0"
+                >
+                  {val}
+                </Button>
+              ))}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleApplyToAll(0)}
+                className="h-7 px-2"
+              >
+                Clear
+              </Button>
+            </div>
+
+            {/* Hourly grid */}
+            <div className="grid grid-cols-2 gap-2 max-h-[40vh] overflow-y-auto pr-1">
+              {displayHours.map((hour, idx) => (
                 <div
-                  key={hour}
+                  key={`${hour}-${idx}`}
                   className="flex items-center gap-2 p-2 bg-muted/50 rounded-lg"
                 >
                   <span className="text-sm font-medium w-16">
                     {formatHour(hour)}
+                    {isOvernight && hour < startHour && (
+                      <span className="text-[10px] text-muted-foreground ml-1">+1</span>
+                    )}
                   </span>
                   <Input
                     type="number"
