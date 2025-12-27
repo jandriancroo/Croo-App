@@ -117,9 +117,23 @@ Deno.serve(async (req) => {
         shouldTrigger = minutesSinceLastTrigger >= task.frequency_minutes;
         console.log(`[Alarm Tasks] Task ${task.id}: interval=${task.frequency_minutes}min, sinceLastTrigger=${minutesSinceLastTrigger}min, shouldTrigger=${shouldTrigger}`);
       } else if (task.frequency_type === 'custom' && task.custom_times) {
-        // Check if current time matches any custom time (in local timezone)
+        // Check if current time is within 2 minutes of any custom time (in local timezone)
+        // This accounts for cron timing variations
         const customTimes: string[] = task.custom_times || [];
-        shouldTrigger = customTimes.includes(currentTimeStr);
+        const [currentHour, currentMinute] = currentTimeStr.split(':').map(Number);
+        const currentTotalMinutes = currentHour * 60 + currentMinute;
+        
+        for (const customTime of customTimes) {
+          const [targetHour, targetMinute] = customTime.split(':').map(Number);
+          const targetTotalMinutes = targetHour * 60 + targetMinute;
+          const diff = Math.abs(currentTotalMinutes - targetTotalMinutes);
+          
+          // Match if within 2 minutes of the target time
+          if (diff <= 2 || diff >= 1438) { // 1438 = 24*60 - 2 for midnight wraparound
+            shouldTrigger = true;
+            break;
+          }
+        }
         console.log(`[Alarm Tasks] Task ${task.id}: customTimes=${customTimes.join(',')}, localTime=${currentTimeStr}, shouldTrigger=${shouldTrigger}`);
       }
 
