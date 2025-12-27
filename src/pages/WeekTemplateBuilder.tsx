@@ -741,12 +741,12 @@ export default function WeekTemplateBuilder() {
     setCopyDialogOpen(true);
   };
 
-  const handleCopyConfirm = () => {
+  const handleCopyConfirm = async () => {
     const targetDay = copyDirection === 'prev' ? copyFromDay - 1 : copyFromDay + 1;
     const sourceAssignments = assignmentsByDay.get(copyFromDay) || [];
     const sourceSettings = daySettingsMap.get(copyFromDay) || { laborPercent: '', projectedSales: '' };
     
-    // Copy assignments
+    // Copy assignments (shift templates only)
     setAssignmentsByDay(prev => {
       const newMap = new Map(prev);
       const copiedAssignments = sourceAssignments.map(a => ({
@@ -758,15 +758,61 @@ export default function WeekTemplateBuilder() {
       return newMap;
     });
 
-    // Copy day settings
+    // Copy only labor percent, not sales (will be auto-generated)
     setDaySettingsMap(prev => {
       const newMap = new Map(prev);
-      newMap.set(targetDay, { ...sourceSettings });
+      newMap.set(targetDay, { laborPercent: sourceSettings.laborPercent, projectedSales: '' });
       return newMap;
     });
 
+    // Copy min_staff hourly coverage from source to target day (if template already saved)
+    if (id) {
+      try {
+        // Fetch source day's hourly coverage
+        const { data: sourceCoverage, error: fetchError } = await supabase
+          .from("week_template_hourly_coverage")
+          .select("hour, min_staff")
+          .eq("week_template_id", id)
+          .eq("day_of_week", copyFromDay);
+
+        if (!fetchError && sourceCoverage && sourceCoverage.length > 0) {
+          // Delete existing target day coverage
+          await supabase
+            .from("week_template_hourly_coverage")
+            .delete()
+            .eq("week_template_id", id)
+            .eq("day_of_week", targetDay);
+
+          // Insert copied min_staff values (without projected_sales - will be synced)
+          const copiedCoverage = sourceCoverage.map((row: any) => ({
+            week_template_id: id,
+            day_of_week: targetDay,
+            hour: row.hour,
+            min_staff: row.min_staff || 0,
+            projected_sales: 0, // Will be updated by sync
+          }));
+
+          await supabase
+            .from("week_template_hourly_coverage")
+            .insert(copiedCoverage);
+            
+          // Update coverage indicator for target day
+          setHourlyCoverageByDay(prev => {
+            const newMap = new Map(prev);
+            newMap.set(targetDay, true);
+            return newMap;
+          });
+        }
+      } catch (error) {
+        console.error("Error copying hourly coverage:", error);
+      }
+    }
+
     setCopyDialogOpen(false);
     toast.success(`Copied ${dayNames[copyFromDay]} to ${dayNames[targetDay]}`);
+    
+    // Auto-generate projections for the target day
+    await handleSyncSales(targetDay);
   };
 
   const handleDayNameClick = (dayIndex: number) => {
