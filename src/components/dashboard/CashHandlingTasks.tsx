@@ -148,7 +148,6 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       subtitle: "Opening count",
       icon: Vault,
       onClick: () => handleNavigate("safe", "AM"),
-      useTemporaryStyle: false, // AM uses different style
     },
     {
       id: "pm-safe",
@@ -157,7 +156,6 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       subtitle: "Closing count",
       icon: Vault,
       onClick: () => handleNavigate("safe", "PM"),
-      useTemporaryStyle: true,
     },
     {
       id: "deposit",
@@ -166,7 +164,6 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       subtitle: "Drawer count",
       icon: Banknote,
       onClick: () => handleNavigate("drawer"),
-      useTemporaryStyle: true,
     },
   ].filter(t => t.show);
   
@@ -174,7 +171,7 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
   
   return (
     <>
-      {tasks.filter(t => t.useTemporaryStyle).map(task => (
+      {tasks.map(task => (
         <TemporaryTaskCard
           key={task.id}
           id={task.id}
