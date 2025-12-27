@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { ArrowLeft, Save, GripVertical, ChevronLeft, ChevronRight, Clock } from "lucide-react";
+import { ArrowLeft, Save, GripVertical, ChevronLeft, ChevronRight, Clock, Percent, DollarSign, RefreshCw, Users } from "lucide-react";
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
 import { useDroppable, useDraggable } from "@dnd-kit/core";
 import { formatTime12Hour } from "@/lib/utils";
@@ -24,6 +24,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { HourlyCoverageDialog } from "@/components/schedule/HourlyCoverageDialog";
 
 export interface ShiftTemplate {
   id: string;
@@ -42,9 +43,9 @@ export interface Assignment {
   shift_template?: ShiftTemplate;
 }
 
-interface DaySPLHGoals {
-  am: string;
-  pm: string;
+interface DaySettings {
+  laborPercent: string;
+  projectedSales: string;
 }
 
 function calculateShiftHours(startTime: string, endTime: string): number {
@@ -164,11 +165,14 @@ function DroppableDay({
   onRemoveAssignment,
   onCopyToPrevious,
   onCopyToNext,
-  splhGoals,
-  onSplhChange,
+  daySettings,
+  onDaySettingsChange,
+  onSyncSales,
   totalHours,
   isFirst,
-  isLast
+  isLast,
+  onDayNameClick,
+  hasCoverageSet,
 }: { 
   dayIndex: number; 
   dayName: string; 
@@ -176,21 +180,29 @@ function DroppableDay({
   onRemoveAssignment: (index: number) => void;
   onCopyToPrevious: () => void;
   onCopyToNext: () => void;
-  splhGoals: DaySPLHGoals;
-  onSplhChange: (field: 'am' | 'pm', value: string) => void;
+  daySettings: DaySettings;
+  onDaySettingsChange: (field: 'laborPercent' | 'projectedSales', value: string) => void;
+  onSyncSales: () => void;
   totalHours: number;
   isFirst: boolean;
   isLast: boolean;
+  onDayNameClick: () => void;
+  hasCoverageSet: boolean;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `day-${dayIndex}`,
     data: { dayIndex },
   });
 
+  // Calculate target labor cost based on projected sales and labor %
+  const projectedSales = parseFloat(daySettings.projectedSales) || 0;
+  const laborPercent = parseFloat(daySettings.laborPercent) || 0;
+  const targetLaborCost = projectedSales * (laborPercent / 100);
+
   return (
     <div
       ref={setNodeRef}
-      className={`p-3 border-2 rounded-lg min-h-[280px] flex flex-col ${
+      className={`p-3 border-2 rounded-lg min-h-[320px] flex flex-col ${
         isOver ? "border-primary bg-accent/50" : "border-border"
       }`}
     >
@@ -205,7 +217,15 @@ function DroppableDay({
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <h3 className="font-semibold text-sm text-center">{dayName}</h3>
+        <button
+          onClick={onDayNameClick}
+          className="font-semibold text-sm text-center hover:text-primary hover:underline transition-colors flex items-center gap-1"
+        >
+          {dayName}
+          {hasCoverageSet && (
+            <Users className="h-3 w-3 text-primary" />
+          )}
+        </button>
         <Button
           variant="ghost"
           size="icon"
@@ -215,6 +235,54 @@ function DroppableDay({
         >
           <ChevronRight className="h-4 w-4" />
         </Button>
+      </div>
+
+      {/* Labor Settings */}
+      <div className="space-y-2 mb-3 pb-3 border-b border-border">
+        {/* Labor Percentage */}
+        <div className="flex items-center gap-1">
+          <Percent className="h-3 w-3 text-muted-foreground" />
+          <Input
+            type="number"
+            value={daySettings.laborPercent}
+            onChange={(e) => onDaySettingsChange('laborPercent', e.target.value)}
+            className="h-7 text-xs flex-1"
+            placeholder="Labor %"
+            min="0"
+            max="100"
+            step="0.5"
+          />
+        </div>
+        
+        {/* Projected Sales */}
+        <div className="flex items-center gap-1">
+          <DollarSign className="h-3 w-3 text-muted-foreground" />
+          <Input
+            type="number"
+            value={daySettings.projectedSales}
+            onChange={(e) => onDaySettingsChange('projectedSales', e.target.value)}
+            className="h-7 text-xs flex-1"
+            placeholder="Sales"
+            min="0"
+            step="100"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={onSyncSales}
+            title="Sync from sales data"
+          >
+            <RefreshCw className="h-3 w-3" />
+          </Button>
+        </div>
+
+        {/* Target labor display */}
+        {laborPercent > 0 && projectedSales > 0 && (
+          <div className="text-[10px] text-muted-foreground text-center">
+            Target: ${targetLaborCost.toFixed(0)}
+          </div>
+        )}
       </div>
 
       {/* Assignments */}
@@ -233,36 +301,11 @@ function DroppableDay({
         )}
       </div>
 
-      {/* Footer: Labor Hours & SPLH Goals */}
-      <div className="mt-3 pt-3 border-t border-border space-y-2">
-        {/* Labor Hours */}
+      {/* Footer: Labor Hours */}
+      <div className="mt-3 pt-3 border-t border-border">
         <div className="flex items-center justify-center gap-1 text-xs">
           <Clock className="h-3 w-3 text-muted-foreground" />
           <span className="font-medium">{totalHours.toFixed(1)}h</span>
-        </div>
-
-        {/* SPLH Goals */}
-        <div className="grid grid-cols-2 gap-1">
-          <div>
-            <label className="text-[10px] text-muted-foreground block text-center">AM $/LH</label>
-            <Input
-              type="number"
-              value={splhGoals.am}
-              onChange={(e) => onSplhChange('am', e.target.value)}
-              className="h-7 text-xs text-center px-1"
-              placeholder="--"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] text-muted-foreground block text-center">PM $/LH</label>
-            <Input
-              type="number"
-              value={splhGoals.pm}
-              onChange={(e) => onSplhChange('pm', e.target.value)}
-              className="h-7 text-xs text-center px-1"
-              placeholder="--"
-            />
-          </div>
         </div>
       </div>
     </div>
@@ -279,7 +322,8 @@ export default function WeekTemplateBuilder() {
   const [description, setDescription] = useState("");
   const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
   const [assignmentsByDay, setAssignmentsByDay] = useState<Map<number, Assignment[]>>(new Map());
-  const [splhGoalsByDay, setSplhGoalsByDay] = useState<Map<number, DaySPLHGoals>>(new Map());
+  const [daySettingsMap, setDaySettingsMap] = useState<Map<number, DaySettings>>(new Map());
+  const [hourlyCoverageByDay, setHourlyCoverageByDay] = useState<Map<number, boolean>>(new Map());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeTemplate, setActiveTemplate] = useState<ShiftTemplate | null>(null);
@@ -288,6 +332,10 @@ export default function WeekTemplateBuilder() {
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
   const [copyDirection, setCopyDirection] = useState<'prev' | 'next'>('next');
   const [copyFromDay, setCopyFromDay] = useState(0);
+  
+  // Hourly coverage dialog state
+  const [coverageDialogOpen, setCoverageDialogOpen] = useState(false);
+  const [selectedDayForCoverage, setSelectedDayForCoverage] = useState(0);
 
   const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const isNew = id === 'new';
@@ -375,10 +423,31 @@ export default function WeekTemplateBuilder() {
 
         if (assignError) throw assignError;
 
-        // Group by day and extract SPLH goals
+        // Fetch day settings
+        const { data: daySettingsData, error: daySettingsError } = await supabase
+          .from("week_template_day_settings")
+          .select("*")
+          .eq("week_template_id", id);
+
+        if (daySettingsError) throw daySettingsError;
+
+        // Fetch hourly coverage to know which days have coverage set
+        const { data: coverageData, error: coverageError } = await supabase
+          .from("week_template_hourly_coverage")
+          .select("day_of_week")
+          .eq("week_template_id", id);
+
+        if (coverageError) throw coverageError;
+
+        // Track which days have coverage
+        const coverageByDay = new Map<number, boolean>();
+        (coverageData || []).forEach((c: any) => {
+          coverageByDay.set(c.day_of_week, true);
+        });
+        setHourlyCoverageByDay(coverageByDay);
+
+        // Group assignments by day
         const byDay = new Map<number, Assignment[]>();
-        const splhByDay = new Map<number, DaySPLHGoals>();
-        
         (assignments || []).forEach((a: any) => {
           const dayAssignments = byDay.get(a.day_of_week) || [];
           dayAssignments.push({
@@ -388,18 +457,18 @@ export default function WeekTemplateBuilder() {
             shift_template: a.shift_templates,
           });
           byDay.set(a.day_of_week, dayAssignments);
-          
-          // Set SPLH goals from first assignment of each day (they should be same for all)
-          if (!splhByDay.has(a.day_of_week)) {
-            splhByDay.set(a.day_of_week, {
-              am: a.am_splh_goal?.toString() || '',
-              pm: a.pm_splh_goal?.toString() || ''
-            });
-          }
         });
-        
         setAssignmentsByDay(byDay);
-        setSplhGoalsByDay(splhByDay);
+
+        // Map day settings
+        const settingsMap = new Map<number, DaySettings>();
+        (daySettingsData || []).forEach((ds: any) => {
+          settingsMap.set(ds.day_of_week, {
+            laborPercent: ds.labor_percentage_target?.toString() || '',
+            projectedSales: ds.projected_sales?.toString() || '',
+          });
+        });
+        setDaySettingsMap(settingsMap);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -457,13 +526,18 @@ export default function WeekTemplateBuilder() {
     });
   };
 
-  const handleSplhChange = (dayIndex: number, field: 'am' | 'pm', value: string) => {
-    setSplhGoalsByDay(prev => {
+  const handleDaySettingsChange = (dayIndex: number, field: 'laborPercent' | 'projectedSales', value: string) => {
+    setDaySettingsMap(prev => {
       const newMap = new Map(prev);
-      const goals = newMap.get(dayIndex) || { am: '', pm: '' };
-      newMap.set(dayIndex, { ...goals, [field]: value });
+      const settings = newMap.get(dayIndex) || { laborPercent: '', projectedSales: '' };
+      newMap.set(dayIndex, { ...settings, [field]: value });
       return newMap;
     });
+  };
+
+  const handleSyncSales = async (dayIndex: number) => {
+    // TODO: Implement sales sync from location integrations
+    toast.info("Sales sync coming soon - enter manually for now");
   };
 
   const handleCopyClick = (fromDay: number, direction: 'prev' | 'next') => {
@@ -475,7 +549,7 @@ export default function WeekTemplateBuilder() {
   const handleCopyConfirm = () => {
     const targetDay = copyDirection === 'prev' ? copyFromDay - 1 : copyFromDay + 1;
     const sourceAssignments = assignmentsByDay.get(copyFromDay) || [];
-    const sourceSplh = splhGoalsByDay.get(copyFromDay) || { am: '', pm: '' };
+    const sourceSettings = daySettingsMap.get(copyFromDay) || { laborPercent: '', projectedSales: '' };
     
     // Copy assignments
     setAssignmentsByDay(prev => {
@@ -489,15 +563,24 @@ export default function WeekTemplateBuilder() {
       return newMap;
     });
 
-    // Copy SPLH goals
-    setSplhGoalsByDay(prev => {
+    // Copy day settings
+    setDaySettingsMap(prev => {
       const newMap = new Map(prev);
-      newMap.set(targetDay, { ...sourceSplh });
+      newMap.set(targetDay, { ...sourceSettings });
       return newMap;
     });
 
     setCopyDialogOpen(false);
     toast.success(`Copied ${dayNames[copyFromDay]} to ${dayNames[targetDay]}`);
+  };
+
+  const handleDayNameClick = (dayIndex: number) => {
+    if (isNew) {
+      toast.info("Save the template first to set hourly coverage");
+      return;
+    }
+    setSelectedDayForCoverage(dayIndex);
+    setCoverageDialogOpen(true);
   };
 
   const handleSave = async () => {
@@ -555,26 +638,27 @@ export default function WeekTemplateBuilder() {
           .eq("week_template_id", id);
 
         if (deleteError) throw deleteError;
+
+        // Delete existing day settings
+        await supabase
+          .from("week_template_day_settings")
+          .delete()
+          .eq("week_template_id", id);
       }
 
-      // Insert all assignments with SPLH goals
+      // Insert all assignments
       const allAssignments: { 
         week_template_id: string; 
         shift_template_id: string; 
         day_of_week: number;
-        am_splh_goal: number | null;
-        pm_splh_goal: number | null;
       }[] = [];
       
       assignmentsByDay.forEach((assignments, dayIndex) => {
-        const splhGoals = splhGoalsByDay.get(dayIndex) || { am: '', pm: '' };
         assignments.forEach(a => {
           allAssignments.push({
             week_template_id: weekTemplateId!,
             shift_template_id: a.shift_template_id,
             day_of_week: dayIndex,
-            am_splh_goal: splhGoals.am ? parseFloat(splhGoals.am) : null,
-            pm_splh_goal: splhGoals.pm ? parseFloat(splhGoals.pm) : null,
           });
         });
       });
@@ -585,6 +669,33 @@ export default function WeekTemplateBuilder() {
           .insert(allAssignments);
 
         if (insertError) throw insertError;
+      }
+
+      // Insert day settings
+      const daySettingsRows: {
+        week_template_id: string;
+        day_of_week: number;
+        labor_percentage_target: number | null;
+        projected_sales: number | null;
+      }[] = [];
+
+      daySettingsMap.forEach((settings, dayIndex) => {
+        if (settings.laborPercent || settings.projectedSales) {
+          daySettingsRows.push({
+            week_template_id: weekTemplateId!,
+            day_of_week: dayIndex,
+            labor_percentage_target: settings.laborPercent ? parseFloat(settings.laborPercent) : null,
+            projected_sales: settings.projectedSales ? parseFloat(settings.projectedSales) : null,
+          });
+        }
+      });
+
+      if (daySettingsRows.length > 0) {
+        const { error: settingsError } = await supabase
+          .from("week_template_day_settings")
+          .insert(daySettingsRows);
+
+        if (settingsError) throw settingsError;
       }
 
       toast.success(isNew ? 'Week template created!' : 'Week template updated!');
@@ -703,11 +814,14 @@ export default function WeekTemplateBuilder() {
                     onRemoveAssignment={(assignmentIndex) => handleRemoveAssignment(index, assignmentIndex)}
                     onCopyToPrevious={() => handleCopyClick(index, 'prev')}
                     onCopyToNext={() => handleCopyClick(index, 'next')}
-                    splhGoals={splhGoalsByDay.get(index) || { am: '', pm: '' }}
-                    onSplhChange={(field, value) => handleSplhChange(index, field, value)}
+                    daySettings={daySettingsMap.get(index) || { laborPercent: '', projectedSales: '' }}
+                    onDaySettingsChange={(field, value) => handleDaySettingsChange(index, field, value)}
+                    onSyncSales={() => handleSyncSales(index)}
                     totalHours={dailyHours.get(index) || 0}
                     isFirst={index === 0}
                     isLast={index === 6}
+                    onDayNameClick={() => handleDayNameClick(index)}
+                    hasCoverageSet={hourlyCoverageByDay.get(index) || false}
                   />
                 ))}
               </div>
@@ -724,11 +838,14 @@ export default function WeekTemplateBuilder() {
                       onRemoveAssignment={(assignmentIndex) => handleRemoveAssignment(index, assignmentIndex)}
                       onCopyToPrevious={() => handleCopyClick(index, 'prev')}
                       onCopyToNext={() => handleCopyClick(index, 'next')}
-                      splhGoals={splhGoalsByDay.get(index) || { am: '', pm: '' }}
-                      onSplhChange={(field, value) => handleSplhChange(index, field, value)}
+                      daySettings={daySettingsMap.get(index) || { laborPercent: '', projectedSales: '' }}
+                      onDaySettingsChange={(field, value) => handleDaySettingsChange(index, field, value)}
+                      onSyncSales={() => handleSyncSales(index)}
                       totalHours={dailyHours.get(index) || 0}
                       isFirst={index === 0}
                       isLast={index === 6}
+                      onDayNameClick={() => handleDayNameClick(index)}
+                      hasCoverageSet={hourlyCoverageByDay.get(index) || false}
                     />
                   );
                 })}
@@ -763,7 +880,7 @@ export default function WeekTemplateBuilder() {
           <AlertDialogHeader>
             <AlertDialogTitle>Copy Day</AlertDialogTitle>
             <AlertDialogDescription>
-              Copy all shifts and SPLH goals from {dayNames[copyFromDay]} to {dayNames[copyDirection === 'prev' ? copyFromDay - 1 : copyFromDay + 1]}?
+              Copy all shifts and settings from {dayNames[copyFromDay]} to {dayNames[copyDirection === 'prev' ? copyFromDay - 1 : copyFromDay + 1]}?
               This will replace any existing shifts on {dayNames[copyDirection === 'prev' ? copyFromDay - 1 : copyFromDay + 1]}.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -773,6 +890,23 @@ export default function WeekTemplateBuilder() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Hourly Coverage Dialog */}
+      {!isNew && id && (
+        <HourlyCoverageDialog
+          open={coverageDialogOpen}
+          onOpenChange={(open) => {
+            setCoverageDialogOpen(open);
+            if (!open) {
+              // Refresh coverage data when dialog closes
+              fetchData();
+            }
+          }}
+          weekTemplateId={id}
+          dayOfWeek={selectedDayForCoverage}
+          dayName={dayNames[selectedDayForCoverage]}
+        />
+      )}
     </Layout>
   );
 }
