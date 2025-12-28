@@ -120,38 +120,46 @@ All colors MUST be HSL.
   }
 }
 
-/* OLED Theme - True black for OLED displays */
+/* OLED Theme - True black for OLED displays, no blue light */
 [data-theme="oled"] {
   --background: 0 0% 0%;
-  --foreground: 0 0% 92%;
-  --card: 0 0% 5%;
-  --card-foreground: 0 0% 92%;
-  --popover: 0 0% 5%;
-  --popover-foreground: 0 0% 92%;
-  --primary: 0 0% 92%;
+  --foreground: 30 5% 88%;
+  --card: 0 0% 0%;
+  --card-foreground: 30 5% 88%;
+  --popover: 0 0% 3%;
+  --popover-foreground: 30 5% 88%;
+  --primary: 30 5% 85%;
   --primary-foreground: 0 0% 0%;
-  --secondary: 0 0% 8%;
-  --secondary-foreground: 0 0% 85%;
-  --muted: 0 0% 6%;
-  --muted-foreground: 0 0% 50%;
+  --secondary: 0 0% 6%;
+  --secondary-foreground: 30 5% 80%;
+  --muted: 0 0% 4%;
+  --muted-foreground: 30 3% 45%;
   --accent: 0 0% 0%;
-  --accent-foreground: 0 0% 92%;
-  --destructive: 0 65% 45%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 0 0% 10%;
-  --input: 0 0% 8%;
-  --ring: 0 0% 50%;
+  --accent-foreground: 30 5% 85%;
+  --destructive: 0 55% 40%;
+  --destructive-foreground: 30 5% 95%;
+  --border: 0 0% 8%;
+  --input: 0 0% 5%;
+  --ring: 30 10% 40%;
   --sidebar-background: 0 0% 0%;
-  --sidebar-foreground: 0 0% 90%;
-  --sidebar-primary: 0 0% 92%;
+  --sidebar-foreground: 30 5% 85%;
+  --sidebar-primary: 30 5% 85%;
   --sidebar-primary-foreground: 0 0% 0%;
-  --sidebar-accent: 0 0% 8%;
-  --sidebar-accent-foreground: 0 0% 90%;
-  --sidebar-border: 0 0% 10%;
-  --sidebar-ring: 0 0% 50%;
+  --sidebar-accent: 0 0% 6%;
+  --sidebar-accent-foreground: 30 5% 85%;
+  --sidebar-border: 0 0% 8%;
+  --sidebar-ring: 30 10% 40%;
   --glass-background: 0 0% 0% / 1;
-  --glass-border: 0 0% 100% / 0.04;
+  --glass-border: 30 5% 100% / 0.03;
   --glass-shadow: 0 0% 0% / 0;
+  
+  /* Warm chart colors - no blue light */
+  --chart-1: 25 70% 50%;
+  --chart-2: 45 65% 55%;
+  --chart-3: 15 60% 45%;
+  --chart-4: 35 50% 60%;
+  --chart-5: 0 50% 45%;
+  --chart-6: 50 40% 50%;
 }
 
 /* Warm Earth Theme - Brown/Beige tones */
