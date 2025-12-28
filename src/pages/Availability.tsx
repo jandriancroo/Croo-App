@@ -517,81 +517,89 @@ export default function Availability() {
                   key={request.id}
                   className="px-3 py-2 border rounded-lg hover:bg-muted/50 transition-colors"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="font-medium text-sm truncate">{request.profiles.full_name}</span>
-                      <Badge variant={request.request_type === "paid" ? "default" : "secondary"} className="text-xs flex-shrink-0">
-                        {request.request_type === "paid" ? "Paid" : "Unpaid"}
-                      </Badge>
-                      <Badge
-                        variant={
-                          request.status === "approved"
-                            ? "default"
-                            : request.status === "denied"
-                            ? "destructive"
-                            : "outline"
-                        }
-                        className="text-xs flex-shrink-0"
-                      >
-                        {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">
+                  <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
+                    {/* Main content - stacks on mobile */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-1 min-w-0">
+                      {isAdmin && (
+                        <span className="font-medium text-sm truncate">{request.profiles.full_name}</span>
+                      )}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant={request.request_type === "paid" ? "default" : "secondary"} className="text-xs flex-shrink-0">
+                          {request.request_type === "paid" ? "Paid" : "Unpaid"}
+                        </Badge>
+                        <Badge
+                          variant={
+                            request.status === "approved"
+                              ? "default"
+                              : request.status === "denied"
+                              ? "destructive"
+                              : "outline"
+                          }
+                          className="text-xs flex-shrink-0"
+                        >
+                          {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                        </Badge>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
                         {formatTimeScope(request)} • {request.hours_requested}h
                       </span>
                     </div>
 
-                    {/* Show editor info if edited */}
+                    {/* Editor info */}
                     {request.edited_by && request.editor && (
-                      <span className="text-xs text-muted-foreground italic flex-shrink-0">
+                      <span className="text-xs text-muted-foreground italic flex-shrink-0 hidden sm:inline">
                         edited by {request.editor.full_name?.split(" ")[0]}
                       </span>
                     )}
 
-                    {isAdmin && request.status === "pending" && (
-                      <div className="flex gap-1 flex-shrink-0">
-                        <Button
-                          size="sm"
-                          variant="default"
-                          className="h-7 px-2"
-                          onClick={() => handleApprove(request.id)}
-                          disabled={processing}
-                        >
-                          <Check className="h-3 w-3" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          className="h-7 px-2"
-                          onClick={() => openDenyDialog(request.id)}
-                          disabled={processing}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-
-                    {isAdmin && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEditDialog(request)}>
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => openDeleteDialog(request.id)}
-                            className="text-destructive"
+                    {/* Action buttons - always visible on right */}
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {isAdmin && request.status === "pending" && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            className="h-7 px-2"
+                            onClick={() => handleApprove(request.id)}
+                            disabled={processing}
                           >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
+                            <Check className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="h-7 px-2"
+                            onClick={() => openDenyDialog(request.id)}
+                            disabled={processing}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </>
+                      )}
+
+                      {isAdmin && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openEditDialog(request)}>
+                              <Pencil className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => openDeleteDialog(request.id)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
