@@ -376,6 +376,18 @@ export function WidgetsSection({
     if (!user?.id || !currentLocation?.id) return;
 
     try {
+      // Get the max display_order to avoid unique constraint violation
+      const { data: maxOrderRow } = await supabase
+        .from('user_dashboard_cubes')
+        .select('display_order')
+        .eq('user_id', user.id)
+        .eq('location_id', currentLocation.id)
+        .order('display_order', { ascending: false })
+        .limit(1)
+        .single();
+
+      const nextOrder = (maxOrderRow?.display_order ?? -1) + 1;
+
       const { error } = await supabase
         .from('user_dashboard_cubes')
         .insert({
@@ -386,16 +398,16 @@ export function WidgetsSection({
           widget_size: config.size,
           metrics: config.metrics,
           accent_color: config.accentColor,
-          display_order: localCubes.length,
+          display_order: nextOrder,
         });
 
       if (error) throw error;
 
       toast.success(config.cubeType === 'sales-chart' ? 'Sales Overview added' : 'Data cube added');
       queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding data cube:', error);
-      toast.error('Failed to add widget');
+      toast.error(error?.message || 'Failed to add widget');
     }
   };
 
