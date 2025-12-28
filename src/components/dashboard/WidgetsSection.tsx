@@ -68,7 +68,13 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings }: Sort
   // For sales-chart type, render the SalesOverview component
   if (cube.cubeType === 'sales-chart') {
     return (
-      <div ref={setNodeRef} style={style} className="col-span-2">
+      <div 
+        ref={setNodeRef} 
+        style={style} 
+        className={`col-span-2 ${isDragging ? 'opacity-50' : ''}`}
+        {...attributes}
+        {...listeners}
+      >
         <Collapsible 
           open={salesOverviewOpen} 
           onOpenChange={(open) => {
@@ -94,7 +100,13 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings }: Sort
   const gridClass = cube.size === 'small' ? 'col-span-1' : 'col-span-2';
 
   return (
-    <div ref={setNodeRef} style={style} className={gridClass}>
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      className={`${gridClass} ${isDragging ? 'opacity-50' : ''}`}
+      {...attributes}
+      {...listeners}
+    >
       <DashboardWidget
         title={cube.title}
         size={cube.size}
