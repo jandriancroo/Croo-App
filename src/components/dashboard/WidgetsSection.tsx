@@ -334,12 +334,21 @@ export function WidgetsSection({
         display_order: index,
       }));
 
-      for (const update of updates) {
-        await supabase
-          .from('user_dashboard_cubes')
-          .update({ display_order: update.display_order })
-          .eq('id', update.id);
-      }
+      const results = await Promise.all(
+        updates.map((update) =>
+          supabase
+            .from('user_dashboard_cubes')
+            .update({ display_order: update.display_order })
+            .eq('id', update.id)
+        )
+      );
+
+      const firstError = results.find((r) => r.error)?.error;
+      if (firstError) throw firstError;
+
+      queryClient.invalidateQueries({
+        queryKey: ['user-data-cubes', user?.id, currentLocation?.id],
+      });
     } catch (error) {
       console.error('Error saving cube order:', error);
       toast.error('Failed to save cube order');
