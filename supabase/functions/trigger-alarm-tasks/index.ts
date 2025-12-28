@@ -133,16 +133,26 @@ Deno.serve(async (req) => {
       let matchedTimeStr: string | null = null;
 
       if (task.frequency_type === 'interval' && task.frequency_minutes) {
-        // Check if enough time has passed since last trigger
-        const lastTriggered = task.last_triggered_at ? new Date(task.last_triggered_at) : null;
-        const minutesSinceLastTrigger = lastTriggered
-          ? Math.floor((now.getTime() - lastTriggered.getTime()) / (1000 * 60))
-          : Infinity;
+        // Align to clock boundaries based on the interval
+        // e.g., 30-min interval triggers at :00 and :30
+        // e.g., 15-min interval triggers at :00, :15, :30, :45
+        // e.g., 60-min interval triggers at :00 only
+        const [currentHour, currentMinute] = currentTimeStr.split(':').map(Number);
+        const intervalMinutes = task.frequency_minutes;
 
-        shouldTrigger = minutesSinceLastTrigger >= task.frequency_minutes;
-        matchedTimeStr = currentTimeStr;
+        // Check if current minute is on a boundary for this interval
+        const isOnBoundary = currentMinute % intervalMinutes === 0;
+
+        if (isOnBoundary) {
+          // Build the aligned time string for deduplication
+          const alignedMinute = currentMinute.toString().padStart(2, '0');
+          const alignedHour = currentHour.toString().padStart(2, '0');
+          matchedTimeStr = `${alignedHour}:${alignedMinute}`;
+          shouldTrigger = true;
+        }
+
         console.log(
-          `[Alarm Tasks] Task ${task.id}: interval=${task.frequency_minutes}min, sinceLastTrigger=${minutesSinceLastTrigger}min, shouldTrigger=${shouldTrigger}`,
+          `[Alarm Tasks] Task ${task.id}: interval=${intervalMinutes}min, currentMinute=${currentMinute}, isOnBoundary=${isOnBoundary}, shouldTrigger=${shouldTrigger}`,
         );
       } else if (task.frequency_type === 'custom' && task.custom_times) {
         // Check if current time matches any custom time (in local timezone)
