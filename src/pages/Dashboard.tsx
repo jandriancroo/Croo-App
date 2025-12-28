@@ -534,8 +534,8 @@ export default function Dashboard() {
         }}
       >
         <CollapsibleTrigger asChild>
-          <Button variant="ghost" className="w-full flex items-center justify-between p-2 h-auto hover:bg-muted/50">
-            <span className="text-sm font-medium text-muted-foreground">Sales Details</span>
+          <Button variant="ghost" className="w-full flex items-center justify-between px-3 py-2 h-auto hover:bg-muted/50 rounded-lg">
+            <span className="text-base font-semibold">Sales Overview</span>
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${salesOverviewOpen ? 'rotate-180' : ''}`} />
           </Button>
         </CollapsibleTrigger>
