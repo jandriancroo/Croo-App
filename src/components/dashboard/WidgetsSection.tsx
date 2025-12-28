@@ -443,17 +443,7 @@ export function WidgetsSection({
         </DndContext>
       )}
 
-      {/* Add Data Cube Button */}
-      {showEditButton && (
-        <Button
-          variant="outline"
-          className="w-full border-dashed gap-2"
-          onClick={() => setShowAddDialog(true)}
-        >
-          <Plus className="h-4 w-4" />
-          Add Data Cube
-        </Button>
-      )}
+      {/* Add Data Cube Dialog */}
 
       {/* Add Widget Dialog */}
       <AddWidgetDialog
