@@ -1,0 +1,403 @@
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TrendingUp, TrendingDown, DollarSign, Users, Clock, Target, Pizza, Calendar, LucideIcon, Sparkles, GripVertical } from "lucide-react";
+import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { format } from 'date-fns';
+
+// Widget size types
+export type WidgetSize = 'small' | 'medium' | 'large';
+
+// All available metric types
+export type MetricType = 
+  | 'sales_today'
+  | 'sales_wtd'
+  | 'sales_mtd'
+  | 'sales_last_year'
+  | 'sales_projected_today'
+  | 'sales_projected_week'
+  | 'sales_projected_month'
+  | 'sales_pace'
+  | 'labor_percent'
+  | 'labor_cost'
+  | 'labor_hours'
+  | 'guest_count_today'
+  | 'guest_count_wtd'
+  | 'guest_count_mtd'
+  | 'pizza_count_today'
+  | 'pizza_count_wtd'
+  | 'avg_ticket';
+
+export interface MetricConfig {
+  type: MetricType;
+  label: string;
+  shortLabel: string;
+  icon: LucideIcon;
+  format: 'currency' | 'percent' | 'number' | 'hours';
+  category: 'sales' | 'labor' | 'guests' | 'projections';
+}
+
+export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
+  sales_today: { type: 'sales_today', label: 'Today Sales', shortLabel: 'Today', icon: DollarSign, format: 'currency', category: 'sales' },
+  sales_wtd: { type: 'sales_wtd', label: 'Week-to-Date', shortLabel: 'WTD', icon: DollarSign, format: 'currency', category: 'sales' },
+  sales_mtd: { type: 'sales_mtd', label: 'Month-to-Date', shortLabel: 'MTD', icon: DollarSign, format: 'currency', category: 'sales' },
+  sales_last_year: { type: 'sales_last_year', label: 'Last Year Today', shortLabel: 'LY', icon: Calendar, format: 'currency', category: 'sales' },
+  sales_projected_today: { type: 'sales_projected_today', label: 'Projected Today', shortLabel: 'Proj', icon: Target, format: 'currency', category: 'projections' },
+  sales_projected_week: { type: 'sales_projected_week', label: 'Projected Week', shortLabel: 'Proj Wk', icon: Target, format: 'currency', category: 'projections' },
+  sales_projected_month: { type: 'sales_projected_month', label: 'Projected Month', shortLabel: 'Proj Mo', icon: Target, format: 'currency', category: 'projections' },
+  sales_pace: { type: 'sales_pace', label: 'Today Pace', shortLabel: 'Pace', icon: TrendingUp, format: 'currency', category: 'projections' },
+  labor_percent: { type: 'labor_percent', label: 'Labor %', shortLabel: 'Labor%', icon: Users, format: 'percent', category: 'labor' },
+  labor_cost: { type: 'labor_cost', label: 'Labor Cost', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'labor' },
+  labor_hours: { type: 'labor_hours', label: 'Hours Worked', shortLabel: 'Hours', icon: Clock, format: 'hours', category: 'labor' },
+  guest_count_today: { type: 'guest_count_today', label: 'Guests Today', shortLabel: 'Guests', icon: Users, format: 'number', category: 'guests' },
+  guest_count_wtd: { type: 'guest_count_wtd', label: 'Guests WTD', shortLabel: 'WTD', icon: Users, format: 'number', category: 'guests' },
+  guest_count_mtd: { type: 'guest_count_mtd', label: 'Guests MTD', shortLabel: 'MTD', icon: Users, format: 'number', category: 'guests' },
+  pizza_count_today: { type: 'pizza_count_today', label: 'Pizzas Today', shortLabel: 'Pizzas', icon: Pizza, format: 'number', category: 'guests' },
+  pizza_count_wtd: { type: 'pizza_count_wtd', label: 'Pizzas WTD', shortLabel: 'WTD', icon: Pizza, format: 'number', category: 'guests' },
+  avg_ticket: { type: 'avg_ticket', label: 'Avg Ticket', shortLabel: 'Avg $', icon: DollarSign, format: 'currency', category: 'sales' },
+};
+
+export const METRIC_GROUPS = [
+  { label: 'Sales', metrics: ['sales_today', 'sales_wtd', 'sales_mtd', 'sales_last_year', 'avg_ticket'] as MetricType[] },
+  { label: 'Projections', metrics: ['sales_projected_today', 'sales_pace', 'sales_projected_week', 'sales_projected_month'] as MetricType[] },
+  { label: 'Labor', metrics: ['labor_percent', 'labor_cost', 'labor_hours'] as MetricType[] },
+  { label: 'Guests & Products', metrics: ['guest_count_today', 'guest_count_wtd', 'guest_count_mtd', 'pizza_count_today', 'pizza_count_wtd'] as MetricType[] },
+];
+
+export interface SalesDataForWidgets {
+  daily?: number;
+  weekly?: number;
+  monthly?: number;
+  guestCount?: { daily: number; weekly: number; monthly: number };
+  pizzaCount?: number | { daily: number; weekly: number; monthly: number };
+  avgTicket?: number;
+  comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevMonth: number };
+  projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number };
+  labor?: { laborPercent: number; laborCost: number; hoursWorked: number } | null;
+  hourly?: Array<{ hour: string; sales: number; projected?: number }>;
+  weeklyBreakdown?: Array<{ date: string; sales: number; projected?: number }>;
+}
+
+interface DashboardWidgetProps {
+  title?: string;
+  size: WidgetSize;
+  metrics: MetricType[];
+  accentColor?: string;
+  salesData: SalesDataForWidgets | null;
+  isLoading?: boolean;
+  onClick?: () => void;
+  isDragging?: boolean;
+  dragHandleProps?: any;
+}
+
+export function DashboardWidget({ 
+  title, 
+  size,
+  metrics, 
+  accentColor = '#8B5CF6', 
+  salesData,
+  isLoading = false,
+  onClick,
+  isDragging = false,
+  dragHandleProps,
+}: DashboardWidgetProps) {
+  const formatValue = (value: number | undefined, formatType: 'currency' | 'percent' | 'number' | 'hours'): string => {
+    if (value === undefined || value === null) return '--';
+    
+    switch (formatType) {
+      case 'currency':
+        return `$${Math.round(value).toLocaleString()}`;
+      case 'percent':
+        return `${Math.round(value)}%`;
+      case 'hours':
+        return `${Math.round(value)}h`;
+      case 'number':
+        return Math.round(value).toLocaleString();
+      default:
+        return String(value);
+    }
+  };
+
+  const getMetricValue = (metricType: MetricType): number | undefined => {
+    if (!salesData) return undefined;
+    
+    switch (metricType) {
+      case 'sales_today': return salesData.daily;
+      case 'sales_wtd': return salesData.weekly;
+      case 'sales_mtd': return salesData.monthly;
+      case 'sales_last_year': return salesData.comparison?.prevDayFullDay;
+      case 'sales_projected_today': return salesData.projections?.todayProjected;
+      case 'sales_projected_week': return salesData.projections?.weekProjected;
+      case 'sales_projected_month': return salesData.projections?.monthProjected;
+      case 'sales_pace': return salesData.projections?.todayPaceAdjusted;
+      case 'labor_percent': return salesData.labor?.laborPercent;
+      case 'labor_cost': return salesData.labor?.laborCost;
+      case 'labor_hours': return salesData.labor?.hoursWorked;
+      case 'guest_count_today': return salesData.guestCount?.daily;
+      case 'guest_count_wtd': return salesData.guestCount?.weekly;
+      case 'guest_count_mtd': return salesData.guestCount?.monthly;
+      case 'pizza_count_today': 
+        return typeof salesData.pizzaCount === 'number' ? salesData.pizzaCount : salesData.pizzaCount?.daily;
+      case 'pizza_count_wtd':
+        return typeof salesData.pizzaCount === 'object' ? salesData.pizzaCount?.weekly : undefined;
+      case 'avg_ticket': return salesData.avgTicket;
+      default: return undefined;
+    }
+  };
+
+  const displayMetrics = metrics.slice(0, size === 'small' ? 3 : size === 'medium' ? 4 : 6);
+  const firstMetricConfig = displayMetrics[0] ? METRIC_CONFIGS[displayMetrics[0]] : null;
+  const CornerIcon = firstMetricConfig?.icon;
+
+  // Small widget (1x1) - compact cube
+  if (size === 'small') {
+    const isSingleMetric = displayMetrics.length === 1;
+    
+    return (
+      <Card 
+        className={`aspect-square overflow-hidden cursor-pointer hover:shadow-lg transition-all relative ${isDragging ? 'opacity-50 shadow-2xl' : ''}`}
+        onClick={onClick}
+      >
+        {/* Colored header */}
+        <div className="px-3 py-2 flex items-center" style={{ backgroundColor: accentColor }}>
+          <span className="text-xs font-semibold text-white truncate flex-1">{title || 'Data'}</span>
+          {dragHandleProps && (
+            <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing ml-1">
+              <GripVertical className="h-3 w-3 text-white/70" />
+            </div>
+          )}
+        </div>
+        
+        <CardContent className="p-3 h-[calc(100%-32px)] flex flex-col justify-center">
+          {isLoading ? (
+            <div className="space-y-2">
+              <div className="h-6 bg-muted animate-pulse rounded" />
+              <div className="h-4 bg-muted animate-pulse rounded w-2/3" />
+            </div>
+          ) : (
+            <div className={`flex flex-col ${isSingleMetric ? 'items-center text-center' : 'gap-1'}`}>
+              {displayMetrics.map((metricType, index) => {
+                const config = METRIC_CONFIGS[metricType];
+                if (!config) return null;
+                const value = getMetricValue(metricType);
+                
+                return (
+                  <div key={metricType} className={isSingleMetric ? 'text-center' : ''}>
+                    <div 
+                      className={`font-extrabold truncate ${isSingleMetric ? 'text-3xl' : 'text-lg'}`}
+                      style={{ color: accentColor }}
+                    >
+                      {formatValue(value, config.format)}
+                    </div>
+                    <div className={`text-muted-foreground truncate font-medium ${isSingleMetric ? 'text-xs' : 'text-[10px]'}`}>
+                      {isSingleMetric ? config.label : config.shortLabel}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          
+          {/* Corner accent with icon */}
+          <div 
+            className="absolute bottom-0 right-0 w-12 h-12 rounded-tl-full flex items-end justify-end"
+            style={{ backgroundColor: accentColor }}
+          >
+            {CornerIcon && <CornerIcon className="w-4 h-4 text-white mr-2 mb-2" />}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Medium widget (2x1) - wide card with metrics side by side
+  if (size === 'medium') {
+    return (
+      <Card 
+        className={`overflow-hidden cursor-pointer hover:shadow-lg transition-all relative ${isDragging ? 'opacity-50 shadow-2xl' : ''}`}
+        onClick={onClick}
+      >
+        {/* Colored header */}
+        <div className="px-4 py-2 flex items-center" style={{ backgroundColor: accentColor }}>
+          <span className="text-sm font-semibold text-white truncate flex-1">{title || 'Data'}</span>
+          {dragHandleProps && (
+            <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing ml-2">
+              <GripVertical className="h-4 w-4 text-white/70" />
+            </div>
+          )}
+        </div>
+        
+        <CardContent className="p-4">
+          {isLoading ? (
+            <div className="flex gap-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="flex-1 space-y-2">
+                  <div className="h-6 bg-muted animate-pulse rounded" />
+                  <div className="h-4 bg-muted animate-pulse rounded w-2/3" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex gap-4 justify-between">
+              {displayMetrics.slice(0, 4).map((metricType) => {
+                const config = METRIC_CONFIGS[metricType];
+                if (!config) return null;
+                const value = getMetricValue(metricType);
+                const IconComponent = config.icon;
+                
+                return (
+                  <div key={metricType} className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1 mb-1">
+                      <IconComponent className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground truncate">{config.shortLabel}</span>
+                    </div>
+                    <div className="text-xl font-bold truncate" style={{ color: accentColor }}>
+                      {formatValue(value, config.format)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Large widget (2x2) - full card with chart (like Sales Overview)
+  return (
+    <Card 
+      className={`overflow-hidden cursor-pointer hover:shadow-lg transition-all ${isDragging ? 'opacity-50 shadow-2xl' : ''}`}
+      onClick={onClick}
+    >
+      {/* Colored header */}
+      <div className="px-4 py-3 flex items-center" style={{ backgroundColor: accentColor }}>
+        <span className="text-sm font-semibold text-white truncate flex-1">{title || 'Sales Overview'}</span>
+        {dragHandleProps && (
+          <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing ml-2">
+            <GripVertical className="h-4 w-4 text-white/70" />
+          </div>
+        )}
+      </div>
+      
+      <CardContent className="p-4 space-y-4">
+        {isLoading ? (
+          <>
+            <div className="grid grid-cols-3 gap-4">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="space-y-2">
+                  <div className="h-4 bg-muted animate-pulse rounded w-16" />
+                  <div className="h-8 bg-muted animate-pulse rounded" />
+                </div>
+              ))}
+            </div>
+            <div className="h-[150px] bg-muted animate-pulse rounded" />
+          </>
+        ) : (
+          <>
+            {/* Main metrics row */}
+            <div className="grid grid-cols-3 gap-4">
+              {displayMetrics.slice(0, 3).map((metricType, index) => {
+                const config = METRIC_CONFIGS[metricType];
+                if (!config) return null;
+                const value = getMetricValue(metricType);
+                
+                return (
+                  <div key={metricType} className={index === 1 ? 'text-center' : index === 2 ? 'text-right' : ''}>
+                    <p className="text-xs text-muted-foreground">{config.label}</p>
+                    <p className="text-2xl font-bold" style={{ color: accentColor }}>
+                      {formatValue(value, config.format)}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Projection badge if available */}
+            {salesData?.projections?.todayProjected && salesData.projections.todayProjected > 0 && (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 via-purple-500/10 to-amber-500/10 border border-primary/20">
+                <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
+                  <Sparkles className="h-3.5 w-3.5 text-white" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[10px] text-muted-foreground">Target EOD</p>
+                  <p className="text-sm font-bold">${Math.round(salesData.projections.todayProjected).toLocaleString()}</p>
+                </div>
+                {salesData.projections.todayPaceAdjusted && (
+                  <div className="text-right">
+                    <p className="text-[10px] text-muted-foreground">Pacing</p>
+                    <p className="text-sm font-bold">${Math.round(salesData.projections.todayPaceAdjusted).toLocaleString()}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Chart */}
+            {salesData?.hourly && salesData.hourly.length > 0 && (
+              <div className="h-[150px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={salesData.hourly}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis 
+                      dataKey="hour" 
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(h) => h.replace(':00', '')}
+                    />
+                    <YAxis 
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                    />
+                    <Tooltip 
+                      formatter={(value: number) => [`$${value.toLocaleString()}`, '']}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        fontSize: '12px'
+                      }}
+                    />
+                    <Bar dataKey="sales" fill={accentColor} radius={[4, 4, 0, 0]} />
+                    {salesData.hourly.some(h => h.projected) && (
+                      <Line 
+                        type="monotone" 
+                        dataKey="projected" 
+                        stroke="hsl(var(--muted-foreground))" 
+                        strokeDasharray="5 5"
+                        dot={false}
+                      />
+                    )}
+                  </ComposedChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Size picker options for the add widget dialog
+export const WIDGET_SIZE_OPTIONS = [
+  { 
+    size: 'small' as WidgetSize, 
+    label: 'Small', 
+    description: '1-3 metrics',
+    gridClass: 'col-span-1',
+    previewClass: 'aspect-square w-16 h-16',
+  },
+  { 
+    size: 'medium' as WidgetSize, 
+    label: 'Medium', 
+    description: 'Wide with 4 metrics',
+    gridClass: 'col-span-2',
+    previewClass: 'w-32 h-16',
+  },
+  { 
+    size: 'large' as WidgetSize, 
+    label: 'Large', 
+    description: 'Full card with chart',
+    gridClass: 'col-span-2',
+    previewClass: 'w-32 h-32',
+  },
+];

@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { ListTodo, Check, Clock } from "lucide-react";
+import { ListTodo, Check, Clock, GripVertical } from "lucide-react";
 
-interface TaskCubeProps {
+export interface TaskCubeProps {
   taskId: string;
   title: string;
   dueTime?: string;
@@ -10,6 +10,8 @@ interface TaskCubeProps {
   completedSubtasks?: number;
   accentColor?: string;
   onClick?: () => void;
+  dragHandleProps?: any;
+  isDragging?: boolean;
 }
 
 export function TaskCube({ 
@@ -20,7 +22,9 @@ export function TaskCube({
   subtaskCount = 0,
   completedSubtasks = 0,
   accentColor = '#F59E0B',
-  onClick
+  onClick,
+  dragHandleProps,
+  isDragging = false,
 }: TaskCubeProps) {
   const hasSubtasks = subtaskCount > 0;
   const completionRate = hasSubtasks && subtaskCount > 0 
@@ -29,16 +33,20 @@ export function TaskCube({
 
   return (
     <Card 
-      className={`aspect-square overflow-hidden cursor-pointer hover:shadow-lg transition-all ${isCompleted ? 'opacity-75' : ''}`}
-      style={{ borderLeft: `4px solid ${accentColor}` }}
+      className={`aspect-square overflow-hidden cursor-pointer hover:shadow-lg transition-all relative ${isDragging ? 'opacity-50 shadow-2xl' : ''} ${isCompleted ? 'opacity-75' : ''}`}
       onClick={onClick}
     >
-      <CardContent className="p-3 h-full flex flex-col justify-between">
-        {/* Title */}
-        <div className="text-xs font-medium text-muted-foreground truncate">
-          {title}
-        </div>
-        
+      {/* Colored header */}
+      <div className="px-3 py-2 flex items-center" style={{ backgroundColor: accentColor }}>
+        <span className="text-xs font-semibold text-white truncate flex-1">{title}</span>
+        {dragHandleProps && (
+          <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing ml-1" onClick={e => e.stopPropagation()}>
+            <GripVertical className="h-3 w-3 text-white/70" />
+          </div>
+        )}
+      </div>
+      
+      <CardContent className="p-3 h-[calc(100%-32px)] flex flex-col justify-center">
         {/* Main content */}
         <div className="flex-1 flex flex-col items-center justify-center">
           {isCompleted ? (
@@ -80,9 +88,12 @@ export function TaskCube({
           )}
         </div>
 
-        {/* Icon indicator */}
-        <div className="flex justify-end">
-          <ListTodo className="h-4 w-4 text-muted-foreground/50" />
+        {/* Corner accent with icon */}
+        <div 
+          className="absolute bottom-0 right-0 w-12 h-12 rounded-tl-full flex items-end justify-end"
+          style={{ backgroundColor: accentColor }}
+        >
+          <ListTodo className="w-4 h-4 text-white mr-2 mb-2" />
         </div>
       </CardContent>
     </Card>

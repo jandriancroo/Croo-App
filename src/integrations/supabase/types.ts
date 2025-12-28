@@ -3404,6 +3404,7 @@ export type Database = {
           title: string | null
           updated_at: string
           user_id: string
+          widget_size: string
         }
         Insert: {
           accent_color?: string | null
@@ -3417,6 +3418,7 @@ export type Database = {
           title?: string | null
           updated_at?: string
           user_id: string
+          widget_size?: string
         }
         Update: {
           accent_color?: string | null
@@ -3430,6 +3432,7 @@ export type Database = {
           title?: string | null
           updated_at?: string
           user_id?: string
+          widget_size?: string
         }
         Relationships: [
           {
