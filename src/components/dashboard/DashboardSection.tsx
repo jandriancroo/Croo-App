@@ -8,9 +8,10 @@ interface DashboardSectionProps {
   title?: string;
   children: ReactNode;
   isEditMode: boolean;
+  hideBorder?: boolean; // Hide the dashed border but keep drag functionality
 }
 
-export function DashboardSection({ id, title, children, isEditMode }: DashboardSectionProps) {
+export function DashboardSection({ id, title, children, isEditMode, hideBorder = false }: DashboardSectionProps) {
   const {
     attributes,
     listeners,
@@ -25,13 +26,15 @@ export function DashboardSection({ id, title, children, isEditMode }: DashboardS
     transition,
   };
 
+  const showBorder = isEditMode && !hideBorder;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative ${isDragging ? 'opacity-50 z-50' : ''} ${isEditMode ? 'border-2 border-dashed border-primary/30 rounded-lg p-2' : ''}`}
+      className={`relative ${isDragging ? 'opacity-50 z-50' : ''} ${showBorder ? 'border-2 border-dashed border-primary/30 rounded-lg p-2' : ''}`}
     >
-      {isEditMode && (
+      {isEditMode && !hideBorder && (
         <div className="flex items-center gap-2 mb-2">
           <button
             className="touch-none cursor-grab active:cursor-grabbing p-1.5 rounded-md bg-primary/10 hover:bg-primary/20 transition-colors"
