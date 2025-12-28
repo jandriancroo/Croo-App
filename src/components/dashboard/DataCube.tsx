@@ -163,11 +163,11 @@ export function DataCube({
                   {isSingleMetric && (
                     <div 
                       className="p-1.5 rounded-full hidden md:block"
-                      style={{ backgroundColor: `${effectiveColor}15` }}
+                      style={{ backgroundColor: isOled ? 'hsl(215, 20%, 75%, 0.15)' : `${effectiveColor}15` }}
                     >
                       <IconComponent 
                         className="shrink-0 h-4 w-4" 
-                        color={effectiveColor}
+                        color={isOled ? 'hsl(215, 20%, 75%)' : effectiveColor}
                       />
                     </div>
                   )}
@@ -180,7 +180,7 @@ export function DataCube({
                             ? (isFirst ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl') 
                             : (isFirst ? 'text-xl md:text-2xl' : 'text-lg md:text-xl')
                       }`}
-                      style={{ color: effectiveColor }}
+                      style={{ color: isOled ? 'hsl(215, 20%, 75%)' : effectiveColor }}
                     >
                       {formatValue(value, config.format)}
                     </div>
