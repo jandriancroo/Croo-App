@@ -74,8 +74,9 @@ export function DataCube({
       
       // Weekly sales
       case 'sales_wtd': return salesData.weekly;
+      case 'sales_pace_week': return salesData.projections?.weekPaceAdjusted ?? salesData.projections?.weekProjected;
       case 'sales_projected_week': return salesData.projections?.weekProjected;
-      case 'sales_pace_week': return salesData.projections?.weekProjected;
+      case 'sales_last_year_week': return salesData.comparison?.prevWeekFullWeek ?? salesData.comparison?.prevWeek;
       
       // Weekly guests/products  
       case 'guest_count_wtd': return salesData.guestCount?.weekly;
@@ -89,12 +90,19 @@ export function DataCube({
       
       // Monthly sales
       case 'sales_mtd': return salesData.monthly;
+      case 'sales_pace_month': return salesData.projections?.monthPaceAdjusted ?? salesData.projections?.monthProjected;
       case 'sales_projected_month': return salesData.projections?.monthProjected;
+      case 'sales_last_year_month': return salesData.comparison?.prevMonthFullMonth ?? salesData.comparison?.prevMonth;
       
       // Monthly guests/products
       case 'guest_count_mtd': return salesData.guestCount?.monthly;
       case 'pizza_count_mtd':
         return typeof salesData.pizzaCount === 'object' ? salesData.pizzaCount?.monthly : undefined;
+      
+      // Monthly labor
+      case 'labor_percent_mtd': return salesData.monthlyLabor?.laborPercent;
+      case 'labor_cost_mtd': return salesData.monthlyLabor?.laborCost;
+      case 'labor_hours_mtd': return salesData.monthlyLabor?.hoursWorked;
       
       default: return undefined;
     }
