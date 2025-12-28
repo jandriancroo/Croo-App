@@ -179,8 +179,8 @@ export function DataCube({
                           : isDoubleMetric 
                             ? (isFirst ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl') 
                             : (isFirst ? 'text-xl md:text-2xl' : 'text-lg md:text-xl')
-                      }`}
-                      style={{ color: isOled ? '#b4b4b4' : effectiveColor }}
+                      } ${isOled ? 'text-muted-foreground' : ''}`}
+                      style={isOled ? undefined : { color: effectiveColor }}
                     >
                       {formatValue(value, config.format)}
                     </div>
