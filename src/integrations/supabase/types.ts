@@ -3391,6 +3391,50 @@ export type Database = {
           },
         ]
       }
+      user_dashboard_cubes: {
+        Row: {
+          accent_color: string | null
+          created_at: string
+          display_order: number
+          id: string
+          location_id: string
+          metrics: Json
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accent_color?: string | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          location_id: string
+          metrics?: Json
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accent_color?: string | null
+          created_at?: string
+          display_order?: number
+          id?: string
+          location_id?: string
+          metrics?: Json
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_dashboard_cubes_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_location_notifications: {
         Row: {
           created_at: string
