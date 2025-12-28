@@ -23,7 +23,7 @@ import { getBusinessDateInTimezone, getBusinessDayRangeInTimezone } from '@/util
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
-import { useSalesDataForCubes } from '@/hooks/useSalesDataForCubes';
+import { SalesDataForWidgets } from '@/components/dashboard/DashboardWidget';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
@@ -83,7 +83,8 @@ export default function Dashboard() {
   const { currentLocation, isChecklistOnlyLocation } = useAppLocation();
   const { getTodayInTimezone, timezone } = useLocationTimezone();
   const { animationAmount } = useCrooCashAnimation();
-  const { salesData: cubesSalesData, isLoading: isLoadingCubesSales } = useSalesDataForCubes();
+  const [salesOverviewData, setSalesOverviewData] = useState<SalesDataForWidgets | null>(null);
+  const [isLoadingSales, setIsLoadingSales] = useState(true);
   const { isSectionVisible, refreshSections } = useDashboardSections();
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
@@ -778,14 +779,18 @@ export default function Dashboard() {
   // Only render WidgetsSection if QuBeyond integration is active
   const dashboardContent = (hasQuBeyondIntegration && isSectionVisible('data-cubes')) ? (
     <WidgetsSection 
-      salesData={cubesSalesData} 
-      isLoadingSales={isLoadingCubesSales} 
+      salesData={salesOverviewData} 
+      isLoadingSales={isLoadingSales} 
       hasQuBeyondIntegration={hasQuBeyondIntegration} 
       showAddDialog={showAddCubeDialog} 
       onAddDialogChange={setShowAddCubeDialog} 
       locationSettings={locationSettings} 
       isReorderMode={isEditMode}
       checklistsContent={checklistsGridContent}
+      onSalesDataChange={(data) => {
+        setSalesOverviewData(data);
+        setIsLoadingSales(false);
+      }}
     />
   ) : (
     // If no QuBeyond, just render the checklists grid directly

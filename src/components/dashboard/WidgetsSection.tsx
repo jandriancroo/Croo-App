@@ -51,6 +51,7 @@ interface SortableDataCubeProps {
   isLoading: boolean;
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
   isReorderMode: boolean;
+  onSalesDataChange?: (data: SalesDataForWidgets | null) => void;
 }
 
 interface SortableChecklistsBlockProps {
@@ -58,7 +59,7 @@ interface SortableChecklistsBlockProps {
   isReorderMode: boolean;
 }
 
-function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReorderMode }: SortableDataCubeProps) {
+function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReorderMode, onSalesDataChange }: SortableDataCubeProps) {
   const [salesOverviewOpen, setSalesOverviewOpen] = useState(() => {
     const saved = localStorage.getItem('dashboard-sales-overview-open');
     return saved !== null ? JSON.parse(saved) : true;
@@ -116,7 +117,7 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent className={isReorderMode ? 'opacity-85' : ''}>
-              <SalesOverview locationSettings={locationSettings} />
+              <SalesOverview locationSettings={locationSettings} onSalesDataChange={onSalesDataChange as any} />
             </CollapsibleContent>
           </Collapsible>
         </Card>
@@ -203,6 +204,7 @@ interface WidgetsSectionProps {
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
   isReorderMode?: boolean;
   checklistsContent?: ReactNode;
+  onSalesDataChange?: (data: SalesDataForWidgets | null) => void;
 }
 
 export function WidgetsSection({ 
@@ -214,6 +216,7 @@ export function WidgetsSection({
   locationSettings,
   isReorderMode = false,
   checklistsContent,
+  onSalesDataChange,
 }: WidgetsSectionProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
@@ -455,6 +458,7 @@ export function WidgetsSection({
                   isLoading={isLoadingSales}
                   locationSettings={locationSettings}
                   isReorderMode={isReorderMode}
+                  onSalesDataChange={onSalesDataChange}
                 />
               );
             })}

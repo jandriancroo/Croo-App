@@ -43,6 +43,7 @@ interface LocationSettings {
 
 interface SalesOverviewProps {
   locationSettings?: LocationSettings | null;
+  onSalesDataChange?: (data: SalesData | null) => void;
 }
 
 // Debug state to capture raw API response for diagnostics
@@ -56,7 +57,7 @@ interface DiagnosticInfo {
   authenticated?: boolean;
 }
 
-export function SalesOverview({ locationSettings }: SalesOverviewProps) {
+export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOverviewProps) {
   const { currentLocation } = useAppLocation();
   const [targetDate, setTargetDate] = useState<Date>(new Date());
   const [activeTab, setActiveTab] = useState<string>('today');
@@ -506,7 +507,11 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
     return { ...rawSalesData, hourly: undefined };
   }, [rawSalesData, locationSettings]);
 
-  // Aggregate monthly breakdown into weekly buckets (Mon-Sun) for mobile view
+  // Notify parent component when sales data changes (for data cubes to use)
+  useEffect(() => {
+    onSalesDataChange?.(salesData || null);
+  }, [salesData, onSalesDataChange]);
+
   // Only include days that fall within the selected month to avoid bleeding into other months
   const monthlyWeeklyAggregated = useMemo(() => {
     if (!salesData?.monthlyBreakdown || salesData.monthlyBreakdown.length === 0) return [];
