@@ -147,6 +147,10 @@ export function DataCube({
   const displayMetrics = metrics.slice(0, 3);
   const isSingleMetric = displayMetrics.length === 1;
   const isDoubleMetric = displayMetrics.length === 2;
+  
+  // Get the icon for the first metric to show in the corner accent
+  const firstMetricConfig = displayMetrics[0] ? METRIC_CONFIGS[displayMetrics[0]] : null;
+  const CornerIcon = firstMetricConfig?.icon;
 
   return (
     <Card 
@@ -222,11 +226,15 @@ export function DataCube({
           )}
         </div>
         
-        {/* Subtle corner accent */}
+        {/* Corner accent with icon */}
         <div 
-          className="absolute bottom-0 right-0 w-8 h-8 opacity-10 rounded-tl-full"
+          className="absolute bottom-0 right-0 w-12 h-12 rounded-tl-full flex items-end justify-end"
           style={{ backgroundColor: accentColor }}
-        />
+        >
+          {CornerIcon && (
+            <CornerIcon className="w-4 h-4 text-white mr-2 mb-2" />
+          )}
+        </div>
       </CardContent>
     </Card>
   );
