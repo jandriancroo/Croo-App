@@ -20,7 +20,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 const themes = [
   { value: 'default', label: 'Default' },
-  { value: 'oled', label: 'OLED Dark' },
+  { value: 'oled', label: 'Dark Knight' },
   { value: 'earth', label: 'Warm Earth' },
   { value: 'ocean', label: 'Ocean Breeze' },
   { value: 'sage', label: 'Sage' },
