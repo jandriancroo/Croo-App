@@ -8,7 +8,7 @@ import { Settings2 } from 'lucide-react';
 import { DataCube, MetricType, SalesDataForCubes } from './DataCube';
 import { ChecklistCube } from './ChecklistCube';
 import { TaskCube } from './TaskCube';
-import { EditDashboardDialog } from './EditDashboardDialog';
+import { EditDashboardDialog, SectionConfig, SectionKey, DASHBOARD_SECTIONS } from './EditDashboardDialog';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { getBusinessDateInTimezone, getBusinessDayRangeInTimezone } from '@/utils/timezoneUtils';
 
@@ -40,9 +40,16 @@ interface TaskCompletionData {
 interface DataCubesSectionProps {
   salesData: SalesDataForCubes | null;
   isLoadingSales?: boolean;
+  showEditButton?: boolean;
+  hasQuBeyondIntegration?: boolean;
 }
 
-export function DataCubesSection({ salesData, isLoadingSales = false }: DataCubesSectionProps) {
+export function DataCubesSection({ 
+  salesData, 
+  isLoadingSales = false, 
+  showEditButton = false,
+  hasQuBeyondIntegration = true,
+}: DataCubesSectionProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
@@ -78,6 +85,33 @@ export function DataCubesSection({ salesData, isLoadingSales = false }: DataCube
         accentColor: cube.accent_color || '#8B5CF6',
         displayOrder: cube.display_order,
       })) as CubeConfig[];
+    },
+    enabled: !!user?.id && !!currentLocation?.id,
+  });
+
+  // Fetch user's dashboard section preferences
+  const { data: sectionConfigs = [] } = useQuery({
+    queryKey: ['user-dashboard-sections', user?.id, currentLocation?.id],
+    queryFn: async () => {
+      if (!user?.id || !currentLocation?.id) return [];
+
+      const { data, error } = await supabase
+        .from('user_dashboard_sections')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('location_id', currentLocation.id)
+        .order('display_order');
+
+      if (error) {
+        console.error('Error fetching dashboard sections:', error);
+        return [];
+      }
+
+      return (data || []).map(s => ({
+        key: s.section_key as SectionKey,
+        isVisible: s.is_visible,
+        displayOrder: s.display_order,
+      })) as SectionConfig[];
     },
     enabled: !!user?.id && !!currentLocation?.id,
   });
@@ -177,18 +211,23 @@ export function DataCubesSection({ salesData, isLoadingSales = false }: DataCube
     queryClient.invalidateQueries({ 
       queryKey: ['user-dashboard-cubes', user?.id, currentLocation?.id] 
     });
+    queryClient.invalidateQueries({ 
+      queryKey: ['user-dashboard-sections', user?.id, currentLocation?.id] 
+    });
   };
 
-  // Don't render anything if no cubes (they'll add via Edit Dashboard in reorder mode)
-  if (cubes.length === 0) {
+  // If no cubes and no edit button shown, render nothing
+  if (cubes.length === 0 && !showEditButton) {
     return (
       <EditDashboardDialog
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
         locationId={currentLocation?.id || ''}
         existingCubes={cubes}
+        existingSections={sectionConfigs}
         onSave={handleRefresh}
         salesData={salesData}
+        hasQuBeyondIntegration={hasQuBeyondIntegration}
       />
     );
   }
@@ -204,7 +243,6 @@ export function DataCubesSection({ salesData, isLoadingSales = false }: DataCube
           completed={data?.completed || 0}
           expected={data?.expected || 0}
           accentColor={cube.accentColor}
-          onClick={() => setShowEditDialog(true)}
         />
       );
     }
@@ -220,7 +258,6 @@ export function DataCubesSection({ salesData, isLoadingSales = false }: DataCube
           subtaskCount={data?.subtaskCount || 0}
           completedSubtasks={data?.completedSubtasks || 0}
           accentColor={cube.accentColor}
-          onClick={() => setShowEditDialog(true)}
         />
       );
     }
@@ -233,40 +270,83 @@ export function DataCubesSection({ salesData, isLoadingSales = false }: DataCube
         accentColor={cube.accentColor}
         salesData={salesData}
         isLoading={isLoadingSales}
-        onClick={() => setShowEditDialog(true)}
       />
     );
   };
 
   return (
     <div className="space-y-3">
-      {/* Header with edit button */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-muted-foreground">Data Cubes</h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1 text-xs"
-          onClick={() => setShowEditDialog(true)}
-        >
-          <Settings2 className="h-3.5 w-3.5" />
-          Edit
-        </Button>
-      </div>
-
       {/* Cubes Grid - 2 columns on mobile */}
-      <div className="grid grid-cols-2 gap-3">
-        {cubes.map(renderCube)}
-      </div>
+      {cubes.length > 0 && (
+        <div className="grid grid-cols-2 gap-3">
+          {cubes.map(renderCube)}
+        </div>
+      )}
 
       <EditDashboardDialog
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
         locationId={currentLocation?.id || ''}
         existingCubes={cubes}
+        existingSections={sectionConfigs}
         onSave={handleRefresh}
         salesData={salesData}
+        hasQuBeyondIntegration={hasQuBeyondIntegration}
       />
     </div>
   );
+}
+
+// Hook to get section visibility preferences
+export function useDashboardSections() {
+  const { user } = useAuth();
+  const { currentLocation } = useAppLocation();
+  const queryClient = useQueryClient();
+
+  const { data: sectionConfigs = [], isLoading } = useQuery({
+    queryKey: ['user-dashboard-sections', user?.id, currentLocation?.id],
+    queryFn: async () => {
+      if (!user?.id || !currentLocation?.id) return [];
+
+      const { data, error } = await supabase
+        .from('user_dashboard_sections')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('location_id', currentLocation.id)
+        .order('display_order');
+
+      if (error) {
+        console.error('Error fetching dashboard sections:', error);
+        return [];
+      }
+
+      return (data || []).map(s => ({
+        key: s.section_key as SectionKey,
+        isVisible: s.is_visible,
+        displayOrder: s.display_order,
+      })) as SectionConfig[];
+    },
+    enabled: !!user?.id && !!currentLocation?.id,
+  });
+
+  const isSectionVisible = (key: SectionKey): boolean => {
+    // If no config exists, default to visible
+    if (sectionConfigs.length === 0) return true;
+    
+    const config = sectionConfigs.find(s => s.key === key);
+    return config?.isVisible ?? true;
+  };
+
+  const refreshSections = () => {
+    queryClient.invalidateQueries({ 
+      queryKey: ['user-dashboard-sections', user?.id, currentLocation?.id] 
+    });
+  };
+
+  return {
+    sectionConfigs,
+    isSectionVisible,
+    isLoading,
+    refreshSections,
+  };
 }

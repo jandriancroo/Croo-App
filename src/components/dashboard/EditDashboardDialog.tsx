@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Trash2, X, BarChart3, ClipboardCheck, ListTodo } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Plus, Trash2, X, BarChart3, ClipboardCheck, ListTodo, LayoutGrid, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
@@ -28,6 +28,19 @@ const ACCENT_COLORS = [
   { value: "#6366F1", label: "Indigo" },
 ];
 
+// Available dashboard sections
+export const DASHBOARD_SECTIONS = [
+  { key: 'data-cubes', label: 'Data Cubes', description: 'Sales and metrics at a glance' },
+  { key: 'sales-overview', label: 'Sales Overview', description: 'Detailed sales breakdown' },
+  { key: 'assigned-tasks', label: 'Assigned Tasks', description: 'Your temporary tasks' },
+  { key: 'event-tasks', label: 'Event Tasks', description: 'Daily event cards' },
+  { key: 'cash-handling', label: 'Cash Handling', description: 'Drawer and safe counts' },
+  { key: 'catering-orders', label: 'Catering Orders', description: 'Today\'s catering pickups' },
+  { key: 'checklists', label: 'Checklists', description: 'Daily/weekly/monthly checklists' },
+] as const;
+
+export type SectionKey = typeof DASHBOARD_SECTIONS[number]['key'];
+
 type CubeType = 'data' | 'checklist' | 'task';
 
 interface CubeConfig {
@@ -42,13 +55,21 @@ interface CubeConfig {
   toDelete?: boolean;
 }
 
+export interface SectionConfig {
+  key: SectionKey;
+  isVisible: boolean;
+  displayOrder: number;
+}
+
 interface EditDashboardDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   locationId: string;
   existingCubes: CubeConfig[];
+  existingSections?: SectionConfig[];
   onSave: () => void;
   salesData: SalesDataForCubes | null;
+  hasQuBeyondIntegration?: boolean;
 }
 
 export function EditDashboardDialog({ 
@@ -56,15 +77,19 @@ export function EditDashboardDialog({
   onOpenChange, 
   locationId, 
   existingCubes,
+  existingSections,
   onSave,
-  salesData
+  salesData,
+  hasQuBeyondIntegration = true,
 }: EditDashboardDialogProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
   const [cubes, setCubes] = useState<CubeConfig[]>([]);
+  const [sections, setSections] = useState<SectionConfig[]>([]);
   const [editingCubeIndex, setEditingCubeIndex] = useState<number | null>(null);
   const [addingType, setAddingType] = useState<CubeType | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState<'sections' | 'cubes'>('sections');
 
   // Fetch available checklists
   const { data: checklists = [] } = useQuery({
@@ -104,10 +129,29 @@ export function EditDashboardDialog({
   useEffect(() => {
     if (open) {
       setCubes(existingCubes.map((c, i) => ({ ...c, displayOrder: i })));
+      
+      // Initialize sections - use existing or create defaults
+      if (existingSections && existingSections.length > 0) {
+        setSections(existingSections);
+      } else {
+        // Default all sections to visible
+        setSections(DASHBOARD_SECTIONS.map((s, i) => ({
+          key: s.key,
+          isVisible: true,
+          displayOrder: i,
+        })));
+      }
+      
       setEditingCubeIndex(null);
       setAddingType(null);
     }
-  }, [open, existingCubes]);
+  }, [open, existingCubes, existingSections]);
+
+  const toggleSectionVisibility = (key: SectionKey) => {
+    setSections(sections.map(s => 
+      s.key === key ? { ...s, isVisible: !s.isVisible } : s
+    ));
+  };
 
   const handleAddDataCube = () => {
     const newCube: CubeConfig = {
@@ -184,6 +228,31 @@ export function EditDashboardDialog({
     setIsSubmitting(true);
     
     try {
+      // Save section preferences
+      // First delete existing
+      await supabase
+        .from('user_dashboard_sections')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('location_id', locationId);
+
+      // Insert new section preferences
+      if (sections.length > 0) {
+        const sectionRecords = sections.map((s, index) => ({
+          user_id: user.id,
+          location_id: locationId,
+          section_key: s.key,
+          is_visible: s.isVisible,
+          display_order: index,
+        }));
+
+        const { error: sectionsError } = await supabase
+          .from('user_dashboard_sections')
+          .insert(sectionRecords);
+        
+        if (sectionsError) throw sectionsError;
+      }
+
       // Delete cubes marked for deletion
       const toDelete = cubes.filter(c => c.toDelete && c.id);
       if (toDelete.length > 0) {
@@ -250,6 +319,14 @@ export function EditDashboardDialog({
   const addedChecklistIds = activeCubes.filter(c => c.cubeType === 'checklist').map(c => c.referenceId);
   const addedTaskIds = activeCubes.filter(c => c.cubeType === 'task').map(c => c.referenceId);
 
+  // Filter sections based on available features
+  const availableSections = DASHBOARD_SECTIONS.filter(s => {
+    if ((s.key === 'data-cubes' || s.key === 'sales-overview') && !hasQuBeyondIntegration) {
+      return false;
+    }
+    return true;
+  });
+
   const renderCubePreview = (cube: CubeConfig, index: number) => {
     const realIndex = cubes.indexOf(cube);
     
@@ -303,33 +380,71 @@ export function EditDashboardDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2">
-          {/* Main View - Grid of cubes */}
+          {/* Main View - Tabs for Sections and Cubes */}
           {editingCubeIndex === null && addingType === null ? (
-            <>
-              <div className="grid grid-cols-2 gap-3">
-                {activeCubes.map((cube, index) => (
-                  <div key={cube.id || `new-${index}`}>
-                    {renderCubePreview(cube, index)}
-                  </div>
-                ))}
-                
-                {/* Add Cube Button */}
-                <Button
-                  variant="outline"
-                  className="aspect-square h-auto flex flex-col gap-2 border-dashed"
-                  onClick={() => setAddingType('data')}
-                >
-                  <Plus className="h-6 w-6" />
-                  <span className="text-xs">Add Cube</span>
-                </Button>
-              </div>
-              
-              {activeCubes.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No cubes yet. Add one to display key info at a glance.
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'sections' | 'cubes')} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="sections" className="gap-1.5">
+                  <LayoutGrid className="h-3.5 w-3.5" />
+                  Cards
+                </TabsTrigger>
+                <TabsTrigger value="cubes" className="gap-1.5">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Cubes
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Sections Tab - Toggle visibility */}
+              <TabsContent value="sections" className="mt-4 space-y-2">
+                <p className="text-xs text-muted-foreground mb-3">
+                  Toggle which cards appear on your dashboard
                 </p>
-              )}
-            </>
+                {availableSections.map(section => {
+                  const config = sections.find(s => s.key === section.key);
+                  const isVisible = config?.isVisible ?? true;
+                  
+                  return (
+                    <div 
+                      key={section.key}
+                      className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm">{section.label}</p>
+                        <p className="text-xs text-muted-foreground truncate">{section.description}</p>
+                      </div>
+                      <Switch
+                        checked={isVisible}
+                        onCheckedChange={() => toggleSectionVisibility(section.key)}
+                      />
+                    </div>
+                  );
+                })}
+              </TabsContent>
+
+              {/* Cubes Tab - Add/Edit cubes */}
+              <TabsContent value="cubes" className="mt-4">
+                <p className="text-xs text-muted-foreground mb-3">
+                  Add quick-glance cubes for sales, checklists, or tasks
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {activeCubes.map((cube, index) => (
+                    <div key={cube.id || `new-${index}`}>
+                      {renderCubePreview(cube, index)}
+                    </div>
+                  ))}
+                  
+                  {/* Add Cube Button */}
+                  <Button
+                    variant="outline"
+                    className="aspect-square h-auto flex flex-col gap-2 border-dashed"
+                    onClick={() => setAddingType('data')}
+                  >
+                    <Plus className="h-6 w-6" />
+                    <span className="text-xs">Add</span>
+                  </Button>
+                </div>
+              </TabsContent>
+            </Tabs>
           ) : addingType !== null ? (
             /* Selecting what type of cube to add */
             <div className="space-y-4">
@@ -489,47 +604,43 @@ export function EditDashboardDialog({
                       ))}
                     </div>
                   )}
-
-                  {METRIC_GROUPS.map(group => (
-                    <div key={group.label} className="space-y-2">
-                      <div className="text-xs font-medium text-muted-foreground">{group.label}</div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {group.metrics.map(metric => {
-                          const isSelected = editingCube.metrics.includes(metric);
-                          const isDisabled = !isSelected && editingCube.metrics.length >= 3;
-                          
-                          return (
-                            <div key={metric} className="flex items-center gap-2">
-                              <Checkbox
-                                id={`metric-${metric}`}
-                                checked={isSelected}
+                  
+                  <div className="space-y-4 max-h-48 overflow-y-auto">
+                    {METRIC_GROUPS.map((group) => (
+                      <div key={group.label}>
+                        <h4 className="text-xs font-medium text-muted-foreground mb-1">{group.label}</h4>
+                        <div className="space-y-1">
+                          {group.metrics.map((metric) => {
+                            const config = METRIC_CONFIGS[metric];
+                            const isSelected = editingCube.metrics.includes(metric);
+                            const isDisabled = !isSelected && editingCube.metrics.length >= 3;
+                            
+                            return (
+                              <button
+                                key={metric}
+                                className={`w-full flex items-center gap-2 p-2 rounded text-left text-sm transition-colors ${
+                                  isSelected 
+                                    ? 'bg-primary/10 border border-primary/30' 
+                                    : isDisabled
+                                      ? 'opacity-50 cursor-not-allowed'
+                                      : 'hover:bg-muted'
+                                }`}
+                                onClick={() => !isDisabled && toggleMetric(editingCubeIndex, metric)}
                                 disabled={isDisabled}
-                                onCheckedChange={() => toggleMetric(editingCubeIndex, metric)}
-                              />
-                              <label
-                                htmlFor={`metric-${metric}`}
-                                className={`text-sm cursor-pointer ${isDisabled ? 'opacity-50' : ''}`}
                               >
-                                {METRIC_CONFIGS[metric].label}
-                              </label>
-                            </div>
-                          );
-                        })}
+                                <span className="flex-1">{config.shortLabel}</span>
+                                {isSelected && <Badge variant="secondary" className="text-[10px]">Selected</Badge>}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* Preview */}
-              <div className="space-y-2">
-                <Label>Preview</Label>
-                <div className="w-32 mx-auto">
-                  {renderCubePreview(editingCube, editingCubeIndex)}
-                </div>
-              </div>
-
-              {/* Delete button */}
+              {/* Delete Button */}
               <Button
                 variant="destructive"
                 size="sm"
@@ -537,18 +648,18 @@ export function EditDashboardDialog({
                 onClick={() => handleDeleteCube(editingCubeIndex)}
               >
                 <Trash2 className="h-4 w-4" />
-                Delete Cube
+                Remove Cube
               </Button>
             </div>
           ) : null}
         </div>
 
-        <DialogFooter className="pt-4 border-t">
+        <DialogFooter className="border-t pt-4">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={isSubmitting}>
-            {isSubmitting ? "Saving..." : "Save Dashboard"}
+            {isSubmitting ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
       </DialogContent>
