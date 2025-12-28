@@ -11,7 +11,8 @@ import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Bank
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
-import { DataCubesSection, useDashboardSections } from '@/components/dashboard/DataCubesSection';
+import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
+import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { EditDashboardDialog, SectionKey } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType } from '@/components/dashboard/DataCube';
 import { Settings2 } from 'lucide-react';
@@ -566,7 +567,7 @@ export default function Dashboard() {
   const standardSections: Record<string, JSX.Element | null> = {
     // Alerts disabled on dashboard - view them on the Alerts page
     'alerts': null,
-    'data-cubes': (hasQuBeyondIntegration && isSectionVisible('data-cubes')) ? <DataCubesSection salesData={cubesSalesData} isLoadingSales={isLoadingCubesSales} hasQuBeyondIntegration={hasQuBeyondIntegration} /> : null,
+    'data-cubes': (hasQuBeyondIntegration && isSectionVisible('data-cubes')) ? <WidgetsSection salesData={cubesSalesData} isLoadingSales={isLoadingCubesSales} hasQuBeyondIntegration={hasQuBeyondIntegration} showEditButton /> : null,
     'sales-overview': (hasQuBeyondIntegration && isSectionVisible('sales-overview')) ? (
       <Collapsible 
         open={salesOverviewOpen} 
