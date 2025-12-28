@@ -34,16 +34,17 @@ export function DashboardSection({ id, title, children, isEditMode, hideBorder =
       style={style}
       className={`relative ${isDragging ? 'opacity-50 z-50' : ''} ${showBorder ? 'border-2 border-dashed border-primary/30 rounded-lg p-2' : ''}`}
     >
-      {isEditMode && !hideBorder && (
-        <div className="flex items-center gap-2 mb-2">
+      {isEditMode && (
+        <div className={`flex items-center gap-2 mb-2 ${hideBorder ? 'px-1' : ''}`}>
           <button
             className="touch-none cursor-grab active:cursor-grabbing p-1.5 rounded-md bg-primary/10 hover:bg-primary/20 transition-colors"
             {...attributes}
             {...listeners}
+            aria-label="Drag to reorder section"
           >
             <GripVertical className="h-4 w-4 text-primary" />
           </button>
-          <span className="text-xs text-muted-foreground">Drag to reorder</span>
+          {!hideBorder && <span className="text-xs text-muted-foreground">Drag to reorder</span>}
         </div>
       )}
       {children}
