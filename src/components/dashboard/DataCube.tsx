@@ -155,20 +155,21 @@ export function DataCube({
     >
       {/* Colored header with title */}
       <div 
-        className="px-3 py-1.5"
+        className="px-3 py-2 flex items-center"
         style={{ backgroundColor: accentColor }}
       >
-        <span className="text-[11px] font-semibold text-white truncate block">
+        <span className="text-xs font-semibold text-white truncate">
           {title || 'Data'}
         </span>
       </div>
       
-      <CardContent className="p-2 flex-1 flex flex-col justify-center">
+      <CardContent className="p-3 h-[calc(100%-32px)] flex flex-col justify-between">
+        
         {/* Metrics */}
-        <div className={`flex flex-col ${isSingleMetric ? 'items-center justify-center' : 'justify-center gap-1'}`}>
+        <div className={`flex-1 flex flex-col ${isSingleMetric ? 'justify-center' : 'justify-around'}`}>
           {isLoading ? (
-            <div className="space-y-2 w-full">
-              <div className="h-8 bg-muted animate-pulse rounded" />
+            <div className="space-y-2">
+              <div className="h-6 bg-muted animate-pulse rounded" />
               <div className="h-4 bg-muted animate-pulse rounded w-2/3" />
             </div>
           ) : (
@@ -177,35 +178,55 @@ export function DataCube({
               if (!config) return null;
               
               const value = getMetricValue(metricType);
+              const IconComponent = config.icon;
               const isFirst = index === 0;
               
               return (
                 <div 
                   key={metricType} 
-                  className={`${isSingleMetric ? 'text-center' : 'flex items-baseline justify-between gap-1'}`}
+                  className={`flex items-center gap-2 ${isSingleMetric ? 'flex-col text-center' : ''}`}
                 >
-                  <div 
-                    className={`font-black leading-none ${
-                      isSingleMetric 
-                        ? 'text-4xl mb-1' 
-                        : isDoubleMetric 
-                          ? (isFirst ? 'text-3xl' : 'text-2xl') 
-                          : 'text-xl'
-                    }`}
-                    style={{ color: accentColor }}
-                  >
-                    {formatValue(value, config.format)}
-                  </div>
-                  <div className={`text-muted-foreground font-medium leading-tight ${
-                    isSingleMetric ? 'text-sm' : 'text-xs'
-                  }`}>
-                    {isSingleMetric ? config.label : config.shortLabel}
+                  {isSingleMetric && (
+                    <div 
+                      className="p-1.5 rounded-full"
+                      style={{ backgroundColor: `${accentColor}15` }}
+                    >
+                      <IconComponent 
+                        className="shrink-0 h-4 w-4" 
+                        color={accentColor}
+                      />
+                    </div>
+                  )}
+                  <div className={`min-w-0 ${isSingleMetric ? 'text-center' : 'flex-1'}`}>
+                    <div 
+                      className={`font-extrabold truncate ${
+                        isSingleMetric 
+                          ? 'text-3xl' 
+                          : isDoubleMetric 
+                            ? (isFirst ? 'text-2xl' : 'text-xl') 
+                            : (isFirst ? 'text-xl' : 'text-lg')
+                      }`}
+                      style={{ color: accentColor }}
+                    >
+                      {formatValue(value, config.format)}
+                    </div>
+                    <div className={`text-muted-foreground truncate font-medium ${
+                      isSingleMetric ? 'text-xs' : 'text-[10px]'
+                    }`}>
+                      {isSingleMetric ? config.label : config.shortLabel}
+                    </div>
                   </div>
                 </div>
               );
             })
           )}
         </div>
+        
+        {/* Subtle corner accent */}
+        <div 
+          className="absolute bottom-0 right-0 w-8 h-8 opacity-10 rounded-tl-full"
+          style={{ backgroundColor: accentColor }}
+        />
       </CardContent>
     </Card>
   );
