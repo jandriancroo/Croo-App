@@ -906,20 +906,19 @@ export default function Dashboard() {
               <Button onClick={() => navigate('/tasks')}>Go to Tasks</Button>
             </CardContent>
           </Card> : <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={sectionOrder.filter(id => sections[id as keyof typeof sections] && id !== 'data-cubes')} strategy={verticalListSortingStrategy}>
+            <SortableContext items={sectionOrder.filter(id => sections[id as keyof typeof sections])} strategy={verticalListSortingStrategy}>
               {sectionOrder
                 .filter(sectionId => sections[sectionId as keyof typeof sections])
-                .map(sectionId => {
-                  // Data cubes section renders without DashboardSection wrapper (has its own reordering)
-                  if (sectionId === 'data-cubes') {
-                    return <div key={sectionId}>{sections[sectionId as keyof typeof sections]}</div>;
-                  }
-                  return (
-                    <DashboardSection key={sectionId} id={sectionId} isEditMode={isEditMode}>
-                      {sections[sectionId as keyof typeof sections]}
-                    </DashboardSection>
-                  );
-                })}
+                .map(sectionId => (
+                  <DashboardSection 
+                    key={sectionId} 
+                    id={sectionId} 
+                    isEditMode={isEditMode}
+                    hideBorder={sectionId === 'data-cubes'}
+                  >
+                    {sections[sectionId as keyof typeof sections]}
+                  </DashboardSection>
+                ))}
             </SortableContext>
           </DndContext>}
       </div>
