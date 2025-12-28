@@ -1183,7 +1183,7 @@ export default function LogBook() {
                                       onClick={() => followupMutation.mutate(entry.id)}
                                       disabled={followupMutation.isPending}
                                     >
-                                      Mark Re-Make Complete
+                                      Pending Remake
                                     </Button>
                                   )}
                                 </div>
@@ -1213,7 +1213,7 @@ export default function LogBook() {
                                       onClick={() => followupMutation.mutate(entry.id)}
                                       disabled={followupMutation.isPending}
                                     >
-                                      Need to Refund
+                                      Pending Refund
                                     </Button>
                                   )}
                                 </div>
