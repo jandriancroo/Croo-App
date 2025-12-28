@@ -124,34 +124,34 @@ All colors MUST be HSL.
 [data-theme="oled"] {
   --background: 0 0% 0%;
   --foreground: 0 0% 92%;
-  --card: 0 0% 0%;
+  --card: 0 0% 5%;
   --card-foreground: 0 0% 92%;
-  --popover: 0 0% 6%;
+  --popover: 0 0% 5%;
   --popover-foreground: 0 0% 92%;
-  --primary: 0 0% 100%;
+  --primary: 0 0% 92%;
   --primary-foreground: 0 0% 0%;
-  --secondary: 0 0% 10%;
+  --secondary: 0 0% 8%;
   --secondary-foreground: 0 0% 85%;
-  --muted: 0 0% 8%;
-  --muted-foreground: 0 0% 55%;
-  --accent: 0 0% 100%;
-  --accent-foreground: 0 0% 0%;
-  --destructive: 0 70% 50%;
+  --muted: 0 0% 6%;
+  --muted-foreground: 0 0% 50%;
+  --accent: 0 0% 0%;
+  --accent-foreground: 0 0% 92%;
+  --destructive: 0 65% 45%;
   --destructive-foreground: 0 0% 100%;
-  --border: 0 0% 12%;
-  --input: 0 0% 10%;
-  --ring: 0 0% 100%;
+  --border: 0 0% 10%;
+  --input: 0 0% 8%;
+  --ring: 0 0% 50%;
   --sidebar-background: 0 0% 0%;
   --sidebar-foreground: 0 0% 90%;
-  --sidebar-primary: 0 0% 100%;
+  --sidebar-primary: 0 0% 92%;
   --sidebar-primary-foreground: 0 0% 0%;
-  --sidebar-accent: 0 0% 10%;
+  --sidebar-accent: 0 0% 8%;
   --sidebar-accent-foreground: 0 0% 90%;
-  --sidebar-border: 0 0% 12%;
-  --sidebar-ring: 0 0% 100%;
-  --glass-background: 0 0% 5% / 0.9;
-  --glass-border: 0 0% 100% / 0.06;
-  --glass-shadow: 0 0% 0% / 0.5;
+  --sidebar-border: 0 0% 10%;
+  --sidebar-ring: 0 0% 50%;
+  --glass-background: 0 0% 3% / 0.95;
+  --glass-border: 0 0% 100% / 0.04;
+  --glass-shadow: 0 0% 0% / 0.6;
 }
 
 /* Warm Earth Theme - Brown/Beige tones */
