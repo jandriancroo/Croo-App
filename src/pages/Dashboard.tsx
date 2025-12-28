@@ -11,7 +11,9 @@ import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Bank
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
-import { DataCubesSection } from '@/components/dashboard/DataCubesSection';
+import { DataCubesSection, useDashboardSections } from '@/components/dashboard/DataCubesSection';
+import { EditDashboardDialog, SectionKey } from '@/components/dashboard/EditDashboardDialog';
+import { Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useQuery } from '@tanstack/react-query';
@@ -109,6 +111,8 @@ export default function Dashboard() {
   const { getTodayInTimezone, timezone } = useLocationTimezone();
   const { animationAmount } = useCrooCashAnimation();
   const { salesData: cubesSalesData, isLoading: isLoadingCubesSales } = useSalesDataForCubes();
+  const { isSectionVisible, sectionConfigs, refreshSections } = useDashboardSections();
+  const [showEditDashboard, setShowEditDashboard] = useState(false);
   const isMobile = useIsMobile();
 
   // Check for welcome animation from login
@@ -520,8 +524,8 @@ export default function Dashboard() {
   const standardSections: Record<string, JSX.Element | null> = {
     // Alerts disabled on dashboard - view them on the Alerts page
     'alerts': null,
-    'data-cubes': hasQuBeyondIntegration ? <DataCubesSection salesData={cubesSalesData} isLoadingSales={isLoadingCubesSales} /> : null,
-    'sales-overview': hasQuBeyondIntegration ? (
+    'data-cubes': (hasQuBeyondIntegration && isSectionVisible('data-cubes')) ? <DataCubesSection salesData={cubesSalesData} isLoadingSales={isLoadingCubesSales} hasQuBeyondIntegration={hasQuBeyondIntegration} /> : null,
+    'sales-overview': (hasQuBeyondIntegration && isSectionVisible('sales-overview')) ? (
       <Collapsible 
         open={salesOverviewOpen} 
         onOpenChange={(open) => {
@@ -531,7 +535,7 @@ export default function Dashboard() {
       >
         <CollapsibleTrigger asChild>
           <Button variant="ghost" className="w-full flex items-center justify-between p-2 h-auto hover:bg-muted/50">
-            <span className="text-sm font-medium text-muted-foreground">Sales Overview</span>
+            <span className="text-sm font-medium text-muted-foreground">Sales Details</span>
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${salesOverviewOpen ? 'rotate-180' : ''}`} />
           </Button>
         </CollapsibleTrigger>
@@ -820,6 +824,9 @@ export default function Dashboard() {
               </div>
             )}
             
+            <Button onClick={() => setShowEditDashboard(true)} variant="outline" size="icon" className="h-10 w-10" title="Edit Dashboard">
+              <Settings2 className="h-4 w-4" />
+            </Button>
             {isEditMode && <Button onClick={resetLayout} variant="outline" size="icon" className="h-10 w-10">
                 <ArrowUpDown className="h-4 w-4" />
               </Button>}
@@ -851,5 +858,17 @@ export default function Dashboard() {
       {showWelcomeAnimation && (
         <CrowSplashAnimation onComplete={() => setShowWelcomeAnimation(false)} />
       )}
+      
+      {/* Edit Dashboard Dialog */}
+      <EditDashboardDialog
+        open={showEditDashboard}
+        onOpenChange={setShowEditDashboard}
+        locationId={currentLocation?.id || ''}
+        existingCubes={[]}
+        existingSections={sectionConfigs}
+        onSave={refreshSections}
+        salesData={cubesSalesData}
+        hasQuBeyondIntegration={hasQuBeyondIntegration}
+      />
     </Layout>;
 }
