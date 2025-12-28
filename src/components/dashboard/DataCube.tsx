@@ -119,25 +119,25 @@ export function DataCube({
 
   return (
     <Card 
-      className="aspect-square overflow-hidden cursor-pointer hover:shadow-lg transition-all relative"
+      className="aspect-square md:aspect-[2/1] overflow-hidden cursor-pointer hover:shadow-lg transition-all relative"
       onClick={onClick}
     >
       {/* Colored header with title */}
       <div 
-        className="px-3 py-2 flex items-center"
+        className="px-3 py-1.5 md:py-2 flex items-center"
         style={{ backgroundColor: accentColor }}
       >
-        <span className="text-xs font-semibold text-white truncate">
+        <span className="text-xs md:text-sm font-semibold text-white truncate">
           {title || 'Data'}
         </span>
       </div>
       
-      <CardContent className="p-3 h-[calc(100%-32px)] flex flex-col justify-between">
+      <CardContent className="p-3 md:p-4 h-[calc(100%-28px)] md:h-[calc(100%-36px)] flex flex-col justify-between">
         
         {/* Metrics */}
-        <div className={`flex-1 flex flex-col ${isSingleMetric ? 'justify-center' : 'justify-around'}`}>
+        <div className={`flex-1 flex ${isSingleMetric ? 'flex-col justify-center md:flex-row md:items-center md:justify-center md:gap-4' : 'flex-col justify-around md:flex-row md:gap-6 md:justify-around md:items-center'}`}>
           {isLoading ? (
-            <div className="space-y-2">
+            <div className="space-y-2 w-full">
               <div className="h-6 bg-muted animate-pulse rounded" />
               <div className="h-4 bg-muted animate-pulse rounded w-2/3" />
             </div>
@@ -153,11 +153,11 @@ export function DataCube({
               return (
                 <div 
                   key={metricType} 
-                  className={`flex items-center gap-2 ${isSingleMetric ? 'flex-col text-center' : ''}`}
+                  className={`flex items-center gap-2 ${isSingleMetric ? 'flex-col text-center' : ''} md:flex-1 md:text-center md:flex-col`}
                 >
                   {isSingleMetric && (
                     <div 
-                      className="p-1.5 rounded-full"
+                      className="p-1.5 rounded-full hidden md:block"
                       style={{ backgroundColor: `${accentColor}15` }}
                     >
                       <IconComponent 
@@ -166,21 +166,21 @@ export function DataCube({
                       />
                     </div>
                   )}
-                  <div className={`min-w-0 ${isSingleMetric ? 'text-center' : 'flex-1'}`}>
+                  <div className={`min-w-0 ${isSingleMetric ? 'text-center' : 'flex-1 md:text-center'}`}>
                     <div 
                       className={`font-extrabold truncate ${
                         isSingleMetric 
-                          ? 'text-3xl' 
+                          ? 'text-3xl md:text-4xl' 
                           : isDoubleMetric 
-                            ? (isFirst ? 'text-2xl' : 'text-xl') 
-                            : (isFirst ? 'text-xl' : 'text-lg')
+                            ? (isFirst ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl') 
+                            : (isFirst ? 'text-xl md:text-2xl' : 'text-lg md:text-xl')
                       }`}
                       style={{ color: accentColor }}
                     >
                       {formatValue(value, config.format)}
                     </div>
                     <div className={`text-muted-foreground truncate font-medium ${
-                      isSingleMetric ? 'text-xs' : 'text-[10px]'
+                      isSingleMetric ? 'text-xs md:text-sm' : 'text-[10px] md:text-xs'
                     }`}>
                       {isSingleMetric ? config.label : config.shortLabel}
                     </div>
@@ -191,13 +191,13 @@ export function DataCube({
           )}
         </div>
         
-        {/* Corner accent with icon */}
+        {/* Corner accent with icon - smaller on desktop */}
         <div 
-          className="absolute bottom-0 right-0 w-12 h-12 rounded-tl-full flex items-end justify-end"
+          className="absolute bottom-0 right-0 w-10 h-10 md:w-8 md:h-8 rounded-tl-full flex items-end justify-end"
           style={{ backgroundColor: accentColor }}
         >
           {CornerIcon && (
-            <CornerIcon className="w-4 h-4 text-white mr-2 mb-2" />
+            <CornerIcon className="w-3 h-3 text-white mr-1.5 mb-1.5" />
           )}
         </div>
       </CardContent>
