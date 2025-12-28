@@ -70,6 +70,7 @@ interface EditDashboardDialogProps {
   onSave: () => void;
   salesData: SalesDataForCubes | null;
   hasQuBeyondIntegration?: boolean;
+  onAddCube?: () => void;
 }
 
 export function EditDashboardDialog({ 
@@ -81,6 +82,7 @@ export function EditDashboardDialog({
   onSave,
   salesData,
   hasQuBeyondIntegration = true,
+  onAddCube,
 }: EditDashboardDialogProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
