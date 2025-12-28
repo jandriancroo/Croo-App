@@ -595,7 +595,7 @@ export default function Dashboard() {
   const standardSections: Record<string, JSX.Element | null> = {
     // Alerts disabled on dashboard - view them on the Alerts page
     'alerts': null,
-    'data-cubes': (hasQuBeyondIntegration && isSectionVisible('data-cubes')) ? <WidgetsSection salesData={cubesSalesData} isLoadingSales={isLoadingCubesSales} hasQuBeyondIntegration={hasQuBeyondIntegration} showAddDialog={showAddCubeDialog} onAddDialogChange={setShowAddCubeDialog} locationSettings={locationSettings} /> : null,
+    'data-cubes': (hasQuBeyondIntegration && isSectionVisible('data-cubes')) ? <WidgetsSection salesData={cubesSalesData} isLoadingSales={isLoadingCubesSales} hasQuBeyondIntegration={hasQuBeyondIntegration} showAddDialog={showAddCubeDialog} onAddDialogChange={setShowAddCubeDialog} locationSettings={locationSettings} isReorderMode={isEditMode} /> : null,
     'checklists-grid': <div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
           {/* Assigned Temporary Tasks */}
