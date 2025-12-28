@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, Square, RectangleHorizontal, LayoutGrid } from "lucide-react";
+import { ArrowLeft, Check, Square, RectangleHorizontal, LayoutGrid, LineChart } from "lucide-react";
 import { 
   WidgetSize, 
   MetricType, 
@@ -23,11 +23,14 @@ const ACCENT_COLORS = [
   { value: "#6366F1", label: "Indigo" },
 ];
 
+export type CubeType = 'data' | 'sales-chart';
+
 export interface NewDataCubeConfig {
   title: string;
   size: WidgetSize;
   metrics: MetricType[];
   accentColor: string;
+  cubeType: CubeType;
 }
 
 interface AddWidgetDialogProps {
@@ -35,33 +38,39 @@ interface AddWidgetDialogProps {
   onOpenChange: (open: boolean) => void;
   onAdd: (config: NewDataCubeConfig) => void;
   defaultColorIndex?: number;
+  hasSalesChart?: boolean; // If true, hide the sales chart option
 }
 
-type Step = 'size' | 'configure';
+type Step = 'type' | 'size' | 'configure';
 
 export function AddWidgetDialog({
   open,
   onOpenChange,
   onAdd,
   defaultColorIndex = 0,
+  hasSalesChart = false,
 }: AddWidgetDialogProps) {
-  const [step, setStep] = useState<Step>('size');
+  const [step, setStep] = useState<Step>('type');
+  const [selectedType, setSelectedType] = useState<CubeType>('data');
   const [selectedSize, setSelectedSize] = useState<WidgetSize>('small');
   const [config, setConfig] = useState<NewDataCubeConfig>({
     title: '',
     size: 'small',
     metrics: [],
     accentColor: ACCENT_COLORS[defaultColorIndex % ACCENT_COLORS.length].value,
+    cubeType: 'data',
   });
 
   const resetDialog = () => {
-    setStep('size');
+    setStep('type');
+    setSelectedType('data');
     setSelectedSize('small');
     setConfig({
       title: '',
       size: 'small',
       metrics: [],
       accentColor: ACCENT_COLORS[defaultColorIndex % ACCENT_COLORS.length].value,
+      cubeType: 'data',
     });
   };
 
@@ -70,6 +79,32 @@ export function AddWidgetDialog({
       resetDialog();
     }
     onOpenChange(isOpen);
+  };
+
+  const handleTypeSelect = (type: CubeType) => {
+    setSelectedType(type);
+    setConfig(prev => ({ ...prev, cubeType: type }));
+    
+    if (type === 'sales-chart') {
+      // Sales chart is always large and skips size/configure steps
+      setConfig(prev => ({ 
+        ...prev, 
+        cubeType: type,
+        size: 'large',
+        title: 'Sales Overview',
+        metrics: [],
+      }));
+      onAdd({
+        title: 'Sales Overview',
+        size: 'large',
+        metrics: [],
+        accentColor: ACCENT_COLORS[defaultColorIndex % ACCENT_COLORS.length].value,
+        cubeType: 'sales-chart',
+      });
+      handleClose(false);
+    } else {
+      setStep('size');
+    }
   };
 
   const handleSizeSelect = (size: WidgetSize) => {
@@ -97,27 +132,73 @@ export function AddWidgetDialog({
 
   const maxMetrics = selectedSize === 'small' ? 3 : selectedSize === 'medium' ? 4 : 6;
 
+  const handleBack = () => {
+    if (step === 'configure') {
+      setStep('size');
+    } else if (step === 'size') {
+      setStep('type');
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {step !== 'size' && (
+            {step !== 'type' && (
               <Button 
                 variant="ghost" 
                 size="sm" 
                 className="h-8 w-8 p-0"
-                onClick={() => setStep('size')}
+                onClick={handleBack}
               >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             )}
+            {step === 'type' && 'Add Widget'}
             {step === 'size' && 'Choose Size'}
             {step === 'configure' && 'Configure Data Cube'}
           </DialogTitle>
         </DialogHeader>
 
-        {/* Step 1: Size Selection */}
+        {/* Step 1: Type Selection */}
+        {step === 'type' && (
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground text-center">
+              What would you like to add?
+            </p>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {/* Data Cube */}
+              <button
+                className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-accent transition-all"
+                onClick={() => handleTypeSelect('data')}
+              >
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
+                  <LayoutGrid className="h-6 w-6 text-primary" />
+                </div>
+                <span className="text-sm font-medium">Data Cube</span>
+                <span className="text-[10px] text-muted-foreground">Custom metrics</span>
+              </button>
+
+              {/* Sales Chart - only show if not already added */}
+              {!hasSalesChart && (
+                <button
+                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-accent transition-all"
+                  onClick={() => handleTypeSelect('sales-chart')}
+                >
+                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/40 flex items-center justify-center">
+                    <LineChart className="h-6 w-6 text-blue-500" />
+                  </div>
+                  <span className="text-sm font-medium">Sales Chart</span>
+                  <span className="text-[10px] text-muted-foreground">Full sales overview</span>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Step 2: Size Selection */}
         {step === 'size' && (
           <div className="space-y-4 py-4">
             <p className="text-sm text-muted-foreground text-center">
@@ -164,7 +245,7 @@ export function AddWidgetDialog({
           </div>
         )}
 
-        {/* Step 2: Configure Data Cube */}
+        {/* Step 3: Configure Data Cube */}
         {step === 'configure' && (
           <div className="space-y-4 py-4">
             {/* Title */}
