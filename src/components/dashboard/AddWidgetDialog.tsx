@@ -203,14 +203,14 @@ export function AddWidgetDialog({
           </div>
         )}
 
-        {/* Step 2: Size Selection */}
+        {/* Step 2: Size Selection (Small or Medium only for Data Cubes) */}
         {step === 'size' && (
           <div className="space-y-4 py-4">
             <p className="text-sm text-muted-foreground text-center">
               Select a size
             </p>
             
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               {/* Small */}
               <button
                 className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-accent transition-all"
@@ -232,19 +232,7 @@ export function AddWidgetDialog({
                   <RectangleHorizontal className="h-6 w-6 text-primary" />
                 </div>
                 <span className="text-sm font-medium">Medium</span>
-                <span className="text-[10px] text-muted-foreground">Wide card</span>
-              </button>
-
-              {/* Large */}
-              <button
-                className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-accent transition-all"
-                onClick={() => handleSizeSelect('large')}
-              >
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
-                  <LayoutGrid className="h-6 w-6 text-primary" />
-                </div>
-                <span className="text-sm font-medium">Large</span>
-                <span className="text-[10px] text-muted-foreground">With chart</span>
+                <span className="text-[10px] text-muted-foreground">Wide, 4 metrics</span>
               </button>
             </div>
           </div>
