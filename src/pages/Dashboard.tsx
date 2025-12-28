@@ -117,6 +117,7 @@ export default function Dashboard() {
   const { salesData: cubesSalesData, isLoading: isLoadingCubesSales } = useSalesDataForCubes();
   const { isSectionVisible, sectionConfigs, refreshSections } = useDashboardSections();
   const [showEditDashboard, setShowEditDashboard] = useState(false);
+  const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
 
