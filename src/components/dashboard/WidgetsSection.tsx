@@ -66,15 +66,7 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
     transition,
   };
 
-  const dragHandle = isReorderMode ? (
-    <button
-      className="touch-none cursor-grab active:cursor-grabbing p-1.5 rounded-md bg-primary/10 hover:bg-primary/20 transition-colors mb-2"
-      {...attributes}
-      {...listeners}
-    >
-      <GripVertical className="h-4 w-4 text-primary" />
-    </button>
-  ) : null;
+  const reorderModeClass = isReorderMode ? 'border-2 border-dashed border-primary/30 rounded-lg p-2' : '';
 
   // For sales-chart type, render the SalesOverview component
   if (cube.cubeType === 'sales-chart') {
@@ -82,9 +74,20 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
       <div 
         ref={setNodeRef} 
         style={style} 
-        className={`col-span-2 ${isDragging ? 'opacity-50' : ''}`}
+        className={`col-span-2 ${isDragging ? 'opacity-50' : ''} ${reorderModeClass}`}
       >
-        {dragHandle}
+        {isReorderMode && (
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              className="touch-none cursor-grab active:cursor-grabbing p-1.5 rounded-md bg-primary/10 hover:bg-primary/20 transition-colors"
+              {...attributes}
+              {...listeners}
+            >
+              <GripVertical className="h-4 w-4 text-primary" />
+            </button>
+            <span className="text-xs text-muted-foreground">Drag to reorder</span>
+          </div>
+        )}
         <Collapsible 
           open={salesOverviewOpen} 
           onOpenChange={(open) => {
@@ -113,9 +116,20 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
     <div 
       ref={setNodeRef} 
       style={style} 
-      className={`${gridClass} ${isDragging ? 'opacity-50' : ''}`}
+      className={`${gridClass} ${isDragging ? 'opacity-50' : ''} ${reorderModeClass}`}
     >
-      {dragHandle}
+      {isReorderMode && (
+        <div className="flex items-center gap-2 mb-2">
+          <button
+            className="touch-none cursor-grab active:cursor-grabbing p-1.5 rounded-md bg-primary/10 hover:bg-primary/20 transition-colors"
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-4 w-4 text-primary" />
+          </button>
+          <span className="text-xs text-muted-foreground">Drag to reorder</span>
+        </div>
+      )}
       <DashboardWidget
         title={cube.title}
         size={cube.size}
