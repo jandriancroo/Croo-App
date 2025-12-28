@@ -6,32 +6,50 @@ const corsHeaders = {
 }
 
 // Helper to get current time in a specific timezone
-function getTimeInTimezone(timezone: string): { dayOfWeek: number; timeStr: string; date: Date } {
+function getTimeInTimezone(
+  timezone: string,
+): { dayOfWeek: number; timeStr: string; dateStr: string; date: Date } {
   const now = new Date();
-  
-  // Get the time string in the target timezone
-  const options: Intl.DateTimeFormatOptions = {
+
+  // Use formatToParts so we can reliably extract components in the target timezone.
+  // hourCycle=h23 avoids the occasional "24:00" edge around midnight in some locales.
+  const formatter = new Intl.DateTimeFormat('en-US', {
     timeZone: timezone,
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
+    hourCycle: 'h23',
     weekday: 'short',
-  };
-  
-  const formatter = new Intl.DateTimeFormat('en-US', options);
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
   const parts = formatter.formatToParts(now);
-  
-  const hour = parts.find(p => p.type === 'hour')?.value || '00';
-  const minute = parts.find(p => p.type === 'minute')?.value || '00';
-  const weekday = parts.find(p => p.type === 'weekday')?.value || 'Sun';
-  
+
+  const hour = parts.find((p) => p.type === 'hour')?.value ?? '00';
+  const minute = parts.find((p) => p.type === 'minute')?.value ?? '00';
+  const weekday = parts.find((p) => p.type === 'weekday')?.value ?? 'Sun';
+  const year = parts.find((p) => p.type === 'year')?.value ?? '1970';
+  const month = parts.find((p) => p.type === 'month')?.value ?? '01';
+  const day = parts.find((p) => p.type === 'day')?.value ?? '01';
+
+  // IMPORTANT: keep this mapping aligned with how days_of_week is stored in the DB
+  // (0=Sunday, 6=Saturday)
   const dayMap: Record<string, number> = {
-    'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+    Sun: 0,
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
   };
-  
+
   return {
     dayOfWeek: dayMap[weekday] ?? 0,
     timeStr: `${hour}:${minute}`,
+    dateStr: `${year}-${month}-${day}`,
     date: now,
   };
 }
@@ -93,9 +111,15 @@ Deno.serve(async (req) => {
       const timezone = locationSettings?.timezone || 'America/Los_Angeles';
       
       // Get current time in the location's timezone
-      const { dayOfWeek: currentDayOfWeek, timeStr: currentTimeStr, date: nowInTz } = getTimeInTimezone(timezone);
-      
-      console.log(`[Alarm Tasks] Task ${task.id} (${task.title}): timezone=${timezone}, localDay=${currentDayOfWeek}, localTime=${currentTimeStr}`);
+      const {
+        dayOfWeek: currentDayOfWeek,
+        timeStr: currentTimeStr,
+        dateStr: currentDateStr,
+      } = getTimeInTimezone(timezone);
+
+      console.log(
+        `[Alarm Tasks] Task ${task.id} (${task.title}): timezone=${timezone}, localDay=${currentDayOfWeek}, localDate=${currentDateStr}, localTime=${currentTimeStr}`,
+      );
 
       // Check if task is active on current day (in local timezone)
       const daysOfWeek: number[] = task.days_of_week || [];
@@ -106,43 +130,44 @@ Deno.serve(async (req) => {
 
       // Check if it's time to trigger this task
       let shouldTrigger = false;
-      
+      let matchedTimeStr: string | null = null;
+
       if (task.frequency_type === 'interval' && task.frequency_minutes) {
         // Check if enough time has passed since last trigger
         const lastTriggered = task.last_triggered_at ? new Date(task.last_triggered_at) : null;
-        const minutesSinceLastTrigger = lastTriggered 
+        const minutesSinceLastTrigger = lastTriggered
           ? Math.floor((now.getTime() - lastTriggered.getTime()) / (1000 * 60))
           : Infinity;
-        
+
         shouldTrigger = minutesSinceLastTrigger >= task.frequency_minutes;
-        console.log(`[Alarm Tasks] Task ${task.id}: interval=${task.frequency_minutes}min, sinceLastTrigger=${minutesSinceLastTrigger}min, shouldTrigger=${shouldTrigger}`);
+        matchedTimeStr = currentTimeStr;
+        console.log(
+          `[Alarm Tasks] Task ${task.id}: interval=${task.frequency_minutes}min, sinceLastTrigger=${minutesSinceLastTrigger}min, shouldTrigger=${shouldTrigger}`,
+        );
       } else if (task.frequency_type === 'custom' && task.custom_times) {
         // Check if current time matches any custom time (in local timezone)
         const customTimes: string[] = task.custom_times || [];
-        const [currentHour, currentMinute] = currentTimeStr.split(':').map(Number);
-        const currentTotalMinutes = currentHour * 60 + currentMinute;
-        
+
         for (const customTime of customTimes) {
-          const [targetHour, targetMinute] = customTime.split(':').map(Number);
-          const targetTotalMinutes = targetHour * 60 + targetMinute;
-          const diff = Math.abs(currentTotalMinutes - targetTotalMinutes);
-          
-          // Exact minute match only
-          if (diff === 0 || diff === 1440) { // 1440 = 24*60 for midnight wraparound
+          // Exact minute match only (customTime stored as "HH:MM" local)
+          if (customTime === currentTimeStr) {
             shouldTrigger = true;
+            matchedTimeStr = customTime;
             break;
           }
         }
-        console.log(`[Alarm Tasks] Task ${task.id}: customTimes=${customTimes.join(',')}, localTime=${currentTimeStr}, shouldTrigger=${shouldTrigger}`);
+
+        console.log(
+          `[Alarm Tasks] Task ${task.id}: customTimes=${customTimes.join(',')}, localTime=${currentTimeStr}, shouldTrigger=${shouldTrigger}`,
+        );
       }
 
-      if (!shouldTrigger) {
+      if (!shouldTrigger || !matchedTimeStr) {
         continue;
       }
 
-      // Get the interval key for this trigger (to track completions)
-      // Use the matched custom time for custom frequency, or current time for intervals
-      const intervalKey = `${now.toISOString().split('T')[0]}_${currentTimeStr.replace(':', '')}`;
+      // Interval key MUST be based on the location's local date to avoid timezone/day-boundary bugs
+      const intervalKey = `${currentDateStr}_${matchedTimeStr.replace(':', '')}`;
 
       // Check if this interval was already completed
       const { data: existingCompletion } = await supabase
