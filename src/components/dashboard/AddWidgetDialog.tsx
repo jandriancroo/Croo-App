@@ -181,19 +181,24 @@ export function AddWidgetDialog({
                 <span className="text-[10px] text-muted-foreground">Custom metrics</span>
               </button>
 
-              {/* Sales Chart - only show if not already added */}
-              {!hasSalesChart && (
-                <button
-                  className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-accent transition-all"
-                  onClick={() => handleTypeSelect('sales-chart')}
-                >
-                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/40 flex items-center justify-center">
-                    <LineChart className="h-6 w-6 text-blue-500" />
-                  </div>
-                  <span className="text-sm font-medium">Sales Chart</span>
-                  <span className="text-[10px] text-muted-foreground">Full sales overview</span>
-                </button>
-              )}
+              {/* Sales Chart - greyed out if already added */}
+              <button
+                className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-transparent transition-all ${
+                  hasSalesChart 
+                    ? 'opacity-40 cursor-not-allowed' 
+                    : 'hover:border-primary/50 hover:bg-accent'
+                }`}
+                onClick={() => !hasSalesChart && handleTypeSelect('sales-chart')}
+                disabled={hasSalesChart}
+              >
+                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/40 flex items-center justify-center">
+                  <LineChart className="h-6 w-6 text-blue-500" />
+                </div>
+                <span className="text-sm font-medium">Sales Chart</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {hasSalesChart ? 'Already added' : 'Full sales overview'}
+                </span>
+              </button>
             </div>
           </div>
         )}
