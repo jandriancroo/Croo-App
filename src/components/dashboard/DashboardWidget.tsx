@@ -290,7 +290,7 @@ export function DashboardWidget({
                     >
                       {formatValue(value, config.format)}
                     </div>
-                    <div className={`text-muted-foreground truncate font-medium ${isSingleMetric ? 'text-xs md:text-sm' : 'text-[10px] md:text-xs'}`}>
+                    <div className={`truncate font-medium ${isSingleMetric ? 'text-xs md:text-sm' : 'text-[10px] md:text-xs'} ${isOled ? 'text-white/70' : 'text-muted-foreground'}`}>
                       {isSingleMetric ? config.label : config.shortLabel}
                     </div>
                   </div>
