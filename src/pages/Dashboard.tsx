@@ -6,7 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users } from 'lucide-react';
+import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users, Settings2 } from 'lucide-react';
+import { EditDashboardDialog, CubeConfig } from '@/components/dashboard/EditDashboardDialog';
+import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
+import { CubeType } from '@/components/dashboard/AddWidgetDialog';
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
@@ -110,8 +113,78 @@ export default function Dashboard() {
   const { salesData: cubesSalesData, isLoading: isLoadingCubesSales } = useSalesDataForCubes();
   const { isSectionVisible, refreshSections } = useDashboardSections();
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
+  const [showEditDashboard, setShowEditDashboard] = useState(false);
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
+
+  // Fetch cubes for the edit dialog
+  const { data: dashboardCubes = [] } = useQuery({
+    queryKey: ['user-data-cubes', user?.id, currentLocation?.id],
+    queryFn: async () => {
+      if (!user?.id || !currentLocation?.id) return [];
+
+      const { data, error } = await supabase
+        .from('user_dashboard_cubes')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('location_id', currentLocation.id)
+        .in('cube_type', ['data', 'sales-chart'])
+        .order('display_order');
+
+      if (error) {
+        console.error('Error fetching data cubes:', error);
+        return [];
+      }
+
+      return (data || []).map(cube => ({
+        id: cube.id,
+        title: cube.title || '',
+        size: (cube.widget_size as WidgetSize) || 'small',
+        metrics: (cube.metrics as MetricType[]) || [],
+        accentColor: cube.accent_color || '#8B5CF6',
+        cubeType: (cube.cube_type as CubeType) || 'data',
+      })) as CubeConfig[];
+    },
+    enabled: !!user?.id && !!currentLocation?.id,
+  });
+
+  const handleUpdateCube = async (id: string, updates: Partial<CubeConfig>) => {
+    try {
+      const { error } = await supabase
+        .from('user_dashboard_cubes')
+        .update({
+          title: updates.title,
+          metrics: updates.metrics,
+          accent_color: updates.accentColor,
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      toast.success('Widget updated');
+      queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
+    } catch (error) {
+      console.error('Error updating cube:', error);
+      toast.error('Failed to update widget');
+    }
+  };
+
+  const handleDeleteCube = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_dashboard_cubes')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.success('Widget removed');
+      queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
+    } catch (error) {
+      console.error('Error deleting cube:', error);
+      toast.error('Failed to remove widget');
+    }
+  };
 
   // Check for welcome animation from login
   useEffect(() => {
@@ -803,17 +876,27 @@ export default function Dashboard() {
               </div>
             )}
             
-            <Button onClick={() => setShowAddCubeDialog(true)} variant="outline" size="icon" className="h-10 w-10" title="Add Data Cube">
-              <Plus className="h-4 w-4" />
+            <Button onClick={() => setShowEditDashboard(true)} variant="outline" size="icon" className="h-10 w-10" title="Edit Dashboard">
+              <Settings2 className="h-4 w-4" />
             </Button>
             {isEditMode && <Button onClick={resetLayout} variant="outline" size="icon" className="h-10 w-10">
                 <ArrowUpDown className="h-4 w-4" />
               </Button>}
-            <Button onClick={toggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="icon" className="h-10 w-10" title={isEditMode ? "Save Layout" : "Edit Layout"}>
+            <Button onClick={toggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="icon" className="h-10 w-10" title={isEditMode ? "Save Layout" : "Reorder Sections"}>
               {isEditMode ? <Check className="h-4 w-4" /> : <ArrowUpDown className="h-4 w-4" />}
             </Button>
           </div>
         </div>
+
+        {/* Edit Dashboard Dialog */}
+        <EditDashboardDialog
+          open={showEditDashboard}
+          onOpenChange={setShowEditDashboard}
+          cubes={dashboardCubes}
+          onUpdateCube={handleUpdateCube}
+          onDeleteCube={handleDeleteCube}
+          onAddCube={() => setShowAddCubeDialog(true)}
+        />
 
         {loading ? <PageSkeleton variant="grid" /> : checklists.length === 0 ? <Card className="text-center py-12">
             <CardContent>

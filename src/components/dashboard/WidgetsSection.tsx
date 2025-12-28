@@ -26,23 +26,7 @@ import { SalesOverview } from './SalesOverview';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
-import { ChevronDown, Trash2, MoreVertical } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { ChevronDown } from 'lucide-react';
 
 interface DataCubeConfig {
   id: string;
@@ -59,15 +43,13 @@ interface SortableDataCubeProps {
   salesData: SalesDataForWidgets | null;
   isLoading: boolean;
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
-  onDelete: (id: string) => void;
 }
 
-function SortableDataCube({ cube, salesData, isLoading, locationSettings, onDelete }: SortableDataCubeProps) {
+function SortableDataCube({ cube, salesData, isLoading, locationSettings }: SortableDataCubeProps) {
   const [salesOverviewOpen, setSalesOverviewOpen] = useState(() => {
     const saved = localStorage.getItem('dashboard-sales-overview-open');
     return saved !== null ? JSON.parse(saved) : true;
   });
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   
   const {
     attributes,
@@ -86,7 +68,7 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, onDele
   // For sales-chart type, render the SalesOverview component
   if (cube.cubeType === 'sales-chart') {
     return (
-      <div ref={setNodeRef} style={style} className="col-span-2 relative group">
+      <div ref={setNodeRef} style={style} className="col-span-2">
         <Collapsible 
           open={salesOverviewOpen} 
           onOpenChange={(open) => {
@@ -94,51 +76,16 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, onDele
             localStorage.setItem('dashboard-sales-overview-open', JSON.stringify(open));
           }}
         >
-          <div className="flex items-center">
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" className="flex-1 flex items-center justify-between px-3 py-2 h-auto hover:bg-muted/50 rounded-lg">
-                <span className="text-base font-semibold">Sales Overview</span>
-                <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${salesOverviewOpen ? 'rotate-180' : ''}`} />
-              </Button>
-            </CollapsibleTrigger>
-            
-            {/* Delete menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem 
-                  className="text-destructive focus:text-destructive"
-                  onClick={() => setShowDeleteDialog(true)}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Remove
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full flex items-center justify-between px-3 py-2 h-auto hover:bg-muted/50 rounded-lg">
+              <span className="text-base font-semibold">Sales Overview</span>
+              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${salesOverviewOpen ? 'rotate-180' : ''}`} />
+            </Button>
+          </CollapsibleTrigger>
           <CollapsibleContent>
             <SalesOverview locationSettings={locationSettings} />
           </CollapsibleContent>
         </Collapsible>
-        
-        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Remove Sales Overview?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will remove the Sales Overview from your dashboard. You can add it back anytime.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => onDelete(cube.id)}>Remove</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     );
   }
@@ -147,7 +94,7 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, onDele
   const gridClass = cube.size === 'small' ? 'col-span-1' : 'col-span-2';
 
   return (
-    <div ref={setNodeRef} style={style} className={`${gridClass} relative group`}>
+    <div ref={setNodeRef} style={style} className={gridClass}>
       <DashboardWidget
         title={cube.title}
         size={cube.size}
@@ -157,41 +104,6 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, onDele
         isLoading={isLoading}
         isDragging={isDragging}
       />
-      
-      {/* Delete button overlay */}
-      <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6 bg-background/80 hover:bg-background">
-              <MoreVertical className="h-3 w-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem 
-              className="text-destructive focus:text-destructive"
-              onClick={() => setShowDeleteDialog(true)}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this cube?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete "{cube.title || 'Data Cube'}" from your dashboard.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => onDelete(cube.id)}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
@@ -332,23 +244,6 @@ export function WidgetsSection({
     }
   };
 
-  const handleDeleteCube = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('user_dashboard_cubes')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      toast.success('Widget removed');
-      queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
-    } catch (error) {
-      console.error('Error deleting cube:', error);
-      toast.error('Failed to remove widget');
-    }
-  };
-
   if (localCubes.length === 0) {
     return (
       <AddWidgetDialog
@@ -381,7 +276,6 @@ export function WidgetsSection({
                 salesData={salesData}
                 isLoading={isLoadingSales}
                 locationSettings={locationSettings}
-                onDelete={handleDeleteCube}
               />
             ))}
           </div>
