@@ -84,11 +84,7 @@ export function DataCube({
     
     switch (format) {
       case 'currency':
-        // Always show whole numbers
-        if (value >= 1000) {
-          return `$${Math.round(value / 1000)}k`;
-        }
-        return `$${Math.round(value)}`;
+        return `$${Math.round(value).toLocaleString()}`;
       case 'percent':
         return `${Math.round(value)}%`;
       case 'hours':
