@@ -25,8 +25,12 @@ import { AddWidgetDialog, NewDataCubeConfig, CubeType } from './AddWidgetDialog'
 import { SalesOverview } from './SalesOverview';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, GripVertical } from 'lucide-react';
+
+// Sales chart accent color - teal to match the chart bars
+const SALES_CHART_COLOR = '#0D9488';
 
 interface DataCubeConfig {
   id: string;
@@ -68,7 +72,7 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
 
   const reorderModeClass = isReorderMode ? 'border-2 border-dashed border-primary/30 rounded-lg p-2' : '';
 
-  // For sales-chart type, render the SalesOverview component
+  // For sales-chart type, render the SalesOverview component with matching cube style
   if (cube.cubeType === 'sales-chart') {
     return (
       <div 
@@ -88,23 +92,29 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
             <span className="text-xs text-muted-foreground">Drag to reorder</span>
           </div>
         )}
-        <Collapsible 
-          open={salesOverviewOpen} 
-          onOpenChange={(open) => {
-            setSalesOverviewOpen(open);
-            localStorage.setItem('dashboard-sales-overview-open', JSON.stringify(open));
-          }}
-        >
-          <CollapsibleTrigger asChild>
-            <Button variant="ghost" className="w-full flex items-center justify-between px-3 py-2 h-auto hover:bg-muted/50 rounded-lg">
-              <span className="text-base font-semibold">Sales Overview</span>
-              <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${salesOverviewOpen ? 'rotate-180' : ''}`} />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <SalesOverview locationSettings={locationSettings} />
-          </CollapsibleContent>
-        </Collapsible>
+        <Card className="overflow-hidden">
+          {/* Colored header matching other cubes */}
+          <Collapsible 
+            open={salesOverviewOpen} 
+            onOpenChange={(open) => {
+              setSalesOverviewOpen(open);
+              localStorage.setItem('dashboard-sales-overview-open', JSON.stringify(open));
+            }}
+          >
+            <CollapsibleTrigger asChild>
+              <button 
+                className="w-full px-3 py-2 flex items-center justify-between cursor-pointer hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: SALES_CHART_COLOR }}
+              >
+                <span className="text-sm font-semibold text-white">Sales Overview</span>
+                <ChevronDown className={`h-4 w-4 text-white/80 transition-transform duration-200 ${salesOverviewOpen ? 'rotate-180' : ''}`} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <SalesOverview locationSettings={locationSettings} />
+            </CollapsibleContent>
+          </Collapsible>
+        </Card>
       </div>
     );
   }
