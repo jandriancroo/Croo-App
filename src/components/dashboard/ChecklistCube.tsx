@@ -1,14 +1,16 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { ClipboardCheck, Check } from "lucide-react";
+import { ClipboardCheck, Check, GripVertical } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-interface ChecklistCubeProps {
+export interface ChecklistCubeProps {
   checklistId: string;
   title: string;
   completed: number;
   expected: number;
   accentColor?: string;
   onClick?: () => void;
+  dragHandleProps?: any;
+  isDragging?: boolean;
 }
 
 export function ChecklistCube({ 
@@ -17,7 +19,9 @@ export function ChecklistCube({
   completed, 
   expected,
   accentColor = '#8B5CF6',
-  onClick
+  onClick,
+  dragHandleProps,
+  isDragging = false,
 }: ChecklistCubeProps) {
   const navigate = useNavigate();
   const completionRate = expected > 0 ? Math.min(100, Math.round((completed / expected) * 100)) : 0;
@@ -33,16 +37,20 @@ export function ChecklistCube({
 
   return (
     <Card 
-      className="aspect-square overflow-hidden cursor-pointer hover:shadow-lg transition-all"
-      style={{ borderLeft: `4px solid ${accentColor}` }}
+      className={`aspect-square overflow-hidden cursor-pointer hover:shadow-lg transition-all relative ${isDragging ? 'opacity-50 shadow-2xl' : ''}`}
       onClick={handleClick}
     >
-      <CardContent className="p-3 h-full flex flex-col justify-between">
-        {/* Title */}
-        <div className="text-xs font-medium text-muted-foreground truncate">
-          {title}
-        </div>
-        
+      {/* Colored header */}
+      <div className="px-3 py-2 flex items-center" style={{ backgroundColor: accentColor }}>
+        <span className="text-xs font-semibold text-white truncate flex-1">{title}</span>
+        {dragHandleProps && (
+          <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing ml-1" onClick={e => e.stopPropagation()}>
+            <GripVertical className="h-3 w-3 text-white/70" />
+          </div>
+        )}
+      </div>
+      
+      <CardContent className="p-3 h-[calc(100%-32px)] flex flex-col justify-center">
         {/* Main content */}
         <div className="flex-1 flex flex-col items-center justify-center">
           {isComplete ? (
@@ -70,9 +78,12 @@ export function ChecklistCube({
           )}
         </div>
 
-        {/* Icon indicator */}
-        <div className="flex justify-end">
-          <ClipboardCheck className="h-4 w-4 text-muted-foreground/50" />
+        {/* Corner accent with icon */}
+        <div 
+          className="absolute bottom-0 right-0 w-12 h-12 rounded-tl-full flex items-end justify-end"
+          style={{ backgroundColor: accentColor }}
+        >
+          <ClipboardCheck className="w-4 h-4 text-white mr-2 mb-2" />
         </div>
       </CardContent>
     </Card>
