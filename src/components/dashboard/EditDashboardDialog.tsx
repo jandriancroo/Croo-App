@@ -70,6 +70,7 @@ interface EditDashboardDialogProps {
   onSave: () => void;
   salesData: SalesDataForCubes | null;
   hasQuBeyondIntegration?: boolean;
+  onAddCube?: () => void;
 }
 
 export function EditDashboardDialog({ 
@@ -81,6 +82,7 @@ export function EditDashboardDialog({
   onSave,
   salesData,
   hasQuBeyondIntegration = true,
+  onAddCube,
 }: EditDashboardDialogProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
@@ -437,7 +439,14 @@ export function EditDashboardDialog({
                   <Button
                     variant="outline"
                     className="aspect-square h-auto flex flex-col gap-2 border-dashed"
-                    onClick={() => setAddingType('data')}
+                    onClick={() => {
+                      if (onAddCube) {
+                        onOpenChange(false);
+                        onAddCube();
+                      } else {
+                        setAddingType('data');
+                      }
+                    }}
                   >
                     <Plus className="h-6 w-6" />
                     <span className="text-xs">Add</span>

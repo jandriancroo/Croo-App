@@ -139,6 +139,8 @@ interface WidgetsSectionProps {
   isLoadingSales?: boolean;
   showEditButton?: boolean;
   hasQuBeyondIntegration?: boolean;
+  showAddDialog?: boolean;
+  onAddDialogChange?: (open: boolean) => void;
 }
 
 export function WidgetsSection({ 
@@ -146,15 +148,21 @@ export function WidgetsSection({
   isLoadingSales = false, 
   showEditButton = false,
   hasQuBeyondIntegration = true,
+  showAddDialog: externalShowAddDialog,
+  onAddDialogChange,
 }: WidgetsSectionProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
   const queryClient = useQueryClient();
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [internalShowAddDialog, setInternalShowAddDialog] = useState(false);
   const [checklistData, setChecklistData] = useState<Record<string, ChecklistCompletionData>>({});
   const [taskData, setTaskData] = useState<Record<string, TaskCompletionData>>({});
   const [localWidgets, setLocalWidgets] = useState<WidgetConfig[]>([]);
+
+  // Use external control if provided, otherwise use internal state
+  const showAddDialog = externalShowAddDialog !== undefined ? externalShowAddDialog : internalShowAddDialog;
+  const setShowAddDialog = onAddDialogChange || setInternalShowAddDialog;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -443,17 +451,7 @@ export function WidgetsSection({
         </DndContext>
       )}
 
-      {/* Add Data Cube Button */}
-      {showEditButton && (
-        <Button
-          variant="outline"
-          className="w-full border-dashed gap-2"
-          onClick={() => setShowAddDialog(true)}
-        >
-          <Plus className="h-4 w-4" />
-          Add Data Cube
-        </Button>
-      )}
+      {/* Add Data Cube Dialog */}
 
       {/* Add Widget Dialog */}
       <AddWidgetDialog
