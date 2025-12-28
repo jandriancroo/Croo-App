@@ -879,12 +879,6 @@ export default function Dashboard() {
             <Button onClick={() => setShowEditDashboard(true)} variant="outline" size="icon" className="h-10 w-10" title="Edit Dashboard">
               <Settings2 className="h-4 w-4" />
             </Button>
-            {isEditMode && <Button onClick={resetLayout} variant="outline" size="icon" className="h-10 w-10">
-                <ArrowUpDown className="h-4 w-4" />
-              </Button>}
-            <Button onClick={toggleEditMode} variant={isEditMode ? 'default' : 'outline'} size="icon" className="h-10 w-10" title={isEditMode ? "Save Layout" : "Reorder Sections"}>
-              {isEditMode ? <Check className="h-4 w-4" /> : <ArrowUpDown className="h-4 w-4" />}
-            </Button>
           </div>
         </div>
 
@@ -905,22 +899,17 @@ export default function Dashboard() {
               <p className="text-muted-foreground mb-4">Go to Tasks to create your first checklist</p>
               <Button onClick={() => navigate('/tasks')}>Go to Tasks</Button>
             </CardContent>
-          </Card> : <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={sectionOrder.filter(id => sections[id as keyof typeof sections])} strategy={verticalListSortingStrategy}>
+          </Card> : (
+            <div className="space-y-6">
               {sectionOrder
                 .filter(sectionId => sections[sectionId as keyof typeof sections])
                 .map(sectionId => (
-                  <DashboardSection 
-                    key={sectionId} 
-                    id={sectionId} 
-                    isEditMode={isEditMode}
-                    hideBorder={sectionId === 'data-cubes'}
-                  >
+                  <div key={sectionId}>
                     {sections[sectionId as keyof typeof sections]}
-                  </DashboardSection>
+                  </div>
                 ))}
-            </SortableContext>
-          </DndContext>}
+            </div>
+          )}
       </div>
       
       {/* Welcome animation overlay */}
