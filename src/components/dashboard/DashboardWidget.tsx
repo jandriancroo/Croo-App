@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, TrendingDown, DollarSign, Users, Clock, Target, Pizza, Calendar, LucideIcon, Sparkles, GripVertical } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { format } from 'date-fns';
+import { useIsOledTheme } from "@/hooks/useIsOledTheme";
 
 // Widget size types
 export type WidgetSize = 'small' | 'medium' | 'large';
@@ -164,6 +165,10 @@ export function DashboardWidget({
   isDragging = false,
   dragHandleProps,
 }: DashboardWidgetProps) {
+  const isOled = useIsOledTheme();
+  
+  // Use primary color for OLED theme instead of custom accent colors
+  const effectiveColor = isOled ? 'hsl(215, 30%, 32%)' : accentColor;
   const formatValue = (value: number | undefined, formatType: 'currency' | 'percent' | 'number' | 'hours'): string => {
     if (value === undefined || value === null) return '--';
     
@@ -255,7 +260,7 @@ export function DashboardWidget({
         onClick={onClick}
       >
         {/* Colored header */}
-        <div className="px-3 py-1.5 md:py-2 flex items-center" style={{ backgroundColor: accentColor }}>
+        <div className="px-3 py-1.5 md:py-2 flex items-center" style={{ backgroundColor: effectiveColor }}>
           <span className="text-xs md:text-sm font-semibold text-white truncate flex-1">{title || 'Data'}</span>
           {dragHandleProps && (
             <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing ml-1">
@@ -281,7 +286,7 @@ export function DashboardWidget({
                   <div key={metricType} className={`${isSingleMetric ? 'text-center' : ''} md:flex-1 md:text-center`}>
                     <div 
                       className={`font-extrabold truncate ${isSingleMetric ? 'text-3xl md:text-4xl' : 'text-lg md:text-2xl'}`}
-                      style={{ color: accentColor }}
+                      style={{ color: effectiveColor }}
                     >
                       {formatValue(value, config.format)}
                     </div>
@@ -297,7 +302,7 @@ export function DashboardWidget({
           {/* Corner accent with icon - smaller on desktop */}
           <div 
             className="absolute bottom-0 right-0 w-10 h-10 md:w-8 md:h-8 rounded-tl-full flex items-end justify-end"
-            style={{ backgroundColor: accentColor }}
+            style={{ backgroundColor: effectiveColor }}
           >
             {CornerIcon && <CornerIcon className="w-3 h-3 md:w-3 md:h-3 text-white mr-1.5 mb-1.5" />}
           </div>
@@ -314,7 +319,7 @@ export function DashboardWidget({
         onClick={onClick}
       >
         {/* Colored header */}
-        <div className="px-4 py-2 flex items-center" style={{ backgroundColor: accentColor }}>
+        <div className="px-4 py-2 flex items-center" style={{ backgroundColor: effectiveColor }}>
           <span className="text-sm font-semibold text-white truncate flex-1">{title || 'Data'}</span>
           {dragHandleProps && (
             <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing ml-2">
@@ -347,7 +352,7 @@ export function DashboardWidget({
                       <IconComponent className="h-3 w-3 text-muted-foreground" />
                       <span className="text-xs text-muted-foreground truncate">{config.shortLabel}</span>
                     </div>
-                    <div className="text-xl font-bold truncate" style={{ color: accentColor }}>
+                    <div className="text-xl font-bold truncate" style={{ color: effectiveColor }}>
                       {formatValue(value, config.format)}
                     </div>
                   </div>
@@ -367,7 +372,7 @@ export function DashboardWidget({
       onClick={onClick}
     >
       {/* Colored header */}
-      <div className="px-4 py-3 flex items-center" style={{ backgroundColor: accentColor }}>
+      <div className="px-4 py-3 flex items-center" style={{ backgroundColor: effectiveColor }}>
         <span className="text-sm font-semibold text-white truncate flex-1">{title || 'Sales Overview'}</span>
         {dragHandleProps && (
           <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing ml-2">
@@ -401,7 +406,7 @@ export function DashboardWidget({
                 return (
                   <div key={metricType} className={index === 1 ? 'text-center' : index === 2 ? 'text-right' : ''}>
                     <p className="text-xs text-muted-foreground">{config.label}</p>
-                    <p className="text-2xl font-bold" style={{ color: accentColor }}>
+                    <p className="text-2xl font-bold" style={{ color: effectiveColor }}>
                       {formatValue(value, config.format)}
                     </p>
                   </div>
@@ -452,7 +457,7 @@ export function DashboardWidget({
                         fontSize: '12px'
                       }}
                     />
-                    <Bar dataKey="sales" fill={accentColor} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="sales" fill={effectiveColor} radius={[4, 4, 0, 0]} />
                     {salesData.hourly.some(h => h.projected) && (
                       <Line 
                         type="monotone" 
