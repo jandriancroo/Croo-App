@@ -1,5 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, DollarSign, Users, Clock, Target, Pizza, Calendar } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Users, Clock, Target, Pizza, Calendar, LucideIcon } from "lucide-react";
 
 // All available metric types that can be shown in a cube
 export type MetricType = 
@@ -25,7 +25,7 @@ export interface MetricConfig {
   type: MetricType;
   label: string;
   shortLabel: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   format: 'currency' | 'percent' | 'number' | 'hours';
   category: 'sales' | 'labor' | 'guests' | 'projections';
 }
@@ -150,11 +150,18 @@ export function DataCube({
 
   return (
     <Card 
-      className="aspect-square overflow-hidden cursor-pointer hover:shadow-lg transition-all"
-      style={{ borderLeft: `4px solid ${accentColor}` }}
+      className="aspect-square overflow-hidden cursor-pointer hover:shadow-lg transition-all relative"
       onClick={onClick}
     >
-      <CardContent className="p-3 h-full flex flex-col justify-between">
+      {/* Gradient header bar */}
+      <div 
+        className="absolute top-0 left-0 right-0 h-1.5"
+        style={{ 
+          background: `linear-gradient(90deg, ${accentColor}, ${accentColor}88)` 
+        }}
+      />
+      
+      <CardContent className="p-3 pt-4 h-full flex flex-col justify-between">
         {/* Title */}
         {title && (
           <div className="text-xs font-medium text-muted-foreground truncate mb-1">
@@ -184,7 +191,15 @@ export function DataCube({
                   className={`flex items-center gap-2 ${isSingleMetric ? 'flex-col text-center' : ''}`}
                 >
                   {isSingleMetric && (
-                    <IconComponent className="shrink-0 h-5 w-5 text-muted-foreground" />
+                    <div 
+                      className="p-1.5 rounded-full"
+                      style={{ backgroundColor: `${accentColor}15` }}
+                    >
+                      <IconComponent 
+                        className="shrink-0 h-4 w-4" 
+                        color={accentColor}
+                      />
+                    </div>
                   )}
                   <div className={`min-w-0 ${isSingleMetric ? 'text-center' : 'flex-1'}`}>
                     <div 
@@ -210,6 +225,12 @@ export function DataCube({
             })
           )}
         </div>
+        
+        {/* Subtle corner accent */}
+        <div 
+          className="absolute bottom-0 right-0 w-8 h-8 opacity-10 rounded-tl-full"
+          style={{ backgroundColor: accentColor }}
+        />
       </CardContent>
     </Card>
   );
