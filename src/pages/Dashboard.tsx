@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users, ChevronDown } from 'lucide-react';
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
@@ -94,6 +95,10 @@ export default function Dashboard() {
   const [crooCashBalance, setCrooCashBalance] = useState<number>(0);
   const [userName, setUserName] = useState<string>('');
   const [showWelcomeAnimation, setShowWelcomeAnimation] = useState(false);
+  const [salesOverviewOpen, setSalesOverviewOpen] = useState(() => {
+    const saved = localStorage.getItem('dashboard-sales-overview-open');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -516,7 +521,25 @@ export default function Dashboard() {
     // Alerts disabled on dashboard - view them on the Alerts page
     'alerts': null,
     'data-cubes': hasQuBeyondIntegration ? <DataCubesSection salesData={cubesSalesData} isLoadingSales={isLoadingCubesSales} /> : null,
-    'sales-overview': hasQuBeyondIntegration ? <SalesOverview locationSettings={locationSettings} /> : null,
+    'sales-overview': hasQuBeyondIntegration ? (
+      <Collapsible 
+        open={salesOverviewOpen} 
+        onOpenChange={(open) => {
+          setSalesOverviewOpen(open);
+          localStorage.setItem('dashboard-sales-overview-open', JSON.stringify(open));
+        }}
+      >
+        <CollapsibleTrigger asChild>
+          <Button variant="ghost" className="w-full flex items-center justify-between p-2 h-auto hover:bg-muted/50">
+            <span className="text-sm font-medium text-muted-foreground">Sales Overview</span>
+            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${salesOverviewOpen ? 'rotate-180' : ''}`} />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <SalesOverview locationSettings={locationSettings} />
+        </CollapsibleContent>
+      </Collapsible>
+    ) : null,
     'checklists-grid': <div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
           {/* Assigned Temporary Tasks */}
