@@ -6,11 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, GripVertical, X } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Trash2, X, BarChart3, ClipboardCheck, ListTodo } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { DataCube, MetricType, METRIC_CONFIGS, METRIC_GROUPS, SalesDataForCubes } from "./DataCube";
+import { ChecklistCube } from "./ChecklistCube";
+import { TaskCube } from "./TaskCube";
 
 const ACCENT_COLORS = [
   { value: "#8B5CF6", label: "Purple" },
@@ -23,10 +28,14 @@ const ACCENT_COLORS = [
   { value: "#6366F1", label: "Indigo" },
 ];
 
+type CubeType = 'data' | 'checklist' | 'task';
+
 interface CubeConfig {
   id?: string;
   title: string;
+  cubeType: CubeType;
   metrics: MetricType[];
+  referenceId?: string;
   accentColor: string;
   displayOrder: number;
   isNew?: boolean;
@@ -51,20 +60,59 @@ export function EditDashboardDialog({
   salesData
 }: EditDashboardDialogProps) {
   const { user } = useAuth();
+  const { currentLocation } = useAppLocation();
   const [cubes, setCubes] = useState<CubeConfig[]>([]);
   const [editingCubeIndex, setEditingCubeIndex] = useState<number | null>(null);
+  const [addingType, setAddingType] = useState<CubeType | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch available checklists
+  const { data: checklists = [] } = useQuery({
+    queryKey: ['checklists-for-cubes', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation?.id) return [];
+      const { data, error } = await supabase
+        .from('checklists')
+        .select('id, title, frequency')
+        .eq('location_id', currentLocation.id)
+        .eq('is_active', true)
+        .order('title');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!currentLocation?.id && open,
+  });
+
+  // Fetch available temporary tasks (quick tasks)
+  const { data: tasks = [] } = useQuery({
+    queryKey: ['tasks-for-cubes', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation?.id) return [];
+      const { data, error } = await supabase
+        .from('temporary_tasks')
+        .select('id, title, expires_at')
+        .eq('location_id', currentLocation.id)
+        .eq('is_active', true)
+        .is('completed_at', null)
+        .order('expires_at');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!currentLocation?.id && open,
+  });
 
   useEffect(() => {
     if (open) {
       setCubes(existingCubes.map((c, i) => ({ ...c, displayOrder: i })));
       setEditingCubeIndex(null);
+      setAddingType(null);
     }
   }, [open, existingCubes]);
 
-  const handleAddCube = () => {
+  const handleAddDataCube = () => {
     const newCube: CubeConfig = {
       title: "",
+      cubeType: 'data',
       metrics: [],
       accentColor: ACCENT_COLORS[cubes.filter(c => !c.toDelete).length % ACCENT_COLORS.length].value,
       displayOrder: cubes.length,
@@ -72,15 +120,42 @@ export function EditDashboardDialog({
     };
     setCubes([...cubes, newCube]);
     setEditingCubeIndex(cubes.length);
+    setAddingType(null);
+  };
+
+  const handleAddChecklistCube = (checklistId: string, checklistTitle: string) => {
+    const newCube: CubeConfig = {
+      title: checklistTitle,
+      cubeType: 'checklist',
+      metrics: [],
+      referenceId: checklistId,
+      accentColor: "#8B5CF6",
+      displayOrder: cubes.length,
+      isNew: true,
+    };
+    setCubes([...cubes, newCube]);
+    setAddingType(null);
+  };
+
+  const handleAddTaskCube = (taskId: string, taskTitle: string) => {
+    const newCube: CubeConfig = {
+      title: taskTitle,
+      cubeType: 'task',
+      metrics: [],
+      referenceId: taskId,
+      accentColor: "#F59E0B",
+      displayOrder: cubes.length,
+      isNew: true,
+    };
+    setCubes([...cubes, newCube]);
+    setAddingType(null);
   };
 
   const handleDeleteCube = (index: number) => {
     const cube = cubes[index];
     if (cube.id) {
-      // Mark existing cube for deletion
       setCubes(cubes.map((c, i) => i === index ? { ...c, toDelete: true } : c));
     } else {
-      // Remove new cube entirely
       setCubes(cubes.filter((_, i) => i !== index));
     }
     setEditingCubeIndex(null);
@@ -95,10 +170,8 @@ export function EditDashboardDialog({
     const currentMetrics = cube.metrics;
     
     if (currentMetrics.includes(metric)) {
-      // Remove metric
       updateCube(index, { metrics: currentMetrics.filter(m => m !== metric) });
     } else if (currentMetrics.length < 3) {
-      // Add metric (max 3)
       updateCube(index, { metrics: [...currentMetrics, metric] });
     } else {
       toast.error("Maximum 3 metrics per cube");
@@ -124,24 +197,20 @@ export function EditDashboardDialog({
       // Get cubes to save (not deleted)
       const toSave = cubes.filter(c => !c.toDelete);
       
-      // Validate cubes have at least one metric
-      const invalidCubes = toSave.filter(c => c.metrics.length === 0);
+      // Validate data cubes have at least one metric
+      const invalidCubes = toSave.filter(c => c.cubeType === 'data' && c.metrics.length === 0);
       if (invalidCubes.length > 0) {
-        toast.error("Each cube must have at least one metric");
+        toast.error("Each data cube must have at least one metric");
         setIsSubmitting(false);
         return;
       }
 
       // Delete all existing cubes for this user/location and recreate
-      // This is simpler than trying to track updates
-      const existingIds = existingCubes.filter(c => c.id).map(c => c.id!);
-      if (existingIds.length > 0) {
-        await supabase
-          .from('user_dashboard_cubes')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('location_id', locationId);
-      }
+      await supabase
+        .from('user_dashboard_cubes')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('location_id', locationId);
 
       // Insert all cubes with new order
       if (toSave.length > 0) {
@@ -150,7 +219,9 @@ export function EditDashboardDialog({
           location_id: locationId,
           display_order: index,
           title: cube.title || null,
-          metrics: cube.metrics,
+          cube_type: cube.cubeType,
+          metrics: cube.cubeType === 'data' ? cube.metrics : [],
+          reference_id: cube.referenceId || null,
           accent_color: cube.accentColor,
         }));
 
@@ -175,6 +246,55 @@ export function EditDashboardDialog({
   const activeCubes = cubes.filter(c => !c.toDelete);
   const editingCube = editingCubeIndex !== null ? cubes[editingCubeIndex] : null;
 
+  // Get list of already-added checklist/task IDs
+  const addedChecklistIds = activeCubes.filter(c => c.cubeType === 'checklist').map(c => c.referenceId);
+  const addedTaskIds = activeCubes.filter(c => c.cubeType === 'task').map(c => c.referenceId);
+
+  const renderCubePreview = (cube: CubeConfig, index: number) => {
+    const realIndex = cubes.indexOf(cube);
+    
+    if (cube.cubeType === 'checklist') {
+      return (
+        <ChecklistCube
+          checklistId={cube.referenceId || ''}
+          title={cube.title}
+          completed={0}
+          expected={0}
+          accentColor={cube.accentColor}
+          onClick={() => setEditingCubeIndex(realIndex)}
+        />
+      );
+    }
+    
+    if (cube.cubeType === 'task') {
+      return (
+        <TaskCube
+          taskId={cube.referenceId || ''}
+          title={cube.title}
+          accentColor={cube.accentColor}
+          onClick={() => setEditingCubeIndex(realIndex)}
+        />
+      );
+    }
+    
+    return (
+      <div className="relative">
+        <DataCube
+          title={cube.title}
+          metrics={cube.metrics}
+          accentColor={cube.accentColor}
+          salesData={salesData}
+          onClick={() => setEditingCubeIndex(realIndex)}
+        />
+        {cube.metrics.length === 0 && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg">
+            <span className="text-xs text-muted-foreground">Tap to configure</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-hidden flex flex-col">
@@ -183,24 +303,13 @@ export function EditDashboardDialog({
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2">
-          {/* Cube List / Grid Preview */}
-          {editingCubeIndex === null ? (
+          {/* Main View - Grid of cubes */}
+          {editingCubeIndex === null && addingType === null ? (
             <>
               <div className="grid grid-cols-2 gap-3">
                 {activeCubes.map((cube, index) => (
-                  <div key={cube.id || `new-${index}`} className="relative">
-                    <DataCube
-                      title={cube.title}
-                      metrics={cube.metrics}
-                      accentColor={cube.accentColor}
-                      salesData={salesData}
-                      onClick={() => setEditingCubeIndex(cubes.indexOf(cube))}
-                    />
-                    {cube.metrics.length === 0 && (
-                      <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg">
-                        <span className="text-xs text-muted-foreground">Tap to configure</span>
-                      </div>
-                    )}
+                  <div key={cube.id || `new-${index}`}>
+                    {renderCubePreview(cube, index)}
                   </div>
                 ))}
                 
@@ -208,7 +317,7 @@ export function EditDashboardDialog({
                 <Button
                   variant="outline"
                   className="aspect-square h-auto flex flex-col gap-2 border-dashed"
-                  onClick={handleAddCube}
+                  onClick={() => setAddingType('data')}
                 >
                   <Plus className="h-6 w-6" />
                   <span className="text-xs">Add Cube</span>
@@ -217,10 +326,94 @@ export function EditDashboardDialog({
               
               {activeCubes.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  No data cubes yet. Add one to display key metrics at a glance.
+                  No cubes yet. Add one to display key info at a glance.
                 </p>
               )}
             </>
+          ) : addingType !== null ? (
+            /* Selecting what type of cube to add */
+            <div className="space-y-4">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-2"
+                onClick={() => setAddingType(null)}
+              >
+                ← Back
+              </Button>
+
+              <Tabs defaultValue="data" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="data" className="gap-1 text-xs">
+                    <BarChart3 className="h-3 w-3" />
+                    Data
+                  </TabsTrigger>
+                  <TabsTrigger value="checklist" className="gap-1 text-xs">
+                    <ClipboardCheck className="h-3 w-3" />
+                    Checklist
+                  </TabsTrigger>
+                  <TabsTrigger value="task" className="gap-1 text-xs">
+                    <ListTodo className="h-3 w-3" />
+                    Task
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="data" className="mt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full h-20 flex flex-col gap-2"
+                    onClick={handleAddDataCube}
+                  >
+                    <BarChart3 className="h-6 w-6" />
+                    <span>Add Data Cube</span>
+                  </Button>
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    Display sales, labor, and other metrics
+                  </p>
+                </TabsContent>
+
+                <TabsContent value="checklist" className="mt-4 space-y-2">
+                  {checklists.filter(c => !addedChecklistIds.includes(c.id)).map(checklist => (
+                    <Button
+                      key={checklist.id}
+                      variant="outline"
+                      className="w-full justify-start gap-2"
+                      onClick={() => handleAddChecklistCube(checklist.id, checklist.title)}
+                    >
+                      <ClipboardCheck className="h-4 w-4" />
+                      <span className="truncate">{checklist.title}</span>
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {checklist.frequency}
+                      </Badge>
+                    </Button>
+                  ))}
+                  {checklists.filter(c => !addedChecklistIds.includes(c.id)).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      All checklists have been added
+                    </p>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="task" className="mt-4 space-y-2">
+                  {tasks.filter(t => !addedTaskIds.includes(t.id)).map(task => (
+                    <Button
+                      key={task.id}
+                      variant="outline"
+                      className="w-full justify-start gap-2"
+                      onClick={() => handleAddTaskCube(task.id, task.title)}
+                    >
+                      <ListTodo className="h-4 w-4" />
+                      <span className="truncate">{task.title}</span>
+                    </Button>
+                  ))}
+                  {tasks.filter(t => !addedTaskIds.includes(t.id)).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No active tasks available to add
+                    </p>
+                  )}
+                </TabsContent>
+              </Tabs>
+            </div>
           ) : editingCube && !editingCube.toDelete ? (
             /* Editing Single Cube */
             <div className="space-y-4">
@@ -235,11 +428,12 @@ export function EditDashboardDialog({
 
               {/* Title */}
               <div className="space-y-2">
-                <Label>Cube Title (optional)</Label>
+                <Label>Cube Title</Label>
                 <Input
                   value={editingCube.title}
                   onChange={(e) => updateCube(editingCubeIndex, { title: e.target.value })}
-                  placeholder="e.g., Sales Snapshot"
+                  placeholder={editingCube.cubeType === 'data' ? "e.g., Sales Snapshot" : ""}
+                  disabled={editingCube.cubeType !== 'data'}
                 />
               </div>
 
@@ -275,68 +469,63 @@ export function EditDashboardDialog({
                 </Select>
               </div>
 
-              {/* Metrics Selection */}
-              <div className="space-y-3">
-                <Label>
-                  Metrics ({editingCube.metrics.length}/3)
-                </Label>
-                
-                {/* Selected metrics */}
-                {editingCube.metrics.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {editingCube.metrics.map(metric => (
-                      <Badge key={metric} variant="secondary" className="gap-1">
-                        {METRIC_CONFIGS[metric].shortLabel}
-                        <X 
-                          className="h-3 w-3 cursor-pointer" 
-                          onClick={() => toggleMetric(editingCubeIndex, metric)}
-                        />
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-
-                {/* Grouped metric options */}
-                {METRIC_GROUPS.map(group => (
-                  <div key={group.label} className="space-y-2">
-                    <div className="text-xs font-medium text-muted-foreground">{group.label}</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {group.metrics.map(metric => {
-                        const isSelected = editingCube.metrics.includes(metric);
-                        const isDisabled = !isSelected && editingCube.metrics.length >= 3;
-                        
-                        return (
-                          <div key={metric} className="flex items-center gap-2">
-                            <Checkbox
-                              id={`metric-${metric}`}
-                              checked={isSelected}
-                              disabled={isDisabled}
-                              onCheckedChange={() => toggleMetric(editingCubeIndex, metric)}
-                            />
-                            <label
-                              htmlFor={`metric-${metric}`}
-                              className={`text-sm cursor-pointer ${isDisabled ? 'opacity-50' : ''}`}
-                            >
-                              {METRIC_CONFIGS[metric].label}
-                            </label>
-                          </div>
-                        );
-                      })}
+              {/* Metrics Selection (only for data cubes) */}
+              {editingCube.cubeType === 'data' && (
+                <div className="space-y-3">
+                  <Label>
+                    Metrics ({editingCube.metrics.length}/3)
+                  </Label>
+                  
+                  {editingCube.metrics.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {editingCube.metrics.map(metric => (
+                        <Badge key={metric} variant="secondary" className="gap-1">
+                          {METRIC_CONFIGS[metric].shortLabel}
+                          <X 
+                            className="h-3 w-3 cursor-pointer" 
+                            onClick={() => toggleMetric(editingCubeIndex, metric)}
+                          />
+                        </Badge>
+                      ))}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  )}
+
+                  {METRIC_GROUPS.map(group => (
+                    <div key={group.label} className="space-y-2">
+                      <div className="text-xs font-medium text-muted-foreground">{group.label}</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {group.metrics.map(metric => {
+                          const isSelected = editingCube.metrics.includes(metric);
+                          const isDisabled = !isSelected && editingCube.metrics.length >= 3;
+                          
+                          return (
+                            <div key={metric} className="flex items-center gap-2">
+                              <Checkbox
+                                id={`metric-${metric}`}
+                                checked={isSelected}
+                                disabled={isDisabled}
+                                onCheckedChange={() => toggleMetric(editingCubeIndex, metric)}
+                              />
+                              <label
+                                htmlFor={`metric-${metric}`}
+                                className={`text-sm cursor-pointer ${isDisabled ? 'opacity-50' : ''}`}
+                              >
+                                {METRIC_CONFIGS[metric].label}
+                              </label>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Preview */}
               <div className="space-y-2">
                 <Label>Preview</Label>
                 <div className="w-32 mx-auto">
-                  <DataCube
-                    title={editingCube.title}
-                    metrics={editingCube.metrics}
-                    accentColor={editingCube.accentColor}
-                    salesData={salesData}
-                  />
+                  {renderCubePreview(editingCube, editingCubeIndex)}
                 </div>
               </div>
 
