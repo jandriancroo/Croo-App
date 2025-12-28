@@ -26,7 +26,7 @@ import { SalesOverview } from './SalesOverview';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, GripVertical } from 'lucide-react';
 
 interface DataCubeConfig {
   id: string;
@@ -43,9 +43,10 @@ interface SortableDataCubeProps {
   salesData: SalesDataForWidgets | null;
   isLoading: boolean;
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
+  isReorderMode: boolean;
 }
 
-function SortableDataCube({ cube, salesData, isLoading, locationSettings }: SortableDataCubeProps) {
+function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReorderMode }: SortableDataCubeProps) {
   const [salesOverviewOpen, setSalesOverviewOpen] = useState(() => {
     const saved = localStorage.getItem('dashboard-sales-overview-open');
     return saved !== null ? JSON.parse(saved) : true;
@@ -58,12 +59,22 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings }: Sort
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: cube.id });
+  } = useSortable({ id: cube.id, disabled: !isReorderMode });
 
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   };
+
+  const dragHandle = isReorderMode ? (
+    <button
+      className="touch-none cursor-grab active:cursor-grabbing p-1.5 rounded-md bg-primary/10 hover:bg-primary/20 transition-colors mb-2"
+      {...attributes}
+      {...listeners}
+    >
+      <GripVertical className="h-4 w-4 text-primary" />
+    </button>
+  ) : null;
 
   // For sales-chart type, render the SalesOverview component
   if (cube.cubeType === 'sales-chart') {
@@ -72,9 +83,8 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings }: Sort
         ref={setNodeRef} 
         style={style} 
         className={`col-span-2 ${isDragging ? 'opacity-50' : ''}`}
-        {...attributes}
-        {...listeners}
       >
+        {dragHandle}
         <Collapsible 
           open={salesOverviewOpen} 
           onOpenChange={(open) => {
@@ -104,9 +114,8 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings }: Sort
       ref={setNodeRef} 
       style={style} 
       className={`${gridClass} ${isDragging ? 'opacity-50' : ''}`}
-      {...attributes}
-      {...listeners}
     >
+      {dragHandle}
       <DashboardWidget
         title={cube.title}
         size={cube.size}
@@ -127,6 +136,7 @@ interface WidgetsSectionProps {
   showAddDialog?: boolean;
   onAddDialogChange?: (open: boolean) => void;
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
+  isReorderMode?: boolean;
 }
 
 export function WidgetsSection({ 
@@ -136,6 +146,7 @@ export function WidgetsSection({
   showAddDialog: externalShowAddDialog,
   onAddDialogChange,
   locationSettings,
+  isReorderMode = false,
 }: WidgetsSectionProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
@@ -288,6 +299,7 @@ export function WidgetsSection({
                 salesData={salesData}
                 isLoading={isLoadingSales}
                 locationSettings={locationSettings}
+                isReorderMode={isReorderMode}
               />
             ))}
           </div>
