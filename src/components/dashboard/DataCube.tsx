@@ -6,6 +6,7 @@ import {
   METRIC_GROUPS,
   SalesDataForWidgets 
 } from "./DashboardWidget";
+import { useIsOledTheme } from "@/hooks/useIsOledTheme";
 
 // Re-export types for backwards compatibility
 export type { MetricType, MetricConfig };
@@ -31,6 +32,10 @@ export function DataCube({
   isLoading = false,
   onClick
 }: DataCubeProps) {
+  const isOled = useIsOledTheme();
+  
+  // Use primary color for OLED theme instead of custom accent colors
+  const effectiveColor = isOled ? 'hsl(215, 30%, 32%)' : accentColor;
   const formatValue = (value: number | undefined, format: 'currency' | 'percent' | 'number' | 'hours'): string => {
     if (value === undefined || value === null) return '--';
     
@@ -125,7 +130,7 @@ export function DataCube({
       {/* Colored header with title */}
       <div 
         className="px-3 py-1.5 md:py-2 flex items-center"
-        style={{ backgroundColor: accentColor }}
+        style={{ backgroundColor: effectiveColor }}
       >
         <span className="text-xs md:text-sm font-semibold text-white truncate">
           {title || 'Data'}
@@ -158,11 +163,11 @@ export function DataCube({
                   {isSingleMetric && (
                     <div 
                       className="p-1.5 rounded-full hidden md:block"
-                      style={{ backgroundColor: `${accentColor}15` }}
+                      style={{ backgroundColor: `${effectiveColor}15` }}
                     >
                       <IconComponent 
                         className="shrink-0 h-4 w-4" 
-                        color={accentColor}
+                        color={effectiveColor}
                       />
                     </div>
                   )}
@@ -175,7 +180,7 @@ export function DataCube({
                             ? (isFirst ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl') 
                             : (isFirst ? 'text-xl md:text-2xl' : 'text-lg md:text-xl')
                       }`}
-                      style={{ color: accentColor }}
+                      style={{ color: effectiveColor }}
                     >
                       {formatValue(value, config.format)}
                     </div>
@@ -194,7 +199,7 @@ export function DataCube({
         {/* Corner accent with icon - smaller on desktop */}
         <div 
           className="absolute bottom-0 right-0 w-10 h-10 md:w-8 md:h-8 rounded-tl-full flex items-end justify-end"
-          style={{ backgroundColor: accentColor }}
+          style={{ backgroundColor: effectiveColor }}
         >
           {CornerIcon && (
             <CornerIcon className="w-3 h-3 text-white mr-1.5 mb-1.5" />
