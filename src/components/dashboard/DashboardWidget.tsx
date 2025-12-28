@@ -285,8 +285,8 @@ export function DashboardWidget({
                 return (
                   <div key={metricType} className={`${isSingleMetric ? 'text-center' : ''} md:flex-1 md:text-center`}>
                     <div 
-                      className={`font-extrabold truncate ${isSingleMetric ? 'text-3xl md:text-4xl' : 'text-lg md:text-2xl'}`}
-                      style={{ color: effectiveColor }}
+                      className={`font-extrabold truncate ${isSingleMetric ? 'text-3xl md:text-4xl' : 'text-lg md:text-2xl'} ${isOled ? 'text-muted-foreground' : ''}`}
+                      style={isOled ? undefined : { color: effectiveColor }}
                     >
                       {formatValue(value, config.format)}
                     </div>
