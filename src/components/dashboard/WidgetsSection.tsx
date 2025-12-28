@@ -29,6 +29,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, GripVertical } from 'lucide-react';
 import { useIsOledTheme } from '@/hooks/useIsOledTheme';
+import { getCachedLiveSales, setCachedLiveSales, getCachedProjections, setCachedProjections } from '@/utils/salesCache';
 
 // Sales chart accent color - teal to match the chart bars, dark blue for OLED
 const SALES_CHART_COLOR = '#0D9488';
@@ -293,6 +294,98 @@ export function WidgetsSection({
 
   // Check if sales chart already exists
   const hasSalesChart = localCubes.some(c => c.cubeType === 'sales-chart');
+  
+  // Check if there are data cubes that need sales data
+  const hasDataCubes = localCubes.some(c => c.cubeType === 'data');
+  
+  // Internal sales data state for when we don't have a sales-chart cube
+  const [internalSalesData, setInternalSalesData] = useState<SalesDataForWidgets | null>(null);
+  const [isLoadingInternalSales, setIsLoadingInternalSales] = useState(false);
+  
+  // Fetch sales data directly if we have data cubes but no sales-chart
+  // This ensures data cubes work even without the SalesOverview component
+  useEffect(() => {
+    const fetchSalesDataForCubes = async () => {
+      // Skip if we already have sales data from parent (via sales-chart) or if already loading
+      if (salesData || hasSalesChart || !hasDataCubes || !currentLocation?.id || isLoadingInternalSales) {
+        return;
+      }
+      
+      // Check cache first
+      const cached = getCachedLiveSales(currentLocation.id);
+      if (cached?.data && !cached.isStale) {
+        setInternalSalesData(cached.data);
+        return;
+      }
+      
+      setIsLoadingInternalSales(true);
+      
+      try {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+        
+        // Check projection cache
+        const cachedProjections = getCachedProjections(currentLocation.id);
+        const skipProjections = !!cachedProjections?.todayProjected && !!cachedProjections?.weekProjected;
+        
+        const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
+          body: { 
+            locationId: currentLocation.id,
+            targetDate: dateStr,
+            skipProjections,
+            fastMode: !!cached?.data
+          }
+        });
+        
+        if (error) {
+          console.error('[WidgetsSection] Error fetching sales data:', error);
+          return;
+        }
+        
+        if (data && typeof data === 'object' && !('authenticated' in data && data.authenticated === false)) {
+          const fetchedData = data as SalesDataForWidgets;
+          
+          // Merge cached projections if we skipped fetching them
+          if (skipProjections && cachedProjections) {
+            fetchedData.projections = {
+              todayProjected: cachedProjections.todayProjected || 0,
+              todayPaceAdjusted: cachedProjections.todayPaceAdjusted,
+              weekProjected: cachedProjections.weekProjected,
+              monthProjected: cachedProjections.monthProjected
+            };
+          } else if (fetchedData.projections) {
+            // Cache new projections
+            setCachedProjections(currentLocation.id, {
+              todayProjected: fetchedData.projections.todayProjected,
+              todayPaceAdjusted: fetchedData.projections.todayPaceAdjusted,
+              weekProjected: fetchedData.projections.weekProjected,
+              monthProjected: fetchedData.projections.monthProjected
+            });
+          }
+          
+          // Cache the sales data
+          setCachedLiveSales(currentLocation.id, fetchedData);
+          setInternalSalesData(fetchedData);
+          
+          // Notify parent if callback exists
+          onSalesDataChange?.(fetchedData);
+        }
+      } catch (err) {
+        console.error('[WidgetsSection] Failed to fetch sales data:', err);
+      } finally {
+        setIsLoadingInternalSales(false);
+      }
+    };
+    
+    fetchSalesDataForCubes();
+  }, [currentLocation?.id, hasDataCubes, hasSalesChart, salesData, isLoadingInternalSales, onSalesDataChange]);
+  
+  // Use either external salesData (from SalesOverview) or internal fetch
+  const effectiveSalesData = salesData || internalSalesData;
+  const effectiveIsLoading = isLoadingSales || isLoadingInternalSales;
 
   // Sync local cubes state with fetched data
   useEffect(() => {
@@ -460,8 +553,8 @@ export function WidgetsSection({
                 <SortableDataCube
                   key={cube.id}
                   cube={cube}
-                  salesData={salesData}
-                  isLoading={isLoadingSales}
+                  salesData={effectiveSalesData}
+                  isLoading={effectiveIsLoading}
                   locationSettings={locationSettings}
                   isReorderMode={isReorderMode}
                   onSalesDataChange={onSalesDataChange}
