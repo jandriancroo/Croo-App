@@ -385,11 +385,11 @@ export function WidgetsSection({
 
       if (error) throw error;
 
-      toast.success('Widget added');
+      toast.success('Data cube added');
       queryClient.invalidateQueries({ queryKey: ['user-dashboard-widgets'] });
     } catch (error) {
       console.error('Error adding widget:', error);
-      toast.error('Failed to add widget');
+      toast.error('Failed to add data cube');
     }
   };
 
@@ -402,11 +402,11 @@ export function WidgetsSection({
 
       if (error) throw error;
 
-      toast.success('Widget removed');
+      toast.success('Data cube removed');
       queryClient.invalidateQueries({ queryKey: ['user-dashboard-widgets'] });
     } catch (error) {
       console.error('Error deleting widget:', error);
-      toast.error('Failed to remove widget');
+      toast.error('Failed to remove data cube');
     }
   };
 
@@ -443,7 +443,7 @@ export function WidgetsSection({
         </DndContext>
       )}
 
-      {/* Add Widget Button */}
+      {/* Add Data Cube Button */}
       {showEditButton && (
         <Button
           variant="outline"
@@ -451,7 +451,7 @@ export function WidgetsSection({
           onClick={() => setShowAddDialog(true)}
         >
           <Plus className="h-4 w-4" />
-          Add Widget
+          Add Data Cube
         </Button>
       )}
 

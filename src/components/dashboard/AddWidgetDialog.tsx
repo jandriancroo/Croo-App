@@ -165,7 +165,7 @@ export function AddWidgetDialog({
             )}
             {step === 'size' && 'Choose Size'}
             {step === 'type' && 'Choose Type'}
-            {step === 'configure' && 'Configure Widget'}
+            {step === 'configure' && 'Configure Data Cube'}
           </DialogTitle>
         </DialogHeader>
 
@@ -173,7 +173,7 @@ export function AddWidgetDialog({
         {step === 'size' && (
           <div className="space-y-4 py-4">
             <p className="text-sm text-muted-foreground text-center">
-              Select a widget size
+              Select a size
             </p>
             
             <div className="grid grid-cols-3 gap-4">
@@ -311,12 +311,12 @@ export function AddWidgetDialog({
           </div>
         )}
 
-        {/* Step 3: Configure Data Widget */}
+        {/* Step 3: Configure Data Cube */}
         {step === 'configure' && (
           <div className="space-y-4 py-4">
             {/* Title */}
             <div className="space-y-2">
-              <Label htmlFor="title">Widget Title</Label>
+              <Label htmlFor="title">Title</Label>
               <Input
                 id="title"
                 placeholder="e.g., Today's Sales"
@@ -390,7 +390,7 @@ export function AddWidgetDialog({
               onClick={handleAddDataWidget}
               disabled={config.metrics.length === 0}
             >
-              Add Widget
+              Add Data Cube
             </Button>
           </DialogFooter>
         )}
