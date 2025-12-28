@@ -1159,7 +1159,7 @@ export default function LogBook() {
                               </div>
                               
                               {/* Follow-up action buttons for Guest Re-Makes and Online Refunds */}
-                              {entry.logbook_categories?.name === 'Guest Re-Makes' && (
+                              {entry.logbook_categories?.name === 'Guest Remakes' && (
                                 <div className="mt-3 pt-3 border-t border-border">
                                   {entry.followup_completed_at ? (
                                     <div className="flex items-center gap-2">
