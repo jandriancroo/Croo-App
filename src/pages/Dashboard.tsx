@@ -13,9 +13,6 @@ import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporary
 import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
 import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
 import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
-import { EditDashboardDialog, SectionKey } from '@/components/dashboard/EditDashboardDialog';
-import { MetricType } from '@/components/dashboard/DataCube';
-import { Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -115,49 +112,10 @@ export default function Dashboard() {
   const { getTodayInTimezone, timezone } = useLocationTimezone();
   const { animationAmount } = useCrooCashAnimation();
   const { salesData: cubesSalesData, isLoading: isLoadingCubesSales } = useSalesDataForCubes();
-  const { isSectionVisible, sectionConfigs, refreshSections } = useDashboardSections();
-  const [showEditDashboard, setShowEditDashboard] = useState(false);
+  const { isSectionVisible, refreshSections } = useDashboardSections();
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const isMobile = useIsMobile();
   const queryClient = useQueryClient();
-
-  // Fetch user's dashboard cubes for the edit dialog
-  const { data: existingCubes = [] } = useQuery({
-    queryKey: ['user-dashboard-cubes', user?.id, currentLocation?.id],
-    queryFn: async () => {
-      if (!user?.id || !currentLocation?.id) return [];
-
-      const { data, error } = await supabase
-        .from('user_dashboard_cubes')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('location_id', currentLocation.id)
-        .order('display_order');
-
-      if (error) {
-        console.error('Error fetching dashboard cubes:', error);
-        return [];
-      }
-
-      return (data || []).map(cube => ({
-        id: cube.id,
-        title: cube.title || '',
-        cubeType: (cube.cube_type as 'data' | 'checklist' | 'task') || 'data',
-        metrics: (Array.isArray(cube.metrics) ? cube.metrics : []) as MetricType[],
-        referenceId: cube.reference_id || undefined,
-        accentColor: cube.accent_color || '#8B5CF6',
-        displayOrder: cube.display_order,
-      }));
-    },
-    enabled: !!user?.id && !!currentLocation?.id,
-  });
-
-  const handleDashboardSave = () => {
-    refreshSections();
-    queryClient.invalidateQueries({ 
-      queryKey: ['user-dashboard-cubes', user?.id, currentLocation?.id] 
-    });
-  };
 
   // Check for welcome animation from login
   useEffect(() => {
@@ -868,8 +826,8 @@ export default function Dashboard() {
               </div>
             )}
             
-            <Button onClick={() => setShowEditDashboard(true)} variant="outline" size="icon" className="h-10 w-10" title="Edit Dashboard">
-              <Settings2 className="h-4 w-4" />
+            <Button onClick={() => setShowAddCubeDialog(true)} variant="outline" size="icon" className="h-10 w-10" title="Add Data Cube">
+              <Plus className="h-4 w-4" />
             </Button>
             {isEditMode && <Button onClick={resetLayout} variant="outline" size="icon" className="h-10 w-10">
                 <ArrowUpDown className="h-4 w-4" />
@@ -903,17 +861,5 @@ export default function Dashboard() {
         <CrowSplashAnimation onComplete={() => setShowWelcomeAnimation(false)} />
       )}
       
-      {/* Edit Dashboard Dialog */}
-      <EditDashboardDialog
-        open={showEditDashboard}
-        onOpenChange={setShowEditDashboard}
-        locationId={currentLocation?.id || ''}
-        existingCubes={existingCubes}
-        existingSections={sectionConfigs}
-        onSave={handleDashboardSave}
-        salesData={cubesSalesData}
-        hasQuBeyondIntegration={hasQuBeyondIntegration}
-        onAddCube={() => setShowAddCubeDialog(true)}
-      />
     </Layout>;
 }
