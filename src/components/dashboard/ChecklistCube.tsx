@@ -30,7 +30,7 @@ export function ChecklistCube({
   const isComplete = completionRate === 100;
   
   // Use primary color for OLED theme instead of custom accent colors
-  const effectiveColor = isOled ? 'hsl(215, 30%, 32%)' : accentColor;
+  const effectiveColor = isOled ? 'hsl(215, 30%, 18%)' : accentColor;
 
   const handleClick = () => {
     if (onClick) {
