@@ -507,10 +507,8 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     return { ...rawSalesData, hourly: undefined };
   }, [rawSalesData, locationSettings]);
 
-  // Notify parent component when sales data changes (for data cubes to use)
-  useEffect(() => {
-    onSalesDataChange?.(salesData || null);
-  }, [salesData, onSalesDataChange]);
+  // NOTE: Pace-adjusted values for data cubes are calculated below after useMemo hooks
+  // and passed via onSalesDataChange effect after accumulatedWeekDelta/accumulatedMonthDelta are defined
 
   // Only include days that fall within the selected month to avoid bleeding into other months
   const monthlyWeeklyAggregated = useMemo(() => {
@@ -647,6 +645,27 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     
     return delta;
   }, [salesData?.monthlyBreakdown, salesData?.projections?.todayPaceAdjusted, salesData?.projections?.todayProjected, isToday]);
+
+  // Notify parent component when sales data changes (for data cubes to use)
+  // Include pace-adjusted values that are calculated in the useMemo hooks above
+  useEffect(() => {
+    if (!salesData) {
+      onSalesDataChange?.(null);
+      return;
+    }
+    
+    // Enhance salesData with pace-adjusted values for cubes
+    const enhancedData = {
+      ...salesData,
+      projections: salesData.projections ? {
+        ...salesData.projections,
+        weekPaceAdjusted: calculatedWeekProjected + accumulatedWeekDelta,
+        monthPaceAdjusted: (salesData.projections.monthProjected || 0) + accumulatedMonthDelta,
+      } : undefined,
+    };
+    
+    onSalesDataChange?.(enhancedData);
+  }, [salesData, calculatedWeekProjected, accumulatedWeekDelta, accumulatedMonthDelta, onSalesDataChange]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setTargetDate(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1));
