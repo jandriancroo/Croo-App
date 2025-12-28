@@ -439,7 +439,14 @@ export function EditDashboardDialog({
                   <Button
                     variant="outline"
                     className="aspect-square h-auto flex flex-col gap-2 border-dashed"
-                    onClick={() => setAddingType('data')}
+                    onClick={() => {
+                      if (onAddCube) {
+                        onOpenChange(false);
+                        onAddCube();
+                      } else {
+                        setAddingType('data');
+                      }
+                    }}
                   >
                     <Plus className="h-6 w-6" />
                     <span className="text-xs">Add</span>
