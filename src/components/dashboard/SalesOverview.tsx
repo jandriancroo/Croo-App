@@ -1432,7 +1432,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                         }}
                       />
                       <Legend 
-                        formatter={(value) => value === 'projected' ? 'Projected' : 'Actual Sales'}
+                        formatter={(value) => value === 'Projected' ? 'Projected' : 'Actual Sales'}
                         wrapperStyle={{ fontSize: '12px' }}
                       />
                       <Bar dataKey="sales" name="Actual Sales" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
@@ -1476,7 +1476,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                         }}
                       />
                       <Legend 
-                        formatter={(value) => value === 'projected' ? 'Projected' : 'Actual Sales'}
+                        formatter={(value) => value === 'Projected' ? 'Projected' : 'Actual Sales'}
                         wrapperStyle={{ fontSize: '12px' }}
                       />
                       <Bar dataKey="sales" name="Actual Sales" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
