@@ -10,6 +10,7 @@ import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Bank
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
+import { DataCubesSection } from '@/components/dashboard/DataCubesSection';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useQuery } from '@tanstack/react-query';
@@ -28,6 +29,7 @@ import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { formatTime12Hour } from '@/lib/utils';
 import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
+import { useSalesDataForCubes } from '@/hooks/useSalesDataForCubes';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
@@ -61,7 +63,7 @@ interface ChecklistStats {
   submissions_this_month: number;
   submissions_today: number;
 }
-const DEFAULT_SECTION_ORDER = ['alerts', 'checklists-grid', 'sales-overview'];
+const DEFAULT_SECTION_ORDER = ['alerts', 'data-cubes', 'sales-overview', 'checklists-grid'];
 const STORAGE_KEY = 'dashboard-section-order';
 export default function Dashboard() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
@@ -101,6 +103,7 @@ export default function Dashboard() {
   const { currentLocation, isChecklistOnlyLocation } = useAppLocation();
   const { getTodayInTimezone, timezone } = useLocationTimezone();
   const { animationAmount } = useCrooCashAnimation();
+  const { salesData: cubesSalesData, isLoading: isLoadingCubesSales } = useSalesDataForCubes();
   const isMobile = useIsMobile();
 
   // Check for welcome animation from login
@@ -512,6 +515,7 @@ export default function Dashboard() {
   const standardSections: Record<string, JSX.Element | null> = {
     // Alerts disabled on dashboard - view them on the Alerts page
     'alerts': null,
+    'data-cubes': hasQuBeyondIntegration ? <DataCubesSection salesData={cubesSalesData} isLoadingSales={isLoadingCubesSales} /> : null,
     'sales-overview': hasQuBeyondIntegration ? <SalesOverview locationSettings={locationSettings} /> : null,
     'checklists-grid': <div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
