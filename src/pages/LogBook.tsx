@@ -1169,7 +1169,7 @@ export default function LogBook() {
                                         className="bg-green-500/20 text-green-600 border-green-500/30 hover:bg-green-500/30 cursor-default"
                                         disabled
                                       >
-                                        ✓ Redeemed
+                                        ✓ Re-Make Completed
                                       </Button>
                                       <span className="text-xs text-muted-foreground">
                                         {format(new Date(entry.followup_completed_at), 'MMM d, h:mm a')}
@@ -1179,10 +1179,11 @@ export default function LogBook() {
                                     <Button 
                                       size="sm" 
                                       variant="outline"
+                                      className="border-amber-500/50 text-amber-600 hover:bg-amber-500/10"
                                       onClick={() => followupMutation.mutate(entry.id)}
                                       disabled={followupMutation.isPending}
                                     >
-                                      Redeem
+                                      Mark Re-Make Complete
                                     </Button>
                                   )}
                                 </div>
@@ -1213,36 +1214,6 @@ export default function LogBook() {
                                       disabled={followupMutation.isPending}
                                     >
                                       Need to Refund
-                                    </Button>
-                                  )}
-                                </div>
-                              )}
-                              
-                              {entry.logbook_categories?.name === 'Remake' && (
-                                <div className="mt-3 pt-3 border-t border-border">
-                                  {entry.followup_completed_at ? (
-                                    <div className="flex items-center gap-2">
-                                      <Button 
-                                        size="sm" 
-                                        variant="outline"
-                                        className="bg-green-500/20 text-green-600 border-green-500/30 hover:bg-green-500/30 cursor-default"
-                                        disabled
-                                      >
-                                        ✓ Re-Make Completed
-                                      </Button>
-                                      <span className="text-xs text-muted-foreground">
-                                        {format(new Date(entry.followup_completed_at), 'MMM d, h:mm a')}
-                                      </span>
-                                    </div>
-                                  ) : (
-                                    <Button 
-                                      size="sm" 
-                                      variant="outline"
-                                      className="border-amber-500/50 text-amber-600 hover:bg-amber-500/10"
-                                      onClick={() => followupMutation.mutate(entry.id)}
-                                      disabled={followupMutation.isPending}
-                                    >
-                                      Mark Re-Make Complete
                                     </Button>
                                   )}
                                 </div>
