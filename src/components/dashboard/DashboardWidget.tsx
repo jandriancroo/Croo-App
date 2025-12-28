@@ -168,7 +168,7 @@ export function DashboardWidget({
   const isOled = useIsOledTheme();
   
   // Use primary color for OLED theme instead of custom accent colors
-  const effectiveColor = isOled ? 'hsl(215, 30%, 32%)' : accentColor;
+  const effectiveColor = isOled ? 'hsl(215, 30%, 18%)' : accentColor;
   const formatValue = (value: number | undefined, formatType: 'currency' | 'percent' | 'number' | 'hours'): string => {
     if (value === undefined || value === null) return '--';
     
