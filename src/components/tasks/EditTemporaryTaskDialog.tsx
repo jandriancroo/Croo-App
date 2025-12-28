@@ -22,6 +22,14 @@ interface EditTemporaryTaskDialogProps {
   task: any;
 }
 
+interface Subtask {
+  id?: string;
+  title: string;
+  item_type: "checkbox" | "photo";
+  isNew?: boolean;
+  toDelete?: boolean;
+}
+
 const ACCENT_COLORS = [
   { value: "#8B5CF6", label: "Purple" },
   { value: "#10B981", label: "Green" },
@@ -81,6 +89,10 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
   const [assignmentType, setAssignmentType] = useState<"employees" | "roles">("employees");
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  // Subtasks
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [newSubtask, setNewSubtask] = useState("");
+  const [newSubtaskType, setNewSubtaskType] = useState<"checkbox" | "photo">("checkbox");
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -109,6 +121,22 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
       return profiles || [];
     },
     enabled: open && !!currentLocation?.id,
+  });
+
+  // Fetch existing subtasks
+  const { data: existingSubtasks = [] } = useQuery({
+    queryKey: ['task-subtasks', task?.id],
+    queryFn: async () => {
+      if (!task?.id) return [];
+      const { data, error } = await supabase
+        .from('temporary_task_subtasks')
+        .select('id, title, item_type, order_index')
+        .eq('task_id', task.id)
+        .order('order_index');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open && !!task?.id,
   });
 
   // Load task data when dialog opens
@@ -143,8 +171,46 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
         setSelectedRoles(assignments.filter((a: any) => a.role).map((a: any) => a.role));
         setSelectedEmployees([]);
       }
+      
+      // Reset subtasks state - will be populated from query
+      setSubtasks([]);
+      setNewSubtask("");
+      setNewSubtaskType("checkbox");
     }
   }, [open, task]);
+
+  // Sync subtasks from query when loaded
+  useEffect(() => {
+    if (existingSubtasks.length > 0 && subtasks.length === 0) {
+      setSubtasks(existingSubtasks.map((s: any) => ({
+        id: s.id,
+        title: s.title,
+        item_type: s.item_type as "checkbox" | "photo",
+      })));
+    }
+  }, [existingSubtasks]);
+
+  const handleAddSubtask = () => {
+    if (newSubtask.trim()) {
+      setSubtasks([...subtasks, { 
+        title: newSubtask.trim(), 
+        item_type: newSubtaskType,
+        isNew: true 
+      }]);
+      setNewSubtask("");
+    }
+  };
+
+  const handleRemoveSubtask = (index: number) => {
+    const subtask = subtasks[index];
+    if (subtask.id) {
+      // Mark existing subtask for deletion
+      setSubtasks(subtasks.map((s, i) => i === index ? { ...s, toDelete: true } : s));
+    } else {
+      // Remove new subtask entirely
+      setSubtasks(subtasks.filter((_, i) => i !== index));
+    }
+  };
 
   const handleAddCustomTime = () => {
     if (newCustomTime && !customTimes.includes(newCustomTime)) {
@@ -235,6 +301,34 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
         .insert(assignments);
 
       if (assignmentError) throw assignmentError;
+
+      // Handle subtasks
+      // Delete subtasks marked for deletion
+      const subtasksToDelete = subtasks.filter(s => s.toDelete && s.id);
+      if (subtasksToDelete.length > 0) {
+        await supabase
+          .from('temporary_task_subtasks')
+          .delete()
+          .in('id', subtasksToDelete.map(s => s.id!));
+      }
+
+      // Add new subtasks
+      const newSubtasks = subtasks.filter(s => s.isNew && !s.toDelete);
+      if (newSubtasks.length > 0) {
+        const existingCount = subtasks.filter(s => !s.isNew && !s.toDelete).length;
+        const subtaskRecords = newSubtasks.map((subtask, index) => ({
+          task_id: task.id,
+          title: subtask.title,
+          item_type: subtask.item_type,
+          order_index: existingCount + index,
+        }));
+
+        const { error: subtaskError } = await supabase
+          .from('temporary_task_subtasks')
+          .insert(subtaskRecords);
+
+        if (subtaskError) throw subtaskError;
+      }
 
       toast.success("Task updated");
       onSuccess();
@@ -548,6 +642,83 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
               </div>
             </div>
           )}
+
+          {/* Subtasks */}
+          <div className="space-y-2">
+            <Label>Subtasks</Label>
+            <div className="flex gap-2">
+              <Input
+                value={newSubtask}
+                onChange={(e) => setNewSubtask(e.target.value)}
+                placeholder="Add a subtask"
+                className="flex-1"
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddSubtask())}
+              />
+              <Select value={newSubtaskType} onValueChange={(v) => setNewSubtaskType(v as "checkbox" | "photo")}>
+                <SelectTrigger className="w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="checkbox">
+                    <div className="flex items-center gap-2">
+                      <CheckSquare className="h-3.5 w-3.5" />
+                      Check
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="photo">
+                    <div className="flex items-center gap-2">
+                      <Camera className="h-3.5 w-3.5" />
+                      Photo
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Button 
+                type="button" 
+                size="icon" 
+                variant="outline"
+                onClick={handleAddSubtask}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            {subtasks.filter(s => !s.toDelete).length > 0 && (
+              <div className="border rounded-lg p-3 space-y-2">
+                {subtasks.map((subtask, index) => {
+                  if (subtask.toDelete) return null;
+                  return (
+                    <div key={subtask.id || `new-${index}`} className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        {subtask.item_type === "photo" ? (
+                          <Camera className="h-3.5 w-3.5 text-muted-foreground" />
+                        ) : (
+                          <CheckSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                        <span className="text-sm">{subtask.title}</span>
+                        <Badge variant="outline" className="text-[10px] px-1.5">
+                          {subtask.item_type === "photo" ? "Photo" : "Check"}
+                        </Badge>
+                        {subtask.isNew && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5">
+                            New
+                          </Badge>
+                        )}
+                      </div>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={() => handleRemoveSubtask(index)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
 
         <DialogFooter>
