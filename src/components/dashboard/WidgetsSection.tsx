@@ -70,47 +70,44 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
     transition,
   };
 
-  const reorderModeClass = isReorderMode ? 'border-2 border-dashed border-primary/30 rounded-lg p-2' : '';
-
   // For sales-chart type, render the SalesOverview component with matching cube style
   if (cube.cubeType === 'sales-chart') {
     return (
       <div 
         ref={setNodeRef} 
         style={style} 
-        className={`col-span-2 ${isDragging ? 'opacity-50' : ''} ${reorderModeClass}`}
+        className={`col-span-2 ${isDragging ? 'opacity-50' : ''} relative`}
+        {...(isReorderMode ? { ...attributes, ...listeners } : {})}
       >
-        {isReorderMode && (
-          <div className="flex items-center gap-2 mb-2">
-            <button
-              className="touch-none cursor-grab active:cursor-grabbing p-1.5 rounded-md bg-primary/10 hover:bg-primary/20 transition-colors"
-              {...attributes}
-              {...listeners}
-            >
-              <GripVertical className="h-4 w-4 text-primary" />
-            </button>
-            <span className="text-xs text-muted-foreground">Drag to reorder</span>
-          </div>
-        )}
-        <Card className="overflow-hidden">
+        <Card className={`overflow-hidden ${isReorderMode ? 'cursor-grab active:cursor-grabbing' : ''}`}>
+          {/* Reorder overlay */}
+          {isReorderMode && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 rounded-lg">
+              <div className="p-3 rounded-full bg-primary/20">
+                <GripVertical className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          )}
           {/* Colored header matching other cubes */}
           <Collapsible 
             open={salesOverviewOpen} 
             onOpenChange={(open) => {
-              setSalesOverviewOpen(open);
-              localStorage.setItem('dashboard-sales-overview-open', JSON.stringify(open));
+              if (!isReorderMode) {
+                setSalesOverviewOpen(open);
+                localStorage.setItem('dashboard-sales-overview-open', JSON.stringify(open));
+              }
             }}
           >
-            <CollapsibleTrigger asChild>
+            <CollapsibleTrigger asChild disabled={isReorderMode}>
               <button 
-                className="w-full px-3 py-2 flex items-center justify-between cursor-pointer hover:opacity-90 transition-opacity"
+                className={`w-full px-3 py-2 flex items-center justify-between transition-opacity ${isReorderMode ? 'opacity-85 pointer-events-none' : 'cursor-pointer hover:opacity-90'}`}
                 style={{ backgroundColor: SALES_CHART_COLOR }}
               >
                 <span className="text-sm font-semibold text-white">Sales Overview</span>
                 <ChevronDown className={`h-4 w-4 text-white/80 transition-transform duration-200 ${salesOverviewOpen ? 'rotate-180' : ''}`} />
               </button>
             </CollapsibleTrigger>
-            <CollapsibleContent>
+            <CollapsibleContent className={isReorderMode ? 'opacity-85' : ''}>
               <SalesOverview locationSettings={locationSettings} />
             </CollapsibleContent>
           </Collapsible>
@@ -126,29 +123,28 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
     <div 
       ref={setNodeRef} 
       style={style} 
-      className={`${gridClass} ${isDragging ? 'opacity-50' : ''} ${reorderModeClass}`}
+      className={`${gridClass} ${isDragging ? 'opacity-50' : ''} relative`}
+      {...(isReorderMode ? { ...attributes, ...listeners } : {})}
     >
+      {/* Reorder overlay */}
       {isReorderMode && (
-        <div className="flex items-center gap-2 mb-2">
-          <button
-            className="touch-none cursor-grab active:cursor-grabbing p-1.5 rounded-md bg-primary/10 hover:bg-primary/20 transition-colors"
-            {...attributes}
-            {...listeners}
-          >
-            <GripVertical className="h-4 w-4 text-primary" />
-          </button>
-          <span className="text-xs text-muted-foreground">Drag to reorder</span>
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 rounded-lg">
+          <div className="p-3 rounded-full bg-primary/20">
+            <GripVertical className="h-6 w-6 text-primary" />
+          </div>
         </div>
       )}
-      <DashboardWidget
-        title={cube.title}
-        size={cube.size}
-        metrics={cube.metrics}
-        accentColor={cube.accentColor}
-        salesData={salesData}
-        isLoading={isLoading}
-        isDragging={isDragging}
-      />
+      <div className={isReorderMode ? 'opacity-85 cursor-grab active:cursor-grabbing' : ''}>
+        <DashboardWidget
+          title={cube.title}
+          size={cube.size}
+          metrics={cube.metrics}
+          accentColor={cube.accentColor}
+          salesData={salesData}
+          isLoading={isLoading}
+          isDragging={isDragging}
+        />
+      </div>
     </div>
   );
 }
