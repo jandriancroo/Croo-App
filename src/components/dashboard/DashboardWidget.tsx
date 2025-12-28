@@ -245,18 +245,18 @@ export function DashboardWidget({
   const firstMetricConfig = displayMetrics[0] ? METRIC_CONFIGS[displayMetrics[0]] : null;
   const CornerIcon = firstMetricConfig?.icon;
 
-  // Small widget (1x1) - compact cube
+  // Small widget - square on mobile, horizontal rectangle on tablet/desktop
   if (size === 'small') {
     const isSingleMetric = displayMetrics.length === 1;
     
     return (
       <Card 
-        className={`aspect-square overflow-hidden cursor-pointer hover:shadow-lg transition-all relative ${isDragging ? 'opacity-50 shadow-2xl' : ''}`}
+        className={`aspect-square md:aspect-[2/1] overflow-hidden cursor-pointer hover:shadow-lg transition-all relative ${isDragging ? 'opacity-50 shadow-2xl' : ''}`}
         onClick={onClick}
       >
         {/* Colored header */}
-        <div className="px-3 py-2 flex items-center" style={{ backgroundColor: accentColor }}>
-          <span className="text-xs font-semibold text-white truncate flex-1">{title || 'Data'}</span>
+        <div className="px-3 py-1.5 md:py-2 flex items-center" style={{ backgroundColor: accentColor }}>
+          <span className="text-xs md:text-sm font-semibold text-white truncate flex-1">{title || 'Data'}</span>
           {dragHandleProps && (
             <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing ml-1">
               <GripVertical className="h-3 w-3 text-white/70" />
@@ -264,28 +264,28 @@ export function DashboardWidget({
           )}
         </div>
         
-        <CardContent className="p-3 h-[calc(100%-32px)] flex flex-col justify-center">
+        <CardContent className="p-3 md:p-4 h-[calc(100%-28px)] md:h-[calc(100%-36px)] flex flex-col justify-center">
           {isLoading ? (
             <div className="space-y-2">
               <div className="h-6 bg-muted animate-pulse rounded" />
               <div className="h-4 bg-muted animate-pulse rounded w-2/3" />
             </div>
           ) : (
-            <div className={`flex flex-col ${isSingleMetric ? 'items-center text-center' : 'gap-1'}`}>
+            <div className={`flex ${isSingleMetric ? 'flex-col items-center text-center md:flex-row md:items-center md:justify-center md:gap-4' : 'flex-col gap-1 md:flex-row md:gap-6 md:justify-around'}`}>
               {displayMetrics.map((metricType, index) => {
                 const config = METRIC_CONFIGS[metricType];
                 if (!config) return null;
                 const value = getMetricValue(metricType);
                 
                 return (
-                  <div key={metricType} className={isSingleMetric ? 'text-center' : ''}>
+                  <div key={metricType} className={`${isSingleMetric ? 'text-center' : ''} md:flex-1 md:text-center`}>
                     <div 
-                      className={`font-extrabold truncate ${isSingleMetric ? 'text-3xl' : 'text-lg'}`}
+                      className={`font-extrabold truncate ${isSingleMetric ? 'text-3xl md:text-4xl' : 'text-lg md:text-2xl'}`}
                       style={{ color: accentColor }}
                     >
                       {formatValue(value, config.format)}
                     </div>
-                    <div className={`text-muted-foreground truncate font-medium ${isSingleMetric ? 'text-xs' : 'text-[10px]'}`}>
+                    <div className={`text-muted-foreground truncate font-medium ${isSingleMetric ? 'text-xs md:text-sm' : 'text-[10px] md:text-xs'}`}>
                       {isSingleMetric ? config.label : config.shortLabel}
                     </div>
                   </div>
@@ -294,12 +294,12 @@ export function DashboardWidget({
             </div>
           )}
           
-          {/* Corner accent with icon */}
+          {/* Corner accent with icon - smaller on desktop */}
           <div 
-            className="absolute bottom-0 right-0 w-12 h-12 rounded-tl-full flex items-end justify-end"
+            className="absolute bottom-0 right-0 w-10 h-10 md:w-8 md:h-8 rounded-tl-full flex items-end justify-end"
             style={{ backgroundColor: accentColor }}
           >
-            {CornerIcon && <CornerIcon className="w-4 h-4 text-white mr-2 mb-2" />}
+            {CornerIcon && <CornerIcon className="w-3 h-3 md:w-3 md:h-3 text-white mr-1.5 mb-1.5" />}
           </div>
         </CardContent>
       </Card>
