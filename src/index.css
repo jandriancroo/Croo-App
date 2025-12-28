@@ -149,9 +149,9 @@ All colors MUST be HSL.
   --sidebar-accent-foreground: 0 0% 90%;
   --sidebar-border: 0 0% 10%;
   --sidebar-ring: 0 0% 50%;
-  --glass-background: 0 0% 3% / 0.95;
+  --glass-background: 0 0% 0% / 1;
   --glass-border: 0 0% 100% / 0.04;
-  --glass-shadow: 0 0% 0% / 0.6;
+  --glass-shadow: 0 0% 0% / 0;
 }
 
 /* Warm Earth Theme - Brown/Beige tones */
