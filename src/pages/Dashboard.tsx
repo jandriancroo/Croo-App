@@ -13,10 +13,12 @@ import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporary
 import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
 import { DataCubesSection, useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { EditDashboardDialog, SectionKey } from '@/components/dashboard/EditDashboardDialog';
+import { MetricType } from '@/components/dashboard/DataCube';
 import { Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/lib/auth';
 import { LogBookAlerts } from '@/components/dashboard/LogBookAlerts';
 import { CertificationAlerts } from '@/components/dashboard/CertificationAlerts';
 import { ChecklistCompletionAlerts } from '@/components/dashboard/ChecklistCompletionAlerts';
@@ -106,6 +108,7 @@ export default function Dashboard() {
   const {
     isAdmin, isManager, isShiftManager, isGeneralManager
   } = useUserRole();
+  const { user } = useAuth();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, isChecklistOnlyLocation } = useAppLocation();
   const { getTodayInTimezone, timezone } = useLocationTimezone();
@@ -114,6 +117,45 @@ export default function Dashboard() {
   const { isSectionVisible, sectionConfigs, refreshSections } = useDashboardSections();
   const [showEditDashboard, setShowEditDashboard] = useState(false);
   const isMobile = useIsMobile();
+  const queryClient = useQueryClient();
+
+  // Fetch user's dashboard cubes for the edit dialog
+  const { data: existingCubes = [] } = useQuery({
+    queryKey: ['user-dashboard-cubes', user?.id, currentLocation?.id],
+    queryFn: async () => {
+      if (!user?.id || !currentLocation?.id) return [];
+
+      const { data, error } = await supabase
+        .from('user_dashboard_cubes')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('location_id', currentLocation.id)
+        .order('display_order');
+
+      if (error) {
+        console.error('Error fetching dashboard cubes:', error);
+        return [];
+      }
+
+      return (data || []).map(cube => ({
+        id: cube.id,
+        title: cube.title || '',
+        cubeType: (cube.cube_type as 'data' | 'checklist' | 'task') || 'data',
+        metrics: (Array.isArray(cube.metrics) ? cube.metrics : []) as MetricType[],
+        referenceId: cube.reference_id || undefined,
+        accentColor: cube.accent_color || '#8B5CF6',
+        displayOrder: cube.display_order,
+      }));
+    },
+    enabled: !!user?.id && !!currentLocation?.id,
+  });
+
+  const handleDashboardSave = () => {
+    refreshSections();
+    queryClient.invalidateQueries({ 
+      queryKey: ['user-dashboard-cubes', user?.id, currentLocation?.id] 
+    });
+  };
 
   // Check for welcome animation from login
   useEffect(() => {
@@ -864,9 +906,9 @@ export default function Dashboard() {
         open={showEditDashboard}
         onOpenChange={setShowEditDashboard}
         locationId={currentLocation?.id || ''}
-        existingCubes={[]}
+        existingCubes={existingCubes}
         existingSections={sectionConfigs}
-        onSave={refreshSections}
+        onSave={handleDashboardSave}
         salesData={cubesSalesData}
         hasQuBeyondIntegration={hasQuBeyondIntegration}
       />
