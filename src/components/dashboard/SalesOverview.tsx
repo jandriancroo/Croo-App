@@ -702,7 +702,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
   if (isLoading && !salesData) {
     return (
       <div>
-        <h3 className="text-xl font-semibold mb-4">Sales Overview</h3>
         <Card>
           <CardContent className="pt-4">
             {/* Skeleton shimmer for tabs */}
@@ -738,20 +737,6 @@ export function SalesOverview({ locationSettings }: SalesOverviewProps) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-semibold">
-          {hasLaborData ? 'Sales & Labor Overview' : 'Sales Overview'}
-        </h3>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowDiagnostics(!showDiagnostics)}
-          className="h-8 w-8 p-0"
-          title="Toggle Sales Diagnostics"
-        >
-          <Bug className="h-4 w-4" />
-        </Button>
-      </div>
 
       {/* Diagnostics Panel */}
       {showDiagnostics && (
