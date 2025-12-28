@@ -66,7 +66,6 @@ function SortableDataCube({ cube, salesData, isLoading }: SortableDataCubeProps)
         accentColor={cube.accentColor}
         salesData={salesData}
         isLoading={isLoading}
-        dragHandleProps={{ ...attributes, ...listeners }}
         isDragging={isDragging}
       />
     </div>
