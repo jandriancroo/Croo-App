@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactNode } from 'react';
+import { useState, useEffect, ReactNode, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -221,11 +221,19 @@ export function WidgetsSection({
   const [internalShowAddDialog, setInternalShowAddDialog] = useState(false);
   const [localCubes, setLocalCubes] = useState<DataCubeConfig[]>([]);
   
+  // Create location-specific storage key for checklists position
+  const checklistsPositionKey = `dashboard-checklists-position-${currentLocation?.id || 'default'}`;
+  
   // Track checklists block position (stored as index in the order)
-  const [checklistsPosition, setChecklistsPosition] = useState<number>(() => {
-    const saved = localStorage.getItem('dashboard-checklists-position');
-    return saved !== null ? parseInt(saved, 10) : -1; // -1 means at the end
-  });
+  const [checklistsPosition, setChecklistsPosition] = useState<number>(-1); // -1 means at the end
+  
+  // Load checklists position from localStorage when location changes
+  useEffect(() => {
+    if (currentLocation?.id) {
+      const saved = localStorage.getItem(checklistsPositionKey);
+      setChecklistsPosition(saved !== null ? parseInt(saved, 10) : -1);
+    }
+  }, [currentLocation?.id, checklistsPositionKey]);
 
   // Use external control if provided, otherwise use internal state
   const showAddDialog = externalShowAddDialog !== undefined ? externalShowAddDialog : internalShowAddDialog;
@@ -282,8 +290,8 @@ export function WidgetsSection({
     setLocalCubes(cubes);
   }, [cubes]);
 
-  // Build combined sortable items list (cubes + checklists block)
-  const buildSortableItems = (): SortableItem[] => {
+  // Build combined sortable items list (cubes + checklists block) - memoized
+  const sortableItems = useMemo((): SortableItem[] => {
     const items: SortableItem[] = [...localCubes];
     
     if (checklistsContent) {
@@ -296,9 +304,7 @@ export function WidgetsSection({
     }
     
     return items;
-  };
-
-  const sortableItems = buildSortableItems();
+  }, [localCubes, checklistsContent, checklistsPosition]);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
@@ -314,7 +320,7 @@ export function WidgetsSection({
     const newChecklistsIndex = newOrder.findIndex(item => item.id === CHECKLISTS_BLOCK_ID);
     if (newChecklistsIndex !== -1) {
       setChecklistsPosition(newChecklistsIndex);
-      localStorage.setItem('dashboard-checklists-position', String(newChecklistsIndex));
+      localStorage.setItem(checklistsPositionKey, String(newChecklistsIndex));
     }
     
     // Extract just the cubes (not checklists block) and update their order
