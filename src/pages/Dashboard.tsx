@@ -876,6 +876,17 @@ export default function Dashboard() {
               </div>
             )}
             
+            {hasQuBeyondIntegration && (
+              <Button 
+                onClick={toggleEditMode} 
+                variant={isEditMode ? "default" : "outline"} 
+                size="icon" 
+                className="h-10 w-10" 
+                title={isEditMode ? "Done Reordering" : "Reorder Cubes"}
+              >
+                <ArrowUpDown className="h-4 w-4" />
+              </Button>
+            )}
             <Button onClick={() => setShowEditDashboard(true)} variant="outline" size="icon" className="h-10 w-10" title="Edit Dashboard">
               <Settings2 className="h-4 w-4" />
             </Button>
