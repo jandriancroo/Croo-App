@@ -6,8 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users, ChevronDown } from 'lucide-react';
+import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users } from 'lucide-react';
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
@@ -24,7 +23,7 @@ import { ChecklistCompletionAlerts } from '@/components/dashboard/ChecklistCompl
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { DashboardSection } from '@/components/dashboard/DashboardSection';
-import { SalesOverview } from '@/components/dashboard/SalesOverview';
+// SalesOverview now rendered inside WidgetsSection as a cube type
 import { format } from 'date-fns';
 import { getBusinessDateInTimezone, getBusinessDayRangeInTimezone } from '@/utils/timezoneUtils';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -66,7 +65,7 @@ interface ChecklistStats {
   submissions_this_month: number;
   submissions_today: number;
 }
-const DEFAULT_SECTION_ORDER = ['alerts', 'data-cubes', 'sales-overview', 'checklists-grid'];
+const DEFAULT_SECTION_ORDER = ['alerts', 'data-cubes', 'checklists-grid'];
 const STORAGE_KEY = 'dashboard-section-order';
 export default function Dashboard() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
@@ -97,10 +96,7 @@ export default function Dashboard() {
   const [crooCashBalance, setCrooCashBalance] = useState<number>(0);
   const [userName, setUserName] = useState<string>('');
   const [showWelcomeAnimation, setShowWelcomeAnimation] = useState(false);
-  const [salesOverviewOpen, setSalesOverviewOpen] = useState(() => {
-    const saved = localStorage.getItem('dashboard-sales-overview-open');
-    return saved !== null ? JSON.parse(saved) : true;
-  });
+  // salesOverviewOpen state moved to WidgetsSection
   const navigate = useNavigate();
   const location = useLocation();
   const {
@@ -526,26 +522,7 @@ export default function Dashboard() {
   const standardSections: Record<string, JSX.Element | null> = {
     // Alerts disabled on dashboard - view them on the Alerts page
     'alerts': null,
-    'data-cubes': (hasQuBeyondIntegration && isSectionVisible('data-cubes')) ? <WidgetsSection salesData={cubesSalesData} isLoadingSales={isLoadingCubesSales} hasQuBeyondIntegration={hasQuBeyondIntegration} showAddDialog={showAddCubeDialog} onAddDialogChange={setShowAddCubeDialog} /> : null,
-    'sales-overview': (hasQuBeyondIntegration && isSectionVisible('sales-overview')) ? (
-      <Collapsible 
-        open={salesOverviewOpen} 
-        onOpenChange={(open) => {
-          setSalesOverviewOpen(open);
-          localStorage.setItem('dashboard-sales-overview-open', JSON.stringify(open));
-        }}
-      >
-        <CollapsibleTrigger asChild>
-          <Button variant="ghost" className="w-full flex items-center justify-between px-3 py-2 h-auto hover:bg-muted/50 rounded-lg">
-            <span className="text-base font-semibold">Sales Overview</span>
-            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${salesOverviewOpen ? 'rotate-180' : ''}`} />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <SalesOverview locationSettings={locationSettings} />
-        </CollapsibleContent>
-      </Collapsible>
-    ) : null,
+    'data-cubes': (hasQuBeyondIntegration && isSectionVisible('data-cubes')) ? <WidgetsSection salesData={cubesSalesData} isLoadingSales={isLoadingCubesSales} hasQuBeyondIntegration={hasQuBeyondIntegration} showAddDialog={showAddCubeDialog} onAddDialogChange={setShowAddCubeDialog} locationSettings={locationSettings} /> : null,
     'checklists-grid': <div>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
           {/* Assigned Temporary Tasks */}
@@ -790,7 +767,7 @@ export default function Dashboard() {
   // Use appropriate sections based on location type
   const sections = isChecklistOnlyLocation 
     ? { 
-        ...(hasQuBeyondIntegration ? { 'sales-overview': standardSections['sales-overview'] } : {}),
+        ...(hasQuBeyondIntegration ? { 'data-cubes': standardSections['data-cubes'] } : {}),
         'checklists-grid': standardSections['checklists-grid'] 
       }
     : standardSections;
