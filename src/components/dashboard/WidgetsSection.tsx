@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
@@ -31,6 +31,7 @@ import { ChevronDown, GripVertical } from 'lucide-react';
 
 // Sales chart accent color - teal to match the chart bars
 const SALES_CHART_COLOR = '#0D9488';
+const CHECKLISTS_BLOCK_ID = 'checklists-block';
 
 interface DataCubeConfig {
   id: string;
@@ -42,11 +43,18 @@ interface DataCubeConfig {
   cubeType: CubeType;
 }
 
+type SortableItem = DataCubeConfig | { id: typeof CHECKLISTS_BLOCK_ID; cubeType: 'checklists' };
+
 interface SortableDataCubeProps {
   cube: DataCubeConfig;
   salesData: SalesDataForWidgets | null;
   isLoading: boolean;
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
+  isReorderMode: boolean;
+}
+
+interface SortableChecklistsBlockProps {
+  children: ReactNode;
   isReorderMode: boolean;
 }
 
@@ -149,6 +157,43 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
   );
 }
 
+function SortableChecklistsBlock({ children, isReorderMode }: SortableChecklistsBlockProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: CHECKLISTS_BLOCK_ID, disabled: !isReorderMode });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      className={`col-span-2 ${isDragging ? 'opacity-50' : ''} relative`}
+      {...(isReorderMode ? { ...attributes, ...listeners } : {})}
+    >
+      {/* Reorder overlay */}
+      {isReorderMode && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 rounded-lg pointer-events-none">
+          <div className="p-3 rounded-full bg-primary/20">
+            <GripVertical className="h-6 w-6 text-primary" />
+          </div>
+        </div>
+      )}
+      <div className={isReorderMode ? 'opacity-85 cursor-grab active:cursor-grabbing' : ''}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 interface WidgetsSectionProps {
   salesData: SalesDataForWidgets | null;
   isLoadingSales?: boolean;
@@ -157,6 +202,7 @@ interface WidgetsSectionProps {
   onAddDialogChange?: (open: boolean) => void;
   locationSettings?: { hours_open?: string; hours_close?: string } | null;
   isReorderMode?: boolean;
+  checklistsContent?: ReactNode;
 }
 
 export function WidgetsSection({ 
@@ -167,12 +213,19 @@ export function WidgetsSection({
   onAddDialogChange,
   locationSettings,
   isReorderMode = false,
+  checklistsContent,
 }: WidgetsSectionProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
   const queryClient = useQueryClient();
   const [internalShowAddDialog, setInternalShowAddDialog] = useState(false);
   const [localCubes, setLocalCubes] = useState<DataCubeConfig[]>([]);
+  
+  // Track checklists block position (stored as index in the order)
+  const [checklistsPosition, setChecklistsPosition] = useState<number>(() => {
+    const saved = localStorage.getItem('dashboard-checklists-position');
+    return saved !== null ? parseInt(saved, 10) : -1; // -1 means at the end
+  });
 
   // Use external control if provided, otherwise use internal state
   const showAddDialog = externalShowAddDialog !== undefined ? externalShowAddDialog : internalShowAddDialog;
@@ -229,20 +282,48 @@ export function WidgetsSection({
     setLocalCubes(cubes);
   }, [cubes]);
 
+  // Build combined sortable items list (cubes + checklists block)
+  const buildSortableItems = (): SortableItem[] => {
+    const items: SortableItem[] = [...localCubes];
+    
+    if (checklistsContent) {
+      const checklistsBlock: SortableItem = { id: CHECKLISTS_BLOCK_ID, cubeType: 'checklists' };
+      // Insert at saved position, or at end if position is invalid
+      const insertAt = checklistsPosition >= 0 && checklistsPosition <= items.length 
+        ? checklistsPosition 
+        : items.length;
+      items.splice(insertAt, 0, checklistsBlock);
+    }
+    
+    return items;
+  };
+
+  const sortableItems = buildSortableItems();
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (!over || active.id === over.id) return;
 
-    const oldIndex = localCubes.findIndex(c => c.id === active.id);
-    const newIndex = localCubes.findIndex(c => c.id === over.id);
+    const oldIndex = sortableItems.findIndex(item => item.id === active.id);
+    const newIndex = sortableItems.findIndex(item => item.id === over.id);
 
-    const newOrder = arrayMove(localCubes, oldIndex, newIndex);
-    setLocalCubes(newOrder);
+    const newOrder = arrayMove(sortableItems, oldIndex, newIndex);
+    
+    // Find new position of checklists block
+    const newChecklistsIndex = newOrder.findIndex(item => item.id === CHECKLISTS_BLOCK_ID);
+    if (newChecklistsIndex !== -1) {
+      setChecklistsPosition(newChecklistsIndex);
+      localStorage.setItem('dashboard-checklists-position', String(newChecklistsIndex));
+    }
+    
+    // Extract just the cubes (not checklists block) and update their order
+    const cubesOnly = newOrder.filter((item): item is DataCubeConfig => item.id !== CHECKLISTS_BLOCK_ID);
+    setLocalCubes(cubesOnly);
 
-    // Persist the new order
+    // Persist the new cube order to database
     try {
-      const updates = newOrder.map((cube, index) => ({
+      const updates = cubesOnly.map((cube, index) => ({
         id: cube.id,
         display_order: index,
       }));
@@ -287,7 +368,8 @@ export function WidgetsSection({
     }
   };
 
-  if (localCubes.length === 0) {
+  // If no cubes and no checklists content, just show the dialog
+  if (localCubes.length === 0 && !checklistsContent) {
     return (
       <AddWidgetDialog
         open={showAddDialog}
@@ -308,20 +390,31 @@ export function WidgetsSection({
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={localCubes.map(c => c.id)}
+          items={sortableItems.map(item => item.id)}
           strategy={rectSortingStrategy}
         >
           <div className="grid grid-cols-2 gap-3">
-            {localCubes.map(cube => (
-              <SortableDataCube
-                key={cube.id}
-                cube={cube}
-                salesData={salesData}
-                isLoading={isLoadingSales}
-                locationSettings={locationSettings}
-                isReorderMode={isReorderMode}
-              />
-            ))}
+            {sortableItems.map(item => {
+              if (item.id === CHECKLISTS_BLOCK_ID) {
+                return (
+                  <SortableChecklistsBlock key={CHECKLISTS_BLOCK_ID} isReorderMode={isReorderMode}>
+                    {checklistsContent}
+                  </SortableChecklistsBlock>
+                );
+              }
+              
+              const cube = item as DataCubeConfig;
+              return (
+                <SortableDataCube
+                  key={cube.id}
+                  cube={cube}
+                  salesData={salesData}
+                  isLoading={isLoadingSales}
+                  locationSettings={locationSettings}
+                  isReorderMode={isReorderMode}
+                />
+              );
+            })}
           </div>
         </SortableContext>
       </DndContext>
