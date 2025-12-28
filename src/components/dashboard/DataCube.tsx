@@ -148,24 +148,36 @@ export function DataCube({
   const isSingleMetric = displayMetrics.length === 1;
   const isDoubleMetric = displayMetrics.length === 2;
 
+  // Get primary icon from first metric
+  const primaryConfig = displayMetrics.length > 0 ? METRIC_CONFIGS[displayMetrics[0]] : null;
+  const PrimaryIcon = primaryConfig?.icon;
+
   return (
     <Card 
-      className="aspect-square overflow-hidden cursor-pointer hover:shadow-lg transition-all"
-      style={{ borderLeft: `4px solid ${accentColor}` }}
+      className="aspect-square overflow-hidden cursor-pointer hover:shadow-lg transition-all border-0"
       onClick={onClick}
     >
-      <CardContent className="p-3 h-full flex flex-col justify-between">
-        {/* Title */}
-        {title && (
-          <div className="text-xs font-medium text-muted-foreground truncate mb-1">
-            {title}
-          </div>
+      {/* Accent Header Bar */}
+      <div 
+        className="px-3 py-2 flex items-center gap-2"
+        style={{ backgroundColor: accentColor }}
+      >
+        {PrimaryIcon && (
+          <PrimaryIcon className="h-4 w-4 text-white/90" />
         )}
-        
+        {title && (
+          <span className="text-xs font-semibold text-white truncate">
+            {title}
+          </span>
+        )}
+      </div>
+
+      {/* Body */}
+      <CardContent className="p-3 h-[calc(100%-36px)] flex flex-col justify-center bg-card">
         {/* Metrics */}
-        <div className={`flex-1 flex flex-col ${isSingleMetric ? 'justify-center' : 'justify-around'}`}>
+        <div className={`flex flex-col ${isSingleMetric ? 'items-center' : 'gap-1'}`}>
           {isLoading ? (
-            <div className="space-y-2">
+            <div className="space-y-2 w-full">
               <div className="h-6 bg-muted animate-pulse rounded" />
               <div className="h-4 bg-muted animate-pulse rounded w-2/3" />
             </div>
@@ -175,35 +187,29 @@ export function DataCube({
               if (!config) return null;
               
               const value = getMetricValue(metricType);
-              const IconComponent = config.icon;
               const isFirst = index === 0;
               
               return (
                 <div 
                   key={metricType} 
-                  className={`flex items-center gap-2 ${isSingleMetric ? 'flex-col text-center' : ''}`}
+                  className={`${isSingleMetric ? 'text-center' : ''}`}
                 >
-                  {isSingleMetric && (
-                    <IconComponent className="shrink-0 h-5 w-5 text-muted-foreground" />
-                  )}
-                  <div className={`min-w-0 ${isSingleMetric ? 'text-center' : 'flex-1'}`}>
-                    <div 
-                      className={`font-extrabold truncate ${
-                        isSingleMetric 
-                          ? 'text-3xl' 
-                          : isDoubleMetric 
-                            ? (isFirst ? 'text-2xl' : 'text-xl') 
-                            : (isFirst ? 'text-xl' : 'text-lg')
-                      }`}
-                      style={{ color: accentColor }}
-                    >
-                      {formatValue(value, config.format)}
-                    </div>
-                    <div className={`text-muted-foreground truncate font-medium ${
-                      isSingleMetric ? 'text-xs' : 'text-[10px]'
-                    }`}>
-                      {isSingleMetric ? config.label : config.shortLabel}
-                    </div>
+                  <div 
+                    className={`font-extrabold truncate ${
+                      isSingleMetric 
+                        ? 'text-3xl' 
+                        : isDoubleMetric 
+                          ? (isFirst ? 'text-2xl' : 'text-lg') 
+                          : (isFirst ? 'text-xl' : 'text-base')
+                    }`}
+                    style={{ color: accentColor }}
+                  >
+                    {formatValue(value, config.format)}
+                  </div>
+                  <div className={`text-muted-foreground truncate font-medium ${
+                    isSingleMetric ? 'text-xs' : 'text-[10px]'
+                  }`}>
+                    {isSingleMetric ? config.label : config.shortLabel}
                   </div>
                 </div>
               );
