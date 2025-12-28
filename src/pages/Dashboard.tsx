@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChefHat, ClipboardCheck, Calendar, Plus, Edit, Clock, ArrowUpDown, Banknote, Sparkles, Check, Users, Settings2 } from 'lucide-react';
+import { ChefHat, ClipboardCheck, ArrowUpDown, Banknote, Sparkles, Check, Users, Settings2 } from 'lucide-react';
 import { EditDashboardDialog, CubeConfig } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType } from '@/components/dashboard/AddWidgetDialog';
@@ -19,20 +19,9 @@ import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
-import { LogBookAlerts } from '@/components/dashboard/LogBookAlerts';
-import { CertificationAlerts } from '@/components/dashboard/CertificationAlerts';
-import { ChecklistCompletionAlerts } from '@/components/dashboard/ChecklistCompletionAlerts';
-
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { DashboardSection } from '@/components/dashboard/DashboardSection';
-// SalesOverview now rendered inside WidgetsSection as a cube type
-import { format } from 'date-fns';
 import { getBusinessDateInTimezone, getBusinessDayRangeInTimezone } from '@/utils/timezoneUtils';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { formatTime12Hour } from '@/lib/utils';
 import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
 import { useSalesDataForCubes } from '@/hooks/useSalesDataForCubes';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
@@ -68,8 +57,6 @@ interface ChecklistStats {
   submissions_this_month: number;
   submissions_today: number;
 }
-const DEFAULT_SECTION_ORDER = ['alerts', 'data-cubes', 'checklists-grid'];
-const STORAGE_KEY = 'dashboard-section-order';
 export default function Dashboard() {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [stats, setStats] = useState<Record<string, ChecklistStats>>({});
@@ -82,20 +69,6 @@ export default function Dashboard() {
   const [todaysCateringOrders, setTodaysCateringOrders] = useState<CateringOrder[]>([]);
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-  const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // Filter to only include valid sections
-      const validSections = parsed.filter((id: string) => DEFAULT_SECTION_ORDER.includes(id));
-      // Add any missing sections
-      DEFAULT_SECTION_ORDER.forEach(id => {
-        if (!validSections.includes(id)) validSections.push(id);
-      });
-      return validSections;
-    }
-    return DEFAULT_SECTION_ORDER;
-  });
   const [crooCashBalance, setCrooCashBalance] = useState<number>(0);
   const [userName, setUserName] = useState<string>('');
   const [showWelcomeAnimation, setShowWelcomeAnimation] = useState(false);
@@ -114,7 +87,6 @@ export default function Dashboard() {
   const { isSectionVisible, refreshSections } = useDashboardSections();
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
-  const isMobile = useIsMobile();
   const queryClient = useQueryClient();
 
   // Fetch cubes for the edit dialog
@@ -532,34 +504,11 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
-  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, {
-    coordinateGetter: sortableKeyboardCoordinates
-  }));
-  const handleDragEnd = (event: DragEndEvent) => {
-    const {
-      active,
-      over
-    } = event;
-    if (over && active.id !== over.id) {
-      setSectionOrder(items => {
-        const oldIndex = items.indexOf(active.id as string);
-        const newIndex = items.indexOf(over.id as string);
-        const newOrder = arrayMove(items, oldIndex, newIndex);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newOrder));
-        return newOrder;
-      });
-    }
-  };
   const toggleEditMode = () => {
     setIsEditMode(!isEditMode);
     if (isEditMode) {
       toast.success('Layout saved');
     }
-  };
-  const resetLayout = () => {
-    setSectionOrder(DEFAULT_SECTION_ORDER);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_SECTION_ORDER));
-    toast.success('Layout reset to default');
   };
   const getFrequencyColor = (frequency: string) => {
     switch (frequency) {
@@ -586,264 +535,262 @@ export default function Dashboard() {
     }).format(amount);
   };
 
-  // Define all dashboard sections as components
-  // For checklist-only locations, only show checklists-grid
-  const checklistOnlySections = {
-    'checklists-grid': null // Will be defined below
-  };
-
-  const standardSections: Record<string, JSX.Element | null> = {
-    // Alerts disabled on dashboard - view them on the Alerts page
-    'alerts': null,
-    'data-cubes': (hasQuBeyondIntegration && isSectionVisible('data-cubes')) ? <WidgetsSection salesData={cubesSalesData} isLoadingSales={isLoadingCubesSales} hasQuBeyondIntegration={hasQuBeyondIntegration} showAddDialog={showAddCubeDialog} onAddDialogChange={setShowAddCubeDialog} locationSettings={locationSettings} isReorderMode={isEditMode} /> : null,
-    'checklists-grid': <div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
-          {/* Assigned Temporary Tasks */}
-          <AssignedTemporaryTasks />
-          
-          {/* Event Daily Task Cards */}
-          {currentLocation?.id && <EventDailyTasks locationId={currentLocation.id} />}
-          
-          {/* Cash Handling Task Cards */}
-          <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
-          
-          {/* Catering Order Cards */}
-          {todaysCateringOrders.map(order => {
-            const isCompleted = order.status === "completed";
-            const ORANGE_COLOR = "#f97316";
-            const GREEN_COLOR = "#22c55e";
-            const accentColor = isCompleted ? GREEN_COLOR : ORANGE_COLOR;
-            
-            return (
-              <Card 
-                key={`catering-${order.id}`}
-                className={`overflow-hidden ${isCompleted ? "opacity-75" : ""}`}
-                style={{ borderLeft: `4px solid ${accentColor}` }}
-              >
-                <CardContent className="p-3 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className="p-2 rounded-lg"
-                      style={{ backgroundColor: `${accentColor}20` }}
+  // Checklists grid content - passed to WidgetsSection for unified drag & drop
+  const checklistsGridContent = (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
+      {/* Assigned Temporary Tasks */}
+      <AssignedTemporaryTasks />
+      
+      {/* Event Daily Task Cards */}
+      {currentLocation?.id && <EventDailyTasks locationId={currentLocation.id} />}
+      
+      {/* Cash Handling Task Cards */}
+      <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
+      
+      {/* Catering Order Cards */}
+      {todaysCateringOrders.map(order => {
+        const isCompleted = order.status === "completed";
+        const ORANGE_COLOR = "#f97316";
+        const GREEN_COLOR = "#22c55e";
+        const accentColor = isCompleted ? GREEN_COLOR : ORANGE_COLOR;
+        
+        return (
+          <Card 
+            key={`catering-${order.id}`}
+            className={`overflow-hidden ${isCompleted ? "opacity-75" : ""}`}
+            style={{ borderLeft: `4px solid ${accentColor}` }}
+          >
+            <CardContent className="p-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className="p-2 rounded-lg"
+                  style={{ backgroundColor: `${accentColor}20` }}
+                >
+                  {isCompleted ? (
+                    <Check className="h-4 w-4" style={{ color: accentColor }} />
+                  ) : (
+                    <ChefHat className="h-4 w-4" style={{ color: accentColor }} />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">{order.customer_name}</p>
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
+                    {formatCateringTime(order.pickup_time)}
+                    {order.headcount && (
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {order.headcount}
+                      </span>
+                    )}
+                    <span
+                      className="px-1.5 py-0.5 rounded text-[10px]"
+                      style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
                     >
-                      {isCompleted ? (
-                        <Check className="h-4 w-4" style={{ color: accentColor }} />
-                      ) : (
-                        <ChefHat className="h-4 w-4" style={{ color: accentColor }} />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="font-medium text-sm truncate">{order.customer_name}</p>
-                      <p className="text-xs text-muted-foreground flex items-center gap-2">
-                        {formatCateringTime(order.pickup_time)}
-                        {order.headcount && (
-                          <span className="flex items-center gap-1">
-                            <Users className="h-3 w-3" />
-                            {order.headcount}
-                          </span>
-                        )}
-                        <span
-                          className="px-1.5 py-0.5 rounded text-[10px]"
-                          style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
-                        >
-                          {order.items.length} items
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="shrink-0"
-                    onClick={() => setSelectedCateringOrder(order)}
-                  >
-                    {isCompleted ? "View" : "View Order"}
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-          
-          {/* Checklist Cards */}
-          {checklists.map(checklist => {
-          const {
-            expected,
-            completed
-          } = getCompletionData(checklist.id);
-          const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
-          const isComplete = completionRate === 100;
-          return <Card key={checklist.id} className="hover:shadow-lg transition-shadow p-0 flex flex-col">
-                  {/* Header Section - Original style */}
-                  <CardHeader className="py-2 px-3">
-                    <div className="flex items-center gap-2">
-                      <ClipboardCheck className="h-5 w-5 text-primary flex-shrink-0" />
-                      <CardTitle className="text-base font-semibold flex-1 truncate">{checklist.title}</CardTitle>
-                      <Badge className={`text-xs px-2 py-0.5 flex-shrink-0 ${getFrequencyColor(checklist.frequency)}`}>
-                        {checklist.frequency}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-
-                  {/* Middle Section - Stats */}
-                  <CardContent className="py-2 px-3 pt-0 flex-1">
-                    <div className="flex items-center justify-between">
-                      <div className="text-base text-muted-foreground font-medium">
-                        {completed}/{expected}
-                      </div>
-                      {isComplete ? (
-                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/15">
-                          <Check className="h-5 w-5 text-primary" />
-                        </div>
-                      ) : (
-                        <div className="text-lg font-bold text-primary">
-                          {completionRate}%
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-
-                  {/* Bottom Button - Contoured to card shape */}
-                  <Button 
-                    className="w-full h-10 text-sm rounded-none rounded-b-lg mt-auto"
-                    onClick={() => navigate(`/complete/${checklist.id}`)}
-                  >
-                    {isComplete ? 'Review' : 'Complete'}
-                  </Button>
-                </Card>;
-        })}
-        </div>
-
-        {/* Catering Order Details Dialog */}
-        <Dialog open={!!selectedCateringOrder} onOpenChange={() => setSelectedCateringOrder(null)}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <ChefHat className="h-5 w-5 text-orange-500" />
-                Catering Order
-              </DialogTitle>
-            </DialogHeader>
-            {selectedCateringOrder && (
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Customer</span>
-                    <span className="font-medium">{selectedCateringOrder.customer_name}</span>
-                  </div>
-                  {selectedCateringOrder.order_number && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Order #</span>
-                      <span>{selectedCateringOrder.order_number}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Pickup</span>
-                    <span className="text-orange-500 font-medium">
-                      Today at {formatCateringTime(selectedCateringOrder.pickup_time)}
+                      {order.items.length} items
                     </span>
-                  </div>
-                  {selectedCateringOrder.headcount && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Headcount</span>
-                      <span>{selectedCateringOrder.headcount}</span>
-                    </div>
-                  )}
+                  </p>
                 </div>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0"
+                onClick={() => setSelectedCateringOrder(order)}
+              >
+                {isCompleted ? "View" : "View Order"}
+              </Button>
+            </CardContent>
+          </Card>
+        );
+      })}
+      
+      {/* Checklist Cards */}
+      {checklists.map(checklist => {
+        const { expected, completed } = getCompletionData(checklist.id);
+        const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
+        const isComplete = completionRate === 100;
+        return (
+          <Card key={checklist.id} className="hover:shadow-lg transition-shadow p-0 flex flex-col">
+            {/* Header Section - Original style */}
+            <CardHeader className="py-2 px-3">
+              <div className="flex items-center gap-2">
+                <ClipboardCheck className="h-5 w-5 text-primary flex-shrink-0" />
+                <CardTitle className="text-base font-semibold flex-1 truncate">{checklist.title}</CardTitle>
+                <Badge className={`text-xs px-2 py-0.5 flex-shrink-0 ${getFrequencyColor(checklist.frequency)}`}>
+                  {checklist.frequency}
+                </Badge>
+              </div>
+            </CardHeader>
 
-                <div className="border-t pt-4">
-                  <h4 className="font-medium mb-2">Items</h4>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {selectedCateringOrder.items.map((item, idx) => (
-                      <div key={idx} className="flex items-start gap-3 text-sm">
-                        <span className="font-medium min-w-[24px]">{item.quantity}x</span>
-                        <div>
-                          <span>{item.item}</span>
-                          {item.notes && (
-                            <p className="text-xs text-muted-foreground">{item.notes}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            {/* Middle Section - Stats */}
+            <CardContent className="py-2 px-3 pt-0 flex-1">
+              <div className="flex items-center justify-between">
+                <div className="text-base text-muted-foreground font-medium">
+                  {completed}/{expected}
                 </div>
-
-                {selectedCateringOrder.notes && (
-                  <div className="border-t pt-4">
-                    <h4 className="font-medium mb-1">Notes</h4>
-                    <p className="text-sm text-muted-foreground">{selectedCateringOrder.notes}</p>
+                {isComplete ? (
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/15">
+                    <Check className="h-5 w-5 text-primary" />
                   </div>
-                )}
-
-                {selectedCateringOrder.source_url && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => setPdfPreviewUrl(selectedCateringOrder.source_url)}
-                  >
-                    View Original
-                  </Button>
-                )}
-
-                {selectedCateringOrder.status === "completed" ? (
-                  <div className="w-full py-3 px-4 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center justify-center gap-2">
-                    <Check className="h-5 w-5 text-green-500" />
-                    <span className="text-green-600 font-medium">Order Completed</span>
+                ) : (
+                  <div className="text-lg font-bold text-primary">
+                    {completionRate}%
                   </div>
-                ) : canCompleteCatering && (
-                  <Button
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                    size="lg"
-                    onClick={() => handleCompleteCateringOrder(selectedCateringOrder)}
-                  >
-                    <Check className="h-5 w-5 mr-2" />
-                    Mark Completed
-                  </Button>
                 )}
               </div>
-            )}
-          </DialogContent>
-        </Dialog>
+            </CardContent>
 
-        {/* PDF Preview Dialog */}
-        <Dialog open={!!pdfPreviewUrl} onOpenChange={(open) => !open && setPdfPreviewUrl(null)}>
-          <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0">
-            <DialogHeader className="p-4 pb-2">
-              <DialogTitle>Original Order</DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 px-4 pb-4 min-h-0">
-              {pdfPreviewUrl && (
-                <iframe
-                  src={pdfPreviewUrl}
-                  className="w-full h-full rounded-md border bg-white"
-                  title="PDF Preview"
-                />
+            {/* Bottom Button - Contoured to card shape */}
+            <Button 
+              className="w-full h-10 text-sm rounded-none rounded-b-lg mt-auto"
+              onClick={() => navigate(`/complete/${checklist.id}`)}
+            >
+              {isComplete ? 'Review' : 'Complete'}
+            </Button>
+          </Card>
+        );
+      })}
+
+      {/* Catering Order Details Dialog */}
+      <Dialog open={!!selectedCateringOrder} onOpenChange={() => setSelectedCateringOrder(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ChefHat className="h-5 w-5 text-orange-500" />
+              Catering Order
+            </DialogTitle>
+          </DialogHeader>
+          {selectedCateringOrder && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Customer</span>
+                  <span className="font-medium">{selectedCateringOrder.customer_name}</span>
+                </div>
+                {selectedCateringOrder.order_number && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Order #</span>
+                    <span>{selectedCateringOrder.order_number}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Pickup</span>
+                  <span className="text-orange-500 font-medium">
+                    Today at {formatCateringTime(selectedCateringOrder.pickup_time)}
+                  </span>
+                </div>
+                {selectedCateringOrder.headcount && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Headcount</span>
+                    <span>{selectedCateringOrder.headcount}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-2">Items</h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {selectedCateringOrder.items.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-3 text-sm">
+                      <span className="font-medium min-w-[24px]">{item.quantity}x</span>
+                      <div>
+                        <span>{item.item}</span>
+                        {item.notes && (
+                          <p className="text-xs text-muted-foreground">{item.notes}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedCateringOrder.notes && (
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-1">Notes</h4>
+                  <p className="text-sm text-muted-foreground">{selectedCateringOrder.notes}</p>
+                </div>
+              )}
+
+              {selectedCateringOrder.source_url && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => setPdfPreviewUrl(selectedCateringOrder.source_url)}
+                >
+                  View Original
+                </Button>
+              )}
+
+              {selectedCateringOrder.status === "completed" ? (
+                <div className="w-full py-3 px-4 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center justify-center gap-2">
+                  <Check className="h-5 w-5 text-green-500" />
+                  <span className="text-green-600 font-medium">Order Completed</span>
+                </div>
+              ) : canCompleteCatering && (
+                <Button
+                  className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                  size="lg"
+                  onClick={() => handleCompleteCateringOrder(selectedCateringOrder)}
+                >
+                  <Check className="h-5 w-5 mr-2" />
+                  Mark Completed
+                </Button>
               )}
             </div>
-            {pdfPreviewUrl && (
-              <div className="p-4 pt-0 flex justify-center">
-                <Button asChild size="lg">
-                  <a
-                    href={pdfPreviewUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Open PDF in New Tab
-                  </a>
-                </Button>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-      </div>
-  };
+          )}
+        </DialogContent>
+      </Dialog>
 
-  // Use appropriate sections based on location type
-  const sections = isChecklistOnlyLocation 
-    ? { 
-        ...(hasQuBeyondIntegration ? { 'data-cubes': standardSections['data-cubes'] } : {}),
-        'checklists-grid': standardSections['checklists-grid'] 
-      }
-    : standardSections;
+      {/* PDF Preview Dialog */}
+      <Dialog open={!!pdfPreviewUrl} onOpenChange={(open) => !open && setPdfPreviewUrl(null)}>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0">
+          <DialogHeader className="p-4 pb-2">
+            <DialogTitle>Original Order</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 px-4 pb-4 min-h-0">
+            {pdfPreviewUrl && (
+              <iframe
+                src={pdfPreviewUrl}
+                className="w-full h-full rounded-md border bg-white"
+                title="PDF Preview"
+              />
+            )}
+          </div>
+          {pdfPreviewUrl && (
+            <div className="p-4 pt-0 flex justify-center">
+              <Button asChild size="lg">
+                <a
+                  href={pdfPreviewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open PDF in New Tab
+                </a>
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+
+  // Only render WidgetsSection if QuBeyond integration is active
+  const dashboardContent = (hasQuBeyondIntegration && isSectionVisible('data-cubes')) ? (
+    <WidgetsSection 
+      salesData={cubesSalesData} 
+      isLoadingSales={isLoadingCubesSales} 
+      hasQuBeyondIntegration={hasQuBeyondIntegration} 
+      showAddDialog={showAddCubeDialog} 
+      onAddDialogChange={setShowAddCubeDialog} 
+      locationSettings={locationSettings} 
+      isReorderMode={isEditMode}
+      checklistsContent={checklistsGridContent}
+    />
+  ) : (
+    // If no QuBeyond, just render the checklists grid directly
+    checklistsGridContent
+  );
   return <Layout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -910,17 +857,7 @@ export default function Dashboard() {
               <p className="text-muted-foreground mb-4">Go to Tasks to create your first checklist</p>
               <Button onClick={() => navigate('/tasks')}>Go to Tasks</Button>
             </CardContent>
-          </Card> : (
-            <div className="space-y-6">
-              {sectionOrder
-                .filter(sectionId => sections[sectionId as keyof typeof sections])
-                .map(sectionId => (
-                  <div key={sectionId}>
-                    {sections[sectionId as keyof typeof sections]}
-                  </div>
-                ))}
-            </div>
-          )}
+          </Card> : dashboardContent}
       </div>
       
       {/* Welcome animation overlay */}
