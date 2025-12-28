@@ -122,9 +122,10 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
                 <ChevronDown className={`h-4 w-4 text-white/80 transition-transform duration-200 ${salesOverviewOpen ? 'rotate-180' : ''}`} />
               </button>
             </CollapsibleTrigger>
-            <CollapsibleContent className={isReorderMode ? 'opacity-85' : ''}>
+            {/* Always mount SalesOverview so it can fetch data for other cubes, even when collapsed */}
+            <div className={salesOverviewOpen ? (isReorderMode ? 'opacity-85' : '') : 'h-0 overflow-hidden'}>
               <SalesOverview locationSettings={locationSettings} onSalesDataChange={onSalesDataChange as any} />
-            </CollapsibleContent>
+            </div>
           </Collapsible>
         </Card>
       </div>
