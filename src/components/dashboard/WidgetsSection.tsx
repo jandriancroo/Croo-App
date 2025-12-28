@@ -74,7 +74,7 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
   } = useSortable({ id: cube.id, disabled: !isReorderMode });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
   };
 
@@ -168,7 +168,7 @@ function SortableChecklistsBlock({ children, isReorderMode }: SortableChecklists
   } = useSortable({ id: CHECKLISTS_BLOCK_ID, disabled: !isReorderMode });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
   };
 
