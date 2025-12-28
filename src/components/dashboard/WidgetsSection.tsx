@@ -139,6 +139,8 @@ interface WidgetsSectionProps {
   isLoadingSales?: boolean;
   showEditButton?: boolean;
   hasQuBeyondIntegration?: boolean;
+  showAddDialog?: boolean;
+  onAddDialogChange?: (open: boolean) => void;
 }
 
 export function WidgetsSection({ 
@@ -146,15 +148,21 @@ export function WidgetsSection({
   isLoadingSales = false, 
   showEditButton = false,
   hasQuBeyondIntegration = true,
+  showAddDialog: externalShowAddDialog,
+  onAddDialogChange,
 }: WidgetsSectionProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
   const queryClient = useQueryClient();
-  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [internalShowAddDialog, setInternalShowAddDialog] = useState(false);
   const [checklistData, setChecklistData] = useState<Record<string, ChecklistCompletionData>>({});
   const [taskData, setTaskData] = useState<Record<string, TaskCompletionData>>({});
   const [localWidgets, setLocalWidgets] = useState<WidgetConfig[]>([]);
+
+  // Use external control if provided, otherwise use internal state
+  const showAddDialog = externalShowAddDialog !== undefined ? externalShowAddDialog : internalShowAddDialog;
+  const setShowAddDialog = onAddDialogChange || setInternalShowAddDialog;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
