@@ -327,31 +327,47 @@ export function WidgetsSection({
     const cubesOnly = newOrder.filter((item): item is DataCubeConfig => item.id !== CHECKLISTS_BLOCK_ID);
     setLocalCubes(cubesOnly);
 
-    // Persist the new cube order to database
+    // Persist the new cube order to database (2-phase to avoid unique constraint collisions)
     try {
-      const updates = cubesOnly.map((cube, index) => ({
-        id: cube.id,
-        display_order: index,
-      }));
+      const updates = cubesOnly.map((cube, index) => ({ id: cube.id, display_order: index }));
 
-      const results = await Promise.all(
-        updates.map((update) =>
-          supabase
+      const updateWithRetry = async (id: string, display_order: number) => {
+        let lastError: any = null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const { error } = await supabase
             .from('user_dashboard_cubes')
-            .update({ display_order: update.display_order })
-            .eq('id', update.id)
-        )
-      );
+            .update({ display_order })
+            .eq('id', id);
 
-      const firstError = results.find((r) => r.error)?.error;
-      if (firstError) throw firstError;
+          if (!error) return;
+
+          lastError = error;
+          // deadlock detected
+          if (error.code === '40P01') {
+            await new Promise((r) => setTimeout(r, 75 * (attempt + 1)));
+            continue;
+          }
+          throw error;
+        }
+        throw lastError;
+      };
+
+      // Phase 1: assign temporary unique negative orders
+      for (let i = 0; i < updates.length; i++) {
+        await updateWithRetry(updates[i].id, -(i + 1));
+      }
+
+      // Phase 2: assign final orders
+      for (const u of updates) {
+        await updateWithRetry(u.id, u.display_order);
+      }
 
       queryClient.invalidateQueries({
         queryKey: ['user-data-cubes', user?.id, currentLocation?.id],
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving cube order:', error);
-      toast.error('Failed to save cube order');
+      toast.error(error?.message ? `Failed to save cube order: ${error.message}` : 'Failed to save cube order');
       setLocalCubes(cubes); // Revert on error
     }
   };
