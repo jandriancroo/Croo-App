@@ -149,16 +149,19 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
     }
 
     try {
+      // Convert UI indices to DB indices before saving
+      const dbDays = formData.selected_days.map(uiIndexToDbIndex);
+      
       if (editingEvent) {
         // Update existing event - for multi-day, update the first day and create others
-        const primaryDay = formData.selected_days[0];
+        const primaryDay = dbDays[0];
         const { error } = await supabase
           .from("schedule_events")
           .update({
             event_name: formData.event_name,
             event_time: formData.event_time,
             day_of_week: primaryDay,
-            days_of_week: formData.selected_days.length > 1 ? formData.selected_days : null,
+            days_of_week: dbDays.length > 1 ? dbDays : null,
             notes: formData.notes || null,
             tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
             is_recurring: formData.is_recurring,
@@ -173,13 +176,13 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
         toast.success("Event updated");
       } else {
         // Create new event(s) - one for each selected day, or one with days_of_week array
-        if (formData.selected_days.length === 1) {
+        if (dbDays.length === 1) {
           // Single day event
           const { error } = await supabase.from("schedule_events").insert({
             schedule_id: formData.is_recurring ? null : scheduleId,
             event_name: formData.event_name,
             event_time: formData.event_time,
-            day_of_week: formData.selected_days[0],
+            day_of_week: dbDays[0],
             days_of_week: null,
             notes: formData.notes || null,
             tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
@@ -196,8 +199,8 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
             schedule_id: formData.is_recurring ? null : scheduleId,
             event_name: formData.event_name,
             event_time: formData.event_time,
-            day_of_week: formData.selected_days[0], // Primary day for backward compat
-            days_of_week: formData.selected_days,
+            day_of_week: dbDays[0], // Primary day for backward compat
+            days_of_week: dbDays,
             notes: formData.notes || null,
             tagged_roles: formData.tagged_roles.length > 0 ? formData.tagged_roles : null,
             is_recurring: formData.is_recurring,
@@ -238,14 +241,16 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
 
   const handleEdit = (event: ScheduleEvent) => {
     setEditingEvent(event);
-    const selectedDays = event.days_of_week && event.days_of_week.length > 0 
+    // Convert DB indices to UI indices when loading for edit
+    const dbDays = event.days_of_week && event.days_of_week.length > 0 
       ? event.days_of_week 
       : [event.day_of_week];
+    const uiDays = dbDays.map(dbIndexToUiIndex);
     
     setFormData({
       event_name: event.event_name,
       event_time: event.event_time,
-      selected_days: selectedDays,
+      selected_days: uiDays,
       notes: event.notes || "",
       tagged_roles: event.tagged_roles || [],
       is_recurring: event.is_recurring,
@@ -278,6 +283,12 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
     setDeleteDialogOpen(true);
   };
 
+  // Convert UI index (Mon=0, Tue=1, ..., Sun=6) to DB index (Sun=0, Mon=1, ..., Sat=6)
+  const uiIndexToDbIndex = (uiIndex: number): number => (uiIndex + 1) % 7;
+  
+  // Convert DB index (Sun=0, Mon=1, ..., Sat=6) to UI index (Mon=0, Tue=1, ..., Sun=6)
+  const dbIndexToUiIndex = (dbIndex: number): number => (dbIndex + 6) % 7;
+
   const toggleDay = (dayIndex: number) => {
     const newDays = formData.selected_days.includes(dayIndex)
       ? formData.selected_days.filter(d => d !== dayIndex)
@@ -289,13 +300,15 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
   // Get events for a specific day, including multi-day events, sorted by time
+  // dayIndex here is the UI index (Mon=0, Tue=1, ..., Sun=6), so convert to DB format for comparison
   const getEventsForDay = (dayIndex: number) => {
+    const dbIndex = uiIndexToDbIndex(dayIndex);
     return events
       .filter((e) => {
         if (e.days_of_week && e.days_of_week.length > 0) {
-          return e.days_of_week.includes(dayIndex);
+          return e.days_of_week.includes(dbIndex);
         }
-        return e.day_of_week === dayIndex;
+        return e.day_of_week === dbIndex;
       })
       .sort((a, b) => a.event_time.localeCompare(b.event_time));
   };
