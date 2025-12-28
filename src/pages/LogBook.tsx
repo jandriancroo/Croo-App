@@ -1217,6 +1217,36 @@ export default function LogBook() {
                                   )}
                                 </div>
                               )}
+                              
+                              {entry.logbook_categories?.name === 'Remake' && (
+                                <div className="mt-3 pt-3 border-t border-border">
+                                  {entry.followup_completed_at ? (
+                                    <div className="flex items-center gap-2">
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline"
+                                        className="bg-green-500/20 text-green-600 border-green-500/30 hover:bg-green-500/30 cursor-default"
+                                        disabled
+                                      >
+                                        ✓ Re-Make Completed
+                                      </Button>
+                                      <span className="text-xs text-muted-foreground">
+                                        {format(new Date(entry.followup_completed_at), 'MMM d, h:mm a')}
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <Button 
+                                      size="sm" 
+                                      variant="outline"
+                                      className="border-amber-500/50 text-amber-600 hover:bg-amber-500/10"
+                                      onClick={() => followupMutation.mutate(entry.id)}
+                                      disabled={followupMutation.isPending}
+                                    >
+                                      Mark Re-Make Complete
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </CardContent>
