@@ -568,7 +568,7 @@ export default function Dashboard() {
   const standardSections: Record<string, JSX.Element | null> = {
     // Alerts disabled on dashboard - view them on the Alerts page
     'alerts': null,
-    'data-cubes': (hasQuBeyondIntegration && isSectionVisible('data-cubes')) ? <WidgetsSection salesData={cubesSalesData} isLoadingSales={isLoadingCubesSales} hasQuBeyondIntegration={hasQuBeyondIntegration} showEditButton /> : null,
+    'data-cubes': (hasQuBeyondIntegration && isSectionVisible('data-cubes')) ? <WidgetsSection salesData={cubesSalesData} isLoadingSales={isLoadingCubesSales} hasQuBeyondIntegration={hasQuBeyondIntegration} showAddDialog={showAddCubeDialog} onAddDialogChange={setShowAddCubeDialog} /> : null,
     'sales-overview': (hasQuBeyondIntegration && isSectionVisible('sales-overview')) ? (
       <Collapsible 
         open={salesOverviewOpen} 
@@ -913,6 +913,7 @@ export default function Dashboard() {
         onSave={handleDashboardSave}
         salesData={cubesSalesData}
         hasQuBeyondIntegration={hasQuBeyondIntegration}
+        onAddCube={() => setShowAddCubeDialog(true)}
       />
     </Layout>;
 }
