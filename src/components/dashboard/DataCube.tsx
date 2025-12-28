@@ -84,16 +84,17 @@ export function DataCube({
     
     switch (format) {
       case 'currency':
+        // Always show whole numbers
         if (value >= 1000) {
-          return `$${(value / 1000).toFixed(1)}k`;
+          return `$${Math.round(value / 1000)}k`;
         }
         return `$${Math.round(value)}`;
       case 'percent':
-        return `${value.toFixed(1)}%`;
+        return `${Math.round(value)}%`;
       case 'hours':
-        return `${value.toFixed(1)}h`;
+        return `${Math.round(value)}h`;
       case 'number':
-        return value.toLocaleString();
+        return Math.round(value).toLocaleString();
       default:
         return String(value);
     }
@@ -179,25 +180,30 @@ export function DataCube({
               
               const value = getMetricValue(metricType);
               const IconComponent = config.icon;
+              const isFirst = index === 0;
               
               return (
                 <div 
                   key={metricType} 
                   className={`flex items-center gap-2 ${isSingleMetric ? 'flex-col text-center' : ''}`}
                 >
-                  <IconComponent 
-                    className={`shrink-0 ${isSingleMetric ? 'h-5 w-5' : 'h-4 w-4'} text-muted-foreground`} 
-                  />
+                  {isSingleMetric && (
+                    <IconComponent className="shrink-0 h-5 w-5 text-muted-foreground" />
+                  )}
                   <div className={`min-w-0 ${isSingleMetric ? 'text-center' : 'flex-1'}`}>
                     <div 
-                      className={`font-bold truncate ${
-                        isSingleMetric ? 'text-2xl' : isDoubleMetric ? 'text-lg' : 'text-base'
+                      className={`font-extrabold truncate ${
+                        isSingleMetric 
+                          ? 'text-3xl' 
+                          : isDoubleMetric 
+                            ? (isFirst ? 'text-2xl' : 'text-xl') 
+                            : (isFirst ? 'text-xl' : 'text-lg')
                       }`}
                       style={{ color: accentColor }}
                     >
                       {formatValue(value, config.format)}
                     </div>
-                    <div className={`text-muted-foreground truncate ${
+                    <div className={`text-muted-foreground truncate font-medium ${
                       isSingleMetric ? 'text-xs' : 'text-[10px]'
                     }`}>
                       {isSingleMetric ? config.label : config.shortLabel}

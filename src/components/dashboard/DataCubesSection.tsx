@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Button } from '@/components/ui/button';
-import { Settings2, Plus } from 'lucide-react';
+import { Settings2 } from 'lucide-react';
 import { DataCube, MetricType, SalesDataForCubes } from './DataCube';
 import { EditDashboardDialog } from './EditDashboardDialog';
 
@@ -62,29 +62,17 @@ export function DataCubesSection({ salesData, isLoadingSales = false }: DataCube
     });
   };
 
-  // Don't render if no cubes and not in edit mode
-  if (cubes.length === 0 && !showEditDialog) {
+  // Don't render anything if no cubes (they'll add via Edit Dashboard in reorder mode)
+  if (cubes.length === 0) {
     return (
-      <div className="flex justify-center">
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-2"
-          onClick={() => setShowEditDialog(true)}
-        >
-          <Plus className="h-4 w-4" />
-          Add Data Cubes
-        </Button>
-        
-        <EditDashboardDialog
-          open={showEditDialog}
-          onOpenChange={setShowEditDialog}
-          locationId={currentLocation?.id || ''}
-          existingCubes={cubes}
-          onSave={handleRefresh}
-          salesData={salesData}
-        />
-      </div>
+      <EditDashboardDialog
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        locationId={currentLocation?.id || ''}
+        existingCubes={cubes}
+        onSave={handleRefresh}
+        salesData={salesData}
+      />
     );
   }
 
