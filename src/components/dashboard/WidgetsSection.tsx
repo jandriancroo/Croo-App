@@ -28,9 +28,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ChevronDown, GripVertical } from 'lucide-react';
+import { useIsOledTheme } from '@/hooks/useIsOledTheme';
 
-// Sales chart accent color - teal to match the chart bars
+// Sales chart accent color - teal to match the chart bars, dark blue for OLED
 const SALES_CHART_COLOR = '#0D9488';
+const SALES_CHART_COLOR_OLED = 'hsl(215, 30%, 32%)';
 const CHECKLISTS_BLOCK_ID = 'checklists-block';
 
 interface DataCubeConfig {
@@ -60,10 +62,14 @@ interface SortableChecklistsBlockProps {
 }
 
 function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReorderMode, onSalesDataChange }: SortableDataCubeProps) {
+  const isOled = useIsOledTheme();
   const [salesOverviewOpen, setSalesOverviewOpen] = useState(() => {
     const saved = localStorage.getItem('dashboard-sales-overview-open');
     return saved !== null ? JSON.parse(saved) : true;
   });
+  
+  // Use OLED color when in OLED theme
+  const salesChartColor = isOled ? SALES_CHART_COLOR_OLED : SALES_CHART_COLOR;
   
   const {
     attributes,
@@ -110,7 +116,7 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
             <CollapsibleTrigger asChild disabled={isReorderMode}>
               <button 
                 className={`w-full px-3 py-2 flex items-center justify-between transition-opacity ${isReorderMode ? 'opacity-85 pointer-events-none' : 'cursor-pointer hover:opacity-90'}`}
-                style={{ backgroundColor: SALES_CHART_COLOR }}
+                style={{ backgroundColor: salesChartColor }}
               >
                 <span className="text-sm font-semibold text-white">Sales Overview</span>
                 <ChevronDown className={`h-4 w-4 text-white/80 transition-transform duration-200 ${salesOverviewOpen ? 'rotate-180' : ''}`} />
