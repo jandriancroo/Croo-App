@@ -3395,10 +3395,12 @@ export type Database = {
         Row: {
           accent_color: string | null
           created_at: string
+          cube_type: string
           display_order: number
           id: string
           location_id: string
           metrics: Json
+          reference_id: string | null
           title: string | null
           updated_at: string
           user_id: string
@@ -3406,10 +3408,12 @@ export type Database = {
         Insert: {
           accent_color?: string | null
           created_at?: string
+          cube_type?: string
           display_order?: number
           id?: string
           location_id: string
           metrics?: Json
+          reference_id?: string | null
           title?: string | null
           updated_at?: string
           user_id: string
@@ -3417,10 +3421,12 @@ export type Database = {
         Update: {
           accent_color?: string | null
           created_at?: string
+          cube_type?: string
           display_order?: number
           id?: string
           location_id?: string
           metrics?: Json
+          reference_id?: string | null
           title?: string | null
           updated_at?: string
           user_id?: string
