@@ -69,6 +69,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
   const queryClient = useQueryClient();
   const isBackgroundRefreshing = useRef(false);
   const lastIntegrationErrorKey = useRef<string | null>(null);
+  const lastSalesDataSentKey = useRef<string>("");
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { 
@@ -503,7 +504,9 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       return { ...rawSalesData, hourly: completeHourly };
     }
     
-    // If no business hours configured, don't show hourly breakdown
+    // If no business hours configured, hide hourly breakdown.
+    // IMPORTANT: keep reference stable to avoid render loops.
+    if (!rawSalesData.hourly) return rawSalesData;
     return { ...rawSalesData, hourly: undefined };
   }, [rawSalesData, locationSettings]);
 
@@ -647,25 +650,70 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
   }, [salesData?.monthlyBreakdown, salesData?.projections?.todayPaceAdjusted, salesData?.projections?.todayProjected, isToday]);
 
   // Notify parent component when sales data changes (for data cubes to use)
-  // Include pace-adjusted values that are calculated in the useMemo hooks above
+  // Include pace-adjusted values that are calculated in the useMemo hooks above.
+  // Also avoid infinite update loops by only emitting when the underlying values change.
   useEffect(() => {
     if (!salesData) {
-      onSalesDataChange?.(null);
+      if (lastSalesDataSentKey.current !== 'null') {
+        lastSalesDataSentKey.current = 'null';
+        onSalesDataChange?.(null);
+      }
       return;
     }
-    
-    // Enhance salesData with pace-adjusted values for cubes
+
+    const weekTargetEow = calculatedWeekProjected;
+    const weekPace = calculatedWeekProjected + accumulatedWeekDelta;
+    const monthPace = (salesData.projections?.monthProjected || 0) + accumulatedMonthDelta;
+
+    const emitKey = JSON.stringify({
+      daily: salesData.daily,
+      weekly: salesData.weekly,
+      monthly: salesData.monthly,
+      todayProjected: salesData.projections?.todayProjected,
+      todayPaceAdjusted: salesData.projections?.todayPaceAdjusted,
+      weekTargetEow,
+      weekPace,
+      monthProjected: salesData.projections?.monthProjected,
+      monthPace,
+      prevDayFullDay: salesData.comparison?.prevDayFullDay,
+      prevWeek: salesData.comparison?.prevWeek,
+      prevMonth: salesData.comparison?.prevMonth,
+      guestDaily: salesData.guestCount?.daily,
+      guestWeekly: salesData.guestCount?.weekly,
+      guestMonthly: salesData.guestCount?.monthly,
+      pizzaDaily: typeof salesData.pizzaCount === 'number' ? salesData.pizzaCount : salesData.pizzaCount?.daily,
+      pizzaWeekly: typeof salesData.pizzaCount === 'object' ? salesData.pizzaCount?.weekly : undefined,
+      pizzaMonthly: typeof salesData.pizzaCount === 'object' ? salesData.pizzaCount?.monthly : undefined,
+      laborDaily: salesData.labor,
+      laborWeekly: salesData.weeklyLabor,
+    });
+
+    if (emitKey === lastSalesDataSentKey.current) return;
+    lastSalesDataSentKey.current = emitKey;
+
+    // Enhance salesData with the same values the Sales Overview UI uses.
     const enhancedData = {
       ...salesData,
-      projections: salesData.projections ? {
-        ...salesData.projections,
-        weekPaceAdjusted: calculatedWeekProjected + accumulatedWeekDelta,
-        monthPaceAdjusted: (salesData.projections.monthProjected || 0) + accumulatedMonthDelta,
-      } : undefined,
+      projections: salesData.projections
+        ? {
+            ...salesData.projections,
+            // Make Target EOW match "Proj Weekly" cubes
+            weekProjected: weekTargetEow,
+            // Expose pace for cubes (Weekly + Monthly)
+            weekPaceAdjusted: weekPace,
+            monthPaceAdjusted: monthPace,
+          }
+        : undefined,
     };
-    
+
     onSalesDataChange?.(enhancedData);
-  }, [salesData, calculatedWeekProjected, accumulatedWeekDelta, accumulatedMonthDelta, onSalesDataChange]);
+  }, [
+    salesData,
+    calculatedWeekProjected,
+    accumulatedWeekDelta,
+    accumulatedMonthDelta,
+    onSalesDataChange,
+  ]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     setTargetDate(prev => direction === 'prev' ? subMonths(prev, 1) : addMonths(prev, 1));
