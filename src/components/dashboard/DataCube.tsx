@@ -153,21 +153,17 @@ export function DataCube({
       className="aspect-square overflow-hidden cursor-pointer hover:shadow-lg transition-all relative"
       onClick={onClick}
     >
-      {/* Gradient header bar */}
+      {/* Colored header with title */}
       <div 
-        className="absolute top-0 left-0 right-0 h-1.5"
-        style={{ 
-          background: `linear-gradient(90deg, ${accentColor}, ${accentColor}88)` 
-        }}
-      />
+        className="px-3 py-2 flex items-center"
+        style={{ backgroundColor: accentColor }}
+      >
+        <span className="text-xs font-semibold text-white truncate">
+          {title || 'Data'}
+        </span>
+      </div>
       
-      <CardContent className="p-3 pt-4 h-full flex flex-col justify-between">
-        {/* Title */}
-        {title && (
-          <div className="text-xs font-medium text-muted-foreground truncate mb-1">
-            {title}
-          </div>
-        )}
+      <CardContent className="p-3 h-[calc(100%-32px)] flex flex-col justify-between">
         
         {/* Metrics */}
         <div className={`flex-1 flex flex-col ${isSingleMetric ? 'justify-center' : 'justify-around'}`}>
