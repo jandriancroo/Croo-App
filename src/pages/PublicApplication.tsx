@@ -333,6 +333,26 @@ export default function PublicApplication() {
         if (refError) console.error('References error:', refError);
       }
 
+      // Send notification email to admins/GMs
+      const templateName = templates?.find(t => t.id === selectedTemplate)?.name || 'Job Application';
+      try {
+        await supabase.functions.invoke('notify-new-application', {
+          body: {
+            applicationId: application.id,
+            applicantName: `${firstName.trim()} ${lastName.trim()}`.trim(),
+            applicantEmail: email.trim(),
+            applicantPhone: phone.trim() || undefined,
+            locationId: selectedLocation || undefined,
+            organizationId: organization.id,
+            templateName,
+          },
+        });
+        console.log('Notification email sent successfully');
+      } catch (notifyError) {
+        // Don't fail the submission if notification fails
+        console.error('Failed to send notification email:', notifyError);
+      }
+
       return application;
     },
     onSuccess: () => {
