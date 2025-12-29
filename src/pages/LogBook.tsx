@@ -55,6 +55,7 @@ export default function LogBook() {
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [showCateringUpload, setShowCateringUpload] = useState(false);
   const [preselectedShift, setPreselectedShift] = useState<'AM' | 'PM' | null>(null);
+  const [isSavingSpecialForm, setIsSavingSpecialForm] = useState(false);
   const navigate = useNavigate();
 
   // Redirect team members away from logs page
@@ -529,6 +530,8 @@ export default function LogBook() {
           <DrawerCountForm
             key={getDateInTimezone(selectedDate)}
             onSave={async (data: DrawerCountData) => {
+              if (isSavingSpecialForm) return; // Prevent double-submit
+              setIsSavingSpecialForm(true);
               try {
                 const dateStr = getDateInTimezone(selectedDate);
                 let fieldId = fields[0]?.id;
@@ -646,9 +649,11 @@ export default function LogBook() {
                 }
               } catch (error: any) {
                 toast({ title: "Error saving drawer count", description: error.message, variant: "destructive" });
+              } finally {
+                setIsSavingSpecialForm(false);
               }
             }}
-            isSaving={saveEntryMutation.isPending}
+            isSaving={isSavingSpecialForm}
             existingData={entry?.logbook_entry_values?.[0]?.value_text 
               ? JSON.parse(entry.logbook_entry_values[0].value_text) 
               : null}
@@ -688,6 +693,8 @@ export default function LogBook() {
           <SafeCountForm
             key={`${getDateInTimezone(selectedDate)}-${preselectedShift || ''}`}
             onSave={async (data: SafeCountData) => {
+              if (isSavingSpecialForm) return; // Prevent double-submit
+              setIsSavingSpecialForm(true);
               try {
                 const dateStr = getDateInTimezone(selectedDate);
                 let fieldId = fields[0]?.id;
@@ -785,9 +792,11 @@ export default function LogBook() {
                 }
               } catch (error: any) {
                 toast({ title: "Error saving safe count", description: error.message, variant: "destructive" });
+              } finally {
+                setIsSavingSpecialForm(false);
               }
             }}
-            isSaving={saveEntryMutation.isPending}
+            isSaving={isSavingSpecialForm}
             existingShifts={existingSafeCountShifts}
             safeTarget={locationSettings?.safe_target ?? 300}
             defaultShift={preselectedShift || undefined}
