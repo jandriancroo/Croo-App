@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus, Upload } from "lucide-react";
+import { CalendarIcon, Paperclip, Search, User, Settings, MoreVertical, Trash2, Pencil, Plus, Upload, ChevronLeft, FileText, DollarSign, ClipboardList, AlertTriangle, Package, Truck, MessageSquare, ShieldCheck } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -51,6 +51,7 @@ export default function LogBook() {
   const [uploadingFiles, setUploadingFiles] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<string>("search");
   const [showNewEntrySheet, setShowNewEntrySheet] = useState(false);
+  const [wizardStep, setWizardStep] = useState<'category' | 'form'>('category');
   const [deleteEntryId, setDeleteEntryId] = useState<string | null>(null);
   const [showCateringUpload, setShowCateringUpload] = useState(false);
   const [preselectedShift, setPreselectedShift] = useState<'AM' | 'PM' | null>(null);
@@ -111,8 +112,9 @@ export default function LogBook() {
         setSelectedCategory(matchedCategory.id);
         // Stay on 'search' tab so the Sheet can be displayed
         setActiveTab('search');
-        // Auto-open the entry sheet to go directly to the form
+        // Auto-open the entry sheet and go directly to form step
         setShowNewEntrySheet(true);
+        setWizardStep('form');
         // Set preselected shift if provided
         if (shiftParam === 'AM' || shiftParam === 'PM') {
           setPreselectedShift(shiftParam);
@@ -966,34 +968,74 @@ export default function LogBook() {
             </TabsList>
             
             {activeTab === 'search' && (
-              <Sheet open={showNewEntrySheet} onOpenChange={setShowNewEntrySheet}>
+              <Sheet open={showNewEntrySheet} onOpenChange={(open) => {
+                setShowNewEntrySheet(open);
+                if (!open) setWizardStep('category'); // Reset to category step when closing
+              }}>
                 <SheetTrigger asChild>
                   <Button size="icon" variant="default">
                     <Plus className="h-4 w-4" />
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
-                  <SheetHeader>
-                    <SheetTitle>New Log Entry</SheetTitle>
-                  </SheetHeader>
-                  <div className="mt-4 space-y-4">
-                    {/* Category Selection */}
-                    <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categories.map((category: any) => (
-                          <SelectItem key={category.id} value={category.id}>
-                            {category.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    {/* New Entry Form Content */}
-                    {renderNewEntryContent()}
-                  </div>
+                  {wizardStep === 'category' ? (
+                    <>
+                      <SheetHeader>
+                        <SheetTitle>Select Entry Type</SheetTitle>
+                      </SheetHeader>
+                      <div className="mt-6 grid grid-cols-2 gap-3">
+                        {categories.map((category: any) => {
+                          // Map category names to icons
+                          const getCategoryIcon = (name: string) => {
+                            const lower = name.toLowerCase();
+                            if (lower.includes('drawer')) return <DollarSign className="h-6 w-6" />;
+                            if (lower.includes('safe')) return <ShieldCheck className="h-6 w-6" />;
+                            if (lower.includes('refund')) return <FileText className="h-6 w-6" />;
+                            if (lower.includes('incident') || lower.includes('accident')) return <AlertTriangle className="h-6 w-6" />;
+                            if (lower.includes('inventory') || lower.includes('waste')) return <Package className="h-6 w-6" />;
+                            if (lower.includes('delivery') || lower.includes('catering')) return <Truck className="h-6 w-6" />;
+                            if (lower.includes('note') || lower.includes('message')) return <MessageSquare className="h-6 w-6" />;
+                            return <ClipboardList className="h-6 w-6" />;
+                          };
+                          
+                          return (
+                            <button
+                              key={category.id}
+                              onClick={() => {
+                                setSelectedCategory(category.id);
+                                setWizardStep('form');
+                              }}
+                              className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 border-border bg-card hover:border-primary hover:bg-accent transition-all text-center min-h-[100px]"
+                            >
+                              <div className="text-primary">
+                                {getCategoryIcon(category.name)}
+                              </div>
+                              <span className="font-medium text-sm">{category.name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <SheetHeader className="flex flex-row items-center gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => setWizardStep('category')}
+                          className="h-8 w-8 -ml-2"
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <SheetTitle className="!mt-0">
+                          {categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
+                        </SheetTitle>
+                      </SheetHeader>
+                      <div className="mt-4 space-y-4">
+                        {renderNewEntryContent()}
+                      </div>
+                    </>
+                  )}
                 </SheetContent>
               </Sheet>
             )}
@@ -1077,8 +1119,9 @@ export default function LogBook() {
                                             existingData[val.field_id] = val.value_text || val.value_number || val.value_date || val.attachment_url;
                                           });
                                           setFormData(existingData);
-                                          // Open the sheet for editing
+                                          // Open the sheet for editing and skip to form step
                                           setShowNewEntrySheet(true);
+                                          setWizardStep('form');
                                           toast({ title: "Edit mode", description: "Update the entry and save" });
                                         }}
                                       >
