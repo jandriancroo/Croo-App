@@ -450,12 +450,18 @@ serve(async (req) => {
         const shiftHours = calculateShiftHours(shift.start_time, optimizedShifts[shiftIndex].end_time);
         
         // Don't trim shifts below 3 hours
-        if (shiftHours <= 3) return false;
+        if (shiftHours <= 3) {
+          console.log(`      BLOCKED: Shift only ${shiftHours.toFixed(1)} hours (min 3)`);
+          return false;
+        }
 
         const wage = shift.hourly_wage || 15;
         const savingsPerQuarter = wage * 0.25;
 
-        if (!canTrimEnd(optimizedShifts, shiftIndex, 15)) return false;
+        if (!canTrimEnd(optimizedShifts, shiftIndex, 15)) {
+          console.log(`      BLOCKED: canTrimEnd=false (would violate min staffing)`);
+          return false;
+        }
 
         // Trim 15 min from end
         const currentShift = optimizedShifts[shiftIndex];
