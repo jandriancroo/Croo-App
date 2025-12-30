@@ -3,20 +3,63 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { TemporaryTaskCard } from "./TemporaryTaskCard";
 import { TemporaryTaskDetailsDialog } from "@/components/tasks/TemporaryTaskDetailsDialog";
-import { ClipboardList, Check } from "lucide-react";
+import { ClipboardList, Check, ChefHat } from "lucide-react";
 import * as Icons from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { useUserRole } from "@/hooks/useUserRole";
+import { EventCard } from "@/components/schedule/EventCard";
 
 interface AssignedTemporaryTasksProps {
   showCompleted?: boolean;
+  includeCateringOrders?: boolean;
+  includeEventTasks?: boolean;
 }
 
-export function AssignedTemporaryTasks({ showCompleted = false }: AssignedTemporaryTasksProps) {
+interface CateringOrder {
+  id: string;
+  order_number: string | null;
+  customer_name: string;
+  pickup_date: string;
+  pickup_time: string;
+  headcount: number | null;
+  items: { quantity: number; item: string; notes?: string }[];
+  notes: string | null;
+  source_url: string | null;
+  status: string;
+}
+
+interface EventTask {
+  id: string;
+  event_name: string;
+  event_time: string;
+  category_id: string | null;
+  category?: {
+    name: string;
+    color: string;
+  } | null;
+}
+
+const ORANGE_COLOR = "#f97316";
+
+export function AssignedTemporaryTasks({ 
+  showCompleted = false,
+  includeCateringOrders = false,
+  includeEventTasks = false
+}: AssignedTemporaryTasksProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
+  const { getTodayInTimezone } = useLocationTimezone();
   const queryClient = useQueryClient();
   const [selectedTask, setSelectedTask] = useState<any>(null);
+  const [selectedOrder, setSelectedOrder] = useState<CateringOrder | null>(null);
+  const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
+  const canComplete = isShiftManager || isGeneralManager || isManager || isAdmin;
 
   // Fetch user's role
   const { data: userRole } = useQuery({
@@ -109,13 +152,163 @@ export function AssignedTemporaryTasks({ showCompleted = false }: AssignedTempor
     refetchInterval: 30000,
   });
 
+  // Fetch catering orders for today
+  const { data: cateringOrders = [], refetch: refetchCatering } = useQuery({
+    queryKey: ["today-catering-orders", currentLocation?.id, includeCateringOrders],
+    queryFn: async () => {
+      if (!currentLocation?.id || !includeCateringOrders) return [];
+      const today = getTodayInTimezone();
+      
+      const { data, error } = await supabase
+        .from("catering_orders")
+        .select("*")
+        .eq("location_id", currentLocation.id)
+        .eq("pickup_date", today)
+        .order("pickup_time", { ascending: true });
+
+      if (error) throw error;
+      return (data || []).map(order => ({
+        ...order,
+        items: order.items as unknown as { quantity: number; item: string; notes?: string }[]
+      })) as CateringOrder[];
+    },
+    enabled: !!currentLocation?.id && includeCateringOrders,
+    refetchInterval: 30000,
+  });
+
+  // Fetch event daily tasks for today
+  const today = format(new Date(), "yyyy-MM-dd");
+  const jsDay = new Date().getDay();
+  const todayDayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+
+  const { data: eventTasks = [], refetch: refetchEvents } = useQuery({
+    queryKey: ["today-event-tasks", currentLocation?.id, includeEventTasks],
+    queryFn: async () => {
+      if (!currentLocation?.id || !includeEventTasks) return [];
+
+      const { data: eventsData, error: eventsError } = await supabase
+        .from("schedule_events")
+        .select(`id, event_name, event_time, day_of_week, days_of_week, category_id, event_categories(name, color)`)
+        .eq("location_id", currentLocation.id)
+        .eq("is_daily_task", true)
+        .eq("is_recurring", true);
+
+      if (eventsError) throw eventsError;
+
+      const todaysTasks = (eventsData || []).filter((event: any) => {
+        if (event.days_of_week && event.days_of_week.length > 0) {
+          return event.days_of_week.includes(todayDayOfWeek);
+        }
+        return event.day_of_week === todayDayOfWeek;
+      }).map((event: any) => ({
+        id: event.id,
+        event_name: event.event_name,
+        event_time: event.event_time,
+        category_id: event.category_id,
+        category: event.event_categories,
+      }));
+
+      return todaysTasks as EventTask[];
+    },
+    enabled: !!currentLocation?.id && includeEventTasks,
+    refetchInterval: 30000,
+  });
+
+  // Fetch event task completions
+  const { data: eventCompletions = [] } = useQuery({
+    queryKey: ["today-event-completions", eventTasks.map(t => t.id), today],
+    queryFn: async () => {
+      if (eventTasks.length === 0) return [];
+      const { data, error } = await supabase
+        .from("event_task_completions")
+        .select("event_id, completed_date")
+        .in("event_id", eventTasks.map(t => t.id))
+        .eq("completed_date", today);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: eventTasks.length > 0,
+  });
+
+  const [completingEventTask, setCompletingEventTask] = useState<string | null>(null);
+
   // Separate completed and incomplete tasks
   const incompleteTasks = tasks.filter(t => !t.completed_at);
   const completedTasks = tasks.filter(t => t.completed_at);
 
+  // Separate catering orders
+  const pendingOrders = cateringOrders.filter(o => o.status === 'pending');
+  const completedOrders = cateringOrders.filter(o => o.status === 'completed');
+
+  // Separate event tasks
+  const isEventCompleted = (taskId: string) => eventCompletions.some(c => c.event_id === taskId);
+  const incompleteEventTasks = eventTasks.filter(t => !isEventCompleted(t.id));
+  const completedEventTasks = eventTasks.filter(t => isEventCompleted(t.id));
+
   const handleTaskComplete = () => {
     refetch();
     queryClient.invalidateQueries({ queryKey: ["assigned-temp-tasks"] });
+  };
+
+  const handleCateringComplete = async (order: CateringOrder) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from("catering_orders")
+        .update({
+          status: "completed",
+          completed_at: new Date().toISOString(),
+          completed_by: user.id,
+        })
+        .eq("id", order.id);
+
+      if (error) throw error;
+      toast.success("Catering order completed!");
+      setSelectedOrder(null);
+      refetchCatering();
+    } catch (error) {
+      console.error("Error completing order:", error);
+      toast.error("Failed to complete order");
+    }
+  };
+
+  const handleEventTaskComplete = async (taskId: string) => {
+    setCompletingEventTask(taskId);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Please sign in");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("event_task_completions")
+        .insert({
+          event_id: taskId,
+          completed_date: today,
+          completed_by: user.id,
+        });
+
+      if (error) {
+        if (error.code === "23505") {
+          toast.error("Task already completed today");
+        } else {
+          throw error;
+        }
+        return;
+      }
+
+      toast.success("Task completed!");
+      refetchEvents();
+      queryClient.invalidateQueries({ queryKey: ["today-event-completions"] });
+    } catch (error) {
+      console.error("Error completing task:", error);
+      toast.error("Failed to complete task");
+    } finally {
+      setCompletingEventTask(null);
+    }
   };
 
   const getIconComponent = (iconName: string) => {
@@ -123,17 +316,27 @@ export function AssignedTemporaryTasks({ showCompleted = false }: AssignedTempor
     return IconComponent || ClipboardList;
   };
 
-  if (tasks.length === 0) {
+  const formatTime = (time: string) => {
+    const [hours, minutes] = time.split(":");
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
+  };
+
+  const hasNoTasks = tasks.length === 0 && pendingOrders.length === 0 && completedOrders.length === 0 && eventTasks.length === 0;
+
+  if (hasNoTasks) {
     return (
       <div className="text-center py-4 text-muted-foreground text-sm">
-        No tasks assigned
+        No tasks for today
       </div>
     );
   }
 
   return (
     <>
-      {/* Incomplete tasks */}
+      {/* Incomplete temporary tasks */}
       {incompleteTasks.map((task) => (
         <TemporaryTaskCard
           key={task.id}
@@ -146,6 +349,37 @@ export function AssignedTemporaryTasks({ showCompleted = false }: AssignedTempor
           buttonVariant="view"
           onAction={() => setSelectedTask(task)}
           taskStyle={(task.task_style as "standard" | "alarm") || "standard"}
+        />
+      ))}
+
+      {/* Pending catering orders */}
+      {pendingOrders.map((order) => (
+        <TemporaryTaskCard
+          key={`catering-${order.id}`}
+          id={order.id}
+          title={order.customer_name}
+          subtitle={`Pickup: ${formatTime(order.pickup_time)}`}
+          icon={ChefHat}
+          accentColor={ORANGE_COLOR}
+          buttonLabel="View"
+          buttonVariant="view"
+          onAction={() => setSelectedOrder(order)}
+          badge={{ label: `${order.items.length} items` }}
+        />
+      ))}
+
+      {/* Incomplete event tasks */}
+      {incompleteEventTasks.map((task) => (
+        <EventCard
+          key={`event-${task.id}`}
+          id={task.id}
+          name={task.event_name}
+          time={task.event_time}
+          categoryName={task.category?.name}
+          categoryColor={task.category?.color}
+          showCompleteButton={true}
+          isLoading={completingEventTask === task.id}
+          onComplete={() => handleEventTaskComplete(task.id)}
         />
       ))}
 
@@ -169,6 +403,42 @@ export function AssignedTemporaryTasks({ showCompleted = false }: AssignedTempor
         </div>
       ))}
 
+      {/* Completed catering orders with strikethrough */}
+      {showCompleted && completedOrders.map((order) => (
+        <div key={`catering-done-${order.id}`} className="relative opacity-60">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+            <div className="h-[2px] w-[90%] bg-muted-foreground/50" />
+          </div>
+          <TemporaryTaskCard
+            id={order.id}
+            title={order.customer_name}
+            subtitle={`Pickup: ${formatTime(order.pickup_time)}`}
+            icon={Check}
+            accentColor="#22c55e"
+            buttonLabel="Done"
+            buttonVariant="complete"
+            onAction={() => {}}
+          />
+        </div>
+      ))}
+
+      {/* Completed event tasks with strikethrough */}
+      {showCompleted && completedEventTasks.map((task) => (
+        <div key={`event-done-${task.id}`} className="relative opacity-60">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+            <div className="h-[2px] w-[90%] bg-muted-foreground/50" />
+          </div>
+          <EventCard
+            id={task.id}
+            name={task.event_name}
+            time={task.event_time}
+            categoryName={task.category?.name}
+            categoryColor={task.category?.color}
+            showCompleteButton={false}
+          />
+        </div>
+      ))}
+
       {selectedTask && (
         <TemporaryTaskDetailsDialog
           open={!!selectedTask}
@@ -177,6 +447,81 @@ export function AssignedTemporaryTasks({ showCompleted = false }: AssignedTempor
           onComplete={handleTaskComplete}
         />
       )}
+
+      {/* Catering Order Details Dialog */}
+      <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ChefHat className="h-5 w-5" />
+              Catering Order
+            </DialogTitle>
+          </DialogHeader>
+          {selectedOrder && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Customer</span>
+                  <span className="font-medium">{selectedOrder.customer_name}</span>
+                </div>
+                {selectedOrder.order_number && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Order #</span>
+                    <span>{selectedOrder.order_number}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Pickup</span>
+                  <span className="text-primary font-medium">
+                    Today at {formatTime(selectedOrder.pickup_time)}
+                  </span>
+                </div>
+                {selectedOrder.headcount && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">Headcount</span>
+                    <span>{selectedOrder.headcount}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-medium mb-2">Items</h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {selectedOrder.items.map((item, idx) => (
+                    <div key={idx} className="flex items-start gap-3 text-sm">
+                      <span className="font-medium min-w-[24px]">{item.quantity}x</span>
+                      <div>
+                        <span>{item.item}</span>
+                        {item.notes && (
+                          <p className="text-xs text-muted-foreground">{item.notes}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {selectedOrder.notes && (
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-1">Notes</h4>
+                  <p className="text-sm text-muted-foreground">{selectedOrder.notes}</p>
+                </div>
+              )}
+
+              {canComplete && (
+                <Button
+                  className="w-full"
+                  size="lg"
+                  onClick={() => handleCateringComplete(selectedOrder)}
+                >
+                  <Check className="h-5 w-5 mr-2" />
+                  Mark Completed
+                </Button>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
