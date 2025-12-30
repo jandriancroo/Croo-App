@@ -5,10 +5,14 @@ import { useAuth } from "@/lib/auth";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { TemporaryTaskCard } from "./TemporaryTaskCard";
 import { TemporaryTaskDetailsDialog } from "@/components/tasks/TemporaryTaskDetailsDialog";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, Check } from "lucide-react";
 import * as Icons from "lucide-react";
 
-export function AssignedTemporaryTasks() {
+interface AssignedTemporaryTasksProps {
+  showCompleted?: boolean;
+}
+
+export function AssignedTemporaryTasks({ showCompleted = false }: AssignedTemporaryTasksProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
   const queryClient = useQueryClient();
@@ -30,9 +34,9 @@ export function AssignedTemporaryTasks() {
     enabled: !!user?.id,
   });
 
-  // Fetch assigned temporary tasks
+  // Fetch assigned temporary tasks (both completed and incomplete for today)
   const { data: tasks = [], refetch } = useQuery({
-    queryKey: ["assigned-temp-tasks", currentLocation?.id, user?.id, userRole],
+    queryKey: ["assigned-temp-tasks", currentLocation?.id, user?.id, userRole, showCompleted],
     queryFn: async () => {
       if (!currentLocation?.id || !user?.id) return [];
 
@@ -47,21 +51,26 @@ export function AssignedTemporaryTasks() {
 
       const taskIds = [...new Set(assignments.map((a) => a.task_id))];
 
-      // Fetch the actual tasks
-      const { data: tasksData, error: tasksError } = await supabase
+      // Fetch tasks - include both completed and incomplete
+      let query = supabase
         .from("temporary_tasks")
         .select("*")
         .in("id", taskIds)
         .eq("location_id", currentLocation.id)
-        .eq("is_active", true)
-        .is("completed_at", null)
+        .eq("is_active", true);
+
+      // If not showing completed, filter them out
+      if (!showCompleted) {
+        query = query.is("completed_at", null);
+      }
+
+      const { data: tasksData, error: tasksError } = await query
         .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`);
 
       if (tasksError) throw tasksError;
 
       // For alarm tasks, filter out those that have been completed for the current interval
       const now = new Date();
-      const currentIntervalKey = `${now.toISOString().split('T')[0]}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
 
       // Get alarm task IDs
       const alarmTaskIds = tasksData?.filter(t => t.task_style === 'alarm').map(t => t.id) || [];
@@ -85,7 +94,6 @@ export function AssignedTemporaryTasks() {
           if (task.task_style !== 'alarm') return true;
           
           // For alarm tasks, check if the current interval is completed
-          // We check based on the task's last_triggered_at
           if (task.last_triggered_at) {
             const triggeredAt = new Date(task.last_triggered_at);
             const taskIntervalKey = `${triggeredAt.toISOString().split('T')[0]}_${String(triggeredAt.getHours()).padStart(2, '0')}${String(triggeredAt.getMinutes()).padStart(2, '0')}`;
@@ -101,6 +109,10 @@ export function AssignedTemporaryTasks() {
     refetchInterval: 30000,
   });
 
+  // Separate completed and incomplete tasks
+  const incompleteTasks = tasks.filter(t => !t.completed_at);
+  const completedTasks = tasks.filter(t => t.completed_at);
+
   const handleTaskComplete = () => {
     refetch();
     queryClient.invalidateQueries({ queryKey: ["assigned-temp-tasks"] });
@@ -111,11 +123,18 @@ export function AssignedTemporaryTasks() {
     return IconComponent || ClipboardList;
   };
 
-  if (tasks.length === 0) return null;
+  if (tasks.length === 0) {
+    return (
+      <div className="text-center py-4 text-muted-foreground text-sm">
+        No tasks assigned
+      </div>
+    );
+  }
 
   return (
     <>
-      {tasks.map((task) => (
+      {/* Incomplete tasks */}
+      {incompleteTasks.map((task) => (
         <TemporaryTaskCard
           key={task.id}
           id={task.id}
@@ -128,6 +147,26 @@ export function AssignedTemporaryTasks() {
           onAction={() => setSelectedTask(task)}
           taskStyle={(task.task_style as "standard" | "alarm") || "standard"}
         />
+      ))}
+
+      {/* Completed tasks with strikethrough */}
+      {showCompleted && completedTasks.map((task) => (
+        <div key={task.id} className="relative opacity-60">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+            <div className="h-[2px] w-[90%] bg-muted-foreground/50" />
+          </div>
+          <TemporaryTaskCard
+            id={task.id}
+            title={task.title}
+            subtitle={task.description || undefined}
+            icon={Check}
+            accentColor="#22c55e"
+            buttonLabel="Done"
+            buttonVariant="complete"
+            onAction={() => {}}
+            taskStyle="standard"
+          />
+        </div>
       ))}
 
       {selectedTask && (
