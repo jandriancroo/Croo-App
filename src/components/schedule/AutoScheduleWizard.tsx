@@ -717,6 +717,49 @@ export function AutoScheduleWizard({
                 </Card>
               )}
 
+              {/* Per-Day Labor Status */}
+              {optimizedLaborSummary.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Daily Labor Status
+                  </h3>
+                  <div className="grid grid-cols-7 gap-1">
+                    {optimizedLaborSummary.map((day) => (
+                      <div
+                        key={day.dayOfWeek}
+                        className={`p-2 rounded-md text-center text-xs ${
+                          day.projectedSales === 0
+                            ? 'bg-muted/30 text-muted-foreground'
+                            : day.overBudget
+                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                            : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                        }`}
+                      >
+                        <div className="font-medium">{day.dayName.slice(0, 3)}</div>
+                        {day.projectedSales > 0 ? (
+                          <>
+                            <div className="text-[10px] mt-0.5">
+                              {day.laborPercentage.toFixed(1)}%
+                            </div>
+                            <div className="text-[10px] opacity-70">
+                              /{day.targetPercentage}%
+                            </div>
+                          </>
+                        ) : (
+                          <div className="text-[10px] mt-0.5">--</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {optimizedLaborSummary.filter(d => d.overBudget && d.projectedSales > 0).length === 0
+                      ? '✓ All days within labor target'
+                      : `${optimizedLaborSummary.filter(d => d.overBudget && d.projectedSales > 0).length} day(s) still over target (max 30min/person limit)`}
+                  </p>
+                </div>
+              )}
+
               {/* Trim suggestions */}
               {trimSuggestions.length > 0 && (
                 <div>
@@ -736,7 +779,7 @@ export function AutoScheduleWizard({
                       />
                     </div>
                   </div>
-                  <ScrollArea className="h-[180px]">
+                  <ScrollArea className="h-[140px]">
                     <div className="space-y-1 pr-3">
                       {trimSuggestions.map((trim, i) => (
                         <div
