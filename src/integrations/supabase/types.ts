@@ -574,6 +574,55 @@ export type Database = {
           },
         ]
       }
+      checklist_notification_logs: {
+        Row: {
+          checklist_id: string
+          id: string
+          location_id: string
+          notification_type: string
+          sent_at: string
+          trigger_user_id: string | null
+        }
+        Insert: {
+          checklist_id: string
+          id?: string
+          location_id: string
+          notification_type: string
+          sent_at?: string
+          trigger_user_id?: string | null
+        }
+        Update: {
+          checklist_id?: string
+          id?: string
+          location_id?: string
+          notification_type?: string
+          sent_at?: string
+          trigger_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_notification_logs_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_notification_logs_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_notification_logs_trigger_user_id_fkey"
+            columns: ["trigger_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_responses: {
         Row: {
           completed_by: string | null
