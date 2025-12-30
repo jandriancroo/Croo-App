@@ -26,7 +26,7 @@ export function DateNavigator({
 }: DateNavigatorProps) {
   return (
     <div className={cn(
-      "flex justify-center",
+      "flex justify-start",
       narrow && "px-[5%]",
       className
     )}>
