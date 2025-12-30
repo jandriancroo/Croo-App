@@ -366,11 +366,11 @@ export function MobileScheduleView({
                 <p className="text-sm">No punches recorded today</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {dayPunches.map((punch) => (
                   <Card 
                     key={punch.id} 
-                    className={`cursor-pointer hover:bg-muted/50 transition-colors ${punch.isActive ? "border-l-4 border-l-green-500" : ""}`}
+                    className={`cursor-pointer hover:bg-muted/50 transition-colors ${punch.isActive ? "border-l-3 border-l-green-500" : ""}`}
                     onClick={() => {
                       const today = getTodayInTimezone(timezone);
                       setSelectedPunch({
@@ -382,48 +382,42 @@ export function MobileScheduleView({
                       setEditPunchOpen(true);
                     }}
                   >
-                    <div className="p-3">
+                    <div className="px-3 py-2">
                       {/* Top row: Avatar, Name, Hours worked */}
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-2 mb-1">
                         <div className="relative">
-                          <Avatar className="h-10 w-10">
+                          <Avatar className="h-8 w-8">
                             <AvatarImage src={punch.profile.profile_photo_url || undefined} />
-                            <AvatarFallback>{punch.profile.full_name.charAt(0)}</AvatarFallback>
+                            <AvatarFallback className="text-xs">{punch.profile.full_name.charAt(0)}</AvatarFallback>
                           </Avatar>
                           {punch.isActive && (
-                            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-background animate-pulse" />
+                            <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
                           )}
                         </div>
                         
-                        <h4 className="font-semibold flex-1">{punch.profile.full_name}</h4>
+                        <span className="font-medium text-sm flex-1 truncate">{punch.profile.full_name}</span>
                         
-                        <span className={`text-base font-semibold ${punch.isActive ? "text-green-600" : "text-foreground"}`}>
+                        <span className={`text-sm font-semibold ${punch.isActive ? "text-green-600" : "text-foreground"}`}>
                           {punch.hoursWorked.toFixed(1)}h
                         </span>
                       </div>
                       
-                      {/* Scheduled time row with calendar icon */}
-                      {punch.scheduledShift && (
-                        <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground mb-1">
-                          <CalendarIcon className="h-3.5 w-3.5" />
-                          <span>{formatTime12Hour(punch.scheduledShift.start_time)} - {formatTime12Hour(punch.scheduledShift.end_time)}</span>
-                        </div>
-                      )}
-                      
-                      {/* In/Out times row */}
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="text-muted-foreground">In:</span>
-                        <span className="font-medium">{formatTimeDisplay(punch.clockInTime, timezone)}</span>
+                      {/* Time info row */}
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground ml-10">
+                        {punch.scheduledShift && (
+                          <>
+                            <CalendarIcon className="h-3 w-3" />
+                            <span>{formatTime12Hour(punch.scheduledShift.start_time)}-{formatTime12Hour(punch.scheduledShift.end_time)}</span>
+                            <span>•</span>
+                          </>
+                        )}
+                        <span>In: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockInTime, timezone)}</span></span>
                         {punch.clockOutTime && (
                           <>
-                            <span className="text-muted-foreground mx-1">•</span>
-                            <span className="text-muted-foreground">Out:</span>
-                            <span className="font-medium">{formatTimeDisplay(punch.clockOutTime, timezone)}</span>
+                            <span>Out: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockOutTime, timezone)}</span></span>
                           </>
                         )}
                       </div>
-                      
-                      {/* Break times row (if any) - placeholder for future */}
                     </div>
                   </Card>
                 ))}
