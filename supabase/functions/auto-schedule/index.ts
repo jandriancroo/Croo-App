@@ -279,104 +279,137 @@ serve(async (req) => {
 
       console.log(`Found ${assignments.length} shift template assignments`);
 
-      // Sort employees by minimum hours (prioritize those who need more hours)
-      const sortedEmployees = [...employeesWithRoles].sort((a: Employee, b: Employee) => {
-        const aMin = a.min_weekly_hours ?? 0;
-        const bMin = b.min_weekly_hours ?? 0;
-        return bMin - aMin;
+    // Helper to shuffle array (Fisher-Yates)
+    const shuffleArray = <T>(array: T[]): T[] => {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
+
+    // Helper to get employee's current fill percentage vs their min hours
+    const getFillPercentage = (employeeId: string): number => {
+      const emp = employeesWithRoles.find((e: Employee) => e.id === employeeId);
+      if (!emp) return 100;
+      const minHours = emp.min_weekly_hours ?? 0;
+      if (minHours === 0) return 100; // No minimum, consider fully satisfied
+      const currentHours = employeeHours[employeeId] || 0;
+      return (currentHours / minHours) * 100;
+    };
+
+    // Helper to get days worked count
+    const getDaysWorked = (employeeId: string): number => {
+      const daysWithShifts = new Set(
+        generatedShifts.filter(s => s.user_id === employeeId).map(s => s.day_of_week)
+      );
+      return daysWithShifts.size;
+    };
+
+    // For each shift template assignment, try to assign an employee
+    for (const assignment of assignments) {
+      const shiftDate = new Date(weekStartDate);
+      shiftDate.setDate(shiftDate.getDate() + assignment.day_of_week);
+      const shiftDateStr = shiftDate.toISOString().split("T")[0];
+
+      const shiftHours = calculateShiftHours(assignment.start_time, assignment.end_time);
+      let assigned = false;
+
+      // Get all eligible employees for this shift
+      const eligibleEmployees = employeesWithRoles.filter((emp: Employee) => {
+        // Check role compatibility
+        if (!isRoleCompatible(emp.role, assignment.allowed_roles)) return false;
+        // Check hours capacity
+        if (!canTakeMoreHours(emp.id, shiftHours)) return false;
+        // Check availability (no time off)
+        if (!isEmployeeAvailable(emp.id, assignment.day_of_week, assignment.start_time, assignment.end_time)) return false;
+        // Check if already has shift on this day
+        if (hasShiftOnDay(emp.id, assignment.day_of_week)) return false;
+        return true;
       });
 
-      // For each shift template assignment, try to assign an employee
-      for (const assignment of assignments) {
-        const shiftDate = new Date(weekStartDate);
-        shiftDate.setDate(shiftDate.getDate() + assignment.day_of_week);
-        const shiftDateStr = shiftDate.toISOString().split("T")[0];
+      if (eligibleEmployees.length > 0) {
+        // Score employees for fair distribution:
+        // 1. Prioritize those furthest from their min hours (lowest fill percentage)
+        // 2. Among similar fill percentages, prefer those with fewer days worked (spread shifts)
+        // 3. Add small random factor for variety among equals
+        const scoredEmployees = eligibleEmployees.map((emp: Employee) => {
+          const fillPct = getFillPercentage(emp.id);
+          const daysWorked = getDaysWorked(emp.id);
+          const randomFactor = Math.random() * 10; // 0-10 random bonus
+          
+          // Lower score = higher priority
+          // Fill percentage is primary (0-100), days worked secondary (0-7), random tertiary
+          const score = fillPct + (daysWorked * 5) - randomFactor;
+          
+          return { emp, score };
+        });
 
-        const shiftHours = calculateShiftHours(assignment.start_time, assignment.end_time);
-        let assigned = false;
+        // Sort by score (lowest first = highest priority)
+        scoredEmployees.sort((a, b) => a.score - b.score);
 
-        // Try to find an available employee
-        for (const emp of sortedEmployees) {
-          // Check if employee's role matches the template's allowed_roles
-          if (!isRoleCompatible(emp.role, assignment.allowed_roles)) {
-            continue;
-          }
+        const selectedEmp = scoredEmployees[0].emp;
 
-          // Check if employee can be scheduled
-          if (!canTakeMoreHours(emp.id, shiftHours)) {
-            continue;
-          }
+        // Assign the shift
+        generatedShifts.push({
+          user_id: selectedEmp.id,
+          day_of_week: assignment.day_of_week,
+          start_time: assignment.start_time,
+          end_time: assignment.end_time,
+          shift_date: shiftDateStr,
+          template_id: assignment.shift_template_id,
+          template_name: assignment.template_name,
+        });
 
-          // Check if employee is available (no time off)
-          if (!isEmployeeAvailable(emp.id, assignment.day_of_week, assignment.start_time, assignment.end_time)) {
-            continue;
-          }
+        employeeHours[selectedEmp.id] = (employeeHours[selectedEmp.id] || 0) + shiftHours;
+        assigned = true;
+        console.log(`Assigned ${selectedEmp.full_name} to ${assignment.template_name} on day ${assignment.day_of_week} (fill: ${getFillPercentage(selectedEmp.id).toFixed(0)}%, days: ${getDaysWorked(selectedEmp.id)})`);
+      }
 
-          // Check if employee already has a shift on this day (one shift per day max)
-          if (hasShiftOnDay(emp.id, assignment.day_of_week)) {
-            continue;
-          }
+      if (!assigned) {
+        // Track unfilled shift with reason
+        let reason = "No available employees";
+        
+        // Check why no one could be assigned - first filter by role
+        const roleMatchingEmps = employeesWithRoles.filter((emp: Employee) => 
+          isRoleCompatible(emp.role, assignment.allowed_roles)
+        );
 
-          // Assign the shift
-          generatedShifts.push({
-            user_id: emp.id,
-            day_of_week: assignment.day_of_week,
-            start_time: assignment.start_time,
-            end_time: assignment.end_time,
-            shift_date: shiftDateStr,
-            template_id: assignment.shift_template_id,
-            template_name: assignment.template_name,
+        if (roleMatchingEmps.length === 0) {
+          const rolesDisplay = assignment.allowed_roles?.join(', ') || assignment.role || 'required';
+          reason = `No employees with ${rolesDisplay} role`;
+        } else {
+          const availableEmps = roleMatchingEmps.filter((emp: Employee) => {
+            const maxHours = emp.max_weekly_hours ?? 40;
+            if (maxHours === 0) return false;
+            return (employeeHours[emp.id] || 0) + shiftHours <= maxHours;
           });
 
-          employeeHours[emp.id] = (employeeHours[emp.id] || 0) + shiftHours;
-          assigned = true;
-          console.log(`Assigned ${emp.full_name} to ${assignment.template_name} on day ${assignment.day_of_week}`);
-          break;
-        }
-
-        if (!assigned) {
-          // Track unfilled shift with reason
-          let reason = "No available employees";
-          
-          // Check why no one could be assigned - first filter by role
-          const roleMatchingEmps = sortedEmployees.filter(emp => 
-            isRoleCompatible(emp.role, assignment.allowed_roles)
-          );
-
-          if (roleMatchingEmps.length === 0) {
-            const rolesDisplay = assignment.allowed_roles?.join(', ') || assignment.role || 'required';
-            reason = `No employees with ${rolesDisplay} role`;
+          if (availableEmps.length === 0) {
+            reason = "All matching employees at max hours";
           } else {
-            const availableEmps = roleMatchingEmps.filter(emp => {
-              const maxHours = emp.max_weekly_hours ?? 40;
-              if (maxHours === 0) return false;
-              return (employeeHours[emp.id] || 0) + shiftHours <= maxHours;
-            });
-
-            if (availableEmps.length === 0) {
-              reason = "All matching employees at max hours";
-            } else {
-              const availableWithNoConflict = availableEmps.filter(emp => 
-                isEmployeeAvailable(emp.id, assignment.day_of_week, assignment.start_time, assignment.end_time) &&
-                !hasShiftOnDay(emp.id, assignment.day_of_week)
-              );
-              
-              if (availableWithNoConflict.length === 0) {
-                reason = "All matching employees have conflicts or time off";
-              }
+            const availableWithNoConflict = availableEmps.filter((emp: Employee) => 
+              isEmployeeAvailable(emp.id, assignment.day_of_week, assignment.start_time, assignment.end_time) &&
+              !hasShiftOnDay(emp.id, assignment.day_of_week)
+            );
+            
+            if (availableWithNoConflict.length === 0) {
+              reason = "All matching employees have conflicts or time off";
             }
           }
-
-          unfilledShifts.push({
-            dayOfWeek: assignment.day_of_week,
-            templateName: assignment.template_name,
-            startTime: assignment.start_time,
-            endTime: assignment.end_time,
-            reason: reason,
-          });
-          console.log(`Could not fill ${assignment.template_name} on day ${assignment.day_of_week}: ${reason}`);
         }
+
+        unfilledShifts.push({
+          dayOfWeek: assignment.day_of_week,
+          templateName: assignment.template_name,
+          startTime: assignment.start_time,
+          endTime: assignment.end_time,
+          reason: reason,
+        });
+        console.log(`Could not fill ${assignment.template_name} on day ${assignment.day_of_week}: ${reason}`);
       }
+    }
     } else if (source_type === "last_week") {
       // Get last week's schedule
       const lastWeekStart = new Date(weekStartDate);
