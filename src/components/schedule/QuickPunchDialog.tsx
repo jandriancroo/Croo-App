@@ -36,6 +36,8 @@ export function QuickPunchDialog({
   const [selectedUserId, setSelectedUserId] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [breakStartTime, setBreakStartTime] = useState('');
+  const [breakEndTime, setBreakEndTime] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Reset and set defaults when dialog opens
@@ -46,6 +48,8 @@ export function QuickPunchDialog({
       const minutes = now.getMinutes().toString().padStart(2, '0');
       setStartTime(`${hours}:${minutes}`);
       setEndTime('');
+      setBreakStartTime('');
+      setBreakEndTime('');
       setSelectedUserId('');
     }
   }, [open]);
@@ -72,6 +76,33 @@ export function QuickPunchDialog({
         });
 
       if (clockInError) throw clockInError;
+
+      // If break times provided, create break punches
+      if (breakStartTime) {
+        const breakStartPunch = new Date(`${punchDate}T${breakStartTime}:00`);
+        const { error: breakStartError } = await supabase
+          .from('time_punches')
+          .insert({
+            user_id: selectedUserId,
+            punch_type: 'break_start',
+            punch_time: breakStartPunch.toISOString(),
+            location_id: currentLocation?.id
+          });
+        if (breakStartError) throw breakStartError;
+      }
+
+      if (breakEndTime) {
+        const breakEndPunch = new Date(`${punchDate}T${breakEndTime}:00`);
+        const { error: breakEndError } = await supabase
+          .from('time_punches')
+          .insert({
+            user_id: selectedUserId,
+            punch_type: 'break_end',
+            punch_time: breakEndPunch.toISOString(),
+            location_id: currentLocation?.id
+          });
+        if (breakEndError) throw breakEndError;
+      }
 
       // If end time provided, also create clock-out
       if (endTime) {
@@ -170,6 +201,26 @@ export function QuickPunchDialog({
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
                 placeholder="Leave blank"
+              />
+            </div>
+          </div>
+
+          {/* Break Time Inputs */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label>Break Start <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Input
+                type="time"
+                value={breakStartTime}
+                onChange={(e) => setBreakStartTime(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Break End <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Input
+                type="time"
+                value={breakEndTime}
+                onChange={(e) => setBreakEndTime(e.target.value)}
               />
             </div>
           </div>

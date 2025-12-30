@@ -67,17 +67,19 @@ export function EditPunchDialog({
   const fetchPunches = async () => {
     setLoading(true);
     try {
-      // Get all punches for this user on this date
-      const startOfDay = new Date(`${punchDate}T00:00:00`).toISOString();
-      const endOfDay = new Date(`${punchDate}T23:59:59`).toISOString();
+      // Get all punches for this user on this date, accounting for timezone
+      // Use wider range to catch punches that rolled into next UTC day
+      const startOfDay = new Date(`${punchDate}T00:00:00`);
+      const endOfDay = new Date(`${punchDate}T23:59:59`);
+      endOfDay.setHours(endOfDay.getHours() + 12); // Add buffer for timezone edge cases
 
       const { data, error } = await supabase
         .from('time_punches')
         .select('id, punch_time, punch_type')
         .eq('user_id', userId)
         .eq('location_id', locationId)
-        .gte('punch_time', startOfDay)
-        .lte('punch_time', endOfDay)
+        .gte('punch_time', startOfDay.toISOString())
+        .lte('punch_time', endOfDay.toISOString())
         .order('punch_time', { ascending: true });
 
       if (error) throw error;
