@@ -5,7 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, Plus, RefreshCw, Circle, Pencil } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
-import { FaFistRaised } from 'react-icons/fa';
+import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
@@ -124,7 +124,7 @@ export function MobileScheduleView({
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [quickPunchOpen, setQuickPunchOpen] = useState(false);
   const [editPunchOpen, setEditPunchOpen] = useState(false);
-  const [selectedPunch, setSelectedPunch] = useState<{id: string, userId: string, userName: string, userPhoto: string | null, punchTime: string} | null>(null);
+  const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string} | null>(null);
   const [activeShifts, setActiveShifts] = useState<ActiveShift[]>([]);
   const [todayEvents, setTodayEvents] = useState<Event[]>([]);
   const [loadingActive, setLoadingActive] = useState(false);
@@ -298,14 +298,25 @@ export function MobileScheduleView({
       {activeTab === 'today' && (isAdmin || isManager) ? (
         <div className="flex-1 overflow-auto">
           <div className="p-4">
-            <h3 className="text-sm font-medium text-muted-foreground mb-3">
-              {new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                {new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}
+              </h3>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => setQuickPunchOpen(true)}
+                className="gap-1"
+              >
+                <UserPlus className="h-4 w-4" />
+                Quick Punch
+              </Button>
+            </div>
             
             {/* Assigned Tasks */}
             <div className="mb-4 space-y-2">
               <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assigned to You</h4>
-              <AssignedTemporaryTasks />
+              <AssignedTemporaryTasks showCompleted={true} />
             </div>
             
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
@@ -355,12 +366,12 @@ export function MobileScheduleView({
                         size="sm"
                         variant="outline"
                         onClick={() => {
+                          const today = new Date().toISOString().split('T')[0];
                           setSelectedPunch({
-                            id: activeShift.id,
                             userId: activeShift.user_id,
                             userName: activeShift.profile.full_name,
                             userPhoto: activeShift.profile.profile_photo_url,
-                            punchTime: activeShift.punch_time
+                            punchDate: today
                           });
                           setEditPunchOpen(true);
                         }}
@@ -372,17 +383,6 @@ export function MobileScheduleView({
                 ))}
               </div>
             )}
-          </div>
-          
-          {/* Quick Punch FAB for Today view */}
-          <div className="fixed bottom-20 right-4">
-            <Button 
-              size="lg" 
-              className="rounded-full h-14 w-14 shadow-lg"
-              onClick={() => setQuickPunchOpen(true)}
-            >
-              <FaFistRaised className="h-6 w-6" />
-            </Button>
           </div>
         </div>
       ) : (
@@ -436,9 +436,8 @@ export function MobileScheduleView({
                 variant="ghost"
                 onClick={() => setQuickPunchOpen(true)}
                 title="Quick Punch"
-                className="group"
               >
-                <FaFistRaised className="h-5 w-5 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-active:scale-110" />
+                <UserPlus className="h-5 w-5" />
               </Button>
               <Button 
                 size="sm" 
@@ -671,16 +670,16 @@ export function MobileScheduleView({
         }}
       />
 
-      {selectedPunch && (
+      {selectedPunch && currentLocation?.id && (
         <EditPunchDialog
           open={editPunchOpen}
           onOpenChange={setEditPunchOpen}
-          punchId={selectedPunch.id}
           userId={selectedPunch.userId}
           userName={selectedPunch.userName}
           userPhoto={selectedPunch.userPhoto}
-          punchTime={selectedPunch.punchTime}
+          punchDate={selectedPunch.punchDate}
           timezone={timezone}
+          locationId={currentLocation.id}
           onPunchUpdated={() => {
             fetchActiveShifts();
             onUpdate?.();
