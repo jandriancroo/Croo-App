@@ -136,7 +136,7 @@ export function AutoScheduleWizard({
   const [optimizedLaborSummary, setOptimizedLaborSummary] = useState<LaborSummary[]>([]);
   const [trimSuggestions, setTrimSuggestions] = useState<TrimSuggestion[]>([]);
   const [totalSavings, setTotalSavings] = useState(0);
-  const [laborTarget, setLaborTarget] = useState(25); // Default 25%
+  // laborTarget removed - now uses per-day targets from week_template_day_settings
   const [enableLaborOptimization, setEnableLaborOptimization] = useState(true);
   const [optimizedShifts, setOptimizedShifts] = useState<GeneratedShift[]>([]);
   const [useOptimizedShifts, setUseOptimizedShifts] = useState(true);
@@ -153,7 +153,6 @@ export function AutoScheduleWizard({
       setOptimizedShifts([]);
       setUseOptimizedShifts(true);
       fetchTemplates();
-      fetchLaborTarget();
     }
   }, [open, locationId]);
 
@@ -163,24 +162,7 @@ export function AutoScheduleWizard({
     }
   }, [open, step, currentWeekStart, locationId]);
 
-  const fetchLaborTarget = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("location_settings")
-        .select("labor_percentage_target")
-        .eq("location_id", locationId)
-        .single();
-
-      if (!error && data) {
-        const target = (data as any).labor_percentage_target;
-        if (target) {
-          setLaborTarget(target);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching labor target:", error);
-    }
-  };
+  // fetchLaborTarget removed - now uses per-day targets from week_template_day_settings
 
   const fetchTemplates = async () => {
     try {
@@ -332,7 +314,6 @@ export function AutoScheduleWizard({
           week_start: format(currentWeekStart, "yyyy-MM-dd"),
           template_id: sourceType === "template" ? selectedTemplateId : null,
           generated_shifts: generatedShifts,
-          labor_percentage_target: laborTarget,
           action: 'optimize',
         },
       });
