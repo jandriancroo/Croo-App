@@ -93,11 +93,27 @@ export function EditPunchDialog({
 
       setPunches(filteredPunches);
 
-      // Set form values from punches
-      const clockIn = filteredPunches.find(p => p.punch_type === 'clock_in');
-      const clockOut = filteredPunches.find(p => p.punch_type === 'clock_out');
-      const breakStart = filteredPunches.find(p => p.punch_type === 'break_start');
-      const breakEnd = filteredPunches.find(p => p.punch_type === 'break_end');
+      // Set form values from punches - sorted by time
+      const sortedPunches = [...filteredPunches].sort((a, b) => 
+        new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
+      );
+      
+      const clockIn = sortedPunches.find(p => p.punch_type === 'clock_in');
+      const clockOut = sortedPunches.find(p => p.punch_type === 'clock_out');
+      const breakStart = sortedPunches.find(p => p.punch_type === 'break_start');
+      let breakEnd = sortedPunches.find(p => p.punch_type === 'break_end');
+      
+      // If no explicit break_end, check if a clock_in follows the break_start (used to end break)
+      if (breakStart && !breakEnd) {
+        const breakStartTime = new Date(breakStart.punch_time).getTime();
+        const clockInAfterBreak = sortedPunches.find(p => 
+          p.punch_type === 'clock_in' && 
+          new Date(p.punch_time).getTime() > breakStartTime
+        );
+        if (clockInAfterBreak) {
+          breakEnd = clockInAfterBreak;
+        }
+      }
 
       setClockInTime(clockIn ? formatInTimeZone(parseISO(clockIn.punch_time), timezone, 'HH:mm') : '');
       setClockOutTime(clockOut ? formatInTimeZone(parseISO(clockOut.punch_time), timezone, 'HH:mm') : '');
