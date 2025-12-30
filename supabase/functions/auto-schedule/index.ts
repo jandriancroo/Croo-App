@@ -189,20 +189,9 @@ serve(async (req) => {
       return (employeeHours[employeeId] || 0) + additionalHours <= maxHours;
     };
 
-    // Helper to check if employee already has overlapping shift on this day
-    const hasOverlappingShift = (employeeId: string, dayOfWeek: number, startTime: string, endTime: string): boolean => {
-      const shiftStartHour = parseInt(startTime.split(":")[0]) + parseInt(startTime.split(":")[1]) / 60;
-      const shiftEndHour = parseInt(endTime.split(":")[0]) + parseInt(endTime.split(":")[1]) / 60;
-
-      return generatedShifts.some((s) => {
-        if (s.user_id !== employeeId || s.day_of_week !== dayOfWeek) return false;
-        
-        const existingStart = parseInt(s.start_time.split(":")[0]) + parseInt(s.start_time.split(":")[1]) / 60;
-        const existingEnd = parseInt(s.end_time.split(":")[0]) + parseInt(s.end_time.split(":")[1]) / 60;
-        
-        // Check for overlap
-        return shiftStartHour < existingEnd && shiftEndHour > existingStart;
-      });
+    // Helper to check if employee already has a shift on this day
+    const hasShiftOnDay = (employeeId: string, dayOfWeek: number): boolean => {
+      return generatedShifts.some((s) => s.user_id === employeeId && s.day_of_week === dayOfWeek);
     };
 
     if (source_type === "template" && template_id) {
@@ -267,8 +256,8 @@ serve(async (req) => {
             continue;
           }
 
-          // Check if employee already has an overlapping shift on this day
-          if (hasOverlappingShift(emp.id, assignment.day_of_week, assignment.start_time, assignment.end_time)) {
+          // Check if employee already has a shift on this day (one shift per day max)
+          if (hasShiftOnDay(emp.id, assignment.day_of_week)) {
             continue;
           }
 
@@ -305,7 +294,7 @@ serve(async (req) => {
           } else {
             const availableWithNoConflict = availableEmps.filter(emp => 
               isEmployeeAvailable(emp.id, assignment.day_of_week, assignment.start_time, assignment.end_time) &&
-              !hasOverlappingShift(emp.id, assignment.day_of_week, assignment.start_time, assignment.end_time)
+              !hasShiftOnDay(emp.id, assignment.day_of_week)
             );
             
             if (availableWithNoConflict.length === 0) {
