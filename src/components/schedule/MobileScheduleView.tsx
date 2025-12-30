@@ -117,7 +117,10 @@ export function MobileScheduleView({
   isPublishing = false,
   hasPendingChanges = false
 }: MobileScheduleViewProps) {
-  const [activeTab, setActiveTab] = useState<'today' | 'schedule'>('today');
+  const [activeTab, setActiveTab] = useState<'today' | 'schedule'>(() => {
+    const saved = sessionStorage.getItem('mobileScheduleTab');
+    return saved === 'today' || saved === 'schedule' ? (saved as 'today' | 'schedule') : 'schedule';
+  });
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
   const [selectedShiftForOffer, setSelectedShiftForOffer] = useState<Shift | null>(null);
@@ -137,6 +140,11 @@ export function MobileScheduleView({
   
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   const selectedDayOfWeek = weekDays.findIndex(day => isSameDay(day, selectedDate));
+
+  // Persist selected tab across re-mounts (e.g., resize/breakpoint recalcs)
+  useEffect(() => {
+    sessionStorage.setItem('mobileScheduleTab', activeTab);
+  }, [activeTab]);
 
   // Fetch active shifts (clocked in but not out)
   useEffect(() => {
