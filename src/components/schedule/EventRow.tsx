@@ -568,7 +568,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
                     <div
                       key={`${event.id}-${dayIndex}`}
                       onClick={() => isEditable && handleEdit(event)}
-                      className={`p-1.5 rounded-md text-[11px] transition-colors ${
+                      className={`w-full overflow-hidden p-1 rounded-md text-[10px] md:text-[11px] transition-colors ${
                         isEditable ? 'cursor-pointer hover:brightness-110' : ''
                       }`}
                       style={{
