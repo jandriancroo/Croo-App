@@ -83,10 +83,12 @@ interface MobileScheduleViewProps {
   hasPendingChanges?: boolean;
 }
 
-interface ActiveShift {
+interface DayPunch {
   id: string;
   user_id: string;
-  punch_time: string;
+  clockInTime: string;
+  clockOutTime: string | null;
+  isActive: boolean;
   profile: Profile;
   hoursWorked: number;
   scheduledShift?: {
@@ -125,7 +127,7 @@ export function MobileScheduleView({
   const [quickPunchOpen, setQuickPunchOpen] = useState(false);
   const [editPunchOpen, setEditPunchOpen] = useState(false);
   const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string} | null>(null);
-  const [activeShifts, setActiveShifts] = useState<ActiveShift[]>([]);
+  const [dayPunches, setDayPunches] = useState<DayPunch[]>([]);
   const [todayEvents, setTodayEvents] = useState<Event[]>([]);
   const [loadingActive, setLoadingActive] = useState(false);
   const { isAdmin, isManager } = useUserRole();
@@ -194,69 +196,71 @@ export function MobileScheduleView({
     })).sort((a, b) => a.event_time.localeCompare(b.event_time));
     setTodayEvents(filteredEvents);
     
-    // Group by user and determine who is currently clocked in (state machine)
+    // Group by user and build punch summaries for each user
     const userPunches: Record<string, Array<{id: string, punch_time: string, punch_type: string}>> = {};
     allPunches?.forEach(p => {
       if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
       userPunches[p.user_id].push(p);
     });
 
-    const activeClockIns: Array<{id: string, user_id: string, punch_time: string, firstClockInTime: string}> = [];
+    const punchSummaries: DayPunch[] = [];
 
     Object.entries(userPunches).forEach(([userId, punches]) => {
       let isClockedIn = false;
       let firstClockIn: { id: string; punch_time: string } | null = null;
-      let lastRelevantPunch: { id: string; punch_time: string } | null = null;
+      let lastClockOut: { punch_time: string } | null = null;
 
       // punches are already sorted by time asc
       punches.forEach((p) => {
         if (p.punch_type === 'clock_in') {
-          // Some flows record "return from break" as another clock_in.
-          // Only treat clock_in as a new shift start when the user is not already clocked in.
           if (!isClockedIn) {
             isClockedIn = true;
             if (!firstClockIn) firstClockIn = { id: p.id, punch_time: p.punch_time };
           }
-          lastRelevantPunch = { id: p.id, punch_time: p.punch_time };
           return;
         }
 
         if (p.punch_type === 'clock_out') {
           isClockedIn = false;
-          lastRelevantPunch = { id: p.id, punch_time: p.punch_time };
+          lastClockOut = { punch_time: p.punch_time };
           return;
         }
-
-        // break_start / break_end: doesn't change "clocked in" state
-        lastRelevantPunch = { id: p.id, punch_time: p.punch_time };
       });
 
-      if (isClockedIn && firstClockIn && lastRelevantPunch) {
-        activeClockIns.push({
-          id: lastRelevantPunch.id,
+      if (firstClockIn) {
+        const profile = profiles.find(p => p.id === userId);
+        const clockOutTime = lastClockOut?.punch_time || null;
+        const endTime = clockOutTime ? new Date(clockOutTime).getTime() : new Date().getTime();
+        const hoursWorked = (endTime - new Date(firstClockIn.punch_time).getTime()) / 3600000;
+        const scheduledShift = todayScheduledShifts?.find(s => s.user_id === userId);
+        
+        punchSummaries.push({
+          id: firstClockIn.id,
           user_id: userId,
-          punch_time: firstClockIn.punch_time,
-          firstClockInTime: firstClockIn.punch_time,
+          clockInTime: firstClockIn.punch_time,
+          clockOutTime,
+          isActive: isClockedIn,
+          profile: profile || { id: userId, full_name: 'Unknown', profile_photo_url: null },
+          hoursWorked,
+          scheduledShift: scheduledShift ? { 
+            id: scheduledShift.id, 
+            start_time: scheduledShift.start_time, 
+            end_time: scheduledShift.end_time, 
+            day_of_week: scheduledShift.day_of_week, 
+            shift_date: scheduledShift.shift_date 
+          } : null
         });
       }
     });
     
-    const activeWithProfiles: ActiveShift[] = activeClockIns.map(punch => {
-      const profile = profiles.find(p => p.id === punch.user_id);
-      // Calculate hours from FIRST clock-in of the day
-      const hoursWorked = (new Date().getTime() - new Date(punch.firstClockInTime).getTime()) / 3600000;
-      const scheduledShift = todayScheduledShifts?.find(s => s.user_id === punch.user_id);
-      return {
-        id: punch.id,
-        user_id: punch.user_id,
-        punch_time: punch.firstClockInTime,
-        profile: profile || { id: punch.user_id, full_name: 'Unknown', profile_photo_url: null },
-        hoursWorked,
-        scheduledShift: scheduledShift ? { id: scheduledShift.id, start_time: scheduledShift.start_time, end_time: scheduledShift.end_time, day_of_week: scheduledShift.day_of_week, shift_date: scheduledShift.shift_date } : null
-      };
-    }).filter(s => s.profile);
+    // Sort: active first, then by clock-in time
+    punchSummaries.sort((a, b) => {
+      if (a.isActive && !b.isActive) return -1;
+      if (!a.isActive && b.isActive) return 1;
+      return new Date(a.clockInTime).getTime() - new Date(b.clockInTime).getTime();
+    });
     
-    setActiveShifts(activeWithProfiles);
+    setDayPunches(punchSummaries);
     setLoadingActive(false);
   };
 
@@ -303,9 +307,9 @@ export function MobileScheduleView({
               <TabsTrigger value="today" className="flex-1 gap-2">
                 <Circle className="h-3 w-3 fill-green-500 text-green-500" />
                 Today
-                {activeShifts.length > 0 && (
+                {dayPunches.filter(p => p.isActive).length > 0 && (
                   <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-xs">
-                    {activeShifts.length}
+                    {dayPunches.filter(p => p.isActive).length}
                   </Badge>
                 )}
               </TabsTrigger>
@@ -315,7 +319,7 @@ export function MobileScheduleView({
         </div>
       )}
 
-      {/* Today View - Active Shifts */}
+      {/* Today View - All Punches */}
       {activeTab === 'today' && (isAdmin || isManager) ? (
         <div className="flex-1 overflow-auto">
           <div className="p-4">
@@ -334,51 +338,59 @@ export function MobileScheduleView({
               </Button>
             </div>
             
-            {/* Assigned Tasks */}
+            {/* Assigned Tasks - includes temp tasks, catering orders, event tasks */}
             <div className="mb-4 space-y-2">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assigned to You</h4>
-              <AssignedTemporaryTasks showCompleted={true} />
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Quick Tasks</h4>
+              <AssignedTemporaryTasks showCompleted={true} includeCateringOrders={true} includeEventTasks={true} />
             </div>
             
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
-              Working Now ({activeShifts.length})
+              Today's Punches ({dayPunches.length})
             </h4>
             
             {loadingActive ? (
               <div className="text-center py-8 text-muted-foreground">Loading...</div>
-            ) : activeShifts.length === 0 ? (
+            ) : dayPunches.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Circle className="h-10 w-10 mx-auto mb-2 opacity-30" />
-                <p className="text-sm">No one clocked in right now</p>
+                <p className="text-sm">No punches recorded today</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {activeShifts.map((activeShift) => (
+                {dayPunches.map((punch) => (
                   <Card 
-                    key={activeShift.id} 
-                    className="border-l-4 border-l-green-500"
+                    key={punch.id} 
+                    className={punch.isActive ? "border-l-4 border-l-green-500" : ""}
                   >
                     <div className="flex items-center gap-3 p-4">
                       <div className="relative">
                         <Avatar className="h-12 w-12">
-                          <AvatarImage src={activeShift.profile.profile_photo_url || undefined} />
-                          <AvatarFallback>{activeShift.profile.full_name.charAt(0)}</AvatarFallback>
+                          <AvatarImage src={punch.profile.profile_photo_url || undefined} />
+                          <AvatarFallback>{punch.profile.full_name.charAt(0)}</AvatarFallback>
                         </Avatar>
-                        <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-background animate-pulse" />
+                        {punch.isActive && (
+                          <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-background animate-pulse" />
+                        )}
                       </div>
                       
                       <div className="flex-1">
-                        <h4 className="font-semibold">{activeShift.profile.full_name}</h4>
-                        {activeShift.scheduledShift && (
+                        <h4 className="font-semibold">{punch.profile.full_name}</h4>
+                        {punch.scheduledShift && (
                           <div className="text-xs text-muted-foreground mb-0.5">
-                            Scheduled: {formatTime12Hour(activeShift.scheduledShift.start_time)} - {formatTime12Hour(activeShift.scheduledShift.end_time)}
+                            Scheduled: {formatTime12Hour(punch.scheduledShift.start_time)} - {formatTime12Hour(punch.scheduledShift.end_time)}
                           </div>
                         )}
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>In: {formatTimeDisplay(activeShift.punch_time, timezone)}</span>
+                          <span>In: {formatTimeDisplay(punch.clockInTime, timezone)}</span>
+                          {punch.clockOutTime ? (
+                            <>
+                              <span>•</span>
+                              <span>Out: {formatTimeDisplay(punch.clockOutTime, timezone)}</span>
+                            </>
+                          ) : null}
                           <span>•</span>
-                          <span className="text-green-600 font-medium">
-                            {activeShift.hoursWorked.toFixed(1)}h
+                          <span className={punch.isActive ? "text-green-600 font-medium" : "font-medium"}>
+                            {punch.hoursWorked.toFixed(1)}h
                           </span>
                         </div>
                       </div>
@@ -389,9 +401,9 @@ export function MobileScheduleView({
                         onClick={() => {
                           const today = new Date().toISOString().split('T')[0];
                           setSelectedPunch({
-                            userId: activeShift.user_id,
-                            userName: activeShift.profile.full_name,
-                            userPhoto: activeShift.profile.profile_photo_url,
+                            userId: punch.user_id,
+                            userName: punch.profile.full_name,
+                            userPhoto: punch.profile.profile_photo_url,
                             punchDate: today
                           });
                           setEditPunchOpen(true);
