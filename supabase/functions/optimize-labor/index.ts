@@ -317,24 +317,19 @@ serve(async (req) => {
       return true;
     };
 
-    // Helper to check if this is a closing shift (ends at or after location close, or is latest shift of day)
+    // Helper to check if this is a closing shift (latest-ending shift of the day)
+    // Agreement: we do NOT auto-protect shifts just because they end after the store close time.
+    // We only protect the true "closers" (latest-ending shift(s)) so we can still trim 15–30min
+    // from other late shifts when coverage allows.
     const isClosingShift = (shifts: GeneratedShift[], shiftIndex: number): boolean => {
       const shift = shifts[shiftIndex];
       const shiftEndHour = parseInt(shift.end_time.split(":")[0]);
       const shiftEndMin = parseInt(shift.end_time.split(":")[1]);
       const shiftEndTotal = shiftEndHour * 60 + shiftEndMin;
 
-      // Check if shift ends at or after location closing time
-      const locationCloseTime = closingTimes[shift.day_of_week];
-      if (locationCloseTime && shiftEndTotal >= locationCloseTime) {
-        console.log(`Shift for ${nameMap.get(shift.user_id)} ends at ${shift.end_time} (${shiftEndTotal}min), at/after close (${locationCloseTime}min) - protected`);
-        return true;
-      }
-
-      // Also check if this is the latest ending shift of the day (fallback)
-      const dayShifts = shifts.filter(s => s.day_of_week === shift.day_of_week);
+      const dayShifts = shifts.filter((s) => s.day_of_week === shift.day_of_week);
       let latestEndTotal = 0;
-      
+
       for (const s of dayShifts) {
         const endHour = parseInt(s.end_time.split(":")[0]);
         const endMin = parseInt(s.end_time.split(":")[1]);
@@ -344,7 +339,7 @@ serve(async (req) => {
         }
       }
 
-      // This is a closing shift if it ends at the latest time
+      // Closing shift if it ends at the latest time for that day (ties allowed).
       return shiftEndTotal === latestEndTotal;
     };
 
