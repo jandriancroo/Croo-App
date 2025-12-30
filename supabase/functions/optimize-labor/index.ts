@@ -426,14 +426,18 @@ serve(async (req) => {
       }
 
       // Phase 2: Cut up to 30 min from each manager (if still over budget)
+      console.log(`Day ${daySummary.dayOfWeek} Phase 2: Starting manager cuts, ${managerIndices.length} managers, remainingToTrim=$${remainingToTrim.toFixed(2)}`);
       for (const shiftIndex of managerIndices) {
         if (remainingToTrim <= 0) break;
         
+        const shift = optimizedShifts[shiftIndex];
         const totalTrimsSoFar = trimCountPerShift.get(shiftIndex) || 0;
+        console.log(`  Trying manager ${nameMap.get(shift.user_id)}: shiftIndex=${shiftIndex}, trimsSoFar=${totalTrimsSoFar}, shift=${shift.start_time}-${shift.end_time}`);
         
         // Cut up to 2 increments (30 min max) per manager
         for (let t = 0; t < MAX_TRIMS_PER_PERSON - totalTrimsSoFar && remainingToTrim > 0; t++) {
           const trimmed = tryTrimShift(shiftIndex, trimCountPerShift);
+          console.log(`    Trim attempt ${t + 1}: ${trimmed ? 'SUCCESS' : 'FAILED'}`);
           if (!trimmed) break;
         }
       }
