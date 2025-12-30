@@ -90,22 +90,36 @@ serve(async (req) => {
       );
     }
 
-    // Get employees with their roles (role is directly on profiles table)
+    // Get employees (roles live in public.user_roles)
     const { data: employees, error: empError } = await supabase
       .from("profiles")
-      .select("id, full_name, min_weekly_hours, max_weekly_hours, role")
+      .select("id, full_name, min_weekly_hours, max_weekly_hours")
       .in("id", userIds)
       .eq("is_active", true)
       .eq("appears_on_schedule", true);
 
     if (empError) throw empError;
 
+    const schedulableUserIds = (employees || []).map((e: any) => e.id);
+
+    const { data: roleRows, error: roleError } = await supabase
+      .from("user_roles")
+      .select("user_id, role")
+      .in("user_id", schedulableUserIds);
+
+    if (roleError) throw roleError;
+
+    const roleByUserId = new Map<string, string>();
+    (roleRows || []).forEach((r: any) => {
+      if (r?.user_id && r?.role) roleByUserId.set(r.user_id, r.role);
+    });
+
     const employeesWithRoles: Employee[] = (employees || []).map((emp: any) => ({
       id: emp.id,
       full_name: emp.full_name,
       min_weekly_hours: emp.min_weekly_hours,
       max_weekly_hours: emp.max_weekly_hours,
-      role: emp.role || null,
+      role: roleByUserId.get(emp.id) ?? "team_member",
     }));
 
     console.log(`Found ${employeesWithRoles.length} schedulable employees`);
