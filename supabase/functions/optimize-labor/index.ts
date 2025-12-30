@@ -296,6 +296,18 @@ serve(async (req) => {
       return shiftEndTotal === latestEndTotal;
     };
 
+    // Track accumulated trims per shift (to consolidate multiple 15-min trims into one entry)
+    const shiftTrimAccumulator: Map<number, {
+      user_id: string;
+      userName: string;
+      day_of_week: number;
+      original_start: string;
+      original_end: string;
+      final_end: string;
+      totalMinutesTrimmed: number;
+      totalLaborSaved: number;
+    }> = new Map();
+
     // Process days that are over budget
     for (const daySummary of laborSummary) {
       if (!daySummary.overBudget || daySummary.amountOverBudget <= 0) continue;
@@ -319,6 +331,7 @@ serve(async (req) => {
         if (remainingToTrim <= 0) break;
 
         const shift = optimizedShifts[shiftIndex];
+        const originalEnd = shift.end_time; // Capture before any trimming
         const shiftHours = calculateShiftHours(shift.start_time, shift.end_time);
         
         // Don't trim shifts below 3 hours
@@ -332,7 +345,8 @@ serve(async (req) => {
           // ONLY trim from END of shifts, never from start
           if (canTrimEnd(optimizedShifts, shiftIndex, 15)) {
             // Trim 15 min from end
-            const [endHour, endMin] = shift.end_time.split(":").map(Number);
+            const currentShift = optimizedShifts[shiftIndex];
+            const [endHour, endMin] = currentShift.end_time.split(":").map(Number);
             let newEndMin = endMin - 15;
             let newEndHour = endHour;
             if (newEndMin < 0) {
@@ -345,19 +359,24 @@ serve(async (req) => {
             const newHours = calculateShiftHours(shift.start_time, newEndTime);
             if (newHours < 3) break; // Can't trim more from this shift
 
-            trimSuggestions.push({
-              shiftIndex,
-              user_id: shift.user_id,
-              userName: nameMap.get(shift.user_id) || 'Unknown',
-              day_of_week: shift.day_of_week,
-              original_start: shift.start_time,
-              original_end: shift.end_time,
-              suggested_start: shift.start_time,
-              suggested_end: newEndTime,
-              minutesTrimmed: 15,
-              laborSaved: savingsPerQuarter,
-              trimType: 'end',
-            });
+            // Accumulate trim for this shift
+            const existing = shiftTrimAccumulator.get(shiftIndex);
+            if (existing) {
+              existing.final_end = newEndTime;
+              existing.totalMinutesTrimmed += 15;
+              existing.totalLaborSaved += savingsPerQuarter;
+            } else {
+              shiftTrimAccumulator.set(shiftIndex, {
+                user_id: shift.user_id,
+                userName: nameMap.get(shift.user_id) || 'Unknown',
+                day_of_week: shift.day_of_week,
+                original_start: shift.start_time,
+                original_end: originalEnd,
+                final_end: newEndTime,
+                totalMinutesTrimmed: 15,
+                totalLaborSaved: savingsPerQuarter,
+              });
+            }
 
             // Update the shift for subsequent iterations
             optimizedShifts[shiftIndex] = { ...optimizedShifts[shiftIndex], end_time: newEndTime };
@@ -370,6 +389,23 @@ serve(async (req) => {
           }
         }
       }
+    }
+
+    // Convert accumulated trims to trim suggestions
+    for (const [shiftIndex, trim] of shiftTrimAccumulator) {
+      trimSuggestions.push({
+        shiftIndex,
+        user_id: trim.user_id,
+        userName: trim.userName,
+        day_of_week: trim.day_of_week,
+        original_start: trim.original_start,
+        original_end: trim.original_end,
+        suggested_start: trim.original_start,
+        suggested_end: trim.final_end,
+        minutesTrimmed: trim.totalMinutesTrimmed,
+        laborSaved: trim.totalLaborSaved,
+        trimType: 'end',
+      });
     }
 
     // Recalculate labor summary after optimization
