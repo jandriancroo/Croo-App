@@ -194,31 +194,49 @@ export function MobileScheduleView({
     })).sort((a, b) => a.event_time.localeCompare(b.event_time));
     setTodayEvents(filteredEvents);
     
-    // Group by user and find those with unpaired clock-ins
+    // Group by user and determine who is currently clocked in (state machine)
     const userPunches: Record<string, Array<{id: string, punch_time: string, punch_type: string}>> = {};
     allPunches?.forEach(p => {
       if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
       userPunches[p.user_id].push(p);
     });
-    
-    // Find users currently clocked in (last punch is clock_in or break_start/break_end, not clock_out)
+
     const activeClockIns: Array<{id: string, user_id: string, punch_time: string, firstClockInTime: string}> = [];
+
     Object.entries(userPunches).forEach(([userId, punches]) => {
-      // Find all clock_ins and clock_outs
-      const clockIns = punches.filter(p => p.punch_type === 'clock_in');
-      const clockOuts = punches.filter(p => p.punch_type === 'clock_out');
-      
-      // If more clock-ins than clock-outs, user is still clocked in
-      if (clockIns.length > clockOuts.length) {
-        // Use the FIRST clock_in of the day for display and hours calculation
-        const firstClockIn = clockIns[0];
-        // Use the last clock_in's ID for editing purposes
-        const lastClockIn = clockIns[clockIns.length - 1];
-        activeClockIns.push({ 
-          id: lastClockIn.id, 
-          user_id: userId, 
+      let isClockedIn = false;
+      let firstClockIn: { id: string; punch_time: string } | null = null;
+      let lastRelevantPunch: { id: string; punch_time: string } | null = null;
+
+      // punches are already sorted by time asc
+      punches.forEach((p) => {
+        if (p.punch_type === 'clock_in') {
+          // Some flows record "return from break" as another clock_in.
+          // Only treat clock_in as a new shift start when the user is not already clocked in.
+          if (!isClockedIn) {
+            isClockedIn = true;
+            if (!firstClockIn) firstClockIn = { id: p.id, punch_time: p.punch_time };
+          }
+          lastRelevantPunch = { id: p.id, punch_time: p.punch_time };
+          return;
+        }
+
+        if (p.punch_type === 'clock_out') {
+          isClockedIn = false;
+          lastRelevantPunch = { id: p.id, punch_time: p.punch_time };
+          return;
+        }
+
+        // break_start / break_end: doesn't change "clocked in" state
+        lastRelevantPunch = { id: p.id, punch_time: p.punch_time };
+      });
+
+      if (isClockedIn && firstClockIn && lastRelevantPunch) {
+        activeClockIns.push({
+          id: lastRelevantPunch.id,
+          user_id: userId,
           punch_time: firstClockIn.punch_time,
-          firstClockInTime: firstClockIn.punch_time
+          firstClockInTime: firstClockIn.punch_time,
         });
       }
     });
