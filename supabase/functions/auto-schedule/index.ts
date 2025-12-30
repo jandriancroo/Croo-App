@@ -90,29 +90,22 @@ serve(async (req) => {
       );
     }
 
-    // Get employees with their roles from user_roles table
+    // Get employees with their roles (role is directly on profiles table)
     const { data: employees, error: empError } = await supabase
       .from("profiles")
-      .select(`
-        id, 
-        full_name, 
-        min_weekly_hours, 
-        max_weekly_hours,
-        user_roles!inner (role)
-      `)
+      .select("id, full_name, min_weekly_hours, max_weekly_hours, role")
       .in("id", userIds)
       .eq("is_active", true)
       .eq("appears_on_schedule", true);
 
     if (empError) throw empError;
 
-    // Transform to include role directly on employee object
     const employeesWithRoles: Employee[] = (employees || []).map((emp: any) => ({
       id: emp.id,
       full_name: emp.full_name,
       min_weekly_hours: emp.min_weekly_hours,
       max_weekly_hours: emp.max_weekly_hours,
-      role: emp.user_roles?.[0]?.role || null,
+      role: emp.role || null,
     }));
 
     console.log(`Found ${employeesWithRoles.length} schedulable employees`);
