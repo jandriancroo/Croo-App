@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Bell, Shield, Users, UserCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
-type AppRole = 'super_admin' | 'brand_admin' | 'fbc' | 'org_admin' | 'admin' | 'general_manager' | 'shift_manager' | 'manager' | 'team_member';
+type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'team_member';
 
 interface NotificationSetting {
   id: string;
@@ -19,7 +19,7 @@ interface NotificationSetting {
 
 const roleConfig: { role: AppRole; label: string; icon: React.ReactNode; description: string }[] = [
   { role: 'admin', label: 'Admin', icon: <Shield className="h-4 w-4" />, description: 'Full access to all notifications' },
-  { role: 'general_manager', label: 'General Manager', icon: <UserCheck className="h-4 w-4" />, description: 'Management notifications' },
+  { role: 'manager', label: 'Manager', icon: <UserCheck className="h-4 w-4" />, description: 'Management notifications' },
   { role: 'shift_manager', label: 'Shift Manager', icon: <UserCheck className="h-4 w-4" />, description: 'Shift supervisory notifications' },
   { role: 'team_member', label: 'Team Member', icon: <Users className="h-4 w-4" />, description: 'Basic notifications' },
 ];
@@ -42,7 +42,7 @@ export function NotificationsDashboard() {
         .order('notification_type');
 
       if (error) throw error;
-      setSettings(data || []);
+      setSettings((data || []) as NotificationSetting[]);
     } catch (error) {
       console.error('Error fetching notification settings:', error);
       toast.error('Failed to load notification settings');

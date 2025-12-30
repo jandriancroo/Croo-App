@@ -339,7 +339,7 @@ export default function LogBook() {
               title: `New Log Entry - ${currentLocation.name}`,
               body: `${currentCategory.name} entry submitted`,
               location_id: currentLocation.id,
-              roles: ['admin', 'manager', 'general_manager', 'shift_manager'],
+              roles: ['admin', 'manager', 'shift_manager'],
             }
           });
         } catch (notifError) {
@@ -603,7 +603,7 @@ export default function LogBook() {
                         title: `Drawer Count - ${currentLocation?.name || 'Location'}`,
                         body: `Deposit: $${data.actualDeposit.toFixed(2)} | ${overUnderText}`,
                         location_id: currentLocation?.id,
-                        roles: ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin'],
+                        roles: ['admin', 'manager', 'shift_manager', 'super_admin'],
                       }
                     });
                   } catch (notifError) {
@@ -783,7 +783,7 @@ export default function LogBook() {
                         title: `Safe Count - ${currentLocation?.name || 'Location'}`,
                         body: `${data.shift} Safe Count Complete - $${data.totalSafe.toFixed(2)} balanced`,
                         location_id: currentLocation?.id,
-                        roles: ['admin', 'general_manager', 'shift_manager', 'manager', 'super_admin'],
+                        roles: ['admin', 'manager', 'shift_manager', 'super_admin'],
                       }
                     });
                   } catch (notifError) {

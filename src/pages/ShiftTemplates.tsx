@@ -260,7 +260,6 @@ export default function ShiftTemplates() {
                       { value: "team_member", label: "Team Member" },
                       { value: "shift_manager", label: "Shift Manager" },
                       { value: "manager", label: "Manager" },
-                      { value: "general_manager", label: "General Manager" },
                       { value: "admin", label: "Admin" },
                     ].map((roleOption) => (
                       <div key={roleOption.value} className="flex items-center space-x-2">

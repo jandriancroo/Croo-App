@@ -99,7 +99,7 @@ export function InterviewCalendarDialog({
         .from('user_roles')
         .select('user_id')
         .in('user_id', shiftUserIds)
-        .in('role', ['super_admin', 'admin', 'general_manager', 'shift_manager']);
+        .in('role', ['super_admin', 'admin', 'manager', 'shift_manager']);
 
       const managerUserIds = new Set(managerRoles?.map(r => r.user_id) || []);
       

@@ -20,8 +20,11 @@ interface TemporaryTaskDetailsDialogProps {
 }
 
 const ROLE_LABELS: Record<string, string> = {
+  super_admin: "Super Admin",
+  brand_admin: "Brand Admin",
+  org_admin: "Org Admin",
   admin: "Admin",
-  general_manager: "General Manager",
+  manager: "Manager",
   shift_manager: "Shift Manager",
   team_member: "Team Member",
 };

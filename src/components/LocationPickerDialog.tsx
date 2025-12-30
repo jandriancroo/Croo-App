@@ -63,8 +63,8 @@ export function LocationPickerDialog({
   }, [user]);
 
   // For now, admins can see all orgs/locations they have access to
-  const canSeeAllOrgs = role === 'admin' || (role as string) === 'super_admin';
-  const isOrgLevel = role === 'general_manager' || (role as string) === 'org_admin';
+  const canSeeAllOrgs = role === 'admin' || role === 'super_admin';
+  const isOrgLevel = role === 'manager' || role === 'org_admin';
 
   useEffect(() => {
     if (open && user) {
