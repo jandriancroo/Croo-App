@@ -100,23 +100,25 @@ export function EmployeeRow({
           <GripVertical className="h-5 w-5" />
         </div>}
       
-      <div className="flex items-center gap-3 p-3 border-r border-border bg-muted/30 min-h-[70px]">
+      <div className="flex items-center gap-2 p-2 border-r border-border bg-muted/30 min-h-[70px] min-w-[140px] md:min-w-[160px] lg:min-w-[180px]">
         {profile.id !== "unassigned" ? <div onClick={() => navigate('/users', {
         state: {
           viewUserId: profile.id
         }
-      })} className="flex items-center gap-2 2xl:gap-3 cursor-pointer hover:bg-accent/50 rounded p-2 transition-colors flex-1 min-w-0 px-0 py-[6px]">
-            <Avatar className="h-12 w-12 flex-shrink-0 hidden 2xl:flex">
+      })} className="flex items-center gap-2 cursor-pointer hover:bg-accent/50 rounded p-1 transition-colors flex-1 min-w-0">
+            <Avatar className="h-10 w-10 flex-shrink-0 hidden lg:flex">
               <AvatarImage src={profile.profile_photo_url || undefined} />
-              <AvatarFallback className="text-base">{profile.full_name.charAt(0)}</AvatarFallback>
+              <AvatarFallback className="text-sm">{profile.full_name.charAt(0)}</AvatarFallback>
             </Avatar>
-            <div className="flex-1 min-w-0 overflow-hidden">
-              <p className="text-sm 2xl:text-base font-semibold leading-tight mb-1 truncate">{profile.full_name}</p>
-              <p className="text-xs 2xl:text-sm text-muted-foreground leading-tight">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs md:text-sm font-semibold leading-tight mb-0.5 truncate" title={profile.full_name}>
+                {profile.full_name.split(' ')[0]}
+              </p>
+              <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">
                 {calculateTotalHours()} hrs
               </p>
               {canViewAllWages && (
-                <p className="text-xs 2xl:text-sm text-muted-foreground leading-tight">
+                <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">
                   ${calculateTotalWages()}
                 </p>
               )}

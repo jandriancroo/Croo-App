@@ -41,9 +41,10 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Unauthorized");
     }
 
-    // Parse request body for location_id
+    // Parse request body
     const body = await req.json().catch(() => ({}));
     const locationId = body.location_id;
+    const singleUser = body.single_user; // { email, name, role }
 
     // Create admin client
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
@@ -62,15 +63,17 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Only admins can create test users");
     }
 
-    // Test user data - 6 new test employees
-    const testUsers = [
-      { email: 'test.alpha@example.com', name: 'Test Employee Alpha', role: 'team_member' },
-      { email: 'test.beta@example.com', name: 'Test Employee Beta', role: 'team_member' },
-      { email: 'test.gamma@example.com', name: 'Test Employee Gamma', role: 'team_member' },
-      { email: 'test.delta@example.com', name: 'Test Employee Delta', role: 'team_member' },
-      { email: 'test.echo@example.com', name: 'Test Employee Echo', role: 'team_member' },
-      { email: 'test.foxtrot@example.com', name: 'Test Employee Foxtrot', role: 'team_member' },
-    ];
+    // If single_user is provided, only create that one user
+    const testUsers = singleUser 
+      ? [singleUser] 
+      : [
+          { email: 'test.alpha@example.com', name: 'Test Employee Alpha', role: 'team_member' },
+          { email: 'test.beta@example.com', name: 'Test Employee Beta', role: 'team_member' },
+          { email: 'test.gamma@example.com', name: 'Test Employee Gamma', role: 'team_member' },
+          { email: 'test.delta@example.com', name: 'Test Employee Delta', role: 'team_member' },
+          { email: 'test.echo@example.com', name: 'Test Employee Echo', role: 'team_member' },
+          { email: 'test.foxtrot@example.com', name: 'Test Employee Foxtrot', role: 'team_member' },
+        ];
 
     const createdUsers = [];
     const errors = [];
