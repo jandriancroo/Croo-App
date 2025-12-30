@@ -370,40 +370,39 @@ serve(async (req) => {
 
       console.log(`Day ${daySummary.dayOfWeek}: ${teamMemberIndices.length} team members, ${managerIndices.length} managers eligible for trimming`);
 
-      // Round-based trimming: alternate between team members and managers
-      // Each round: cut up to 30 min (2x15) from team members, then 15 min from managers
-      const MAX_ROUNDS = 4; // Up to 4 rounds of cuts
+      // Trimming rules:
+      // - Max 30 min (2 x 15 min) per person total
+      // - Team members get cut first (up to 30 min each)
+      // - Managers only get cut if still over budget (up to 30 min each)
+      const MAX_TRIMS_PER_PERSON = 2; // 30 min max per person
       
-      for (let round = 0; round < MAX_ROUNDS && remainingToTrim > 0; round++) {
-        console.log(`Round ${round + 1}: $${remainingToTrim.toFixed(2)} remaining to trim`);
+      // Phase 1: Cut up to 30 min from each team member
+      for (const shiftIndex of teamMemberIndices) {
+        if (remainingToTrim <= 0) break;
         
-        // Phase 1: Cut up to 30 min from each team member this round
-        for (const shiftIndex of teamMemberIndices) {
-          if (remainingToTrim <= 0) break;
-          
-          const totalTrimsSoFar = trimCountPerShift.get(shiftIndex) || 0;
-          const maxTrimsThisRound = (round + 1) * 2; // Round 1: 2 trims, Round 2: 4 trims, etc.
-          
-          // Cut up to 2 increments (30 min) per round per team member
-          for (let t = 0; t < 2 && remainingToTrim > 0 && totalTrimsSoFar + t < maxTrimsThisRound; t++) {
-            const trimmed = tryTrimShift(shiftIndex, trimCountPerShift);
-            if (!trimmed) break;
-          }
-        }
-
-        // Phase 2: Cut up to 15 min from each manager this round (if still over budget)
-        for (const shiftIndex of managerIndices) {
-          if (remainingToTrim <= 0) break;
-          
-          const totalTrimsSoFar = trimCountPerShift.get(shiftIndex) || 0;
-          const maxTrimsThisRound = round + 1; // Round 1: 1 trim, Round 2: 2 trims, etc.
-          
-          // Cut up to 1 increment (15 min) per round per manager
-          if (totalTrimsSoFar < maxTrimsThisRound) {
-            tryTrimShift(shiftIndex, trimCountPerShift);
-          }
+        const totalTrimsSoFar = trimCountPerShift.get(shiftIndex) || 0;
+        
+        // Cut up to 2 increments (30 min max) per team member
+        for (let t = 0; t < MAX_TRIMS_PER_PERSON - totalTrimsSoFar && remainingToTrim > 0; t++) {
+          const trimmed = tryTrimShift(shiftIndex, trimCountPerShift);
+          if (!trimmed) break;
         }
       }
+
+      // Phase 2: Cut up to 30 min from each manager (if still over budget)
+      for (const shiftIndex of managerIndices) {
+        if (remainingToTrim <= 0) break;
+        
+        const totalTrimsSoFar = trimCountPerShift.get(shiftIndex) || 0;
+        
+        // Cut up to 2 increments (30 min max) per manager
+        for (let t = 0; t < MAX_TRIMS_PER_PERSON - totalTrimsSoFar && remainingToTrim > 0; t++) {
+          const trimmed = tryTrimShift(shiftIndex, trimCountPerShift);
+          if (!trimmed) break;
+        }
+      }
+
+      console.log(`Day ${daySummary.dayOfWeek}: Trimmed $${(daySummary.amountOverBudget - remainingToTrim).toFixed(2)}, $${remainingToTrim.toFixed(2)} still over budget (max 30min/person limit reached)`);
 
       // Helper function to attempt trimming a shift
       function tryTrimShift(shiftIndex: number, trimCounts: Map<number, number>): boolean {
