@@ -1,12 +1,13 @@
 import { useDraggable } from "@dnd-kit/core";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Trash2, Scissors } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BreakIndicator } from "./BreakIndicator";
 import { shiftHasBreak } from "@/utils/shiftUtils";
 import { formatTime12Hour } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ShiftCardProps {
   shift: any;
@@ -88,6 +89,9 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
     ? "opacity-70 border-2 border-dashed border-white/60 grayscale-[30%]"
     : "";
 
+  // Check if shift was trimmed by auto-scheduler
+  const wasTrimmed = shift.was_trimmed && shift.original_end_time;
+
   // Split position into two lines if it has exactly 2 words
   const formatPosition = (pos: string) => {
     const words = pos.split(' ');
@@ -115,8 +119,22 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
       {...attributes}
     >
       <div>
-        <div className="text-white text-xs font-semibold leading-tight">
+        <div className="text-white text-xs font-semibold leading-tight flex items-center gap-1">
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
+          {wasTrimmed && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex items-center justify-center h-3.5 w-3.5 rounded-full bg-amber-400 text-amber-900">
+                    <Scissors className="h-2 w-2" />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  <p>CrooAI trimmed: was {formatTime12Hour(shift.original_end_time)}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
         {shift.isTemplate && templatePosition && (
           <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight">{formatPosition(templatePosition)}</div>
