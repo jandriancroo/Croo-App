@@ -323,7 +323,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
 
   return (
     <div>
-      <div className="grid grid-cols-8 gap-0 bg-[hsl(30,25%,45%)]">
+      <div className="grid grid-cols-[140px_repeat(7,1fr)] md:grid-cols-[160px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] gap-0 bg-[hsl(30,25%,45%)]">
         <div className="flex items-center gap-2 px-4 py-2 border-r border-border/20">
           <h3 className="font-semibold text-white text-sm">Events</h3>
           {isEditable && (
