@@ -31,9 +31,11 @@ export const useUserRole = () => {
         .rpc('get_user_role', { _user_id: user.id });
 
       if (error) {
-        console.error('Error fetching user role:', error);
+        console.error('[useUserRole] Error fetching role for user:', user.id, error);
         return 'team_member' as AppRole;
       }
+      
+      console.log('[useUserRole] Fetched role for user:', user.id, 'role:', data);
       return data as AppRole;
     },
     enabled: !!user?.id,
