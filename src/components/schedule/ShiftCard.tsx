@@ -103,15 +103,18 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
     <Card
       ref={setNodeRef}
       style={{ ...style, backgroundColor: bgColor }}
-      className={`p-1.5 ${shift.isTemplate ? 'min-h-0' : 'min-h-[55px]'} flex flex-col ${shift.isTemplate ? 'justify-start' : 'justify-between'} ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles}`}
+      className={`p-1.5 min-h-[55px] flex flex-col ${shift.isTemplate ? 'justify-start' : 'justify-between'} ${shift.isTemplate ? 'cursor-grab' : 'cursor-pointer'} active:cursor-grabbing relative group ${isDragging ? "opacity-50" : ""} ${draftStyles}`}
       onClick={handleCardClick}
       {...listeners}
       {...attributes}
     >
       <div>
         <div className="text-white text-xs font-semibold leading-tight">
-          {shift.isTemplate ? shiftData.template_name : `${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
+          {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
         </div>
+        {shift.isTemplate && shiftData.template_name && (
+          <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight">{formatPosition(shiftData.template_name)}</div>
+        )}
         {!shift.isTemplate && position && (
           <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight">{formatPosition(position)}</div>
         )}
