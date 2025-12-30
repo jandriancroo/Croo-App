@@ -78,11 +78,16 @@ export function EditDashboardDialog({
     }
   }, [open]);
 
+  // Get all valid metrics from METRIC_GROUPS (excludes legacy types)
+  const validMetrics = METRIC_GROUPS.flatMap(g => g.metrics);
+  
   const handleEditCube = (cube: CubeConfig) => {
     setEditingCube(cube);
+    // Filter out any legacy metrics that aren't in METRIC_GROUPS
+    const filteredMetrics = cube.metrics.filter(m => validMetrics.includes(m));
     setEditForm({
       title: cube.title,
-      metrics: [...cube.metrics],
+      metrics: filteredMetrics,
       accentColor: cube.accentColor,
     });
     setView('edit');
