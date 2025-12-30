@@ -97,18 +97,16 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
       {...listeners}
       {...attributes}
     >
-      <div className="flex items-center justify-between gap-1">
-        <span className="text-white text-xs font-semibold leading-tight">
-          {shift.isTemplate ? shiftData.template_name : `${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
-        </span>
-        {!shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
-          <span className="hidden xl:inline-block flex-shrink-0">
-            <BreakIndicator hasBreak={true} size="sm" />
-          </span>
-        )}
+      <div className="text-white text-xs font-semibold leading-tight whitespace-nowrap">
+        {shift.isTemplate ? shiftData.template_name : `${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
       </div>
       {!shift.isTemplate && position && (
-        <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight line-clamp-2">{position}</div>
+        <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight line-clamp-2 pr-5">{position}</div>
+      )}
+      {!shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
+        <div className="absolute bottom-1 right-1.5 hidden xl:block">
+          <BreakIndicator hasBreak={true} size="sm" />
+        </div>
       )}
       {shift.is_time_off && <div className="text-white text-sm font-medium">TIME OFF</div>}
       {!shift.isTemplate && onDelete && (
