@@ -370,57 +370,60 @@ export function MobileScheduleView({
                 {dayPunches.map((punch) => (
                   <Card 
                     key={punch.id} 
-                    className={punch.isActive ? "border-l-4 border-l-green-500" : ""}
+                    className={`cursor-pointer hover:bg-muted/50 transition-colors ${punch.isActive ? "border-l-4 border-l-green-500" : ""}`}
+                    onClick={() => {
+                      const today = getTodayInTimezone(timezone);
+                      setSelectedPunch({
+                        userId: punch.user_id,
+                        userName: punch.profile.full_name,
+                        userPhoto: punch.profile.profile_photo_url,
+                        punchDate: today
+                      });
+                      setEditPunchOpen(true);
+                    }}
                   >
-                    <div className="flex items-center gap-3 p-4">
-                      <div className="relative">
-                        <Avatar className="h-12 w-12">
-                          <AvatarImage src={punch.profile.profile_photo_url || undefined} />
-                          <AvatarFallback>{punch.profile.full_name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        {punch.isActive && (
-                          <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-background animate-pulse" />
-                        )}
-                      </div>
-                      
-                      <div className="flex-1">
-                        <h4 className="font-semibold">{punch.profile.full_name}</h4>
-                        {punch.scheduledShift && (
-                          <div className="text-xs text-muted-foreground mb-0.5">
-                            Scheduled: {formatTime12Hour(punch.scheduledShift.start_time)} - {formatTime12Hour(punch.scheduledShift.end_time)}
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground flex-wrap">
-                          <span className="whitespace-nowrap">In: {formatTimeDisplay(punch.clockInTime, timezone)}</span>
-                          {punch.clockOutTime && (
-                            <>
-                              <span>•</span>
-                              <span className="whitespace-nowrap">Out: {formatTimeDisplay(punch.clockOutTime, timezone)}</span>
-                            </>
+                    <div className="p-3">
+                      {/* Top row: Avatar, Name, Hours worked */}
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="relative">
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src={punch.profile.profile_photo_url || undefined} />
+                            <AvatarFallback>{punch.profile.full_name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          {punch.isActive && (
+                            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-green-500 border-2 border-background animate-pulse" />
                           )}
-                          <span>•</span>
-                          <span className={`whitespace-nowrap ${punch.isActive ? "text-green-600 font-medium" : "font-medium"}`}>
-                            {punch.hoursWorked.toFixed(1)}h
-                          </span>
                         </div>
+                        
+                        <h4 className="font-semibold flex-1">{punch.profile.full_name}</h4>
+                        
+                        <span className={`text-base font-semibold ${punch.isActive ? "text-green-600" : "text-foreground"}`}>
+                          {punch.hoursWorked.toFixed(1)}h
+                        </span>
                       </div>
                       
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const today = new Date().toISOString().split('T')[0];
-                          setSelectedPunch({
-                            userId: punch.user_id,
-                            userName: punch.profile.full_name,
-                            userPhoto: punch.profile.profile_photo_url,
-                            punchDate: today
-                          });
-                          setEditPunchOpen(true);
-                        }}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
+                      {/* Scheduled time row with calendar icon */}
+                      {punch.scheduledShift && (
+                        <div className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground mb-1">
+                          <CalendarIcon className="h-3.5 w-3.5" />
+                          <span>{formatTime12Hour(punch.scheduledShift.start_time)} - {formatTime12Hour(punch.scheduledShift.end_time)}</span>
+                        </div>
+                      )}
+                      
+                      {/* In/Out times row */}
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-muted-foreground">In:</span>
+                        <span className="font-medium">{formatTimeDisplay(punch.clockInTime, timezone)}</span>
+                        {punch.clockOutTime && (
+                          <>
+                            <span className="text-muted-foreground mx-1">•</span>
+                            <span className="text-muted-foreground">Out:</span>
+                            <span className="font-medium">{formatTimeDisplay(punch.clockOutTime, timezone)}</span>
+                          </>
+                        )}
+                      </div>
+                      
+                      {/* Break times row (if any) - placeholder for future */}
                     </div>
                   </Card>
                 ))}
