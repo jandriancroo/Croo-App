@@ -39,7 +39,7 @@ export default function LogBook() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { isAdmin, isManager, loading: roleLoading } = useUserRole();
+  const { isAdmin, isManager, isShiftManager, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
   const { getDateInTimezone } = useLocationTimezone();
   const isMobile = useIsMobile();
@@ -60,11 +60,11 @@ export default function LogBook() {
 
   // Redirect team members away from logs page
   useEffect(() => {
-    if (!roleLoading && !isAdmin && !isManager) {
+    if (!roleLoading && !isAdmin && !isManager && !isShiftManager) {
       toast({ title: "Access denied", description: "You don't have permission to view logs", variant: "destructive" });
       navigate('/dashboard');
     }
-  }, [roleLoading, isAdmin, isManager, navigate, toast]);
+  }, [roleLoading, isAdmin, isManager, isShiftManager, navigate, toast]);
 
   // Fetch categories
   const { data: categories = [] } = useQuery({
