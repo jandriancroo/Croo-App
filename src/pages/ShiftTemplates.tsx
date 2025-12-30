@@ -28,7 +28,7 @@ interface ShiftTemplate {
 
 export default function ShiftTemplates() {
   const navigate = useNavigate();
-  const { isAdmin, isManager, loading: roleLoading } = useUserRole();
+  const { canManageTemplates, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -97,14 +97,14 @@ export default function ShiftTemplates() {
   useEffect(() => {
     if (roleLoading) return;
     
-    if (!isAdmin && !isManager) {
+    if (!canManageTemplates) {
       navigate("/");
       return;
     }
     if (currentLocation?.id) {
       fetchTemplates();
     }
-  }, [isAdmin, isManager, roleLoading, navigate, currentLocation?.id]);
+  }, [canManageTemplates, roleLoading, navigate, currentLocation?.id]);
 
   const fetchTemplates = async () => {
     if (!currentLocation?.id) return;

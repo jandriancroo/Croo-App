@@ -83,7 +83,7 @@ interface EmployeeHours {
 
 export default function Availability() {
   const { user } = useAuth();
-  const { isAdmin, loading: roleLoading } = useUserRole();
+  const { isAdmin, canApproveRequests, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
   const [requests, setRequests] = useState<AvailabilityRequest[]>([]);
   const [employeeHours, setEmployeeHours] = useState<EmployeeHours[]>([]);
@@ -112,7 +112,7 @@ export default function Availability() {
     if (currentLocation) {
       fetchData();
     }
-  }, [user, isAdmin, currentLocation]);
+  }, [user, canApproveRequests, currentLocation]);
 
   const fetchData = async () => {
     if (!user || !currentLocation) return;
@@ -120,7 +120,7 @@ export default function Availability() {
     try {
       setLoading(true);
 
-      if (isAdmin) {
+      if (canApproveRequests) {
         // Admin view - fetch all requests for current location with editor info
         const { data: requestsData, error: requestsError } = await supabase
           .from("availability_requests")
@@ -400,8 +400,8 @@ export default function Availability() {
           </Button>
         </div>
 
-        {/* PTO Balance - Non-Admin Only */}
-        {!isAdmin && (
+        {/* PTO Balance - Non-Manager Only */}
+        {!canApproveRequests && (
           <Card className="p-6 bg-primary/5 border-primary/20">
             <div className="flex items-center gap-4">
               <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -415,14 +415,14 @@ export default function Availability() {
           </Card>
         )}
 
-        {/* Shift Pool - Admin Only */}
-        {isAdmin && <ShiftPoolSection />}
+        {/* Shift Pool - Manager Only */}
+        {canApproveRequests && <ShiftPoolSection />}
 
-        {/* Weekly Hours - Admin Only */}
-        {isAdmin && <WeeklyHoursSection />}
+        {/* Weekly Hours - Manager Only */}
+        {canApproveRequests && <WeeklyHoursSection />}
 
-        {/* Time Off Used - Admin Only */}
-        {isAdmin && employeeHours.length > 0 && (
+        {/* Time Off Used - Manager Only */}
+        {canApproveRequests && employeeHours.length > 0 && (
           <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Time Off Used (Year to Date)</h2>
@@ -505,7 +505,7 @@ export default function Availability() {
         {/* Requests List */}
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">
-            {isAdmin ? "All Requests" : "My Requests"} ({filteredRequests.length})
+            {canApproveRequests ? "All Requests" : "My Requests"} ({filteredRequests.length})
           </h2>
 
           {filteredRequests.length === 0 ? (
@@ -520,7 +520,7 @@ export default function Availability() {
                   <div className="flex items-start sm:items-center justify-between gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
                     {/* Main content - stacks on mobile */}
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 flex-1 min-w-0">
-                      {isAdmin && (
+                      {canApproveRequests && (
                         <span className="font-medium text-sm truncate">{request.profiles.full_name}</span>
                       )}
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -554,7 +554,7 @@ export default function Availability() {
 
                     {/* Action buttons - always visible on right */}
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      {isAdmin && request.status === "pending" && (
+                      {canApproveRequests && request.status === "pending" && (
                         <>
                           <Button
                             size="sm"
@@ -577,7 +577,7 @@ export default function Availability() {
                         </>
                       )}
 
-                      {isAdmin && (
+                      {canApproveRequests && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="sm" className="h-7 w-7 p-0 flex-shrink-0">
