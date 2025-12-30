@@ -420,12 +420,12 @@ export function MobileScheduleView({
         </div>
       ) : (
         <>
-          {/* Month Header - Centered */}
+          {/* Week Header - Centered */}
           <div className="px-4 py-2 border-b flex justify-center">
             <DateNavigator
               onPrev={handlePreviousWeek}
               onNext={handleNextWeek}
-              label={format(currentWeekStart, 'MMMM yyyy')}
+              label={`${format(currentWeekStart, 'MMM d')} - ${format(addDays(currentWeekStart, 6), 'MMM d, yyyy')}`}
             />
           </div>
 
