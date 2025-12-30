@@ -218,6 +218,7 @@ export function MobileScheduleView({
 
     Object.entries(userPunches).forEach(([userId, punches]) => {
       let isClockedIn = false;
+      let isOnBreak = false;
       let firstClockIn: { id: string; punch_time: string } | null = null;
       let lastClockOut: { punch_time: string } | null = null;
       let breakStart: { punch_time: string; notes: string } | null = null;
@@ -226,6 +227,11 @@ export function MobileScheduleView({
       // punches are already sorted by time asc
       punches.forEach((p) => {
         if (p.punch_type === 'clock_in') {
+          // If on break, a clock_in ends the break
+          if (isOnBreak && breakStart && !breakEnd) {
+            breakEnd = { punch_time: p.punch_time };
+            isOnBreak = false;
+          }
           if (!isClockedIn) {
             isClockedIn = true;
             if (!firstClockIn) firstClockIn = { id: p.id, punch_time: p.punch_time };
@@ -235,17 +241,20 @@ export function MobileScheduleView({
 
         if (p.punch_type === 'clock_out') {
           isClockedIn = false;
+          isOnBreak = false;
           lastClockOut = { punch_time: p.punch_time };
           return;
         }
 
         if (p.punch_type === 'break_start') {
           breakStart = { punch_time: p.punch_time, notes: p.notes || '' };
+          isOnBreak = true;
           return;
         }
 
         if (p.punch_type === 'break_end') {
           breakEnd = { punch_time: p.punch_time };
+          isOnBreak = false;
           return;
         }
       });
