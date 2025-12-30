@@ -177,7 +177,7 @@ function DayCell({
   });
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
-  }} className={`min-h-[70px] p-2 border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
+  }} className={`min-h-[70px] p-1.5 border-r last:border-r-0 border-border transition-colors flex flex-col items-stretch ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
       <div className="space-y-1">
         {shifts.map(shift => {
           // A shift is a draft if schedule is unpublished AND (shift is new OR shift has been modified)
