@@ -23,6 +23,7 @@ interface ShiftTemplateAssignment {
   end_time: string;
   role: string;
   position: string;
+  allowed_roles: string[] | null;
 }
 
 interface AvailabilityBlock {
@@ -213,23 +214,28 @@ serve(async (req) => {
       return (employeeHours[employeeId] || 0) + additionalHours <= maxHours;
     };
 
-    // Helper to check if employee role is compatible with shift template role
-    const isRoleCompatible = (employeeRole: string | null, templateRole: string | null): boolean => {
-      if (!templateRole) return true; // No role restriction on template
-      if (!employeeRole) return false; // Employee has no role, can't match
+    // Helper to check if employee role is compatible with shift template's allowed_roles
+    const isRoleCompatible = (employeeRole: string | null, allowedRoles: string[] | null): boolean => {
+      // If no allowed_roles specified, allow anyone
+      if (!allowedRoles || allowedRoles.length === 0) return true;
+      if (!employeeRole) return false;
 
-      // Map manager template role to compatible employee roles
-      if (templateRole === 'manager') {
-        return ['shift_manager', 'general_manager', 'manager', 'admin', 'org_admin', 'super_admin'].includes(employeeRole);
-      }
-      
-      // Map team_member template role to team members only
-      if (templateRole === 'team_member') {
-        return employeeRole === 'team_member';
+      // Check if employee's role is in the allowed list
+      if (allowedRoles.includes(employeeRole)) return true;
+
+      // Also check role hierarchy - if "manager" is allowed, shift_manager/general_manager should qualify
+      if (allowedRoles.includes('manager')) {
+        if (['shift_manager', 'general_manager', 'admin', 'org_admin', 'super_admin'].includes(employeeRole)) {
+          return true;
+        }
       }
 
-      // Default: exact match
-      return employeeRole === templateRole;
+      // If "team_member" is allowed and employee is team_member
+      if (allowedRoles.includes('team_member') && employeeRole === 'team_member') {
+        return true;
+      }
+
+      return false;
     };
 
     // Helper to check if employee already has a shift on this day
@@ -250,7 +256,8 @@ serve(async (req) => {
             start_time,
             end_time,
             role,
-            position
+            position,
+            allowed_roles
           )
         `)
         .eq("week_template_id", template_id)
@@ -267,6 +274,7 @@ serve(async (req) => {
         end_time: a.shift_templates.end_time,
         role: a.shift_templates.role,
         position: a.shift_templates.position,
+        allowed_roles: a.shift_templates.allowed_roles,
       }));
 
       console.log(`Found ${assignments.length} shift template assignments`);
@@ -289,8 +297,8 @@ serve(async (req) => {
 
         // Try to find an available employee
         for (const emp of sortedEmployees) {
-          // Check if employee's role matches the template's role requirement
-          if (!isRoleCompatible(emp.role, assignment.role)) {
+          // Check if employee's role matches the template's allowed_roles
+          if (!isRoleCompatible(emp.role, assignment.allowed_roles)) {
             continue;
           }
 
@@ -332,11 +340,12 @@ serve(async (req) => {
           
           // Check why no one could be assigned - first filter by role
           const roleMatchingEmps = sortedEmployees.filter(emp => 
-            isRoleCompatible(emp.role, assignment.role)
+            isRoleCompatible(emp.role, assignment.allowed_roles)
           );
 
           if (roleMatchingEmps.length === 0) {
-            reason = `No employees with ${assignment.role || 'required'} role`;
+            const rolesDisplay = assignment.allowed_roles?.join(', ') || assignment.role || 'required';
+            reason = `No employees with ${rolesDisplay} role`;
           } else {
             const availableEmps = roleMatchingEmps.filter(emp => {
               const maxHours = emp.max_weekly_hours ?? 40;
