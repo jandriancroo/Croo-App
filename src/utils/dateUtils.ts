@@ -69,7 +69,9 @@ export const getDateInTimezoneOffset = (daysOffset: number, timezone: string = D
 };
 
 /**
- * Get the current day of week (0 = Sunday, 6 = Saturday) in specified timezone
+ * Get the current day of week in specified timezone
+ * Returns Monday-based index: Monday = 0, Tuesday = 1, ... Sunday = 6
+ * This matches the schedule system's day indexing
  */
 export const getDayOfWeekInTimezone = (timezone: string = DEFAULT_TIMEZONE): number => {
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -77,8 +79,25 @@ export const getDayOfWeekInTimezone = (timezone: string = DEFAULT_TIMEZONE): num
     weekday: 'short'
   });
   const dayName = formatter.format(new Date());
+  // Monday = 0, Tuesday = 1, ... Sunday = 6 (schedule-compatible)
   const dayMap: Record<string, number> = {
-    'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+    'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6
+  };
+  return dayMap[dayName] ?? 0;
+};
+
+/**
+ * Get the day of week for a specific date in specified timezone
+ * Returns Monday-based index: Monday = 0, Tuesday = 1, ... Sunday = 6
+ */
+export const getDateDayOfWeekInTimezone = (date: Date, timezone: string = DEFAULT_TIMEZONE): number => {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    weekday: 'short'
+  });
+  const dayName = formatter.format(date);
+  const dayMap: Record<string, number> = {
+    'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6
   };
   return dayMap[dayName] ?? 0;
 };

@@ -357,9 +357,11 @@ export default function CompleteChecklist() {
 
       // For dynamic checklists, filter items for the viewing day
       if (checklistData.template_type === 'dynamic') {
-        // Convert JS getDay() (Sun=0..Sat=6) to calendar index (Mon=0..Sun=6)
-        const jsDay = viewDate.getDay();
-        const calendarDayIndex = jsDay === 0 ? 6 : jsDay - 1;
+        // Use timezone-aware day of week (Mon=0, Sun=6) - import from dateUtils
+        const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', weekday: 'short' });
+        const dayName = formatter.format(viewDate);
+        const dayMap: Record<string, number> = { 'Mon': 0, 'Tue': 1, 'Wed': 2, 'Thu': 3, 'Fri': 4, 'Sat': 5, 'Sun': 6 };
+        const calendarDayIndex = dayMap[dayName] ?? 0;
         const dayItems = (itemsData || []).filter(item => item.days_of_week && item.days_of_week.includes(calendarDayIndex));
         if (dayItems.length === 0) {
           toast.error("No tasks assigned for this day in this checklist");

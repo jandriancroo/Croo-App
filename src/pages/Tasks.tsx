@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -25,12 +26,14 @@ import { ChecklistLeaderboard } from '@/components/tasks/ChecklistLeaderboard';
 import { CopyChecklistDialog } from '@/components/tasks/CopyChecklistDialog';
 import { TemporaryTasksSection } from '@/components/tasks/TemporaryTasksSection';
 import { CompletedTaskDetailsDialog } from '@/components/tasks/CompletedTaskDetailsDialog';
-import { getTodayInPST, getDateInPST, getStartOfDatePST } from '@/utils/dateUtils';
+import { getTodayInTimezone, getDateInTimezone, getStartOfDateInTimezone, getDayOfWeekInTimezone, getDateDayOfWeekInTimezone } from '@/utils/dateUtils';
+
 export default function Tasks() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin, isManager } = useUserRole();
   const { currentLocation } = useAppLocation();
+  const { timezone } = useLocationTimezone();
   const queryClient = useQueryClient();
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);
   const [historyDate, setHistoryDate] = useState(new Date());
@@ -139,9 +142,8 @@ export default function Tasks() {
 
       if (error) throw error;
 
-      // Convert JS getDay() (Sun=0..Sat=6) to calendar index (Mon=0..Sun=6)
-      const jsDay = new Date().getDay();
-      const currentDay = jsDay === 0 ? 6 : jsDay - 1;
+      // Use timezone-aware day of week (Mon=0, Sun=6)
+      const currentDay = getDayOfWeekInTimezone(timezone);
       const today = new Date();
       
       return data.filter(checklist => {
@@ -182,7 +184,7 @@ export default function Tasks() {
     queryFn: async () => {
       if (!currentLocation?.id) return { today: 0, thisWeek: 0, thisMonth: 0 };
       
-      const todayPST = getTodayInPST();
+      const todayStr = getTodayInTimezone(timezone);
       const today = new Date();
       const thisWeekStart = new Date(today);
       thisWeekStart.setDate(today.getDate() - today.getDay());
@@ -195,19 +197,19 @@ export default function Tasks() {
           .select('id', { count: 'exact' })
           .eq('submitted_by', user!.id)
           .eq('location_id', currentLocation.id)
-          .gte('submitted_at', todayPST),
+          .gte('submitted_at', todayStr),
         supabase
           .from('checklist_submissions')
           .select('id', { count: 'exact' })
           .eq('submitted_by', user!.id)
           .eq('location_id', currentLocation.id)
-          .gte('submitted_at', getDateInPST(thisWeekStart)),
+          .gte('submitted_at', getDateInTimezone(thisWeekStart, timezone)),
         supabase
           .from('checklist_submissions')
           .select('id', { count: 'exact' })
           .eq('submitted_by', user!.id)
           .eq('location_id', currentLocation.id)
-          .gte('submitted_at', getDateInPST(thisMonthStart)),
+          .gte('submitted_at', getDateInTimezone(thisMonthStart, timezone)),
       ]);
 
       return {
@@ -232,9 +234,8 @@ export default function Tasks() {
       const endOfDay = new Date(historyDate);
       endOfDay.setHours(23, 59, 59, 999);
       
-      // Convert JS getDay() (Sun=0..Sat=6) to calendar index (Mon=0..Sun=6)
-      const jsDay = historyDate.getDay();
-      const currentDay = jsDay === 0 ? 6 : jsDay - 1;
+      // Use timezone-aware day of week for the history date
+      const currentDay = getDateDayOfWeekInTimezone(historyDate, timezone);
 
       // Get all checklists for this location
       const { data: checklistsData } = await supabase
@@ -418,8 +419,9 @@ export default function Tasks() {
     enabled: !!currentLocation?.id,
   });
 
-  const currentDay = new Date().getDay();
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  // Use timezone-aware day of week for display
+  const currentDayIndex = getDayOfWeekInTimezone(timezone);
+  const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
   if (checklistsLoading || statsLoading) {
     return (
@@ -688,7 +690,7 @@ export default function Tasks() {
                               isDynamic={isDynamic}
                               isReordering={isReordering}
                               isAdmin={isAdmin}
-                              currentDay={currentDay}
+                              currentDay={currentDayIndex}
                               dayNames={dayNames}
                               onNavigate={navigate}
                               onDeactivate={handleDeactivate}

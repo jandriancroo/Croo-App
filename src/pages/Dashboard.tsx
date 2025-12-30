@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
-import { getBusinessDateInTimezone, getBusinessDayRangeInTimezone } from '@/utils/timezoneUtils';
+import { getBusinessDateInTimezone, getBusinessDayRangeInTimezone, getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
@@ -358,10 +358,8 @@ export default function Dashboard() {
     // (submissions before 5 AM count as previous day)
     const businessDateStr = getBusinessDateInTimezone(timezone);
     
-    // Get current day of week for dynamic checklists
-    const today = new Date();
-    const jsDay = today.getDay();
-    const currentDay = jsDay === 0 ? 6 : jsDay - 1;
+    // Get current day of week using timezone-aware function (Mon=0, Sun=6)
+    const currentDay = getDayOfWeekInTimezone(timezone);
     
     // Calculate business day period in location timezone
     // Business day runs from 5 AM today to 5 AM tomorrow
@@ -387,8 +385,9 @@ export default function Dashboard() {
       let periodEnd: Date;
       
       if (isMonthly) {
-        periodStart = new Date(today.getFullYear(), today.getMonth(), 1, 0, 0, 0, 0);
-        periodEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0, 23, 59, 59, 999);
+        const now = new Date();
+        periodStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       } else {
         // Use business day range (5 AM to 5 AM) for daily checklists
         periodStart = periodStartBusiness;
@@ -428,9 +427,8 @@ export default function Dashboard() {
     if (!currentLocation?.id) return;
     
     try {
-      // Convert JS getDay() (Sun=0..Sat=6) to calendar index (Mon=0..Sun=6)
-      const jsDay = new Date().getDay();
-      const currentDay = jsDay === 0 ? 6 : jsDay - 1;
+      // Use timezone-aware day of week (Mon=0, Sun=6)
+      const currentDay = getDayOfWeekInTimezone(timezone);
 
       // Fetch all active checklists for this location
       const {
