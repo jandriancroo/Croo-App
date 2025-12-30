@@ -53,7 +53,19 @@ function EditShiftForm({
   const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
   const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
   const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
-  const mealBreakEnd = dayPunches.find((p: any) => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
+  let mealBreakEnd = dayPunches.find((p: any) => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
+  
+  // Fallback: If no explicit break_end, check if a clock_in follows the break_start (used to end break)
+  if (mealBreakStart && !mealBreakEnd) {
+    const breakStartTime = new Date(mealBreakStart.punch_time).getTime();
+    const clockInAfterBreak = dayPunches.find((p: any) => 
+      p.punch_type === 'clock_in' && 
+      new Date(p.punch_time).getTime() > breakStartTime
+    );
+    if (clockInAfterBreak) {
+      mealBreakEnd = clockInAfterBreak;
+    }
+  }
 
   // Format times in the location's timezone for display/editing
   const formatTimeForEdit = (punch: any): string => {
@@ -489,7 +501,16 @@ export default function PayrollReview() {
           const clockIn = dayPunches.find(p => p.punch_type === 'clock_in');
           const clockOut = dayPunches.find(p => p.punch_type === 'clock_out');
           const mealBreakStart = dayPunches.find(p => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
-          const mealBreakEnd = dayPunches.find(p => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
+          let mealBreakEnd = dayPunches.find(p => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
+          
+          // Fallback: clock_in after break_start can indicate break end
+          if (mealBreakStart && !mealBreakEnd) {
+            const breakStartTime = new Date(mealBreakStart.punch_time).getTime();
+            const clockInAfterBreak = dayPunches.find(p => 
+              p.punch_type === 'clock_in' && new Date(p.punch_time).getTime() > breakStartTime
+            );
+            if (clockInAfterBreak) mealBreakEnd = clockInAfterBreak;
+          }
           
           if (clockIn && !clockOut) {
             issues.push(`${day}: Missing clock out`);
@@ -533,7 +554,16 @@ export default function PayrollReview() {
     const clockIn = dayPunches.find(p => p.punch_type === 'clock_in');
     const clockOut = dayPunches.find(p => p.punch_type === 'clock_out');
     const mealBreakStart = dayPunches.find(p => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
-    const mealBreakEnd = dayPunches.find(p => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
+    let mealBreakEnd = dayPunches.find(p => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
+    
+    // Fallback: clock_in after break_start can indicate break end
+    if (mealBreakStart && !mealBreakEnd) {
+      const breakStartTime = new Date(mealBreakStart.punch_time).getTime();
+      const clockInAfterBreak = dayPunches.find(p => 
+        p.punch_type === 'clock_in' && new Date(p.punch_time).getTime() > breakStartTime
+      );
+      if (clockInAfterBreak) mealBreakEnd = clockInAfterBreak;
+    }
     
     if (!clockIn) return 0;
     
@@ -1460,10 +1490,18 @@ export default function PayrollReview() {
                                           {breakStarts.length > 0 && (
                                             <div className="flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-0.5">
                                               {breakStarts.map((breakStart: any, idx: number) => {
-                                                const breakEnd = dayPunches.find((p: any) => 
+                                                // First try to find explicit break_end
+                                                let breakEnd = dayPunches.find((p: any) => 
                                                   p.punch_type === 'break_end' && 
                                                   new Date(p.punch_time) > new Date(breakStart.punch_time)
                                                 );
+                                                // Fallback: clock_in after break_start can indicate break end
+                                                if (!breakEnd) {
+                                                  breakEnd = dayPunches.find((p: any) => 
+                                                    p.punch_type === 'clock_in' && 
+                                                    new Date(p.punch_time) > new Date(breakStart.punch_time)
+                                                  );
+                                                }
                                                 const duration = breakStart.notes?.includes('30 minute') ? '30m' : '10m';
                                                 
                                                 // Calculate actual break duration if there's an end time
