@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
 import { Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown, AlertTriangle, Sparkles } from "lucide-react";
@@ -101,6 +102,8 @@ export default function Schedule() {
   const { role, isAdmin, isManager } = useUserRole();
   const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
+  const { timezone, getTodayInTimezone } = useLocationTimezone();
+  const didInitWeek = useRef(false);
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
   const [scheduleId, setScheduleId] = useState<string | null>(null);
@@ -142,6 +145,18 @@ export default function Schedule() {
       setCurrentUserId(user?.id || null);
     });
   }, []);
+
+  // Initialize week start based on the location timezone (one-time)
+  useEffect(() => {
+    if (didInitWeek.current) return;
+    if (!timezone) return;
+
+    const todayStr = getTodayInTimezone();
+    const [y, m, d] = todayStr.split('-').map(Number);
+    const localDate = new Date(y, m - 1, d);
+    setCurrentWeekStart(startOfWeek(localDate, { weekStartsOn: 1 }));
+    didInitWeek.current = true;
+  }, [timezone, getTodayInTimezone]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
