@@ -12,6 +12,7 @@ import { shiftHasBreak } from '@/utils/shiftUtils';
 import { ShiftOfferDialog } from './ShiftOfferDialog';
 import { MobileShiftDialog } from './MobileShiftDialog';
 import { QuickPunchDialog } from './QuickPunchDialog';
+import { EditPunchDialog } from './EditPunchDialog';
 import { EventCard } from './EventCard';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
@@ -121,6 +122,8 @@ export function MobileScheduleView({
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [quickPunchOpen, setQuickPunchOpen] = useState(false);
+  const [editPunchOpen, setEditPunchOpen] = useState(false);
+  const [selectedPunch, setSelectedPunch] = useState<{id: string, userId: string, userName: string, userPhoto: string | null, punchTime: string} | null>(null);
   const [activeShifts, setActiveShifts] = useState<ActiveShift[]>([]);
   const [todayEvents, setTodayEvents] = useState<Event[]>([]);
   const [loadingActive, setLoadingActive] = useState(false);
@@ -195,27 +198,36 @@ export function MobileScheduleView({
     });
     
     // Find users currently clocked in (last punch is clock_in or break_start/break_end, not clock_out)
-    const activeClockIns: Array<{id: string, user_id: string, punch_time: string}> = [];
+    const activeClockIns: Array<{id: string, user_id: string, punch_time: string, firstClockInTime: string}> = [];
     Object.entries(userPunches).forEach(([userId, punches]) => {
-      // Find most recent clock_in
+      // Find all clock_ins and clock_outs
       const clockIns = punches.filter(p => p.punch_type === 'clock_in');
       const clockOuts = punches.filter(p => p.punch_type === 'clock_out');
       
       // If more clock-ins than clock-outs, user is still clocked in
       if (clockIns.length > clockOuts.length) {
+        // Use the FIRST clock_in of the day for display and hours calculation
+        const firstClockIn = clockIns[0];
+        // Use the last clock_in's ID for editing purposes
         const lastClockIn = clockIns[clockIns.length - 1];
-        activeClockIns.push({ id: lastClockIn.id, user_id: userId, punch_time: lastClockIn.punch_time });
+        activeClockIns.push({ 
+          id: lastClockIn.id, 
+          user_id: userId, 
+          punch_time: firstClockIn.punch_time,
+          firstClockInTime: firstClockIn.punch_time
+        });
       }
     });
     
     const activeWithProfiles: ActiveShift[] = activeClockIns.map(punch => {
       const profile = profiles.find(p => p.id === punch.user_id);
-      const hoursWorked = (new Date().getTime() - new Date(punch.punch_time).getTime()) / 3600000;
+      // Calculate hours from FIRST clock-in of the day
+      const hoursWorked = (new Date().getTime() - new Date(punch.firstClockInTime).getTime()) / 3600000;
       const scheduledShift = todayScheduledShifts?.find(s => s.user_id === punch.user_id);
       return {
         id: punch.id,
         user_id: punch.user_id,
-        punch_time: punch.punch_time,
+        punch_time: punch.firstClockInTime,
         profile: profile || { id: punch.user_id, full_name: 'Unknown', profile_photo_url: null },
         hoursWorked,
         scheduledShift: scheduledShift ? { id: scheduledShift.id, start_time: scheduledShift.start_time, end_time: scheduledShift.end_time, day_of_week: scheduledShift.day_of_week, shift_date: scheduledShift.shift_date } : null
@@ -351,26 +363,22 @@ export function MobileScheduleView({
                         </div>
                       </div>
                       
-                      {activeShift.scheduledShift && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedShift({
-                              id: activeShift.scheduledShift!.id,
-                              user_id: activeShift.user_id,
-                              day_of_week: activeShift.scheduledShift!.day_of_week,
-                              start_time: activeShift.scheduledShift!.start_time,
-                              end_time: activeShift.scheduledShift!.end_time,
-                              shift_date: activeShift.scheduledShift!.shift_date,
-                            });
-                            setIsCreatingShift(false);
-                            setShiftDialogOpen(true);
-                          }}
-                        >
-                          <Pencil className="h-3 w-3" />
-                        </Button>
-                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedPunch({
+                            id: activeShift.id,
+                            userId: activeShift.user_id,
+                            userName: activeShift.profile.full_name,
+                            userPhoto: activeShift.profile.profile_photo_url,
+                            punchTime: activeShift.punch_time
+                          });
+                          setEditPunchOpen(true);
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
                     </div>
                   </Card>
                 ))}
@@ -674,6 +682,23 @@ export function MobileScheduleView({
           }
         }}
       />
+
+      {selectedPunch && (
+        <EditPunchDialog
+          open={editPunchOpen}
+          onOpenChange={setEditPunchOpen}
+          punchId={selectedPunch.id}
+          userId={selectedPunch.userId}
+          userName={selectedPunch.userName}
+          userPhoto={selectedPunch.userPhoto}
+          punchTime={selectedPunch.punchTime}
+          timezone={timezone}
+          onPunchUpdated={() => {
+            fetchActiveShifts();
+            onUpdate?.();
+          }}
+        />
+      )}
     </div>
   );
 }
