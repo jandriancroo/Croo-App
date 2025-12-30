@@ -61,7 +61,9 @@ export function DataCube({
       case 'sales_today': return salesData.daily;
       case 'sales_pace': return salesData.projections?.todayPaceAdjusted;
       case 'sales_projected_today': return salesData.projections?.todayProjected;
-      case 'sales_last_year': return salesData.comparison?.prevDayFullDay;
+      case 'sales_last_week':
+      case 'sales_last_year': return salesData.comparison?.prevDayFullDay; // Legacy alias
+      case 'sales_last_year_day': return salesData.lastYear?.sameDay;
       case 'avg_ticket': return salesData.avgTicket;
       
       // Daily guests/products
@@ -81,7 +83,8 @@ export function DataCube({
       case 'sales_wtd': return salesData.weekly;
       case 'sales_pace_week': return salesData.projections?.weekPaceAdjusted ?? salesData.projections?.weekProjected;
       case 'sales_projected_week': return salesData.projections?.weekProjected;
-      case 'sales_last_year_week': return salesData.comparison?.prevWeekFullWeek ?? salesData.comparison?.prevWeek;
+      case 'sales_prev_week': return salesData.comparison?.prevWeekFullWeek ?? salesData.comparison?.prevWeek;
+      case 'sales_last_year_week': return salesData.lastYear?.sameWeek;
       
       // Weekly guests/products  
       case 'guest_count_wtd': return salesData.guestCount?.weekly;
@@ -97,7 +100,8 @@ export function DataCube({
       case 'sales_mtd': return salesData.monthly;
       case 'sales_pace_month': return salesData.projections?.monthPaceAdjusted ?? salesData.projections?.monthProjected;
       case 'sales_projected_month': return salesData.projections?.monthProjected;
-      case 'sales_last_year_month': return salesData.comparison?.prevMonthFullMonth ?? salesData.comparison?.prevMonth;
+      case 'sales_prev_month': return salesData.comparison?.prevMonthFullMonth ?? salesData.comparison?.prevMonth;
+      case 'sales_last_year_month': return salesData.lastYear?.sameMonth;
       
       // Monthly guests/products
       case 'guest_count_mtd': return salesData.guestCount?.monthly;

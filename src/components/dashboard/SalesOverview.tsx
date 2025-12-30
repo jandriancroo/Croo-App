@@ -28,6 +28,7 @@ interface SalesData {
   avgTicket?: number;
   pizzaCount?: number | { daily: number; weekly: number; monthly: number };
   comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevMonth: number };
+  lastYear?: { sameDay?: number; sameWeek?: number; sameMonth?: number };
   projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number };
   currentHour?: number;
   productMix?: Array<{ name: string; quantity: number; sales: number; category: string }>;

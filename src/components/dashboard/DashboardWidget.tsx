@@ -10,13 +10,14 @@ import { useIsOledTheme } from "@/hooks/useIsOledTheme";
 export type WidgetSize = 'small' | 'medium' | 'large';
 
 // All available metric types - organized by time period
-// Order: Sales, Pace, Projected, LY, Guests, Pizzas, Avg Ticket, Labor%, Labor$, Hours
+// Order: Sales, Pace, Projected, LW, LY, Guests, Pizzas, Avg Ticket, Labor%, Labor$, Hours
 export type MetricType = 
   // Daily metrics
   | 'sales_today'
   | 'sales_pace'
   | 'sales_projected_today'
-  | 'sales_last_year'
+  | 'sales_last_week'      // Same day last week
+  | 'sales_last_year_day'  // Actual last year same day
   | 'guest_count_today'
   | 'pizza_count_today'
   | 'avg_ticket'
@@ -27,7 +28,8 @@ export type MetricType =
   | 'sales_wtd'
   | 'sales_pace_week'
   | 'sales_projected_week'
-  | 'sales_last_year_week'
+  | 'sales_prev_week'       // Previous full week
+  | 'sales_last_year_week'  // Actual last year same week
   | 'guest_count_wtd'
   | 'pizza_count_wtd'
   | 'labor_percent_wtd'
@@ -37,7 +39,8 @@ export type MetricType =
   | 'sales_mtd'
   | 'sales_pace_month'
   | 'sales_projected_month'
-  | 'sales_last_year_month'
+  | 'sales_prev_month'       // Previous full month
+  | 'sales_last_year_month'  // Actual last year same month
   | 'guest_count_mtd'
   | 'pizza_count_mtd'
   | 'labor_percent_mtd'
@@ -46,7 +49,8 @@ export type MetricType =
   // Legacy aliases (for backwards compatibility)
   | 'labor_percent'
   | 'labor_cost'
-  | 'labor_hours';
+  | 'labor_hours'
+  | 'sales_last_year';  // Legacy alias for sales_last_week
 
 export interface MetricConfig {
   type: MetricType;
@@ -58,11 +62,12 @@ export interface MetricConfig {
 }
 
 export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
-  // Daily metrics - Order: Sales, Pace, Projected, LY, Guests, Pizzas, Avg Ticket, Labor%, Labor$, Hours
+  // Daily metrics - Order: Sales, Pace, Projected, LW, LY, Guests, Pizzas, Avg Ticket, Labor%, Labor$, Hours
   sales_today: { type: 'sales_today', label: 'Sales', shortLabel: 'Sales', icon: DollarSign, format: 'currency', category: 'daily' },
   sales_pace: { type: 'sales_pace', label: 'Pace', shortLabel: 'Pace', icon: TrendingUp, format: 'currency', category: 'daily' },
   sales_projected_today: { type: 'sales_projected_today', label: 'Projected', shortLabel: 'Proj', icon: Target, format: 'currency', category: 'daily' },
-  sales_last_year: { type: 'sales_last_year', label: 'Last Week', shortLabel: 'LW', icon: Calendar, format: 'currency', category: 'daily' },
+  sales_last_week: { type: 'sales_last_week', label: 'Last Week', shortLabel: 'LW', icon: Calendar, format: 'currency', category: 'daily' },
+  sales_last_year_day: { type: 'sales_last_year_day', label: 'Last Year', shortLabel: 'LY', icon: Calendar, format: 'currency', category: 'daily' },
   guest_count_today: { type: 'guest_count_today', label: 'Guests', shortLabel: 'Guests', icon: Users, format: 'number', category: 'daily' },
   pizza_count_today: { type: 'pizza_count_today', label: 'Pizzas', shortLabel: 'Pizzas', icon: Pizza, format: 'number', category: 'daily' },
   avg_ticket: { type: 'avg_ticket', label: 'Avg Ticket', shortLabel: 'Avg $', icon: DollarSign, format: 'currency', category: 'daily' },
@@ -70,40 +75,43 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   labor_cost_today: { type: 'labor_cost_today', label: 'Labor Cost', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'daily' },
   labor_hours_today: { type: 'labor_hours_today', label: 'Hours', shortLabel: 'Hours', icon: Clock, format: 'hours', category: 'daily' },
   
-  // Weekly metrics - Same order: Sales, Pace, Projected, LY, Guests, Pizzas, Labor%, Labor$, Hours
+  // Weekly metrics - Same order: Sales, Pace, Projected, Prev, LY, Guests, Pizzas, Labor%, Labor$, Hours
   sales_wtd: { type: 'sales_wtd', label: 'Sales WTD', shortLabel: 'WTD', icon: DollarSign, format: 'currency', category: 'weekly' },
   sales_pace_week: { type: 'sales_pace_week', label: 'Week Pace', shortLabel: 'Pace', icon: TrendingUp, format: 'currency', category: 'weekly' },
   sales_projected_week: { type: 'sales_projected_week', label: 'Projected', shortLabel: 'Proj Wk', icon: Target, format: 'currency', category: 'weekly' },
-  sales_last_year_week: { type: 'sales_last_year_week', label: 'Prev Week', shortLabel: 'Prev', icon: Calendar, format: 'currency', category: 'weekly' },
+  sales_prev_week: { type: 'sales_prev_week', label: 'Prev Week', shortLabel: 'Prev', icon: Calendar, format: 'currency', category: 'weekly' },
+  sales_last_year_week: { type: 'sales_last_year_week', label: 'Last Year', shortLabel: 'LY', icon: Calendar, format: 'currency', category: 'weekly' },
   guest_count_wtd: { type: 'guest_count_wtd', label: 'Guests WTD', shortLabel: 'Guests', icon: Users, format: 'number', category: 'weekly' },
   pizza_count_wtd: { type: 'pizza_count_wtd', label: 'Pizzas WTD', shortLabel: 'Pizzas', icon: Pizza, format: 'number', category: 'weekly' },
   labor_percent_wtd: { type: 'labor_percent_wtd', label: 'Labor % WTD', shortLabel: 'Labor%', icon: Users, format: 'percent', category: 'weekly' },
   labor_cost_wtd: { type: 'labor_cost_wtd', label: 'Labor Cost WTD', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'weekly' },
   labor_hours_wtd: { type: 'labor_hours_wtd', label: 'Hours WTD', shortLabel: 'Hours', icon: Clock, format: 'hours', category: 'weekly' },
   
-  // Monthly metrics - Same order: Sales, Pace, Projected, LY, Guests, Pizzas, Labor%, Labor$, Hours
+  // Monthly metrics - Same order: Sales, Pace, Projected, Prev, LY, Guests, Pizzas, Labor%, Labor$, Hours
   sales_mtd: { type: 'sales_mtd', label: 'Sales MTD', shortLabel: 'MTD', icon: DollarSign, format: 'currency', category: 'monthly' },
   sales_pace_month: { type: 'sales_pace_month', label: 'Month Pace', shortLabel: 'Pace', icon: TrendingUp, format: 'currency', category: 'monthly' },
   sales_projected_month: { type: 'sales_projected_month', label: 'Projected', shortLabel: 'Proj Mo', icon: Target, format: 'currency', category: 'monthly' },
-  sales_last_year_month: { type: 'sales_last_year_month', label: 'Prev Month', shortLabel: 'Prev', icon: Calendar, format: 'currency', category: 'monthly' },
+  sales_prev_month: { type: 'sales_prev_month', label: 'Prev Month', shortLabel: 'Prev', icon: Calendar, format: 'currency', category: 'monthly' },
+  sales_last_year_month: { type: 'sales_last_year_month', label: 'Last Year', shortLabel: 'LY', icon: Calendar, format: 'currency', category: 'monthly' },
   guest_count_mtd: { type: 'guest_count_mtd', label: 'Guests MTD', shortLabel: 'Guests', icon: Users, format: 'number', category: 'monthly' },
   pizza_count_mtd: { type: 'pizza_count_mtd', label: 'Pizzas MTD', shortLabel: 'Pizzas', icon: Pizza, format: 'number', category: 'monthly' },
   labor_percent_mtd: { type: 'labor_percent_mtd', label: 'Labor % MTD', shortLabel: 'Labor%', icon: Users, format: 'percent', category: 'monthly' },
   labor_cost_mtd: { type: 'labor_cost_mtd', label: 'Labor Cost MTD', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'monthly' },
   labor_hours_mtd: { type: 'labor_hours_mtd', label: 'Hours MTD', shortLabel: 'Hours', icon: Clock, format: 'hours', category: 'monthly' },
   
-  // Legacy aliases (map to daily equivalents for backwards compatibility)
+  // Legacy aliases (map to equivalents for backwards compatibility)
   labor_percent: { type: 'labor_percent', label: 'Labor %', shortLabel: 'Labor%', icon: Users, format: 'percent', category: 'daily' },
   labor_cost: { type: 'labor_cost', label: 'Labor Cost', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'daily' },
   labor_hours: { type: 'labor_hours', label: 'Hours', shortLabel: 'Hours', icon: Clock, format: 'hours', category: 'daily' },
+  sales_last_year: { type: 'sales_last_year', label: 'Last Week', shortLabel: 'LW', icon: Calendar, format: 'currency', category: 'daily' }, // Legacy alias
 };
 
-// Consistent order across all time periods: Sales, Pace, Projected, LY, Guests, Pizzas, [Avg Ticket daily only], Labor%, Labor$, Hours
+// Consistent order across all time periods: Sales, Pace, Projected, LW/Prev, LY, Guests, Pizzas, [Avg Ticket daily only], Labor%, Labor$, Hours
 export const METRIC_GROUPS = [
   { 
     label: 'Daily', 
     metrics: [
-      'sales_today', 'sales_pace', 'sales_projected_today', 'sales_last_year',
+      'sales_today', 'sales_pace', 'sales_projected_today', 'sales_last_week', 'sales_last_year_day',
       'guest_count_today', 'pizza_count_today', 'avg_ticket',
       'labor_percent_today', 'labor_cost_today', 'labor_hours_today'
     ] as MetricType[] 
@@ -111,7 +119,7 @@ export const METRIC_GROUPS = [
   { 
     label: 'Weekly', 
     metrics: [
-      'sales_wtd', 'sales_pace_week', 'sales_projected_week', 'sales_last_year_week',
+      'sales_wtd', 'sales_pace_week', 'sales_projected_week', 'sales_prev_week', 'sales_last_year_week',
       'guest_count_wtd', 'pizza_count_wtd',
       'labor_percent_wtd', 'labor_cost_wtd', 'labor_hours_wtd'
     ] as MetricType[] 
@@ -119,7 +127,7 @@ export const METRIC_GROUPS = [
   { 
     label: 'Monthly', 
     metrics: [
-      'sales_mtd', 'sales_pace_month', 'sales_projected_month', 'sales_last_year_month',
+      'sales_mtd', 'sales_pace_month', 'sales_projected_month', 'sales_prev_month', 'sales_last_year_month',
       'guest_count_mtd', 'pizza_count_mtd',
       'labor_percent_mtd', 'labor_cost_mtd', 'labor_hours_mtd'
     ] as MetricType[] 
@@ -134,6 +142,7 @@ export interface SalesDataForWidgets {
   pizzaCount?: number | { daily: number; weekly: number; monthly: number };
   avgTicket?: number;
   comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevWeekFullWeek?: number; prevMonth: number; prevMonthFullMonth?: number };
+  lastYear?: { sameDay?: number; sameWeek?: number; sameMonth?: number };
   projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; weekPaceAdjusted?: number; monthProjected: number; monthPaceAdjusted?: number };
   labor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours?: number; overtimeHours?: number } | null;
   weeklyLabor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours?: number; overtimeHours?: number } | null;
@@ -194,7 +203,9 @@ export function DashboardWidget({
       case 'sales_today': return salesData.daily;
       case 'sales_pace': return salesData.projections?.todayPaceAdjusted;
       case 'sales_projected_today': return salesData.projections?.todayProjected;
-      case 'sales_last_year': return salesData.comparison?.prevDayFullDay;
+      case 'sales_last_week':
+      case 'sales_last_year': return salesData.comparison?.prevDayFullDay; // Legacy alias
+      case 'sales_last_year_day': return salesData.lastYear?.sameDay;
       case 'avg_ticket': return salesData.avgTicket;
       
       // Daily guests/products
@@ -214,7 +225,8 @@ export function DashboardWidget({
       case 'sales_wtd': return salesData.weekly;
       case 'sales_pace_week': return salesData.projections?.weekPaceAdjusted ?? salesData.projections?.weekProjected;
       case 'sales_projected_week': return salesData.projections?.weekProjected;
-      case 'sales_last_year_week': return salesData.comparison?.prevWeekFullWeek ?? salesData.comparison?.prevWeek;
+      case 'sales_prev_week': return salesData.comparison?.prevWeekFullWeek ?? salesData.comparison?.prevWeek;
+      case 'sales_last_year_week': return salesData.lastYear?.sameWeek;
       
       // Weekly guests/products  
       case 'guest_count_wtd': return salesData.guestCount?.weekly;
@@ -230,7 +242,8 @@ export function DashboardWidget({
       case 'sales_mtd': return salesData.monthly;
       case 'sales_pace_month': return salesData.projections?.monthPaceAdjusted ?? salesData.projections?.monthProjected;
       case 'sales_projected_month': return salesData.projections?.monthProjected;
-      case 'sales_last_year_month': return salesData.comparison?.prevMonthFullMonth ?? salesData.comparison?.prevMonth;
+      case 'sales_prev_month': return salesData.comparison?.prevMonthFullMonth ?? salesData.comparison?.prevMonth;
+      case 'sales_last_year_month': return salesData.lastYear?.sameMonth;
       
       // Monthly guests/products
       case 'guest_count_mtd': return salesData.guestCount?.monthly;
