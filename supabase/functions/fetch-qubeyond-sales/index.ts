@@ -63,11 +63,171 @@ function getDateRange(startDate: string, endDate: string): string[] {
   }
   return dates;
 }
-
 function adjustDate(dateStr: string, days: number): string {
   const date = new Date(dateStr + 'T12:00:00');
   date.setDate(date.getDate() + days);
   return getDateStringForTimezone(date, 'America/Los_Angeles');
+}
+
+// ============ HOLIDAY-AWARE PROJECTIONS ============
+// Major holidays that significantly affect sales patterns
+// These need special handling in projections
+
+interface HolidayInfo {
+  name: string;
+  type: 'major' | 'closed' | 'minor'; // major = compare holiday-to-holiday, closed = skip, minor = normal DOW logic
+}
+
+// Calculate dynamic holidays for a given year
+function getHolidaysForYear(year: number): Map<string, HolidayInfo> {
+  const holidays = new Map<string, HolidayInfo>();
+  
+  // Fixed-date holidays
+  holidays.set(`${year}-01-01`, { name: "New Year's Day", type: 'major' });
+  holidays.set(`${year}-12-31`, { name: "New Year's Eve", type: 'major' });
+  holidays.set(`${year}-07-04`, { name: "Independence Day", type: 'major' });
+  holidays.set(`${year}-12-25`, { name: "Christmas Day", type: 'closed' });
+  holidays.set(`${year}-12-24`, { name: "Christmas Eve", type: 'major' });
+  holidays.set(`${year}-02-14`, { name: "Valentine's Day", type: 'major' });
+  holidays.set(`${year}-10-31`, { name: "Halloween", type: 'major' });
+  holidays.set(`${year}-11-11`, { name: "Veterans Day", type: 'minor' });
+  
+  // MLK Day: 3rd Monday of January
+  const mlkDay = getNthWeekdayOfMonth(year, 0, 1, 3); // January, Monday, 3rd
+  holidays.set(mlkDay, { name: "Martin Luther King Jr. Day", type: 'minor' });
+  
+  // Presidents Day: 3rd Monday of February
+  const presidentsDay = getNthWeekdayOfMonth(year, 1, 1, 3); // February, Monday, 3rd
+  holidays.set(presidentsDay, { name: "Presidents Day", type: 'minor' });
+  
+  // Memorial Day: Last Monday of May
+  const memorialDay = getLastWeekdayOfMonth(year, 4, 1); // May, Monday
+  holidays.set(memorialDay, { name: "Memorial Day", type: 'major' });
+  
+  // Labor Day: 1st Monday of September
+  const laborDay = getNthWeekdayOfMonth(year, 8, 1, 1); // September, Monday, 1st
+  holidays.set(laborDay, { name: "Labor Day", type: 'major' });
+  
+  // Thanksgiving: 4th Thursday of November
+  const thanksgiving = getNthWeekdayOfMonth(year, 10, 4, 4); // November, Thursday, 4th
+  holidays.set(thanksgiving, { name: "Thanksgiving", type: 'closed' });
+  // Day after Thanksgiving (Black Friday) - unique pattern
+  const blackFriday = adjustDate(thanksgiving, 1);
+  holidays.set(blackFriday, { name: "Black Friday", type: 'major' });
+  
+  // Mother's Day: 2nd Sunday of May
+  const mothersDay = getNthWeekdayOfMonth(year, 4, 0, 2); // May, Sunday, 2nd
+  holidays.set(mothersDay, { name: "Mother's Day", type: 'major' });
+  
+  // Father's Day: 3rd Sunday of June
+  const fathersDay = getNthWeekdayOfMonth(year, 5, 0, 3); // June, Sunday, 3rd
+  holidays.set(fathersDay, { name: "Father's Day", type: 'major' });
+  
+  // Super Bowl Sunday: typically 2nd Sunday of February (approximate - varies)
+  const superBowl = getNthWeekdayOfMonth(year, 1, 0, 2); // February, Sunday, 2nd
+  holidays.set(superBowl, { name: "Super Bowl Sunday", type: 'major' });
+  
+  return holidays;
+}
+
+// Get Nth weekday of a month (e.g., 3rd Monday)
+function getNthWeekdayOfMonth(year: number, month: number, weekday: number, n: number): string {
+  const firstDay = new Date(year, month, 1);
+  let dayOfWeek = firstDay.getDay();
+  let daysToAdd = (weekday - dayOfWeek + 7) % 7;
+  daysToAdd += (n - 1) * 7;
+  const result = new Date(year, month, 1 + daysToAdd);
+  return `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')}`;
+}
+
+// Get last weekday of a month (e.g., last Monday of May)
+function getLastWeekdayOfMonth(year: number, month: number, weekday: number): string {
+  const lastDay = new Date(year, month + 1, 0); // Last day of month
+  let dayOfWeek = lastDay.getDay();
+  let daysToSubtract = (dayOfWeek - weekday + 7) % 7;
+  const result = new Date(year, month + 1, -daysToSubtract);
+  return `${result.getFullYear()}-${String(result.getMonth() + 1).padStart(2, '0')}-${String(result.getDate()).padStart(2, '0')}`;
+}
+
+// Check if a date is a holiday and get its info
+function getHolidayInfo(dateStr: string): HolidayInfo | null {
+  const year = parseInt(dateStr.split('-')[0]);
+  const holidays = getHolidaysForYear(year);
+  return holidays.get(dateStr) || null;
+}
+
+// Find the same holiday in a different year
+function getSameHolidayLastYear(todayStr: string, holidayName: string): string | null {
+  const year = parseInt(todayStr.split('-')[0]);
+  const lastYearHolidays = getHolidaysForYear(year - 1);
+  
+  for (const [dateStr, info] of lastYearHolidays.entries()) {
+    if (info.name === holidayName) {
+      return dateStr;
+    }
+  }
+  return null;
+}
+
+// Determine the best comparison date for projections
+// Returns: { comparisonDate: string, weight: number } 
+// weight = how much to trust last year data (0-1, where 0 = ignore last year, 1 = normal blend)
+function getHolidayAwareComparison(
+  todayStr: string,
+  lastYearSameDowStr: string
+): { comparisonDate: string | null; lastYearWeight: number; reason: string } {
+  const todayHoliday = getHolidayInfo(todayStr);
+  const lastYearHoliday = getHolidayInfo(lastYearSameDowStr);
+  
+  // Case 1: Today IS a major holiday - compare to same holiday last year
+  if (todayHoliday && todayHoliday.type === 'major') {
+    const sameHolidayLastYear = getSameHolidayLastYear(todayStr, todayHoliday.name);
+    if (sameHolidayLastYear) {
+      console.log(`[HOLIDAY] Today is ${todayHoliday.name} - comparing to same holiday last year: ${sameHolidayLastYear}`);
+      return { 
+        comparisonDate: sameHolidayLastYear, 
+        lastYearWeight: 1.0, 
+        reason: `Comparing ${todayHoliday.name} to ${todayHoliday.name} last year` 
+      };
+    }
+  }
+  
+  // Case 2: Today is a closed holiday - no projection needed (or very low)
+  if (todayHoliday && todayHoliday.type === 'closed') {
+    console.log(`[HOLIDAY] Today is ${todayHoliday.name} (closed) - minimal projection`);
+    return { 
+      comparisonDate: null, 
+      lastYearWeight: 0, 
+      reason: `${todayHoliday.name} - location likely closed` 
+    };
+  }
+  
+  // Case 3: Last year's comparison date is a major holiday - reduce its weight
+  if (lastYearHoliday && lastYearHoliday.type === 'major') {
+    console.log(`[HOLIDAY] Last year comparison (${lastYearSameDowStr}) was ${lastYearHoliday.name} - reducing weight to 20%`);
+    return { 
+      comparisonDate: lastYearSameDowStr, 
+      lastYearWeight: 0.2, // Heavily favor 4-week average
+      reason: `Last year was ${lastYearHoliday.name} - using mostly 4-week avg` 
+    };
+  }
+  
+  // Case 4: Last year's comparison date was a closed holiday - ignore it entirely
+  if (lastYearHoliday && lastYearHoliday.type === 'closed') {
+    console.log(`[HOLIDAY] Last year comparison (${lastYearSameDowStr}) was ${lastYearHoliday.name} (closed) - ignoring`);
+    return { 
+      comparisonDate: null, 
+      lastYearWeight: 0, 
+      reason: `Last year was ${lastYearHoliday.name} - using only 4-week avg` 
+    };
+  }
+  
+  // Case 5: Normal day - standard comparison
+  return { 
+    comparisonDate: lastYearSameDowStr, 
+    lastYearWeight: 0.5, // Normal 50/50 blend
+    reason: 'Normal day - standard blend' 
+  };
 }
 
 // Get dates for the last N same-day-of-weeks (e.g., last 4 Fridays if today is Friday)
@@ -730,6 +890,7 @@ async function fetchHistoricalDataFromCache(
   } | undefined;
   prevWeekSales: number;
   prevMonthSales: number;
+  holidayContext: { lastYearWeight: number; reason: string };
 }> {
   const today = new Date(todayStr + 'T12:00:00');
   const dayOfWeek = today.getDay();
@@ -819,7 +980,8 @@ async function fetchHistoricalDataFromCache(
       fourWeekHourlyPattern: undefined,
       lastYearData: undefined,
       prevWeekSales: 0,
-      prevMonthSales: 0
+      prevMonthSales: 0,
+      holidayContext: { lastYearWeight: 0.5, reason: 'Cache error - using default' }
     };
   }
   
@@ -958,13 +1120,62 @@ async function fetchHistoricalDataFromCache(
     console.log(`[CACHE] No last year data found`);
   }
   
+  // Get holiday-aware comparison context
+  const holidayContext = getHolidayAwareComparison(todayStr, lastYearTodayStr);
+  console.log(`[HOLIDAY] ${holidayContext.reason} (weight: ${holidayContext.lastYearWeight})`);
+  
+  // If holiday logic suggests a different comparison date, fetch and use that instead
+  if (holidayContext.comparisonDate && holidayContext.comparisonDate !== lastYearTodayStr) {
+    // Need to fetch the holiday comparison date if not already in cache
+    const holidayDateCached = cacheMap.get(holidayContext.comparisonDate);
+    if (holidayDateCached) {
+      if (lastYearData) {
+        lastYearData.sameDay = holidayDateCached.net_sales;
+        lastYearData.hourlyData = holidayDateCached.hourly_data as { hour: string; sales: number }[] | undefined;
+      } else {
+        lastYearData = {
+          sameDay: holidayDateCached.net_sales,
+          sameWeek: lastYearSameWeek,
+          sameMonth: lastYearSameMonth,
+          weeklyBreakdown: lastYearWeekDates.map(d => ({ date: d, sales: cacheMap.get(d)?.net_sales || 0 })),
+          hourlyData: holidayDateCached.hourly_data as { hour: string; sales: number }[] | undefined
+        };
+      }
+      console.log(`[HOLIDAY] Using ${holidayContext.comparisonDate} data: $${holidayDateCached.net_sales}`);
+    } else {
+      // Fetch the holiday date separately
+      const { data: holidayData } = await supabase
+        .from('sales_cache')
+        .select('net_sales, hourly_data')
+        .eq('location_id', locationId)
+        .eq('sale_date', holidayContext.comparisonDate)
+        .single();
+      
+      if (holidayData) {
+        if (lastYearData) {
+          lastYearData.sameDay = holidayData.net_sales || 0;
+          lastYearData.hourlyData = holidayData.hourly_data as { hour: string; sales: number }[] | undefined;
+        } else {
+          lastYearData = {
+            sameDay: holidayData.net_sales || 0,
+            sameWeek: lastYearSameWeek,
+            sameMonth: lastYearSameMonth,
+            weeklyBreakdown: lastYearWeekDates.map(d => ({ date: d, sales: cacheMap.get(d)?.net_sales || 0 })),
+            hourlyData: holidayData.hourly_data as { hour: string; sales: number }[] | undefined
+          };
+        }
+        console.log(`[HOLIDAY] Fetched ${holidayContext.comparisonDate} data: $${holidayData.net_sales}`);
+      }
+    }
+  }
+  
   // Previous week/month for comparison
   const prevWeekSales = prevWeekDates.reduce((sum, d) => sum + (cacheMap.get(d)?.net_sales || 0), 0);
   const prevMonthSales = prevMonthDates.reduce((sum, d) => sum + (cacheMap.get(d)?.net_sales || 0), 0);
   
   console.log(`[CACHE] Previous week: $${prevWeekSales}, Previous month: $${prevMonthSales}`);
   
-  return { fourWeekAverage, fourWeekHourlyPattern, lastYearData, prevWeekSales, prevMonthSales };
+  return { fourWeekAverage, fourWeekHourlyPattern, lastYearData, prevWeekSales, prevMonthSales, holidayContext };
 }
 
 // Generate sales projections using deterministic formula (no AI)
@@ -1216,7 +1427,8 @@ function generateProjections(
     avgWeekTotal: number;
     avgDailyByDayOfWeek: { dayOfWeek: number; avgSales: number }[];
     weeks: { weekStart: string; total: number }[];
-  }
+  },
+  holidayContext?: { lastYearWeight: number; reason: string }
 ): { todayProjected: number; todayPaceAdjusted: number; weekProjected: number; monthProjected: number } {
   const today = new Date(todayStr + 'T12:00:00');
   const dayOfWeek = today.getDay();
@@ -1225,15 +1437,19 @@ function generateProjections(
   const randomFactor = getSeededRandomFactor(`${todayStr}-${locationId}`);
   console.log(`Projection random factor for ${todayStr}/${locationId}: ${randomFactor.toFixed(4)} (${((randomFactor - 1) * 100).toFixed(2)}%)`);
   
+  // Holiday-aware weighting (default to 50/50 if not provided)
+  const lyWeight = holidayContext?.lastYearWeight ?? 0.5;
+  const fwWeight = 1 - lyWeight;
+  
   // === DAILY PROJECTION (Historical-based starting projection) ===
-  // (4-week avg for this day of week + last year same day) / 2 * random factor
+  // Uses holiday-aware weighting instead of simple 50/50 blend
   let todayProjected = 0;
   const fourWeekDayAvg = fourWeekAverage?.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0;
   const lastYearSameDay = lastYearData?.sameDay || 0;
   
   if (fourWeekDayAvg > 0 && lastYearSameDay > 0) {
-    // Both available: average them and apply random factor
-    todayProjected = ((fourWeekDayAvg + lastYearSameDay) / 2) * randomFactor;
+    // Both available: use holiday-aware weighted blend
+    todayProjected = ((fourWeekDayAvg * fwWeight) + (lastYearSameDay * lyWeight)) * randomFactor;
   } else if (fourWeekDayAvg > 0) {
     // Only 4-week avg available
     todayProjected = fourWeekDayAvg * randomFactor;
@@ -1752,7 +1968,7 @@ serve(async (req) => {
       timezone
     );
     
-    const { fourWeekAverage, fourWeekHourlyPattern, prevWeekSales, prevMonthSales } = historicalData;
+    const { fourWeekAverage, fourWeekHourlyPattern, prevWeekSales, prevMonthSales, holidayContext } = historicalData;
     
     // Map lastYearData to expected shape (without hourlyData field for compatibility)
     const lastYearData = historicalData.lastYearData ? {
@@ -1764,6 +1980,7 @@ serve(async (req) => {
 
     // First, calculate preliminary daily projection for hourly distribution
     // This is needed before we can calculate pace-adjusted projection
+    // Uses holiday-aware weighting for the blend
     let preliminaryTodayProjected = dailySales * 1.3; // Default fallback
     
     if (fourWeekAverage || lastYearData) {
@@ -1772,12 +1989,20 @@ serve(async (req) => {
       const fourWeekDayAvg = fourWeekAverage?.avgDailyByDayOfWeek.find(d => d.dayOfWeek === dayOfWeek)?.avgSales || 0;
       const lastYearSameDay = lastYearData?.sameDay || 0;
       
+      // Use holiday-aware weighting instead of simple 50/50 blend
+      const lyWeight = holidayContext.lastYearWeight;
+      const fwWeight = 1 - lyWeight;
+      
       if (fourWeekDayAvg > 0 && lastYearSameDay > 0) {
-        preliminaryTodayProjected = (fourWeekDayAvg + lastYearSameDay) / 2;
+        // Weighted blend based on holiday context
+        preliminaryTodayProjected = (fourWeekDayAvg * fwWeight) + (lastYearSameDay * lyWeight);
+        console.log(`[PROJECTION] Holiday-aware blend: 4wk($${fourWeekDayAvg.toFixed(0)} × ${(fwWeight * 100).toFixed(0)}%) + LY($${lastYearSameDay.toFixed(0)} × ${(lyWeight * 100).toFixed(0)}%) = $${preliminaryTodayProjected.toFixed(0)}`);
       } else if (fourWeekDayAvg > 0) {
         preliminaryTodayProjected = fourWeekDayAvg;
+        console.log(`[PROJECTION] Using 4-week avg only: $${fourWeekDayAvg.toFixed(0)}`);
       } else if (lastYearSameDay > 0) {
         preliminaryTodayProjected = lastYearSameDay;
+        console.log(`[PROJECTION] Using last year only: $${lastYearSameDay.toFixed(0)}`);
       }
     }
     
@@ -1811,7 +2036,8 @@ serve(async (req) => {
         locationId || 'default',
         hourlyWithProjections,
         lastYearData,
-        fourWeekAverage
+        fourWeekAverage,
+        holidayContext
       );
     } else {
       console.log('Skipping projection totals - client has cached values');
