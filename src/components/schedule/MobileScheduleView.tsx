@@ -88,6 +88,9 @@ interface DayPunch {
   user_id: string;
   clockInTime: string;
   clockOutTime: string | null;
+  breakStartTime: string | null;
+  breakEndTime: string | null;
+  breakType: string | null;
   isActive: boolean;
   profile: Profile;
   hoursWorked: number;
@@ -173,7 +176,7 @@ export function MobileScheduleView({
     // Get ALL punches for today ordered by time
     const { data: allPunches } = await supabase
       .from('time_punches')
-      .select('id, user_id, punch_time, punch_type')
+      .select('id, user_id, punch_time, punch_type, notes')
       .eq('location_id', currentLocation.id)
       .gte('punch_time', startOfDay)
       .lte('punch_time', endOfDay)
@@ -205,7 +208,7 @@ export function MobileScheduleView({
     setTodayEvents(filteredEvents);
     
     // Group by user and build punch summaries for each user
-    const userPunches: Record<string, Array<{id: string, punch_time: string, punch_type: string}>> = {};
+    const userPunches: Record<string, Array<{id: string, punch_time: string, punch_type: string, notes: string | null}>> = {};
     allPunches?.forEach(p => {
       if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
       userPunches[p.user_id].push(p);
@@ -217,6 +220,8 @@ export function MobileScheduleView({
       let isClockedIn = false;
       let firstClockIn: { id: string; punch_time: string } | null = null;
       let lastClockOut: { punch_time: string } | null = null;
+      let breakStart: { punch_time: string; notes: string } | null = null;
+      let breakEnd: { punch_time: string } | null = null;
 
       // punches are already sorted by time asc
       punches.forEach((p) => {
@@ -233,6 +238,16 @@ export function MobileScheduleView({
           lastClockOut = { punch_time: p.punch_time };
           return;
         }
+
+        if (p.punch_type === 'break_start') {
+          breakStart = { punch_time: p.punch_time, notes: p.notes || '' };
+          return;
+        }
+
+        if (p.punch_type === 'break_end') {
+          breakEnd = { punch_time: p.punch_time };
+          return;
+        }
       });
 
       if (firstClockIn) {
@@ -247,6 +262,9 @@ export function MobileScheduleView({
           user_id: userId,
           clockInTime: firstClockIn.punch_time,
           clockOutTime,
+          breakStartTime: breakStart?.punch_time || null,
+          breakEndTime: breakEnd?.punch_time || null,
+          breakType: breakStart?.notes || null,
           isActive: isClockedIn,
           profile: profile || { id: userId, full_name: 'Unknown', profile_photo_url: null },
           hoursWorked,
@@ -419,7 +437,18 @@ export function MobileScheduleView({
                             )}
                           </div>
                           
-                          {/* Break row - placeholder for future */}
+                          {/* Break row */}
+                          {punch.breakStartTime && (
+                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                              <span>Break: <span className="text-foreground font-medium">{formatTimeDisplay(punch.breakStartTime, timezone)}</span></span>
+                              {punch.breakEndTime && (
+                                <span>- <span className="text-foreground font-medium">{formatTimeDisplay(punch.breakEndTime, timezone)}</span></span>
+                              )}
+                              {punch.breakType && (
+                                <span className="text-xs">({punch.breakType})</span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
