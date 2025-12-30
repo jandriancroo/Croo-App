@@ -396,11 +396,12 @@ export default function Schedule() {
       // Sort by role first, then by display_order within each role
       const roleOrder: Record<string, number> = { 
         super_admin: 0,
-        admin: 1, 
-        general_manager: 2,
-        shift_manager: 3,
-        manager: 3, 
-        team_member: 4 
+        brand_admin: 1,
+        org_admin: 2,
+        admin: 3, 
+        manager: 4, 
+        shift_manager: 5,
+        team_member: 6 
       };
       profilesWithRoles.sort((a, b) => {
         const aRoleOrder = roleOrder[a.role as string] ?? 5;

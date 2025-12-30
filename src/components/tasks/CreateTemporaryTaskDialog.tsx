@@ -47,8 +47,10 @@ const ACCENT_COLORS = [
 ];
 
 const ROLE_OPTIONS = [
+  { value: "brand_admin", label: "Brand Admin" },
+  { value: "org_admin", label: "Org Admin" },
   { value: "admin", label: "Admin" },
-  { value: "general_manager", label: "General Manager" },
+  { value: "manager", label: "Manager" },
   { value: "shift_manager", label: "Shift Manager" },
   { value: "team_member", label: "Team Member" },
 ];
