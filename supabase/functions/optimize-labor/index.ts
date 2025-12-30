@@ -76,7 +76,7 @@ serve(async (req) => {
 
     const weekStartDate = new Date(week_start + "T12:00:00Z");
 
-    // Get employee wages
+    // Get employee wages and roles
     const userIds = [...new Set((generated_shifts || []).map((s: GeneratedShift) => s.user_id))];
     
     const { data: profiles, error: profileError } = await supabase
@@ -86,12 +86,42 @@ serve(async (req) => {
 
     if (profileError) throw profileError;
 
+    // Get user roles to prioritize cutting team members before managers
+    const { data: userRoles, error: rolesError } = await supabase
+      .from("user_roles")
+      .select("user_id, role")
+      .in("user_id", userIds);
+
+    if (rolesError) throw rolesError;
+
     const wageMap = new Map<string, number>();
     const nameMap = new Map<string, string>();
+    const roleMap = new Map<string, string>();
+    
     (profiles || []).forEach((p: any) => {
       wageMap.set(p.id, p.hourly_wage || 15);
       nameMap.set(p.id, p.full_name || 'Unknown');
     });
+
+    // Map user roles - managers/shift_managers/admins get priority protection
+    (userRoles || []).forEach((r: any) => {
+      const currentRole = roleMap.get(r.user_id);
+      // Keep highest role if user has multiple
+      if (!currentRole || isHigherRole(r.role, currentRole)) {
+        roleMap.set(r.user_id, r.role);
+      }
+    });
+
+    // Helper to check if role is a manager-level role (protected from cuts)
+    const isManagerRole = (role: string | undefined): boolean => {
+      return ['admin', 'general_manager', 'manager', 'shift_manager', 'org_admin', 'super_admin', 'fbc', 'brand_admin'].includes(role || '');
+    };
+
+    // Helper to compare roles (for keeping highest)
+    function isHigherRole(newRole: string, currentRole: string): boolean {
+      const roleOrder = ['team_member', 'shift_manager', 'manager', 'general_manager', 'admin', 'org_admin', 'fbc', 'brand_admin', 'super_admin'];
+      return roleOrder.indexOf(newRole) > roleOrder.indexOf(currentRole);
+    }
 
     // Get hourly coverage requirements from template
     let hourlyCoverage: HourlyCoverage[] = [];
@@ -317,13 +347,24 @@ serve(async (req) => {
         .map((s, i) => s.day_of_week === daySummary.dayOfWeek ? i : -1)
         .filter(i => i !== -1);
 
-      // Sort shifts by wage (trim higher-paid employees first for max savings)
-      // But also exclude closing shifts from consideration
+      // Sort shifts: team members first (cut them before managers), then by wage (higher paid first for max savings)
+      // Exclude closing shifts from consideration
       const eligibleShiftIndices = dayShiftIndices.filter(i => !isClosingShift(optimizedShifts, i));
       
-      eligibleShiftIndices.sort((a, b) => 
-        (optimizedShifts[b].hourly_wage || 15) - (optimizedShifts[a].hourly_wage || 15)
-      );
+      eligibleShiftIndices.sort((a, b) => {
+        const aShift = optimizedShifts[a];
+        const bShift = optimizedShifts[b];
+        const aIsManager = isManagerRole(roleMap.get(aShift.user_id));
+        const bIsManager = isManagerRole(roleMap.get(bShift.user_id));
+        
+        // Team members come first (they get cut before managers)
+        if (aIsManager !== bIsManager) {
+          return aIsManager ? 1 : -1; // Non-managers (team members) first
+        }
+        
+        // Within same role category, sort by wage (higher paid first for max savings)
+        return (bShift.hourly_wage || 15) - (aShift.hourly_wage || 15);
+      });
 
       console.log(`Day ${daySummary.dayOfWeek}: ${dayShiftIndices.length} total shifts, ${eligibleShiftIndices.length} eligible for trimming (excluded closers)`);
 
