@@ -109,8 +109,28 @@ serve(async (req) => {
       }));
     }
 
-    // Get projected sales from hourly coverage or week template assignments
-    const { data: salesData, error: salesError } = await supabase
+    // Get per-day labor targets and projected sales from week_template_day_settings
+    const dailySettings: Record<number, { laborTarget: number; projectedSales: number }> = {};
+    if (template_id) {
+      const { data: daySettingsData, error: daySettingsError } = await supabase
+        .from("week_template_day_settings")
+        .select("day_of_week, labor_percentage_target, projected_sales")
+        .eq("week_template_id", template_id);
+
+      if (daySettingsError) {
+        console.log("No day settings found, will use defaults:", daySettingsError.message);
+      }
+
+      (daySettingsData || []).forEach((ds: any) => {
+        dailySettings[ds.day_of_week] = {
+          laborTarget: ds.labor_percentage_target || 25,
+          projectedSales: ds.projected_sales || 0,
+        };
+      });
+    }
+
+    // Fallback: Get projected sales from hourly coverage if day settings don't have it
+    const { data: salesData } = await supabase
       .from("week_template_hourly_coverage")
       .select("day_of_week, projected_sales")
       .eq("week_template_id", template_id || '');
@@ -137,9 +157,9 @@ serve(async (req) => {
       hourly_wage: wageMap.get(s.user_id) || 15,
     }));
 
-    // Calculate labor summary per day
+    // Calculate labor summary per day using per-day targets from template
     const laborSummary: LaborSummary[] = [];
-    const targetPct = labor_percentage_target || 25; // Default 25% labor target
+    const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
     for (let day = 0; day < 7; day++) {
       const dayShifts = shiftsWithWages.filter(s => s.day_of_week === day);
@@ -152,13 +172,15 @@ serve(async (req) => {
         totalLaborCost += hours * (shift.hourly_wage || 15);
       });
 
-      const projectedSales = dailySales[day] || 0;
+      // Use per-day settings if available, fallback to hourly coverage aggregation
+      const daySettings = dailySettings[day];
+      const projectedSales = daySettings?.projectedSales || dailySales[day] || 0;
+      const targetPct = daySettings?.laborTarget || 25; // Per-day target or default 25%
+      
       const laborPercentage = projectedSales > 0 ? (totalLaborCost / projectedSales) * 100 : 0;
       const overBudget = projectedSales > 0 && laborPercentage > targetPct;
       const targetLaborCost = projectedSales * (targetPct / 100);
       const amountOverBudget = overBudget ? totalLaborCost - targetLaborCost : 0;
-
-      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
       laborSummary.push({
         dayOfWeek: day,
@@ -363,13 +385,15 @@ serve(async (req) => {
         totalLaborCost += hours * (shift.hourly_wage || 15);
       });
 
-      const projectedSales = dailySales[day] || 0;
+      // Use per-day settings if available
+      const daySettings = dailySettings[day];
+      const projectedSales = daySettings?.projectedSales || dailySales[day] || 0;
+      const targetPct = daySettings?.laborTarget || 25;
+      
       const laborPercentage = projectedSales > 0 ? (totalLaborCost / projectedSales) * 100 : 0;
       const overBudget = projectedSales > 0 && laborPercentage > targetPct;
       const targetLaborCost = projectedSales * (targetPct / 100);
       const amountOverBudget = overBudget ? totalLaborCost - targetLaborCost : 0;
-
-      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
       optimizedLaborSummary.push({
         dayOfWeek: day,
