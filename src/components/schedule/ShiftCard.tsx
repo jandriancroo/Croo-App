@@ -88,16 +88,22 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
     ? "opacity-70 border-2 border-dashed border-white/60 grayscale-[30%]"
     : "";
 
-  // Split position into two lines if it has multiple words
+  // Split position into two lines if it has exactly 2 words
   const formatPosition = (pos: string) => {
     const words = pos.split(' ');
-    if (words.length >= 2) {
-      return words.map((word, i) => (
-        <div key={i}>{word}</div>
-      ));
+    if (words.length === 2) {
+      return (
+        <>
+          <div>{words[0]}</div>
+          <div>{words[1]}</div>
+        </>
+      );
     }
     return pos;
   };
+
+  // For templates, use the position/role field, not the full template_name
+  const templatePosition = shift.isTemplate ? (template?.position || template?.role) : null;
 
   return (
     <Card
@@ -112,8 +118,8 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
         <div className="text-white text-xs font-semibold leading-tight">
           {`${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
         </div>
-        {shift.isTemplate && shiftData.template_name && (
-          <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight">{formatPosition(shiftData.template_name)}</div>
+        {shift.isTemplate && templatePosition && (
+          <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight">{formatPosition(templatePosition)}</div>
         )}
         {!shift.isTemplate && position && (
           <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight">{formatPosition(position)}</div>
