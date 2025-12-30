@@ -1325,21 +1325,25 @@ export default function Schedule() {
                     );
                   })}
 
-                  {/* Unassigned Shifts */}
-                  <EmployeeRow
-                    profile={{ id: "unassigned", full_name: "Unassigned", profile_photo_url: null }}
-                    shifts={shifts.filter((s) => s.user_id === null)}
-                    templates={templates}
-                    availabilityRequests={[]}
-                    currentWeekStart={currentWeekStart}
-                    isEditable={isAdmin || isManager}
-                    onUpdate={fetchScheduleData}
-                    canTakeShifts={isAdmin || isManager}
-                    currentUserId={currentUserId || undefined}
-                    onEditShift={setEditingShift}
-                    isPublished={isPublished}
-                    publishedSnapshot={publishedSnapshot}
-                  />
+                  {/* Unassigned Shifts - only show if there are unassigned shifts */}
+                  {shifts.filter((s) => s.user_id === null).length > 0 && (
+                    <div className="bg-muted/20 border-t border-dashed border-border">
+                      <EmployeeRow
+                        profile={{ id: "unassigned", full_name: "Unassigned", profile_photo_url: null }}
+                        shifts={shifts.filter((s) => s.user_id === null)}
+                        templates={templates}
+                        availabilityRequests={[]}
+                        currentWeekStart={currentWeekStart}
+                        isEditable={isAdmin || isManager}
+                        onUpdate={fetchScheduleData}
+                        canTakeShifts={isAdmin || isManager}
+                        currentUserId={currentUserId || undefined}
+                        onEditShift={setEditingShift}
+                        isPublished={isPublished}
+                        publishedSnapshot={publishedSnapshot}
+                      />
+                    </div>
+                  )}
                 </>
               )}
             </div>
