@@ -41,6 +41,10 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Unauthorized");
     }
 
+    // Parse request body for location_id
+    const body = await req.json().catch(() => ({}));
+    const locationId = body.location_id;
+
     // Create admin client
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
       auth: {
@@ -58,23 +62,14 @@ const handler = async (req: Request): Promise<Response> => {
       throw new Error("Only admins can create test users");
     }
 
-    // Test user data
+    // Test user data - 6 new test employees
     const testUsers = [
-      { email: 'john.smith@test.com', name: 'John Smith', role: 'team_member' },
-      { email: 'sarah.johnson@test.com', name: 'Sarah Johnson', role: 'team_member' },
-      { email: 'michael.williams@test.com', name: 'Michael Williams', role: 'manager' },
-      { email: 'emily.brown@test.com', name: 'Emily Brown', role: 'team_member' },
-      { email: 'david.jones@test.com', name: 'David Jones', role: 'team_member' },
-      { email: 'jessica.garcia@test.com', name: 'Jessica Garcia', role: 'manager' },
-      { email: 'james.martinez@test.com', name: 'James Martinez', role: 'team_member' },
-      { email: 'lisa.rodriguez@test.com', name: 'Lisa Rodriguez', role: 'team_member' },
-      { email: 'robert.davis@test.com', name: 'Robert Davis', role: 'team_member' },
-      { email: 'amanda.miller@test.com', name: 'Amanda Miller', role: 'manager' },
-      { email: 'christopher.wilson@test.com', name: 'Christopher Wilson', role: 'team_member' },
-      { email: 'jennifer.moore@test.com', name: 'Jennifer Moore', role: 'team_member' },
-      { email: 'matthew.taylor@test.com', name: 'Matthew Taylor', role: 'team_member' },
-      { email: 'ashley.anderson@test.com', name: 'Ashley Anderson', role: 'team_member' },
-      { email: 'daniel.thomas@test.com', name: 'Daniel Thomas', role: 'team_member' },
+      { email: 'test.alpha@example.com', name: 'Test Employee Alpha', role: 'team_member' },
+      { email: 'test.beta@example.com', name: 'Test Employee Beta', role: 'team_member' },
+      { email: 'test.gamma@example.com', name: 'Test Employee Gamma', role: 'team_member' },
+      { email: 'test.delta@example.com', name: 'Test Employee Delta', role: 'team_member' },
+      { email: 'test.echo@example.com', name: 'Test Employee Echo', role: 'team_member' },
+      { email: 'test.foxtrot@example.com', name: 'Test Employee Foxtrot', role: 'team_member' },
     ];
 
     const createdUsers = [];
@@ -82,36 +77,82 @@ const handler = async (req: Request): Promise<Response> => {
 
     for (const testUser of testUsers) {
       try {
-        // Create auth user
-        const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
-          email: testUser.email,
-          password: 'TestPassword123!',
-          email_confirm: true,
-          user_metadata: {
-            full_name: testUser.name,
-          },
-        });
-
-        if (authError) throw authError;
-
-        // Profile will be created automatically by trigger
-        // Just need to assign role
-        const { error: roleError } = await supabaseAdmin
-          .from('user_roles')
-          .upsert({
-            user_id: authUser.user.id,
-            role: testUser.role,
+        // Check if user already exists
+        const { data: existingUsers } = await supabaseAdmin.auth.admin.listUsers();
+        const existingUser = existingUsers?.users?.find(u => u.email === testUser.email);
+        
+        let userId: string;
+        
+        if (existingUser) {
+          console.log(`User ${testUser.email} already exists, skipping creation`);
+          userId = existingUser.id;
+        } else {
+          // Create auth user
+          const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+            email: testUser.email,
+            password: 'TestPassword123!',
+            email_confirm: true,
+            user_metadata: {
+              full_name: testUser.name,
+            },
           });
 
-        if (roleError) throw roleError;
+          if (authError) throw authError;
+          userId = authUser.user.id;
+          console.log(`Created auth user for ${testUser.email}`);
+        }
 
-        createdUsers.push({ email: testUser.email, id: authUser.user.id });
+        // Update profile with scheduling info
+        const { error: profileError } = await supabaseAdmin
+          .from('profiles')
+          .update({
+            is_active: true,
+            appears_on_schedule: true,
+            min_weekly_hours: 20,
+            max_weekly_hours: 39,
+          })
+          .eq('id', userId);
+
+        if (profileError) {
+          console.error(`Profile update error for ${testUser.email}:`, profileError);
+        }
+
+        // Assign role
+        const { error: roleInsertError } = await supabaseAdmin
+          .from('user_roles')
+          .upsert({
+            user_id: userId,
+            role: testUser.role,
+          }, { onConflict: 'user_id,role' });
+
+        if (roleInsertError) {
+          console.error(`Role assignment error for ${testUser.email}:`, roleInsertError);
+        }
+
+        // Assign to location if provided
+        if (locationId) {
+          const { error: locationError } = await supabaseAdmin
+            .from('user_locations')
+            .upsert({
+              user_id: userId,
+              location_id: locationId,
+            }, { onConflict: 'user_id,location_id' });
+
+          if (locationError) {
+            console.error(`Location assignment error for ${testUser.email}:`, locationError);
+          } else {
+            console.log(`Assigned ${testUser.email} to location ${locationId}`);
+          }
+        }
+
+        createdUsers.push({ email: testUser.email, id: userId, name: testUser.name });
       } catch (error: any) {
+        console.error(`Error creating ${testUser.email}:`, error);
         errors.push({ email: testUser.email, error: error.message });
       }
     }
 
-    console.log(`Created ${createdUsers.length} test users`);
+    console.log(`Created/updated ${createdUsers.length} test users`);
 
     return new Response(
       JSON.stringify({
@@ -119,6 +160,7 @@ const handler = async (req: Request): Promise<Response> => {
         created: createdUsers.length,
         users: createdUsers,
         errors,
+        locationId,
       }),
       {
         status: 200,
