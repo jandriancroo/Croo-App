@@ -94,7 +94,7 @@ export function EmployeeRow({
     const wage = profile.hourly_wage || 15.00;
     return (hours * wage).toFixed(2);
   };
-  return <div ref={setNodeRef} style={style} className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[120px_repeat(7,1fr)] lg:grid-cols-[160px_repeat(7,1fr)] gap-0 border-b border-dotted border-border/50 relative">
+  return <div ref={setNodeRef} style={style} className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[120px_repeat(7,1fr)] lg:grid-cols-[160px_repeat(7,1fr)] gap-0 border-b border-dotted border-border/50 relative auto-rows-fr">
       {/* Drag Handle in Left Margin */}
       {isDraggable && profile.id !== "unassigned" && <div {...attributes} {...listeners} className="absolute -left-6 top-0 bottom-0 w-5 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground z-20">
           <GripVertical className="h-5 w-5" />
@@ -177,7 +177,7 @@ function DayCell({
   });
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
-  }} className={`min-h-[70px] p-1.5 border-r last:border-r-0 border-border transition-colors flex flex-col items-stretch ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
+  }} className={`min-h-[70px] p-1.5 border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
       <div className="space-y-1">
         {shifts.map(shift => {
           // A shift is a draft if schedule is unpublished AND (shift is new OR shift has been modified)
