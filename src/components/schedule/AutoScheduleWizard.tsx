@@ -28,7 +28,11 @@ import {
   Loader2,
   Copy,
   Users,
+  DollarSign,
+  Scissors,
+  TrendingDown,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 interface AutoScheduleWizardProps {
   open: boolean;
@@ -81,6 +85,32 @@ interface GeneratedShift {
   template_name?: string;
 }
 
+interface LaborSummary {
+  dayOfWeek: number;
+  dayName: string;
+  totalHours: number;
+  totalLaborCost: number;
+  projectedSales: number;
+  laborPercentage: number;
+  targetPercentage: number;
+  overBudget: boolean;
+  amountOverBudget: number;
+}
+
+interface TrimSuggestion {
+  shiftIndex: number;
+  user_id: string;
+  userName: string;
+  day_of_week: number;
+  original_start: string;
+  original_end: string;
+  suggested_start: string;
+  suggested_end: string;
+  minutesTrimmed: number;
+  laborSaved: number;
+  trimType: 'start' | 'end';
+}
+
 export function AutoScheduleWizard({
   open,
   onOpenChange,
@@ -100,13 +130,30 @@ export function AutoScheduleWizard({
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [employeeCount, setEmployeeCount] = useState(0);
+  
+  // Labor optimization state
+  const [laborSummary, setLaborSummary] = useState<LaborSummary[]>([]);
+  const [optimizedLaborSummary, setOptimizedLaborSummary] = useState<LaborSummary[]>([]);
+  const [trimSuggestions, setTrimSuggestions] = useState<TrimSuggestion[]>([]);
+  const [totalSavings, setTotalSavings] = useState(0);
+  const [laborTarget, setLaborTarget] = useState(25); // Default 25%
+  const [enableLaborOptimization, setEnableLaborOptimization] = useState(true);
+  const [optimizedShifts, setOptimizedShifts] = useState<GeneratedShift[]>([]);
+  const [useOptimizedShifts, setUseOptimizedShifts] = useState(true);
 
   useEffect(() => {
     if (open) {
       setStep(1);
       setSourceType("template");
       setSelectedTemplateId(null);
+      setTrimSuggestions([]);
+      setLaborSummary([]);
+      setOptimizedLaborSummary([]);
+      setTotalSavings(0);
+      setOptimizedShifts([]);
+      setUseOptimizedShifts(true);
       fetchTemplates();
+      fetchLaborTarget();
     }
   }, [open, locationId]);
 
@@ -115,6 +162,25 @@ export function AutoScheduleWizard({
       fetchAvailabilityRequests();
     }
   }, [open, step, currentWeekStart, locationId]);
+
+  const fetchLaborTarget = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("location_settings")
+        .select("labor_percentage_target")
+        .eq("location_id", locationId)
+        .single();
+
+      if (!error && data) {
+        const target = (data as any).labor_percentage_target;
+        if (target) {
+          setLaborTarget(target);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching labor target:", error);
+    }
+  };
 
   const fetchTemplates = async () => {
     try {
@@ -251,6 +317,43 @@ export function AutoScheduleWizard({
     }
   };
 
+  const optimizeLabor = async () => {
+    if (!enableLaborOptimization) {
+      // Skip optimization, go straight to apply
+      setStep(4);
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const response = await supabase.functions.invoke("optimize-labor", {
+        body: {
+          location_id: locationId,
+          week_start: format(currentWeekStart, "yyyy-MM-dd"),
+          template_id: sourceType === "template" ? selectedTemplateId : null,
+          generated_shifts: generatedShifts,
+          labor_percentage_target: laborTarget,
+          action: 'optimize',
+        },
+      });
+
+      if (response.error) throw response.error;
+
+      const result = response.data;
+      setLaborSummary(result.originalLaborSummary || []);
+      setOptimizedLaborSummary(result.optimizedLaborSummary || []);
+      setOptimizedShifts(result.optimizedShifts || []);
+      setTrimSuggestions(result.trimSuggestions || []);
+      setTotalSavings(result.totalSavings || 0);
+      setStep(4);
+    } catch (error: any) {
+      console.error("Error optimizing labor:", error);
+      toast.error(error.message || "Failed to optimize labor");
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const applySchedule = async () => {
     if (!scheduleId) {
       toast.error("No schedule found for this week");
@@ -259,9 +362,13 @@ export function AutoScheduleWizard({
 
     setProcessing(true);
     try {
-      // Insert all generated shifts
-      if (generatedShifts.length > 0) {
-        const shiftsToInsert = generatedShifts.map(shift => ({
+      // Use optimized shifts if labor optimization was applied, otherwise use generated shifts
+      const shiftsToApply = useOptimizedShifts && optimizedShifts.length > 0 
+        ? optimizedShifts 
+        : generatedShifts;
+
+      if (shiftsToApply.length > 0) {
+        const shiftsToInsert = shiftsToApply.map(shift => ({
           schedule_id: scheduleId,
           user_id: shift.user_id,
           day_of_week: shift.day_of_week,
@@ -279,7 +386,7 @@ export function AutoScheduleWizard({
         if (error) throw error;
       }
 
-      toast.success(`${generatedShifts.length} shifts added to schedule`);
+      toast.success(`${shiftsToApply.length} shifts added to schedule`);
       onScheduleGenerated();
       onOpenChange(false);
     } catch (error: any) {
@@ -328,7 +435,7 @@ export function AutoScheduleWizard({
             <Sparkles className="h-5 w-5 text-primary" />
             Croo AI Auto Schedule
             <Badge variant="secondary" className="ml-2">
-              Step {step} of 3
+              Step {step} of 4
             </Badge>
           </DialogTitle>
         </DialogHeader>
@@ -586,6 +693,77 @@ export function AutoScheduleWizard({
               )}
             </div>
           )}
+
+          {/* Step 4: Labor Optimization */}
+          {step === 4 && (
+            <div className="space-y-4">
+              {/* Savings Summary */}
+              {totalSavings > 0 ? (
+                <Card className="p-4 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center">
+                      <TrendingDown className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Labor Optimized</p>
+                      <p className="text-xl font-bold text-green-600 dark:text-green-400">
+                        ${totalSavings.toFixed(2)} saved
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              ) : (
+                <Card className="p-4 bg-muted/50">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Check className="h-5 w-5" />
+                    <span>Labor is within target - no adjustments needed</span>
+                  </div>
+                </Card>
+              )}
+
+              {/* Trim suggestions */}
+              {trimSuggestions.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-medium flex items-center gap-2">
+                      <Scissors className="h-4 w-4" />
+                      Shift Adjustments ({trimSuggestions.length})
+                    </h3>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="use-optimized" className="text-xs text-muted-foreground">
+                        Apply trimmed shifts
+                      </Label>
+                      <Switch
+                        id="use-optimized"
+                        checked={useOptimizedShifts}
+                        onCheckedChange={setUseOptimizedShifts}
+                      />
+                    </div>
+                  </div>
+                  <ScrollArea className="h-[180px]">
+                    <div className="space-y-1 pr-3">
+                      {trimSuggestions.map((trim, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between p-2 rounded-md bg-muted/50 text-sm gap-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate">{trim.userName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {getDayName(trim.day_of_week)} • {trim.trimType === 'end' ? 'End' : 'Start'} -{trim.minutesTrimmed}min
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-green-600 flex-shrink-0 text-xs">
+                            -${trim.laborSaved.toFixed(2)}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <DialogFooter className="flex-shrink-0 gap-2">
@@ -627,7 +805,23 @@ export function AutoScheduleWizard({
           )}
 
           {step === 3 && (
-            <Button onClick={applySchedule} disabled={processing || generatedShifts.length === 0}>
+            <Button onClick={optimizeLabor} disabled={processing || generatedShifts.length === 0}>
+              {processing ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Optimizing...
+                </>
+              ) : (
+                <>
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Optimize Labor
+                </>
+              )}
+            </Button>
+          )}
+
+          {step === 4 && (
+            <Button onClick={applySchedule} disabled={processing}>
               {processing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
