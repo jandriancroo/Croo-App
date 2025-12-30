@@ -2036,6 +2036,11 @@ serve(async (req) => {
         prevWeek: prevWeekSales, // Week-to-date comparison
         prevMonth: prevMonthSales // Month-to-date comparison
       },
+      lastYear: lastYearData ? {
+        sameDay: lastYearData.sameDay,
+        sameWeek: lastYearData.sameWeek,
+        sameMonth: lastYearData.sameMonth
+      } : undefined,
       projections, // AI-powered projections
       productMix,
       tills: tillsData, // Tills data for drawer count expected cash
