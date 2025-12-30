@@ -39,7 +39,8 @@ export function QuickPunchDialog({
   const [endTime, setEndTime] = useState('');
   const [includeBreak, setIncludeBreak] = useState(false);
   const [breakStartTime, setBreakStartTime] = useState('');
-  const [breakDuration, setBreakDuration] = useState<'10' | '30'>('30');
+  const [breakEndTime, setBreakEndTime] = useState('');
+  const [breakType, setBreakType] = useState<'paid' | 'unpaid'>('unpaid');
   const [saving, setSaving] = useState(false);
 
   // Reset and set defaults when dialog opens
@@ -51,21 +52,12 @@ export function QuickPunchDialog({
       setStartTime(`${hours}:${minutes}`);
       setEndTime('');
       setBreakStartTime('');
-      setBreakDuration('30');
+      setBreakEndTime('');
+      setBreakType('unpaid');
       setIncludeBreak(false);
       setSelectedUserId('');
     }
   }, [open]);
-
-  // Calculate break end time based on break start and duration
-  const getBreakEndTime = () => {
-    if (!breakStartTime) return '';
-    const [hours, minutes] = breakStartTime.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes + parseInt(breakDuration);
-    const endHours = Math.floor(totalMinutes / 60) % 24;
-    const endMinutes = totalMinutes % 60;
-    return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
-  };
 
   const handleQuickPunchNow = async () => {
     if (!selectedUserId) {
@@ -93,7 +85,7 @@ export function QuickPunchDialog({
       // If break included, create break punches
       if (includeBreak && breakStartTime) {
         const breakStartPunch = new Date(`${punchDate}T${breakStartTime}:00`);
-        const breakNotes = `${breakDuration} minute ${breakDuration === '30' ? 'unpaid' : 'paid'} break`;
+        const breakNotes = `${breakType} break`;
         
         const { error: breakStartError } = await supabase
           .from('time_punches')
@@ -106,10 +98,9 @@ export function QuickPunchDialog({
           });
         if (breakStartError) throw breakStartError;
 
-        // Calculate and create break end
-        const breakEndTimeStr = getBreakEndTime();
-        if (breakEndTimeStr) {
-          const breakEndPunch = new Date(`${punchDate}T${breakEndTimeStr}:00`);
+        // Create break end if provided
+        if (breakEndTime) {
+          const breakEndPunch = new Date(`${punchDate}T${breakEndTime}:00`);
           const { error: breakEndError } = await supabase
             .from('time_punches')
             .insert({
@@ -152,7 +143,6 @@ export function QuickPunchDialog({
   };
 
   const selectedProfile = profiles.find(p => p.id === selectedUserId);
-  const breakEndTime = getBreakEndTime();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -239,13 +229,13 @@ export function QuickPunchDialog({
             <div className="space-y-3 p-3 border rounded-lg bg-background">
               <div className="space-y-2">
                 <Label>Break Type</Label>
-                <Select value={breakDuration} onValueChange={(v) => setBreakDuration(v as '10' | '30')}>
+                <Select value={breakType} onValueChange={(v) => setBreakType(v as 'paid' | 'unpaid')}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="10">10 min paid break</SelectItem>
-                    <SelectItem value="30">30 min unpaid break</SelectItem>
+                    <SelectItem value="paid">Paid break</SelectItem>
+                    <SelectItem value="unpaid">Unpaid break</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -264,13 +254,12 @@ export function QuickPunchDialog({
                   <Input
                     type="time"
                     value={breakEndTime}
-                    disabled
-                    className="bg-muted"
+                    onChange={(e) => setBreakEndTime(e.target.value)}
                   />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                {breakDuration === '30' ? '30 min unpaid - deducted from hours' : '10 min paid - not deducted'}
+                {breakType === 'unpaid' ? 'Unpaid - deducted from hours' : 'Paid - not deducted'}
               </p>
             </div>
           )}

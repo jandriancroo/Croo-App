@@ -56,21 +56,12 @@ export function EditPunchDialog({
   const [clockOutTime, setClockOutTime] = useState('');
   const [includeBreak, setIncludeBreak] = useState(false);
   const [breakStartTime, setBreakStartTime] = useState('');
-  const [breakDuration, setBreakDuration] = useState<'10' | '30'>('30');
+  const [breakEndTime, setBreakEndTime] = useState('');
+  const [breakType, setBreakType] = useState<'paid' | 'unpaid'>('unpaid');
   const [punches, setPunches] = useState<PunchRecord[]>([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
-  // Calculate break end time based on break start and duration
-  const getBreakEndTime = () => {
-    if (!breakStartTime) return '';
-    const [hours, minutes] = breakStartTime.split(':').map(Number);
-    const totalMinutes = hours * 60 + minutes + parseInt(breakDuration);
-    const endHours = Math.floor(totalMinutes / 60) % 24;
-    const endMinutes = totalMinutes % 60;
-    return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
-  };
 
   useEffect(() => {
     if (open && userId && punchDate && locationId) {
@@ -81,29 +72,31 @@ export function EditPunchDialog({
   const fetchPunches = async () => {
     setLoading(true);
     try {
-      // Get all punches for this user on this date, accounting for timezone
-      // Use wider range to catch punches that rolled into next UTC day
-      const startOfDay = new Date(`${punchDate}T00:00:00`);
-      const endOfDay = new Date(`${punchDate}T23:59:59`);
-      endOfDay.setHours(endOfDay.getHours() + 12); // Add buffer for timezone edge cases
-
+      // Use timezone-aware date range to properly capture punches
+      // The punchDate is in YYYY-MM-DD format representing the local date
+      // We need to find punches that occurred during that local date
       const { data, error } = await supabase
         .from('time_punches')
         .select('id, punch_time, punch_type, notes')
         .eq('user_id', userId)
         .eq('location_id', locationId)
-        .gte('punch_time', startOfDay.toISOString())
-        .lte('punch_time', endOfDay.toISOString())
         .order('punch_time', { ascending: true });
 
       if (error) throw error;
 
-      setPunches(data || []);
+      // Filter punches to those that fall on the target date in the location's timezone
+      const filteredPunches = (data || []).filter(punch => {
+        const punchLocalDate = formatInTimeZone(parseISO(punch.punch_time), timezone, 'yyyy-MM-dd');
+        return punchLocalDate === punchDate;
+      });
+
+      setPunches(filteredPunches);
 
       // Set form values from punches
-      const clockIn = data?.find(p => p.punch_type === 'clock_in');
-      const clockOut = data?.find(p => p.punch_type === 'clock_out');
-      const breakStart = data?.find(p => p.punch_type === 'break_start');
+      const clockIn = filteredPunches.find(p => p.punch_type === 'clock_in');
+      const clockOut = filteredPunches.find(p => p.punch_type === 'clock_out');
+      const breakStart = filteredPunches.find(p => p.punch_type === 'break_start');
+      const breakEnd = filteredPunches.find(p => p.punch_type === 'break_end');
 
       setClockInTime(clockIn ? formatInTimeZone(parseISO(clockIn.punch_time), timezone, 'HH:mm') : '');
       setClockOutTime(clockOut ? formatInTimeZone(parseISO(clockOut.punch_time), timezone, 'HH:mm') : '');
@@ -111,18 +104,22 @@ export function EditPunchDialog({
       if (breakStart) {
         setIncludeBreak(true);
         setBreakStartTime(formatInTimeZone(parseISO(breakStart.punch_time), timezone, 'HH:mm'));
-        // Parse duration from notes
-        if (breakStart.notes?.includes('30 minute')) {
-          setBreakDuration('30');
-        } else if (breakStart.notes?.includes('10 minute')) {
-          setBreakDuration('10');
+        // Parse type from notes
+        if (breakStart.notes?.includes('unpaid')) {
+          setBreakType('unpaid');
         } else {
-          setBreakDuration('30'); // Default
+          setBreakType('paid');
         }
       } else {
         setIncludeBreak(false);
         setBreakStartTime('');
-        setBreakDuration('30');
+        setBreakType('unpaid');
+      }
+
+      if (breakEnd) {
+        setBreakEndTime(formatInTimeZone(parseISO(breakEnd.punch_time), timezone, 'HH:mm'));
+      } else {
+        setBreakEndTime('');
       }
     } catch (error) {
       console.error('Error fetching punches:', error);
@@ -140,8 +137,7 @@ export function EditPunchDialog({
 
     setSaving(true);
     try {
-      const breakNotes = `${breakDuration} minute ${breakDuration === '30' ? 'unpaid' : 'paid'} break`;
-      const breakEndTimeStr = getBreakEndTime();
+      const breakNotes = `${breakType} break`;
 
       // Update or create each punch type
       const updates: Array<{ type: string; time: string; existingId?: string; notes?: string }> = [];
@@ -161,8 +157,8 @@ export function EditPunchDialog({
 
       if (includeBreak && breakStartTime) {
         updates.push({ type: 'break_start', time: breakStartTime, existingId: breakStart?.id, notes: breakNotes });
-        if (breakEndTimeStr) {
-          updates.push({ type: 'break_end', time: breakEndTimeStr, existingId: breakEnd?.id, notes: breakNotes });
+        if (breakEndTime) {
+          updates.push({ type: 'break_end', time: breakEndTime, existingId: breakEnd?.id, notes: breakNotes });
         }
       }
 
@@ -242,7 +238,6 @@ export function EditPunchDialog({
   };
 
   const formattedDate = punchDate ? formatInTimeZone(new Date(punchDate), timezone, 'EEEE, MMMM d, yyyy') : '';
-  const breakEndTime = getBreakEndTime();
 
   return (
     <>
@@ -307,13 +302,13 @@ export function EditPunchDialog({
                 <div className="space-y-3 p-3 border rounded-lg bg-background">
                   <div className="space-y-2">
                     <Label>Break Type</Label>
-                    <Select value={breakDuration} onValueChange={(v) => setBreakDuration(v as '10' | '30')}>
+                    <Select value={breakType} onValueChange={(v) => setBreakType(v as 'paid' | 'unpaid')}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="10">10 min paid break</SelectItem>
-                        <SelectItem value="30">30 min unpaid break</SelectItem>
+                        <SelectItem value="paid">Paid break</SelectItem>
+                        <SelectItem value="unpaid">Unpaid break</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -332,13 +327,12 @@ export function EditPunchDialog({
                       <Input
                         type="time"
                         value={breakEndTime}
-                        disabled
-                        className="bg-muted"
+                        onChange={(e) => setBreakEndTime(e.target.value)}
                       />
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {breakDuration === '30' ? '30 min unpaid - deducted from hours' : '10 min paid - not deducted'}
+                    {breakType === 'unpaid' ? 'Unpaid - deducted from hours' : 'Paid - not deducted'}
                   </p>
                 </div>
               )}
