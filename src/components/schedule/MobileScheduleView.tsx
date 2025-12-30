@@ -441,11 +441,9 @@ export function MobileScheduleView({
                           
                           {/* Break row */}
                           {punch.breakStartTime && (
-                            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                              <span>Break: <span className="text-foreground font-medium">{formatTimeDisplay(punch.breakStartTime, timezone)}</span></span>
-                              {punch.breakEndTime && (
-                                <span>- <span className="text-foreground font-medium">{formatTimeDisplay(punch.breakEndTime, timezone)}</span></span>
-                              )}
+                            <div className="flex items-center gap-3 text-sm">
+                              <span className="text-muted-foreground">Break: <span className="text-foreground font-medium">{formatTimeDisplay(punch.breakStartTime, timezone)}</span></span>
+                              <span className="text-muted-foreground">- <span className="text-foreground font-medium">{punch.breakEndTime ? formatTimeDisplay(punch.breakEndTime, timezone) : 'Active'}</span></span>
                             </div>
                           )}
                         </div>
