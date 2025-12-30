@@ -330,18 +330,42 @@ serve(async (req) => {
       });
 
       if (eligibleEmployees.length > 0) {
+        // Helper to check if employee is a manager role
+        const isManagerRole = (role: string | null): boolean => {
+          return ['manager', 'shift_manager', 'general_manager', 'admin', 'org_admin', 'super_admin'].includes(role || '');
+        };
+
+        // Helper to check if employee has met their minimum hours
+        const hasMetMinHours = (employeeId: string): boolean => {
+          const emp = employeesWithRoles.find((e: Employee) => e.id === employeeId);
+          if (!emp) return true;
+          const minHours = emp.min_weekly_hours ?? 0;
+          if (minHours === 0) return true;
+          return (employeeHours[employeeId] || 0) >= minHours;
+        };
+
         // Score employees for fair distribution:
-        // 1. Prioritize those furthest from their min hours (lowest fill percentage)
-        // 2. Among similar fill percentages, prefer those with fewer days worked (spread shifts)
-        // 3. Add small random factor for variety among equals
+        // PRIORITY 1: Managers who haven't met min hours get massive priority (-1000 bonus)
+        // PRIORITY 2: Other employees based on fill percentage
+        // PRIORITY 3: Days worked (spread shifts)
+        // PRIORITY 4: Random factor for variety
         const scoredEmployees = eligibleEmployees.map((emp: Employee) => {
           const fillPct = getFillPercentage(emp.id);
           const daysWorked = getDaysWorked(emp.id);
           const randomFactor = Math.random() * 10; // 0-10 random bonus
           
           // Lower score = higher priority
-          // Fill percentage is primary (0-100), days worked secondary (0-7), random tertiary
-          const score = fillPct + (daysWorked * 5) - randomFactor;
+          let score = fillPct + (daysWorked * 5) - randomFactor;
+          
+          // CRITICAL: Managers who haven't met min hours get highest priority
+          if (isManagerRole(emp.role) && !hasMetMinHours(emp.id)) {
+            score -= 1000; // Massive priority boost for managers under their min hours
+          }
+          
+          // Secondary: Any employee under min hours gets priority (but less than managers)
+          if (!hasMetMinHours(emp.id) && !isManagerRole(emp.role)) {
+            score -= 200; // Priority boost for team members under min hours
+          }
           
           return { emp, score };
         });
