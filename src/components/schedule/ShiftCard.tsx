@@ -101,7 +101,7 @@ export function ShiftCard({ shift, isDragging, onDelete, canTakeShift, currentUs
         {shift.isTemplate ? shiftData.template_name : `${formatTime12Hour(shiftData.start_time)} - ${formatTime12Hour(shiftData.end_time)}`}
       </div>
       {!shift.isTemplate && position && (
-        <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight line-clamp-2 pr-5">{position}</div>
+        <div className="text-white text-[10px] opacity-90 mt-0.5 leading-tight max-w-[75%]">{position}</div>
       )}
       {!shift.isTemplate && shiftHasBreak(shiftData.start_time, shiftData.end_time) && (
         <div className="absolute bottom-1 right-1.5 hidden xl:block">
