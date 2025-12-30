@@ -382,40 +382,37 @@ export function MobileScheduleView({
                       setEditPunchOpen(true);
                     }}
                   >
-                    <div className="px-3 py-2">
+                    <div className="px-3 py-2.5">
                       {/* Top row: Avatar, Name, Hours worked */}
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-3 mb-1.5">
                         <div className="relative">
-                          <Avatar className="h-8 w-8">
+                          <Avatar className="h-9 w-9">
                             <AvatarImage src={punch.profile.profile_photo_url || undefined} />
-                            <AvatarFallback className="text-xs">{punch.profile.full_name.charAt(0)}</AvatarFallback>
+                            <AvatarFallback className="text-sm">{punch.profile.full_name.charAt(0)}</AvatarFallback>
                           </Avatar>
                           {punch.isActive && (
                             <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
                           )}
                         </div>
                         
-                        <span className="font-medium text-sm flex-1 truncate">{punch.profile.full_name}</span>
+                        <span className="font-semibold flex-1 truncate">{punch.profile.full_name}</span>
                         
-                        <span className={`text-sm font-semibold ${punch.isActive ? "text-green-600" : "text-foreground"}`}>
+                        <span className={`text-base font-bold ${punch.isActive ? "text-green-600" : "text-foreground"}`}>
                           {punch.hoursWorked.toFixed(1)}h
                         </span>
                       </div>
                       
                       {/* Time info row */}
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground ml-10">
+                      <div className="flex items-center gap-3 text-sm text-muted-foreground ml-12">
                         {punch.scheduledShift && (
-                          <>
-                            <CalendarIcon className="h-3 w-3" />
+                          <div className="flex items-center gap-1">
+                            <CalendarIcon className="h-3.5 w-3.5" />
                             <span>{formatTime12Hour(punch.scheduledShift.start_time)}-{formatTime12Hour(punch.scheduledShift.end_time)}</span>
-                            <span>•</span>
-                          </>
+                          </div>
                         )}
                         <span>In: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockInTime, timezone)}</span></span>
                         {punch.clockOutTime && (
-                          <>
-                            <span>Out: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockOutTime, timezone)}</span></span>
-                          </>
+                          <span>Out: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockOutTime, timezone)}</span></span>
                         )}
                       </div>
                     </div>
