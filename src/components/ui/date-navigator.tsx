@@ -31,7 +31,7 @@ export function DateNavigator({
       className
     )}>
       <div className={cn(
-        "inline-flex items-center justify-between bg-primary rounded-full px-2 py-1 gap-2",
+        "inline-flex items-center justify-between bg-primary rounded-full px-3 py-1.5 gap-1",
         className?.includes("w-full") && "w-full"
       )}>
         <Button 
@@ -39,12 +39,12 @@ export function DateNavigator({
           size="sm" 
           onClick={onPrev}
           disabled={!canGoPrev}
-          className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
+          className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <ChevronLeft className="h-5 w-5" />
         </Button>
-        <div className="text-center px-2">
-          <span className="text-sm text-primary-foreground font-medium whitespace-nowrap">{label}</span>
+        <div className="text-center px-1">
+          <span className="text-base md:text-lg text-primary-foreground font-semibold whitespace-nowrap">{label}</span>
           {sublabel && (
             <span className="text-sm text-primary-foreground/80 ml-1">{sublabel}</span>
           )}
@@ -54,9 +54,9 @@ export function DateNavigator({
           size="sm" 
           onClick={onNext} 
           disabled={!canGoNext}
-          className="h-7 w-7 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
+          className="h-8 w-8 p-0 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground disabled:text-primary-foreground/50 rounded-full"
         >
-          <ChevronRight className="h-4 w-4" />
+          <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
     </div>
