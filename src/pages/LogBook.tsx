@@ -946,7 +946,7 @@ export default function LogBook() {
   };
 
   // Don't render if role is still loading or user doesn't have access
-  if (roleLoading || (!isAdmin && !isManager)) {
+  if (roleLoading || (!isAdmin && !isManager && !isShiftManager)) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
