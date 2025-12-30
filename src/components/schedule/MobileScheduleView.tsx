@@ -268,12 +268,14 @@ export function MobileScheduleView({
     const newWeekStart = subWeeks(currentWeekStart, 1);
     onWeekChange?.(newWeekStart);
     setSelectedDate(newWeekStart);
+    setActiveTab('schedule');
   };
 
   const handleNextWeek = () => {
     const newWeekStart = addWeeks(currentWeekStart, 1);
     onWeekChange?.(newWeekStart);
     setSelectedDate(newWeekStart);
+    setActiveTab('schedule');
   };
 
   // Get shifts and events for selected day
