@@ -1211,7 +1211,7 @@ export default function Schedule() {
             {/* Schedule grid content */}
             <div className="overflow-x-auto">
             {/* Week Day Headers */}
-            <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b-2 border-border">
+            <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b-2 border-border min-w-[700px]">
               <div className="font-semibold p-2 border-r border-border bg-muted/50 text-xs"></div>
               {weekDays.map((day, index) => {
                 const dayString = format(day, "yyyy-MM-dd");
