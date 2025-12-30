@@ -7,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { Clock } from 'lucide-react';
+import { format, subDays } from 'date-fns';
+import { Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Switch } from '@/components/ui/switch';
@@ -35,8 +35,9 @@ export function QuickPunchDialog({
   onPunchCreated
 }: QuickPunchDialogProps) {
   const { currentLocation } = useLocation();
-  const { timezone, toISO } = useLocationTimezone();
+  const { timezone, toISO, getTodayInTimezone } = useLocationTimezone();
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [punchDate, setPunchDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [includeBreak, setIncludeBreak] = useState(false);
@@ -58,8 +59,10 @@ export function QuickPunchDialog({
       setBreakType('unpaid');
       setIncludeBreak(false);
       setSelectedUserId('');
+      // Default to the selected date from schedule
+      setPunchDate(format(selectedDate, 'yyyy-MM-dd'));
     }
-  }, [open]);
+  }, [open, selectedDate]);
 
   const handleQuickPunchNow = async () => {
     if (!selectedUserId) {
@@ -69,7 +72,6 @@ export function QuickPunchDialog({
 
     setSaving(true);
     try {
-      const punchDate = format(selectedDate, 'yyyy-MM-dd');
       // Use timezone-aware conversion to ISO string
       const clockInISO = toISO(punchDate, startTime);
 
@@ -158,9 +160,47 @@ export function QuickPunchDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* Date Display */}
-          <div className="text-center p-2 bg-muted rounded-lg">
-            <span className="text-sm font-medium">{format(selectedDate, 'EEEE, MMMM d, yyyy')}</span>
+          {/* Date Selector */}
+          <div className="space-y-2">
+            <Label>Date</Label>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                onClick={() => {
+                  const current = new Date(punchDate + 'T12:00:00');
+                  setPunchDate(format(subDays(current, 1), 'yyyy-MM-dd'));
+                }}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Input
+                type="date"
+                value={punchDate}
+                onChange={(e) => setPunchDate(e.target.value)}
+                max={getTodayInTimezone()}
+                className="flex-1 text-center"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                onClick={() => {
+                  const current = new Date(punchDate + 'T12:00:00');
+                  const today = getTodayInTimezone();
+                  const nextDate = format(new Date(current.getTime() + 86400000), 'yyyy-MM-dd');
+                  if (nextDate <= today) {
+                    setPunchDate(nextDate);
+                  }
+                }}
+                disabled={punchDate >= getTodayInTimezone()}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Employee Selection */}
