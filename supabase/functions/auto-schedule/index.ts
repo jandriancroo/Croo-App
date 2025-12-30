@@ -11,6 +11,7 @@ interface Employee {
   full_name: string;
   min_weekly_hours: number | null;
   max_weekly_hours: number | null;
+  role: string | null;
 }
 
 interface ShiftTemplateAssignment {
@@ -89,16 +90,32 @@ serve(async (req) => {
       );
     }
 
+    // Get employees with their roles from user_roles table
     const { data: employees, error: empError } = await supabase
       .from("profiles")
-      .select("id, full_name, min_weekly_hours, max_weekly_hours")
+      .select(`
+        id, 
+        full_name, 
+        min_weekly_hours, 
+        max_weekly_hours,
+        user_roles!inner (role)
+      `)
       .in("id", userIds)
       .eq("is_active", true)
       .eq("appears_on_schedule", true);
 
     if (empError) throw empError;
 
-    console.log(`Found ${(employees || []).length} schedulable employees`);
+    // Transform to include role directly on employee object
+    const employeesWithRoles: Employee[] = (employees || []).map((emp: any) => ({
+      id: emp.id,
+      full_name: emp.full_name,
+      min_weekly_hours: emp.min_weekly_hours,
+      max_weekly_hours: emp.max_weekly_hours,
+      role: emp.user_roles?.[0]?.role || null,
+    }));
+
+    console.log(`Found ${employeesWithRoles.length} schedulable employees`);
 
     // Get approved time off for the week
     const weekEnd = new Date(weekStartDate);
@@ -131,7 +148,7 @@ serve(async (req) => {
     const employeeHours: Record<string, number> = {};
 
     // Initialize employee hours
-    (employees || []).forEach((emp: Employee) => {
+    employeesWithRoles.forEach((emp: Employee) => {
       employeeHours[emp.id] = 0;
     });
 
@@ -179,7 +196,7 @@ serve(async (req) => {
 
     // Helper to check if employee can take more hours
     const canTakeMoreHours = (employeeId: string, additionalHours: number): boolean => {
-      const emp = (employees || []).find((e: Employee) => e.id === employeeId);
+      const emp = employeesWithRoles.find((e: Employee) => e.id === employeeId);
       if (!emp) return false;
       
       const maxHours = emp.max_weekly_hours ?? 40;
@@ -187,6 +204,25 @@ serve(async (req) => {
       if (maxHours === 0) return false;
       
       return (employeeHours[employeeId] || 0) + additionalHours <= maxHours;
+    };
+
+    // Helper to check if employee role is compatible with shift template role
+    const isRoleCompatible = (employeeRole: string | null, templateRole: string | null): boolean => {
+      if (!templateRole) return true; // No role restriction on template
+      if (!employeeRole) return false; // Employee has no role, can't match
+
+      // Map manager template role to compatible employee roles
+      if (templateRole === 'manager') {
+        return ['shift_manager', 'general_manager', 'manager', 'admin', 'org_admin', 'super_admin'].includes(employeeRole);
+      }
+      
+      // Map team_member template role to team members only
+      if (templateRole === 'team_member') {
+        return employeeRole === 'team_member';
+      }
+
+      // Default: exact match
+      return employeeRole === templateRole;
     };
 
     // Helper to check if employee already has a shift on this day
@@ -229,7 +265,7 @@ serve(async (req) => {
       console.log(`Found ${assignments.length} shift template assignments`);
 
       // Sort employees by minimum hours (prioritize those who need more hours)
-      const sortedEmployees = [...(employees || [])].sort((a: Employee, b: Employee) => {
+      const sortedEmployees = [...employeesWithRoles].sort((a: Employee, b: Employee) => {
         const aMin = a.min_weekly_hours ?? 0;
         const bMin = b.min_weekly_hours ?? 0;
         return bMin - aMin;
@@ -246,6 +282,11 @@ serve(async (req) => {
 
         // Try to find an available employee
         for (const emp of sortedEmployees) {
+          // Check if employee's role matches the template's role requirement
+          if (!isRoleCompatible(emp.role, assignment.role)) {
+            continue;
+          }
+
           // Check if employee can be scheduled
           if (!canTakeMoreHours(emp.id, shiftHours)) {
             continue;
@@ -282,23 +323,31 @@ serve(async (req) => {
           // Track unfilled shift with reason
           let reason = "No available employees";
           
-          // Check why no one could be assigned
-          const availableEmps = sortedEmployees.filter(emp => {
-            const maxHours = emp.max_weekly_hours ?? 40;
-            if (maxHours === 0) return false;
-            return (employeeHours[emp.id] || 0) + shiftHours <= maxHours;
-          });
+          // Check why no one could be assigned - first filter by role
+          const roleMatchingEmps = sortedEmployees.filter(emp => 
+            isRoleCompatible(emp.role, assignment.role)
+          );
 
-          if (availableEmps.length === 0) {
-            reason = "All employees at max hours";
+          if (roleMatchingEmps.length === 0) {
+            reason = `No employees with ${assignment.role || 'required'} role`;
           } else {
-            const availableWithNoConflict = availableEmps.filter(emp => 
-              isEmployeeAvailable(emp.id, assignment.day_of_week, assignment.start_time, assignment.end_time) &&
-              !hasShiftOnDay(emp.id, assignment.day_of_week)
-            );
-            
-            if (availableWithNoConflict.length === 0) {
-              reason = "All available employees have conflicts or time off";
+            const availableEmps = roleMatchingEmps.filter(emp => {
+              const maxHours = emp.max_weekly_hours ?? 40;
+              if (maxHours === 0) return false;
+              return (employeeHours[emp.id] || 0) + shiftHours <= maxHours;
+            });
+
+            if (availableEmps.length === 0) {
+              reason = "All matching employees at max hours";
+            } else {
+              const availableWithNoConflict = availableEmps.filter(emp => 
+                isEmployeeAvailable(emp.id, assignment.day_of_week, assignment.start_time, assignment.end_time) &&
+                !hasShiftOnDay(emp.id, assignment.day_of_week)
+              );
+              
+              if (availableWithNoConflict.length === 0) {
+                reason = "All matching employees have conflicts or time off";
+              }
             }
           }
 
@@ -341,7 +390,7 @@ serve(async (req) => {
         for (const shift of (lastShifts || [])) {
           if (!shift.user_id) continue;
 
-          const emp = (employees || []).find((e: Employee) => e.id === shift.user_id);
+          const emp = employeesWithRoles.find((e: Employee) => e.id === shift.user_id);
           if (!emp) continue;
 
           const shiftDate = new Date(weekStartDate);
@@ -376,7 +425,7 @@ serve(async (req) => {
       JSON.stringify({
         shifts: generatedShifts,
         unfilled: unfilledShifts,
-        employeeCount: (employees || []).length,
+        employeeCount: employeesWithRoles.length,
         employeeHours: employeeHours,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
