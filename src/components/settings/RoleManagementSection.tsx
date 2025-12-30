@@ -6,11 +6,14 @@ import { toast } from 'sonner';
 import { Shield, User } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
-type AppRole = 'super_admin' | 'brand_admin' | 'fbc' | 'org_admin' | 'admin' | 'general_manager' | 'shift_manager' | 'manager' | 'team_member';
+type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'team_member';
+
+// Include legacy roles for backward compatibility with database
+type DbRole = AppRole | 'fbc' | 'general_manager';
 
 type RolePermission = {
   id: string;
-  role: AppRole;
+  role: DbRole;
   permission_key: string;
   permission_label: string;
   enabled: boolean;
@@ -66,13 +69,17 @@ export function RoleManagementSection() {
 
   const getRoleLabel = (role: string) => {
     switch (role) {
+      case 'super_admin':
+        return 'Super Admin';
+      case 'brand_admin':
+        return 'Brand Admin';
+      case 'org_admin':
+        return 'Org Admin';
       case 'admin':
         return 'Admin';
-      case 'general_manager':
-        return 'General Manager';
-      case 'shift_manager':
-        return 'Shift Manager';
       case 'manager':
+        return 'Manager';
+      case 'shift_manager':
         return 'Shift Manager';
       default:
         return 'Team Member';
@@ -118,12 +125,12 @@ export function RoleManagementSection() {
               Admin
             </Button>
             <Button
-              variant={selectedRole === 'general_manager' ? 'default' : 'outline'}
+              variant={selectedRole === 'manager' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setSelectedRole('general_manager')}
+              onClick={() => setSelectedRole('manager')}
               className="mr-2"
             >
-              General Manager
+              Manager
             </Button>
             <Button
               variant={selectedRole === 'shift_manager' ? 'default' : 'outline'}
