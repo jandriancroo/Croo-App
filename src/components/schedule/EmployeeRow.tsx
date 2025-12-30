@@ -94,7 +94,7 @@ export function EmployeeRow({
     const wage = profile.hourly_wage || 15.00;
     return (hours * wage).toFixed(2);
   };
-  return <div ref={setNodeRef} style={style} className="grid grid-cols-[100px_repeat(7,1fr)] md:grid-cols-[115px_repeat(7,1fr)] lg:grid-cols-[160px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-dotted border-border/50 relative auto-rows-fr">
+  return <div ref={setNodeRef} style={style} className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b border-dotted border-border/50 relative auto-rows-fr">
       <div className="flex items-center gap-1 p-2 border-r border-border bg-muted/30 min-h-[80px] overflow-hidden">
         {/* Drag Handle inside employee card */}
         {isDraggable && profile.id !== "unassigned" && (
