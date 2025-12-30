@@ -560,7 +560,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
         {weekDays.map((day, dayIndex) => {
           const dayEvents = getEventsForDay(dayIndex);
           return (
-            <div key={dayIndex} className="min-h-[40px] p-1.5 border-r last:border-r-0 border-border/20 bg-[hsl(30,25%,45%)]">
+            <div key={dayIndex} className="min-h-[40px] p-1.5 border-r last:border-r-0 border-border/20 bg-[hsl(30,25%,45%)] overflow-hidden">
               <div className="space-y-1">
                 {dayEvents.map((event) => {
                   const categoryColor = getCategoryColor(event) || '#6366f1';
