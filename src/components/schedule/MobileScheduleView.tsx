@@ -422,12 +422,14 @@ export function MobileScheduleView({
                           </div>
                           
                           {/* Scheduled shift row */}
-                          {punch.scheduledShift && (
-                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                              <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                          <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                            <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                            {punch.scheduledShift ? (
                               <span>{formatTime12Hour(punch.scheduledShift.start_time)} - {formatTime12Hour(punch.scheduledShift.end_time)}</span>
-                            </div>
-                          )}
+                            ) : (
+                              <span>Not Scheduled</span>
+                            )}
+                          </div>
                           
                           {/* Actual In/Out row */}
                           <div className="flex items-center gap-3 text-sm">
@@ -443,9 +445,6 @@ export function MobileScheduleView({
                               <span>Break: <span className="text-foreground font-medium">{formatTimeDisplay(punch.breakStartTime, timezone)}</span></span>
                               {punch.breakEndTime && (
                                 <span>- <span className="text-foreground font-medium">{formatTimeDisplay(punch.breakEndTime, timezone)}</span></span>
-                              )}
-                              {punch.breakType && (
-                                <span className="text-xs">({punch.breakType})</span>
                               )}
                             </div>
                           )}
