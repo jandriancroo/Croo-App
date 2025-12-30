@@ -64,10 +64,31 @@ export function QuickPunchDialog({
     }
   }, [open, selectedDate]);
 
+  // Calculate break duration in minutes
+  const getBreakDurationMinutes = () => {
+    if (!breakStartTime || !breakEndTime) return 0;
+    const [startH, startM] = breakStartTime.split(':').map(Number);
+    const [endH, endM] = breakEndTime.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    return endMinutes - startMinutes;
+  };
+
   const handleQuickPunchNow = async () => {
     if (!selectedUserId) {
       toast.error('Please select an employee');
       return;
+    }
+
+    // Validate break duration if break is included
+    if (includeBreak && breakStartTime && breakEndTime) {
+      const breakDuration = getBreakDurationMinutes();
+      const requiredMinutes = breakType === 'unpaid' ? 30 : 10;
+      
+      if (breakDuration < requiredMinutes) {
+        toast.error(`${breakType === 'unpaid' ? 'Meal' : 'Paid'} break must be at least ${requiredMinutes} minutes`);
+        return;
+      }
     }
 
     setSaving(true);
