@@ -250,31 +250,28 @@ serve(async (req) => {
       return true;
     };
 
-    // Can we trim the start of a shift without violating min_staff?
-    const canTrimStart = (shifts: GeneratedShift[], shiftIndex: number, minutes: number): boolean => {
+    // Helper to check if this is a closing shift (latest ending shift of the day)
+    const isClosingShift = (shifts: GeneratedShift[], shiftIndex: number): boolean => {
       const shift = shifts[shiftIndex];
-      const startHour = parseInt(shift.start_time.split(":")[0]);
-      const startMin = parseInt(shift.start_time.split(":")[1]);
+      const shiftEndHour = parseInt(shift.end_time.split(":")[0]);
+      const shiftEndMin = parseInt(shift.end_time.split(":")[1]);
+      const shiftEndTotal = shiftEndHour * 60 + shiftEndMin;
+
+      // Find the latest end time for this day
+      const dayShifts = shifts.filter(s => s.day_of_week === shift.day_of_week);
+      let latestEndTotal = 0;
       
-      // Calculate new start time
-      let newStartMin = startMin + minutes;
-      let newStartHour = startHour;
-      while (newStartMin >= 60) {
-        newStartMin -= 60;
-        newStartHour += 1;
-      }
-      
-      // Check hours that would be affected (from original start to new start)
-      for (let h = startHour; h < newStartHour; h++) {
-        const currentStaff = countStaffAtHour(shifts, shift.day_of_week, h);
-        const minStaff = getMinStaff(shift.day_of_week, h);
-        
-        if (currentStaff - 1 < minStaff) {
-          return false;
+      for (const s of dayShifts) {
+        const endHour = parseInt(s.end_time.split(":")[0]);
+        const endMin = parseInt(s.end_time.split(":")[1]);
+        const endTotal = endHour * 60 + endMin;
+        if (endTotal > latestEndTotal) {
+          latestEndTotal = endTotal;
         }
       }
-      
-      return true;
+
+      // This is a closing shift if it ends at the latest time
+      return shiftEndTotal === latestEndTotal;
     };
 
     // Process days that are over budget
@@ -287,11 +284,16 @@ serve(async (req) => {
         .filter(i => i !== -1);
 
       // Sort shifts by wage (trim higher-paid employees first for max savings)
-      dayShiftIndices.sort((a, b) => 
+      // But also exclude closing shifts from consideration
+      const eligibleShiftIndices = dayShiftIndices.filter(i => !isClosingShift(optimizedShifts, i));
+      
+      eligibleShiftIndices.sort((a, b) => 
         (optimizedShifts[b].hourly_wage || 15) - (optimizedShifts[a].hourly_wage || 15)
       );
 
-      for (const shiftIndex of dayShiftIndices) {
+      console.log(`Day ${daySummary.dayOfWeek}: ${dayShiftIndices.length} total shifts, ${eligibleShiftIndices.length} eligible for trimming (excluded closers)`);
+
+      for (const shiftIndex of eligibleShiftIndices) {
         if (remainingToTrim <= 0) break;
 
         const shift = optimizedShifts[shiftIndex];
@@ -303,12 +305,10 @@ serve(async (req) => {
         const wage = shift.hourly_wage || 15;
         const savingsPerQuarter = wage * 0.25; // 15 min = 0.25 hours
 
-        // Try to trim up to 1 hour (4 x 15 min) from each shift
+        // Try to trim up to 1 hour (4 x 15 min) from each shift - ONLY FROM END
         for (let trimCount = 0; trimCount < 4 && remainingToTrim > 0; trimCount++) {
-          // Alternate between trimming end and start
-          const trimType = trimCount % 2 === 0 ? 'end' : 'start';
-          
-          if (trimType === 'end' && canTrimEnd(optimizedShifts, shiftIndex, 15)) {
+          // ONLY trim from END of shifts, never from start
+          if (canTrimEnd(optimizedShifts, shiftIndex, 15)) {
             // Trim 15 min from end
             const [endHour, endMin] = shift.end_time.split(":").map(Number);
             let newEndMin = endMin - 15;
@@ -321,7 +321,7 @@ serve(async (req) => {
             
             // Check if shift is still at least 3 hours
             const newHours = calculateShiftHours(shift.start_time, newEndTime);
-            if (newHours < 3) continue;
+            if (newHours < 3) break; // Can't trim more from this shift
 
             trimSuggestions.push({
               shiftIndex,
@@ -337,39 +337,14 @@ serve(async (req) => {
               trimType: 'end',
             });
 
-            optimizedShifts[shiftIndex] = { ...shift, end_time: newEndTime };
+            // Update the shift for subsequent iterations
+            optimizedShifts[shiftIndex] = { ...optimizedShifts[shiftIndex], end_time: newEndTime };
             remainingToTrim -= savingsPerQuarter;
-          } else if (trimType === 'start' && canTrimStart(optimizedShifts, shiftIndex, 15)) {
-            // Trim 15 min from start
-            const [startHour, startMin] = shift.start_time.split(":").map(Number);
-            let newStartMin = startMin + 15;
-            let newStartHour = startHour;
-            if (newStartMin >= 60) {
-              newStartMin -= 60;
-              newStartHour += 1;
-            }
-            const newStartTime = `${String(newStartHour).padStart(2, '0')}:${String(newStartMin).padStart(2, '0')}:00`;
-
-            // Check if shift is still at least 3 hours
-            const newHours = calculateShiftHours(newStartTime, shift.end_time);
-            if (newHours < 3) continue;
-
-            trimSuggestions.push({
-              shiftIndex,
-              user_id: shift.user_id,
-              userName: nameMap.get(shift.user_id) || 'Unknown',
-              day_of_week: shift.day_of_week,
-              original_start: shift.start_time,
-              original_end: shift.end_time,
-              suggested_start: newStartTime,
-              suggested_end: shift.end_time,
-              minutesTrimmed: 15,
-              laborSaved: savingsPerQuarter,
-              trimType: 'start',
-            });
-
-            optimizedShifts[shiftIndex] = { ...shift, start_time: newStartTime };
-            remainingToTrim -= savingsPerQuarter;
+            
+            console.log(`Trimmed 15min from end of ${nameMap.get(shift.user_id)}'s shift, saved $${savingsPerQuarter.toFixed(2)}`);
+          } else {
+            // Can't trim end without violating min staff, move to next shift
+            break;
           }
         }
       }
