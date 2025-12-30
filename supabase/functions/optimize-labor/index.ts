@@ -280,11 +280,17 @@ serve(async (req) => {
     };
 
     // Can we trim the end of a shift without violating min_staff?
-    const canTrimEnd = (shifts: GeneratedShift[], shiftIndex: number, minutes: number): boolean => {
+    // Important: coverage requirements are stored hourly, so trimming within the same ending hour
+    // should NOT change the headcount for that hour. We only need to enforce min_staff when the
+    // trim crosses an hour boundary (i.e., removes the shift from one or more whole hours).
+    const canTrimEnd = (
+      shifts: GeneratedShift[],
+      shiftIndex: number,
+      minutes: number,
+    ): boolean => {
       const shift = shifts[shiftIndex];
-      const endHour = parseInt(shift.end_time.split(":")[0]);
-      const endMin = parseInt(shift.end_time.split(":")[1]);
-      
+      const [endHour, endMin] = shift.end_time.split(":").map(Number);
+
       // Calculate new end time
       let newEndMin = endMin - minutes;
       let newEndHour = endHour;
@@ -292,40 +298,39 @@ serve(async (req) => {
         newEndMin += 60;
         newEndHour -= 1;
       }
-      
-      // Check each hour that would be affected
-      const startHour = parseInt(shift.start_time.split(":")[0]);
-      
-      // The affected hour is the one right before the original end
-      const affectedHour = endMin === 0 ? endHour - 1 : endHour;
-      
-      // If we're trimming into a new hour, check if we'd drop below min staff
-      if (newEndHour < endHour || (newEndHour === endHour && newEndMin < endMin)) {
-        // Check hours from newEndHour to endHour
-        for (let h = newEndHour; h < endHour; h++) {
-          // Simulate removing this shift from that hour
-          const currentStaff = countStaffAtHour(shifts, shift.day_of_week, h);
-          const minStaff = getMinStaff(shift.day_of_week, h);
-          
-          // Would removing this shift from this hour violate min_staff?
-          if (currentStaff - 1 < minStaff) {
-            return false;
-          }
-        }
+
+      // If we didn't cross into a previous hour, hourly staffing counts are unchanged.
+      if (newEndHour === endHour) return true;
+
+      // We crossed an hour boundary; enforce min staff for each FULL hour that would be removed.
+      // Example: 20:00 -> 18:45 removes hour 19 entirely.
+      const firstRemovedHour = newEndHour + 1;
+      const lastRemovedHour = endHour - 1;
+
+      for (let h = firstRemovedHour; h <= lastRemovedHour; h++) {
+        const currentStaff = countStaffAtHour(shifts, shift.day_of_week, h);
+        const minStaff = getMinStaff(shift.day_of_week, h);
+        if (currentStaff - 1 < minStaff) return false;
       }
-      
+
       return true;
     };
 
-    // Helper to check if this is a closing shift (latest-ending shift of the day)
-    // Agreement: we do NOT auto-protect shifts just because they end after the store close time.
-    // We only protect the true "closers" (latest-ending shift(s)) so we can still trim 15–30min
-    // from other late shifts when coverage allows.
+    // Helper to check if this is a closing shift.
+    // Agreement: we do NOT cut anyone who works "past close"; treat them as closers.
+    // Protection rules:
+    //  - Any shift ending at/after the location close time is protected
+    //  - The latest-ending shift(s) of the day are protected (fallback if close time isn't set)
     const isClosingShift = (shifts: GeneratedShift[], shiftIndex: number): boolean => {
       const shift = shifts[shiftIndex];
       const shiftEndHour = parseInt(shift.end_time.split(":")[0]);
       const shiftEndMin = parseInt(shift.end_time.split(":")[1]);
       const shiftEndTotal = shiftEndHour * 60 + shiftEndMin;
+
+      const locationCloseTime = closingTimes[shift.day_of_week];
+      if (locationCloseTime && shiftEndTotal >= locationCloseTime) {
+        return true;
+      }
 
       const dayShifts = shifts.filter((s) => s.day_of_week === shift.day_of_week);
       let latestEndTotal = 0;
@@ -339,7 +344,6 @@ serve(async (req) => {
         }
       }
 
-      // Closing shift if it ends at the latest time for that day (ties allowed).
       return shiftEndTotal === latestEndTotal;
     };
 
