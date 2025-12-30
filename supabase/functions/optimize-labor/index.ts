@@ -139,6 +139,21 @@ serve(async (req) => {
       }));
     }
 
+    // Get location closing times per day
+    const closingTimes: Record<number, number> = {}; // day_of_week -> close time in minutes
+    const { data: locationHours } = await supabase
+      .from("location_hours")
+      .select("day_of_week, close_time, is_closed")
+      .eq("location_id", location_id);
+
+    (locationHours || []).forEach((lh: any) => {
+      if (!lh.is_closed && lh.close_time) {
+        const [hours, mins] = lh.close_time.split(":").map(Number);
+        closingTimes[lh.day_of_week] = hours * 60 + mins;
+      }
+    });
+    console.log("Location closing times:", closingTimes);
+
     // Get per-day labor targets and projected sales from week_template_day_settings
     const dailySettings: Record<number, { laborTarget: number; projectedSales: number }> = {};
     if (template_id) {
@@ -302,14 +317,21 @@ serve(async (req) => {
       return true;
     };
 
-    // Helper to check if this is a closing shift (latest ending shift of the day)
+    // Helper to check if this is a closing shift (ends at or after location close, or is latest shift of day)
     const isClosingShift = (shifts: GeneratedShift[], shiftIndex: number): boolean => {
       const shift = shifts[shiftIndex];
       const shiftEndHour = parseInt(shift.end_time.split(":")[0]);
       const shiftEndMin = parseInt(shift.end_time.split(":")[1]);
       const shiftEndTotal = shiftEndHour * 60 + shiftEndMin;
 
-      // Find the latest end time for this day
+      // Check if shift ends at or after location closing time
+      const locationCloseTime = closingTimes[shift.day_of_week];
+      if (locationCloseTime && shiftEndTotal >= locationCloseTime) {
+        console.log(`Shift for ${nameMap.get(shift.user_id)} ends at ${shift.end_time} (${shiftEndTotal}min), at/after close (${locationCloseTime}min) - protected`);
+        return true;
+      }
+
+      // Also check if this is the latest ending shift of the day (fallback)
       const dayShifts = shifts.filter(s => s.day_of_week === shift.day_of_week);
       let latestEndTotal = 0;
       
