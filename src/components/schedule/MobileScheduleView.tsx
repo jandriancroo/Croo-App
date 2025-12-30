@@ -15,6 +15,7 @@ import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
 import { EventCard } from './EventCard';
 import { useUserRole } from '@/hooks/useUserRole';
+import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { useAuth } from '@/lib/auth';
 import { formatTime12Hour } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -301,24 +302,11 @@ export function MobileScheduleView({
               {new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric' }).format(new Date())}
             </h3>
             
-            {/* Today's Events */}
-            {todayEvents.length > 0 && (
-              <div className="mb-4 space-y-2">
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Events</h4>
-                {todayEvents.map(event => (
-                  <EventCard
-                    key={event.id}
-                    id={event.id}
-                    name={event.event_name}
-                    time={event.event_time}
-                    categoryName={event.category?.name}
-                    categoryColor={event.category?.color}
-                    notes={event.notes}
-                    showCompleteButton={false}
-                  />
-                ))}
-              </div>
-            )}
+            {/* Assigned Tasks */}
+            <div className="mb-4 space-y-2">
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assigned to You</h4>
+              <AssignedTemporaryTasks />
+            </div>
             
             <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
               Working Now ({activeShifts.length})
@@ -399,8 +387,8 @@ export function MobileScheduleView({
         </div>
       ) : (
         <>
-          {/* Month Header - Condensed */}
-          <div className="px-4 py-2 border-b">
+          {/* Month Header - Centered */}
+          <div className="px-4 py-2 border-b flex justify-center">
             <DateNavigator
               onPrev={handlePreviousWeek}
               onNext={handleNextWeek}
