@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Clock } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
+import { Switch } from '@/components/ui/switch';
 
 interface Profile {
   id: string;
@@ -36,8 +37,9 @@ export function QuickPunchDialog({
   const [selectedUserId, setSelectedUserId] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [includeBreak, setIncludeBreak] = useState(false);
   const [breakStartTime, setBreakStartTime] = useState('');
-  const [breakEndTime, setBreakEndTime] = useState('');
+  const [breakDuration, setBreakDuration] = useState<'10' | '30'>('30');
   const [saving, setSaving] = useState(false);
 
   // Reset and set defaults when dialog opens
@@ -49,10 +51,21 @@ export function QuickPunchDialog({
       setStartTime(`${hours}:${minutes}`);
       setEndTime('');
       setBreakStartTime('');
-      setBreakEndTime('');
+      setBreakDuration('30');
+      setIncludeBreak(false);
       setSelectedUserId('');
     }
   }, [open]);
+
+  // Calculate break end time based on break start and duration
+  const getBreakEndTime = () => {
+    if (!breakStartTime) return '';
+    const [hours, minutes] = breakStartTime.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes + parseInt(breakDuration);
+    const endHours = Math.floor(totalMinutes / 60) % 24;
+    const endMinutes = totalMinutes % 60;
+    return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+  };
 
   const handleQuickPunchNow = async () => {
     if (!selectedUserId) {
@@ -77,31 +90,37 @@ export function QuickPunchDialog({
 
       if (clockInError) throw clockInError;
 
-      // If break times provided, create break punches
-      if (breakStartTime) {
+      // If break included, create break punches
+      if (includeBreak && breakStartTime) {
         const breakStartPunch = new Date(`${punchDate}T${breakStartTime}:00`);
+        const breakNotes = `${breakDuration} minute ${breakDuration === '30' ? 'unpaid' : 'paid'} break`;
+        
         const { error: breakStartError } = await supabase
           .from('time_punches')
           .insert({
             user_id: selectedUserId,
             punch_type: 'break_start',
             punch_time: breakStartPunch.toISOString(),
+            notes: breakNotes,
             location_id: currentLocation?.id
           });
         if (breakStartError) throw breakStartError;
-      }
 
-      if (breakEndTime) {
-        const breakEndPunch = new Date(`${punchDate}T${breakEndTime}:00`);
-        const { error: breakEndError } = await supabase
-          .from('time_punches')
-          .insert({
-            user_id: selectedUserId,
-            punch_type: 'break_end',
-            punch_time: breakEndPunch.toISOString(),
-            location_id: currentLocation?.id
-          });
-        if (breakEndError) throw breakEndError;
+        // Calculate and create break end
+        const breakEndTimeStr = getBreakEndTime();
+        if (breakEndTimeStr) {
+          const breakEndPunch = new Date(`${punchDate}T${breakEndTimeStr}:00`);
+          const { error: breakEndError } = await supabase
+            .from('time_punches')
+            .insert({
+              user_id: selectedUserId,
+              punch_type: 'break_end',
+              punch_time: breakEndPunch.toISOString(),
+              notes: breakNotes,
+              location_id: currentLocation?.id
+            });
+          if (breakEndError) throw breakEndError;
+        }
       }
 
       // If end time provided, also create clock-out
@@ -133,6 +152,7 @@ export function QuickPunchDialog({
   };
 
   const selectedProfile = profiles.find(p => p.id === selectedUserId);
+  const breakEndTime = getBreakEndTime();
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -205,25 +225,55 @@ export function QuickPunchDialog({
             </div>
           </div>
 
-          {/* Break Time Inputs */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Break Start <span className="text-muted-foreground text-xs">(optional)</span></Label>
-              <Input
-                type="time"
-                value={breakStartTime}
-                onChange={(e) => setBreakStartTime(e.target.value)}
-              />
+          {/* Break Toggle */}
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+            <div className="space-y-0.5">
+              <Label className="text-sm font-medium">Include Break</Label>
+              <p className="text-xs text-muted-foreground">Add a break to this shift</p>
             </div>
-            <div className="space-y-2">
-              <Label>Break End <span className="text-muted-foreground text-xs">(optional)</span></Label>
-              <Input
-                type="time"
-                value={breakEndTime}
-                onChange={(e) => setBreakEndTime(e.target.value)}
-              />
-            </div>
+            <Switch checked={includeBreak} onCheckedChange={setIncludeBreak} />
           </div>
+
+          {/* Break Options - shown when break is enabled */}
+          {includeBreak && (
+            <div className="space-y-3 p-3 border rounded-lg bg-background">
+              <div className="space-y-2">
+                <Label>Break Type</Label>
+                <Select value={breakDuration} onValueChange={(v) => setBreakDuration(v as '10' | '30')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 min paid break</SelectItem>
+                    <SelectItem value="30">30 min unpaid break</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Break Start</Label>
+                  <Input
+                    type="time"
+                    value={breakStartTime}
+                    onChange={(e) => setBreakStartTime(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Break End</Label>
+                  <Input
+                    type="time"
+                    value={breakEndTime}
+                    disabled
+                    className="bg-muted"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {breakDuration === '30' ? '30 min unpaid - deducted from hours' : '10 min paid - not deducted'}
+              </p>
+            </div>
+          )}
 
           <p className="text-xs text-muted-foreground text-center">
             Leave clock out blank to just punch them in. They can clock out later.
@@ -236,7 +286,7 @@ export function QuickPunchDialog({
           </Button>
           <Button 
             onClick={handleQuickPunchNow} 
-            disabled={saving || !selectedUserId || !startTime}
+            disabled={saving || !selectedUserId || !startTime || (includeBreak && !breakStartTime)}
             className="flex-1"
           >
             {saving ? 'Saving...' : endTime ? 'Record Shift' : 'Punch In'}
