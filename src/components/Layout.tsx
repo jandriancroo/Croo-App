@@ -40,7 +40,8 @@ export const Layout = ({
     isManager,
     isShiftManager,
     canApproveRequests,
-    canViewTimecards
+    canViewTimecards,
+    loading: roleLoading
   } = useUserRole();
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -48,7 +49,8 @@ export const Layout = ({
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const { unreadCount } = useUnreadMessages();
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation } = useAppLocation();
-  const canAccessLogs = isShiftManager; // Shift managers and above can access logbook
+  // Wait for role to load before checking - prevents flash of missing nav items
+  const canAccessLogs = !roleLoading && isShiftManager; // Shift managers and above can access logbook
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [hasFBCAccess, setHasFBCAccess] = useState(false);
   const [hasMultiLocationAccess, setHasMultiLocationAccess] = useState(false);
