@@ -283,11 +283,11 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
     setDeleteDialogOpen(true);
   };
 
-  // Convert UI index (Mon=0, Tue=1, ..., Sun=6) to DB index (Sun=0, Mon=1, ..., Sat=6)
-  const uiIndexToDbIndex = (uiIndex: number): number => (uiIndex + 1) % 7;
+  // UI and DB both use Monday=0, Sun=6 - no conversion needed
+  const uiIndexToDbIndex = (uiIndex: number): number => uiIndex;
   
-  // Convert DB index (Sun=0, Mon=1, ..., Sat=6) to UI index (Mon=0, Tue=1, ..., Sun=6)
-  const dbIndexToUiIndex = (dbIndex: number): number => (dbIndex + 6) % 7;
+  // UI and DB both use Monday=0, Sun=6 - no conversion needed
+  const dbIndexToUiIndex = (dbIndex: number): number => dbIndex;
 
   const toggleDay = (dayIndex: number) => {
     const newDays = formData.selected_days.includes(dayIndex)
