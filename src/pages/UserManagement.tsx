@@ -445,11 +445,12 @@ export default function UserManagement() {
   const getRoleIcon = (role: AppRole) => {
     switch (role) {
       case 'super_admin':
+      case 'brand_admin':
+      case 'org_admin':
       case 'admin':
         return <Shield className="h-4 w-4" />;
-      case 'general_manager':
-      case 'shift_manager':
       case 'manager':
+      case 'shift_manager':
         return <UserCog className="h-4 w-4" />;
       default:
         return <User className="h-4 w-4" />;
@@ -460,12 +461,12 @@ export default function UserManagement() {
     switch (role) {
       case 'super_admin':
         return 'destructive';
+      case 'brand_admin':
+      case 'org_admin':
       case 'admin':
         return 'default';
-      case 'general_manager':
-        return 'secondary';
-      case 'shift_manager':
       case 'manager':
+      case 'shift_manager':
         return 'secondary';
       default:
         return 'outline';
@@ -473,22 +474,16 @@ export default function UserManagement() {
   };
 
   const getRoleDisplayName = (role: AppRole) => {
-    switch (role) {
-      case 'super_admin':
-        return 'Super Admin';
-      case 'admin':
-        return 'Admin';
-      case 'general_manager':
-        return 'General Manager';
-      case 'shift_manager':
-        return 'Shift Manager';
-      case 'manager':
-        return 'Shift Manager';
-      case 'team_member':
-        return 'Team Member';
-      default:
-        return String(role).replace('_', ' ');
-    }
+    const names: Record<AppRole, string> = {
+      super_admin: 'Super Admin',
+      brand_admin: 'Brand Admin',
+      org_admin: 'Org Admin',
+      admin: 'Admin',
+      manager: 'Manager',
+      shift_manager: 'Shift Manager',
+      team_member: 'Team Member',
+    };
+    return names[role] || String(role).replace('_', ' ');
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1324,9 +1319,9 @@ export default function UserManagement() {
                         <SelectContent>
                           <SelectItem value="team_member">Team Member</SelectItem>
                           <SelectItem value="shift_manager">Shift Manager</SelectItem>
-                          <SelectItem value="general_manager">General Manager</SelectItem>
+                          <SelectItem value="manager">Manager</SelectItem>
                           <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="super_admin">Super Admin</SelectItem>
+                          <SelectItem value="org_admin">Org Admin</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1710,9 +1705,9 @@ export default function UserManagement() {
                     <SelectContent>
                       <SelectItem value="team_member">Team Member</SelectItem>
                       <SelectItem value="shift_manager">Shift Manager</SelectItem>
-                      <SelectItem value="general_manager">General Manager</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
                       <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="super_admin">Super Admin</SelectItem>
+                      <SelectItem value="org_admin">Org Admin</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button

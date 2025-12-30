@@ -192,7 +192,7 @@ export default function Alerts() {
         supabase
           .from('user_roles')
           .select('user_id, role')
-          .in('role', ['admin', 'manager', 'general_manager', 'shift_manager']),
+          .in('role', ['admin', 'manager', 'shift_manager']),
         
         // Get all profiles
         supabase

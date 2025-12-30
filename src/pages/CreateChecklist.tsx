@@ -321,7 +321,7 @@ export default function CreateChecklist() {
     if (selectedRoles.length > 0) {
       const roleTagsToInsert = selectedRoles.map((role) => ({
         checklist_id: checklist.id,
-        role: role as 'super_admin' | 'admin' | 'general_manager' | 'shift_manager' | 'team_member',
+        role: role as 'super_admin' | 'admin' | 'manager' | 'shift_manager' | 'team_member',
       }));
 
       const { error: roleTagsError } = await supabase
@@ -377,7 +377,7 @@ export default function CreateChecklist() {
     if (selectedRoles.length > 0) {
       const roleTagsToInsert = selectedRoles.map((role) => ({
         checklist_id: checklist.id,
-        role: role as 'super_admin' | 'admin' | 'general_manager' | 'shift_manager' | 'team_member',
+        role: role as 'super_admin' | 'admin' | 'manager' | 'shift_manager' | 'team_member',
       }));
 
       const { error: roleTagsError } = await supabase
@@ -506,21 +506,26 @@ export default function CreateChecklist() {
                   If no roles are selected, all users can see this checklist
                 </p>
                 <div className="space-y-2">
-                  {['admin', 'general_manager', 'shift_manager', 'team_member'].map((role) => (
-                    <div key={role} className="flex items-center space-x-2">
+                  {[
+                    { value: 'admin', label: 'Admin' },
+                    { value: 'manager', label: 'Manager' },
+                    { value: 'shift_manager', label: 'Shift Manager' },
+                    { value: 'team_member', label: 'Team Member' },
+                  ].map((role) => (
+                    <div key={role.value} className="flex items-center space-x-2">
                       <Checkbox
-                        id={`role-${role}`}
-                        checked={selectedRoles.includes(role)}
+                        id={`role-${role.value}`}
+                        checked={selectedRoles.includes(role.value)}
                         onCheckedChange={(checked) => {
                           if (checked) {
-                            setSelectedRoles([...selectedRoles, role]);
+                            setSelectedRoles([...selectedRoles, role.value]);
                           } else {
-                            setSelectedRoles(selectedRoles.filter(r => r !== role));
+                            setSelectedRoles(selectedRoles.filter(r => r !== role.value));
                           }
                         }}
                       />
-                      <Label htmlFor={`role-${role}`} className="text-sm font-normal">
-                        {role === 'general_manager' ? 'General Manager' : role === 'shift_manager' ? 'Shift Manager' : role === 'team_member' ? 'Team Member' : 'Admin'}
+                      <Label htmlFor={`role-${role.value}`} className="text-sm font-normal">
+                        {role.label}
                       </Label>
                     </div>
                   ))}
