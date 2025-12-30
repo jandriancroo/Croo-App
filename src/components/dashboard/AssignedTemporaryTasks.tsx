@@ -11,9 +11,9 @@ import * as Icons from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import { useUserRole } from "@/hooks/useUserRole";
 import { EventCard } from "@/components/schedule/EventCard";
+import { getTodayInTimezone, getDayOfWeekInTimezone } from "@/utils/dateUtils";
 
 interface AssignedTemporaryTasksProps {
   showCompleted?: boolean;
@@ -176,10 +176,9 @@ export function AssignedTemporaryTasks({
     refetchInterval: 30000,
   });
 
-  // Fetch event daily tasks for today
-  const today = format(new Date(), "yyyy-MM-dd");
-  const jsDay = new Date().getDay();
-  const todayDayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+  // Fetch event daily tasks for today - use timezone-aware functions
+  const today = getTodayInTimezone();
+  const todayDayOfWeek = getDayOfWeekInTimezone();
 
   const { data: eventTasks = [], refetch: refetchEvents } = useQuery({
     queryKey: ["today-event-tasks", currentLocation?.id, includeEventTasks],

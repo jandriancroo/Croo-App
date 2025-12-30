@@ -4,22 +4,23 @@ import { AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "@/hooks/useLocation";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { getTodayInTimezone, getDayOfWeekInTimezone, getStartOfTodayInTimezone } from "@/utils/dateUtils";
 
 export function ChecklistCompletionAlerts() {
   const navigate = useNavigate();
   const { currentLocation } = useLocation();
-  const today = new Date().toDateString(); // Gets current date as string
+  const { timezone } = useLocationTimezone();
+  const today = getTodayInTimezone(timezone); // Timezone-aware date string
   
   const { data: alerts = [] } = useQuery({
-    queryKey: ['checklist-completion-alerts', today, currentLocation?.id], // Include date and location in key
+    queryKey: ['checklist-completion-alerts', today, currentLocation?.id, timezone],
     queryFn: async () => {
       if (!currentLocation?.id) return [];
       
-      // Convert JS getDay() (Sun=0..Sat=6) to calendar index (Mon=0..Sun=6)
-      const jsDay = new Date().getDay();
-      const currentDay = jsDay === 0 ? 6 : jsDay - 1;
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
+      // Use timezone-aware day of week (Mon=0, Sun=6)
+      const currentDay = getDayOfWeekInTimezone(timezone);
+      const startOfToday = getStartOfTodayInTimezone(timezone);
       const now = new Date();
 
       // Get all active checklists for current location

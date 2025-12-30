@@ -10,10 +10,13 @@ import { format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { formatTime12Hour } from "@/lib/utils";
 import { useLocation } from "@/hooks/useLocation";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
+import { getDateDayOfWeekInTimezone } from "@/utils/dateUtils";
 
 export default function Alerts() {
   const navigate = useNavigate();
   const { currentLocation } = useLocation();
+  const { timezone } = useLocationTimezone();
 
   const { data: logbookAlerts = [] } = useQuery({
     queryKey: ['all-logbook-alerts', currentLocation?.id],
@@ -144,7 +147,7 @@ export default function Alerts() {
   });
 
   const { data: checklistAlerts = [] } = useQuery({
-    queryKey: ['all-checklist-alerts', currentLocation?.id],
+    queryKey: ['all-checklist-alerts', currentLocation?.id, timezone],
     queryFn: async () => {
       if (!currentLocation?.id) return [];
       
@@ -221,9 +224,8 @@ export default function Alerts() {
         const date = new Date();
         date.setDate(date.getDate() - i);
         date.setHours(0, 0, 0, 0);
-        // Convert JS getDay() (Sun=0..Sat=6) to calendar index (Mon=0..Sun=6)
-        const jsDay = date.getDay();
-        const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+        // Use timezone-aware day of week (Mon=0, Sun=6)
+        const dayOfWeek = getDateDayOfWeekInTimezone(date, timezone);
         const isToday = i === 0;
         const dateStr = format(date, 'yyyy-MM-dd');
 

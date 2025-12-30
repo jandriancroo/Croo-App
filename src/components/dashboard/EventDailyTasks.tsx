@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format } from "date-fns";
 import { EventCard } from "@/components/schedule/EventCard";
+import { getTodayInTimezone, getDayOfWeekInTimezone } from "@/utils/dateUtils";
 
 interface EventTask {
   id: string;
@@ -22,18 +22,20 @@ interface EventTaskCompletion {
 
 interface EventDailyTasksProps {
   locationId: string;
+  timezone?: string;
 }
 
-export function EventDailyTasks({ locationId }: EventDailyTasksProps) {
+const DEFAULT_TIMEZONE = 'America/Los_Angeles';
+
+export function EventDailyTasks({ locationId, timezone = DEFAULT_TIMEZONE }: EventDailyTasksProps) {
   const [tasks, setTasks] = useState<EventTask[]>([]);
   const [completions, setCompletions] = useState<EventTaskCompletion[]>([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<string | null>(null);
 
-  const today = format(new Date(), "yyyy-MM-dd");
-  // Convert JS day (Sun=0) to schedule day (Mon=0)
-  const jsDay = new Date().getDay();
-  const todayDayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+  // Use timezone-aware date functions
+  const today = getTodayInTimezone(timezone);
+  const todayDayOfWeek = getDayOfWeekInTimezone(timezone);
 
   useEffect(() => {
     if (locationId) {
