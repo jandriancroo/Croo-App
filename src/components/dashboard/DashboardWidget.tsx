@@ -106,7 +106,16 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   sales_last_year: { type: 'sales_last_year', label: 'Last Week', shortLabel: 'Last Wk', icon: Calendar, format: 'currency', category: 'daily' }, // Legacy alias
 };
 
-// Consistent order across all time periods: Sales, Pace, Projected, LW/Prev, LY, Guests, Pizzas, [Avg Ticket daily only], Labor%, Labor$, Hours
+// Map legacy metric types to current ones for backwards compatibility
+export const LEGACY_METRIC_MAP: Record<string, MetricType> = {
+  'sales_last_year': 'sales_last_week', // Old name was confusing - was actually same day last week
+};
+
+export function migrateMetricType(metric: string): MetricType {
+  return (LEGACY_METRIC_MAP[metric] as MetricType) || (metric as MetricType);
+}
+
+// Consistent order across all time periods: Sales, Pace, Projected, Last Wk, Last Yr, Guests, Pizzas, [Avg Ticket daily only], Labor%, Labor$, Hours
 export const METRIC_GROUPS = [
   { 
     label: 'Daily', 
