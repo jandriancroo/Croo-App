@@ -6,17 +6,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-interface HourlyCoverage {
-  day_of_week: number;
-  hour: number;
-  min_staff: number;
-}
-
 interface Employee {
   id: string;
   full_name: string;
   min_weekly_hours: number | null;
   max_weekly_hours: number | null;
+}
+
+interface ShiftTemplateAssignment {
+  id: string;
+  day_of_week: number;
+  shift_template_id: string;
+  template_name: string;
+  start_time: string;
+  end_time: string;
+  role: string;
+  position: string;
 }
 
 interface AvailabilityBlock {
@@ -34,14 +39,16 @@ interface GeneratedShift {
   start_time: string;
   end_time: string;
   shift_date: string;
+  template_id: string;
+  template_name: string;
 }
 
-interface UnfilledGap {
+interface UnfilledShift {
   dayOfWeek: number;
-  hour: number;
-  required: number;
-  filled: number;
-  gap: number;
+  templateName: string;
+  startTime: string;
+  endTime: string;
+  reason: string;
 }
 
 serve(async (req) => {
@@ -119,20 +126,203 @@ serve(async (req) => {
 
     console.log(`Found ${timeOffBlocks.length} approved time off blocks`);
 
-    let hourlyCoverage: HourlyCoverage[] = [];
-    let existingShifts: any[] = [];
+    const generatedShifts: GeneratedShift[] = [];
+    const unfilledShifts: UnfilledShift[] = [];
+    const employeeHours: Record<string, number> = {};
+
+    // Initialize employee hours
+    (employees || []).forEach((emp: Employee) => {
+      employeeHours[emp.id] = 0;
+    });
+
+    // Helper to calculate shift hours
+    const calculateShiftHours = (startTime: string, endTime: string): number => {
+      const startParts = startTime.split(":");
+      const endParts = endTime.split(":");
+      const startHour = parseInt(startParts[0]) + parseInt(startParts[1]) / 60;
+      const endHour = parseInt(endParts[0]) + parseInt(endParts[1]) / 60;
+      return endHour > startHour ? endHour - startHour : 24 - startHour + endHour;
+    };
+
+    // Helper to check if employee is available for a shift
+    const isEmployeeAvailable = (employeeId: string, dayOfWeek: number, startTime: string, endTime: string): boolean => {
+      const shiftDate = new Date(weekStartDate);
+      shiftDate.setDate(shiftDate.getDate() + dayOfWeek);
+      const shiftDateStr = shiftDate.toISOString().split("T")[0];
+
+      const shiftStartHour = parseInt(startTime.split(":")[0]);
+      const shiftEndHour = parseInt(endTime.split(":")[0]);
+
+      for (const block of timeOffBlocks) {
+        if (block.user_id !== employeeId) continue;
+
+        const blockStart = new Date(block.start_date);
+        const blockEnd = block.end_date ? new Date(block.end_date) : blockStart;
+        const checkDate = new Date(shiftDateStr);
+
+        if (checkDate >= blockStart && checkDate <= blockEnd) {
+          if (block.time_scope === "full_day" || block.time_scope === "multi_day") {
+            return false;
+          }
+          if (block.time_scope === "partial_day" && block.start_time && block.end_time) {
+            const blockStartHour = parseInt(block.start_time.split(":")[0]);
+            const blockEndHour = parseInt(block.end_time.split(":")[0]);
+            // Check if shift overlaps with time off block
+            if (shiftStartHour < blockEndHour && shiftEndHour > blockStartHour) {
+              return false;
+            }
+          }
+        }
+      }
+      return true;
+    };
+
+    // Helper to check if employee can take more hours
+    const canTakeMoreHours = (employeeId: string, additionalHours: number): boolean => {
+      const emp = (employees || []).find((e: Employee) => e.id === employeeId);
+      if (!emp) return false;
+      
+      const maxHours = emp.max_weekly_hours ?? 40;
+      // Skip employees with max_weekly_hours = 0 (they can't be scheduled)
+      if (maxHours === 0) return false;
+      
+      return (employeeHours[employeeId] || 0) + additionalHours <= maxHours;
+    };
+
+    // Helper to check if employee already has overlapping shift on this day
+    const hasOverlappingShift = (employeeId: string, dayOfWeek: number, startTime: string, endTime: string): boolean => {
+      const shiftStartHour = parseInt(startTime.split(":")[0]) + parseInt(startTime.split(":")[1]) / 60;
+      const shiftEndHour = parseInt(endTime.split(":")[0]) + parseInt(endTime.split(":")[1]) / 60;
+
+      return generatedShifts.some((s) => {
+        if (s.user_id !== employeeId || s.day_of_week !== dayOfWeek) return false;
+        
+        const existingStart = parseInt(s.start_time.split(":")[0]) + parseInt(s.start_time.split(":")[1]) / 60;
+        const existingEnd = parseInt(s.end_time.split(":")[0]) + parseInt(s.end_time.split(":")[1]) / 60;
+        
+        // Check for overlap
+        return shiftStartHour < existingEnd && shiftEndHour > existingStart;
+      });
+    };
 
     if (source_type === "template" && template_id) {
-      // Get hourly coverage from template
-      const { data: coverageData, error: covError } = await supabase
-        .from("week_template_hourly_coverage")
-        .select("day_of_week, hour, min_staff")
+      // Get shift template assignments for this week template
+      const { data: assignmentsData, error: assignError } = await supabase
+        .from("week_template_assignments")
+        .select(`
+          id,
+          day_of_week,
+          shift_template_id,
+          shift_templates!inner (
+            template_name,
+            start_time,
+            end_time,
+            role,
+            position
+          )
+        `)
         .eq("week_template_id", template_id)
-        .gt("min_staff", 0);
+        .order("day_of_week");
 
-      if (covError) throw covError;
-      hourlyCoverage = coverageData || [];
-      console.log(`Found ${hourlyCoverage.length} hourly coverage requirements`);
+      if (assignError) throw assignError;
+
+      const assignments: ShiftTemplateAssignment[] = (assignmentsData || []).map((a: any) => ({
+        id: a.id,
+        day_of_week: a.day_of_week,
+        shift_template_id: a.shift_template_id,
+        template_name: a.shift_templates.template_name,
+        start_time: a.shift_templates.start_time,
+        end_time: a.shift_templates.end_time,
+        role: a.shift_templates.role,
+        position: a.shift_templates.position,
+      }));
+
+      console.log(`Found ${assignments.length} shift template assignments`);
+
+      // Sort employees by minimum hours (prioritize those who need more hours)
+      const sortedEmployees = [...(employees || [])].sort((a: Employee, b: Employee) => {
+        const aMin = a.min_weekly_hours ?? 0;
+        const bMin = b.min_weekly_hours ?? 0;
+        return bMin - aMin;
+      });
+
+      // For each shift template assignment, try to assign an employee
+      for (const assignment of assignments) {
+        const shiftDate = new Date(weekStartDate);
+        shiftDate.setDate(shiftDate.getDate() + assignment.day_of_week);
+        const shiftDateStr = shiftDate.toISOString().split("T")[0];
+
+        const shiftHours = calculateShiftHours(assignment.start_time, assignment.end_time);
+        let assigned = false;
+
+        // Try to find an available employee
+        for (const emp of sortedEmployees) {
+          // Check if employee can be scheduled
+          if (!canTakeMoreHours(emp.id, shiftHours)) {
+            continue;
+          }
+
+          // Check if employee is available (no time off)
+          if (!isEmployeeAvailable(emp.id, assignment.day_of_week, assignment.start_time, assignment.end_time)) {
+            continue;
+          }
+
+          // Check if employee already has an overlapping shift on this day
+          if (hasOverlappingShift(emp.id, assignment.day_of_week, assignment.start_time, assignment.end_time)) {
+            continue;
+          }
+
+          // Assign the shift
+          generatedShifts.push({
+            user_id: emp.id,
+            day_of_week: assignment.day_of_week,
+            start_time: assignment.start_time,
+            end_time: assignment.end_time,
+            shift_date: shiftDateStr,
+            template_id: assignment.shift_template_id,
+            template_name: assignment.template_name,
+          });
+
+          employeeHours[emp.id] = (employeeHours[emp.id] || 0) + shiftHours;
+          assigned = true;
+          console.log(`Assigned ${emp.full_name} to ${assignment.template_name} on day ${assignment.day_of_week}`);
+          break;
+        }
+
+        if (!assigned) {
+          // Track unfilled shift with reason
+          let reason = "No available employees";
+          
+          // Check why no one could be assigned
+          const availableEmps = sortedEmployees.filter(emp => {
+            const maxHours = emp.max_weekly_hours ?? 40;
+            if (maxHours === 0) return false;
+            return (employeeHours[emp.id] || 0) + shiftHours <= maxHours;
+          });
+
+          if (availableEmps.length === 0) {
+            reason = "All employees at max hours";
+          } else {
+            const availableWithNoConflict = availableEmps.filter(emp => 
+              isEmployeeAvailable(emp.id, assignment.day_of_week, assignment.start_time, assignment.end_time) &&
+              !hasOverlappingShift(emp.id, assignment.day_of_week, assignment.start_time, assignment.end_time)
+            );
+            
+            if (availableWithNoConflict.length === 0) {
+              reason = "All available employees have conflicts or time off";
+            }
+          }
+
+          unfilledShifts.push({
+            dayOfWeek: assignment.day_of_week,
+            templateName: assignment.template_name,
+            startTime: assignment.start_time,
+            endTime: assignment.end_time,
+            reason: reason,
+          });
+          console.log(`Could not fill ${assignment.template_name} on day ${assignment.day_of_week}: ${reason}`);
+        }
+      }
     } else if (source_type === "last_week") {
       // Get last week's schedule
       const lastWeekStart = new Date(weekStartDate);
@@ -151,225 +341,54 @@ serve(async (req) => {
       if (lastSchedule) {
         const { data: lastShifts, error: shiftError } = await supabase
           .from("scheduled_shifts")
-          .select("user_id, day_of_week, start_time, end_time")
+          .select("user_id, day_of_week, start_time, end_time, template_id")
           .eq("schedule_id", lastSchedule.id)
           .eq("is_time_off", false);
 
         if (shiftError) throw shiftError;
-        existingShifts = lastShifts || [];
-        console.log(`Found ${existingShifts.length} shifts from last week`);
-      }
-    }
 
-    // Generate shifts based on source
-    const generatedShifts: GeneratedShift[] = [];
-    const unfilledGaps: UnfilledGap[] = [];
-    const employeeHours: Record<string, number> = {};
+        console.log(`Found ${(lastShifts || []).length} shifts from last week`);
 
-    // Initialize employee hours
-    (employees || []).forEach((emp: Employee) => {
-      employeeHours[emp.id] = 0;
-    });
+        for (const shift of (lastShifts || [])) {
+          if (!shift.user_id) continue;
 
-    // Helper to check if employee is available at a given day/hour
-    const isEmployeeAvailable = (employeeId: string, dayOfWeek: number, hour: number): boolean => {
-      const shiftDate = new Date(weekStartDate);
-      shiftDate.setDate(shiftDate.getDate() + dayOfWeek);
-      const shiftDateStr = shiftDate.toISOString().split("T")[0];
+          const emp = (employees || []).find((e: Employee) => e.id === shift.user_id);
+          if (!emp) continue;
 
-      for (const block of timeOffBlocks) {
-        if (block.user_id !== employeeId) continue;
+          const shiftDate = new Date(weekStartDate);
+          shiftDate.setDate(shiftDate.getDate() + shift.day_of_week);
+          const shiftDateStr = shiftDate.toISOString().split("T")[0];
 
-        // Check if this date falls within the time off block
-        const blockStart = new Date(block.start_date);
-        const blockEnd = block.end_date ? new Date(block.end_date) : blockStart;
-        const checkDate = new Date(shiftDateStr);
+          const shiftHours = calculateShiftHours(shift.start_time, shift.end_time);
 
-        if (checkDate >= blockStart && checkDate <= blockEnd) {
-          if (block.time_scope === "full_day" || block.time_scope === "multi_day") {
-            return false;
+          if (
+            canTakeMoreHours(shift.user_id, shiftHours) &&
+            isEmployeeAvailable(shift.user_id, shift.day_of_week, shift.start_time, shift.end_time)
+          ) {
+            generatedShifts.push({
+              user_id: shift.user_id,
+              day_of_week: shift.day_of_week,
+              start_time: shift.start_time,
+              end_time: shift.end_time,
+              shift_date: shiftDateStr,
+              template_id: shift.template_id || "",
+              template_name: "",
+            });
+            employeeHours[shift.user_id] = (employeeHours[shift.user_id] || 0) + shiftHours;
           }
-          if (block.time_scope === "partial_day" && block.start_time && block.end_time) {
-            const blockStartHour = parseInt(block.start_time.split(":")[0]);
-            const blockEndHour = parseInt(block.end_time.split(":")[0]);
-            if (hour >= blockStartHour && hour < blockEndHour) {
-              return false;
-            }
-          }
-        }
-      }
-      return true;
-    };
-
-    // Helper to check if employee can take more hours
-    const canTakeMoreHours = (employeeId: string, additionalHours: number): boolean => {
-      const emp = (employees || []).find((e: Employee) => e.id === employeeId);
-      if (!emp) return false;
-      
-      const maxHours = emp.max_weekly_hours ?? 40; // Default to 40 if not set
-      return (employeeHours[employeeId] || 0) + additionalHours <= maxHours;
-    };
-
-    if (source_type === "last_week" && existingShifts.length > 0) {
-      // Copy last week's shifts, adjusting dates and checking availability
-      for (const shift of existingShifts) {
-        if (!shift.user_id) continue;
-
-        // Check if employee is still active
-        const emp = (employees || []).find((e: Employee) => e.id === shift.user_id);
-        if (!emp) continue;
-
-        const shiftDate = new Date(weekStartDate);
-        shiftDate.setDate(shiftDate.getDate() + shift.day_of_week);
-        const shiftDateStr = shiftDate.toISOString().split("T")[0];
-
-        // Calculate shift hours
-        const startHour = parseInt(shift.start_time.split(":")[0]);
-        const endHour = parseInt(shift.end_time.split(":")[0]);
-        const shiftHours = endHour > startHour ? endHour - startHour : 24 - startHour + endHour;
-
-        // Check availability for the entire shift
-        let available = true;
-        for (let h = startHour; h !== endHour; h = (h + 1) % 24) {
-          if (!isEmployeeAvailable(shift.user_id, shift.day_of_week, h)) {
-            available = false;
-            break;
-          }
-        }
-
-        if (available && canTakeMoreHours(shift.user_id, shiftHours)) {
-          generatedShifts.push({
-            user_id: shift.user_id,
-            day_of_week: shift.day_of_week,
-            start_time: shift.start_time,
-            end_time: shift.end_time,
-            shift_date: shiftDateStr,
-          });
-          employeeHours[shift.user_id] = (employeeHours[shift.user_id] || 0) + shiftHours;
-        }
-      }
-    } else if (source_type === "template" && hourlyCoverage.length > 0) {
-      // Build shifts from hourly coverage requirements
-      // Group consecutive hours into shifts
-      const coverageByDay: Record<number, number[]> = {};
-      
-      for (const cov of hourlyCoverage) {
-        if (!coverageByDay[cov.day_of_week]) {
-          coverageByDay[cov.day_of_week] = [];
-        }
-        // Add the hour for each staff member needed
-        for (let i = 0; i < cov.min_staff; i++) {
-          coverageByDay[cov.day_of_week].push(cov.hour);
-        }
-      }
-
-      // Track coverage fulfillment
-      const filledCoverage: Record<string, number> = {};
-
-      // Sort employees by minimum hours (prioritize those who need more hours)
-      const sortedEmployees = [...(employees || [])].sort((a: Employee, b: Employee) => {
-        const aMin = a.min_weekly_hours ?? 0;
-        const bMin = b.min_weekly_hours ?? 0;
-        return bMin - aMin;
-      });
-
-      // For each day, try to assign shifts
-      for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
-        const hoursNeeded = coverageByDay[dayOfWeek] || [];
-        if (hoursNeeded.length === 0) continue;
-
-        // Get unique hours sorted
-        const uniqueHours = [...new Set(hoursNeeded)].sort((a, b) => a - b);
-        if (uniqueHours.length === 0) continue;
-
-        // Find contiguous ranges
-        const ranges: { start: number; end: number }[] = [];
-        let rangeStart = uniqueHours[0];
-        let prevHour = uniqueHours[0];
-
-        for (let i = 1; i <= uniqueHours.length; i++) {
-          const currentHour = uniqueHours[i];
-          if (currentHour !== prevHour + 1 || i === uniqueHours.length) {
-            ranges.push({ start: rangeStart, end: prevHour + 1 });
-            rangeStart = currentHour;
-          }
-          prevHour = currentHour;
-        }
-
-        // Calculate date for this day
-        const shiftDate = new Date(weekStartDate);
-        shiftDate.setDate(shiftDate.getDate() + dayOfWeek);
-        const shiftDateStr = shiftDate.toISOString().split("T")[0];
-
-        // For each range, try to assign employees
-        for (const range of ranges) {
-          const shiftHours = range.end - range.start;
-
-          for (const emp of sortedEmployees) {
-            // Check if already has a shift on this day (simple: skip for now)
-            const hasShiftOnDay = generatedShifts.some(
-              (s) => s.user_id === emp.id && s.day_of_week === dayOfWeek
-            );
-            if (hasShiftOnDay) continue;
-
-            // Check availability for the entire shift
-            let available = true;
-            for (let h = range.start; h < range.end; h++) {
-              if (!isEmployeeAvailable(emp.id, dayOfWeek, h)) {
-                available = false;
-                break;
-              }
-            }
-
-            if (available && canTakeMoreHours(emp.id, shiftHours)) {
-              const startTime = `${range.start.toString().padStart(2, "0")}:00:00`;
-              const endTime = `${range.end.toString().padStart(2, "0")}:00:00`;
-
-              generatedShifts.push({
-                user_id: emp.id,
-                day_of_week: dayOfWeek,
-                start_time: startTime,
-                end_time: endTime,
-                shift_date: shiftDateStr,
-              });
-
-              employeeHours[emp.id] = (employeeHours[emp.id] || 0) + shiftHours;
-
-              // Mark hours as filled
-              for (let h = range.start; h < range.end; h++) {
-                const key = `${dayOfWeek}-${h}`;
-                filledCoverage[key] = (filledCoverage[key] || 0) + 1;
-              }
-
-              break; // One employee per range for now
-            }
-          }
-        }
-      }
-
-      // Calculate unfilled gaps
-      for (const cov of hourlyCoverage) {
-        const key = `${cov.day_of_week}-${cov.hour}`;
-        const filled = filledCoverage[key] || 0;
-        if (filled < cov.min_staff) {
-          unfilledGaps.push({
-            dayOfWeek: cov.day_of_week,
-            hour: cov.hour,
-            required: cov.min_staff,
-            filled: filled,
-            gap: cov.min_staff - filled,
-          });
         }
       }
     }
 
-    console.log(`Generated ${generatedShifts.length} shifts, ${unfilledGaps.length} unfilled gaps`);
+    console.log(`Generated ${generatedShifts.length} shifts, ${unfilledShifts.length} unfilled shifts`);
+    console.log("Employee hours summary:", employeeHours);
 
     return new Response(
       JSON.stringify({
         shifts: generatedShifts,
-        unfilled: unfilledGaps,
+        unfilled: unfilledShifts,
         employeeCount: (employees || []).length,
+        employeeHours: employeeHours,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
