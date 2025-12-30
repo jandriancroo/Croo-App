@@ -678,26 +678,41 @@ export function AutoScheduleWizard({
           {/* Step 4: Labor Optimization */}
           {step === 4 && (
             <div className="space-y-4">
-              {/* Savings Summary */}
+              {/* CrooAI Savings Summary */}
               {totalSavings > 0 ? (
-                <Card className="p-4 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                <Card className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border-green-200 dark:border-green-800">
                   <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 rounded-full bg-green-100 dark:bg-green-800 flex items-center justify-center">
-                      <TrendingDown className="h-5 w-5 text-green-600 dark:text-green-400" />
+                    <div className="h-12 w-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg">
+                      <Sparkles className="h-6 w-6 text-white" />
                     </div>
-                    <div>
-                      <p className="text-sm text-muted-foreground">Labor Optimized</p>
-                      <p className="text-xl font-bold text-green-600 dark:text-green-400">
-                        ${totalSavings.toFixed(2)} saved
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-green-700 dark:text-green-300">
+                          CrooAI Optimization
+                        </p>
+                        <Badge className="bg-green-600 text-white text-[10px] px-1.5 py-0">
+                          SAVINGS
+                        </Badge>
+                      </div>
+                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                        ${totalSavings.toFixed(2)} <span className="text-base font-normal text-muted-foreground">saved this week</span>
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Projected annual savings: <span className="font-semibold text-green-600">${(totalSavings * 52).toFixed(0)}</span>
                       </p>
                     </div>
                   </div>
                 </Card>
               ) : (
                 <Card className="p-4 bg-muted/50">
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Check className="h-5 w-5" />
-                    <span>Labor is within target - no adjustments needed</span>
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Check className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Labor is within target</p>
+                      <p className="text-sm text-muted-foreground">No adjustments needed - schedule is already optimized!</p>
+                    </div>
                   </div>
                 </Card>
               )}
