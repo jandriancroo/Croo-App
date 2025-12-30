@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key, Trash2, FileText, Check, CalendarIcon, Pencil } from 'lucide-react';
+import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key, Trash2, FileText, Check, CalendarIcon, Pencil, FlaskConical } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
@@ -116,6 +116,8 @@ export default function UserManagement() {
   const [editEmployeePin, setEditEmployeePin] = useState<string>('');
   const [availableLocations, setAvailableLocations] = useState<any[]>([]);
   const [editUserLocations, setEditUserLocations] = useState<string[]>([]);
+  const [creatingTestUser, setCreatingTestUser] = useState(false);
+  const [testUserCounter, setTestUserCounter] = useState(1);
   const { toast } = useToast();
   const { isAdmin, isManager, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
@@ -279,6 +281,46 @@ export default function UserManagement() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCreateTestEmployee = async () => {
+    if (!currentLocation) return;
+    
+    setCreatingTestUser(true);
+    try {
+      const testNames = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet'];
+      const testName = testNames[(testUserCounter - 1) % testNames.length];
+      const email = `test.${testName.toLowerCase()}${testUserCounter > 10 ? testUserCounter : ''}@example.com`;
+      
+      const { data, error } = await supabase.functions.invoke('create-test-users', {
+        body: { 
+          location_id: currentLocation.id,
+          single_user: {
+            email,
+            name: `Test Employee ${testName}`,
+            role: 'team_member'
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      setTestUserCounter(prev => prev + 1);
+      toast({
+        title: 'Test employee created',
+        description: `Created Test Employee ${testName}`,
+      });
+      fetchUsers();
+    } catch (error: any) {
+      console.error('Error creating test employee:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create test employee',
+        variant: 'destructive',
+      });
+    } finally {
+      setCreatingTestUser(false);
     }
   };
 
@@ -1192,6 +1234,21 @@ export default function UserManagement() {
               <CardDescription>Manage user roles and permissions</CardDescription>
               {isAdmin && (
               <div className="flex items-center gap-2">
+                {currentLocation?.name?.toLowerCase() === 'hemet' && (
+                  <Button 
+                    variant="outline" 
+                    className="gap-2"
+                    onClick={handleCreateTestEmployee}
+                    disabled={creatingTestUser}
+                  >
+                    {creatingTestUser ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <FlaskConical className="h-4 w-4" />
+                    )}
+                    <span className="hidden sm:inline">Add Test Employee</span>
+                  </Button>
+                )}
                 <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
                   <DialogTrigger asChild>
                     <Button className="gap-2 flex-1 md:flex-none">
