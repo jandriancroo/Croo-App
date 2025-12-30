@@ -3018,6 +3018,7 @@ export type Database = {
       }
       shift_templates: {
         Row: {
+          allowed_roles: string[] | null
           color: string | null
           created_at: string | null
           created_by: string | null
@@ -3031,6 +3032,7 @@ export type Database = {
           template_name: string
         }
         Insert: {
+          allowed_roles?: string[] | null
           color?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -3044,6 +3046,7 @@ export type Database = {
           template_name: string
         }
         Update: {
+          allowed_roles?: string[] | null
           color?: string | null
           created_at?: string | null
           created_by?: string | null

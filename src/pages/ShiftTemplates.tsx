@@ -23,6 +23,7 @@ interface ShiftTemplate {
   color: string;
   position: string | null;
   days_of_week: number[] | null;
+  allowed_roles: string[] | null;
 }
 
 export default function ShiftTemplates() {
@@ -41,6 +42,7 @@ export default function ShiftTemplates() {
     color: "#ef4444",
     position: "",
     days_of_week: [0, 1, 2, 3, 4, 5, 6] as number[],
+    allowed_roles: ["team_member"] as string[],
   });
 
   const resetForm = () => {
@@ -51,6 +53,7 @@ export default function ShiftTemplates() {
       color: "#ef4444",
       position: "",
       days_of_week: [0, 1, 2, 3, 4, 5, 6],
+      allowed_roles: ["team_member"],
     });
     setCustomPosition("");
     setShowCustomPosition(false);
@@ -69,6 +72,7 @@ export default function ShiftTemplates() {
       color: template.color || "#ef4444",
       position: isPredefined ? template.position || "" : "",
       days_of_week: template.days_of_week || [0, 1, 2, 3, 4, 5, 6],
+      allowed_roles: template.allowed_roles || [template.role || "team_member"],
     });
     setDialogOpen(true);
   };
@@ -145,6 +149,7 @@ export default function ShiftTemplates() {
             color: formData.color,
             position: positionValue,
             days_of_week: formData.days_of_week,
+            allowed_roles: formData.allowed_roles,
           })
           .eq("id", editingTemplate.id);
 
@@ -160,6 +165,7 @@ export default function ShiftTemplates() {
           color: formData.color,
           position: positionValue,
           days_of_week: formData.days_of_week,
+          allowed_roles: formData.allowed_roles,
           location_id: currentLocation?.id,
         });
 
@@ -245,17 +251,39 @@ export default function ShiftTemplates() {
                 </div>
 
                 <div>
-                  <Label htmlFor="role">Role</Label>
-                  <Select value={formData.role} onValueChange={(value: any) => setFormData({ ...formData, role: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="team_member">Team Member</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label>Allowed Roles</Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Select which roles can be assigned to this shift
+                  </p>
+                  <div className="space-y-2">
+                    {[
+                      { value: "team_member", label: "Team Member" },
+                      { value: "shift_manager", label: "Shift Manager" },
+                      { value: "manager", label: "Manager" },
+                      { value: "general_manager", label: "General Manager" },
+                      { value: "admin", label: "Admin" },
+                    ].map((roleOption) => (
+                      <div key={roleOption.value} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`role-${roleOption.value}`}
+                          checked={formData.allowed_roles.includes(roleOption.value)}
+                          onChange={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              allowed_roles: prev.allowed_roles.includes(roleOption.value)
+                                ? prev.allowed_roles.filter(r => r !== roleOption.value)
+                                : [...prev.allowed_roles, roleOption.value]
+                            }));
+                          }}
+                          className="w-4 h-4 rounded border-input"
+                        />
+                        <label htmlFor={`role-${roleOption.value}`} className="text-sm cursor-pointer">
+                          {roleOption.label}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div>
@@ -374,9 +402,13 @@ export default function ShiftTemplates() {
                     <p className="text-sm text-muted-foreground">
                       {formatTime12Hour(template.start_time)} - {formatTime12Hour(template.end_time)}
                     </p>
-                    <p className="text-sm text-muted-foreground capitalize mt-1">
-                      {template.role.replace("_", " ")}
-                    </p>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {(template.allowed_roles || [template.role]).map((r) => (
+                        <span key={r} className="text-xs bg-muted px-1.5 py-0.5 rounded capitalize">
+                          {r.replace("_", " ")}
+                        </span>
+                      ))}
+                    </div>
                     {template.days_of_week && template.days_of_week.length < 7 && (
                       <div className="mt-2">
                         <p className="text-xs text-muted-foreground">
