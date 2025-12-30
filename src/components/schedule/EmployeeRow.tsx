@@ -100,7 +100,7 @@ export function EmployeeRow({
           <GripVertical className="h-5 w-5" />
         </div>}
       
-      <div className="flex items-center gap-2 p-2 border-r border-border bg-muted/30 min-h-[70px] overflow-hidden">
+      <div className="flex items-center gap-2 p-2 border-r border-border bg-muted/30 min-h-[80px] overflow-hidden">
         {profile.id !== "unassigned" ? <div onClick={() => navigate('/users', {
         state: {
           viewUserId: profile.id
@@ -177,7 +177,7 @@ function DayCell({
   });
   return <div ref={setNodeRef} style={{
     touchAction: 'none'
-  }} className={`min-h-[70px] p-1.5 border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
+  }} className={`min-h-[80px] p-1.5 border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
       <div className="space-y-1">
         {shifts.map(shift => {
           // A shift is a draft if schedule is unpublished AND (shift is new OR shift has been modified)
