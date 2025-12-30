@@ -491,27 +491,32 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
                 <div>
                   <Label>Tag Roles (optional)</Label>
                   <div className="space-y-2 mt-2">
-                    {["admin", "manager", "team_member"].map((role) => (
-                      <div key={role} className="flex items-center space-x-2">
+                    {[
+                      { value: "admin", label: "Admin" },
+                      { value: "manager", label: "Manager" },
+                      { value: "shift_manager", label: "Shift Manager" },
+                      { value: "team_member", label: "Team Member" },
+                    ].map((role) => (
+                      <div key={role.value} className="flex items-center space-x-2">
                         <Checkbox
-                          id={`role-${role}`}
-                          checked={formData.tagged_roles.includes(role)}
+                          id={`role-${role.value}`}
+                          checked={formData.tagged_roles.includes(role.value)}
                           onCheckedChange={(checked) => {
                             if (checked) {
                               setFormData({
                                 ...formData,
-                                tagged_roles: [...formData.tagged_roles, role],
+                                tagged_roles: [...formData.tagged_roles, role.value],
                               });
                             } else {
                               setFormData({
                                 ...formData,
-                                tagged_roles: formData.tagged_roles.filter((r) => r !== role),
+                                tagged_roles: formData.tagged_roles.filter((r) => r !== role.value),
                               });
                             }
                           }}
                         />
-                        <label htmlFor={`role-${role}`} className="text-sm capitalize cursor-pointer">
-                          {role.replace("_", " ")}
+                        <label htmlFor={`role-${role.value}`} className="text-sm cursor-pointer">
+                          {role.label}
                         </label>
                       </div>
                     ))}
