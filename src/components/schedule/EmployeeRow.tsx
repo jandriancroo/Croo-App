@@ -112,7 +112,12 @@ export function EmployeeRow({
             </Avatar>
             <div className="flex-1 min-w-0">
               <p className="text-xs md:text-sm font-semibold leading-tight mb-0.5 truncate" title={profile.full_name}>
-                {profile.full_name.split(' ')[0]}
+                {(() => {
+                  const parts = profile.full_name.split(' ');
+                  const firstName = parts[0];
+                  const lastInitial = parts.length > 1 ? ` ${parts[parts.length - 1].charAt(0)}.` : '';
+                  return `${firstName}${lastInitial}`;
+                })()}
               </p>
               <p className="text-[10px] md:text-xs text-muted-foreground leading-tight">
                 {calculateTotalHours()} hrs
