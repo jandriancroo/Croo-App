@@ -38,6 +38,7 @@ export const Layout = ({
   const {
     isAdmin,
     isManager,
+    isShiftManager,
     canApproveRequests,
     canViewTimecards
   } = useUserRole();
@@ -47,7 +48,7 @@ export const Layout = ({
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const { unreadCount } = useUnreadMessages();
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation } = useAppLocation();
-  const canAccessLogs = isAdmin || isManager;
+  const canAccessLogs = isShiftManager; // Shift managers and above can access logbook
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [hasFBCAccess, setHasFBCAccess] = useState(false);
   const [hasMultiLocationAccess, setHasMultiLocationAccess] = useState(false);
