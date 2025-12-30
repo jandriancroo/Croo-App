@@ -65,10 +65,10 @@ interface AvailabilityRequest {
 
 interface UnfilledShift {
   dayOfWeek: number;
-  hour: number;
-  required: number;
-  filled: number;
-  gap: number;
+  templateName: string;
+  startTime: string;
+  endTime: string;
+  reason: string;
 }
 
 interface GeneratedShift {
@@ -77,6 +77,8 @@ interface GeneratedShift {
   start_time: string;
   end_time: string;
   shift_date: string;
+  template_id?: string;
+  template_name?: string;
 }
 
 export function AutoScheduleWizard({
@@ -267,6 +269,7 @@ export function AutoScheduleWizard({
           end_time: shift.end_time,
           shift_date: shift.shift_date,
           is_time_off: false,
+          template_id: shift.template_id || null,
         }));
 
         const { error } = await supabase
@@ -552,13 +555,16 @@ export function AutoScheduleWizard({
                       {unfilledShifts.map((gap, i) => (
                         <div
                           key={i}
-                          className="flex items-center justify-between p-2 rounded-md bg-amber-50 dark:bg-amber-900/20 text-sm"
+                          className="flex items-center justify-between p-2 rounded-md bg-amber-50 dark:bg-amber-900/20 text-sm gap-2"
                         >
-                          <span>
-                            {getDayName(gap.dayOfWeek)} {formatHour(gap.hour)}
-                          </span>
-                          <Badge variant="outline" className="text-amber-600">
-                            Need {gap.gap} more
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate">{gap.templateName}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {getDayName(gap.dayOfWeek)} • {gap.startTime?.slice(0, 5)} - {gap.endTime?.slice(0, 5)}
+                            </div>
+                          </div>
+                          <Badge variant="outline" className="text-amber-600 flex-shrink-0 text-xs">
+                            {gap.reason}
                           </Badge>
                         </div>
                       ))}
