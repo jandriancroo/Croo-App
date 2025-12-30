@@ -83,6 +83,8 @@ interface GeneratedShift {
   shift_date: string;
   template_id?: string;
   template_name?: string;
+  original_end_time?: string; // Set if shift was trimmed
+  was_trimmed?: boolean;
 }
 
 interface LaborSummary {
@@ -348,17 +350,35 @@ export function AutoScheduleWizard({
         ? optimizedShifts 
         : generatedShifts;
 
+      // Create a map of trimmed shifts from suggestions
+      const trimmedShiftMap = new Map<string, TrimSuggestion>();
+      if (useOptimizedShifts) {
+        trimSuggestions.forEach(trim => {
+          // Key by user_id + day_of_week to match with shifts
+          const key = `${trim.user_id}-${trim.day_of_week}`;
+          trimmedShiftMap.set(key, trim);
+        });
+      }
+
       if (shiftsToApply.length > 0) {
-        const shiftsToInsert = shiftsToApply.map(shift => ({
-          schedule_id: scheduleId,
-          user_id: shift.user_id,
-          day_of_week: shift.day_of_week,
-          start_time: shift.start_time,
-          end_time: shift.end_time,
-          shift_date: shift.shift_date,
-          is_time_off: false,
-          template_id: shift.template_id || null,
-        }));
+        const shiftsToInsert = shiftsToApply.map(shift => {
+          // Check if this shift was trimmed
+          const trimKey = `${shift.user_id}-${shift.day_of_week}`;
+          const trimInfo = trimmedShiftMap.get(trimKey);
+          
+          return {
+            schedule_id: scheduleId,
+            user_id: shift.user_id,
+            day_of_week: shift.day_of_week,
+            start_time: shift.start_time,
+            end_time: shift.end_time,
+            shift_date: shift.shift_date,
+            is_time_off: false,
+            template_id: shift.template_id || null,
+            was_trimmed: !!trimInfo,
+            original_end_time: trimInfo ? trimInfo.original_end : null,
+          };
+        });
 
         const { error } = await supabase
           .from("scheduled_shifts")

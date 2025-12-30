@@ -2837,11 +2837,13 @@ export type Database = {
           end_time: string
           id: string
           is_time_off: boolean | null
+          original_end_time: string | null
           schedule_id: string | null
           shift_date: string
           start_time: string
           template_id: string | null
           user_id: string | null
+          was_trimmed: boolean | null
         }
         Insert: {
           created_at?: string | null
@@ -2849,11 +2851,13 @@ export type Database = {
           end_time: string
           id?: string
           is_time_off?: boolean | null
+          original_end_time?: string | null
           schedule_id?: string | null
           shift_date: string
           start_time: string
           template_id?: string | null
           user_id?: string | null
+          was_trimmed?: boolean | null
         }
         Update: {
           created_at?: string | null
@@ -2861,11 +2865,13 @@ export type Database = {
           end_time?: string
           id?: string
           is_time_off?: boolean | null
+          original_end_time?: string | null
           schedule_id?: string | null
           shift_date?: string
           start_time?: string
           template_id?: string | null
           user_id?: string | null
+          was_trimmed?: boolean | null
         }
         Relationships: [
           {

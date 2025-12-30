@@ -369,8 +369,27 @@ serve(async (req) => {
         .map((s, i) => s.day_of_week === daySummary.dayOfWeek ? i : -1)
         .filter(i => i !== -1);
 
+      // Log all shifts for this day before filtering
+      console.log(`Day ${daySummary.dayOfWeek} - All shifts:`);
+      dayShiftIndices.forEach(i => {
+        const s = optimizedShifts[i];
+        const role = roleMap.get(s.user_id) || 'unknown';
+        const isCloser = isClosingShift(optimizedShifts, i);
+        console.log(`  - ${nameMap.get(s.user_id)}: ${s.start_time}-${s.end_time}, role=${role}, isCloser=${isCloser}`);
+      });
+
       // Exclude closing shifts from consideration
       const eligibleShiftIndices = dayShiftIndices.filter(i => !isClosingShift(optimizedShifts, i));
+      
+      // Log excluded shifts
+      const excludedIndices = dayShiftIndices.filter(i => isClosingShift(optimizedShifts, i));
+      if (excludedIndices.length > 0) {
+        console.log(`Day ${daySummary.dayOfWeek} - Excluded (closing shifts):`);
+        excludedIndices.forEach(i => {
+          const s = optimizedShifts[i];
+          console.log(`  - ${nameMap.get(s.user_id)}: ${s.start_time}-${s.end_time} (ends at/after close or is latest shift)`);
+        });
+      }
       
       // Separate team members and managers
       const teamMemberIndices = eligibleShiftIndices.filter(i => 
@@ -390,7 +409,7 @@ serve(async (req) => {
       // Track how many 15-min increments we've trimmed from each shift
       const trimCountPerShift = new Map<number, number>();
 
-      console.log(`Day ${daySummary.dayOfWeek}: ${teamMemberIndices.length} team members, ${managerIndices.length} managers eligible for trimming`);
+      console.log(`Day ${daySummary.dayOfWeek}: ${teamMemberIndices.length} team members eligible, ${managerIndices.length} managers eligible, need to trim $${remainingToTrim.toFixed(2)}`);
 
       // Trimming rules:
       // - Max 30 min (2 x 15 min) per person total
