@@ -21,10 +21,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const ROLE_LABELS: Record<string, string> = {
+  super_admin: "Super Admin",
+  brand_admin: "Brand Admin",
+  org_admin: "Org Admin",
   admin: "Admin",
-  general_manager: "General Manager",
+  manager: "Manager",
   shift_manager: "Shift Manager",
   team_member: "Team Member",
 };
@@ -32,6 +36,7 @@ const ROLE_LABELS: Record<string, string> = {
 export function TemporaryTasksSection() {
   const { currentLocation } = useAppLocation();
   const queryClient = useQueryClient();
+  const { canCreateTasks } = useUserRole();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedTask, setSelectedTask] = useState<any>(null);
   const [editTask, setEditTask] = useState<any>(null);
@@ -102,13 +107,15 @@ export function TemporaryTasksSection() {
         <CardHeader className="py-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base font-semibold">Quick Tasks</CardTitle>
-            <Button
-              size="icon"
-              onClick={() => setShowCreateDialog(true)}
-              title="New Quick Task"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+            {canCreateTasks && (
+              <Button
+                size="icon"
+                onClick={() => setShowCreateDialog(true)}
+                title="New Quick Task"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>

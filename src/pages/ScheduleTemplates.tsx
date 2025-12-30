@@ -33,7 +33,7 @@ interface WeekTemplate {
 export default function ScheduleTemplates() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { isAdmin, isManager, loading: roleLoading } = useUserRole();
+  const { canManageTemplates, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
   const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
   const [weekTemplates, setWeekTemplates] = useState<WeekTemplate[]>([]);
@@ -44,14 +44,14 @@ export default function ScheduleTemplates() {
   useEffect(() => {
     if (roleLoading) return;
     
-    if (!isAdmin && !isManager) {
+    if (!canManageTemplates) {
       navigate("/schedule");
       return;
     }
     if (currentLocation?.id) {
       fetchTemplates();
     }
-  }, [isAdmin, isManager, roleLoading, navigate, currentLocation?.id]);
+  }, [canManageTemplates, roleLoading, navigate, currentLocation?.id]);
 
   const fetchTemplates = async () => {
     if (!currentLocation?.id) return;

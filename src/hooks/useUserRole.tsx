@@ -48,10 +48,18 @@ export const useUserRole = () => {
   const isAdmin = role === 'admin' || isOrgAdmin;
   const isManager = role === 'manager' || isAdmin;
   const isShiftManager = role === 'shift_manager' || isManager;
-  const canManageSchedule = isAdmin || isManager;
-  const canViewAllWages = isAdmin || isManager || isShiftManager;
-  const canApproveRequests = isAdmin || isManager;
+  
+  // Permission checks
+  // Shift managers can SEE schedule/sales/labor but CANNOT edit schedule, manage templates, or view wages
+  const canManageSchedule = isAdmin || isManager; // Edit/create shifts
+  const canViewAllWages = isAdmin || isManager; // Shift managers cannot see pay info
+  const canApproveRequests = isAdmin || isManager; // Manage availability requests
   const canEditChecklists = isAdmin || isManager;
+  const canManageTemplates = isAdmin || isManager; // Shift/schedule templates
+  const canCreateTasks = isAdmin || isManager; // Create and assign tasks
+  const canViewTimecards = isAdmin || isManager; // View timecards/punch history
+  const canViewSalesAndLabor = isShiftManager; // Shift managers and above can see sales/labor
+  const canViewAllProfiles = isShiftManager; // Shift managers and above can see all user profiles
 
   // Legacy alias for isManager (was isGeneralManager)
   const isGeneralManager = isManager;
@@ -69,6 +77,11 @@ export const useUserRole = () => {
     canManageSchedule,
     canViewAllWages,
     canApproveRequests,
-    canEditChecklists
+    canEditChecklists,
+    canManageTemplates,
+    canCreateTasks,
+    canViewTimecards,
+    canViewSalesAndLabor,
+    canViewAllProfiles
   };
 };

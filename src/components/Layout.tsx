@@ -37,7 +37,9 @@ export const Layout = ({
   const location = useLocation();
   const {
     isAdmin,
-    isManager
+    isManager,
+    canApproveRequests,
+    canViewTimecards
   } = useUserRole();
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -311,7 +313,7 @@ export const Layout = ({
       path: '/availability',
       label: 'Availability',
       icon: CalendarCheck
-    }, ...(isAdmin ? [{
+    }, ...(canViewTimecards ? [{
       path: '/punch-clock',
       label: 'Punch Clock',
       icon: Clock
@@ -365,7 +367,7 @@ export const Layout = ({
       label: 'Availability',
       icon: CalendarCheck
     },
-    ...(isAdmin ? [{
+    ...(canViewTimecards ? [{
       path: '/punch-clock',
       label: 'Punch Clock',
       icon: Clock

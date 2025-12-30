@@ -36,7 +36,7 @@ export function LaborTotals({
   scheduleId,
   isEditable = false
 }: LaborTotalsProps) {
-  const { canViewAllWages } = useUserRole();
+  const { canViewAllWages, canViewSalesAndLabor } = useUserRole();
   const { currentLocation } = useAppLocation();
   const weekDays = Array.from({
     length: 7
@@ -292,8 +292,8 @@ export function LaborTotals({
       laborPercent: avgLaborPercent
     };
   }, [dailyTotals, projectedSales]);
-  // Only show labor totals to users who can view wages
-  if (!canViewAllWages) {
+  // Only show labor totals to users who can view sales/labor (shift managers and above)
+  if (!canViewSalesAndLabor) {
     return null;
   }
 
@@ -311,12 +311,12 @@ export function LaborTotals({
 
         </p>
           <p className="text-xs font-bold mt-1">{weeklyTotals.hours.toFixed(1)}h</p>
-          <p className="text-[10px] font-bold text-primary">${weeklyTotals.wages.toFixed(0)}</p>
+          {canViewAllWages && <p className="text-[10px] font-bold text-primary">${weeklyTotals.wages.toFixed(0)}</p>}
         </div>
         {dailyTotals.map((day, index) => <div key={index} className="p-2 border-r border-border text-center">
             {isLoadingWages ? <p className="text-xs text-muted-foreground">...</p> : <>
                 <p className="text-xs font-semibold">{day.hours.toFixed(1)}h</p>
-                <p className="text-[10px] text-muted-foreground">${day.wages.toFixed(0)}</p>
+                {canViewAllWages && <p className="text-[10px] text-muted-foreground">${day.wages.toFixed(0)}</p>}
               </>}
           </div>)}
       </div>
