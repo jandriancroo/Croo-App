@@ -68,7 +68,7 @@ const handler = async (req: Request): Promise<Response> => {
       const timezone = location.location_settings?.[0]?.timezone || 'America/Los_Angeles';
       console.log(`\n=== Processing location: ${location.name} (${timezone}) ===`);
 
-      // Check for overdue checklists at this location
+      // Check for overdue checklists at this location (hourly reminders)
       await checkOverdueChecklists(supabaseClient, timezone, location.id, location.name);
 
       // Check for monthly checklist reminders at this location
@@ -76,6 +76,9 @@ const handler = async (req: Request): Promise<Response> => {
 
       // Check for late arrivals at this location
       await checkLateArrivals(supabaseClient, timezone, location.id, location.name);
+      
+      // Check for recently clocked-in users who need checklist reminders (15 min after clock-in)
+      await checkClockInChecklistReminders(supabaseClient, timezone, location.id, location.name);
     }
 
     // Certifications are user-based, not location-based
@@ -209,13 +212,6 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string, loc
     
     console.log(`[${locationName}] Checklist check - Local time: ${localNow.toLocaleString()}, Day: ${currentDay}`);
 
-    // Only send overdue notifications within the first 10 minutes of each hour
-    // This prevents spamming notifications every 5 minutes
-    if (currentMinutes > 10) {
-      console.log(`[${locationName}] Skipping overdue check - outside notification window (minute ${currentMinutes})`);
-      return;
-    }
-
     // Get active checklists for this location with due times
     const { data: checklists, error: checklistsError } = await supabaseClient
       .from('checklists')
@@ -263,61 +259,74 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string, loc
     
     const currentTotalMinutes = currentHours * 60 + currentMinutes;
     
-    // Find the "active" overdue checklist
-    let activeOverdueChecklist = null;
+    // Find all overdue checklists that are incomplete
+    const overdueChecklists = [];
     
-    for (let i = relevantChecklists.length - 1; i >= 0; i--) {
-      const checklist = relevantChecklists[i];
+    for (const checklist of relevantChecklists) {
+      if (currentTotalMinutes < checklist.dueTotalMinutes) continue;
       
-      if (currentTotalMinutes >= checklist.dueTotalMinutes) {
-        const { data: submissions } = await supabaseClient
-          .from('checklist_submissions')
-          .select(`
-            id,
-            checklist_id,
-            checklist_responses(id, item_id)
-          `)
-          .eq('checklist_id', checklist.id)
-          .eq('location_id', locationId)
-          .gte('submitted_at', startOfDayUTC.toISOString())
-          .lte('submitted_at', endOfDayUTC.toISOString());
+      const { data: submissions } = await supabaseClient
+        .from('checklist_submissions')
+        .select(`
+          id,
+          checklist_id,
+          checklist_responses(id, item_id)
+        `)
+        .eq('checklist_id', checklist.id)
+        .eq('location_id', locationId)
+        .gte('submitted_at', startOfDayUTC.toISOString())
+        .lte('submitted_at', endOfDayUTC.toISOString());
 
-        let totalItems = checklist.checklist_items?.length || 0;
-        if (checklist.template_type === 'dynamic') {
-          totalItems = checklist.checklist_items?.filter((item: any) => 
-            item.days_of_week && item.days_of_week.includes(currentDay)
-          ).length || 0;
-        }
+      let totalItems = checklist.checklist_items?.length || 0;
+      if (checklist.template_type === 'dynamic') {
+        totalItems = checklist.checklist_items?.filter((item: any) => 
+          item.days_of_week && item.days_of_week.includes(currentDay)
+        ).length || 0;
+      }
 
-        const uniqueItemIds = new Set();
-        submissions?.forEach((sub: any) => {
-          sub.checklist_responses?.forEach((response: any) => {
-            if (response.item_id) {
-              uniqueItemIds.add(response.item_id);
-            }
-          });
+      const uniqueItemIds = new Set();
+      submissions?.forEach((sub: any) => {
+        sub.checklist_responses?.forEach((response: any) => {
+          if (response.item_id) {
+            uniqueItemIds.add(response.item_id);
+          }
         });
-        const totalResponses = uniqueItemIds.size;
-        const remainingTasks = totalItems - totalResponses;
-        const completionRate = totalItems > 0 ? (totalResponses / totalItems) : 0;
-        
-        console.log(`[${locationName}] "${checklist.title}": ${totalResponses}/${totalItems} (${Math.round(completionRate * 100)}%)`);
+      });
+      const totalResponses = uniqueItemIds.size;
+      const remainingTasks = totalItems - totalResponses;
+      const completionRate = totalItems > 0 ? (totalResponses / totalItems) : 0;
+      
+      console.log(`[${locationName}] "${checklist.title}": ${totalResponses}/${totalItems} (${Math.round(completionRate * 100)}%)`);
 
-        if (completionRate < 1) {
-          activeOverdueChecklist = {
-            id: checklist.id,
-            title: checklist.title,
-            completionRate: Math.round(completionRate * 100),
-            remainingTasks,
-            dueTime: checklist.due_by_time
-          };
-        }
-        
-        break;
+      if (completionRate < 1) {
+        overdueChecklists.push({
+          id: checklist.id,
+          title: checklist.title,
+          completionRate: Math.round(completionRate * 100),
+          remainingTasks,
+          dueTime: checklist.due_by_time
+        });
       }
     }
 
-    if (activeOverdueChecklist) {
+    // Send hourly overdue reminders (with deduplication)
+    for (const activeOverdueChecklist of overdueChecklists) {
+      // Check if we've already sent an hourly notification for this checklist in the last hour
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { data: recentNotification } = await supabaseClient
+        .from('checklist_notification_logs')
+        .select('id')
+        .eq('checklist_id', activeOverdueChecklist.id)
+        .eq('location_id', locationId)
+        .eq('notification_type', 'overdue_hourly')
+        .gte('sent_at', oneHourAgo)
+        .limit(1);
+
+      if (recentNotification && recentNotification.length > 0) {
+        console.log(`[${locationName}] Skipping "${activeOverdueChecklist.title}" - already notified within the hour`);
+        continue;
+      }
+
       console.log(`[${locationName}] Active overdue: "${activeOverdueChecklist.title}" (due ${activeOverdueChecklist.dueTime})`);
 
       const adminUsers = await getLocationAdminsAndManagers(supabaseClient, locationId, 'overdue_checklists');
@@ -340,9 +349,19 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string, loc
             }
           }
         });
+        
+        // Log the notification to prevent duplicates
+        await supabaseClient.from('checklist_notification_logs').insert({
+          checklist_id: activeOverdueChecklist.id,
+          location_id: locationId,
+          notification_type: 'overdue_hourly'
+        });
+        
         console.log(`[${locationName}] Notification sent to ${adminUsers.length} users`);
       }
-    } else {
+    }
+
+    if (overdueChecklists.length === 0) {
       console.log(`[${locationName}] No active overdue checklists`);
     }
   } catch (error) {
@@ -561,6 +580,195 @@ async function checkLateArrivals(supabaseClient: any, timezone: string, location
     }
   } catch (error) {
     console.error(`[${locationName}] Error checking late arrivals:`, error);
+  }
+}
+
+// Check for users who clocked in ~15 minutes ago and have incomplete checklists
+async function checkClockInChecklistReminders(supabaseClient: any, timezone: string, locationId: string, locationName: string) {
+  try {
+    const { startOfDayUTC, endOfDayUTC, localNow, currentDay } = getTimezoneDayBoundariesInUTC(timezone);
+    
+    // Look for clock-ins that happened 13-17 minutes ago (targeting ~15 min after clock-in)
+    const now = new Date();
+    const thirteenMinAgo = new Date(now.getTime() - 17 * 60 * 1000);
+    const seventeenMinAgo = new Date(now.getTime() - 13 * 60 * 1000);
+    
+    // Get recent clock-ins at this location
+    const { data: recentPunches, error: punchError } = await supabaseClient
+      .from('time_punches')
+      .select('user_id, punch_time')
+      .eq('location_id', locationId)
+      .eq('punch_type', 'in')
+      .gte('punch_time', thirteenMinAgo.toISOString())
+      .lte('punch_time', seventeenMinAgo.toISOString());
+
+    if (punchError) throw punchError;
+    if (!recentPunches || recentPunches.length === 0) {
+      console.log(`[${locationName}] No recent clock-ins for checklist reminders`);
+      return;
+    }
+
+    console.log(`[${locationName}] Found ${recentPunches.length} clock-ins ~15 min ago`);
+
+    // Get active checklists that are due today but not complete
+    const { data: checklists, error: checklistsError } = await supabaseClient
+      .from('checklists')
+      .select(`
+        id,
+        title,
+        frequency,
+        template_type,
+        due_by_time,
+        checklist_items(id, days_of_week),
+        checklist_role_tags(role)
+      `)
+      .eq('is_active', true)
+      .eq('location_id', locationId)
+      .not('due_by_time', 'is', null);
+
+    if (checklistsError) throw checklistsError;
+    if (!checklists || checklists.length === 0) return;
+
+    const currentHours = localNow.getHours();
+    const currentMinutes = localNow.getMinutes();
+    const currentTotalMinutes = currentHours * 60 + currentMinutes;
+
+    // Filter to checklists relevant for today that are NOT yet past due (upcoming or currently due)
+    const upcomingChecklists = [];
+    
+    for (const checklist of checklists) {
+      const isRelevantToday = checklist.template_type === 'dynamic' 
+        ? checklist.checklist_items?.some((item: any) => 
+            item.days_of_week && item.days_of_week.includes(currentDay)
+          )
+        : checklist.frequency === 'daily';
+
+      if (!isRelevantToday) continue;
+
+      const [dueHours, dueMinutes] = checklist.due_by_time.split(':').map(Number);
+      const dueTotalMinutes = dueHours * 60 + dueMinutes;
+      
+      // Only include checklists that haven't been due for more than 2 hours 
+      // (we still want to remind about recently overdue ones)
+      if (currentTotalMinutes > dueTotalMinutes + 120) continue;
+
+      // Check completion status
+      const { data: submissions } = await supabaseClient
+        .from('checklist_submissions')
+        .select(`
+          id,
+          checklist_responses(id, item_id)
+        `)
+        .eq('checklist_id', checklist.id)
+        .eq('location_id', locationId)
+        .gte('submitted_at', startOfDayUTC.toISOString())
+        .lte('submitted_at', endOfDayUTC.toISOString());
+
+      let totalItems = checklist.checklist_items?.length || 0;
+      if (checklist.template_type === 'dynamic') {
+        totalItems = checklist.checklist_items?.filter((item: any) => 
+          item.days_of_week && item.days_of_week.includes(currentDay)
+        ).length || 0;
+      }
+
+      const uniqueItemIds = new Set();
+      submissions?.forEach((sub: any) => {
+        sub.checklist_responses?.forEach((response: any) => {
+          if (response.item_id) uniqueItemIds.add(response.item_id);
+        });
+      });
+      
+      const completedItems = uniqueItemIds.size;
+      if (completedItems >= totalItems) continue; // Already complete
+
+      upcomingChecklists.push({
+        id: checklist.id,
+        title: checklist.title,
+        dueTime: checklist.due_by_time,
+        remainingTasks: totalItems - completedItems,
+        roleTags: checklist.checklist_role_tags?.map((rt: any) => rt.role) || []
+      });
+    }
+
+    if (upcomingChecklists.length === 0) {
+      console.log(`[${locationName}] No incomplete checklists to remind about`);
+      return;
+    }
+
+    // For each clocked-in user, check if we should send a reminder
+    for (const punch of recentPunches) {
+      const userId = punch.user_id;
+      
+      // Check if we already sent a clock-in reminder for this user today for any checklist
+      const { data: existingReminder } = await supabaseClient
+        .from('checklist_notification_logs')
+        .select('id')
+        .eq('location_id', locationId)
+        .eq('notification_type', 'clock_in_reminder')
+        .eq('trigger_user_id', userId)
+        .gte('sent_at', startOfDayUTC.toISOString())
+        .limit(1);
+
+      if (existingReminder && existingReminder.length > 0) {
+        console.log(`[${locationName}] Already sent clock-in reminder to user ${userId} today`);
+        continue;
+      }
+
+      // Get user's role to filter checklists
+      const { data: userRoles } = await supabaseClient
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId);
+
+      const userRoleSet = new Set(userRoles?.map((r: any) => r.role) || []);
+      
+      // Filter checklists to those the user should care about (based on role tags or if no tags, all)
+      const relevantChecklists = upcomingChecklists.filter(cl => {
+        if (cl.roleTags.length === 0) return true; // No role restrictions
+        return cl.roleTags.some((tag: string) => userRoleSet.has(tag));
+      });
+
+      if (relevantChecklists.length === 0) continue;
+
+      // Build notification message
+      const checklistNames = relevantChecklists.slice(0, 3).map(cl => cl.title);
+      const moreCount = relevantChecklists.length - 3;
+      
+      let body = '';
+      if (relevantChecklists.length === 1) {
+        const cl = relevantChecklists[0];
+        body = `${cl.title} has ${cl.remainingTasks} task${cl.remainingTasks === 1 ? '' : 's'} remaining (due ${formatTime12Hour(cl.dueTime)})`;
+      } else {
+        body = checklistNames.join(', ');
+        if (moreCount > 0) body += ` +${moreCount} more`;
+        body += ' need attention';
+      }
+
+      await supabaseClient.functions.invoke('send-push-notification', {
+        body: {
+          user_ids: [userId],
+          title: `Checklist Reminder - ${locationName}`,
+          body: body,
+          notification_type: 'overdue_checklists',
+          data: {
+            type: 'clock_in_checklist_reminder',
+            location_id: locationId
+          }
+        }
+      });
+
+      // Log to prevent duplicate reminders today
+      await supabaseClient.from('checklist_notification_logs').insert({
+        checklist_id: relevantChecklists[0].id, // Just log the first one
+        location_id: locationId,
+        notification_type: 'clock_in_reminder',
+        trigger_user_id: userId
+      });
+
+      console.log(`[${locationName}] Sent clock-in checklist reminder to user ${userId}`);
+    }
+  } catch (error) {
+    console.error(`[${locationName}] Error checking clock-in checklist reminders:`, error);
   }
 }
 
