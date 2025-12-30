@@ -380,16 +380,16 @@ export function MobileScheduleView({
                             Scheduled: {formatTime12Hour(punch.scheduledShift.start_time)} - {formatTime12Hour(punch.scheduledShift.end_time)}
                           </div>
                         )}
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>In: {formatTimeDisplay(punch.clockInTime, timezone)}</span>
-                          {punch.clockOutTime ? (
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground flex-wrap">
+                          <span className="whitespace-nowrap">In: {formatTimeDisplay(punch.clockInTime, timezone)}</span>
+                          {punch.clockOutTime && (
                             <>
                               <span>•</span>
-                              <span>Out: {formatTimeDisplay(punch.clockOutTime, timezone)}</span>
+                              <span className="whitespace-nowrap">Out: {formatTimeDisplay(punch.clockOutTime, timezone)}</span>
                             </>
-                          ) : null}
+                          )}
                           <span>•</span>
-                          <span className={punch.isActive ? "text-green-600 font-medium" : "font-medium"}>
+                          <span className={`whitespace-nowrap ${punch.isActive ? "text-green-600 font-medium" : "font-medium"}`}>
                             {punch.hoursWorked.toFixed(1)}h
                           </span>
                         </div>
