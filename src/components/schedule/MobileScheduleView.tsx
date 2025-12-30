@@ -384,36 +384,43 @@ export function MobileScheduleView({
                   >
                     <div className="px-3 py-2.5">
                       {/* Top row: Avatar, Name, Hours worked */}
-                      <div className="flex items-center gap-3 mb-1.5">
+                      <div className="flex items-center gap-3">
                         <div className="relative">
-                          <Avatar className="h-9 w-9">
+                          <Avatar className="h-10 w-10">
                             <AvatarImage src={punch.profile.profile_photo_url || undefined} />
-                            <AvatarFallback className="text-sm">{punch.profile.full_name.charAt(0)}</AvatarFallback>
+                            <AvatarFallback>{punch.profile.full_name.charAt(0)}</AvatarFallback>
                           </Avatar>
                           {punch.isActive && (
                             <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-green-500 border-2 border-background animate-pulse" />
                           )}
                         </div>
                         
-                        <span className="font-semibold flex-1 truncate">{punch.profile.full_name}</span>
-                        
-                        <span className={`text-base font-bold ${punch.isActive ? "text-green-600" : "text-foreground"}`}>
-                          {punch.hoursWorked.toFixed(1)}h
-                        </span>
-                      </div>
-                      
-                      {/* Time info row */}
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground ml-12">
-                        {punch.scheduledShift && (
-                          <div className="flex items-center gap-1">
-                            <CalendarIcon className="h-3.5 w-3.5" />
-                            <span>{formatTime12Hour(punch.scheduledShift.start_time)}-{formatTime12Hour(punch.scheduledShift.end_time)}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-semibold truncate">{punch.profile.full_name}</span>
+                            <span className={`text-base font-bold shrink-0 ${punch.isActive ? "text-green-600" : "text-foreground"}`}>
+                              {punch.hoursWorked.toFixed(1)}h
+                            </span>
                           </div>
-                        )}
-                        <span>In: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockInTime, timezone)}</span></span>
-                        {punch.clockOutTime && (
-                          <span>Out: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockOutTime, timezone)}</span></span>
-                        )}
+                          
+                          {/* Scheduled shift row */}
+                          {punch.scheduledShift && (
+                            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                              <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                              <span>{formatTime12Hour(punch.scheduledShift.start_time)} - {formatTime12Hour(punch.scheduledShift.end_time)}</span>
+                            </div>
+                          )}
+                          
+                          {/* Actual In/Out row */}
+                          <div className="flex items-center gap-3 text-sm">
+                            <span className="text-muted-foreground">In: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockInTime, timezone)}</span></span>
+                            {punch.clockOutTime && (
+                              <span className="text-muted-foreground">Out: <span className="text-foreground font-medium">{formatTimeDisplay(punch.clockOutTime, timezone)}</span></span>
+                            )}
+                          </div>
+                          
+                          {/* Break row - placeholder for future */}
+                        </div>
                       </div>
                     </div>
                   </Card>
