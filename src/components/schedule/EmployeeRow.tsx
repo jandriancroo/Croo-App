@@ -95,12 +95,13 @@ export function EmployeeRow({
     return (hours * wage).toFixed(2);
   };
   return <div ref={setNodeRef} style={style} className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[120px_repeat(7,1fr)] lg:grid-cols-[160px_repeat(7,1fr)] gap-0 border-b border-dotted border-border/50 relative auto-rows-fr">
-      {/* Drag Handle in Left Margin */}
-      {isDraggable && profile.id !== "unassigned" && <div {...attributes} {...listeners} className="absolute -left-6 top-0 bottom-0 w-5 flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground z-20">
-          <GripVertical className="h-5 w-5" />
-        </div>}
-      
-      <div className="flex items-center gap-2 p-2 border-r border-border bg-muted/30 min-h-[80px] overflow-hidden">
+      <div className="flex items-center gap-1 p-2 border-r border-border bg-muted/30 min-h-[80px] overflow-hidden">
+        {/* Drag Handle inside employee card */}
+        {isDraggable && profile.id !== "unassigned" && (
+          <div {...attributes} {...listeners} className="flex-shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground">
+            <GripVertical className="h-4 w-4" />
+          </div>
+        )}
         {profile.id !== "unassigned" ? <div onClick={() => navigate('/users', {
         state: {
           viewUserId: profile.id
