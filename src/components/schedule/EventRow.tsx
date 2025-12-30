@@ -561,51 +561,20 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
           const dayEvents = getEventsForDay(dayIndex);
           return (
             <div key={dayIndex} className="min-h-[40px] p-1.5 border-r last:border-r-0 border-border/20 bg-[hsl(30,25%,45%)]">
-              <div className="space-y-1">
-                {dayEvents.map((event) => {
-                  const categoryColor = getCategoryColor(event);
-                  return (
-                    <div
-                      key={`${event.id}-${dayIndex}`}
-                      className="group relative w-full p-1.5 rounded text-xs transition-colors"
-                      style={{
-                        backgroundColor: categoryColor ? `${categoryColor}30` : "rgba(255,255,255,0.1)",
-                        borderLeft: categoryColor ? `3px solid ${categoryColor}` : undefined,
-                      }}
-                    >
-                      <button
-                        onClick={() => isEditable && handleEdit(event)}
-                        disabled={!isEditable}
-                        className="w-full text-left disabled:cursor-default hover:bg-white/10 rounded transition-colors"
-                      >
-                        <div className="font-medium text-white flex items-center gap-1">
-                          {event.is_daily_task && (
-                            <ClipboardCheck className="h-4 w-4 flex-shrink-0 text-white" />
-                          )}
-                          <span className="truncate">
-                            {formatTime12Hour(event.event_time)}
-                            {!event.is_recurring && " (1x)"}
-                          </span>
-                        </div>
-                        <div className="text-[10px] text-white/70 truncate">
-                          {event.event_name}
-                        </div>
-                      </button>
-                      {isEditable && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            confirmDelete(event.id);
-                          }}
-                          className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-100 p-1 hover:bg-destructive/30 rounded transition-opacity"
-                          title="Delete event"
-                        >
-                          <Trash2 className="h-3 w-3 text-white" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="space-y-0.5">
+                {dayEvents.map((event) => (
+                  <div
+                    key={`${event.id}-${dayIndex}`}
+                    className="flex items-center gap-1 text-[11px] text-white/90 truncate"
+                  >
+                    {event.is_daily_task && (
+                      <ClipboardCheck className="h-3 w-3 flex-shrink-0" />
+                    )}
+                    <span className="truncate">
+                      {formatTime12Hour(event.event_time)} {event.event_name}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           );
