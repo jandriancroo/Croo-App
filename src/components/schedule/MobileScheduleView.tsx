@@ -3,7 +3,7 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks } from 'dat
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, Plus, RefreshCw, Circle, Pencil } from 'lucide-react';
+import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, CalendarPlus, RefreshCw, Circle, Pencil } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -155,7 +155,10 @@ export function MobileScheduleView({
     const todayDayOfWeek = getDayOfWeekInTimezone(timezone);
     const offset = getTimezoneOffset(timezone);
     const startOfDay = new Date(`${today}T00:00:00${offset}`).toISOString();
-    const endOfDay = new Date(`${today}T23:59:59${offset}`).toISOString();
+    // Extend end of day to capture punches that roll into next UTC day
+    const endOfDayPlus = new Date(`${today}T23:59:59${offset}`);
+    endOfDayPlus.setHours(endOfDayPlus.getHours() + 12); // Add buffer for timezone edge cases
+    const endOfDay = endOfDayPlus.toISOString();
     
     // Get ALL punches for today ordered by time
     const { data: allPunches } = await supabase
@@ -455,7 +458,7 @@ export function MobileScheduleView({
                   setShiftDialogOpen(true);
                 }}
               >
-                <Plus className="h-4 w-4" />
+                <CalendarPlus className="h-4 w-4" />
               </Button>
               {/* Three states: Go Live (unpublished), Update (published with changes), LIVE (published, no changes) */}
               {!isPublished ? (
