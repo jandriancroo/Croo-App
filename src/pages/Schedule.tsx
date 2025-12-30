@@ -1119,95 +1119,97 @@ export default function Schedule() {
           hasPendingChanges={hasPendingChanges}
         />
       ) : (
-        <div className="space-y-6 pb-20">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-2">
-          <div className="flex-1">
-            <DateNavigator
-              onPrev={handlePreviousWeek}
-              onNext={handleNextWeek}
-              label={`${format(currentWeekStart, "MMMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMMM d, yyyy")}`}
-            />
-          </div>
-          {(isAdmin || isManager) && (
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setAutoScheduleOpen(true)}
-                className="gap-2"
-              >
-                <Sparkles className="h-4 w-4" />
-                Croo AI
-              </Button>
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={() => setIsCreatingShift(true)}
-                className="opacity-60 hover:opacity-100 transition-opacity"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <Wrench className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-background">
-                  <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
-                    <Calendar className="h-4 w-4" />
-                    View Availability
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/schedule-templates")} className="gap-2 cursor-pointer">
-                    <Settings className="h-4 w-4" />
-                    Manage Templates
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setCopyScheduleDialogOpen(true)} className="gap-2 cursor-pointer">
-                    <Copy className="h-4 w-4" />
-                    Copy Schedule to Future Week
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setClearScheduleDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
-                    <Trash2 className="h-4 w-4" />
-                    Clear Schedule
-                  </DropdownMenuItem>
-                  {isPublished && (
-                    <DropdownMenuItem onClick={() => setWithdrawDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
-                      <AlertTriangle className="h-4 w-4" />
-                      Withdraw Schedule
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              {scheduleId && (
-                <LiveStatusBadge
-                  isPublished={isPublished}
-                  isPublishing={isPublishing}
-                  hasPendingChanges={hasPendingChanges}
-                  onGoLive={handleGoLive}
-                  onUpdate={handleUpdate}
-                />
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Team member view-only badge */}
-        {isTeamMemberDesktopView && (
-          <div className="bg-muted/50 border border-border rounded-lg px-4 py-2 text-center">
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium">View Only</span> — Showing your shifts for this week
-            </p>
-          </div>
-        )}
-
+        <div className="pb-20">
         <DndContext 
           sensors={isTeamMemberDesktopView ? [] : sensors} 
           onDragStart={isTeamMemberDesktopView ? undefined : handleDragStart} 
           onDragEnd={isTeamMemberDesktopView ? undefined : handleDragEnd}
           collisionDetection={closestCenter}
         >
-          <Card className="p-6 overflow-x-auto">
+          <Card className="overflow-hidden">
+            {/* Header inside card */}
+            <div className="flex items-center gap-4 p-4 border-b border-border bg-muted/30">
+              <div className="flex-1">
+                <DateNavigator
+                  onPrev={handlePreviousWeek}
+                  onNext={handleNextWeek}
+                  label={`${format(currentWeekStart, "MMMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMMM d, yyyy")}`}
+                />
+              </div>
+              {(isAdmin || isManager) && (
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setAutoScheduleOpen(true)}
+                    className="gap-2"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Croo AI
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={() => setIsCreatingShift(true)}
+                    className="opacity-60 hover:opacity-100 transition-opacity"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <Wrench className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-background">
+                      <DropdownMenuItem onClick={() => navigate("/availability")} className="gap-2 cursor-pointer">
+                        <Calendar className="h-4 w-4" />
+                        View Availability
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate("/schedule-templates")} className="gap-2 cursor-pointer">
+                        <Settings className="h-4 w-4" />
+                        Manage Templates
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setCopyScheduleDialogOpen(true)} className="gap-2 cursor-pointer">
+                        <Copy className="h-4 w-4" />
+                        Copy Schedule to Future Week
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setClearScheduleDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                        Clear Schedule
+                      </DropdownMenuItem>
+                      {isPublished && (
+                        <DropdownMenuItem onClick={() => setWithdrawDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
+                          <AlertTriangle className="h-4 w-4" />
+                          Withdraw Schedule
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  {scheduleId && (
+                    <LiveStatusBadge
+                      isPublished={isPublished}
+                      isPublishing={isPublishing}
+                      hasPendingChanges={hasPendingChanges}
+                      onGoLive={handleGoLive}
+                      onUpdate={handleUpdate}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Team member view-only badge */}
+            {isTeamMemberDesktopView && (
+              <div className="bg-muted/50 px-4 py-2 text-center border-b border-border">
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium">View Only</span> — Showing your shifts for this week
+                </p>
+              </div>
+            )}
+
+            {/* Schedule grid content */}
+            <div className="overflow-x-auto">
             {/* Week Day Headers */}
             <div className="grid grid-cols-[110px_repeat(7,1fr)] md:grid-cols-[130px_repeat(7,1fr)] lg:grid-cols-[180px_repeat(7,1fr)] xl:grid-cols-[200px_repeat(7,1fr)] gap-0 border-b-2 border-border">
               <div className="font-semibold p-2 border-r border-border bg-muted/50 text-xs"></div>
@@ -1358,6 +1360,7 @@ export default function Schedule() {
                   )}
                 </>
               )}
+            </div>
             </div>
           </Card>
 
