@@ -326,11 +326,7 @@ export function AssignedTemporaryTasks({
   const hasNoTasks = tasks.length === 0 && pendingOrders.length === 0 && completedOrders.length === 0 && eventTasks.length === 0;
 
   if (hasNoTasks) {
-    return (
-      <div className="text-center py-4 text-muted-foreground text-sm">
-        No tasks for today
-      </div>
-    );
+    return null;
   }
 
   return (
