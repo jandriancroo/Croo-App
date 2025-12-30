@@ -9,6 +9,7 @@ import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { parseISO } from 'date-fns';
+import { toISOStringInTimezone } from '@/utils/timezoneUtils';
 import { Clock, Trash2 } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 import {
@@ -163,7 +164,8 @@ export function EditPunchDialog({
       }
 
       for (const update of updates) {
-        const punchTime = new Date(`${punchDate}T${update.time}:00`).toISOString();
+        // Use timezone-aware conversion to ISO string
+        const punchTime = toISOStringInTimezone(punchDate, update.time, timezone);
 
         if (update.existingId) {
           // Update existing punch

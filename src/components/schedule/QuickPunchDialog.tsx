@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Clock } from 'lucide-react';
 import { useLocation } from '@/hooks/useLocation';
+import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { Switch } from '@/components/ui/switch';
 
 interface Profile {
@@ -34,6 +35,7 @@ export function QuickPunchDialog({
   onPunchCreated
 }: QuickPunchDialogProps) {
   const { currentLocation } = useLocation();
+  const { timezone, toISO } = useLocationTimezone();
   const [selectedUserId, setSelectedUserId] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
@@ -68,7 +70,8 @@ export function QuickPunchDialog({
     setSaving(true);
     try {
       const punchDate = format(selectedDate, 'yyyy-MM-dd');
-      const clockInTime = new Date(`${punchDate}T${startTime}:00`);
+      // Use timezone-aware conversion to ISO string
+      const clockInISO = toISO(punchDate, startTime);
 
       // Create clock-in punch
       const { error: clockInError } = await supabase
@@ -76,7 +79,7 @@ export function QuickPunchDialog({
         .insert({
           user_id: selectedUserId,
           punch_type: 'clock_in',
-          punch_time: clockInTime.toISOString(),
+          punch_time: clockInISO,
           location_id: currentLocation?.id
         });
 
@@ -84,7 +87,7 @@ export function QuickPunchDialog({
 
       // If break included, create break punches
       if (includeBreak && breakStartTime) {
-        const breakStartPunch = new Date(`${punchDate}T${breakStartTime}:00`);
+        const breakStartISO = toISO(punchDate, breakStartTime);
         const breakNotes = `${breakType} break`;
         
         const { error: breakStartError } = await supabase
@@ -92,7 +95,7 @@ export function QuickPunchDialog({
           .insert({
             user_id: selectedUserId,
             punch_type: 'break_start',
-            punch_time: breakStartPunch.toISOString(),
+            punch_time: breakStartISO,
             notes: breakNotes,
             location_id: currentLocation?.id
           });
@@ -100,13 +103,13 @@ export function QuickPunchDialog({
 
         // Create break end if provided
         if (breakEndTime) {
-          const breakEndPunch = new Date(`${punchDate}T${breakEndTime}:00`);
+          const breakEndISO = toISO(punchDate, breakEndTime);
           const { error: breakEndError } = await supabase
             .from('time_punches')
             .insert({
               user_id: selectedUserId,
               punch_type: 'break_end',
-              punch_time: breakEndPunch.toISOString(),
+              punch_time: breakEndISO,
               notes: breakNotes,
               location_id: currentLocation?.id
             });
@@ -116,13 +119,13 @@ export function QuickPunchDialog({
 
       // If end time provided, also create clock-out
       if (endTime) {
-        const clockOutTime = new Date(`${punchDate}T${endTime}:00`);
+        const clockOutISO = toISO(punchDate, endTime);
         const { error: clockOutError } = await supabase
           .from('time_punches')
           .insert({
             user_id: selectedUserId,
             punch_type: 'clock_out',
-            punch_time: clockOutTime.toISOString(),
+            punch_time: clockOutISO,
             location_id: currentLocation?.id
           });
 

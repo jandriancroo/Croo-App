@@ -3,7 +3,7 @@ import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks } from 'dat
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, CalendarPlus, RefreshCw, Circle, Pencil } from 'lucide-react';
+import { ChevronRight, Calendar as CalendarIcon, MapPin, Users, CalendarPlus, RefreshCw, Circle, Pencil, ClipboardCheck } from 'lucide-react';
 import { DateNavigator } from '@/components/ui/date-navigator';
 import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -536,20 +536,20 @@ export function MobileScheduleView({
         </div>
       </div>
 
-      {/* Events for selected day */}
+      {/* Events for selected day - simple text style for mobile */}
       {dayEvents.length > 0 && (
-        <div className="px-4 pt-3 space-y-2">
+        <div className="px-4 pt-3 space-y-1">
           {dayEvents.map(event => (
-            <EventCard
+            <div
               key={event.id}
-              id={event.id}
-              name={event.event_name}
-              time={event.event_time}
-              categoryName={event.category?.name}
-              categoryColor={event.category?.color}
-              notes={event.notes}
-              showCompleteButton={false}
-            />
+              className="flex items-center gap-2 text-sm py-1 px-2 bg-muted/50 rounded"
+            >
+              <ClipboardCheck className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <span className="text-muted-foreground text-xs">
+                {formatTime12Hour(event.event_time)}
+              </span>
+              <span className="truncate font-medium text-sm">{event.event_name}</span>
+            </div>
           ))}
         </div>
       )}

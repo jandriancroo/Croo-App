@@ -13,7 +13,7 @@ import { ArrowLeft, Save, Plus, X } from "lucide-react";
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
 import { useDroppable } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import { getDateInPST } from "@/utils/dateUtils";
+import { getDateInPST, getTodayInPST, getDayOfWeekInPST } from "@/utils/dateUtils";
 
 interface ChecklistItem {
   id: string;
@@ -157,11 +157,16 @@ function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates }: {
     data: { dayIndex },
   });
 
-  // Calculate the date for this day of the week
-  const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay() + 1 + dayIndex);
-  const dateString = getDateInPST(startOfWeek);
+  // Calculate the date for this day of the week using timezone-aware functions
+  const todayDow = getDayOfWeekInPST(); // Monday=0, Sunday=6
+  const todayStr = getTodayInPST();
+  const [year, month, day] = todayStr.split('-').map(Number);
+  const baseDate = new Date(year, month - 1, day);
+  // Calculate offset: dayIndex is target day (0=Mon, 6=Sun), todayDow is current day
+  const offset = dayIndex - todayDow;
+  const targetDate = new Date(baseDate);
+  targetDate.setDate(baseDate.getDate() + offset);
+  const dateString = getDateInPST(targetDate);
 
   const dayHolidays = holidays.filter(h => h.holiday_date === dateString);
   const isBlackout = blackoutDates.includes(dateString);
@@ -175,7 +180,7 @@ function DroppableDay({ dayIndex, dayName, tasks, holidays, blackoutDates }: {
     >
       <div className="mb-3">
         <h3 className="font-semibold">{dayName}</h3>
-        <div className="text-xs text-muted-foreground">{startOfWeek.toLocaleDateString()}</div>
+        <div className="text-xs text-muted-foreground">{targetDate.toLocaleDateString()}</div>
         {dayHolidays.length > 0 && (
           <div className="mt-1 space-y-0.5">
             {dayHolidays.map(holiday => (
@@ -255,17 +260,21 @@ export default function DynamicChecklistCalendar() {
 
   const fetchHolidaysAndBlackouts = async () => {
     try {
-      // Fetch holidays for the current week
-      const startOfWeek = new Date();
-      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay() + 1);
-      const endOfWeek = new Date(startOfWeek);
-      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      // Fetch holidays for the current week using timezone-aware functions
+      const todayDow = getDayOfWeekInPST(); // Monday=0, Sunday=6
+      const todayStr = getTodayInPST();
+      const [year, month, day] = todayStr.split('-').map(Number);
+      const baseDate = new Date(year, month - 1, day);
+      const startOfWeekDate = new Date(baseDate);
+      startOfWeekDate.setDate(baseDate.getDate() - todayDow); // Go back to Monday
+      const endOfWeekDate = new Date(startOfWeekDate);
+      endOfWeekDate.setDate(startOfWeekDate.getDate() + 6); // Sunday
 
       const { data: holidaysData, error: holidaysError } = await supabase
         .from("holidays")
         .select("*")
-        .gte("holiday_date", getDateInPST(startOfWeek))
-        .lte("holiday_date", getDateInPST(endOfWeek));
+        .gte("holiday_date", getDateInPST(startOfWeekDate))
+        .lte("holiday_date", getDateInPST(endOfWeekDate));
 
       if (holidaysError) throw holidaysError;
       setHolidays(holidaysData || []);

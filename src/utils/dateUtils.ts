@@ -108,3 +108,4 @@ export const getDateInPST = (date: Date): string => getDateInTimezone(date, DEFA
 export const getStartOfTodayPST = (): Date => getStartOfTodayInTimezone(DEFAULT_TIMEZONE);
 export const getStartOfDatePST = (date: Date): Date => getStartOfDateInTimezone(date, DEFAULT_TIMEZONE);
 export const getDateInPSTOffset = (daysOffset: number): string => getDateInTimezoneOffset(daysOffset, DEFAULT_TIMEZONE);
+export const getDayOfWeekInPST = (): number => getDayOfWeekInTimezone(DEFAULT_TIMEZONE);

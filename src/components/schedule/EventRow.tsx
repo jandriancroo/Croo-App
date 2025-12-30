@@ -561,20 +561,33 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
           const dayEvents = getEventsForDay(dayIndex);
           return (
             <div key={dayIndex} className="min-h-[40px] p-1.5 border-r last:border-r-0 border-border/20 bg-[hsl(30,25%,45%)]">
-              <div className="space-y-0.5">
-                {dayEvents.map((event) => (
-                  <div
-                    key={`${event.id}-${dayIndex}`}
-                    className="flex items-center gap-1 text-[11px] text-white/90 truncate"
-                  >
-                    {event.is_daily_task && (
-                      <ClipboardCheck className="h-3 w-3 flex-shrink-0" />
-                    )}
-                    <span className="truncate">
-                      {formatTime12Hour(event.event_time)} {event.event_name}
-                    </span>
-                  </div>
-                ))}
+              <div className="space-y-1">
+                {dayEvents.map((event) => {
+                  const categoryColor = getCategoryColor(event) || '#6366f1';
+                  return (
+                    <div
+                      key={`${event.id}-${dayIndex}`}
+                      onClick={() => isEditable && handleEdit(event)}
+                      className={`p-1.5 rounded-md text-[11px] transition-colors ${
+                        isEditable ? 'cursor-pointer hover:brightness-110' : ''
+                      }`}
+                      style={{
+                        backgroundColor: `${categoryColor}30`,
+                        borderLeft: `3px solid ${categoryColor}`,
+                      }}
+                    >
+                      <div className="flex items-center gap-1 text-white font-medium">
+                        {event.is_daily_task && (
+                          <ClipboardCheck className="h-3 w-3 flex-shrink-0" />
+                        )}
+                        <span className="truncate">{event.event_name}</span>
+                      </div>
+                      <div className="text-white/70 text-[10px]">
+                        {formatTime12Hour(event.event_time)}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );
