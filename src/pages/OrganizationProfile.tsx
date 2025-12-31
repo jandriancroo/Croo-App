@@ -192,19 +192,6 @@ export default function OrganizationProfile() {
               />
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="slug">URL Slug</Label>
-              <Input
-                id="slug"
-                value={slug}
-                onChange={(e) => setSlug(e.target.value)}
-                placeholder="e.g., acme-restaurant-group"
-              />
-              <p className="text-xs text-muted-foreground">
-                Used for organization identification (lowercase, no spaces)
-              </p>
-            </div>
-            
             <Button onClick={handleSave} disabled={isSaving}>
               <Save className="h-4 w-4 mr-2" />
               {isSaving ? 'Saving...' : 'Save Changes'}
