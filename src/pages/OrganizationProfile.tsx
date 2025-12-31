@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Building2, MapPin, Plus, Save, ExternalLink, ShieldX, Tag, Briefcase } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Plus, Save, ExternalLink, ShieldX, Tag } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -281,13 +281,7 @@ export default function OrganizationProfile() {
         {/* Positions */}
         {!isNew && (
           <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Briefcase className="h-4 w-4" />
-                <CardTitle className="text-base">Positions</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
+            <CardContent className="pt-6">
               <PositionManagementInline />
             </CardContent>
           </Card>
