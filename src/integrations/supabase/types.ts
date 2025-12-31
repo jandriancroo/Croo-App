@@ -3352,6 +3352,8 @@ export type Database = {
           approved_by: string | null
           created_at: string | null
           has_break_violation: boolean
+          has_extended_break: boolean
+          has_overtime: boolean
           id: string
           is_auto_punched_out: boolean
           location_id: string | null
@@ -3366,6 +3368,8 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           has_break_violation?: boolean
+          has_extended_break?: boolean
+          has_overtime?: boolean
           id?: string
           is_auto_punched_out?: boolean
           location_id?: string | null
@@ -3380,6 +3384,8 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           has_break_violation?: boolean
+          has_extended_break?: boolean
+          has_overtime?: boolean
           id?: string
           is_auto_punched_out?: boolean
           location_id?: string | null
