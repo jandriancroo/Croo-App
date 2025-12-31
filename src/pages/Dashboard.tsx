@@ -17,6 +17,7 @@ import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
 import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { getBusinessDateInTimezone, getBusinessDayRangeInTimezone, getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
@@ -78,6 +79,7 @@ export default function Dashboard() {
   const {
     isAdmin, isManager, isShiftManager, isGeneralManager
   } = useUserRole();
+  const { canSeeSales } = useTeamSalesVisibility();
   const { user } = useAuth();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, isChecklistOnlyLocation } = useAppLocation();
@@ -774,8 +776,9 @@ export default function Dashboard() {
     </div>
   );
 
-  // Only render WidgetsSection if QuBeyond integration is active
-  const dashboardContent = (hasQuBeyondIntegration && isSectionVisible('data-cubes')) ? (
+  // Only render WidgetsSection if QuBeyond integration is active AND user can see sales
+  // Team members need the location setting enabled; shift managers+ always see it
+  const dashboardContent = (hasQuBeyondIntegration && isSectionVisible('data-cubes') && canSeeSales) ? (
     <WidgetsSection 
       salesData={salesOverviewData} 
       isLoadingSales={isLoadingSales} 
@@ -791,7 +794,7 @@ export default function Dashboard() {
       }}
     />
   ) : (
-    // If no QuBeyond, just render the checklists grid directly
+    // If no QuBeyond or user can't see sales, just render the checklists grid directly
     checklistsGridContent
   );
   return <Layout>
@@ -826,7 +829,7 @@ export default function Dashboard() {
               </div>
             )}
             
-            {hasQuBeyondIntegration && (
+            {hasQuBeyondIntegration && canSeeSales && (
               <Button 
                 onClick={toggleEditMode} 
                 variant={isEditMode ? "default" : "outline"} 

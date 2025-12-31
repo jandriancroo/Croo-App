@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Sparkles, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -36,7 +37,8 @@ export function LaborTotals({
   scheduleId,
   isEditable = false
 }: LaborTotalsProps) {
-  const { canViewAllWages, canViewSalesAndLabor } = useUserRole();
+  const { canViewAllWages } = useUserRole();
+  const { canSeeSales } = useTeamSalesVisibility();
   const { currentLocation } = useAppLocation();
   const weekDays = Array.from({
     length: 7
@@ -292,8 +294,9 @@ export function LaborTotals({
       laborPercent: avgLaborPercent
     };
   }, [dailyTotals, projectedSales]);
-  // Only show labor totals to users who can view sales/labor (shift managers and above)
-  if (!canViewSalesAndLabor) {
+  // Only show labor totals to users who can view sales/labor
+  // (shift managers and above, OR team members with location setting enabled)
+  if (!canSeeSales) {
     return null;
   }
 

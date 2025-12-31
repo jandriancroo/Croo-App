@@ -1697,6 +1697,7 @@ export type Database = {
           punch_clock_text_shadow: boolean | null
           safe_count_notifications_enabled: boolean
           safe_target: number
+          team_member_sales_view_enabled: boolean
           timezone: string
           updated_at: string
         }
@@ -1721,6 +1722,7 @@ export type Database = {
           punch_clock_text_shadow?: boolean | null
           safe_count_notifications_enabled?: boolean
           safe_target?: number
+          team_member_sales_view_enabled?: boolean
           timezone?: string
           updated_at?: string
         }
@@ -1745,6 +1747,7 @@ export type Database = {
           punch_clock_text_shadow?: boolean | null
           safe_count_notifications_enabled?: boolean
           safe_target?: number
+          team_member_sales_view_enabled?: boolean
           timezone?: string
           updated_at?: string
         }
