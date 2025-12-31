@@ -15,7 +15,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
 import { Upload, CheckCircle2, Eye } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { formatTime12Hour } from '@/lib/utils';
@@ -82,7 +83,11 @@ export default function CompleteChecklist() {
   const {
     user
   } = useAuth();
-  const { isAdmin, isManager } = useUserRole();
+  const { isAdmin, isManager, isShiftManager } = useUserRole();
+  const [undoConfirmItemId, setUndoConfirmItemId] = useState<string | null>(null);
+  
+  // Permission check: shift managers and above can undo
+  const canUndoItems = isShiftManager;
   const { currentLocation } = useLocation();
   const navigate = useNavigate();
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
@@ -511,10 +516,15 @@ export default function CompleteChecklist() {
       delete newCompleters[itemId];
       setResponsesWithCompleters(newCompleters);
       toast.success('Item uncompleted');
+      setUndoConfirmItemId(null);
     } catch (error) {
       console.error('Error undoing completion:', error);
       toast.error('Failed to undo completion');
     }
+  };
+  
+  const handleUndoClick = (itemId: string) => {
+    setUndoConfirmItemId(itemId);
   };
   // Helper to get minPhotos from item options
   const getMinPhotos = (item: ChecklistItem): number => {
@@ -812,9 +822,9 @@ export default function CompleteChecklist() {
                 >
                     <div className="flex items-center gap-3">
                       <div 
-                        className={`bg-green-600/80 rounded-full p-4 shadow-lg ${(isAdmin || isManager) ? 'cursor-pointer hover:bg-green-600/90 transition-colors' : ''}`}
-                        onClick={() => (isAdmin || isManager) && handleUndoCompletion(item.id)}
-                        title={(isAdmin || isManager) ? 'Click to undo' : undefined}
+                        className={`bg-green-600/80 rounded-full p-4 shadow-lg ${canUndoItems ? 'cursor-pointer hover:bg-green-600/90 transition-colors' : ''}`}
+                        onClick={() => canUndoItems && handleUndoClick(item.id)}
+                        title={canUndoItems ? 'Click to undo' : undefined}
                       >
                         <CheckCircle2 className="h-10 w-10 text-white" />
                       </div>
@@ -1071,6 +1081,27 @@ export default function CompleteChecklist() {
             <img src={previewImage || ''} alt="Photo preview" className="w-full rounded" />
           </DialogContent>
         </Dialog>
+
+        {/* Undo Confirmation Dialog */}
+        <AlertDialog open={!!undoConfirmItemId} onOpenChange={(open) => !open && setUndoConfirmItemId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Undo checklist item?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will remove the completion for this item. The person who completed it and the response will be deleted.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={() => undoConfirmItemId && handleUndoCompletion(undoConfirmItemId)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Undo
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </Layout>;
 }
