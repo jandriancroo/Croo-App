@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -14,11 +14,34 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Check if this is the user's first login and notify managers
+const checkFirstLogin = async (userId: string) => {
+  try {
+    // Check if first_login_at is already set
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('first_login_at')
+      .eq('id', userId)
+      .single();
+
+    if (profile && !profile.first_login_at) {
+      // This is the first login - trigger notification
+      console.log('First login detected, sending notification...');
+      await supabase.functions.invoke('notify-employee-joined', {
+        body: { userId }
+      });
+    }
+  } catch (error) {
+    console.error('Error checking first login:', error);
+  }
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const checkedFirstLoginRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     // Set up auth state listener
@@ -27,6 +50,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Check for first login on sign in events (deferred to avoid deadlock)
+        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+          const userId = session.user.id;
+          if (!checkedFirstLoginRef.current.has(userId)) {
+            checkedFirstLoginRef.current.add(userId);
+            setTimeout(() => {
+              checkFirstLogin(userId);
+            }, 0);
+          }
+        }
       }
     );
 
@@ -35,6 +69,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+
+      // Also check first login for existing sessions
+      if (session?.user && !checkedFirstLoginRef.current.has(session.user.id)) {
+        checkedFirstLoginRef.current.add(session.user.id);
+        setTimeout(() => {
+          checkFirstLogin(session.user.id);
+        }, 0);
+      }
     });
 
     return () => subscription.unsubscribe();

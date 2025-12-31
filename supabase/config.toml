@@ -62,3 +62,6 @@ verify_jwt = true
 
 [functions.notify-new-application]
 verify_jwt = false
+
+[functions.notify-employee-joined]
+verify_jwt = false

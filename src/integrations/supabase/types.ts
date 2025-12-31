@@ -2391,9 +2391,11 @@ export type Database = {
           display_order: number | null
           email: string
           employee_pin: string | null
+          first_login_at: string | null
           full_name: string | null
           hourly_wage: number | null
           id: string
+          invited_by: string | null
           is_active: boolean | null
           max_weekly_hours: number | null
           min_weekly_hours: number | null
@@ -2411,9 +2413,11 @@ export type Database = {
           display_order?: number | null
           email: string
           employee_pin?: string | null
+          first_login_at?: string | null
           full_name?: string | null
           hourly_wage?: number | null
           id: string
+          invited_by?: string | null
           is_active?: boolean | null
           max_weekly_hours?: number | null
           min_weekly_hours?: number | null
@@ -2431,9 +2435,11 @@ export type Database = {
           display_order?: number | null
           email?: string
           employee_pin?: string | null
+          first_login_at?: string | null
           full_name?: string | null
           hourly_wage?: number | null
           id?: string
+          invited_by?: string | null
           is_active?: boolean | null
           max_weekly_hours?: number | null
           min_weekly_hours?: number | null
@@ -2448,6 +2454,13 @@ export type Database = {
             columns: ["default_location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
