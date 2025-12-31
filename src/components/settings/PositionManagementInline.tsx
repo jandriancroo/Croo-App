@@ -140,9 +140,9 @@ export function PositionManagementInline() {
             Positions
           </div>
           {!adding && (
-            <Button size="sm" variant="ghost" className="h-7" onClick={() => setAdding(true)}>
+            <Button size="sm" onClick={() => setAdding(true)}>
               <Plus className="h-3 w-3 mr-1" />
-              Add
+              Add Position
             </Button>
           )}
         </div>
