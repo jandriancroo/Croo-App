@@ -6,6 +6,7 @@ import { Banknote, TrendingDown, TrendingUp, Calendar, Sparkles } from "lucide-r
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCrooCashAnimation } from "@/contexts/CrooCashAnimationContext";
+import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 
 interface CrooCashCardProps {
   userId: string;
@@ -173,7 +174,7 @@ export function CrooCashCard({ userId, balance }: CrooCashCardProps) {
                             : "Incomplete Checklist"}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {new Date(transaction.shift_date).toLocaleDateString()}
+                          {parseDateStringInTimezone(transaction.shift_date, 'America/Los_Angeles').toLocaleDateString()}
                           {transaction.is_weekend && " 🎉 Weekend"}
                           {transaction.notes && (
                             <div className="text-xs mt-0.5 text-muted-foreground/80">

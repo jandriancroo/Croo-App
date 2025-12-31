@@ -11,6 +11,7 @@ import { format, addDays } from "date-fns";
 import { ConflictWarningDialog } from "./ConflictWarningDialog";
 import { ArrowUp } from "lucide-react";
 import { ShiftOfferDialog } from "./ShiftOfferDialog";
+import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 
 interface EditShiftDialogProps {
   open: boolean;
@@ -111,11 +112,11 @@ export function EditShiftDialog({
       const conflictingRequests = availabilityRequests.filter((request) => {
         if (request.user_id !== userId) return false;
 
-        const reqDate = new Date(request.start_date);
-        const cellDate = new Date(shiftDate);
+        const reqDate = parseDateStringInTimezone(request.start_date, 'America/Los_Angeles');
+        const cellDate = parseDateStringInTimezone(shiftDate, 'America/Los_Angeles');
 
         if (request.time_scope === "multi_day" && request.end_date) {
-          const endDate = new Date(request.end_date);
+          const endDate = parseDateStringInTimezone(request.end_date, 'America/Los_Angeles');
           return cellDate >= reqDate && cellDate <= endDate;
         }
         return reqDate.toDateString() === cellDate.toDateString();

@@ -11,6 +11,7 @@ import { BreakIndicator } from './BreakIndicator';
 import { shiftHasBreak } from '@/utils/shiftUtils';
 import { Trash2, ArrowUp } from 'lucide-react';
 import { getTodayInPST } from '@/utils/dateUtils';
+import { parseDateStringInTimezone } from '@/utils/timezoneUtils';
 
 interface Profile {
   id: string;
@@ -167,8 +168,8 @@ export function MobileShiftDialog({
           throw new Error('Schedule ID is required to create a shift');
         }
         
-        // Calculate day_of_week from the selected date
-        const selectedDate = new Date(shiftDate);
+        // Calculate day_of_week from the selected date using timezone-safe parsing
+        const selectedDate = parseDateStringInTimezone(shiftDate, 'America/Los_Angeles');
         const dayOfWeek = selectedDate.getDay();
         
         const { error: shiftError } = await supabase
@@ -186,7 +187,7 @@ export function MobileShiftDialog({
         if (shiftError) throw shiftError;
       } else {
         // Update existing shift (including date if changed)
-        const selectedDate = new Date(shiftDate);
+        const selectedDate = parseDateStringInTimezone(shiftDate, 'America/Los_Angeles');
         const dayOfWeek = selectedDate.getDay();
         
         const { error: shiftError } = await supabase
@@ -206,7 +207,7 @@ export function MobileShiftDialog({
 
       // Auto-notify when a shift claim is approved
       if (isApprovingClaim && selectedUserId && selectedUserId !== 'unassigned') {
-        const formattedDate = shiftDate ? new Date(shiftDate).toLocaleDateString('en-US', { 
+        const formattedDate = shiftDate ? parseDateStringInTimezone(shiftDate, 'America/Los_Angeles').toLocaleDateString('en-US', { 
           weekday: 'short', 
           month: 'short', 
           day: 'numeric' 
@@ -300,7 +301,7 @@ export function MobileShiftDialog({
           ) : (
             <div>
               <Label className="text-muted-foreground">Date</Label>
-              <p className="font-medium">{new Date(shift.shift_date).toLocaleDateString()}</p>
+              <p className="font-medium">{parseDateStringInTimezone(shift.shift_date, 'America/Los_Angeles').toLocaleDateString()}</p>
             </div>
           )}
 
