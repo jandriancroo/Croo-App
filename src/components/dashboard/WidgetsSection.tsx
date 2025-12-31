@@ -299,6 +299,65 @@ export function WidgetsSection({
   useEffect(() => {
     setLocalCubes(cubes);
   }, [cubes]);
+
+  // Auto-create Sales Chart widget for users who don't have one yet
+  // This ensures all team members see Sales Overview by default
+  useEffect(() => {
+    const autoCreateSalesChart = async () => {
+      if (!user?.id || !currentLocation?.id || isLoading) return;
+      
+      // Only auto-create if user has no cubes at all (first visit) or explicitly no sales chart
+      // and the location has QuBeyond integration (hasQuBeyondIntegration prop)
+      const userHasSalesChart = cubes.some(c => c.cubeType === 'sales-chart');
+      if (userHasSalesChart) return;
+      
+      // Check localStorage to see if we've already tried to auto-create for this user+location
+      const autoCreateKey = `dashboard-auto-sales-chart-${user.id}-${currentLocation.id}`;
+      if (localStorage.getItem(autoCreateKey)) return;
+      
+      // Mark that we've attempted auto-creation (prevent repeated attempts)
+      localStorage.setItem(autoCreateKey, 'true');
+      
+      try {
+        // Get max display_order
+        const { data: maxOrderRow } = await supabase
+          .from('user_dashboard_cubes')
+          .select('display_order')
+          .eq('user_id', user.id)
+          .eq('location_id', currentLocation.id)
+          .order('display_order', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const nextOrder = (maxOrderRow?.display_order ?? -1) + 1;
+
+        const { error } = await supabase
+          .from('user_dashboard_cubes')
+          .insert({
+            user_id: user.id,
+            location_id: currentLocation.id,
+            title: 'Sales Overview',
+            cube_type: 'sales-chart',
+            widget_size: 'large',
+            metrics: [],
+            accent_color: '#0D9488',
+            display_order: nextOrder,
+          });
+
+        if (error) {
+          console.error('Error auto-creating sales chart:', error);
+          return;
+        }
+
+        console.log('[WidgetsSection] Auto-created Sales Overview for user');
+        queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
+      } catch (error) {
+        console.error('Error auto-creating sales chart:', error);
+      }
+    };
+
+    autoCreateSalesChart();
+  }, [user?.id, currentLocation?.id, cubes, isLoading, queryClient]);
   
   // Debug: Log when salesData changes
   useEffect(() => {
