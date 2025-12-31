@@ -252,7 +252,7 @@ export default function PayrollReview() {
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
   const [filterDay, setFilterDay] = useState<string>('all');
   const [periodStatuses, setPeriodStatuses] = useState<Record<string, any>>({});
-  const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all', hasBreakViolation?: boolean, hasAutoClockOut?: boolean, hasOvertime?: boolean, hasExtendedBreak?: boolean, shiftInfo?: { dayPunches: any[], userId: string, locationId: string, shiftDate: string } } | null>(null);
+  const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all', hasBreakViolation?: boolean, hasAutoClockOut?: boolean, hasOvertime?: boolean, hasExtendedBreak?: boolean, flaggedShifts?: { employeeName: string, date: string, flags: string[] }[], cleanPunchIds?: string[], shiftInfo?: { dayPunches: any[], userId: string, locationId: string, shiftDate: string } } | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ dayPunches: any[], shiftDate: string } | null>(null);
   const [laborRules, setLaborRules] = useState<any>(null);
 
@@ -715,37 +715,29 @@ export default function PayrollReview() {
   };
 
   const handleApproveAll = async () => {
-    let hasAutoClockOut = false;
-    let hasBreakViolation = false;
-    let hasOvertime = false;
-    let hasExtendedBreak = false;
-    
-    // Check all unapproved days across all filtered cards
-    const allUnapprovedPunches: any[] = [];
+    // Separate clean and flagged shifts
+    const cleanPunchIds: string[] = [];
+    const flaggedShifts: { employeeName: string, date: string, flags: string[] }[] = [];
+    let hasAnyFlags = false;
     
     filteredCards.forEach(card => {
-      Object.values(card.punchesByDay).forEach((dayPunches: any) => {
+      Object.entries(card.punchesByDay).forEach(([day, dayPunches]: [string, any]) => {
         const hasUnapproved = dayPunches.some((p: any) => !p.approved_at);
         if (!hasUnapproved) return;
         
-        // Add punches to list
-        dayPunches.forEach((p: any) => {
-          if (!p.approved_at) allUnapprovedPunches.push(p);
-        });
+        // Check for flags
+        const flags: string[] = [];
         
-        // Check for auto clock out
         if (dayPunches.some((p: any) => p.is_auto_punched_out)) {
-          hasAutoClockOut = true;
+          flags.push('Auto Clock-Out');
         }
         
-        // Check for overtime
         if (dayPunches.some((p: any) => p.has_overtime)) {
-          hasOvertime = true;
+          flags.push('Overtime');
         }
         
-        // Check for extended break
         if (dayPunches.some((p: any) => p.has_extended_break)) {
-          hasExtendedBreak = true;
+          flags.push('Extended Break');
         }
         
         // Check for break violation
@@ -756,22 +748,47 @@ export default function PayrollReview() {
         if (clockIn && clockOut) {
           const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
           if (hours > 5 && !mealBreakStart) {
-            hasBreakViolation = true;
+            flags.push('Missing Meal Break');
           }
+        }
+        
+        if (flags.length > 0) {
+          hasAnyFlags = true;
+          flaggedShifts.push({
+            employeeName: card.profile.full_name,
+            date: day,
+            flags
+          });
+        } else {
+          // Only add clean (unflagged) punches
+          dayPunches.forEach((p: any) => {
+            if (!p.approved_at) cleanPunchIds.push(p.id);
+          });
         }
       });
     });
 
-    if (allUnapprovedPunches.length === 0) {
+    if (cleanPunchIds.length === 0 && flaggedShifts.length === 0) {
       toast.info('No punches to approve');
       return;
     }
 
-    if (hasAutoClockOut || hasBreakViolation || hasOvertime || hasExtendedBreak) {
-      setApprovalWarning({ punches: allUnapprovedPunches, type: 'all', hasBreakViolation, hasAutoClockOut, hasOvertime, hasExtendedBreak });
+    if (hasAnyFlags) {
+      // Show warning with flagged shifts list - user must handle those manually
+      setApprovalWarning({ 
+        punches: [], 
+        type: 'all', 
+        flaggedShifts,
+        cleanPunchIds,
+        hasAutoClockOut: flaggedShifts.some(s => s.flags.includes('Auto Clock-Out')),
+        hasBreakViolation: flaggedShifts.some(s => s.flags.includes('Missing Meal Break')),
+        hasOvertime: flaggedShifts.some(s => s.flags.includes('Overtime')),
+        hasExtendedBreak: flaggedShifts.some(s => s.flags.includes('Extended Break'))
+      });
       return;
     }
-    await approvePunches(allUnapprovedPunches.map((p: any) => p.id));
+    
+    await approvePunches(cleanPunchIds);
   };
 
   const approvePunches = async (punchIds: string[]) => {
@@ -1665,82 +1682,119 @@ export default function PayrollReview() {
 
         {/* Approval Warning Dialog */}
         <Dialog open={!!approvalWarning} onOpenChange={() => setApprovalWarning(null)}>
-          <DialogContent>
+          <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-amber-600">
                 <AlertTriangle className="h-5 w-5" />
-                Review Flagged Punches
+                {approvalWarning?.type === 'all' ? 'Flagged Shifts Require Review' : 'Review Flagged Punches'}
               </DialogTitle>
               <DialogDescription>
-                The following issues were found with these punches. Please review before approving.
+                {approvalWarning?.type === 'all' 
+                  ? 'The following shifts have flags and must be reviewed individually before approval.'
+                  : 'The following issues were found with these punches. Please review before approving.'
+                }
               </DialogDescription>
             </DialogHeader>
             {approvalWarning && (
               <div className="space-y-3">
-                {approvalWarning.hasAutoClockOut && (
-                  <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-lg border border-orange-200">
-                    <AlertCircle className="h-5 w-5 text-orange-600" />
-                    <div>
-                      <p className="font-medium text-orange-800">Auto Clock-Out Detected</p>
-                      <p className="text-sm text-orange-600">
-                        One or more punches were automatically generated because employees forgot to clock out.
-                      </p>
+                {/* Flag type summary */}
+                <div className="space-y-2">
+                  {approvalWarning.hasAutoClockOut && (
+                    <div className="flex items-center gap-2 p-2 bg-orange-50 rounded border border-orange-200 text-sm">
+                      <AlertCircle className="h-4 w-4 text-orange-600 shrink-0" />
+                      <span className="text-orange-800">Auto Clock-Out</span>
                     </div>
+                  )}
+                  {approvalWarning.hasBreakViolation && (
+                    <div className="flex items-center gap-2 p-2 bg-amber-50 rounded border border-amber-200 text-sm">
+                      <Coffee className="h-4 w-4 text-amber-600 shrink-0" />
+                      <span className="text-amber-800">Missing Meal Break</span>
+                    </div>
+                  )}
+                  {approvalWarning.hasOvertime && (
+                    <div className="flex items-center gap-2 p-2 bg-purple-50 rounded border border-purple-200 text-sm">
+                      <Clock className="h-4 w-4 text-purple-600 shrink-0" />
+                      <span className="text-purple-800">Overtime</span>
+                    </div>
+                  )}
+                  {approvalWarning.hasExtendedBreak && (
+                    <div className="flex items-center gap-2 p-2 bg-blue-50 rounded border border-blue-200 text-sm">
+                      <Coffee className="h-4 w-4 text-blue-600 shrink-0" />
+                      <span className="text-blue-800">Extended Break</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* List of flagged shifts for Approve All */}
+                {approvalWarning.type === 'all' && approvalWarning.flaggedShifts && (
+                  <div className="border rounded-lg divide-y max-h-48 overflow-y-auto">
+                    {approvalWarning.flaggedShifts.map((shift, idx) => {
+                      const shiftDate = parseDateStringInTimezone(shift.date, timezone);
+                      return (
+                        <div key={idx} className="px-3 py-2 flex items-center justify-between text-sm">
+                          <div>
+                            <span className="font-medium">{shift.employeeName}</span>
+                            <span className="text-muted-foreground ml-2">
+                              {formatDateTimeInTimezone(shiftDate, timezone, { weekday: 'short', month: 'short', day: 'numeric' })}
+                            </span>
+                          </div>
+                          <div className="flex gap-1">
+                            {shift.flags.map((flag, fIdx) => (
+                              <Badge key={fIdx} variant="outline" className="text-[10px] px-1 py-0">
+                                {flag}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
-                {approvalWarning.hasBreakViolation && (
-                  <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                    <Coffee className="h-5 w-5 text-amber-600" />
-                    <div>
-                      <p className="font-medium text-amber-800">Missing Meal Break</p>
-                      <p className="text-sm text-amber-600">
-                        One or more shifts exceeded 5 hours without a recorded 30-minute meal break.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {approvalWarning.hasOvertime && (
-                  <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
-                    <Clock className="h-5 w-5 text-purple-600" />
-                    <div>
-                      <p className="font-medium text-purple-800">Overtime Detected</p>
-                      <p className="text-sm text-purple-600">
-                        One or more shifts resulted in overtime hours.
-                      </p>
-                    </div>
-                  </div>
-                )}
-                {approvalWarning.hasExtendedBreak && (
-                  <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <Coffee className="h-5 w-5 text-blue-600" />
-                    <div>
-                      <p className="font-medium text-blue-800">Extended Break</p>
-                      <p className="text-sm text-blue-600">
-                        One or more employees took longer than expected on their break.
-                      </p>
-                    </div>
-                  </div>
+
+                {/* Show count of clean shifts that will be approved */}
+                {approvalWarning.type === 'all' && approvalWarning.cleanPunchIds && approvalWarning.cleanPunchIds.length > 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    {approvalWarning.cleanPunchIds.length} clean punch records will be approved.
+                  </p>
                 )}
               </div>
             )}
             <DialogFooter className="flex gap-2">
-              {approvalWarning?.shiftInfo && (
+              <Button variant="outline" onClick={() => setApprovalWarning(null)}>
+                {approvalWarning?.type === 'all' ? 'Cancel' : 'Close'}
+              </Button>
+              {/* For single day approval, allow approve anyway */}
+              {approvalWarning?.type === 'day' && approvalWarning?.shiftInfo && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setEditingShift(approvalWarning.shiftInfo!);
+                      setApprovalWarning(null);
+                    }}
+                  >
+                    Fix Issues
+                  </Button>
+                  <Button 
+                    variant="default"
+                    onClick={() => approvalWarning && approvePunches(approvalWarning.punches.map((p: any) => p.id))}
+                  >
+                    Approve Anyway
+                  </Button>
+                </>
+              )}
+              {/* For Approve All, only approve clean shifts */}
+              {approvalWarning?.type === 'all' && approvalWarning.cleanPunchIds && approvalWarning.cleanPunchIds.length > 0 && (
                 <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setEditingShift(approvalWarning.shiftInfo!);
-                    setApprovalWarning(null);
+                  variant="default"
+                  onClick={async () => {
+                    await approvePunches(approvalWarning.cleanPunchIds!);
+                    toast.success(`Approved ${approvalWarning.cleanPunchIds!.length} clean punches. ${approvalWarning.flaggedShifts?.length || 0} flagged shifts require manual review.`);
                   }}
                 >
-                  Fix Issues
+                  Approve Clean Shifts Only
                 </Button>
               )}
-              <Button 
-                variant="default"
-                onClick={() => approvalWarning && approvePunches(approvalWarning.punches.map((p: any) => p.id))}
-              >
-                Approve Anyway
-              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
