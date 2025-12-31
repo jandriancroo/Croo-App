@@ -18,6 +18,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
+import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
 import { ShiftCard } from "@/components/schedule/ShiftCard";
@@ -729,7 +730,7 @@ export default function Schedule() {
 
       // Copy all shifts to the target week
       const shiftsToCopy = shifts.map((shift) => {
-        const shiftDate = new Date(shift.shift_date);
+        const shiftDate = parseDateStringInTimezone(shift.shift_date, timezone);
         const dayOffset = Math.floor((shiftDate.getTime() - currentWeekStart.getTime()) / (1000 * 60 * 60 * 24));
         const newShiftDate = addDays(targetWeekStart, dayOffset);
 

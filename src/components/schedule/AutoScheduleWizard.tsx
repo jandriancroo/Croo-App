@@ -16,6 +16,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, startOfWeek, subWeeks, addDays } from "date-fns";
+import { parseDateStringInTimezone, formatDateTimeInTimezone } from "@/utils/timezoneUtils";
 import {
   Sparkles,
   Calendar,
@@ -400,12 +401,12 @@ export function AutoScheduleWizard({
 
   const formatTimeScope = (request: AvailabilityRequest) => {
     if (request.time_scope === "partial_day") {
-      const dateStr = format(new Date(request.start_date), "MMM d");
+      const dateStr = format(parseDateStringInTimezone(request.start_date, 'America/Los_Angeles'), "MMM d");
       return `${dateStr} (${request.start_time?.slice(0, 5)} - ${request.end_time?.slice(0, 5)})`;
     } else if (request.time_scope === "multi_day" && request.end_date) {
-      return `${format(new Date(request.start_date), "MMM d")} - ${format(new Date(request.end_date), "MMM d")}`;
+      return `${format(parseDateStringInTimezone(request.start_date, 'America/Los_Angeles'), "MMM d")} - ${format(parseDateStringInTimezone(request.end_date, 'America/Los_Angeles'), "MMM d")}`;
     }
-    return format(new Date(request.start_date), "MMM d, yyyy");
+    return format(parseDateStringInTimezone(request.start_date, 'America/Los_Angeles'), "MMM d, yyyy");
   };
 
   const getInitials = (name: string) => {

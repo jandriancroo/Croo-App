@@ -5,9 +5,10 @@ import { formatTime12Hour } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { Sparkles, Loader2 } from "lucide-react";
 import { getCachedSalesData, setCachedSalesData } from "@/utils/salesCache";
-
+import { parseDateStringInTimezone, getTodayInTimezone } from "@/utils/timezoneUtils";
 interface DayBreakdownDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -32,6 +33,7 @@ export function DayBreakdownDialog({
 }: DayBreakdownDialogProps) {
   const dateStr = format(date, "yyyy-MM-dd");
   const { currentLocation } = useAppLocation();
+  const { timezone } = useLocationTimezone();
   
   // Sales data state
   const [salesData, setSalesData] = useState<{
@@ -46,10 +48,10 @@ export function DayBreakdownDialog({
     const fetchSalesData = async () => {
       if (!open || !currentLocation?.id) return;
       
-      const today = new Date();
-      const targetDate = new Date(dateStr);
-      const isPast = targetDate < today && targetDate.toDateString() !== today.toDateString();
-      const isTodayDate = targetDate.toDateString() === today.toDateString();
+      const todayStr = getTodayInTimezone(timezone);
+      const targetDate = parseDateStringInTimezone(dateStr, timezone);
+      const isPast = dateStr < todayStr;
+      const isTodayDate = dateStr === todayStr;
       
       // Check cache for past dates first
       if (isPast) {

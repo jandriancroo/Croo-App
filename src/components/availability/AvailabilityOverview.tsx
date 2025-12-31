@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { Check, X, Calendar, Clock } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
+import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 
 interface AvailabilityRequest {
   id: string;
@@ -137,9 +138,9 @@ export function AvailabilityOverview() {
     if (request.time_scope === "partial_day") {
       return `${format(new Date(`2000-01-01T${request.start_time}`), "h:mm a")} - ${format(new Date(`2000-01-01T${request.end_time}`), "h:mm a")}`;
     } else if (request.time_scope === "multi_day") {
-      return `${format(new Date(request.start_date), "MMM d")} - ${format(new Date(request.end_date!), "MMM d, yyyy")}`;
+      return `${format(parseDateStringInTimezone(request.start_date, 'America/Los_Angeles'), "MMM d")} - ${format(parseDateStringInTimezone(request.end_date!, 'America/Los_Angeles'), "MMM d, yyyy")}`;
     } else {
-      return format(new Date(request.start_date), "MMM d, yyyy");
+      return format(parseDateStringInTimezone(request.start_date, 'America/Los_Angeles'), "MMM d, yyyy");
     }
   };
 

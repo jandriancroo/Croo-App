@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 
 interface ShiftOfferDialogProps {
   open: boolean;
@@ -115,7 +116,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
       }
 
       // Post message about the shift offer with offer ID
-      const shiftDateFormatted = new Date(shift.shift_date).toLocaleDateString();
+      const shiftDateFormatted = parseDateStringInTimezone(shift.shift_date, 'America/Los_Angeles').toLocaleDateString();
       const messageContent = `SHIFT_OFFER:${newOffer.id}`;
 
       await supabase
@@ -164,7 +165,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
           <div className="flex justify-between">
             <span className="text-muted-foreground">Date:</span>
             <span className="font-medium">
-              {shift?.shift_date ? new Date(shift.shift_date).toLocaleDateString() : "N/A"}
+              {shift?.shift_date ? parseDateStringInTimezone(shift.shift_date, 'America/Los_Angeles').toLocaleDateString() : "N/A"}
             </span>
           </div>
           <div className="flex justify-between">
