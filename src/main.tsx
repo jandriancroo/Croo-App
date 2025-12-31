@@ -6,6 +6,25 @@ import "./index.css";
 const savedTheme = localStorage.getItem('app-theme') || 'default';
 document.documentElement.setAttribute('data-theme', savedTheme);
 
+// Force-refresh when a new published version is detected (prevents stale Safari/PWA caches).
+// __APP_VERSION__ is injected at build time in vite.config.ts.
+declare const __APP_VERSION__: string;
+try {
+  const currentVersion = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : undefined;
+  if (currentVersion) {
+    const storedVersion = localStorage.getItem('app-version');
+    if (storedVersion && storedVersion !== currentVersion) {
+      localStorage.setItem('app-version', currentVersion);
+      const url = new URL(window.location.href);
+      url.searchParams.set('v', currentVersion);
+      window.location.replace(url.toString());
+    } else if (!storedVersion) {
+      localStorage.setItem('app-version', currentVersion);
+    }
+  }
+} catch {
+  // ignore
+}
 // PWA: Register a minimal service worker for push notifications only.
 // No precaching = no stale version issues. Browser/CDN cache handles freshness.
 try {
