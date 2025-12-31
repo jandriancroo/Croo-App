@@ -252,6 +252,47 @@ export const UnifiedNotificationSettings = () => {
     return settings.find(s => s.notification_type === notificationType && s.location_id === locationId);
   };
 
+  const handleBulkUpdate = async (enable: boolean) => {
+    if (!user || !selectedLocationId) return;
+
+    // Optimistic update
+    setSettings(prev => prev.map(s => 
+      s.location_id === selectedLocationId
+        ? { ...s, alert_enabled: enable, push_enabled: enable, email_enabled: enable }
+        : s
+    ));
+
+    try {
+      // Build upsert data for all notification types
+      const upsertData = NOTIFICATION_TYPES.map(nt => ({
+        user_id: user.id,
+        notification_type: nt.key,
+        location_id: selectedLocationId,
+        alert_enabled: enable,
+        push_enabled: enable,
+        email_enabled: enable,
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { error } = await supabase
+        .from('user_notification_settings')
+        .upsert(upsertData, {
+          onConflict: 'user_id,notification_type,location_id'
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Failed to bulk update settings:', error);
+      // Revert on error by refetching
+      fetchData();
+      toast({
+        title: 'Error',
+        description: 'Failed to update settings',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const currentLocationSettings = settings.filter(s => s.location_id === selectedLocationId);
   const allDisabled = currentLocationSettings.every(s => !s.alert_enabled && !s.push_enabled && !s.email_enabled);
 
@@ -337,6 +378,26 @@ export const UnifiedNotificationSettings = () => {
             {/* Notification settings for selected location */}
             {selectedLocationId && (
               <>
+                {/* Select All / Deselect All buttons */}
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => handleBulkUpdate(true)}
+                  >
+                    Select All
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 text-xs"
+                    onClick={() => handleBulkUpdate(false)}
+                  >
+                    Deselect All
+                  </Button>
+                </div>
+
                 {/* Channel headers */}
                 <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center text-xs text-muted-foreground px-1 pt-2">
                   <span></span>

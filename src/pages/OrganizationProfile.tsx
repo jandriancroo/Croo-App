@@ -4,13 +4,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Building2, MapPin, Plus, Save, ExternalLink, ShieldX, Tag } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Plus, Save, ExternalLink, ShieldX, Tag, Shield, Briefcase, Bell } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { OrganizationMembersSection } from '@/components/settings/OrganizationMembersSection';
+import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
+import { NotificationsDashboard } from '@/components/settings/NotificationsDashboard';
+import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
 import { useUserRole } from '@/hooks/useUserRole';
 
 export default function OrganizationProfile() {
@@ -268,6 +271,31 @@ export default function OrganizationProfile() {
         {/* Organization Members */}
         {!isNew && id && (
           <OrganizationMembersSection organizationId={id} />
+        )}
+
+        {/* Role Management Section */}
+        {!isNew && (
+          <RoleManagementSection />
+        )}
+
+        {/* Role Notification Permissions */}
+        {!isNew && (
+          <NotificationsDashboard />
+        )}
+
+        {/* Positions */}
+        {!isNew && (
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center gap-2">
+                <Briefcase className="h-4 w-4" />
+                <CardTitle className="text-base">Positions</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <PositionManagementInline />
+            </CardContent>
+          </Card>
         )}
 
         {/* Locations */}
