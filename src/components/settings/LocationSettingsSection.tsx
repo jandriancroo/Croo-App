@@ -50,7 +50,7 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
   const { toast } = useToast();
   const [timezone, setTimezone] = useState("America/Los_Angeles");
   const [blackoutDates, setBlackoutDates] = useState<Date[]>([]);
-  const [teamMemberSalesViewEnabled, setTeamMemberSalesViewEnabled] = useState(false);
+  
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [businessHours, setBusinessHours] = useState<DayHours[]>(
@@ -85,12 +85,12 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
         setBlackoutDates(
           data.blackout_dates ? data.blackout_dates.map((d: string) => new Date(d)) : []
         );
-        setTeamMemberSalesViewEnabled(data.team_member_sales_view_enabled ?? false);
+        
       } else {
         setSettingsId(null);
         setTimezone("America/Los_Angeles");
         setBlackoutDates([]);
-        setTeamMemberSalesViewEnabled(false);
+        
       }
     } catch (error) {
       console.error("Error fetching location settings:", error);
@@ -159,7 +159,6 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
       const settingsData = {
         timezone: timezone,
         blackout_dates: blackoutDates.map(d => format(d, "yyyy-MM-dd")),
-        team_member_sales_view_enabled: teamMemberSalesViewEnabled,
       };
 
       if (settingsId) {
@@ -249,24 +248,10 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
       <CardHeader>
         <CardTitle>Location Settings</CardTitle>
         <CardDescription>
-          Configure operational hours, permissions, and blackout dates
+          Configure operational hours and blackout dates
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Team Member Sales View Permission */}
-        <div className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border">
-          <div className="space-y-0.5">
-            <Label htmlFor="team-sales-view" className="text-base">Allow Team Members to View Sales</Label>
-            <p className="text-sm text-muted-foreground">
-              When enabled, team members can see sales data on their dashboard. Shift managers and above always have access.
-            </p>
-          </div>
-          <Switch
-            id="team-sales-view"
-            checked={teamMemberSalesViewEnabled}
-            onCheckedChange={setTeamMemberSalesViewEnabled}
-          />
-        </div>
 
         <div className="space-y-2">
           <Label htmlFor="timezone">Timezone</Label>
