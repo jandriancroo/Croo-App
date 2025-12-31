@@ -253,6 +253,7 @@ export default function PayrollReview() {
   const [filterDay, setFilterDay] = useState<string>('all');
   const [periodStatuses, setPeriodStatuses] = useState<Record<string, any>>({});
   const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all', hasBreakViolation?: boolean, hasAutoClockOut?: boolean, shiftInfo?: { dayPunches: any[], userId: string, locationId: string, shiftDate: string } } | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{ dayPunches: any[], shiftDate: string } | null>(null);
   const [laborRules, setLaborRules] = useState<any>(null);
 
   // Tip distribution hook
@@ -608,6 +609,25 @@ export default function PayrollReview() {
     }
 
     toast.success('Punch deleted');
+    fetchTimeCards();
+  };
+
+  const handleDeleteAllDayPunches = async (dayPunches: any[]) => {
+    const punchIds = dayPunches.map(p => p.id);
+    
+    const { error } = await supabase
+      .from('time_punches')
+      .delete()
+      .in('id', punchIds);
+
+    if (error) {
+      toast.error('Failed to delete shift');
+      return;
+    }
+
+    toast.success('Shift deleted');
+    setEditingShift(null);
+    setDeleteConfirmation(null);
     fetchTimeCards();
   };
 
@@ -1601,12 +1621,11 @@ export default function PayrollReview() {
                 timezone={timezone}
                 onSave={() => { setEditingShift(null); fetchTimeCards(); }}
                 onCancel={() => setEditingShift(null)}
-                onDelete={async () => {
-                  const clockIn = editingShift.dayPunches.find((p: any) => p.punch_type === 'clock_in');
-                  if (clockIn) {
-                    await handleDeletePunch(clockIn.id);
-                  }
-                  setEditingShift(null);
+                onDelete={() => {
+                  setDeleteConfirmation({ 
+                    dayPunches: editingShift.dayPunches, 
+                    shiftDate: editingShift.shiftDate 
+                  });
                 }}
               />
             )}
@@ -1668,6 +1687,44 @@ export default function PayrollReview() {
                 onClick={() => approvalWarning && approvePunches(approvalWarning.punches.map((p: any) => p.id))}
               >
                 Approve Anyway
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Shift Confirmation Dialog */}
+        <Dialog open={!!deleteConfirmation} onOpenChange={() => setDeleteConfirmation(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="h-5 w-5" />
+                Delete Shift
+              </DialogTitle>
+              <DialogDescription>
+                Are you sure you want to delete this entire shift? This will remove all clock-in, clock-out, and break records for this day. This action cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            {deleteConfirmation && (
+              <div className="py-2">
+                <p className="text-sm text-muted-foreground">
+                  Date: <span className="font-medium text-foreground">
+                    {formatDateTimeInTimezone(parseDateStringInTimezone(deleteConfirmation.shiftDate, timezone), timezone, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                  </span>
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Records to delete: <span className="font-medium text-foreground">{deleteConfirmation.dayPunches.length}</span>
+                </p>
+              </div>
+            )}
+            <DialogFooter className="flex gap-2">
+              <Button variant="outline" onClick={() => setDeleteConfirmation(null)}>
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={() => deleteConfirmation && handleDeleteAllDayPunches(deleteConfirmation.dayPunches)}
+              >
+                Delete Shift
               </Button>
             </DialogFooter>
           </DialogContent>
