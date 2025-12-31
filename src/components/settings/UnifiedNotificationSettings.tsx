@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useLocation } from '@/hooks/useLocation';
 import { toast } from '@/hooks/use-toast';
 import { Bell, BellOff, Smartphone, MapPin, AlertCircle, BellRing, Mail } from 'lucide-react';
 import {
@@ -48,6 +49,7 @@ const isInstalledPWA = () => {
 
 export const UnifiedNotificationSettings = () => {
   const { user } = useAuth();
+  const { currentLocation } = useLocation();
   const [settings, setSettings] = useState<NotificationSetting[]>([]);
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
@@ -88,9 +90,12 @@ export const UnifiedNotificationSettings = () => {
       }));
       setUserLocations(locs);
       
-      // Auto-select first location
+      // Auto-select: use current location context if available, otherwise first location
       if (locs.length > 0 && !selectedLocationId) {
-        setSelectedLocationId(locs[0].location_id);
+        const defaultLoc = currentLocation 
+          ? locs.find(l => l.location_id === currentLocation.id)
+          : null;
+        setSelectedLocationId(defaultLoc?.location_id || locs[0].location_id);
       }
 
       // Fetch existing notification settings
