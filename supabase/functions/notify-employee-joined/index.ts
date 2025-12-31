@@ -78,35 +78,64 @@ serve(async (req: Request) => {
     const locationNames = userLocations.map(ul => (ul.locations as any)?.name).filter(Boolean);
 
     // Get managers/admins at these locations who should be notified
-    const { data: managers } = await supabase
+    // First get all users at these locations (except the new user)
+    const { data: locationUsers, error: locationUsersError } = await supabase
       .from("user_locations")
-      .select(`
-        user_id,
-        profiles!inner(id, full_name, email),
-        user_roles!inner(role)
-      `)
+      .select(`user_id`)
       .in("location_id", locationIds)
       .neq("user_id", userId);
 
-    if (!managers || managers.length === 0) {
-      console.log("No managers found to notify");
+    if (locationUsersError) {
+      console.error("Error fetching location users:", locationUsersError);
+    }
+
+    if (!locationUsers || locationUsers.length === 0) {
+      console.log("No other users found at locations");
+      return new Response(
+        JSON.stringify({ message: "No users at locations" }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const userIds = [...new Set(locationUsers.map(u => u.user_id))];
+    console.log(`Found ${userIds.length} users at locations`);
+
+    // Get roles for these users (filter to manager roles)
+    const managerRoles = ["super_admin", "org_admin", "admin", "general_manager", "manager"];
+    const { data: managerRoleData, error: rolesError } = await supabase
+      .from("user_roles")
+      .select("user_id, role")
+      .in("user_id", userIds)
+      .in("role", managerRoles);
+
+    if (rolesError) {
+      console.error("Error fetching roles:", rolesError);
+    }
+
+    if (!managerRoleData || managerRoleData.length === 0) {
+      console.log("No managers found at locations");
       return new Response(
         JSON.stringify({ message: "No managers to notify" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Filter to only admin/manager roles
-    const managerRoles = ["super_admin", "org_admin", "admin", "general_manager", "shift_manager", "manager"];
-    const managersToNotify = managers.filter(m => {
-      const roles = m.user_roles as any;
-      return roles && managerRoles.includes(roles.role);
-    });
+    const managerUserIds = [...new Set(managerRoleData.map(r => r.user_id))];
+    console.log(`Found ${managerUserIds.length} managers to notify`);
+
+    // Get profiles for these managers
+    const { data: managerProfiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .in("id", managerUserIds);
+
+    if (profilesError) {
+      console.error("Error fetching manager profiles:", profilesError);
+    }
 
     // Get unique manager emails
     const uniqueManagers = new Map<string, { email: string; name: string }>();
-    for (const m of managersToNotify) {
-      const profile = m.profiles as any;
+    for (const profile of managerProfiles || []) {
       if (profile?.email && !uniqueManagers.has(profile.email)) {
         uniqueManagers.set(profile.email, { 
           email: profile.email, 
