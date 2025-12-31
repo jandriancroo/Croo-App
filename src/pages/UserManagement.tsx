@@ -53,6 +53,7 @@ interface UserProfile {
   created_at: string;
   is_active: boolean;
   appears_on_schedule: boolean;
+  first_login_at: string | null;
   role?: AppRole;
   paid_hours?: number;
   unpaid_hours?: number;
@@ -60,6 +61,17 @@ interface UserProfile {
   croo_cash_balance?: number;
   has_certification?: boolean;
 }
+
+// Helper to get user status display
+const getUserStatusDisplay = (user: UserProfile): { label: string; variant: 'default' | 'secondary' | 'outline' } => {
+  if (!user.is_active) {
+    return { label: 'Inactive', variant: 'secondary' };
+  }
+  if (!user.first_login_at) {
+    return { label: 'Invite Sent', variant: 'outline' };
+  }
+  return { label: 'Active', variant: 'default' };
+};
 
 export default function UserManagement() {
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -1505,8 +1517,8 @@ export default function UserManagement() {
                         {getRoleIcon(viewingUser.role!)}
                         {getRoleDisplayName(viewingUser.role!)}
                       </Badge>
-                      <Badge variant={viewingUser.is_active ? "default" : "secondary"}>
-                        {viewingUser.is_active ? "Active" : "Inactive"}
+                      <Badge variant={getUserStatusDisplay(viewingUser).variant}>
+                        {getUserStatusDisplay(viewingUser).label}
                       </Badge>
                     </div>
                   </div>
