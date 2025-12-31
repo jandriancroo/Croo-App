@@ -3,12 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Shield, User } from 'lucide-react';
+import { Shield, User, Bell } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
 type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'team_member';
-
-// Include legacy roles for backward compatibility with database
 type DbRole = AppRole | 'fbc' | 'general_manager';
 
 type RolePermission = {
@@ -19,36 +17,55 @@ type RolePermission = {
   enabled: boolean;
 };
 
+type NotificationSetting = {
+  id: string;
+  role: AppRole;
+  notification_type: string;
+  notification_label: string;
+  enabled: boolean;
+};
+
 export function RoleManagementSection() {
   const [permissions, setPermissions] = useState<RolePermission[]>([]);
+  const [notifications, setNotifications] = useState<NotificationSetting[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState<AppRole>('admin');
-  const [savingPermission, setSavingPermission] = useState<string | null>(null);
+  const [savingId, setSavingId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchPermissions();
+    fetchData();
   }, []);
 
-  const fetchPermissions = async () => {
+  const fetchData = async () => {
     try {
-      const { data, error } = await supabase
-        .from('role_permissions')
-        .select('*')
-        .order('role', { ascending: true })
-        .order('permission_label', { ascending: true });
+      const [permRes, notifRes] = await Promise.all([
+        supabase
+          .from('role_permissions')
+          .select('*')
+          .order('role', { ascending: true })
+          .order('permission_label', { ascending: true }),
+        supabase
+          .from('role_notification_settings')
+          .select('*')
+          .order('role')
+          .order('notification_type')
+      ]);
 
-      if (error) throw error;
-      setPermissions(data || []);
+      if (permRes.error) throw permRes.error;
+      if (notifRes.error) throw notifRes.error;
+
+      setPermissions(permRes.data || []);
+      setNotifications((notifRes.data || []) as NotificationSetting[]);
     } catch (error: any) {
-      console.error('Error fetching permissions:', error);
-      toast.error('Failed to load permissions');
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load role settings');
     } finally {
       setLoading(false);
     }
   };
 
   const handlePermissionToggle = async (permissionId: string, currentEnabled: boolean) => {
-    setSavingPermission(permissionId);
+    setSavingId(permissionId);
     try {
       const { error } = await supabase
         .from('role_permissions')
@@ -57,34 +74,54 @@ export function RoleManagementSection() {
 
       if (error) throw error;
 
+      setPermissions(prev => prev.map(p => 
+        p.id === permissionId ? { ...p, enabled: !currentEnabled } : p
+      ));
       toast.success('Permission updated');
-      fetchPermissions();
     } catch (error: any) {
       console.error('Error updating permission:', error);
       toast.error('Failed to update permission');
     } finally {
-      setSavingPermission(null);
+      setSavingId(null);
+    }
+  };
+
+  const handleNotificationToggle = async (settingId: string, currentEnabled: boolean) => {
+    setSavingId(settingId);
+    try {
+      const { error } = await supabase
+        .from('role_notification_settings')
+        .update({ enabled: !currentEnabled })
+        .eq('id', settingId);
+
+      if (error) throw error;
+
+      setNotifications(prev => prev.map(n => 
+        n.id === settingId ? { ...n, enabled: !currentEnabled } : n
+      ));
+      toast.success('Notification setting updated');
+    } catch (error: any) {
+      console.error('Error updating notification:', error);
+      toast.error('Failed to update notification setting');
+    } finally {
+      setSavingId(null);
     }
   };
 
   const getRoleLabel = (role: string) => {
     switch (role) {
-      case 'super_admin':
-        return 'Super Admin';
-      case 'brand_admin':
-        return 'Brand Admin';
-      case 'org_admin':
-        return 'Org Admin';
-      case 'admin':
-        return 'Admin';
-      case 'manager':
-        return 'Manager';
-      case 'shift_manager':
-        return 'Shift Manager';
-      default:
-        return 'Team Member';
+      case 'super_admin': return 'Super Admin';
+      case 'brand_admin': return 'Brand Admin';
+      case 'org_admin': return 'Org Admin';
+      case 'admin': return 'Admin';
+      case 'manager': return 'Manager';
+      case 'shift_manager': return 'Shift Manager';
+      default: return 'Team Member';
     }
   };
+
+  const rolePermissions = permissions.filter((p) => p.role === selectedRole);
+  const roleNotifications = notifications.filter((n) => n.role === selectedRole);
 
   if (loading) {
     return (
@@ -92,7 +129,7 @@ export function RoleManagementSection() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5" />
-            Role Permissions
+            Roles & Permissions
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -107,20 +144,20 @@ export function RoleManagementSection() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Shield className="h-5 w-5" />
-          Role Permissions
+          Roles & Permissions
         </CardTitle>
         <CardDescription>
-          Configure permissions for each role - plan access rules for future implementation
+          Configure permissions and notification access for each role
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div>
+          {/* Role selector buttons */}
+          <div className="flex flex-wrap gap-2">
             <Button
               variant={selectedRole === 'admin' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setSelectedRole('admin')}
-              className="mr-2"
             >
               Admin
             </Button>
@@ -128,7 +165,6 @@ export function RoleManagementSection() {
               variant={selectedRole === 'manager' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setSelectedRole('manager')}
-              className="mr-2"
             >
               Manager
             </Button>
@@ -136,7 +172,6 @@ export function RoleManagementSection() {
               variant={selectedRole === 'shift_manager' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setSelectedRole('shift_manager')}
-              className="mr-2"
             >
               Shift Manager
             </Button>
@@ -149,34 +184,74 @@ export function RoleManagementSection() {
             </Button>
           </div>
 
-          <div className="border rounded-lg p-4 bg-muted/50">
-            <h4 className="font-semibold mb-3 flex items-center gap-2">
-              <User className="h-4 w-4" />
-              {getRoleLabel(selectedRole)} Permissions
-            </h4>
-            <div className="space-y-3">
-              {permissions
-                .filter((p) => p.role === selectedRole)
-                .map((permission) => (
-                  <div key={permission.id} className="flex items-center gap-3">
-                    <Checkbox
-                      id={permission.id}
-                      checked={permission.enabled}
-                      disabled={savingPermission === permission.id}
-                      onCheckedChange={() =>
-                        handlePermissionToggle(permission.id, permission.enabled)
-                      }
-                    />
-                    <label
-                      htmlFor={permission.id}
-                      className={`text-sm cursor-pointer ${
-                        permission.enabled ? 'text-foreground' : 'text-muted-foreground'
-                      }`}
-                    >
-                      {permission.permission_label}
-                    </label>
-                  </div>
-                ))}
+          {/* Two column layout for Permissions and Notifications */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Permissions Column */}
+            <div className="border rounded-lg p-4 bg-muted/50">
+              <h4 className="font-semibold mb-3 flex items-center gap-2">
+                <User className="h-4 w-4" />
+                {getRoleLabel(selectedRole)} Permissions
+              </h4>
+              <div className="space-y-3">
+                {rolePermissions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No permissions configured</p>
+                ) : (
+                  rolePermissions.map((permission) => (
+                    <div key={permission.id} className="flex items-center gap-3">
+                      <Checkbox
+                        id={permission.id}
+                        checked={permission.enabled}
+                        disabled={savingId === permission.id}
+                        onCheckedChange={() =>
+                          handlePermissionToggle(permission.id, permission.enabled)
+                        }
+                      />
+                      <label
+                        htmlFor={permission.id}
+                        className={`text-sm cursor-pointer ${
+                          permission.enabled ? 'text-foreground' : 'text-muted-foreground'
+                        }`}
+                      >
+                        {permission.permission_label}
+                      </label>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Notifications Column */}
+            <div className="border rounded-lg p-4 bg-muted/50">
+              <h4 className="font-semibold mb-3 flex items-center gap-2">
+                <Bell className="h-4 w-4" />
+                {getRoleLabel(selectedRole)} Notifications
+              </h4>
+              <div className="space-y-3">
+                {roleNotifications.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No notification settings configured</p>
+                ) : (
+                  roleNotifications.map((notification) => (
+                    <div key={notification.id} className="flex items-center gap-3">
+                      <Checkbox
+                        id={notification.id}
+                        checked={notification.enabled}
+                        disabled={savingId === notification.id}
+                        onCheckedChange={() =>
+                          handleNotificationToggle(notification.id, notification.enabled)
+                        }
+                      />
+                      <label
+                        htmlFor={notification.id}
+                        className={`text-sm cursor-pointer ${
+                          notification.enabled ? 'text-foreground' : 'text-muted-foreground'
+                        }`}
+                      >
+                        {notification.notification_label}
+                      </label>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>
