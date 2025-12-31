@@ -317,13 +317,13 @@ export const Layout = ({
       label: 'Availability',
       icon: CalendarCheck
     }, ...(canViewTimecards ? [{
+      path: '/time-tracking',
+      label: 'Time Tracking',
+      icon: DollarSign
+    }, {
       path: '/punch-clock',
       label: 'Punch Clock',
       icon: Clock
-    }, {
-      path: '/payroll-review',
-      label: 'Payroll Review',
-      icon: DollarSign
     }] : [])
   ];
   const mobileMainNavItems = isChecklistOnlyLocation ? checklistOnlyNavItems : [{
@@ -371,13 +371,13 @@ export const Layout = ({
       icon: CalendarCheck
     },
     ...(canViewTimecards ? [{
+      path: '/time-tracking',
+      label: 'Time Tracking',
+      icon: DollarSign
+    }, {
       path: '/punch-clock',
       label: 'Punch Clock',
       icon: Clock
-    }, {
-      path: '/payroll-review',
-      label: 'Payroll Review',
-      icon: DollarSign
     }] : [])
   ];
 
