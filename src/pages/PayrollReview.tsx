@@ -1424,7 +1424,7 @@ export default function PayrollReview() {
                                     const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
                                     const allBreaks = dayPunches.filter((p: any) => p.punch_type === 'break_start' || p.punch_type === 'break_end');
                                     const breakStarts = dayPunches.filter((p: any) => p.punch_type === 'break_start');
-                                    const dayDate = new Date(day);
+                                    const dayDate = parseDateStringInTimezone(day, timezone);
                                     const dayHours = calculateDayHours(dayPunches);
                                     const isApproved = dayPunches.every((p: any) => p.approved_at);
                                     const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
