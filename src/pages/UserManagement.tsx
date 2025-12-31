@@ -1400,6 +1400,7 @@ export default function UserManagement() {
                     </TableHead>
                     )}
                     <TableHead>User</TableHead>
+                    <TableHead className="hidden md:table-cell">Status</TableHead>
                     <TableHead className="hidden md:table-cell">Role</TableHead>
                     <TableHead className="hidden md:table-cell">Croo Cash</TableHead>
                     <TableHead className="hidden md:table-cell">Cert</TableHead>
@@ -1439,10 +1440,14 @@ export default function UserManagement() {
                               <div className="font-medium">{user.full_name || 'No name'}</div>
                               <div className="text-sm text-muted-foreground">{user.email}</div>
                             </div>
-                            {/* Mobile view - name on top, role + croo cash below */}
+                            {/* Mobile view - name on top, status + role + croo cash below */}
                             <div className="md:hidden">
                               <div className="font-medium">{user.full_name || 'No name'}</div>
                               <div className="text-xs mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                <Badge variant={getUserStatusDisplay(user).variant} className="text-[10px] px-1.5 py-0">
+                                  {getUserStatusDisplay(user).label}
+                                </Badge>
+                                <span className="text-muted-foreground">•</span>
                                 <span className="text-muted-foreground">{getRoleDisplayName(user.role!)}</span>
                                 <span className="text-muted-foreground">•</span>
                                 <span className="text-muted-foreground">${(user.croo_cash_balance || 0) / 100}</span>
@@ -1450,6 +1455,11 @@ export default function UserManagement() {
                             </div>
                           </div>
                         </div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        <Badge variant={getUserStatusDisplay(user).variant}>
+                          {getUserStatusDisplay(user).label}
+                        </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <Badge variant={getRoleBadgeVariant(user.role!)} className="gap-1">
