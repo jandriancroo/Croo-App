@@ -252,7 +252,7 @@ export default function PayrollReview() {
   const [filterEmployee, setFilterEmployee] = useState<string>('all');
   const [filterDay, setFilterDay] = useState<string>('all');
   const [periodStatuses, setPeriodStatuses] = useState<Record<string, any>>({});
-  const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all', hasBreakViolation?: boolean, hasAutoClockOut?: boolean, shiftInfo?: { dayPunches: any[], userId: string, locationId: string, shiftDate: string } } | null>(null);
+  const [approvalWarning, setApprovalWarning] = useState<{ punches: any[], type: 'day' | 'all', hasBreakViolation?: boolean, hasAutoClockOut?: boolean, hasOvertime?: boolean, hasExtendedBreak?: boolean, shiftInfo?: { dayPunches: any[], userId: string, locationId: string, shiftDate: string } } | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ dayPunches: any[], shiftDate: string } | null>(null);
   const [laborRules, setLaborRules] = useState<any>(null);
 
@@ -675,8 +675,10 @@ export default function PayrollReview() {
   };
 
   const handleApproveDay = async (dayPunches: any[]) => {
-    // Check for flagged punches - auto punch out
+    // Check for flagged punches
     const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
+    const hasOvertime = dayPunches.some((p: any) => p.has_overtime);
+    const hasExtendedBreak = dayPunches.some((p: any) => p.has_extended_break);
     
     // Check for break violation - shift over 5 hours without meal break
     const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
@@ -691,7 +693,7 @@ export default function PayrollReview() {
       }
     }
     
-    if (hasAutoClockOut || hasBreakViolation) {
+    if (hasAutoClockOut || hasBreakViolation || hasOvertime || hasExtendedBreak) {
       // Find the shift date from the punches (location timezone)
       const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
       const shiftDate = clockIn ? getDateInTimezone(new Date(clockIn.punch_time), timezone) : '';
@@ -703,6 +705,8 @@ export default function PayrollReview() {
         type: 'day',
         hasBreakViolation,
         hasAutoClockOut,
+        hasOvertime,
+        hasExtendedBreak,
         shiftInfo: { dayPunches, userId, locationId, shiftDate },
       });
       return;
@@ -713,6 +717,8 @@ export default function PayrollReview() {
   const handleApproveAll = async () => {
     let hasAutoClockOut = false;
     let hasBreakViolation = false;
+    let hasOvertime = false;
+    let hasExtendedBreak = false;
     
     // Check all unapproved days across all filtered cards
     const allUnapprovedPunches: any[] = [];
@@ -730,6 +736,16 @@ export default function PayrollReview() {
         // Check for auto clock out
         if (dayPunches.some((p: any) => p.is_auto_punched_out)) {
           hasAutoClockOut = true;
+        }
+        
+        // Check for overtime
+        if (dayPunches.some((p: any) => p.has_overtime)) {
+          hasOvertime = true;
+        }
+        
+        // Check for extended break
+        if (dayPunches.some((p: any) => p.has_extended_break)) {
+          hasExtendedBreak = true;
         }
         
         // Check for break violation
@@ -751,8 +767,8 @@ export default function PayrollReview() {
       return;
     }
 
-    if (hasAutoClockOut || hasBreakViolation) {
-      setApprovalWarning({ punches: allUnapprovedPunches, type: 'all', hasBreakViolation, hasAutoClockOut });
+    if (hasAutoClockOut || hasBreakViolation || hasOvertime || hasExtendedBreak) {
+      setApprovalWarning({ punches: allUnapprovedPunches, type: 'all', hasBreakViolation, hasAutoClockOut, hasOvertime, hasExtendedBreak });
       return;
     }
     await approvePunches(allUnapprovedPunches.map((p: any) => p.id));
@@ -1448,6 +1464,8 @@ export default function PayrollReview() {
                                     const dayHours = calculateDayHours(dayPunches);
                                     const isApproved = dayPunches.every((p: any) => p.approved_at);
                                     const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
+                                    const hasOvertime = dayPunches.some((p: any) => p.has_overtime);
+                                    const hasExtendedBreak = dayPunches.some((p: any) => p.has_extended_break);
                                     
                                     // Calculate break violation: shift > 5 hours without meal break
                                     let hasBreakViolation = false;
@@ -1459,6 +1477,7 @@ export default function PayrollReview() {
                                     }
                                     
                                     const hasIssue = hasDayIssues(dayPunches);
+                                    const hasAnyFlag = hasAutoClockOut || hasBreakViolation || hasOvertime || hasExtendedBreak;
 
                                     // Skip approved if not showing
                                     if (!includeApproved && isApproved) return null;
@@ -1466,7 +1485,7 @@ export default function PayrollReview() {
                                     return (
                                       <div 
                                         key={day} 
-                                        className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/30 transition-colors cursor-pointer ${hasAutoClockOut || hasBreakViolation ? 'bg-amber-50/50' : ''}`}
+                                        className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 hover:bg-muted/30 transition-colors cursor-pointer ${hasAnyFlag ? 'bg-amber-50/50' : ''}`}
                                         onClick={() => setEditingShift({ dayPunches, userId: card.profile.id, locationId: currentLocation?.id || '', shiftDate: day })}
                                       >
                                         {/* Day Badge */}
@@ -1497,6 +1516,18 @@ export default function PayrollReview() {
                                               <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-orange-600 border-orange-300 gap-0.5 shrink-0">
                                                 <img src={autoPunchIcon} alt="Auto" className="h-3 w-3" />
                                                 <span className="hidden sm:inline">Auto</span>
+                                              </Badge>
+                                            )}
+                                            {hasOvertime && (
+                                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-purple-600 border-purple-300 gap-0.5 shrink-0">
+                                                <Clock className="h-2.5 w-2.5" />
+                                                <span className="hidden sm:inline">OT</span>
+                                              </Badge>
+                                            )}
+                                            {hasExtendedBreak && (
+                                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-blue-600 border-blue-300 gap-0.5 shrink-0">
+                                                <Coffee className="h-2.5 w-2.5" />
+                                                <span className="hidden sm:inline">Long Break</span>
                                               </Badge>
                                             )}
                                             {hasIssue && !hasBreakViolation && !clockOut && (
@@ -1664,6 +1695,28 @@ export default function PayrollReview() {
                       <p className="font-medium text-amber-800">Missing Meal Break</p>
                       <p className="text-sm text-amber-600">
                         One or more shifts exceeded 5 hours without a recorded 30-minute meal break.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {approvalWarning.hasOvertime && (
+                  <div className="flex items-center gap-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
+                    <Clock className="h-5 w-5 text-purple-600" />
+                    <div>
+                      <p className="font-medium text-purple-800">Overtime Detected</p>
+                      <p className="text-sm text-purple-600">
+                        One or more shifts resulted in overtime hours.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {approvalWarning.hasExtendedBreak && (
+                  <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <Coffee className="h-5 w-5 text-blue-600" />
+                    <div>
+                      <p className="font-medium text-blue-800">Extended Break</p>
+                      <p className="text-sm text-blue-600">
+                        One or more employees took longer than expected on their break.
                       </p>
                     </div>
                   </div>
