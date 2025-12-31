@@ -96,7 +96,7 @@ const AppContent = () => {
       <Route path="/availability" element={<ProtectedRoute><Availability /></ProtectedRoute>} />
       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
       <Route path="/punch-clock" element={<PunchClock />} />
-      <Route path="/payroll-review" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
+      <Route path="/time-tracking" element={<ProtectedRoute><PayrollReview /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/location/:locationId" element={<ProtectedRoute><LocationProfile /></ProtectedRoute>} />
       <Route path="/location/:locationId/punch-clock" element={<ProtectedRoute><PunchClockCustomization /></ProtectedRoute>} />

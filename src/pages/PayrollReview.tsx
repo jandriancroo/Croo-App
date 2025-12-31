@@ -1182,7 +1182,7 @@ export default function PayrollReview() {
         {!selectedPeriod ? (
           <>
             <div>
-              <h1 className="text-3xl font-bold">Payroll Review</h1>
+              <h1 className="text-3xl font-bold">Time Tracking</h1>
               <p className="text-muted-foreground">Select a pay period to review time cards</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
