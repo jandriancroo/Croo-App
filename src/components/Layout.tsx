@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw, BarChart3, Building2 } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw, BarChart3, Building2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -534,6 +534,10 @@ export const Layout = ({
                   </>
                 )}
 
+                <DropdownMenuItem onClick={() => navigate('/my-profile')} className="gap-2 cursor-pointer">
+                  <User className="h-4 w-4" />
+                  My Profile
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
                   <SettingsIcon className="h-4 w-4" />
                   Settings
@@ -621,14 +625,22 @@ export const Layout = ({
               </SheetHeader>
               <div className="grid gap-2 py-4">
                 {/* Profile Section */}
-                <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2">
+                <div 
+                  className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => {
+                    navigate('/my-profile');
+                    setMenuOpen(false);
+                  }}
+                >
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={userProfile?.profile_photo_url || ''} />
                     <AvatarFallback>{initials}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{userProfile?.full_name || 'User'}</p>
+                    <p className="text-xs text-muted-foreground">Tap to edit profile</p>
                   </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
 
                 {(isSuperAdmin || hasMultiLocationAccess) && (

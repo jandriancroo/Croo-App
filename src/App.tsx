@@ -54,6 +54,7 @@ import ApplicantPortal from "./pages/ApplicantPortal";
 import Changelog from "./pages/Changelog";
 import PunchClockCustomization from "./pages/PunchClockCustomization";
 import FBCDashboard from "./pages/FBCDashboard";
+import MyProfile from "./pages/MyProfile";
 import MultiLocationDashboard from "./pages/MultiLocationDashboard";
 import { ScrollToTop } from "./components/ScrollToTop";
 
@@ -106,6 +107,7 @@ const AppContent = () => {
       <Route path="/font-preview" element={<ProtectedRoute><FontPreviewPage /></ProtectedRoute>} />
       <Route path="/temperature-validation" element={<ProtectedRoute><TemperatureValidation /></ProtectedRoute>} />
       <Route path="/my-wallet" element={<ProtectedRoute><MyWallet /></ProtectedRoute>} />
+      <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
       <Route path="/role-management" element={<ProtectedRoute><RoleManagement /></ProtectedRoute>} />
       <Route path="/hiring" element={<ProtectedRoute><Hiring /></ProtectedRoute>} />
       <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
