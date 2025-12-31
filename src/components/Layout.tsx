@@ -334,7 +334,11 @@ export const Layout = ({
     path: '/tasks',
     label: 'Tasks',
     icon: ClipboardCheck
-  }, {
+  }, ...(canAccessLogs ? [{
+    path: '/logbook',
+    label: 'Logs',
+    icon: Scroll
+  }] : []), {
     path: '/schedule',
     label: 'Schedule',
     icon: Calendar
