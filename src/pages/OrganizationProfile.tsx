@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Building2, MapPin, Plus, Save, ExternalLink, ShieldX, Tag, Shield, Briefcase, Bell } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, Plus, Save, ExternalLink, ShieldX, Tag, Briefcase } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,7 +12,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { OrganizationMembersSection } from '@/components/settings/OrganizationMembersSection';
 import { RoleManagementSection } from '@/components/settings/RoleManagementSection';
-import { NotificationsDashboard } from '@/components/settings/NotificationsDashboard';
+
 import { PositionManagementInline } from '@/components/settings/PositionManagementInline';
 import { useUserRole } from '@/hooks/useUserRole';
 
@@ -273,14 +273,9 @@ export default function OrganizationProfile() {
           <OrganizationMembersSection organizationId={id} />
         )}
 
-        {/* Role Management Section */}
+        {/* Role Management Section (includes Permissions + Notifications) */}
         {!isNew && (
           <RoleManagementSection />
-        )}
-
-        {/* Role Notification Permissions */}
-        {!isNew && (
-          <NotificationsDashboard />
         )}
 
         {/* Positions */}
