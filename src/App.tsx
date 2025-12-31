@@ -43,7 +43,7 @@ import InstallGuide from "./pages/InstallGuide";
 import ResetPassword from "./pages/ResetPassword";
 import ForgotPassword from "./pages/ForgotPassword";
 import MyWallet from "./pages/MyWallet";
-import RoleManagement from "./pages/RoleManagement";
+
 import CompletedStampPreview from "./pages/CompletedStampPreview";
 import OrganizationProfile from "./pages/OrganizationProfile";
 import BrandManagement from "./pages/BrandManagement";
@@ -108,7 +108,7 @@ const AppContent = () => {
       <Route path="/temperature-validation" element={<ProtectedRoute><TemperatureValidation /></ProtectedRoute>} />
       <Route path="/my-wallet" element={<ProtectedRoute><MyWallet /></ProtectedRoute>} />
       <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
-      <Route path="/role-management" element={<ProtectedRoute><RoleManagement /></ProtectedRoute>} />
+      {/* Role Management moved to Organization Profile page */}
       <Route path="/hiring" element={<ProtectedRoute><Hiring /></ProtectedRoute>} />
       <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
       {/* FBC Dashboard hidden - <Route path="/fbc-dashboard" element={<ProtectedRoute><FBCDashboard /></ProtectedRoute>} /> */}

@@ -29,7 +29,7 @@ const themes = [
   { value: 'blaze', label: 'Blaze Pizza' },
 ];
 
-const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'brands', 'organizations', 'roles', 'maintenance'];
+const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'brands', 'organizations', 'maintenance'];
 const STORAGE_KEY = 'settings-section-order';
 
 interface SortableSectionProps {
@@ -283,31 +283,7 @@ export default function Settings() {
           </Card>
         );
 
-      case 'roles':
-        if (!isAdmin) return null;
-        return (
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4" />
-                <CardTitle className="text-base">Roles & Permissions</CardTitle>
-              </div>
-              <CardDescription className="text-xs">
-                Configure permissions, notifications, and positions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => navigate('/role-management')}
-              >
-                <Shield className="h-4 w-4 mr-2" />
-                Manage Roles & Permissions
-              </Button>
-            </CardContent>
-          </Card>
-        );
+      // Roles section removed - now on Organization Profile page
 
       case 'maintenance':
         if (!isAdmin) return null;
