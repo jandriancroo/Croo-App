@@ -10,7 +10,8 @@ import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical, ArrowUpDown, Building2, Tag } from 'lucide-react';
+import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical, ArrowUpDown, Building2, Tag, FlaskConical } from 'lucide-react';
+import { openDiagnosticMode } from '@/components/DiagnosticMode';
 
 import { UnifiedNotificationSettings } from '@/components/settings/UnifiedNotificationSettings';
 import { toast as sonnerToast } from 'sonner';
@@ -333,6 +334,18 @@ export default function Settings() {
               >
                 Rescan Temperatures
               </Button>
+
+              {isSuperAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full justify-start"
+                  onClick={() => openDiagnosticMode()}
+                >
+                  <FlaskConical className="w-4 h-4 mr-2" />
+                  Diagnostics
+                </Button>
+              )}
             </CardContent>
           </Card>
         );
@@ -396,6 +409,7 @@ export default function Settings() {
             </div>
           </SortableContext>
         </DndContext>
+
       </div>
     </Layout>
   );
