@@ -515,33 +515,16 @@ export const Layout = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                {isSuperAdmin && (
-                  <>
-                    <DropdownMenuItem onClick={() => openDiagnosticMode()} className="gap-2 cursor-pointer">
-                      <FlaskConical className="h-4 w-4 flex-shrink-0" />
-                      <span className="whitespace-nowrap">Diagnostics</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-                {hasMultiLocationAccess && (
-                  <>
-                    <DropdownMenuItem onClick={() => navigate('/multi-location')} className="gap-2 cursor-pointer">
-                      <Building2 className="h-4 w-4 flex-shrink-0" />
-                      <span className="whitespace-nowrap">Multi-Location</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
-
                 <DropdownMenuItem onClick={() => navigate('/my-profile')} className="gap-2 cursor-pointer">
                   <User className="h-4 w-4" />
                   My Profile
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
-                  <SettingsIcon className="h-4 w-4" />
-                  Settings
-                </DropdownMenuItem>
+                {hasMultiLocationAccess && (
+                  <DropdownMenuItem onClick={() => navigate('/multi-location')} className="gap-2 cursor-pointer">
+                    <Building2 className="h-4 w-4 flex-shrink-0" />
+                    <span className="whitespace-nowrap">Multi-Location</span>
+                  </DropdownMenuItem>
+                )}
                 {isAdmin && (
                   <>
                     <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
@@ -554,6 +537,10 @@ export const Layout = ({
                     </DropdownMenuItem>
                   </>
                 )}
+                <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
+                  <SettingsIcon className="h-4 w-4" />
+                  Settings
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
                   <DoorOpen className="h-4 w-4" />
@@ -642,16 +629,6 @@ export const Layout = ({
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
-
-                {(isSuperAdmin || hasMultiLocationAccess) && (
-                  <Button variant="outline" onClick={() => {
-                    openDiagnosticMode();
-                    setMenuOpen(false);
-                  }} className="justify-start gap-3 h-11">
-                    <FlaskConical className="h-5 w-5" />
-                    <span className="text-base">Diagnostics</span>
-                  </Button>
-                )}
 
                 {hasMultiLocationAccess && (
                   <Button variant="outline" onClick={() => {
