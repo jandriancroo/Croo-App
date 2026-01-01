@@ -693,16 +693,16 @@ export const Layout = ({
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors relative ${
+              className={`flex flex-col items-center gap-1.5 px-4 py-1.5 rounded-xl transition-colors relative ${
                 isActive 
                   ? 'bg-white/20 text-white' 
                   : 'text-white/70 hover:text-white'
               }`}
             >
-              <Icon className="h-6 w-6" strokeWidth={isActive ? 2.5 : 2} />
-              <span className={`text-[11px] ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
+              <Icon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
+              <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
               {showBadge && (
-                <span className="absolute top-1 right-2 h-2 w-2 bg-destructive rounded-full" />
+                <span className="absolute top-1 right-2 h-2.5 w-2.5 bg-destructive rounded-full" />
               )}
             </button>
           );
