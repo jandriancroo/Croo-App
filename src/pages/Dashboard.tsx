@@ -650,55 +650,30 @@ export default function Dashboard() {
               </div>
             </CardHeader>
 
-            {/* Middle Section - Stats with Ribbon */}
-            <CardContent className="py-2 px-3 pt-0 flex-1">
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-base text-muted-foreground font-medium flex-shrink-0">
-                  {completed}/{expected}
-                </div>
-                {/* Flowing Ribbon Status - fixed width */}
-                <div className="flex flex-col items-end ml-auto -mr-3 sm:-mr-4">
-                  <div 
-                    className={`flex items-center justify-center gap-1 sm:gap-1.5 w-32 sm:w-36 py-1 text-[10px] sm:text-xs font-semibold text-white shadow-lg ${
-                      isComplete ? 'bg-primary' : 'bg-red-500'
-                    }`}
-                    style={{
-                      clipPath: 'polygon(10px 0%, 100% 0%, 100% 100%, 10px 100%, 0% 50%)'
-                    }}
-                  >
-                    {isComplete ? (
-                      <>
-                        <div className="flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white shadow-sm flex-shrink-0">
-                          <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" strokeWidth={3} />
-                        </div>
-                        <span>100% Completed</span>
-                      </>
-                    ) : (
-                      <span>{completionRate}% Completed</span>
-                    )}
-                  </div>
-                  {/* Ribbon wrap-around fold */}
-                  <div 
-                    className={`w-2 h-2 sm:w-3 sm:h-3 ${
-                      isComplete ? 'bg-primary/50' : 'bg-red-500/50'
-                    }`}
-                    style={{
-                      clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)'
-                    }}
-                  />
-                </div>
-              </div>
-            </CardContent>
-
-            {/* Bottom Button - Centered rounded rectangle */}
-            <div className="px-3 pb-3 pt-1 mt-auto">
+            {/* Combined Status Button */}
+            <CardContent className="py-2 px-3 pt-0 flex-1 flex flex-col justify-end">
               <Button 
-                className="w-full h-9 text-sm rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                className={`w-full h-10 text-sm rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 ${
+                  isComplete 
+                    ? 'bg-primary hover:bg-primary/90' 
+                    : hasStarted 
+                      ? 'bg-primary hover:bg-primary/90' 
+                      : ''
+                }`}
                 onClick={() => navigate(`/complete/${checklist.id}`)}
               >
-                {getButtonText()}
+                {isComplete ? (
+                  <>
+                    <Check className="h-4 w-4" strokeWidth={3} />
+                    <span>Review</span>
+                  </>
+                ) : hasStarted ? (
+                  <span>Continue • {completed}/{expected}</span>
+                ) : (
+                  <span>Start Checklist</span>
+                )}
               </Button>
-            </div>
+            </CardContent>
           </Card>
         );
       })}
