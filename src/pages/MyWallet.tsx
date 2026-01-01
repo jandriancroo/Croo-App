@@ -3,17 +3,9 @@ import { Layout } from "@/components/Layout";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { format, startOfDay, endOfDay, parseISO, isWithinInterval, subDays } from "date-fns";
-import { Wallet, Clock, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { format, parseISO } from "date-fns";
+import { Clock, DollarSign, TrendingUp, TrendingDown, Calendar } from "lucide-react";
 import crooCashIcon from "@/assets/croo-cash-icon.png";
-
-interface TimePunch {
-  id: string;
-  punch_time: string;
-  punch_type: string;
-  notes: string | null;
-}
 
 interface Transaction {
   id: string;
@@ -29,6 +21,14 @@ interface PayPeriod {
   end_date: string;
 }
 
+interface ShiftEntry {
+  date: string;
+  clockIn: Date;
+  clockOut: Date | null;
+  hours: number;
+  estimatedPay: number;
+}
+
 export default function MyWallet() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -38,6 +38,7 @@ export default function MyWallet() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [currentPayPeriod, setCurrentPayPeriod] = useState<PayPeriod | null>(null);
   const [hourlyWage, setHourlyWage] = useState(15);
+  const [shifts, setShifts] = useState<ShiftEntry[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -92,8 +93,9 @@ export default function MyWallet() {
         .eq("id", user.id)
         .single();
 
+      const wage = profile?.hourly_wage || 15;
       if (profile) {
-        setHourlyWage(profile.hourly_wage || 15);
+        setHourlyWage(wage);
         setCrooCashBalance(profile.croo_cash_balance || 0);
       }
 
@@ -106,26 +108,61 @@ export default function MyWallet() {
         .lte("punch_time", `${payPeriod.end_date}T23:59:59`)
         .order("punch_time", { ascending: true });
 
-      // Calculate hours worked from punches
+      // Calculate hours worked from punches and build shift entries
       let totalMinutes = 0;
+      const shiftEntries: ShiftEntry[] = [];
+      
       if (punches && punches.length > 0) {
         let clockInTime: Date | null = null;
+        let clockInPunch: any = null;
         
         for (const punch of punches) {
           if (punch.punch_type === "clock_in") {
             clockInTime = new Date(punch.punch_time);
+            clockInPunch = punch;
           } else if (punch.punch_type === "clock_out" && clockInTime) {
             const clockOutTime = new Date(punch.punch_time);
             const diffMinutes = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60);
             totalMinutes += diffMinutes;
+            
+            const shiftHours = diffMinutes / 60;
+            shiftEntries.push({
+              date: format(clockInTime, 'yyyy-MM-dd'),
+              clockIn: clockInTime,
+              clockOut: clockOutTime,
+              hours: shiftHours,
+              estimatedPay: shiftHours * wage
+            });
+            
             clockInTime = null;
+            clockInPunch = null;
           }
+        }
+        
+        // Handle open shift (clocked in but not out yet)
+        if (clockInTime && clockInPunch) {
+          const now = new Date();
+          const diffMinutes = (now.getTime() - clockInTime.getTime()) / (1000 * 60);
+          totalMinutes += diffMinutes;
+          
+          const shiftHours = diffMinutes / 60;
+          shiftEntries.push({
+            date: format(clockInTime, 'yyyy-MM-dd'),
+            clockIn: clockInTime,
+            clockOut: null,
+            hours: shiftHours,
+            estimatedPay: shiftHours * wage
+          });
         }
       }
 
+      // Sort shifts by date descending (most recent first)
+      shiftEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setShifts(shiftEntries);
+
       const hours = totalMinutes / 60;
       setHoursWorked(hours);
-      setEstimatedGross(hours * (profile?.hourly_wage || 15));
+      setEstimatedGross(hours * wage);
 
       // Fetch Croo Cash transactions
       const { data: txns } = await supabase
@@ -220,6 +257,46 @@ export default function MyWallet() {
           </Card>
         </div>
 
+        {/* Shifts Breakdown */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Shifts This Pay Period
+            </CardTitle>
+            <CardDescription>
+              {shifts.length} shift{shifts.length !== 1 ? 's' : ''} worked
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {shifts.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">No shifts recorded yet</p>
+            ) : (
+              <div className="space-y-3">
+                {shifts.map((shift, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <Clock className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium">
+                          {format(parseISO(shift.date), "EEE, MMM d")}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(shift.clockIn, "h:mm a")} - {shift.clockOut ? format(shift.clockOut, "h:mm a") : "In Progress"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold">{shift.hours.toFixed(1)} hrs</p>
+                      <p className="text-xs text-muted-foreground">${shift.estimatedPay.toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Croo Cash Section */}
         <Card>
           <CardHeader>
@@ -245,28 +322,26 @@ export default function MyWallet() {
             {transactions.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">No transactions yet</p>
             ) : (
-              <ScrollArea className="h-[200px]">
-                <div className="space-y-3">
-                  {transactions.map((txn) => (
-                    <div key={txn.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        {getTransactionIcon(txn.transaction_type)}
-                        <div>
-                          <p className="font-medium">
-                            {getTransactionLabel(txn.transaction_type)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {format(parseISO(txn.shift_date), "MMM d, yyyy")}
-                          </p>
-                        </div>
+              <div className="space-y-3">
+                {transactions.map((txn) => (
+                  <div key={txn.id} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center gap-3">
+                      {getTransactionIcon(txn.transaction_type)}
+                      <div>
+                        <p className="font-medium">
+                          {getTransactionLabel(txn.transaction_type)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(parseISO(txn.shift_date), "MMM d, yyyy")}
+                        </p>
                       </div>
-                      <span className={`font-bold ${txn.amount > 0 ? "text-green-500" : "text-red-500"}`}>
-                        {txn.amount > 0 ? "+" : ""}${(Math.abs(txn.amount) / 100).toFixed(2)}
-                      </span>
                     </div>
-                  ))}
-                </div>
-              </ScrollArea>
+                    <span className={`font-bold ${txn.amount > 0 ? "text-green-500" : "text-red-500"}`}>
+                      {txn.amount > 0 ? "+" : ""}${(Math.abs(txn.amount) / 100).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </CardContent>
         </Card>
