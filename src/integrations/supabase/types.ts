@@ -3480,9 +3480,11 @@ export type Database = {
           created_at: string
           cube_type: string
           display_order: number
+          face_metrics: Json | null
           id: string
           location_id: string
           metrics: Json
+          num_faces: number | null
           reference_id: string | null
           title: string | null
           updated_at: string
@@ -3494,9 +3496,11 @@ export type Database = {
           created_at?: string
           cube_type?: string
           display_order?: number
+          face_metrics?: Json | null
           id?: string
           location_id: string
           metrics?: Json
+          num_faces?: number | null
           reference_id?: string | null
           title?: string | null
           updated_at?: string
@@ -3508,9 +3512,11 @@ export type Database = {
           created_at?: string
           cube_type?: string
           display_order?: number
+          face_metrics?: Json | null
           id?: string
           location_id?: string
           metrics?: Json
+          num_faces?: number | null
           reference_id?: string | null
           title?: string | null
           updated_at?: string
