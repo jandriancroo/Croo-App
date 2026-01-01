@@ -462,9 +462,9 @@ export function WidgetsSection({
           if (!error) return;
 
           lastError = error;
-          // deadlock detected
-          if (error.code === '40P01') {
-            await new Promise((r) => setTimeout(r, 75 * (attempt + 1)));
+          // deadlock or unique constraint violation - retry
+          if (error.code === '40P01' || error.code === '23505') {
+            await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
             continue;
           }
           throw error;
@@ -472,12 +472,13 @@ export function WidgetsSection({
         throw lastError;
       };
 
-      // Phase 1: assign temporary unique negative orders
+      // Phase 1: assign temporary unique negative orders using timestamp + index for uniqueness
+      const tempOffset = -Date.now();
       for (let i = 0; i < updates.length; i++) {
-        await updateWithRetry(updates[i].id, -(i + 1));
+        await updateWithRetry(updates[i].id, tempOffset - i);
       }
 
-      // Phase 2: assign final orders
+      // Phase 2: assign final orders (0, 1, 2, ...)
       for (const u of updates) {
         await updateWithRetry(u.id, u.display_order);
       }
