@@ -622,6 +622,7 @@ async function fetchProductMix(
 }
 
 // Fetch payment types breakdown from QuBeyond using gateway API
+// Uses the same sales summary endpoint with sectionId "paymentTypes"
 async function fetchPaymentTypes(
   tokenGw: string,
   dateStr: string,
@@ -630,6 +631,7 @@ async function fetchPaymentTypes(
   console.log(`[PAYMENTS] Fetching payment types for ${dateStr}`);
   
   try {
+    // Use the sales endpoint with paymentTypes sectionId (same pattern as overview/sales)
     const requestPayload = {
       fields: [{ fieldName: "metric" }, { fieldName: "total" }],
       filters: {
@@ -639,7 +641,8 @@ async function fetchPaymentTypes(
       params: { sectionId: "paymentTypes", pageNumber: 1, pageSize: 50, totalRecords: null, sort: null, showTotals: true }
     };
     
-    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/payment-types', {
+    // Try the main sales endpoint first (like overview uses /sections/sales)
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
