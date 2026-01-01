@@ -302,101 +302,162 @@ export function DashboardWidget({
   const firstMetricConfig = displayMetrics[0] ? METRIC_CONFIGS[displayMetrics[0]] : null;
   const CornerIcon = firstMetricConfig?.icon;
 
-  // Small widget - square on mobile, horizontal rectangle on tablet/desktop
+  // Small widget - post-it note style with page curl
   if (size === 'small') {
     const isSingleMetric = displayMetrics.length === 1;
     const MainIcon = firstMetricConfig?.icon;
     
+    // Post-it note pastel colors based on accent
+    const postItColors: Record<string, { bg: string; bgDark: string; text: string }> = {
+      '#8B5CF6': { bg: '#C4B5FD', bgDark: '#A78BFA', text: '#4C1D95' }, // Purple
+      '#0D9488': { bg: '#99F6E4', bgDark: '#5EEAD4', text: '#134E4A' }, // Teal
+      '#F59E0B': { bg: '#FDE68A', bgDark: '#FCD34D', text: '#78350F' }, // Amber/Yellow
+      '#EF4444': { bg: '#FECACA', bgDark: '#FCA5A5', text: '#7F1D1D' }, // Red
+      '#3B82F6': { bg: '#BFDBFE', bgDark: '#93C5FD', text: '#1E3A8A' }, // Blue
+      '#22C55E': { bg: '#BBF7D0', bgDark: '#86EFAC', text: '#14532D' }, // Green
+      '#EC4899': { bg: '#FBCFE8', bgDark: '#F9A8D4', text: '#831843' }, // Pink
+    };
+    
+    const colorKey = Object.keys(postItColors).find(key => effectiveColor.toLowerCase().startsWith(key.toLowerCase())) || '#F59E0B';
+    const postItStyle = postItColors[colorKey] || { bg: '#FDE68A', bgDark: '#FCD34D', text: '#78350F' };
+    
     return (
-      <Card 
-        className={`aspect-square md:aspect-[2/1] overflow-hidden cursor-pointer transition-all duration-300 relative group border-0 shadow-lg hover:shadow-2xl hover:scale-[1.03] ${isDragging ? 'opacity-50 shadow-2xl scale-105' : ''}`}
+      <div 
+        className={`aspect-square md:aspect-[2/1] cursor-pointer transition-all duration-300 relative group ${isDragging ? 'opacity-50 scale-105' : 'hover:scale-[1.02]'}`}
         onClick={onClick}
-        style={{
-          background: isOled 
-            ? 'hsl(var(--card))' 
-            : `linear-gradient(135deg, ${effectiveColor} 0%, ${effectiveColor}dd 50%, ${effectiveColor}bb 100%)`,
-        }}
+        style={{ perspective: '1000px' }}
       >
-        {/* Glassy overlay for depth */}
+        {/* Main post-it card */}
+        <div 
+          className="absolute inset-0 rounded-sm shadow-lg group-hover:shadow-xl transition-shadow duration-300"
+          style={{
+            background: isOled 
+              ? 'hsl(var(--card))' 
+              : `linear-gradient(135deg, ${postItStyle.bg} 0%, ${postItStyle.bgDark} 100%)`,
+            transform: 'rotateX(0deg)',
+          }}
+        >
+          {/* Subtle paper texture */}
+          {!isOled && (
+            <div 
+              className="absolute inset-0 opacity-[0.03] pointer-events-none"
+              style={{
+                backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noise\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.8\' numOctaves=\'4\' /%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noise)\' /%3E%3C/svg%3E")',
+              }}
+            />
+          )}
+          
+          {/* Header with icon */}
+          <div className="relative px-3 py-2 md:py-2.5 flex items-center gap-2">
+            {MainIcon && (
+              <div 
+                className="flex items-center justify-center w-7 h-7 md:w-8 md:h-8 rounded-lg"
+                style={{ 
+                  backgroundColor: isOled ? 'hsl(var(--primary) / 0.2)' : `${postItStyle.text}20`,
+                }}
+              >
+                <MainIcon 
+                  className="h-4 w-4 md:h-5 md:w-5" 
+                  style={{ color: isOled ? 'hsl(var(--foreground))' : postItStyle.text }}
+                />
+              </div>
+            )}
+            <span 
+              className="text-xs md:text-sm font-bold truncate flex-1"
+              style={{ color: isOled ? 'hsl(var(--foreground))' : postItStyle.text }}
+            >
+              {title || 'Data'}
+            </span>
+            {dragHandleProps && (
+              <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing">
+                <GripVertical 
+                  className="h-4 w-4" 
+                  style={{ color: isOled ? 'hsl(var(--muted-foreground))' : `${postItStyle.text}60` }}
+                />
+              </div>
+            )}
+          </div>
+          
+          <CardContent className="relative px-3 pb-3 pt-0 md:px-4 md:pb-4 h-[calc(100%-40px)] md:h-[calc(100%-44px)] flex flex-col justify-center">
+            {isLoading ? (
+              <div className="space-y-2">
+                <div className="h-8 w-20 rounded animate-pulse" style={{ backgroundColor: `${postItStyle.text}20` }} />
+                <div className="h-3 w-14 rounded animate-pulse" style={{ backgroundColor: `${postItStyle.text}10` }} />
+              </div>
+            ) : isSingleMetric ? (
+              <div className="text-center">
+                <span 
+                  className="text-3xl md:text-4xl font-black tracking-tight block"
+                  style={{ color: isOled ? 'hsl(var(--foreground))' : postItStyle.text }}
+                >
+                  {formatValue(getMetricValue(displayMetrics[0]), METRIC_CONFIGS[displayMetrics[0]].format)}
+                </span>
+                <p 
+                  className="text-[10px] md:text-xs mt-1 font-medium"
+                  style={{ color: isOled ? 'hsl(var(--muted-foreground))' : `${postItStyle.text}99` }}
+                >
+                  {METRIC_CONFIGS[displayMetrics[0]].label}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1.5 md:space-y-2">
+                {displayMetrics.map((metricType) => {
+                  const config = METRIC_CONFIGS[metricType];
+                  if (!config) return null;
+                  const value = getMetricValue(metricType);
+                  return (
+                    <div key={metricType} className="flex items-baseline justify-between gap-2">
+                      <span 
+                        className="text-[10px] md:text-xs font-medium truncate"
+                        style={{ color: isOled ? 'hsl(var(--muted-foreground))' : `${postItStyle.text}80` }}
+                      >
+                        {config.shortLabel}
+                      </span>
+                      <span 
+                        className="text-base md:text-lg font-bold"
+                        style={{ color: isOled ? 'hsl(var(--foreground))' : postItStyle.text }}
+                      >
+                        {formatValue(value, config.format)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </div>
+
+        {/* Page curl effect - bottom right corner */}
         {!isOled && (
           <div 
-            className="absolute inset-0 opacity-20 pointer-events-none"
-            style={{
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 40%, rgba(0,0,0,0.1) 100%)',
-            }}
-          />
+            className="absolute bottom-0 right-0 w-8 h-8 md:w-10 md:h-10 pointer-events-none overflow-hidden"
+          >
+            {/* The curled part (darker underside) */}
+            <div 
+              className="absolute bottom-0 right-0 w-full h-full"
+              style={{
+                background: `linear-gradient(135deg, transparent 50%, ${postItStyle.bgDark} 50%)`,
+                boxShadow: '-2px -2px 4px rgba(0,0,0,0.1)',
+                borderTopLeftRadius: '4px',
+              }}
+            />
+            {/* Shadow under the curl */}
+            <div 
+              className="absolute -bottom-1 -right-1 w-6 h-6 md:w-8 md:h-8 rounded-full blur-sm"
+              style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}
+            />
+          </div>
         )}
         
-        {/* Header with icon */}
-        <div className="relative px-3 py-2.5 md:py-3 flex items-center gap-2.5">
-          {MainIcon && (
-            <div className={`flex items-center justify-center w-9 h-9 rounded-xl shadow-inner ${isOled ? 'bg-primary/20' : 'bg-white/20 backdrop-blur-sm'}`}>
-              <MainIcon className={`h-5 w-5 drop-shadow-sm ${isOled ? 'text-foreground' : 'text-white'}`} />
-            </div>
-          )}
-          <span className={`text-sm md:text-base font-bold truncate flex-1 drop-shadow-sm ${isOled ? 'text-foreground' : 'text-white/90'}`}>
-            {title || 'Data'}
-          </span>
-          {dragHandleProps && (
-            <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing">
-              <GripVertical className={`h-4 w-4 ${isOled ? 'text-muted-foreground' : 'text-white/50'}`} />
-            </div>
-          )}
-        </div>
-        
-        <CardContent className="relative px-3 pb-4 pt-0 md:px-4 md:pb-5 h-[calc(100%-52px)] md:h-[calc(100%-56px)] flex flex-col justify-center">
-          {isLoading ? (
-            <div className="space-y-2">
-              <div className={`h-10 w-24 rounded animate-pulse ${isOled ? 'bg-muted' : 'bg-white/20'}`} />
-              <div className={`h-3 w-16 rounded animate-pulse ${isOled ? 'bg-muted' : 'bg-white/10'}`} />
-            </div>
-          ) : isSingleMetric ? (
-            <div className="text-center">
-              <span className={`text-4xl md:text-5xl font-black tracking-tight drop-shadow-lg ${isOled ? 'text-foreground' : 'text-white'}`}>
-                {formatValue(getMetricValue(displayMetrics[0]), METRIC_CONFIGS[displayMetrics[0]].format)}
-              </span>
-              <p className={`text-xs mt-1.5 font-medium ${isOled ? 'text-muted-foreground' : 'text-white/70'}`}>
-                {METRIC_CONFIGS[displayMetrics[0]].label}
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-              {displayMetrics.map((metricType, index) => {
-                const config = METRIC_CONFIGS[metricType];
-                if (!config) return null;
-                const value = getMetricValue(metricType);
-                return (
-                  <div key={metricType} className={`${index >= 2 ? 'hidden md:block' : ''}`}>
-                    <span className={`text-xl md:text-2xl font-bold drop-shadow-md block ${isOled ? 'text-foreground' : 'text-white'}`}>
-                      {formatValue(value, config.format)}
-                    </span>
-                    <span className={`text-[10px] md:text-xs font-medium truncate block ${isOled ? 'text-muted-foreground' : 'text-white/60'}`}>
-                      {config.shortLabel}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-
-        {/* Decorative elements */}
-        {!isOled && (
-          <>
-            <div 
-              className="absolute -bottom-10 -right-10 w-28 h-28 rounded-full opacity-30 blur-2xl pointer-events-none"
-              style={{ backgroundColor: 'white' }}
-            />
-            <div 
-              className="absolute -top-8 -left-8 w-20 h-20 rounded-full opacity-10 blur-xl pointer-events-none"
-              style={{ backgroundColor: 'white' }}
-            />
-          </>
-        )}
-        
-        {/* Sparkle effect on hover */}
-        <Sparkles className={`absolute top-3 right-3 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none ${isOled ? 'text-muted-foreground' : 'text-white/30'}`} />
-      </Card>
+        {/* Drop shadow for the entire note */}
+        <div 
+          className="absolute inset-0 -z-10 rounded-sm"
+          style={{
+            boxShadow: isOled ? 'none' : '4px 4px 8px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1)',
+            transform: 'translate(2px, 2px)',
+          }}
+        />
+      </div>
     );
   }
 
