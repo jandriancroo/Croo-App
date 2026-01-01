@@ -97,7 +97,6 @@ export function TemporaryTaskCard({
         </div>
         <Button
           size="sm"
-          variant="outline"
           className="shrink-0 gap-1 h-9 px-4 rounded-lg shadow-md hover:shadow-lg transition-shadow"
           onClick={onAction}
           disabled={isLoading}
