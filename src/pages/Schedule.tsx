@@ -1136,6 +1136,7 @@ export default function Schedule() {
                   onPrev={handlePreviousWeek}
                   onNext={handleNextWeek}
                   label={`${format(currentWeekStart, "MMMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMMM d, yyyy")}`}
+                  leftAlignOnDesktop
                 />
               </div>
               {(isAdmin || isManager) && (
