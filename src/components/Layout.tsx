@@ -386,18 +386,8 @@ export const Layout = ({
     }] : [])
   ];
 
-  // Other menu items (non-Time) - includes Alerts now
+  // Other menu items (non-Time)
   const mobileMenuItems = isChecklistOnlyLocation ? checklistOnlyMobileMenuItems : [
-    {
-      path: '/alerts',
-      label: 'Live Alerts',
-      icon: () => (
-        <span className="relative flex h-5 w-5 items-center justify-center">
-          <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-destructive opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
-        </span>
-      )
-    },
     ...(isAdmin ? [{
       path: '/users',
       label: 'Users',
@@ -523,6 +513,24 @@ export const Layout = ({
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
+
+                  {/* Alerts - Admin only, right after profile */}
+                  {isAdmin && !isChecklistOnlyLocation && (
+                    <Button 
+                      variant={location.pathname === '/alerts' ? 'secondary' : 'outline'} 
+                      onClick={() => {
+                        navigate('/alerts');
+                        setMenuOpen(false);
+                      }} 
+                      className="justify-start gap-3 h-11"
+                    >
+                      <span className="relative flex h-5 w-5 items-center justify-center">
+                        <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-destructive opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+                      </span>
+                      <span className="text-base">Live Alerts</span>
+                    </Button>
+                  )}
 
                   {hasMultiLocationAccess && (
                     <Button variant="outline" onClick={() => {
