@@ -110,7 +110,7 @@ export default function MyWallet() {
         .order("punch_time", { ascending: true });
 
       // Calculate hours worked from punches and build shift entries
-      // Group punches by day and calculate net hours (subtracting breaks)
+      // Group punches by day and calculate net hours (subtracting unpaid breaks)
       let totalMinutes = 0;
       const shiftEntries: ShiftEntry[] = [];
       
@@ -127,12 +127,17 @@ export default function MyWallet() {
 
         // Process each day
         for (const [date, dayPunches] of Object.entries(punchesByDate)) {
-          const clockIn = dayPunches.find(p => p.punch_type === 'clock_in');
-          const clockOut = dayPunches.find(p => p.punch_type === 'clock_out');
+          // Sort punches by time
+          dayPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
           
-          if (clockIn) {
-            const clockInTime = new Date(clockIn.punch_time);
-            const clockOutTime = clockOut ? new Date(clockOut.punch_time) : null;
+          // Find the FIRST clock_in (before any break_start)
+          const firstClockIn = dayPunches.find(p => p.punch_type === 'clock_in');
+          // Find the LAST clock_out
+          const lastClockOut = [...dayPunches].reverse().find(p => p.punch_type === 'clock_out');
+          
+          if (firstClockIn) {
+            const clockInTime = new Date(firstClockIn.punch_time);
+            const clockOutTime = lastClockOut ? new Date(lastClockOut.punch_time) : null;
             
             // Calculate gross shift time
             let grossMinutes = 0;
@@ -143,17 +148,25 @@ export default function MyWallet() {
               grossMinutes = (new Date().getTime() - clockInTime.getTime()) / (1000 * 60);
             }
             
-            // Calculate break time
+            // Calculate unpaid break time
+            // break_start followed by clock_in (which acts as break_end in this system)
             let breakMinutes = 0;
-            const breakStarts = dayPunches.filter(p => p.punch_type === 'break_start');
-            const breakEnds = dayPunches.filter(p => p.punch_type === 'break_end');
+            const breakStarts = dayPunches.filter(p => 
+              p.punch_type === 'break_start' && 
+              p.notes?.toLowerCase().includes('unpaid')
+            );
             
-            for (let i = 0; i < breakStarts.length; i++) {
-              const breakStart = new Date(breakStarts[i].punch_time);
-              const breakEnd = breakEnds[i] ? new Date(breakEnds[i].punch_time) : null;
+            for (const breakStart of breakStarts) {
+              const breakStartTime = new Date(breakStart.punch_time);
+              // Find the next clock_in after this break_start (acts as break_end)
+              const breakEnd = dayPunches.find(p => 
+                p.punch_type === 'clock_in' && 
+                new Date(p.punch_time) > breakStartTime
+              );
               
               if (breakEnd) {
-                breakMinutes += (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60);
+                const breakEndTime = new Date(breakEnd.punch_time);
+                breakMinutes += (breakEndTime.getTime() - breakStartTime.getTime()) / (1000 * 60);
               }
             }
             
