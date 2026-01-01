@@ -348,10 +348,26 @@ function CubeFaceComponent({
         boxShadow: '0 8px 30px -8px rgba(0, 0, 0, 0.2)',
       }}
     >
+      {/* Glossy overlay - iOS style shine effect */}
+      <div 
+        className="absolute inset-0 pointer-events-none rounded-xl"
+        style={{
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.15) 45%, rgba(255,255,255,0) 50%, rgba(0,0,0,0.05) 100%)',
+        }}
+      />
+      
+      {/* Inner border glow for depth */}
+      <div 
+        className="absolute inset-0 pointer-events-none rounded-xl"
+        style={{
+          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.6), inset 0 -1px 2px rgba(0,0,0,0.1)',
+        }}
+      />
+      
       {/* Title inside the cube */}
       {title && (
         <div 
-          className="text-[10px] font-bold px-3 pt-2 truncate uppercase tracking-wide"
+          className="text-[9px] font-bold px-2.5 pt-1.5 truncate uppercase tracking-wide relative z-10"
           style={{ color: accentColor }}
         >
           {title}
@@ -359,7 +375,7 @@ function CubeFaceComponent({
       )}
       
       {/* Content */}
-      <div className="flex-1 flex flex-col justify-center px-3 py-1 space-y-1.5">
+      <div className="flex-1 flex flex-col justify-center px-2.5 py-1 space-y-1 relative z-10">
         {face.metrics.map((metricType, index) => {
           const config = METRIC_CONFIGS[metricType];
           if (!config) return null;
@@ -368,20 +384,20 @@ function CubeFaceComponent({
           const formattedValue = formatValue(value, config.format);
           
           return (
-            <div key={index} className="flex items-center gap-2">
+            <div key={index} className="flex items-center gap-1.5">
               {/* Value and label - no icon */}
               <div className="flex-1 min-w-0">
                 <div 
                   className={cn(
-                    "text-lg font-bold leading-tight",
-                    isLoading && "animate-pulse bg-white/30 rounded w-16 h-5"
+                    "text-sm font-bold leading-tight",
+                    isLoading && "animate-pulse bg-white/30 rounded w-14 h-4"
                   )}
                   style={{ color: valueColor }}
                 >
                   {!isLoading && formattedValue}
                 </div>
                 <div 
-                  className="text-[10px] font-semibold"
+                  className="text-[8px] font-semibold"
                   style={{ color: labelColor }}
                 >
                   {config.shortLabel}
