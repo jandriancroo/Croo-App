@@ -1,13 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { DollarSign, Users, TrendingUp, Clock, Percent, Target } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, Clock, Percent, Target, Wallet, Calendar, Pizza } from 'lucide-react';
+import { MetricType, METRIC_CONFIGS, SalesDataForWidgets } from './DashboardWidget';
 
 interface CubeFace {
-  metrics: {
-    label: string;
-    value: string;
-    icon: React.ReactNode;
-  }[];
+  metrics: MetricType[];
 }
 
 interface DataCube3DProps {
@@ -16,6 +13,112 @@ interface DataCube3DProps {
   accentColor?: string;
   autoRotateInterval?: number;
   className?: string;
+  salesData?: SalesDataForWidgets | null;
+  isLoading?: boolean;
+}
+
+// Icon mapping for metrics
+function getIconForMetric(metricType: MetricType): React.ReactNode {
+  const key = metricType.toLowerCase();
+  if (key.includes('sales') || key.includes('ticket') || key.includes('pay') || key.includes('cost')) 
+    return <DollarSign className="w-4 h-4" />;
+  if (key.includes('guest') || key.includes('labor_percent')) 
+    return <Users className="w-4 h-4" />;
+  if (key.includes('pizza')) 
+    return <Pizza className="w-4 h-4" />;
+  if (key.includes('hours') || key.includes('personal_hours')) 
+    return <Clock className="w-4 h-4" />;
+  if (key.includes('pace') || key.includes('projected')) 
+    return <TrendingUp className="w-4 h-4" />;
+  if (key.includes('last') || key.includes('prev')) 
+    return <Calendar className="w-4 h-4" />;
+  return <Target className="w-4 h-4" />;
+}
+
+function formatValue(value: number | undefined, format: 'currency' | 'percent' | 'number' | 'hours'): string {
+  if (value === undefined || value === null) return '--';
+  
+  switch (format) {
+    case 'currency':
+      return `$${Math.round(value).toLocaleString()}`;
+    case 'percent':
+      return `${Math.round(value)}%`;
+    case 'hours':
+      return `${Math.round(value)}h`;
+    case 'number':
+    default:
+      return Math.round(value).toLocaleString();
+  }
+}
+
+function getMetricValue(metricType: MetricType, salesData?: SalesDataForWidgets | null): number | undefined {
+  if (!salesData) return undefined;
+  
+  switch (metricType) {
+    // Daily sales
+    case 'sales_today': return salesData.daily;
+    case 'sales_pace': return salesData.projections?.todayPaceAdjusted;
+    case 'sales_projected_today': return salesData.projections?.todayProjected;
+    case 'sales_last_week':
+    case 'sales_last_year': return salesData.comparison?.prevDayFullDay;
+    case 'sales_last_year_day': return salesData.lastYear?.sameDay;
+    case 'avg_ticket': return salesData.avgTicket;
+    
+    // Daily guests/products
+    case 'guest_count_today': return salesData.guestCount?.daily;
+    case 'pizza_count_today': 
+      return typeof salesData.pizzaCount === 'number' ? salesData.pizzaCount : salesData.pizzaCount?.daily;
+    
+    // Daily labor
+    case 'labor_percent_today':
+    case 'labor_percent': return salesData.labor?.laborPercent;
+    case 'labor_cost_today':
+    case 'labor_cost': return salesData.labor?.laborCost;
+    case 'labor_hours_today':
+    case 'labor_hours': return salesData.labor?.hoursWorked;
+    
+    // Weekly sales
+    case 'sales_wtd': return salesData.weekly;
+    case 'sales_pace_week': return salesData.projections?.weekPaceAdjusted ?? salesData.projections?.weekProjected;
+    case 'sales_projected_week': return salesData.projections?.weekProjected;
+    case 'sales_prev_week': return salesData.comparison?.prevWeekFullWeek ?? salesData.comparison?.prevWeek;
+    case 'sales_last_year_week': return salesData.lastYear?.sameWeek;
+    
+    // Weekly guests/products  
+    case 'guest_count_wtd': return salesData.guestCount?.weekly;
+    case 'pizza_count_wtd':
+      return typeof salesData.pizzaCount === 'object' ? salesData.pizzaCount?.weekly : undefined;
+    
+    // Weekly labor
+    case 'labor_percent_wtd': return salesData.weeklyLabor?.laborPercent;
+    case 'labor_cost_wtd': return salesData.weeklyLabor?.laborCost;
+    case 'labor_hours_wtd': return salesData.weeklyLabor?.hoursWorked;
+    
+    // Monthly sales
+    case 'sales_mtd': return salesData.monthly;
+    case 'sales_pace_month': return salesData.projections?.monthPaceAdjusted ?? salesData.projections?.monthProjected;
+    case 'sales_projected_month': return salesData.projections?.monthProjected;
+    case 'sales_prev_month': return salesData.comparison?.prevMonthFullMonth ?? salesData.comparison?.prevMonth;
+    case 'sales_last_year_month': return salesData.lastYear?.sameMonth;
+    
+    // Monthly guests/products
+    case 'guest_count_mtd': return salesData.guestCount?.monthly;
+    case 'pizza_count_mtd':
+      return typeof salesData.pizzaCount === 'object' ? salesData.pizzaCount?.monthly : undefined;
+    
+    // Monthly labor
+    case 'labor_percent_mtd': return salesData.monthlyLabor?.laborPercent;
+    case 'labor_cost_mtd': return salesData.monthlyLabor?.laborCost;
+    case 'labor_hours_mtd': return salesData.monthlyLabor?.hoursWorked;
+    
+    // Personal metrics
+    case 'personal_hours_week': return salesData.personalData?.hoursWeek;
+    case 'personal_hours_payroll': return salesData.personalData?.hoursPayroll;
+    case 'personal_pay_week': return salesData.personalData?.payWeek;
+    case 'personal_pay_payroll': return salesData.personalData?.payPayroll;
+    
+    default: return undefined;
+  }
 }
 
 export function DataCube3D({
@@ -24,6 +127,8 @@ export function DataCube3D({
   accentColor = '#14B8A6',
   autoRotateInterval = 10000,
   className,
+  salesData,
+  isLoading = false,
 }: DataCube3DProps) {
   const [currentFace, setCurrentFace] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -68,22 +173,27 @@ export function DataCube3D({
   return (
     <div className={cn("relative", className)}>
       {/* Title */}
-      <div 
-        className="text-sm font-semibold mb-2 text-center"
-        style={{ color: accentColor }}
-      >
-        {title}
-      </div>
+      {title && (
+        <div 
+          className="text-sm font-semibold mb-2 text-center truncate px-1"
+          style={{ color: accentColor }}
+        >
+          {title}
+        </div>
+      )}
       
       {/* 3D Cube Container */}
       <div 
-        className="relative w-full aspect-square cursor-pointer perspective-[800px]"
+        className="relative w-full aspect-square cursor-pointer"
         onClick={handleClick}
-        style={{ minHeight: '160px' }}
+        style={{ 
+          minHeight: '140px',
+          perspective: '800px',
+        }}
       >
         {/* Cube */}
         <div
-          className="absolute inset-0 transform-style-3d transition-transform duration-500 ease-out"
+          className="absolute inset-0 transition-transform duration-500 ease-out"
           style={{
             transformStyle: 'preserve-3d',
             transform: `rotateY(${getRotation()}deg)`,
@@ -93,8 +203,10 @@ export function DataCube3D({
           <CubeFaceComponent
             face={faces[0]}
             accentColor={accentColor}
+            salesData={salesData}
+            isLoading={isLoading}
             style={{
-              transform: 'translateZ(80px)',
+              transform: 'translateZ(70px)',
             }}
           />
           
@@ -103,8 +215,10 @@ export function DataCube3D({
             <CubeFaceComponent
               face={faces[1]}
               accentColor={accentColor}
+              salesData={salesData}
+              isLoading={isLoading}
               style={{
-                transform: 'rotateY(90deg) translateZ(80px)',
+                transform: 'rotateY(90deg) translateZ(70px)',
               }}
             />
           )}
@@ -114,8 +228,10 @@ export function DataCube3D({
             <CubeFaceComponent
               face={faces[2]}
               accentColor={accentColor}
+              salesData={salesData}
+              isLoading={isLoading}
               style={{
-                transform: 'rotateY(180deg) translateZ(80px)',
+                transform: 'rotateY(180deg) translateZ(70px)',
               }}
             />
           )}
@@ -125,8 +241,10 @@ export function DataCube3D({
             <CubeFaceComponent
               face={faces[3]}
               accentColor={accentColor}
+              salesData={salesData}
+              isLoading={isLoading}
               style={{
-                transform: 'rotateY(270deg) translateZ(80px)',
+                transform: 'rotateY(270deg) translateZ(70px)',
               }}
             />
           )}
@@ -135,7 +253,7 @@ export function DataCube3D({
       
       {/* Face Indicator */}
       {totalFaces > 1 && (
-        <div className="flex justify-center gap-1.5 mt-3">
+        <div className="flex justify-center gap-1.5 mt-2">
           {Array.from({ length: totalFaces }).map((_, index) => (
             <button
               key={index}
@@ -164,83 +282,101 @@ export function DataCube3D({
 interface CubeFaceComponentProps {
   face?: CubeFace;
   accentColor: string;
+  salesData?: SalesDataForWidgets | null;
+  isLoading?: boolean;
   style: React.CSSProperties;
 }
 
-function CubeFaceComponent({ face, accentColor, style }: CubeFaceComponentProps) {
-  if (!face) return null;
+function CubeFaceComponent({ face, accentColor, salesData, isLoading, style }: CubeFaceComponentProps) {
+  if (!face || face.metrics.length === 0) {
+    return (
+      <div
+        className="absolute inset-0 rounded-xl border border-border/50 bg-card/95 backdrop-blur-sm shadow-lg flex items-center justify-center p-4"
+        style={{
+          ...style,
+          backfaceVisibility: 'hidden',
+        }}
+      >
+        <span className="text-muted-foreground text-sm">No metrics</span>
+      </div>
+    );
+  }
   
   return (
     <div
-      className="absolute inset-0 rounded-xl border border-border/50 bg-card/95 backdrop-blur-sm shadow-lg flex flex-col items-center justify-center p-4 backface-hidden"
+      className="absolute inset-0 rounded-xl border border-border/50 bg-card/95 backdrop-blur-sm shadow-lg flex flex-col items-center justify-center p-3"
       style={{
         ...style,
         backfaceVisibility: 'hidden',
       }}
     >
-      <div className="w-full space-y-3">
-        {face.metrics.map((metric, index) => (
-          <div key={index} className="flex items-center gap-3">
-            <div
-              className="p-1.5 rounded-lg"
-              style={{ backgroundColor: `${accentColor}20` }}
-            >
-              <div style={{ color: accentColor }}>
-                {metric.icon}
+      <div className="w-full space-y-2">
+        {face.metrics.map((metricType, index) => {
+          const config = METRIC_CONFIGS[metricType];
+          if (!config) return null;
+          
+          const value = getMetricValue(metricType, salesData);
+          const formattedValue = formatValue(value, config.format);
+          
+          return (
+            <div key={index} className="flex items-center gap-2">
+              <div
+                className="p-1.5 rounded-lg shrink-0"
+                style={{ backgroundColor: `${accentColor}20` }}
+              >
+                <div style={{ color: accentColor }}>
+                  {getIconForMetric(metricType)}
+                </div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className={cn(
+                  "text-base font-bold text-foreground truncate",
+                  isLoading && "animate-pulse bg-muted rounded w-16 h-5"
+                )}>
+                  {!isLoading && formattedValue}
+                </div>
+                <div className="text-[10px] text-muted-foreground truncate leading-tight">
+                  {config.shortLabel}
+                </div>
               </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="text-lg font-bold text-foreground truncate">
-                {metric.value}
-              </div>
-              <div className="text-xs text-muted-foreground truncate">
-                {metric.label}
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// Demo component to showcase the 3D cube
+// Demo component to showcase the 3D cube (can be removed after integration)
 export function DataCube3DDemo() {
+  // Demo data matching the actual SalesDataForWidgets type
+  const demoSalesData: SalesDataForWidgets = {
+    daily: 2450,
+    weekly: 14200,
+    monthly: 52800,
+    guestCount: { daily: 127, weekly: 742, monthly: 2850 },
+    avgTicket: 19.29,
+    labor: { laborPercent: 24.5, laborCost: 600, hoursWorked: 48.5 },
+    weeklyLabor: { laborPercent: 23.8, laborCost: 3380, hoursWorked: 312 },
+    monthlyLabor: { laborPercent: 24.2, laborCost: 12800, hoursWorked: 1240 },
+    projections: {
+      todayProjected: 3200,
+      weekProjected: 18500,
+      monthProjected: 68000,
+    },
+  };
+
   const demoFaces: CubeFace[] = [
-    {
-      metrics: [
-        { label: 'Sales Today', value: '$2,450', icon: <DollarSign className="w-4 h-4" /> },
-        { label: 'Guests Today', value: '127', icon: <Users className="w-4 h-4" /> },
-        { label: 'Avg Ticket', value: '$19.29', icon: <TrendingUp className="w-4 h-4" /> },
-      ],
-    },
-    {
-      metrics: [
-        { label: 'Sales WTD', value: '$14,200', icon: <DollarSign className="w-4 h-4" /> },
-        { label: 'Guests WTD', value: '742', icon: <Users className="w-4 h-4" /> },
-        { label: 'Labor %', value: '24.5%', icon: <Percent className="w-4 h-4" /> },
-      ],
-    },
-    {
-      metrics: [
-        { label: 'Sales MTD', value: '$52,800', icon: <DollarSign className="w-4 h-4" /> },
-        { label: 'Hours Today', value: '48.5', icon: <Clock className="w-4 h-4" /> },
-        { label: 'Target %', value: '102%', icon: <Target className="w-4 h-4" /> },
-      ],
-    },
-    {
-      metrics: [
-        { label: 'Proj. Sales', value: '$68,400', icon: <TrendingUp className="w-4 h-4" /> },
-        { label: 'Scheduled Hrs', value: '312', icon: <Clock className="w-4 h-4" /> },
-        { label: 'Variance', value: '+$1,200', icon: <DollarSign className="w-4 h-4" /> },
-      ],
-    },
+    { metrics: ['sales_today', 'guest_count_today', 'avg_ticket'] },
+    { metrics: ['sales_wtd', 'guest_count_wtd', 'labor_percent_wtd'] },
+    { metrics: ['sales_mtd', 'labor_hours_mtd', 'labor_percent_mtd'] },
+    { metrics: ['labor_hours_today', 'labor_percent_today', 'labor_cost_today'] },
   ];
 
   return (
     <div className="p-6 space-y-8">
       <h2 className="text-xl font-bold text-foreground">3D Cube Prototype</h2>
-      <p className="text-muted-foreground text-sm">Click the cubes to rotate, or wait 10 seconds for auto-rotation. Use the indicators to jump to a specific face.</p>
+      <p className="text-muted-foreground text-sm">Click the cubes to rotate, or wait 10 seconds for auto-rotation.</p>
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
         {/* 4-face cube */}
@@ -250,6 +386,7 @@ export function DataCube3DDemo() {
             title="Performance Overview"
             faces={demoFaces}
             accentColor="#14B8A6"
+            salesData={demoSalesData}
           />
         </div>
         
@@ -260,6 +397,7 @@ export function DataCube3DDemo() {
             title="Sales Metrics"
             faces={demoFaces.slice(0, 3)}
             accentColor="#8B5CF6"
+            salesData={demoSalesData}
           />
         </div>
         
@@ -270,6 +408,7 @@ export function DataCube3DDemo() {
             title="Quick Stats"
             faces={demoFaces.slice(0, 2)}
             accentColor="#F59E0B"
+            salesData={demoSalesData}
           />
         </div>
         
@@ -280,6 +419,7 @@ export function DataCube3DDemo() {
             title="Daily Summary"
             faces={demoFaces.slice(0, 1)}
             accentColor="#EC4899"
+            salesData={demoSalesData}
           />
         </div>
       </div>
