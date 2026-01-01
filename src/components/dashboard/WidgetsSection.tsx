@@ -472,10 +472,10 @@ export function WidgetsSection({
         throw lastError;
       };
 
-      // Phase 1: assign temporary unique negative orders using timestamp + index for uniqueness
-      const tempOffset = -Date.now();
+      // Phase 1: assign temporary unique negative orders (use small negatives within integer range)
+      // Use -(1000000 + index) to avoid conflicts with any existing display_order values
       for (let i = 0; i < updates.length; i++) {
-        await updateWithRetry(updates[i].id, tempOffset - i);
+        await updateWithRetry(updates[i].id, -(1000000 + i));
       }
 
       // Phase 2: assign final orders (0, 1, 2, ...)
