@@ -110,50 +110,66 @@ export default function MyWallet() {
         .order("punch_time", { ascending: true });
 
       // Calculate hours worked from punches and build shift entries
+      // Group punches by day and calculate net hours (subtracting breaks)
       let totalMinutes = 0;
       const shiftEntries: ShiftEntry[] = [];
       
       if (punches && punches.length > 0) {
-        let clockInTime: Date | null = null;
-        let clockInPunch: any = null;
-        
+        // Group punches by date
+        const punchesByDate: Record<string, any[]> = {};
         for (const punch of punches) {
-          if (punch.punch_type === "clock_in") {
-            clockInTime = new Date(punch.punch_time);
-            clockInPunch = punch;
-          } else if (punch.punch_type === "clock_out" && clockInTime) {
-            const clockOutTime = new Date(punch.punch_time);
-            const diffMinutes = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60);
-            totalMinutes += diffMinutes;
+          const punchDate = format(new Date(punch.punch_time), 'yyyy-MM-dd');
+          if (!punchesByDate[punchDate]) {
+            punchesByDate[punchDate] = [];
+          }
+          punchesByDate[punchDate].push(punch);
+        }
+
+        // Process each day
+        for (const [date, dayPunches] of Object.entries(punchesByDate)) {
+          const clockIn = dayPunches.find(p => p.punch_type === 'clock_in');
+          const clockOut = dayPunches.find(p => p.punch_type === 'clock_out');
+          
+          if (clockIn) {
+            const clockInTime = new Date(clockIn.punch_time);
+            const clockOutTime = clockOut ? new Date(clockOut.punch_time) : null;
             
-            const shiftHours = diffMinutes / 60;
+            // Calculate gross shift time
+            let grossMinutes = 0;
+            if (clockOutTime) {
+              grossMinutes = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60);
+            } else {
+              // Currently clocked in
+              grossMinutes = (new Date().getTime() - clockInTime.getTime()) / (1000 * 60);
+            }
+            
+            // Calculate break time
+            let breakMinutes = 0;
+            const breakStarts = dayPunches.filter(p => p.punch_type === 'break_start');
+            const breakEnds = dayPunches.filter(p => p.punch_type === 'break_end');
+            
+            for (let i = 0; i < breakStarts.length; i++) {
+              const breakStart = new Date(breakStarts[i].punch_time);
+              const breakEnd = breakEnds[i] ? new Date(breakEnds[i].punch_time) : null;
+              
+              if (breakEnd) {
+                breakMinutes += (breakEnd.getTime() - breakStart.getTime()) / (1000 * 60);
+              }
+            }
+            
+            // Net time worked
+            const netMinutes = grossMinutes - breakMinutes;
+            totalMinutes += netMinutes;
+            
+            const shiftHours = netMinutes / 60;
             shiftEntries.push({
-              date: format(clockInTime, 'yyyy-MM-dd'),
+              date,
               clockIn: clockInTime,
               clockOut: clockOutTime,
               hours: shiftHours,
               estimatedPay: shiftHours * wage
             });
-            
-            clockInTime = null;
-            clockInPunch = null;
           }
-        }
-        
-        // Handle open shift (clocked in but not out yet)
-        if (clockInTime && clockInPunch) {
-          const now = new Date();
-          const diffMinutes = (now.getTime() - clockInTime.getTime()) / (1000 * 60);
-          totalMinutes += diffMinutes;
-          
-          const shiftHours = diffMinutes / 60;
-          shiftEntries.push({
-            date: format(clockInTime, 'yyyy-MM-dd'),
-            clockIn: clockInTime,
-            clockOut: null,
-            hours: shiftHours,
-            estimatedPay: shiftHours * wage
-          });
         }
       }
 
@@ -291,13 +307,23 @@ export default function MyWallet() {
         {/* Croo Cash Section */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <img src={crooCashIcon} alt="Croo Cash" className="h-5 w-5" />
-              Croo Cash Activity
-            </CardTitle>
-            <CardDescription>
-              Earn points by picking up shifts, spend them by offering yours
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <img src={crooCashIcon} alt="Croo Cash" className="h-5 w-5" />
+                  Croo Cash
+                </CardTitle>
+                <CardDescription>
+                  Earn points by picking up shifts, spend them by offering yours
+                </CardDescription>
+              </div>
+              <div className="text-right">
+                <p className={`text-2xl font-bold ${getBalanceColor()}`}>
+                  ${(crooCashBalance / 100).toFixed(2)}
+                </p>
+                <p className="text-xs text-muted-foreground">balance</p>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {transactions.length === 0 ? (
