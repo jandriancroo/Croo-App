@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { format, parseISO } from "date-fns";
 import { Clock, DollarSign, TrendingUp, TrendingDown, Calendar } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import crooCashIcon from "@/assets/croo-cash-icon.png";
 
 interface Transaction {
@@ -322,26 +323,28 @@ export default function MyWallet() {
             {transactions.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">No transactions yet</p>
             ) : (
-              <div className="space-y-3">
-                {transactions.map((txn) => (
-                  <div key={txn.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      {getTransactionIcon(txn.transaction_type)}
-                      <div>
-                        <p className="font-medium">
-                          {getTransactionLabel(txn.transaction_type)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(parseISO(txn.shift_date), "MMM d, yyyy")}
-                        </p>
+              <ScrollArea className="max-h-[240px]">
+                <div className="space-y-3 pr-3">
+                  {transactions.map((txn) => (
+                    <div key={txn.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        {getTransactionIcon(txn.transaction_type)}
+                        <div>
+                          <p className="font-medium">
+                            {getTransactionLabel(txn.transaction_type)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(parseISO(txn.shift_date), "MMM d, yyyy")}
+                          </p>
+                        </div>
                       </div>
+                      <span className={`font-bold ${txn.amount > 0 ? "text-green-500" : "text-red-500"}`}>
+                        {txn.amount > 0 ? "+" : ""}${(Math.abs(txn.amount) / 100).toFixed(2)}
+                      </span>
                     </div>
-                    <span className={`font-bold ${txn.amount > 0 ? "text-green-500" : "text-red-500"}`}>
-                      {txn.amount > 0 ? "+" : ""}${(Math.abs(txn.amount) / 100).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </ScrollArea>
             )}
           </CardContent>
         </Card>
