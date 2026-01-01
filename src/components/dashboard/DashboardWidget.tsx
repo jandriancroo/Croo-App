@@ -307,19 +307,37 @@ export function DashboardWidget({
     const isSingleMetric = displayMetrics.length === 1;
     const MainIcon = firstMetricConfig?.icon;
     
-    // Post-it note pastel colors based on accent
+    // Post-it note pastel colors - expanded palette including app theme colors
     const postItColors: Record<string, { bg: string; bgDark: string; text: string }> = {
-      '#8B5CF6': { bg: '#C4B5FD', bgDark: '#A78BFA', text: '#4C1D95' }, // Purple
-      '#0D9488': { bg: '#99F6E4', bgDark: '#5EEAD4', text: '#134E4A' }, // Teal
-      '#F59E0B': { bg: '#FDE68A', bgDark: '#FCD34D', text: '#78350F' }, // Amber/Yellow
-      '#EF4444': { bg: '#FECACA', bgDark: '#FCA5A5', text: '#7F1D1D' }, // Red
-      '#3B82F6': { bg: '#BFDBFE', bgDark: '#93C5FD', text: '#1E3A8A' }, // Blue
-      '#22C55E': { bg: '#BBF7D0', bgDark: '#86EFAC', text: '#14532D' }, // Green
-      '#EC4899': { bg: '#FBCFE8', bgDark: '#F9A8D4', text: '#831843' }, // Pink
+      // Original colors
+      '#8B5CF6': { bg: '#E9D5FF', bgDark: '#D8B4FE', text: '#6B21A8' }, // Purple/Lavender
+      '#0D9488': { bg: '#CCFBF1', bgDark: '#99F6E4', text: '#115E59' }, // Teal/Ocean
+      '#F59E0B': { bg: '#FEF3C7', bgDark: '#FDE68A', text: '#92400E' }, // Amber/Yellow
+      '#EF4444': { bg: '#FECACA', bgDark: '#FCA5A5', text: '#991B1B' }, // Red/Coral
+      '#3B82F6': { bg: '#DBEAFE', bgDark: '#BFDBFE', text: '#1E40AF' }, // Blue
+      '#22C55E': { bg: '#DCFCE7', bgDark: '#BBF7D0', text: '#166534' }, // Green/Sage
+      '#EC4899': { bg: '#FCE7F3', bgDark: '#FBCFE8', text: '#9D174D' }, // Pink
+      // App theme colors
+      '#0891B2': { bg: '#CFFAFE', bgDark: '#A5F3FC', text: '#0E7490' }, // Primary teal (Croo)
+      '#EA580C': { bg: '#FFEDD5', bgDark: '#FED7AA', text: '#9A3412' }, // Croo orange/accent
+      '#92400E': { bg: '#FEF3C7', bgDark: '#FDE68A', text: '#78350F' }, // Earth brown
+      '#0F766E': { bg: '#CCFBF1', bgDark: '#99F6E4', text: '#134E4A' }, // Ocean primary
+      '#166534': { bg: '#DCFCE7', bgDark: '#BBF7D0', text: '#14532D' }, // Sage green
+      '#7C3AED': { bg: '#EDE9FE', bgDark: '#DDD6FE', text: '#5B21B6' }, // Lavender primary
+      '#F97316': { bg: '#FFF7ED', bgDark: '#FFEDD5', text: '#C2410C' }, // Blaze orange
+      '#14B8A6': { bg: '#F0FDFA', bgDark: '#CCFBF1', text: '#0F766E' }, // Vibrant teal
+      '#6366F1': { bg: '#E0E7FF', bgDark: '#C7D2FE', text: '#4338CA' }, // Indigo
+      '#84CC16': { bg: '#ECFCCB', bgDark: '#D9F99D', text: '#3F6212' }, // Lime
+      '#F472B6': { bg: '#FCE7F3', bgDark: '#FBCFE8', text: '#BE185D' }, // Rose
+      '#06B6D4': { bg: '#CFFAFE', bgDark: '#A5F3FC', text: '#0891B2' }, // Cyan
     };
     
-    const colorKey = Object.keys(postItColors).find(key => effectiveColor.toLowerCase().startsWith(key.toLowerCase())) || '#F59E0B';
-    const postItStyle = postItColors[colorKey] || { bg: '#FDE68A', bgDark: '#FCD34D', text: '#78350F' };
+    const colorKey = Object.keys(postItColors).find(key => 
+      effectiveColor.toLowerCase() === key.toLowerCase()
+    ) || Object.keys(postItColors).find(key => 
+      effectiveColor.toLowerCase().startsWith(key.toLowerCase().slice(0, 4))
+    ) || '#F59E0B';
+    const postItStyle = postItColors[colorKey] || { bg: '#FEF3C7', bgDark: '#FDE68A', text: '#92400E' };
     
     return (
       <div 
@@ -427,62 +445,27 @@ export function DashboardWidget({
           </CardContent>
         </div>
 
-        {/* 3D Page curl effect - bottom right corner lifting up */}
+        {/* Simple page curl - corner peeling up with shadow */}
         {!isOled && (
-          <>
-            {/* Shadow cast by the curled corner */}
+          <div className="absolute bottom-0 right-0 w-6 h-6 md:w-8 md:h-8 pointer-events-none">
+            {/* Shadow under the curl */}
             <div 
-              className="absolute bottom-1 right-1 w-10 h-10 md:w-14 md:h-14 pointer-events-none"
+              className="absolute bottom-0 right-0 w-full h-full"
               style={{
-                background: 'radial-gradient(ellipse at bottom right, rgba(0,0,0,0.2) 0%, transparent 70%)',
-                transform: 'translate(2px, 2px)',
+                background: 'linear-gradient(315deg, rgba(0,0,0,0.12) 0%, rgba(0,0,0,0.06) 40%, transparent 60%)',
+                borderTopLeftRadius: '2px',
               }}
             />
-            
-            {/* The curled corner piece */}
+            {/* The peeling corner */}
             <div 
-              className="absolute bottom-0 right-0 w-10 h-10 md:w-14 md:h-14 pointer-events-none"
+              className="absolute bottom-0 right-0 w-full h-full"
               style={{
-                background: `linear-gradient(315deg, 
-                  ${postItStyle.bg} 0%, 
-                  ${postItStyle.bg} 45%,
-                  transparent 45%
-                )`,
-                transformOrigin: 'bottom right',
-                transform: 'perspective(100px) rotateX(-15deg) rotateY(15deg)',
+                background: `linear-gradient(315deg, ${postItStyle.bg} 0%, ${postItStyle.bg} 48%, transparent 52%)`,
+                borderTopLeftRadius: '3px',
+                boxShadow: '-1px -1px 3px rgba(0,0,0,0.1)',
               }}
             />
-            
-            {/* Revealed underside/shadow area */}
-            <div 
-              className="absolute bottom-0 right-0 w-10 h-10 md:w-14 md:h-14 pointer-events-none overflow-hidden"
-            >
-              <div 
-                className="absolute bottom-0 right-0 w-full h-full"
-                style={{
-                  background: `linear-gradient(315deg, 
-                    rgba(0,0,0,0.08) 0%, 
-                    rgba(0,0,0,0.04) 35%,
-                    transparent 50%
-                  )`,
-                }}
-              />
-            </div>
-            
-            {/* Curl highlight/fold line */}
-            <div 
-              className="absolute pointer-events-none"
-              style={{
-                bottom: '8px',
-                right: '8px',
-                width: '28px',
-                height: '2px',
-                background: `linear-gradient(135deg, transparent 0%, ${postItStyle.bgDark} 50%, transparent 100%)`,
-                transform: 'rotate(-45deg)',
-                opacity: 0.6,
-              }}
-            />
-          </>
+          </div>
         )}
       </div>
     );
