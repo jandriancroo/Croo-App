@@ -232,21 +232,19 @@ export default function MyWallet() {
         {/* Hours & Earnings Summary */}
         <div className="grid grid-cols-2 gap-3">
           <Card className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
               <Clock className="h-4 w-4" />
-              Hours Worked
+              Hours Worked this Pay Period
             </div>
             <p className="text-2xl font-bold">{hoursWorked.toFixed(1)}</p>
-            <p className="text-xs text-muted-foreground">this pay period</p>
           </Card>
 
           <Card className="p-4">
-            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
               <DollarSign className="h-4 w-4" />
-              Estimated Gross Pay
+              Estimated Gross Pay @ ${hourlyWage.toFixed(0)}/hr
             </div>
             <p className="text-2xl font-bold">${estimatedGross.toFixed(2)}</p>
-            <p className="text-xs text-muted-foreground">@ ${hourlyWage.toFixed(2)}/hr</p>
           </Card>
         </div>
 
