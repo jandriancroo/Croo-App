@@ -349,15 +349,15 @@ function CubeFaceComponent({
               <div className="flex-1 min-w-0">
                 <div 
                   className={cn(
-                    "text-base font-bold leading-tight",
-                    isLoading && "animate-pulse bg-white/30 rounded w-14 h-4"
+                    "text-xl font-bold leading-tight",
+                    isLoading && "animate-pulse bg-white/30 rounded w-16 h-5"
                   )}
                   style={{ color: textColor }}
                 >
                   {!isLoading && formattedValue}
                 </div>
                 <div 
-                  className="text-[9px] font-semibold"
+                  className="text-[11px] font-semibold"
                   style={{ color: labelColor }}
                 >
                   {getDynamicLabel(metricType)}
