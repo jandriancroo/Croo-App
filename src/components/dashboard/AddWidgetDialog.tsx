@@ -13,14 +13,24 @@ import {
 } from "./DashboardWidget";
 
 const ACCENT_COLORS = [
-  { value: "#8B5CF6", label: "Purple" },
-  { value: "#10B981", label: "Green" },
-  { value: "#F59E0B", label: "Orange" },
-  { value: "#EF4444", label: "Red" },
-  { value: "#3B82F6", label: "Blue" },
+  // Classic post-it colors
+  { value: "#F59E0B", label: "Yellow" },
   { value: "#EC4899", label: "Pink" },
+  { value: "#22C55E", label: "Green" },
+  { value: "#3B82F6", label: "Blue" },
+  { value: "#8B5CF6", label: "Purple" },
   { value: "#14B8A6", label: "Teal" },
+  { value: "#EF4444", label: "Red" },
+  { value: "#F97316", label: "Orange" },
+  // Theme-inspired colors
+  { value: "#0891B2", label: "Croo Teal" },
+  { value: "#EA580C", label: "Croo Orange" },
+  { value: "#0F766E", label: "Ocean" },
+  { value: "#166534", label: "Sage" },
+  { value: "#7C3AED", label: "Lavender" },
   { value: "#6366F1", label: "Indigo" },
+  { value: "#84CC16", label: "Lime" },
+  { value: "#06B6D4", label: "Cyan" },
 ];
 
 export type CubeType = 'data' | 'sales-chart';
