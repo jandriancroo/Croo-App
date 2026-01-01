@@ -22,6 +22,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { DashboardWidget, MetricType, WidgetSize, SalesDataForWidgets } from './DashboardWidget';
 import { AddWidgetDialog, NewDataCubeConfig, CubeType } from './AddWidgetDialog';
+import { Add3DCubeDialog, New3DCubeConfig } from './Add3DCubeDialog';
+import { DataCube3D } from './DataCube3D';
 import { SalesOverview } from './SalesOverview';
 import { toast } from 'sonner';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -42,7 +44,10 @@ interface DataCubeConfig {
   metrics: MetricType[];
   accentColor: string;
   displayOrder: number;
-  cubeType: CubeType;
+  cubeType: CubeType | 'data-3d';
+  // 3D cube specific
+  faceMetrics?: MetricType[][];
+  numFaces?: number;
 }
 
 type SortableItem = DataCubeConfig | { id: typeof CHECKLISTS_BLOCK_ID; cubeType: 'checklists' };
@@ -132,7 +137,39 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
     );
   }
 
-  // Determine grid span based on size for data cubes
+  // For 3D data cubes
+  if (cube.cubeType === 'data-3d' && cube.faceMetrics && cube.numFaces) {
+    const faces = cube.faceMetrics.slice(0, cube.numFaces).map(metrics => ({ metrics }));
+    
+    return (
+      <div 
+        ref={setNodeRef} 
+        style={style} 
+        className={`col-span-1 ${isDragging ? 'opacity-50' : ''} relative`}
+        {...(isReorderMode ? { ...attributes, ...listeners } : {})}
+      >
+        {/* Reorder overlay */}
+        {isReorderMode && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/40 rounded-lg">
+            <div className="p-3 rounded-full bg-primary/20">
+              <GripVertical className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+        )}
+        <div className={isReorderMode ? 'opacity-85 cursor-grab active:cursor-grabbing' : ''}>
+          <DataCube3D
+            title={cube.title}
+            faces={faces}
+            accentColor={cube.accentColor}
+            salesData={salesData}
+            isLoading={isLoading}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Determine grid span based on size for legacy flat data cubes
   const gridClass = cube.size === 'small' ? 'col-span-1' : 'col-span-2';
 
   return (
@@ -229,6 +266,7 @@ export function WidgetsSection({
   const { currentLocation } = useAppLocation();
   const queryClient = useQueryClient();
   const [internalShowAddDialog, setInternalShowAddDialog] = useState(false);
+  const [show3DCubeDialog, setShow3DCubeDialog] = useState(false);
   const [localCubes, setLocalCubes] = useState<DataCubeConfig[]>([]);
   
   // Create location-specific storage key for checklists position
@@ -260,7 +298,7 @@ export function WidgetsSection({
     })
   );
 
-  // Fetch user's data cubes (both 'data' and 'sales-chart' types)
+  // Fetch user's data cubes (data, data-3d, and sales-chart types)
   const { data: cubes = [], isLoading } = useQuery({
     queryKey: ['user-data-cubes', user?.id, currentLocation?.id],
     queryFn: async () => {
@@ -271,7 +309,7 @@ export function WidgetsSection({
         .select('*')
         .eq('user_id', user.id)
         .eq('location_id', currentLocation.id)
-        .in('cube_type', ['data', 'sales-chart'])
+        .in('cube_type', ['data', 'data-3d', 'sales-chart'])
         .order('display_order');
 
       if (error) {
@@ -286,7 +324,9 @@ export function WidgetsSection({
         metrics: (cube.metrics as MetricType[]) || [],
         accentColor: cube.accent_color || '#8B5CF6',
         displayOrder: cube.display_order,
-        cubeType: (cube.cube_type as CubeType) || 'data',
+        cubeType: cube.cube_type as CubeType | 'data-3d',
+        faceMetrics: (cube.face_metrics as MetricType[][]) || [],
+        numFaces: cube.num_faces || 1,
       })) as DataCubeConfig[];
     },
     enabled: !!user?.id && !!currentLocation?.id,
@@ -491,16 +531,69 @@ export function WidgetsSection({
     }
   };
 
+  const handleAdd3DCube = async (config: New3DCubeConfig) => {
+    if (!user?.id || !currentLocation?.id) return;
+
+    try {
+      // Get the max display_order to avoid unique constraint violation
+      const { data: maxOrderRow } = await supabase
+        .from('user_dashboard_cubes')
+        .select('display_order')
+        .eq('user_id', user.id)
+        .eq('location_id', currentLocation.id)
+        .order('display_order', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      const nextOrder = (maxOrderRow?.display_order ?? -1) + 1;
+
+      const { error } = await supabase
+        .from('user_dashboard_cubes')
+        .insert({
+          user_id: user.id,
+          location_id: currentLocation.id,
+          title: config.title || null,
+          cube_type: 'data-3d',
+          widget_size: 'small',
+          metrics: [],
+          face_metrics: config.faceMetrics,
+          num_faces: config.numFaces,
+          accent_color: config.accentColor,
+          display_order: nextOrder,
+        });
+
+      if (error) throw error;
+
+      toast.success('3D Cube added');
+      queryClient.invalidateQueries({ queryKey: ['user-data-cubes'] });
+    } catch (error: any) {
+      console.error('Error adding 3D cube:', error);
+      toast.error(error?.message || 'Failed to add 3D cube');
+    }
+  };
+
   // If no cubes and no checklists content, just show the dialog
   if (localCubes.length === 0 && !checklistsContent) {
     return (
-      <AddWidgetDialog
-        open={showAddDialog}
-        onOpenChange={setShowAddDialog}
-        onAdd={handleAddCube}
-        defaultColorIndex={0}
-        hasSalesChart={false}
-      />
+      <>
+        <AddWidgetDialog
+          open={showAddDialog}
+          onOpenChange={setShowAddDialog}
+          onAdd={handleAddCube}
+          defaultColorIndex={0}
+          hasSalesChart={false}
+          onAdd3DCube={() => {
+            setShowAddDialog(false);
+            setShow3DCubeDialog(true);
+          }}
+        />
+        <Add3DCubeDialog
+          open={show3DCubeDialog}
+          onOpenChange={setShow3DCubeDialog}
+          onAdd={handleAdd3DCube}
+          defaultColorIndex={0}
+        />
+      </>
     );
   }
 
@@ -550,6 +643,18 @@ export function WidgetsSection({
         onAdd={handleAddCube}
         defaultColorIndex={localCubes.length}
         hasSalesChart={hasSalesChart}
+        onAdd3DCube={() => {
+          setShowAddDialog(false);
+          setShow3DCubeDialog(true);
+        }}
+      />
+      
+      {/* Add 3D Cube Dialog */}
+      <Add3DCubeDialog
+        open={show3DCubeDialog}
+        onOpenChange={setShow3DCubeDialog}
+        onAdd={handleAdd3DCube}
+        defaultColorIndex={localCubes.length}
       />
     </div>
   );

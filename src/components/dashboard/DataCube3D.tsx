@@ -251,9 +251,9 @@ export function DataCube3D({
         </div>
       </div>
       
-      {/* Face Indicator */}
+      {/* Face Indicator - positioned inside the container */}
       {totalFaces > 1 && (
-        <div className="flex justify-center gap-1.5 mt-2">
+        <div className="flex justify-center items-center gap-2 mt-1 h-4">
           {Array.from({ length: totalFaces }).map((_, index) => (
             <button
               key={index}
@@ -262,14 +262,14 @@ export function DataCube3D({
                 rotateTo(index);
               }}
               className={cn(
-                "w-4 h-1 rounded-full transition-all duration-300",
+                "w-3 h-1 rounded-sm transition-all duration-300",
                 index === currentFace
                   ? "opacity-100"
-                  : "opacity-30 hover:opacity-50"
+                  : "opacity-25 hover:opacity-50"
               )}
               style={{
                 backgroundColor: accentColor,
-                transform: `rotate(-15deg)`,
+                transform: 'rotate(-20deg)',
               }}
             />
           ))}

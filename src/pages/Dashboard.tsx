@@ -29,7 +29,7 @@ import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
-import { DataCube3DDemo } from '@/components/dashboard/DataCube3D';
+
 
 interface CateringOrder {
   id: string;
@@ -549,12 +549,6 @@ export default function Dashboard() {
     }).format(amount);
   };
 
-  // 3D Cube Prototype Demo
-  const cube3DPrototype = (
-    <div className="mb-6 p-4 bg-card rounded-xl border border-border">
-      <DataCube3DDemo />
-    </div>
-  );
 
   // Quick tasks content - mounted at the top of the dashboard
   const quickTasksContent = (
@@ -884,7 +878,6 @@ export default function Dashboard() {
             </CardContent>
           </Card> : (
             <>
-              {cube3DPrototype}
               {quickTasksContent}
               {dashboardContent}
             </>
