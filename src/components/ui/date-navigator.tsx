@@ -12,6 +12,8 @@ interface DateNavigatorProps {
   className?: string;
   /** When true, makes the navigator slightly narrower (90%) - use when there's a row above it */
   narrow?: boolean;
+  /** When true, left-aligns on md+ screens (for schedule page) */
+  leftAlignOnDesktop?: boolean;
 }
 
 export function DateNavigator({ 
@@ -22,11 +24,13 @@ export function DateNavigator({
   canGoNext = true,
   canGoPrev = true,
   className,
-  narrow = false
+  narrow = false,
+  leftAlignOnDesktop = false
 }: DateNavigatorProps) {
   return (
     <div className={cn(
-      "flex justify-start",
+      "flex justify-center",
+      leftAlignOnDesktop && "md:justify-start",
       narrow && "px-[5%]",
       className
     )}>
