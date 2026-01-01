@@ -621,55 +621,64 @@ export default function Dashboard() {
         const { expected, completed } = getCompletionData(checklist.id);
         const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
         const isComplete = completionRate === 100;
+        const hasStarted = completed > 0;
+        
+        // Determine button text: Review (complete), Continue (started), Start Checklist (not started)
+        const getButtonText = () => {
+          if (isComplete) return 'Review';
+          if (hasStarted) return 'Continue';
+          return 'Start Checklist';
+        };
+        
         return (
           <Card key={checklist.id} className="hover:shadow-lg transition-shadow p-0 flex flex-col relative overflow-hidden">
-            {/* Completion Ribbon */}
-            {isComplete && (
-              <div className="absolute top-0 right-0 z-10">
-                <div 
-                  className="bg-green-500 text-white text-[10px] font-bold px-6 py-0.5 transform rotate-45 translate-x-4 translate-y-2 shadow-sm"
-                  style={{ transformOrigin: 'center' }}
-                >
-                  DONE
-                </div>
-              </div>
-            )}
-            
-            {/* Header Section - Original style */}
+            {/* Header Section */}
             <CardHeader className="py-2 px-3">
               <div className="flex items-center gap-2">
                 <ClipboardCheck className="h-5 w-5 text-primary flex-shrink-0" />
-                <CardTitle className="text-base font-semibold flex-1 truncate pr-6">{checklist.title}</CardTitle>
+                <CardTitle className="text-base font-semibold flex-1 truncate">{checklist.title}</CardTitle>
                 <Badge className={`text-xs px-2 py-0.5 flex-shrink-0 ${getFrequencyColor(checklist.frequency)}`}>
                   {checklist.frequency}
                 </Badge>
               </div>
             </CardHeader>
 
-            {/* Middle Section - Stats */}
+            {/* Middle Section - Stats with Ribbon */}
             <CardContent className="py-2 px-3 pt-0 flex-1">
               <div className="flex items-center justify-between">
                 <div className="text-base text-muted-foreground font-medium">
                   {completed}/{expected}
                 </div>
-                {isComplete ? (
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-500/15">
-                    <Check className="h-5 w-5 text-green-500" />
-                  </div>
-                ) : (
-                  <div className="text-lg font-bold text-primary">
-                    {completionRate}%
-                  </div>
-                )}
+                {/* Flowing Ribbon Status */}
+                <div 
+                  className={`relative flex items-center gap-1.5 px-3 py-1 rounded-l-full text-xs font-semibold text-primary-foreground -mr-3 ${
+                    isComplete ? 'bg-primary' : 'bg-muted text-muted-foreground'
+                  }`}
+                  style={{
+                    clipPath: 'polygon(8px 0%, 100% 0%, 100% 100%, 8px 100%, 0% 50%)'
+                  }}
+                >
+                  {isComplete ? (
+                    <>
+                      <Check className="h-3.5 w-3.5" />
+                      <span>100% Completed</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{completionRate}%</span>
+                      <span>Incomplete</span>
+                    </>
+                  )}
+                </div>
               </div>
             </CardContent>
 
-            {/* Bottom Button - Contoured to card shape */}
+            {/* Bottom Button */}
             <Button 
-              className={`w-full h-10 text-sm rounded-none rounded-b-lg mt-auto ${isComplete ? 'bg-green-500 hover:bg-green-600' : ''}`}
+              className="w-full h-10 text-sm rounded-none rounded-b-lg mt-auto"
               onClick={() => navigate(`/complete/${checklist.id}`)}
             >
-              {isComplete ? 'View Submission' : 'Start Checklist'}
+              {getButtonText()}
             </Button>
           </Card>
         );
