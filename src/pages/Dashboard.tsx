@@ -650,35 +650,42 @@ export default function Dashboard() {
               </div>
             </CardHeader>
 
-            {/* Combined Status Button */}
+            {/* Combined Status Button with Progress Bar */}
             <CardContent className="py-2 px-3 pt-0 flex-1 flex flex-col justify-end">
-              <Button 
-                className={`w-full h-10 text-sm rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-between px-4 ${
-                  isComplete 
-                    ? 'bg-primary hover:bg-primary/90' 
-                    : hasStarted 
-                      ? 'bg-primary hover:bg-primary/90' 
-                      : ''
-                }`}
+              <button 
+                className="relative w-full h-10 text-sm rounded-lg shadow-md hover:shadow-lg transition-all overflow-hidden border border-primary/20"
                 onClick={() => navigate(`/complete/${checklist.id}`)}
               >
-                {isComplete ? (
-                  <>
-                    <div className="flex items-center gap-2">
-                      <Check className="h-5 w-5 text-white drop-shadow-sm" strokeWidth={3} />
-                      <span>Completed</span>
-                    </div>
-                    <span className="text-white/90 font-medium">100%</span>
-                  </>
-                ) : hasStarted ? (
-                  <>
-                    <span>Continue • {completed}/{expected}</span>
-                    <span className="text-primary-foreground/80">{completionRate}%</span>
-                  </>
-                ) : (
-                  <span className="w-full text-center">Start Checklist</span>
-                )}
-              </Button>
+                {/* Progress fill background */}
+                <div 
+                  className="absolute inset-0 bg-primary transition-all duration-300"
+                  style={{ width: `${completionRate}%` }}
+                />
+                {/* Unfilled background */}
+                <div 
+                  className="absolute inset-0 bg-muted"
+                  style={{ left: `${completionRate}%` }}
+                />
+                {/* Content */}
+                <div className="relative z-10 flex items-center justify-between px-4 h-full">
+                  {isComplete ? (
+                    <>
+                      <div className="flex items-center gap-2 text-primary-foreground">
+                        <Check className="h-4 w-4" strokeWidth={3} />
+                        <span className="font-medium">Completed</span>
+                      </div>
+                      <span className="text-primary-foreground font-medium">100%</span>
+                    </>
+                  ) : hasStarted ? (
+                    <>
+                      <span className="text-primary-foreground font-medium">Continue • {completed}/{expected}</span>
+                      <span className="text-muted-foreground font-medium">{completionRate}%</span>
+                    </>
+                  ) : (
+                    <span className="w-full text-center text-muted-foreground font-medium">Start Checklist</span>
+                  )}
+                </div>
+              </button>
             </CardContent>
           </Card>
         );
