@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TrendingUp, TrendingDown, DollarSign, Users, Clock, Target, Pizza, Calendar, LucideIcon, Sparkles, GripVertical } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, Users, Clock, Target, Pizza, Calendar, LucideIcon, Sparkles, GripVertical, CreditCard } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { format } from 'date-fns';
 import { useIsOledTheme } from "@/hooks/useIsOledTheme";
@@ -51,6 +51,36 @@ export type MetricType =
   | 'personal_hours_payroll'
   | 'personal_pay_week'
   | 'personal_pay_payroll'
+  // Payment type metrics - Daily (amount and percent)
+  | 'payment_cash_today' | 'payment_cash_today_pct'
+  | 'payment_credit_card_today' | 'payment_credit_card_today_pct'
+  | 'payment_olo_doordash_today' | 'payment_olo_doordash_today_pct'
+  | 'payment_olo_ubereats_today' | 'payment_olo_ubereats_today_pct'
+  | 'payment_olo_visa_today' | 'payment_olo_visa_today_pct'
+  | 'payment_olo_mastercard_today' | 'payment_olo_mastercard_today_pct'
+  | 'payment_olo_prepaid_today' | 'payment_olo_prepaid_today_pct'
+  | 'payment_olo_giftcard_today' | 'payment_olo_giftcard_today_pct'
+  | 'payment_svs_giftcard_today' | 'payment_svs_giftcard_today_pct'
+  // Payment type metrics - Weekly
+  | 'payment_cash_wtd' | 'payment_cash_wtd_pct'
+  | 'payment_credit_card_wtd' | 'payment_credit_card_wtd_pct'
+  | 'payment_olo_doordash_wtd' | 'payment_olo_doordash_wtd_pct'
+  | 'payment_olo_ubereats_wtd' | 'payment_olo_ubereats_wtd_pct'
+  | 'payment_olo_visa_wtd' | 'payment_olo_visa_wtd_pct'
+  | 'payment_olo_mastercard_wtd' | 'payment_olo_mastercard_wtd_pct'
+  | 'payment_olo_prepaid_wtd' | 'payment_olo_prepaid_wtd_pct'
+  | 'payment_olo_giftcard_wtd' | 'payment_olo_giftcard_wtd_pct'
+  | 'payment_svs_giftcard_wtd' | 'payment_svs_giftcard_wtd_pct'
+  // Payment type metrics - Monthly
+  | 'payment_cash_mtd' | 'payment_cash_mtd_pct'
+  | 'payment_credit_card_mtd' | 'payment_credit_card_mtd_pct'
+  | 'payment_olo_doordash_mtd' | 'payment_olo_doordash_mtd_pct'
+  | 'payment_olo_ubereats_mtd' | 'payment_olo_ubereats_mtd_pct'
+  | 'payment_olo_visa_mtd' | 'payment_olo_visa_mtd_pct'
+  | 'payment_olo_mastercard_mtd' | 'payment_olo_mastercard_mtd_pct'
+  | 'payment_olo_prepaid_mtd' | 'payment_olo_prepaid_mtd_pct'
+  | 'payment_olo_giftcard_mtd' | 'payment_olo_giftcard_mtd_pct'
+  | 'payment_svs_giftcard_mtd' | 'payment_svs_giftcard_mtd_pct'
   // Legacy aliases (for backwards compatibility)
   | 'labor_percent'
   | 'labor_cost'
@@ -109,6 +139,69 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   personal_hours_payroll: { type: 'personal_hours_payroll', label: 'My Hours (Payroll)', shortLabel: 'Hrs Pay', icon: Clock, format: 'hours', category: 'weekly' },
   personal_pay_week: { type: 'personal_pay_week', label: 'Est. Pay (Week)', shortLabel: 'Pay Wk', icon: DollarSign, format: 'currency', category: 'weekly' },
   personal_pay_payroll: { type: 'personal_pay_payroll', label: 'Est. Pay (Payroll)', shortLabel: 'Pay Per', icon: DollarSign, format: 'currency', category: 'weekly' },
+  
+  // Payment type metrics - Daily (amount)
+  payment_cash_today: { type: 'payment_cash_today', label: 'Cash', shortLabel: 'Cash', icon: DollarSign, format: 'currency', category: 'daily' },
+  payment_credit_card_today: { type: 'payment_credit_card_today', label: 'Credit Card', shortLabel: 'CC', icon: CreditCard, format: 'currency', category: 'daily' },
+  payment_olo_doordash_today: { type: 'payment_olo_doordash_today', label: 'DoorDash', shortLabel: 'DD', icon: CreditCard, format: 'currency', category: 'daily' },
+  payment_olo_ubereats_today: { type: 'payment_olo_ubereats_today', label: 'UberEats', shortLabel: 'UE', icon: CreditCard, format: 'currency', category: 'daily' },
+  payment_olo_visa_today: { type: 'payment_olo_visa_today', label: 'OLO Visa', shortLabel: 'OLO V', icon: CreditCard, format: 'currency', category: 'daily' },
+  payment_olo_mastercard_today: { type: 'payment_olo_mastercard_today', label: 'OLO MC', shortLabel: 'OLO MC', icon: CreditCard, format: 'currency', category: 'daily' },
+  payment_olo_prepaid_today: { type: 'payment_olo_prepaid_today', label: 'OLO Prepaid', shortLabel: 'Prepaid', icon: CreditCard, format: 'currency', category: 'daily' },
+  payment_olo_giftcard_today: { type: 'payment_olo_giftcard_today', label: 'OLO Gift Card', shortLabel: 'OLO GC', icon: CreditCard, format: 'currency', category: 'daily' },
+  payment_svs_giftcard_today: { type: 'payment_svs_giftcard_today', label: 'SVS Gift Card', shortLabel: 'SVS GC', icon: CreditCard, format: 'currency', category: 'daily' },
+  // Payment type metrics - Daily (percent)
+  payment_cash_today_pct: { type: 'payment_cash_today_pct', label: 'Cash %', shortLabel: 'Cash%', icon: DollarSign, format: 'percent', category: 'daily' },
+  payment_credit_card_today_pct: { type: 'payment_credit_card_today_pct', label: 'Credit Card %', shortLabel: 'CC%', icon: CreditCard, format: 'percent', category: 'daily' },
+  payment_olo_doordash_today_pct: { type: 'payment_olo_doordash_today_pct', label: 'DoorDash %', shortLabel: 'DD%', icon: CreditCard, format: 'percent', category: 'daily' },
+  payment_olo_ubereats_today_pct: { type: 'payment_olo_ubereats_today_pct', label: 'UberEats %', shortLabel: 'UE%', icon: CreditCard, format: 'percent', category: 'daily' },
+  payment_olo_visa_today_pct: { type: 'payment_olo_visa_today_pct', label: 'OLO Visa %', shortLabel: 'V%', icon: CreditCard, format: 'percent', category: 'daily' },
+  payment_olo_mastercard_today_pct: { type: 'payment_olo_mastercard_today_pct', label: 'OLO MC %', shortLabel: 'MC%', icon: CreditCard, format: 'percent', category: 'daily' },
+  payment_olo_prepaid_today_pct: { type: 'payment_olo_prepaid_today_pct', label: 'OLO Prepaid %', shortLabel: 'Pre%', icon: CreditCard, format: 'percent', category: 'daily' },
+  payment_olo_giftcard_today_pct: { type: 'payment_olo_giftcard_today_pct', label: 'OLO GC %', shortLabel: 'OGC%', icon: CreditCard, format: 'percent', category: 'daily' },
+  payment_svs_giftcard_today_pct: { type: 'payment_svs_giftcard_today_pct', label: 'SVS GC %', shortLabel: 'SGC%', icon: CreditCard, format: 'percent', category: 'daily' },
+  
+  // Payment type metrics - Weekly (amount)
+  payment_cash_wtd: { type: 'payment_cash_wtd', label: 'Cash WTD', shortLabel: 'Cash', icon: DollarSign, format: 'currency', category: 'weekly' },
+  payment_credit_card_wtd: { type: 'payment_credit_card_wtd', label: 'Credit Card WTD', shortLabel: 'CC', icon: CreditCard, format: 'currency', category: 'weekly' },
+  payment_olo_doordash_wtd: { type: 'payment_olo_doordash_wtd', label: 'DoorDash WTD', shortLabel: 'DD', icon: CreditCard, format: 'currency', category: 'weekly' },
+  payment_olo_ubereats_wtd: { type: 'payment_olo_ubereats_wtd', label: 'UberEats WTD', shortLabel: 'UE', icon: CreditCard, format: 'currency', category: 'weekly' },
+  payment_olo_visa_wtd: { type: 'payment_olo_visa_wtd', label: 'OLO Visa WTD', shortLabel: 'OLO V', icon: CreditCard, format: 'currency', category: 'weekly' },
+  payment_olo_mastercard_wtd: { type: 'payment_olo_mastercard_wtd', label: 'OLO MC WTD', shortLabel: 'OLO MC', icon: CreditCard, format: 'currency', category: 'weekly' },
+  payment_olo_prepaid_wtd: { type: 'payment_olo_prepaid_wtd', label: 'OLO Prepaid WTD', shortLabel: 'Prepaid', icon: CreditCard, format: 'currency', category: 'weekly' },
+  payment_olo_giftcard_wtd: { type: 'payment_olo_giftcard_wtd', label: 'OLO GC WTD', shortLabel: 'OLO GC', icon: CreditCard, format: 'currency', category: 'weekly' },
+  payment_svs_giftcard_wtd: { type: 'payment_svs_giftcard_wtd', label: 'SVS GC WTD', shortLabel: 'SVS GC', icon: CreditCard, format: 'currency', category: 'weekly' },
+  // Payment type metrics - Weekly (percent)
+  payment_cash_wtd_pct: { type: 'payment_cash_wtd_pct', label: 'Cash % WTD', shortLabel: 'Cash%', icon: DollarSign, format: 'percent', category: 'weekly' },
+  payment_credit_card_wtd_pct: { type: 'payment_credit_card_wtd_pct', label: 'CC % WTD', shortLabel: 'CC%', icon: CreditCard, format: 'percent', category: 'weekly' },
+  payment_olo_doordash_wtd_pct: { type: 'payment_olo_doordash_wtd_pct', label: 'DD % WTD', shortLabel: 'DD%', icon: CreditCard, format: 'percent', category: 'weekly' },
+  payment_olo_ubereats_wtd_pct: { type: 'payment_olo_ubereats_wtd_pct', label: 'UE % WTD', shortLabel: 'UE%', icon: CreditCard, format: 'percent', category: 'weekly' },
+  payment_olo_visa_wtd_pct: { type: 'payment_olo_visa_wtd_pct', label: 'OLO V % WTD', shortLabel: 'V%', icon: CreditCard, format: 'percent', category: 'weekly' },
+  payment_olo_mastercard_wtd_pct: { type: 'payment_olo_mastercard_wtd_pct', label: 'OLO MC % WTD', shortLabel: 'MC%', icon: CreditCard, format: 'percent', category: 'weekly' },
+  payment_olo_prepaid_wtd_pct: { type: 'payment_olo_prepaid_wtd_pct', label: 'Prepaid % WTD', shortLabel: 'Pre%', icon: CreditCard, format: 'percent', category: 'weekly' },
+  payment_olo_giftcard_wtd_pct: { type: 'payment_olo_giftcard_wtd_pct', label: 'OLO GC % WTD', shortLabel: 'OGC%', icon: CreditCard, format: 'percent', category: 'weekly' },
+  payment_svs_giftcard_wtd_pct: { type: 'payment_svs_giftcard_wtd_pct', label: 'SVS GC % WTD', shortLabel: 'SGC%', icon: CreditCard, format: 'percent', category: 'weekly' },
+  
+  // Payment type metrics - Monthly (amount)
+  payment_cash_mtd: { type: 'payment_cash_mtd', label: 'Cash MTD', shortLabel: 'Cash', icon: DollarSign, format: 'currency', category: 'monthly' },
+  payment_credit_card_mtd: { type: 'payment_credit_card_mtd', label: 'Credit Card MTD', shortLabel: 'CC', icon: CreditCard, format: 'currency', category: 'monthly' },
+  payment_olo_doordash_mtd: { type: 'payment_olo_doordash_mtd', label: 'DoorDash MTD', shortLabel: 'DD', icon: CreditCard, format: 'currency', category: 'monthly' },
+  payment_olo_ubereats_mtd: { type: 'payment_olo_ubereats_mtd', label: 'UberEats MTD', shortLabel: 'UE', icon: CreditCard, format: 'currency', category: 'monthly' },
+  payment_olo_visa_mtd: { type: 'payment_olo_visa_mtd', label: 'OLO Visa MTD', shortLabel: 'OLO V', icon: CreditCard, format: 'currency', category: 'monthly' },
+  payment_olo_mastercard_mtd: { type: 'payment_olo_mastercard_mtd', label: 'OLO MC MTD', shortLabel: 'OLO MC', icon: CreditCard, format: 'currency', category: 'monthly' },
+  payment_olo_prepaid_mtd: { type: 'payment_olo_prepaid_mtd', label: 'OLO Prepaid MTD', shortLabel: 'Prepaid', icon: CreditCard, format: 'currency', category: 'monthly' },
+  payment_olo_giftcard_mtd: { type: 'payment_olo_giftcard_mtd', label: 'OLO GC MTD', shortLabel: 'OLO GC', icon: CreditCard, format: 'currency', category: 'monthly' },
+  payment_svs_giftcard_mtd: { type: 'payment_svs_giftcard_mtd', label: 'SVS GC MTD', shortLabel: 'SVS GC', icon: CreditCard, format: 'currency', category: 'monthly' },
+  // Payment type metrics - Monthly (percent)
+  payment_cash_mtd_pct: { type: 'payment_cash_mtd_pct', label: 'Cash % MTD', shortLabel: 'Cash%', icon: DollarSign, format: 'percent', category: 'monthly' },
+  payment_credit_card_mtd_pct: { type: 'payment_credit_card_mtd_pct', label: 'CC % MTD', shortLabel: 'CC%', icon: CreditCard, format: 'percent', category: 'monthly' },
+  payment_olo_doordash_mtd_pct: { type: 'payment_olo_doordash_mtd_pct', label: 'DD % MTD', shortLabel: 'DD%', icon: CreditCard, format: 'percent', category: 'monthly' },
+  payment_olo_ubereats_mtd_pct: { type: 'payment_olo_ubereats_mtd_pct', label: 'UE % MTD', shortLabel: 'UE%', icon: CreditCard, format: 'percent', category: 'monthly' },
+  payment_olo_visa_mtd_pct: { type: 'payment_olo_visa_mtd_pct', label: 'OLO V % MTD', shortLabel: 'V%', icon: CreditCard, format: 'percent', category: 'monthly' },
+  payment_olo_mastercard_mtd_pct: { type: 'payment_olo_mastercard_mtd_pct', label: 'OLO MC % MTD', shortLabel: 'MC%', icon: CreditCard, format: 'percent', category: 'monthly' },
+  payment_olo_prepaid_mtd_pct: { type: 'payment_olo_prepaid_mtd_pct', label: 'Prepaid % MTD', shortLabel: 'Pre%', icon: CreditCard, format: 'percent', category: 'monthly' },
+  payment_olo_giftcard_mtd_pct: { type: 'payment_olo_giftcard_mtd_pct', label: 'OLO GC % MTD', shortLabel: 'OGC%', icon: CreditCard, format: 'percent', category: 'monthly' },
+  payment_svs_giftcard_mtd_pct: { type: 'payment_svs_giftcard_mtd_pct', label: 'SVS GC % MTD', shortLabel: 'SGC%', icon: CreditCard, format: 'percent', category: 'monthly' },
   
   // Legacy aliases (map to equivalents for backwards compatibility) - hidden from UI
   labor_percent: { type: 'labor_percent', label: 'Labor %', shortLabel: 'Labor%', icon: Users, format: 'percent', category: 'daily' },

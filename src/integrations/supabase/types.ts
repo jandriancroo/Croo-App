@@ -2688,6 +2688,7 @@ export type Database = {
           id: string
           location_id: string
           net_sales: number
+          payments_data: Json | null
           pizza_count: number
           projected_sales: number | null
           sale_date: string
@@ -2707,6 +2708,7 @@ export type Database = {
           id?: string
           location_id: string
           net_sales?: number
+          payments_data?: Json | null
           pizza_count?: number
           projected_sales?: number | null
           sale_date: string
@@ -2726,6 +2728,7 @@ export type Database = {
           id?: string
           location_id?: string
           net_sales?: number
+          payments_data?: Json | null
           pizza_count?: number
           projected_sales?: number | null
           sale_date?: string
