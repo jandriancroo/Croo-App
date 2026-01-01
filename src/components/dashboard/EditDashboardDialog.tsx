@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Trash2, Check, ArrowLeft, LineChart, LayoutGrid } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Trash2, Check, ArrowLeft, LineChart, LayoutGrid, Minus, Box } from "lucide-react";
 import { 
   MetricType, 
   METRIC_CONFIGS, 
@@ -51,7 +52,10 @@ export interface CubeConfig {
   size: WidgetSize;
   metrics: MetricType[];
   accentColor: string;
-  cubeType: CubeType;
+  cubeType: CubeType | 'data-3d';
+  // 3D cube specific
+  faceMetrics?: MetricType[][];
+  numFaces?: number;
 }
 
 interface EditDashboardDialogProps {
@@ -78,6 +82,11 @@ export function EditDashboardDialog({
   const [editForm, setEditForm] = useState<Partial<CubeConfig>>({});
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // 3D cube specific state
+  const [activeFace, setActiveFace] = useState(0);
+  const [faceMetrics, setFaceMetrics] = useState<MetricType[][]>([[], [], [], []]);
+  const [numFaces, setNumFaces] = useState(2);
 
   // Reset when dialog closes
   useEffect(() => {
@@ -85,6 +94,9 @@ export function EditDashboardDialog({
       setView('list');
       setEditingCube(null);
       setEditForm({});
+      setActiveFace(0);
+      setFaceMetrics([[], [], [], []]);
+      setNumFaces(2);
     }
   }, [open]);
 
@@ -93,13 +105,31 @@ export function EditDashboardDialog({
   
   const handleEditCube = (cube: CubeConfig) => {
     setEditingCube(cube);
-    // Filter out any legacy metrics that aren't in METRIC_GROUPS
-    const filteredMetrics = cube.metrics.filter(m => validMetrics.includes(m));
-    setEditForm({
-      title: cube.title,
-      metrics: filteredMetrics,
-      accentColor: cube.accentColor,
-    });
+    
+    if (cube.cubeType === 'data-3d') {
+      // Initialize 3D cube editing state
+      const faces = cube.faceMetrics || [[], [], [], []];
+      setFaceMetrics([
+        faces[0] || [],
+        faces[1] || [],
+        faces[2] || [],
+        faces[3] || [],
+      ]);
+      setNumFaces(cube.numFaces || 1);
+      setActiveFace(0);
+      setEditForm({
+        title: cube.title,
+        accentColor: cube.accentColor,
+      });
+    } else {
+      // Filter out any legacy metrics that aren't in METRIC_GROUPS
+      const filteredMetrics = cube.metrics.filter(m => validMetrics.includes(m));
+      setEditForm({
+        title: cube.title,
+        metrics: filteredMetrics,
+        accentColor: cube.accentColor,
+      });
+    }
     setView('edit');
   };
 
@@ -107,19 +137,44 @@ export function EditDashboardDialog({
     setView('list');
     setEditingCube(null);
     setEditForm({});
+    setActiveFace(0);
+    setFaceMetrics([[], [], [], []]);
+    setNumFaces(2);
   };
 
   const toggleMetric = (metric: MetricType) => {
     if (!editingCube) return;
     
-    const maxMetrics = editingCube.size === 'small' ? 3 : editingCube.size === 'medium' ? 4 : 6;
-    const currentMetrics = editForm.metrics || [];
-    
-    if (currentMetrics.includes(metric)) {
-      setEditForm(prev => ({ ...prev, metrics: currentMetrics.filter(m => m !== metric) }));
-    } else if (currentMetrics.length < maxMetrics) {
-      setEditForm(prev => ({ ...prev, metrics: [...currentMetrics, metric] }));
+    if (editingCube.cubeType === 'data-3d') {
+      // 3D cube: toggle metric on current face
+      const currentFaceMetrics = faceMetrics[activeFace];
+      const maxMetrics = 3;
+      
+      if (currentFaceMetrics.includes(metric)) {
+        const updated = [...faceMetrics];
+        updated[activeFace] = currentFaceMetrics.filter(m => m !== metric);
+        setFaceMetrics(updated);
+      } else if (currentFaceMetrics.length < maxMetrics) {
+        const updated = [...faceMetrics];
+        updated[activeFace] = [...currentFaceMetrics, metric];
+        setFaceMetrics(updated);
+      }
+    } else {
+      // Regular data cube
+      const maxMetrics = editingCube.size === 'small' ? 3 : editingCube.size === 'medium' ? 4 : 6;
+      const currentMetrics = editForm.metrics || [];
+      
+      if (currentMetrics.includes(metric)) {
+        setEditForm(prev => ({ ...prev, metrics: currentMetrics.filter(m => m !== metric) }));
+      } else if (currentMetrics.length < maxMetrics) {
+        setEditForm(prev => ({ ...prev, metrics: [...currentMetrics, metric] }));
+      }
     }
+  };
+  
+  // Check if a metric is used on another face (for 3D cubes)
+  const isMetricUsedElsewhere = (metric: MetricType) => {
+    return faceMetrics.some((face, idx) => idx !== activeFace && idx < numFaces && face.includes(metric));
   };
 
   const handleSave = async () => {
@@ -127,7 +182,16 @@ export function EditDashboardDialog({
     
     setIsSaving(true);
     try {
-      await onUpdateCube(editingCube.id, editForm);
+      if (editingCube.cubeType === 'data-3d') {
+        // Save 3D cube with face metrics
+        await onUpdateCube(editingCube.id, {
+          ...editForm,
+          faceMetrics: faceMetrics.slice(0, numFaces),
+          numFaces,
+        });
+      } else {
+        await onUpdateCube(editingCube.id, editForm);
+      }
       handleBack();
     } finally {
       setIsSaving(false);
@@ -193,6 +257,8 @@ export function EditDashboardDialog({
                         >
                           {cube.cubeType === 'sales-chart' ? (
                             <LineChart className="h-5 w-5 text-white" />
+                          ) : cube.cubeType === 'data-3d' ? (
+                            <Box className="h-5 w-5 text-white" />
                           ) : (
                             <LayoutGrid className="h-5 w-5 text-white" />
                           )}
@@ -206,7 +272,9 @@ export function EditDashboardDialog({
                           <p className="text-xs text-muted-foreground">
                             {cube.cubeType === 'sales-chart' 
                               ? 'Full sales chart' 
-                              : `${cube.size} · ${cube.metrics.length} metrics`}
+                              : cube.cubeType === 'data-3d'
+                                ? `${cube.numFaces || 1} face${(cube.numFaces || 1) > 1 ? 's' : ''} · ${(cube.faceMetrics || []).flat().length} metrics`
+                                : `${cube.size} · ${cube.metrics.length} metrics`}
                           </p>
                         </div>
                         
@@ -255,7 +323,7 @@ export function EditDashboardDialog({
                 </div>
               )}
 
-              {/* Metrics Selection - only for data cubes */}
+              {/* Metrics Selection - only for flat data cubes */}
               {editingCube.cubeType === 'data' && (
                 <div className="space-y-2">
                   <Label>
@@ -296,6 +364,115 @@ export function EditDashboardDialog({
                 </div>
               )}
 
+              {/* 3D Cube Configuration */}
+              {editingCube.cubeType === 'data-3d' && (
+                <div className="space-y-4">
+                  {/* Number of Faces */}
+                  <div className="space-y-2">
+                    <Label>Number of Faces</Label>
+                    <div className="flex items-center gap-3">
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setNumFaces(Math.max(1, numFaces - 1))}
+                        disabled={numFaces <= 1}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4].map(n => (
+                          <div
+                            key={n}
+                            className={`w-3 h-1 rounded-full transition-all ${
+                              n <= numFaces ? 'bg-primary' : 'bg-muted'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => setNumFaces(Math.min(4, numFaces + 1))}
+                        disabled={numFaces >= 4}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                      <span className="text-sm text-muted-foreground ml-2">
+                        {numFaces === 1 ? 'No rotation' : `${numFaces} faces`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Face Tabs */}
+                  <div className="space-y-2">
+                    <Label>Configure Faces</Label>
+                    <Tabs value={String(activeFace)} onValueChange={(v) => setActiveFace(Number(v))}>
+                      <TabsList className="grid w-full" style={{ gridTemplateColumns: `repeat(${numFaces}, 1fr)` }}>
+                        {Array.from({ length: numFaces }).map((_, idx) => (
+                          <TabsTrigger key={idx} value={String(idx)} className="text-xs">
+                            Face {idx + 1}
+                            {faceMetrics[idx].length > 0 && (
+                              <span className="ml-1 text-[10px] opacity-70">
+                                ({faceMetrics[idx].length})
+                              </span>
+                            )}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+                      
+                      {Array.from({ length: numFaces }).map((_, idx) => (
+                        <TabsContent key={idx} value={String(idx)} className="mt-3">
+                          <ScrollArea className="h-[180px] -mx-2 px-2">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-muted-foreground">
+                                  Select up to 3 metrics for this face
+                                </span>
+                                <span className="text-xs font-medium">
+                                  {faceMetrics[idx].length}/3
+                                </span>
+                              </div>
+                              
+                              {METRIC_GROUPS.map(group => (
+                                <div key={group.label} className="space-y-1">
+                                  <p className="text-xs text-muted-foreground">{group.label}</p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {group.metrics.map(metric => {
+                                      const isSelected = faceMetrics[idx].includes(metric);
+                                      const usedElsewhere = isMetricUsedElsewhere(metric);
+                                      const conf = METRIC_CONFIGS[metric];
+                                      return (
+                                        <Badge
+                                          key={metric}
+                                          variant={isSelected ? "default" : "outline"}
+                                          className={`cursor-pointer text-xs transition-all ${
+                                            isSelected 
+                                              ? 'bg-primary' 
+                                              : usedElsewhere
+                                                ? 'opacity-40'
+                                                : 'hover:bg-accent'
+                                          }`}
+                                          onClick={() => toggleMetric(metric)}
+                                        >
+                                          {isSelected && <Check className="h-3 w-3 mr-1" />}
+                                          {conf.shortLabel}
+                                        </Badge>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </ScrollArea>
+                        </TabsContent>
+                      ))}
+                    </Tabs>
+                  </div>
+                </div>
+              )}
+
               {/* Color Selection */}
               <div className="space-y-2">
                 <Label>Accent Color</Label>
@@ -319,7 +496,7 @@ export function EditDashboardDialog({
               {/* Save button */}
               <Button
                 onClick={handleSave}
-                disabled={isSaving || (editingCube.cubeType === 'data' && (editForm.metrics || []).length === 0)}
+                disabled={isSaving || (editingCube.cubeType === 'data' && (editForm.metrics || []).length === 0) || (editingCube.cubeType === 'data-3d' && faceMetrics.slice(0, numFaces).every(f => f.length === 0))}
                 className="w-full"
               >
                 {isSaving ? 'Saving...' : 'Save Changes'}
