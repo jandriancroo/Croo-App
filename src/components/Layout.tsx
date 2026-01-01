@@ -487,7 +487,7 @@ export const Layout = ({
                   className="ml-auto p-2 hover:opacity-80 transition-opacity text-foreground"
                   title="More options"
                 >
-                  <Menu className="h-6 w-6" />
+                  <Menu className="h-7 w-7" />
                 </button>
               </SheetTrigger>
               <SheetContent side="bottom" className="h-auto">
