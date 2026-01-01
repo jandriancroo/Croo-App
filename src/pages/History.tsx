@@ -176,17 +176,9 @@ export default function History() {
     }
   };
 
-  const getFrequencyColor = (frequency: string) => {
-    switch (frequency) {
-      case 'daily':
-        return 'bg-teal-500 text-white';
-      case 'weekly':
-        return 'bg-orange-400 text-white';
-      case 'monthly':
-        return 'bg-red-500 text-white';
-      default:
-        return 'bg-muted text-muted-foreground';
-    }
+  const getFrequencyColor = (_frequency: string) => {
+    // Unified muted color for all frequency badges
+    return 'bg-muted text-muted-foreground';
   };
 
   // Combine and sort all history items by timestamp
