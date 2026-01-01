@@ -622,7 +622,7 @@ async function fetchProductMix(
 }
 
 // Fetch payment types breakdown from QuBeyond using gateway API
-// Uses the same sales summary endpoint with sectionId "paymentTypes"
+// Uses the payments report endpoint to get actual payment method breakdown (Cash, CC, DoorDash, etc.)
 async function fetchPaymentTypes(
   tokenGw: string,
   dateStr: string,
@@ -631,18 +631,22 @@ async function fetchPaymentTypes(
   console.log(`[PAYMENTS] Fetching payment types for ${dateStr}`);
   
   try {
-    // Use the sales endpoint with paymentTypes sectionId (same pattern as overview/sales)
+    // Use the payments report endpoint
     const requestPayload = {
-      fields: [{ fieldName: "metric" }, { fieldName: "total" }],
+      fields: [
+        { fieldName: "paymentType" },
+        { fieldName: "amount" },
+        { fieldName: "checkCount" }
+      ],
       filters: {
         date: { from: null, to: null, values: [dateStr], type: "custom" },
+        singleLocation: parseInt(qbLocationId),
         location: { operationalUnits: [parseInt(qbLocationId)] }
       },
-      params: { sectionId: "paymentTypes", pageNumber: 1, pageSize: 50, totalRecords: null, sort: null, showTotals: true }
+      params: { sectionId: "main", pageNumber: 1, pageSize: 50, totalRecords: null, sort: null, showTotals: true }
     };
     
-    // Try the main sales endpoint first (like overview uses /sections/sales)
-    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/sales', {
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/payments/sections/main', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -656,24 +660,29 @@ async function fetchPaymentTypes(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[PAYMENTS] Fetch failed:', response.status, errorText.substring(0, 200));
+      console.error('[PAYMENTS] Fetch failed:', response.status, errorText.substring(0, 300));
       return [];
     }
 
     const data = await response.json();
-    console.log('[PAYMENTS] Response:', JSON.stringify(data).substring(0, 500));
+    console.log('[PAYMENTS] Full response:', JSON.stringify(data).substring(0, 1000));
     
     const payments: { paymentType: string; amount: number }[] = [];
     
-    // Parse response - expecting items with metric/value pairs like other summary endpoints
+    // Parse response - expecting items with paymentType/amount pairs
     if (data.items && Array.isArray(data.items)) {
       for (const item of data.items) {
-        const metric = item.metric || item.paymentType || item.name || '';
-        if (!metric || metric === 'Total' || metric === 'Totals') continue;
+        const paymentType = item.paymentType || item.name || item.metric || '';
+        if (!paymentType || paymentType === 'Total' || paymentType === 'Totals') continue;
         
-        const value = parseFloat(String(item.total || item.value || item.amount || '0').replace(/[$,]/g, '')) || 0;
-        payments.push({ paymentType: metric, amount: value });
+        const amount = parseFloat(String(item.amount || item.total || item.value || '0').replace(/[$,]/g, '')) || 0;
+        payments.push({ paymentType, amount });
       }
+    }
+    
+    // Also check totals if present
+    if (data.totals && typeof data.totals === 'object') {
+      console.log('[PAYMENTS] Totals found:', JSON.stringify(data.totals));
     }
     
     console.log(`[PAYMENTS] Parsed ${payments.length} payment types:`, JSON.stringify(payments));
