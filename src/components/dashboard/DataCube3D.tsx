@@ -308,11 +308,26 @@ function CubeFaceComponent({
         backgroundColor: bgColor,
       }}
     >
-      {/* Sharp horizontal gloss line - iOS app icon style */}
+      {/* Curved gloss overlay - iOS app icon style */}
       <div 
-        className="absolute inset-x-0 top-0 h-1/2 pointer-events-none rounded-t-xl"
+        className="absolute inset-0 pointer-events-none rounded-xl overflow-hidden"
         style={{
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.25) 100%)',
+          background: `
+            radial-gradient(
+              ellipse 120% 70% at 50% -20%,
+              rgba(255,255,255,0.55) 0%,
+              rgba(255,255,255,0.35) 40%,
+              rgba(255,255,255,0) 60%
+            )
+          `,
+        }}
+      />
+      
+      {/* Subtle bottom darkening for depth */}
+      <div 
+        className="absolute inset-0 pointer-events-none rounded-xl"
+        style={{
+          background: 'linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.08) 100%)',
         }}
       />
       
