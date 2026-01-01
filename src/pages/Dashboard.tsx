@@ -665,12 +665,10 @@ export default function Dashboard() {
                 {isComplete ? (
                   <>
                     <div className="flex items-center gap-2">
-                      <div className="flex items-center justify-center w-5 h-5 rounded-full border-2 border-white bg-white/20">
-                        <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
-                      </div>
-                      <span>Review</span>
+                      <Check className="h-5 w-5 text-white drop-shadow-sm" strokeWidth={3} />
+                      <span>Completed</span>
                     </div>
-                    <span className="text-white/90">100%</span>
+                    <span className="text-white/90 font-medium">100%</span>
                   </>
                 ) : hasStarted ? (
                   <>
