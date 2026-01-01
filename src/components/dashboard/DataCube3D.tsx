@@ -277,10 +277,11 @@ function CubeFaceComponent({
 }: CubeFaceComponentProps) {
   // Use lightened version for background, original for icons/labels
   const bgColor = lightenColor(accentColor, 0.55);
-  const iconColor = accentColor;
-  const valueColor = 'rgba(0,0,0,0.85)';
-  const labelColor = accentColor;
-  const iconBg = 'rgba(255,255,255,0.6)';
+  const contrastMode = getContrastColor(bgColor);
+  // Use white text on dark backgrounds, dark text on light backgrounds
+  const textColor = contrastMode === 'light' ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.85)';
+  const titleColor = contrastMode === 'light' ? 'rgba(255,255,255,0.9)' : accentColor;
+  const labelColor = contrastMode === 'light' ? 'rgba(255,255,255,0.75)' : accentColor;
 
   if (!face || face.metrics.length === 0) {
     return (
@@ -326,8 +327,8 @@ function CubeFaceComponent({
       {/* Title inside the cube */}
       {title && (
         <div 
-          className="text-[9px] font-bold px-2.5 pt-1.5 truncate uppercase tracking-wide relative z-10"
-          style={{ color: accentColor }}
+          className="text-xs font-bold px-2.5 pt-2 truncate uppercase tracking-wide relative z-10"
+          style={{ color: titleColor }}
         >
           {title}
         </div>
@@ -351,7 +352,7 @@ function CubeFaceComponent({
                     "text-base font-bold leading-tight",
                     isLoading && "animate-pulse bg-white/30 rounded w-14 h-4"
                   )}
-                  style={{ color: valueColor }}
+                  style={{ color: textColor }}
                 >
                   {!isLoading && formattedValue}
                 </div>
