@@ -1,4 +1,4 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { 
   MetricType, 
   MetricConfig, 
@@ -7,6 +7,7 @@ import {
   SalesDataForWidgets 
 } from "./DashboardWidget";
 import { useIsOledTheme } from "@/hooks/useIsOledTheme";
+import { TrendingUp, TrendingDown } from "lucide-react";
 
 // Re-export types for backwards compatibility
 export type { MetricType, MetricConfig };
@@ -34,8 +35,6 @@ export function DataCube({
 }: DataCubeProps) {
   const isOled = useIsOledTheme();
   
-  // Use primary color for OLED theme instead of custom accent colors
-  const effectiveColor = isOled ? 'hsl(215, 30%, 18%)' : accentColor;
   const formatValue = (value: number | undefined, format: 'currency' | 'percent' | 'number' | 'hours'): string => {
     if (value === undefined || value === null) return '--';
     
@@ -62,7 +61,7 @@ export function DataCube({
       case 'sales_pace': return salesData.projections?.todayPaceAdjusted;
       case 'sales_projected_today': return salesData.projections?.todayProjected;
       case 'sales_last_week':
-      case 'sales_last_year': return salesData.comparison?.prevDayFullDay; // Legacy alias
+      case 'sales_last_year': return salesData.comparison?.prevDayFullDay;
       case 'sales_last_year_day': return salesData.lastYear?.sameDay;
       case 'avg_ticket': return salesData.avgTicket;
       
@@ -122,32 +121,59 @@ export function DataCube({
   const isSingleMetric = displayMetrics.length === 1;
   const isDoubleMetric = displayMetrics.length === 2;
   
-  // Get the icon for the first metric to show in the corner accent
+  // Get the icon for the first metric
   const firstMetricConfig = displayMetrics[0] ? METRIC_CONFIGS[displayMetrics[0]] : null;
-  const CornerIcon = firstMetricConfig?.icon;
+  const MainIcon = firstMetricConfig?.icon;
 
   return (
     <Card 
-      className="aspect-square md:aspect-[2/1] overflow-hidden cursor-pointer hover:shadow-lg transition-all relative"
+      className="aspect-square md:aspect-[2/1] overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 relative group"
       onClick={onClick}
+      style={{
+        background: isOled 
+          ? 'hsl(var(--card))' 
+          : `linear-gradient(135deg, ${accentColor}08 0%, ${accentColor}15 100%)`,
+        borderColor: isOled ? undefined : `${accentColor}25`,
+      }}
     >
-      {/* Colored header with title */}
+      {/* Subtle gradient overlay */}
       <div 
-        className="px-3 py-1.5 md:py-2 flex items-center"
-        style={{ backgroundColor: effectiveColor }}
-      >
-        <span className="text-xs md:text-sm font-semibold text-white truncate">
-          {title || 'Data'}
-        </span>
-      </div>
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        style={{
+          background: `linear-gradient(135deg, ${accentColor}05 0%, transparent 50%)`,
+        }}
+      />
       
-      <CardContent className="p-3 md:p-4 h-[calc(100%-28px)] md:h-[calc(100%-36px)] flex flex-col justify-between">
+      {/* Content */}
+      <div className="relative z-10 h-full flex flex-col p-3 md:p-4">
+        {/* Header with icon and title */}
+        <div className="flex items-center gap-2 mb-2 md:mb-3">
+          {MainIcon && (
+            <div 
+              className="flex items-center justify-center w-7 h-7 md:w-8 md:h-8 rounded-lg"
+              style={{ 
+                backgroundColor: isOled ? 'hsl(var(--muted))' : `${accentColor}20`,
+              }}
+            >
+              <MainIcon 
+                className="h-4 w-4 md:h-5 md:w-5" 
+                style={{ color: isOled ? 'hsl(var(--muted-foreground))' : accentColor }}
+              />
+            </div>
+          )}
+          <span 
+            className="text-xs md:text-sm font-semibold truncate"
+            style={{ color: isOled ? 'hsl(var(--muted-foreground))' : accentColor }}
+          >
+            {title || 'Data'}
+          </span>
+        </div>
         
         {/* Metrics */}
-        <div className={`flex-1 flex ${isSingleMetric ? 'flex-col justify-center md:flex-row md:items-center md:justify-center md:gap-4' : 'flex-col justify-around md:flex-row md:gap-6 md:justify-around md:items-center'}`}>
+        <div className={`flex-1 flex ${isSingleMetric ? 'flex-col justify-center' : 'flex-col justify-around'} md:flex-row md:items-center md:justify-around`}>
           {isLoading ? (
             <div className="space-y-2 w-full">
-              <div className="h-6 bg-muted animate-pulse rounded" />
+              <div className="h-8 bg-muted animate-pulse rounded-lg" />
               <div className="h-4 bg-muted animate-pulse rounded w-2/3" />
             </div>
           ) : (
@@ -156,60 +182,42 @@ export function DataCube({
               if (!config) return null;
               
               const value = getMetricValue(metricType);
-              const IconComponent = config.icon;
               const isFirst = index === 0;
               
               return (
                 <div 
                   key={metricType} 
-                  className={`flex items-center gap-2 ${isSingleMetric ? 'flex-col text-center' : ''} md:flex-1 md:text-center md:flex-col`}
+                  className={`flex flex-col ${isSingleMetric ? 'items-center text-center' : 'items-start'} md:items-center md:text-center`}
                 >
-                  {isSingleMetric && (
-                    <div 
-                      className="p-1.5 rounded-full hidden md:block"
-                      style={{ backgroundColor: isOled ? 'rgba(180, 180, 180, 0.12)' : `${effectiveColor}15` }}
-                    >
-                      <IconComponent 
-                        className="shrink-0 h-4 w-4" 
-                        color={isOled ? '#b4b4b4' : effectiveColor}
-                      />
-                    </div>
-                  )}
-                  <div className={`min-w-0 ${isSingleMetric ? 'text-center' : 'flex-1 md:text-center'}`}>
-                    <div 
-                      className={`font-extrabold truncate ${
-                        isSingleMetric 
-                          ? 'text-3xl md:text-4xl' 
-                          : isDoubleMetric 
-                            ? (isFirst ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl') 
-                            : (isFirst ? 'text-xl md:text-2xl' : 'text-lg md:text-xl')
-                      } ${isOled ? 'text-muted-foreground' : ''}`}
-                      style={isOled ? undefined : { color: effectiveColor }}
-                    >
-                      {formatValue(value, config.format)}
-                    </div>
-                    <div className={`text-muted-foreground truncate font-medium ${
-                      isSingleMetric ? 'text-xs md:text-sm' : 'text-[10px] md:text-xs'
-                    }`}>
-                      {isSingleMetric ? config.label : config.shortLabel}
-                    </div>
+                  <div 
+                    className={`font-black tracking-tight ${
+                      isSingleMetric 
+                        ? 'text-3xl md:text-4xl' 
+                        : isDoubleMetric 
+                          ? (isFirst ? 'text-2xl md:text-3xl' : 'text-xl md:text-2xl') 
+                          : (isFirst ? 'text-xl md:text-2xl' : 'text-lg md:text-xl')
+                    }`}
+                    style={{ color: isOled ? 'hsl(var(--foreground))' : accentColor }}
+                  >
+                    {formatValue(value, config.format)}
+                  </div>
+                  <div className={`text-muted-foreground font-medium ${
+                    isSingleMetric ? 'text-xs md:text-sm' : 'text-[10px] md:text-xs'
+                  }`}>
+                    {isSingleMetric ? config.label : config.shortLabel}
                   </div>
                 </div>
               );
             })
           )}
         </div>
-        
-        {/* Corner accent with icon - smaller on desktop */}
-        <div 
-          className="absolute bottom-0 right-0 w-10 h-10 md:w-8 md:h-8 rounded-tl-full flex items-end justify-end"
-          style={{ backgroundColor: effectiveColor }}
-        >
-          {CornerIcon && (
-            <CornerIcon className="w-3 h-3 text-white mr-1.5 mb-1.5" />
-          )}
-        </div>
-      </CardContent>
+      </div>
+      
+      {/* Decorative corner accent */}
+      <div 
+        className="absolute -bottom-4 -right-4 w-16 h-16 md:w-20 md:h-20 rounded-full opacity-20 group-hover:opacity-30 transition-opacity"
+        style={{ backgroundColor: isOled ? 'hsl(var(--muted))' : accentColor }}
+      />
     </Card>
   );
 }

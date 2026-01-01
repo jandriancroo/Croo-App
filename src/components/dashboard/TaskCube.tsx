@@ -1,5 +1,6 @@
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { ListTodo, Check, Clock, GripVertical } from "lucide-react";
+import { useIsOledTheme } from "@/hooks/useIsOledTheme";
 
 export interface TaskCubeProps {
   taskId: string;
@@ -26,6 +27,7 @@ export function TaskCube({
   dragHandleProps,
   isDragging = false,
 }: TaskCubeProps) {
+  const isOled = useIsOledTheme();
   const hasSubtasks = subtaskCount > 0;
   const completionRate = hasSubtasks && subtaskCount > 0 
     ? Math.min(100, Math.round((completedSubtasks / subtaskCount) * 100)) 
@@ -33,69 +35,108 @@ export function TaskCube({
 
   return (
     <Card 
-      className={`aspect-square overflow-hidden cursor-pointer hover:shadow-lg transition-all relative ${isDragging ? 'opacity-50 shadow-2xl' : ''} ${isCompleted ? 'opacity-75' : ''}`}
+      className={`aspect-square overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 relative group ${isDragging ? 'opacity-50 shadow-2xl scale-105' : ''} ${isCompleted ? 'opacity-60' : ''}`}
       onClick={onClick}
+      style={{
+        background: isOled 
+          ? 'hsl(var(--card))' 
+          : `linear-gradient(135deg, ${accentColor}08 0%, ${accentColor}15 100%)`,
+        borderColor: isOled ? undefined : `${accentColor}25`,
+      }}
     >
-      {/* Colored header */}
-      <div className="px-3 py-2 flex items-center" style={{ backgroundColor: accentColor }}>
-        <span className="text-xs font-semibold text-white truncate flex-1">{title}</span>
-        {dragHandleProps && (
-          <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing ml-1" onClick={e => e.stopPropagation()}>
-            <GripVertical className="h-3 w-3 text-white/70" />
+      {/* Content */}
+      <div className="relative z-10 h-full flex flex-col p-3">
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-2">
+          <div 
+            className="flex items-center justify-center w-6 h-6 rounded-md"
+            style={{ 
+              backgroundColor: isOled ? 'hsl(var(--muted))' : `${accentColor}20`,
+            }}
+          >
+            <ListTodo 
+              className="h-3.5 w-3.5" 
+              style={{ color: isOled ? 'hsl(var(--muted-foreground))' : accentColor }}
+            />
           </div>
-        )}
-      </div>
-      
-      <CardContent className="p-3 h-[calc(100%-32px)] flex flex-col justify-center">
+          <span 
+            className="text-[11px] font-semibold truncate flex-1"
+            style={{ color: isOled ? 'hsl(var(--muted-foreground))' : accentColor }}
+          >
+            {title}
+          </span>
+          {dragHandleProps && (
+            <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing" onClick={e => e.stopPropagation()}>
+              <GripVertical className="h-4 w-4 text-muted-foreground/50" />
+            </div>
+          )}
+        </div>
+        
         {/* Main content */}
         <div className="flex-1 flex flex-col items-center justify-center">
           {isCompleted ? (
             <>
               <div 
-                className="flex items-center justify-center w-10 h-10 rounded-full mb-1"
-                style={{ backgroundColor: `${accentColor}20` }}
+                className="flex items-center justify-center w-12 h-12 rounded-full mb-2 shadow-lg"
+                style={{ 
+                  backgroundColor: isOled ? 'hsl(var(--muted))' : accentColor,
+                }}
               >
-                <Check className="h-6 w-6" style={{ color: accentColor }} />
+                <Check 
+                  className="h-6 w-6 text-white" 
+                  strokeWidth={3}
+                />
               </div>
-              <div className="text-xs text-muted-foreground font-medium">Done</div>
+              <div className="text-sm font-bold text-foreground">Done!</div>
             </>
           ) : hasSubtasks ? (
             <>
               <div 
-                className="text-3xl font-extrabold"
-                style={{ color: accentColor }}
+                className="text-4xl font-black tracking-tight"
+                style={{ color: isOled ? 'hsl(var(--foreground))' : accentColor }}
               >
                 {completionRate}%
               </div>
-              <div className="text-xs text-muted-foreground font-medium">
-                {completedSubtasks}/{subtaskCount}
+              <div className="text-xs text-muted-foreground font-medium mt-1">
+                {completedSubtasks} of {subtaskCount}
               </div>
             </>
           ) : (
             <>
               {dueTime && (
-                <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                  <Clock className="h-4 w-4" />
+                <div 
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full mb-2"
+                  style={{ 
+                    backgroundColor: isOled ? 'hsl(var(--muted))' : `${accentColor}15`,
+                  }}
+                >
+                  <Clock className="h-3.5 w-3.5" style={{ color: isOled ? 'hsl(var(--muted-foreground))' : accentColor }} />
+                  <span 
+                    className="text-sm font-bold"
+                    style={{ color: isOled ? 'hsl(var(--foreground))' : accentColor }}
+                  >
+                    {dueTime}
+                  </span>
                 </div>
               )}
-              <div 
-                className="text-lg font-bold text-center"
-                style={{ color: accentColor }}
-              >
-                {dueTime || 'To Do'}
-              </div>
+              {!dueTime && (
+                <div 
+                  className="text-lg font-bold"
+                  style={{ color: isOled ? 'hsl(var(--foreground))' : accentColor }}
+                >
+                  To Do
+                </div>
+              )}
             </>
           )}
         </div>
+      </div>
 
-        {/* Corner accent with icon */}
-        <div 
-          className="absolute bottom-0 right-0 w-12 h-12 rounded-tl-full flex items-end justify-end"
-          style={{ backgroundColor: accentColor }}
-        >
-          <ListTodo className="w-4 h-4 text-white mr-2 mb-2" />
-        </div>
-      </CardContent>
+      {/* Decorative corner */}
+      <div 
+        className="absolute -bottom-3 -right-3 w-12 h-12 rounded-full opacity-20 group-hover:opacity-30 transition-opacity"
+        style={{ backgroundColor: isOled ? 'hsl(var(--muted))' : accentColor }}
+      />
     </Card>
   );
 }
