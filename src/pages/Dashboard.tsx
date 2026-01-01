@@ -649,26 +649,34 @@ export default function Dashboard() {
                 <div className="text-base text-muted-foreground font-medium">
                   {completed}/{expected}
                 </div>
-                {/* Flowing Ribbon Status */}
-                <div 
-                  className={`relative flex items-center gap-1.5 px-3 py-1 rounded-l-full text-xs font-semibold text-primary-foreground -mr-3 ${
-                    isComplete ? 'bg-primary' : 'bg-muted text-muted-foreground'
-                  }`}
-                  style={{
-                    clipPath: 'polygon(8px 0%, 100% 0%, 100% 100%, 8px 100%, 0% 50%)'
-                  }}
-                >
-                  {isComplete ? (
-                    <>
-                      <Check className="h-3.5 w-3.5" />
-                      <span>100% Completed</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>{completionRate}%</span>
-                      <span>Incomplete</span>
-                    </>
-                  )}
+                {/* Flowing Ribbon Status - extends to edge and wraps */}
+                <div className="relative -mr-3">
+                  <div 
+                    className={`flex items-center gap-1.5 pl-4 pr-3 py-1 text-xs font-semibold text-white ${
+                      isComplete ? 'bg-primary' : 'bg-destructive'
+                    }`}
+                    style={{
+                      clipPath: 'polygon(12px 0%, 100% 0%, 100% 100%, 12px 100%, 0% 50%)'
+                    }}
+                  >
+                    {isComplete ? (
+                      <>
+                        <Check className="h-3.5 w-3.5" />
+                        <span>Completed</span>
+                      </>
+                    ) : (
+                      <span>{completionRate}% Completed</span>
+                    )}
+                  </div>
+                  {/* Ribbon fold/wrap effect */}
+                  <div 
+                    className={`absolute -right-0 top-full w-2 h-2 ${
+                      isComplete ? 'bg-primary/60' : 'bg-destructive/60'
+                    }`}
+                    style={{
+                      clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)'
+                    }}
+                  />
                 </div>
               </div>
             </CardContent>
