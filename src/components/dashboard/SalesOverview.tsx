@@ -27,6 +27,7 @@ interface SalesData {
   guestCount?: { daily: number; weekly: number; monthly: number };
   avgTicket?: number;
   pizzaCount?: number | { daily: number; weekly: number; monthly: number };
+  payments?: Array<{ paymentType: string; amount: number }>;
   comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevMonth: number };
   lastYear?: { sameDay?: number; sameWeek?: number; sameMonth?: number };
   projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number };
@@ -959,6 +960,53 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                   </p>
                 </div>
               </div>
+
+              {/* Payments (from Sales Summary / Real Time Summary) */}
+              {isToday && (salesData?.payments?.length || 0) > 0 && (
+                <div className="border rounded-lg overflow-hidden">
+                  <div className="bg-muted p-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-sm">Payments</h3>
+                      <Badge variant="secondary" className="text-[10px]">Real-time</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Total: {formatCurrencyDecimal((salesData.payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0))}
+                    </div>
+                  </div>
+
+                  <div className="p-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
+                      {(salesData.payments || []).slice(0, 9).map((p) => (
+                        <div key={p.paymentType} className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-muted-foreground truncate">{p.paymentType}</span>
+                          <span className="text-xs font-medium tabular-nums">{formatCurrencyDecimal(p.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {(salesData.payments || []).length > 9 && (
+                      <Collapsible>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="sm" className="mt-2 w-full justify-center">
+                            <ChevronDown className="mr-2 h-4 w-4" />
+                            Show all payment types
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
+                            {(salesData.payments || []).slice(9).map((p) => (
+                              <div key={p.paymentType} className="flex items-center justify-between gap-2">
+                                <span className="text-xs text-muted-foreground truncate">{p.paymentType}</span>
+                                <span className="text-xs font-medium tabular-nums">{formatCurrencyDecimal(p.amount)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Croo AI Projections & Live Labor for Today */}
               <div className="flex flex-col gap-2 mb-2">
