@@ -70,15 +70,14 @@ export function EventCard({
           {showCompleteButton && onComplete && (
             <Button
               size="sm"
-              variant="outline"
-              className="shrink-0 h-7 px-2 text-xs"
+              className="shrink-0 h-8 px-4 rounded-lg text-xs font-medium bg-primary hover:bg-primary/90 text-primary-foreground border-0 shadow-sm gap-1.5"
               onClick={(e) => {
                 e.stopPropagation();
                 onComplete();
               }}
               disabled={isLoading}
             >
-              <Check className="h-3 w-3 mr-1" />
+              <Check className="h-3.5 w-3.5" />
               Done
             </Button>
           )}
