@@ -3,5 +3,5 @@
 
 export const FEATURE_FLAGS = {
   // Croo Cash gamification system - set to false to hide from UI
-  CROO_CASH_ENABLED: false,
+  CROO_CASH_ENABLED: true,
 } as const;
