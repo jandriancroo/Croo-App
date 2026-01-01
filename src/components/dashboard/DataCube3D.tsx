@@ -194,6 +194,9 @@ export function DataCube3D({
     return rotations[currentFace] || 0;
   };
 
+  // Get colors for the indicator dots based on accent color
+  const bgColor = lightenColor(accentColor, 0.55);
+
   return (
     <div className={cn("relative group p-2", className)}>
       {/* 3D Cube Container */}
@@ -220,10 +223,6 @@ export function DataCube3D({
             accentColor={accentColor}
             salesData={salesData}
             isLoading={isLoading}
-            totalFaces={totalFaces}
-            currentFace={currentFace}
-            faceIndex={0}
-            onIndicatorClick={rotateTo}
             style={{
               transform: 'translateZ(70px)',
             }}
@@ -236,10 +235,6 @@ export function DataCube3D({
               accentColor={accentColor}
               salesData={salesData}
               isLoading={isLoading}
-              totalFaces={totalFaces}
-              currentFace={currentFace}
-              faceIndex={1}
-              onIndicatorClick={rotateTo}
               style={{
                 transform: 'rotateY(90deg) translateZ(70px)',
               }}
@@ -253,10 +248,6 @@ export function DataCube3D({
               accentColor={accentColor}
               salesData={salesData}
               isLoading={isLoading}
-              totalFaces={totalFaces}
-              currentFace={currentFace}
-              faceIndex={2}
-              onIndicatorClick={rotateTo}
               style={{
                 transform: 'rotateY(180deg) translateZ(70px)',
               }}
@@ -270,10 +261,6 @@ export function DataCube3D({
               accentColor={accentColor}
               salesData={salesData}
               isLoading={isLoading}
-              totalFaces={totalFaces}
-              currentFace={currentFace}
-              faceIndex={3}
-              onIndicatorClick={rotateTo}
               style={{
                 transform: 'rotateY(270deg) translateZ(70px)',
               }}
@@ -281,6 +268,25 @@ export function DataCube3D({
           )}
         </div>
       </div>
+      
+      {/* Face Indicator - OUTSIDE the cube container so it stays visible */}
+      {totalFaces > 1 && (
+        <div className="flex justify-center items-center gap-1.5 -mt-1">
+          {Array.from({ length: totalFaces }).map((_, index) => (
+            <button
+              key={index}
+              onClick={(e) => {
+                e.stopPropagation();
+                rotateTo(index);
+              }}
+              className="w-1.5 h-1.5 rounded-full transition-all duration-300"
+              style={{
+                backgroundColor: index === currentFace ? accentColor : `${accentColor}40`,
+              }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -291,10 +297,6 @@ interface CubeFaceComponentProps {
   salesData?: SalesDataForWidgets | null;
   isLoading?: boolean;
   style: React.CSSProperties;
-  totalFaces: number;
-  currentFace: number;
-  faceIndex: number;
-  onIndicatorClick: (index: number) => void;
 }
 
 function CubeFaceComponent({ 
@@ -303,10 +305,6 @@ function CubeFaceComponent({
   salesData, 
   isLoading, 
   style,
-  totalFaces,
-  currentFace,
-  faceIndex,
-  onIndicatorClick,
 }: CubeFaceComponentProps) {
   // Use lightened version for background, original for icons/labels
   const bgColor = lightenColor(accentColor, 0.55);
@@ -314,8 +312,6 @@ function CubeFaceComponent({
   const valueColor = 'rgba(0,0,0,0.85)';
   const labelColor = accentColor;
   const iconBg = 'rgba(255,255,255,0.6)';
-  const dotActive = accentColor;
-  const dotInactive = `${accentColor}40`;
 
   if (!face || face.metrics.length === 0) {
     return (
@@ -385,25 +381,6 @@ function CubeFaceComponent({
           );
         })}
       </div>
-      
-      {/* Face Indicator - inside the cube at the bottom */}
-      {totalFaces > 1 && (
-        <div className="flex justify-center items-center gap-1.5 pb-2">
-          {Array.from({ length: totalFaces }).map((_, index) => (
-            <button
-              key={index}
-              onClick={(e) => {
-                e.stopPropagation();
-                onIndicatorClick(index);
-              }}
-              className="w-1.5 h-1.5 rounded-full transition-all duration-300"
-              style={{
-                backgroundColor: index === faceIndex ? dotActive : dotInactive,
-              }}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }
