@@ -323,18 +323,18 @@ export function DashboardWidget({
     
     return (
       <div 
-        className={`aspect-square md:aspect-[2/1] cursor-pointer transition-all duration-300 relative group ${isDragging ? 'opacity-50 scale-105' : 'hover:scale-[1.02]'}`}
+        className={`min-h-[140px] md:min-h-0 md:aspect-[2/1] cursor-pointer transition-all duration-300 relative group ${isDragging ? 'opacity-50 scale-105' : 'hover:scale-[1.02]'}`}
         onClick={onClick}
         style={{ perspective: '1000px' }}
       >
         {/* Main post-it card */}
         <div 
-          className="absolute inset-0 rounded-sm shadow-lg group-hover:shadow-xl transition-shadow duration-300"
+          className="absolute inset-0 rounded-sm overflow-hidden"
           style={{
             background: isOled 
               ? 'hsl(var(--card))' 
               : `linear-gradient(135deg, ${postItStyle.bg} 0%, ${postItStyle.bgDark} 100%)`,
-            transform: 'rotateX(0deg)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1)',
           }}
         >
           {/* Subtle paper texture */}
@@ -378,7 +378,7 @@ export function DashboardWidget({
             )}
           </div>
           
-          <CardContent className="relative px-3 pb-3 pt-0 md:px-4 md:pb-4 h-[calc(100%-40px)] md:h-[calc(100%-44px)] flex flex-col justify-center">
+          <CardContent className="relative px-3 pb-4 pt-0 md:px-4 md:pb-4">
             {isLoading ? (
               <div className="space-y-2">
                 <div className="h-8 w-20 rounded animate-pulse" style={{ backgroundColor: `${postItStyle.text}20` }} />
@@ -400,7 +400,7 @@ export function DashboardWidget({
                 </p>
               </div>
             ) : (
-              <div className="space-y-1.5 md:space-y-2">
+              <div className="space-y-1 md:space-y-1.5">
                 {displayMetrics.map((metricType) => {
                   const config = METRIC_CONFIGS[metricType];
                   if (!config) return null;
@@ -414,7 +414,7 @@ export function DashboardWidget({
                         {config.shortLabel}
                       </span>
                       <span 
-                        className="text-base md:text-lg font-bold"
+                        className="text-sm md:text-lg font-bold"
                         style={{ color: isOled ? 'hsl(var(--foreground))' : postItStyle.text }}
                       >
                         {formatValue(value, config.format)}
@@ -427,36 +427,63 @@ export function DashboardWidget({
           </CardContent>
         </div>
 
-        {/* Page curl effect - bottom right corner */}
+        {/* 3D Page curl effect - bottom right corner lifting up */}
         {!isOled && (
-          <div 
-            className="absolute bottom-0 right-0 w-8 h-8 md:w-10 md:h-10 pointer-events-none overflow-hidden"
-          >
-            {/* The curled part (darker underside) */}
+          <>
+            {/* Shadow cast by the curled corner */}
             <div 
-              className="absolute bottom-0 right-0 w-full h-full"
+              className="absolute bottom-1 right-1 w-10 h-10 md:w-14 md:h-14 pointer-events-none"
               style={{
-                background: `linear-gradient(135deg, transparent 50%, ${postItStyle.bgDark} 50%)`,
-                boxShadow: '-2px -2px 4px rgba(0,0,0,0.1)',
-                borderTopLeftRadius: '4px',
+                background: 'radial-gradient(ellipse at bottom right, rgba(0,0,0,0.2) 0%, transparent 70%)',
+                transform: 'translate(2px, 2px)',
               }}
             />
-            {/* Shadow under the curl */}
+            
+            {/* The curled corner piece */}
             <div 
-              className="absolute -bottom-1 -right-1 w-6 h-6 md:w-8 md:h-8 rounded-full blur-sm"
-              style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}
+              className="absolute bottom-0 right-0 w-10 h-10 md:w-14 md:h-14 pointer-events-none"
+              style={{
+                background: `linear-gradient(315deg, 
+                  ${postItStyle.bg} 0%, 
+                  ${postItStyle.bg} 45%,
+                  transparent 45%
+                )`,
+                transformOrigin: 'bottom right',
+                transform: 'perspective(100px) rotateX(-15deg) rotateY(15deg)',
+              }}
             />
-          </div>
+            
+            {/* Revealed underside/shadow area */}
+            <div 
+              className="absolute bottom-0 right-0 w-10 h-10 md:w-14 md:h-14 pointer-events-none overflow-hidden"
+            >
+              <div 
+                className="absolute bottom-0 right-0 w-full h-full"
+                style={{
+                  background: `linear-gradient(315deg, 
+                    rgba(0,0,0,0.08) 0%, 
+                    rgba(0,0,0,0.04) 35%,
+                    transparent 50%
+                  )`,
+                }}
+              />
+            </div>
+            
+            {/* Curl highlight/fold line */}
+            <div 
+              className="absolute pointer-events-none"
+              style={{
+                bottom: '8px',
+                right: '8px',
+                width: '28px',
+                height: '2px',
+                background: `linear-gradient(135deg, transparent 0%, ${postItStyle.bgDark} 50%, transparent 100%)`,
+                transform: 'rotate(-45deg)',
+                opacity: 0.6,
+              }}
+            />
+          </>
         )}
-        
-        {/* Drop shadow for the entire note */}
-        <div 
-          className="absolute inset-0 -z-10 rounded-sm"
-          style={{
-            boxShadow: isOled ? 'none' : '4px 4px 8px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.1)',
-            transform: 'translate(2px, 2px)',
-          }}
-        />
       </div>
     );
   }
