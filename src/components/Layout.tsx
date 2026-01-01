@@ -403,7 +403,7 @@ export const Layout = ({
     }];
 
   return <div className="flex min-h-screen flex-col bg-background overflow-x-hidden">
-      <header className="sticky top-0 z-50 glass border-b border-border/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className="sticky top-0 z-50 bg-background border-b border-border/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className={`container max-w-7xl mx-auto flex items-center relative ${isMobile ? 'h-14' : 'h-16'}`}>
           <div className="flex items-center gap-2 mr-4 flex-shrink-0 min-w-[120px] md:min-w-[150px]">
             <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
