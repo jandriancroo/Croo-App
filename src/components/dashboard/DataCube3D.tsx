@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { DollarSign, Users, TrendingUp, Clock, Percent, Target, Wallet, Calendar, Pizza } from 'lucide-react';
 import { MetricType, METRIC_CONFIGS, SalesDataForWidgets } from './DashboardWidget';
+import { format, subYears, getWeek } from 'date-fns';
 
 interface CubeFace {
   metrics: MetricType[];
@@ -72,6 +73,30 @@ function formatValue(value: number | undefined, format: 'currency' | 'percent' |
     case 'number':
     default:
       return Math.round(value).toLocaleString();
+  }
+}
+
+// Generate dynamic labels for "last year" metrics with actual date references
+function getDynamicLabel(metricType: MetricType): string {
+  const config = METRIC_CONFIGS[metricType];
+  if (!config) return '';
+  
+  const now = new Date();
+  const lastYear = subYears(now, 1);
+  
+  // Check if this is a "last year" type metric and generate contextual labels
+  switch (metricType) {
+    case 'sales_last_year_day':
+      // Same day last year - show the actual date
+      return format(lastYear, "MMM d ''yy");
+    case 'sales_last_year_week':
+      // Same week last year
+      return `Wk ${getWeek(lastYear)} '${format(lastYear, 'yy')}`;
+    case 'sales_last_year_month':
+      // Same month last year
+      return format(lastYear, "MMM ''yy");
+    default:
+      return config.shortLabel;
   }
 }
 
@@ -408,7 +433,7 @@ function CubeFaceComponent({
                   className="text-[9px] font-semibold"
                   style={{ color: labelColor }}
                 >
-                  {config.shortLabel}
+                  {getDynamicLabel(metricType)}
                 </div>
               </div>
             </div>
