@@ -407,26 +407,35 @@ export default function Dashboard() {
         periodEnd = periodEndBusiness;
       }
 
-      // Get submissions and count unique completed items for the period (location-filtered)
+      // Get responses directly filtered by created_at to catch items added to ongoing submissions
+      // This fixes the bug where responses added later to an existing submission were missed
       const {
-        data: submissions
-      } = await supabase.from('checklist_submissions').select(`
+        data: responses
+      } = await supabase.from('checklist_responses').select(`
           id,
-          checklist_responses(id, item_id)
+          item_id,
+          created_at,
+          checklist_submissions!inner(id, checklist_id, location_id)
         `)
-        .eq('checklist_id', checklist.id)
-        .eq('location_id', currentLocation?.id)
-        .gte('submitted_at', periodStart.toISOString())
-        .lte('submitted_at', periodEnd.toISOString());
+        .eq('checklist_submissions.checklist_id', checklist.id)
+        .eq('checklist_submissions.location_id', currentLocation?.id)
+        .gte('created_at', periodStart.toISOString())
+        .lte('created_at', periodEnd.toISOString());
       
       // Count unique item_ids to avoid double-counting collaborative completions
+      // For dynamic checklists, only count items scheduled for today
+      const todayItemIds = checklist.template_type === 'dynamic' && checklistItems
+        ? new Set(checklistItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).map(item => item.id))
+        : null;
+      
       const uniqueItemIds = new Set();
-      submissions?.forEach((sub: any) => {
-        sub.checklist_responses?.forEach((response: any) => {
-          if (response.item_id) {
+      responses?.forEach((response: any) => {
+        if (response.item_id) {
+          // For dynamic checklists, only count if it's a today item
+          if (todayItemIds === null || todayItemIds.has(response.item_id)) {
             uniqueItemIds.add(response.item_id);
           }
-        });
+        }
       });
       const completedCount = uniqueItemIds.size;
       dataMap[checklist.id] = {
