@@ -60,6 +60,8 @@ export function usePersonalPayData() {
       
       const weekStartStr = formatTZ(weekStart, 'yyyy-MM-dd', { timeZone: timezone });
       const weekEndStr = formatTZ(addDays(weekEnd, 1), 'yyyy-MM-dd', { timeZone: timezone }); // Include full Sunday
+      
+      console.log('[usePersonalPayData] Week range:', weekStartStr, 'to', weekEndStr, 'timezone:', timezone);
 
       // Calculate pay period dates
       let payPeriodStart: Date;
@@ -100,22 +102,33 @@ export function usePersonalPayData() {
         console.error('[usePersonalPayData] Error fetching punches:', punchError);
         return null;
       }
+      
+      console.log('[usePersonalPayData] Query range:', earlierDate, 'to', laterDate);
+      console.log('[usePersonalPayData] Fetched punches count:', punches?.length);
 
       // Calculate hours for a given date range
       const calculateHours = (startDate: string, endDate: string): number => {
+        console.log('[usePersonalPayData] calculateHours for range:', startDate, 'to', endDate);
+        
         const rangePunches = (punches || []).filter((p) => {
-          const punchDate = p.punch_time.slice(0, 10);
-          return punchDate >= startDate && punchDate < endDate;
+          // Convert punch_time to local date in timezone
+          const punchDate = toZonedTime(new Date(p.punch_time), timezone);
+          const punchDateStr = formatTZ(punchDate, 'yyyy-MM-dd', { timeZone: timezone });
+          const inRange = punchDateStr >= startDate && punchDateStr < endDate;
+          return inRange;
         }) as TimePunch[];
+        
+        console.log('[usePersonalPayData] Punches in range:', rangePunches.length);
 
-        // Group punches by date
+        // Group punches by date (in local timezone)
         const punchesByDate = new Map<string, TimePunch[]>();
         rangePunches.forEach((punch) => {
-          const date = punch.punch_time.slice(0, 10);
-          if (!punchesByDate.has(date)) {
-            punchesByDate.set(date, []);
+          const punchDate = toZonedTime(new Date(punch.punch_time), timezone);
+          const dateStr = formatTZ(punchDate, 'yyyy-MM-dd', { timeZone: timezone });
+          if (!punchesByDate.has(dateStr)) {
+            punchesByDate.set(dateStr, []);
           }
-          punchesByDate.get(date)!.push(punch);
+          punchesByDate.get(dateStr)!.push(punch);
         });
 
         let totalMinutes = 0;
@@ -168,6 +181,8 @@ export function usePersonalPayData() {
 
       const hoursWeek = calculateHours(weekStartStr, weekEndStr);
       const hoursPayroll = calculateHours(payPeriodStartStr, payPeriodEndStr);
+      
+      console.log('[usePersonalPayData] Final result - hoursWeek:', hoursWeek, 'hoursPayroll:', hoursPayroll, 'wage:', hourlyWage);
 
       return {
         hoursWeek,
