@@ -219,32 +219,55 @@ export function DataCube3D({
     return rotations[currentFace] || 0;
   };
 
+  // Calculate the transform for each face position on a 3D cube
+  const getFaceTransform = (faceIndex: number) => {
+    const cubeSize = 70; // Half the size for translateZ
+    switch (faceIndex) {
+      case 0: return `rotateY(0deg) translateZ(${cubeSize}px)`;
+      case 1: return `rotateY(90deg) translateZ(${cubeSize}px)`;
+      case 2: return `rotateY(180deg) translateZ(${cubeSize}px)`;
+      case 3: return `rotateY(270deg) translateZ(${cubeSize}px)`;
+      default: return `rotateY(0deg) translateZ(${cubeSize}px)`;
+    }
+  };
+
   return (
     <div className={cn("relative group", className)}>
-      {/* Flat Card Container */}
+      {/* 3D Cube Container with perspective */}
       <div 
         className="relative w-full aspect-square cursor-pointer"
         onClick={handleClick}
         style={{
           minHeight: '140px',
+          perspective: '800px',
+          perspectiveOrigin: 'center center',
         }}
       >
-        {/* Flat faces - only show current face */}
-        {faces.map((face, index) => (
-          <CubeFaceComponent
-            key={index}
-            face={face}
-            accentColor={accentColor}
-            salesData={salesData}
-            isLoading={isLoading}
-            totalFaces={totalFaces}
-            currentFace={currentFace}
-            faceIndex={index}
-            onIndicatorClick={rotateTo}
-            title={title}
-            isVisible={index === currentFace}
-          />
-        ))}
+        {/* Rotating cube wrapper */}
+        <div
+          className="absolute inset-0 transition-transform duration-700 ease-in-out"
+          style={{
+            transformStyle: 'preserve-3d',
+            transform: `rotateY(${getRotation()}deg)`,
+          }}
+        >
+          {faces.map((face, index) => (
+            <CubeFaceComponent
+              key={index}
+              face={face}
+              accentColor={accentColor}
+              salesData={salesData}
+              isLoading={isLoading}
+              totalFaces={totalFaces}
+              currentFace={currentFace}
+              faceIndex={index}
+              onIndicatorClick={rotateTo}
+              title={title}
+              isVisible={true}
+              faceTransform={getFaceTransform(index)}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -261,6 +284,7 @@ interface CubeFaceComponentProps {
   onIndicatorClick: (index: number) => void;
   title?: string;
   isVisible: boolean;
+  faceTransform?: string;
 }
 
 function CubeFaceComponent({ 
@@ -274,6 +298,7 @@ function CubeFaceComponent({
   onIndicatorClick,
   title,
   isVisible,
+  faceTransform,
 }: CubeFaceComponentProps) {
   // Use lightened version for background, original for icons/labels
   const bgColor = lightenColor(accentColor, 0.55);
@@ -286,12 +311,11 @@ function CubeFaceComponent({
   if (!face || face.metrics.length === 0) {
     return (
       <div
-        className={cn(
-          "absolute inset-0 rounded-xl shadow-lg flex items-center justify-center p-3 transition-opacity duration-300",
-          isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-        )}
+        className="absolute inset-0 rounded-xl shadow-lg flex items-center justify-center p-3"
         style={{
           backgroundColor: bgColor,
+          transform: faceTransform,
+          backfaceVisibility: 'hidden',
         }}
       >
         <span style={{ color: labelColor }} className="text-xs">No metrics</span>
@@ -301,12 +325,11 @@ function CubeFaceComponent({
   
   return (
     <div
-      className={cn(
-        "absolute inset-0 rounded-xl overflow-hidden flex flex-col transition-opacity duration-300",
-        isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
-      )}
+      className="absolute inset-0 rounded-xl overflow-hidden flex flex-col"
       style={{
         backgroundColor: bgColor,
+        transform: faceTransform,
+        backfaceVisibility: 'hidden',
       }}
     >
       {/* Sharp curved gloss - iOS app icon style with hard edge through middle */}
