@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, Square, RectangleHorizontal, LayoutGrid, LineChart } from "lucide-react";
+import { ArrowLeft, Check, Square, RectangleHorizontal, LayoutGrid, LineChart, Box } from "lucide-react";
 import { 
   WidgetSize, 
   MetricType, 
@@ -49,6 +49,7 @@ interface AddWidgetDialogProps {
   onAdd: (config: NewDataCubeConfig) => void;
   defaultColorIndex?: number;
   hasSalesChart?: boolean; // If true, hide the sales chart option
+  onAdd3DCube?: () => void; // Callback to open 3D cube dialog
 }
 
 type Step = 'type' | 'size' | 'configure';
@@ -59,6 +60,7 @@ export function AddWidgetDialog({
   onAdd,
   defaultColorIndex = 0,
   hasSalesChart = false,
+  onAdd3DCube,
 }: AddWidgetDialogProps) {
   const [step, setStep] = useState<Step>('type');
   const [selectedType, setSelectedType] = useState<CubeType>('data');
@@ -178,22 +180,39 @@ export function AddWidgetDialog({
               What would you like to add?
             </p>
             
-            <div className="grid grid-cols-2 gap-4">
-              {/* Data Cube */}
+            <div className="grid grid-cols-3 gap-3">
+              {/* 3D Cube - Featured */}
+              {onAdd3DCube && (
+                <button
+                  className="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-primary/30 hover:border-primary hover:bg-accent transition-all bg-primary/5"
+                  onClick={() => {
+                    handleClose(false);
+                    onAdd3DCube();
+                  }}
+                >
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/30 to-primary/50 flex items-center justify-center">
+                    <Box className="h-5 w-5 text-primary" />
+                  </div>
+                  <span className="text-sm font-medium">3D Cube</span>
+                  <span className="text-[10px] text-muted-foreground text-center">Rotating faces</span>
+                </button>
+              )}
+
+              {/* Flat Data Cube */}
               <button
-                className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-accent transition-all"
+                className="flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-transparent hover:border-primary/50 hover:bg-accent transition-all"
                 onClick={() => handleTypeSelect('data')}
               >
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/40 flex items-center justify-center">
-                  <LayoutGrid className="h-6 w-6 text-primary" />
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-muted to-muted/80 flex items-center justify-center">
+                  <LayoutGrid className="h-5 w-5 text-muted-foreground" />
                 </div>
-                <span className="text-sm font-medium">Data Cube</span>
-                <span className="text-[10px] text-muted-foreground">Custom metrics</span>
+                <span className="text-sm font-medium">Flat Cube</span>
+                <span className="text-[10px] text-muted-foreground text-center">Single view</span>
               </button>
 
               {/* Sales Chart - greyed out if already added */}
               <button
-                className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-transparent transition-all ${
+                className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 border-transparent transition-all ${
                   hasSalesChart 
                     ? 'opacity-40 cursor-not-allowed' 
                     : 'hover:border-primary/50 hover:bg-accent'
@@ -201,12 +220,12 @@ export function AddWidgetDialog({
                 onClick={() => !hasSalesChart && handleTypeSelect('sales-chart')}
                 disabled={hasSalesChart}
               >
-                <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/40 flex items-center justify-center">
-                  <LineChart className="h-6 w-6 text-blue-500" />
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-500/40 flex items-center justify-center">
+                  <LineChart className="h-5 w-5 text-blue-500" />
                 </div>
                 <span className="text-sm font-medium">Sales Chart</span>
-                <span className="text-[10px] text-muted-foreground">
-                  {hasSalesChart ? 'Already added' : 'Full sales overview'}
+                <span className="text-[10px] text-muted-foreground text-center">
+                  {hasSalesChart ? 'Added' : 'Overview'}
                 </span>
               </button>
             </div>
