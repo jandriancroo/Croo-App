@@ -17,22 +17,32 @@ interface DataCube3DProps {
   isLoading?: boolean;
 }
 
+// Determine if text should be light or dark based on background color
+function getContrastColor(hexColor: string): 'light' | 'dark' {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? 'dark' : 'light';
+}
+
 // Icon mapping for metrics
 function getIconForMetric(metricType: MetricType): React.ReactNode {
   const key = metricType.toLowerCase();
   if (key.includes('sales') || key.includes('ticket') || key.includes('pay') || key.includes('cost')) 
-    return <DollarSign className="w-5 h-5" />;
+    return <DollarSign className="w-4 h-4" />;
   if (key.includes('guest') || key.includes('labor_percent')) 
-    return <Users className="w-5 h-5" />;
+    return <Users className="w-4 h-4" />;
   if (key.includes('pizza')) 
-    return <Pizza className="w-5 h-5" />;
+    return <Pizza className="w-4 h-4" />;
   if (key.includes('hours') || key.includes('personal_hours')) 
-    return <Clock className="w-5 h-5" />;
+    return <Clock className="w-4 h-4" />;
   if (key.includes('pace') || key.includes('projected')) 
-    return <TrendingUp className="w-5 h-5" />;
+    return <TrendingUp className="w-4 h-4" />;
   if (key.includes('last') || key.includes('prev')) 
-    return <Calendar className="w-5 h-5" />;
-  return <Target className="w-5 h-5" />;
+    return <Calendar className="w-4 h-4" />;
+  return <Target className="w-4 h-4" />;
 }
 
 function formatValue(value: number | undefined, format: 'currency' | 'percent' | 'number' | 'hours'): string {
@@ -283,36 +293,38 @@ function CubeFaceComponent({
   faceIndex,
   onIndicatorClick,
 }: CubeFaceComponentProps) {
+  const contrast = getContrastColor(accentColor);
+  const textColor = contrast === 'light' ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.85)';
+  const textMuted = contrast === 'light' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)';
+  const iconBg = contrast === 'light' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)';
+  const dotActive = contrast === 'light' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.7)';
+  const dotInactive = contrast === 'light' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)';
+
   if (!face || face.metrics.length === 0) {
     return (
       <div
-        className="absolute inset-0 rounded-xl bg-card shadow-lg flex items-center justify-center p-3 border border-border/40"
+        className="absolute inset-0 rounded-xl shadow-lg flex items-center justify-center p-3"
         style={{
           ...style,
           backfaceVisibility: 'hidden',
+          backgroundColor: accentColor,
         }}
       >
-        <span className="text-muted-foreground text-xs">No metrics</span>
+        <span style={{ color: textMuted }} className="text-xs">No metrics</span>
       </div>
     );
   }
   
   return (
     <div
-      className="absolute inset-0 rounded-xl overflow-hidden flex flex-col border border-border/40"
+      className="absolute inset-0 rounded-xl overflow-hidden flex flex-col"
       style={{
         ...style,
         backfaceVisibility: 'hidden',
-        background: 'hsl(var(--card))',
-        boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.2), 0 4px 12px -4px rgba(0, 0, 0, 0.1)',
+        backgroundColor: accentColor,
+        boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.3), 0 4px 12px -4px rgba(0, 0, 0, 0.15)',
       }}
     >
-      {/* Accent bar at top */}
-      <div 
-        className="h-1 w-full"
-        style={{ backgroundColor: accentColor }}
-      />
-      
       {/* Content */}
       <div className="flex-1 flex flex-col justify-center px-3 py-2 space-y-2">
         {face.metrics.map((metricType, index) => {
@@ -327,24 +339,28 @@ function CubeFaceComponent({
               {/* Icon circle */}
               <div
                 className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center"
-                style={{ 
-                  backgroundColor: `${accentColor}15`,
-                }}
+                style={{ backgroundColor: iconBg }}
               >
-                <div style={{ color: accentColor }} className="scale-75">
+                <div style={{ color: textColor }}>
                   {getIconForMetric(metricType)}
                 </div>
               </div>
               
               {/* Value and label */}
               <div className="flex-1 min-w-0">
-                <div className={cn(
-                  "text-base font-bold text-foreground leading-tight",
-                  isLoading && "animate-pulse bg-muted rounded w-16 h-5"
-                )}>
+                <div 
+                  className={cn(
+                    "text-base font-bold leading-tight",
+                    isLoading && "animate-pulse bg-white/20 rounded w-16 h-5"
+                  )}
+                  style={{ color: textColor }}
+                >
                   {!isLoading && formattedValue}
                 </div>
-                <div className="text-[10px] text-muted-foreground font-medium">
+                <div 
+                  className="text-[10px] font-medium"
+                  style={{ color: textMuted }}
+                >
                   {config.shortLabel}
                 </div>
               </div>
@@ -365,7 +381,7 @@ function CubeFaceComponent({
               }}
               className="w-1.5 h-1.5 rounded-full transition-all duration-300"
               style={{
-                backgroundColor: index === faceIndex ? accentColor : `${accentColor}30`,
+                backgroundColor: index === faceIndex ? dotActive : dotInactive,
               }}
             />
           ))}
