@@ -305,31 +305,51 @@ export function DashboardWidget({
   // Small widget - square on mobile, horizontal rectangle on tablet/desktop
   if (size === 'small') {
     const isSingleMetric = displayMetrics.length === 1;
+    const MainIcon = firstMetricConfig?.icon;
     
     return (
       <Card 
-        className={`aspect-square md:aspect-[2/1] overflow-hidden cursor-pointer hover:shadow-lg transition-all relative ${isDragging ? 'opacity-50 shadow-2xl' : ''}`}
+        className={`aspect-square md:aspect-[2/1] overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 relative group ${isDragging ? 'opacity-50 shadow-2xl scale-105' : ''}`}
         onClick={onClick}
+        style={{
+          background: isOled 
+            ? 'hsl(var(--card))' 
+            : `linear-gradient(145deg, ${effectiveColor}12 0%, ${effectiveColor}05 100%)`,
+          borderColor: isOled ? undefined : `${effectiveColor}30`,
+        }}
       >
-        {/* Colored header */}
-        <div className="px-3 py-1.5 md:py-2 flex items-center" style={{ backgroundColor: effectiveColor }}>
-          <span className="text-xs md:text-sm font-semibold text-white truncate flex-1">{title || 'Data'}</span>
+        {/* Header with icon badge */}
+        <div className="px-3 py-2 md:py-2.5 flex items-center gap-2">
+          {MainIcon && (
+            <div 
+              className="flex items-center justify-center w-7 h-7 rounded-lg shadow-sm"
+              style={{ backgroundColor: effectiveColor }}
+            >
+              <MainIcon className="h-4 w-4 text-white" />
+            </div>
+          )}
+          <span 
+            className="text-xs md:text-sm font-bold truncate flex-1"
+            style={{ color: isOled ? 'hsl(var(--foreground))' : effectiveColor }}
+          >
+            {title || 'Data'}
+          </span>
           {dragHandleProps && (
-            <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing ml-1">
-              <GripVertical className="h-3 w-3 text-white/70" />
+            <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing">
+              <GripVertical className="h-4 w-4 text-muted-foreground/40" />
             </div>
           )}
         </div>
         
-        <CardContent className="p-3 md:p-4 h-[calc(100%-28px)] md:h-[calc(100%-36px)] flex flex-col justify-center">
+        <CardContent className="px-3 pb-3 pt-0 md:px-4 md:pb-4 h-[calc(100%-44px)] md:h-[calc(100%-48px)] flex flex-col justify-center">
           {isLoading ? (
             <div className="space-y-2">
-              <div className="h-6 bg-muted animate-pulse rounded" />
+              <div className="h-8 bg-muted animate-pulse rounded-lg" />
               <div className="h-4 bg-muted animate-pulse rounded w-2/3" />
             </div>
           ) : (
-            <div className={`flex ${isSingleMetric ? 'flex-col items-center text-center md:flex-row md:items-center md:justify-center md:gap-4' : 'flex-col gap-1 md:flex-row md:gap-6 md:justify-around'}`}>
-              {displayMetrics.map((metricType, index) => {
+            <div className={`flex ${isSingleMetric ? 'flex-col items-center text-center md:flex-row md:items-center md:justify-center md:gap-4' : 'flex-col gap-0.5 md:flex-row md:gap-6 md:justify-around'}`}>
+              {displayMetrics.map((metricType) => {
                 const config = METRIC_CONFIGS[metricType];
                 if (!config) return null;
                 const value = getMetricValue(metricType);
@@ -337,12 +357,12 @@ export function DashboardWidget({
                 return (
                   <div key={metricType} className={`${isSingleMetric ? 'text-center' : ''} md:flex-1 md:text-center`}>
                     <div 
-                      className={`font-extrabold truncate ${isSingleMetric ? 'text-3xl md:text-4xl' : 'text-lg md:text-2xl'} ${isOled ? 'text-muted-foreground' : ''}`}
-                      style={isOled ? undefined : { color: effectiveColor }}
+                      className={`font-black tracking-tight ${isSingleMetric ? 'text-3xl md:text-4xl' : 'text-xl md:text-2xl'}`}
+                      style={{ color: isOled ? 'hsl(var(--foreground))' : effectiveColor }}
                     >
                       {formatValue(value, config.format)}
                     </div>
-                    <div className={`truncate font-medium ${isSingleMetric ? 'text-xs md:text-sm' : 'text-[10px] md:text-xs'} ${isOled ? 'text-white/70' : 'text-muted-foreground'}`}>
+                    <div className={`truncate font-medium text-muted-foreground ${isSingleMetric ? 'text-xs md:text-sm' : 'text-[10px] md:text-xs'}`}>
                       {isSingleMetric ? config.label : config.shortLabel}
                     </div>
                   </div>
@@ -350,15 +370,13 @@ export function DashboardWidget({
               })}
             </div>
           )}
-          
-          {/* Corner accent with icon - smaller on desktop */}
-          <div 
-            className="absolute bottom-0 right-0 w-10 h-10 md:w-8 md:h-8 rounded-tl-full flex items-end justify-end"
-            style={{ backgroundColor: effectiveColor }}
-          >
-            {CornerIcon && <CornerIcon className="w-3 h-3 md:w-3 md:h-3 text-white mr-1.5 mb-1.5" />}
-          </div>
         </CardContent>
+        
+        {/* Decorative corner blob */}
+        <div 
+          className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full opacity-15 group-hover:opacity-25 transition-opacity duration-300"
+          style={{ backgroundColor: effectiveColor }}
+        />
       </Card>
     );
   }
