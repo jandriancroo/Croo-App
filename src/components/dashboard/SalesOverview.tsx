@@ -27,7 +27,11 @@ interface SalesData {
   guestCount?: { daily: number; weekly: number; monthly: number };
   avgTicket?: number;
   pizzaCount?: number | { daily: number; weekly: number; monthly: number };
-  payments?: Array<{ paymentType: string; amount: number }>;
+  payments?: {
+    daily: Array<{ paymentType: string; amount: number }>;
+    weekly: Array<{ paymentType: string; amount: number }>;
+    monthly: Array<{ paymentType: string; amount: number }>;
+  } | null;
   comparison?: { prevDay: number; prevDayFullDay?: number; prevWeek: number; prevMonth: number };
   lastYear?: { sameDay?: number; sameWeek?: number; sameMonth?: number };
   projections?: { todayProjected: number; todayPaceAdjusted?: number; weekProjected: number; monthProjected: number };
@@ -962,7 +966,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
               </div>
 
               {/* Payments (from Sales Summary / Real Time Summary) */}
-              {isToday && (salesData?.payments?.length || 0) > 0 && (
+              {isToday && (salesData?.payments?.daily?.length || 0) > 0 && (
                 <div className="border rounded-lg overflow-hidden">
                   <div className="bg-muted p-2 flex items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -970,13 +974,13 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                       <Badge variant="secondary" className="text-[10px]">Real-time</Badge>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Total: {formatCurrencyDecimal((salesData.payments || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0))}
+                      Total: {formatCurrencyDecimal((salesData.payments?.daily || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0))}
                     </div>
                   </div>
 
                   <div className="p-3">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
-                      {(salesData.payments || []).slice(0, 9).map((p) => (
+                      {(salesData.payments?.daily || []).slice(0, 9).map((p) => (
                         <div key={p.paymentType} className="flex items-center justify-between gap-2">
                           <span className="text-xs text-muted-foreground truncate">{p.paymentType}</span>
                           <span className="text-xs font-medium tabular-nums">{formatCurrencyDecimal(p.amount)}</span>
@@ -984,7 +988,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                       ))}
                     </div>
 
-                    {(salesData.payments || []).length > 9 && (
+                    {(salesData.payments?.daily || []).length > 9 && (
                       <Collapsible>
                         <CollapsibleTrigger asChild>
                           <Button variant="ghost" size="sm" className="mt-2 w-full justify-center">
@@ -994,7 +998,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2">
-                            {(salesData.payments || []).slice(9).map((p) => (
+                            {(salesData.payments?.daily || []).slice(9).map((p) => (
                               <div key={p.paymentType} className="flex items-center justify-between gap-2">
                                 <span className="text-xs text-muted-foreground truncate">{p.paymentType}</span>
                                 <span className="text-xs font-medium tabular-nums">{formatCurrencyDecimal(p.amount)}</span>
