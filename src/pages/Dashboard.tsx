@@ -653,7 +653,7 @@ export default function Dashboard() {
             {/* Combined Status Button */}
             <CardContent className="py-2 px-3 pt-0 flex-1 flex flex-col justify-end">
               <Button 
-                className={`w-full h-10 text-sm rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 ${
+                className={`w-full h-10 text-sm rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-between px-4 ${
                   isComplete 
                     ? 'bg-primary hover:bg-primary/90' 
                     : hasStarted 
@@ -664,13 +664,21 @@ export default function Dashboard() {
               >
                 {isComplete ? (
                   <>
-                    <Check className="h-4 w-4" strokeWidth={3} />
-                    <span>Review</span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center w-5 h-5 rounded-full border-2 border-white bg-white/20">
+                        <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+                      </div>
+                      <span>Review</span>
+                    </div>
+                    <span className="text-white/90">100%</span>
                   </>
                 ) : hasStarted ? (
-                  <span>Continue • {completed}/{expected}</span>
+                  <>
+                    <span>Continue • {completed}/{expected}</span>
+                    <span className="text-primary-foreground/80">{completionRate}%</span>
+                  </>
                 ) : (
-                  <span>Start Checklist</span>
+                  <span className="w-full text-center">Start Checklist</span>
                 )}
               </Button>
             </CardContent>
