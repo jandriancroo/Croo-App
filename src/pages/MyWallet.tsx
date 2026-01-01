@@ -291,23 +291,13 @@ export default function MyWallet() {
         {/* Croo Cash Section */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <img src={crooCashIcon} alt="Croo Cash" className="h-5 w-5" />
-                  Croo Cash
-                </CardTitle>
-                <CardDescription>
-                  Earn points by picking up shifts, spend them by offering yours
-                </CardDescription>
-              </div>
-              <div className="text-right">
-                <p className={`text-3xl font-bold ${getBalanceColor()}`}>
-                  ${(crooCashBalance / 100).toFixed(2)}
-                </p>
-                <p className="text-sm text-muted-foreground">balance</p>
-              </div>
-            </div>
+            <CardTitle className="flex items-center gap-2">
+              <img src={crooCashIcon} alt="Croo Cash" className="h-5 w-5" />
+              Croo Cash Activity
+            </CardTitle>
+            <CardDescription>
+              Earn points by picking up shifts, spend them by offering yours
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {transactions.length === 0 ? (
