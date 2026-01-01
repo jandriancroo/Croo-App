@@ -115,7 +115,7 @@ export default function Dashboard() {
         .select('*')
         .eq('user_id', user.id)
         .eq('location_id', currentLocation.id)
-        .in('cube_type', ['data', 'sales-chart'])
+        .in('cube_type', ['data', 'data-3d', 'sales-chart'])
         .order('display_order');
 
       if (error) {
@@ -129,7 +129,9 @@ export default function Dashboard() {
         size: (cube.widget_size as WidgetSize) || 'small',
         metrics: (cube.metrics as MetricType[]) || [],
         accentColor: cube.accent_color || '#8B5CF6',
-        cubeType: (cube.cube_type as CubeType) || 'data',
+        cubeType: (cube.cube_type as CubeType | 'data-3d') || 'data',
+        faceMetrics: (cube.face_metrics as MetricType[][]) || [],
+        numFaces: cube.num_faces || 1,
       })) as CubeConfig[];
     },
     enabled: !!user?.id && !!currentLocation?.id,
@@ -137,13 +139,23 @@ export default function Dashboard() {
 
   const handleUpdateCube = async (id: string, updates: Partial<CubeConfig>) => {
     try {
+      const updateData: Record<string, any> = {
+        title: updates.title,
+        metrics: updates.metrics,
+        accent_color: updates.accentColor,
+      };
+      
+      // Include 3D cube specific fields if present
+      if (updates.faceMetrics !== undefined) {
+        updateData.face_metrics = updates.faceMetrics;
+      }
+      if (updates.numFaces !== undefined) {
+        updateData.num_faces = updates.numFaces;
+      }
+      
       const { error } = await supabase
         .from('user_dashboard_cubes')
-        .update({
-          title: updates.title,
-          metrics: updates.metrics,
-          accent_color: updates.accentColor,
-        })
+        .update(updateData)
         .eq('id', id);
 
       if (error) throw error;
