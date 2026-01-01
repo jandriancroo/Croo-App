@@ -547,9 +547,9 @@ export default function Dashboard() {
     }).format(amount);
   };
 
-  // Checklists grid content - passed to WidgetsSection for unified drag & drop
-  const checklistsGridContent = (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
+  // Quick tasks content - mounted at the top of the dashboard
+  const quickTasksContent = (
+    <div className="flex flex-col gap-2">
       {/* Assigned Temporary Tasks */}
       <AssignedTemporaryTasks />
       
@@ -558,6 +558,12 @@ export default function Dashboard() {
       
       {/* Cash Handling Task Cards */}
       <CashHandlingTasks locationHours={locationSettings} timezone={timezone} />
+    </div>
+  );
+
+  // Checklists grid content - passed to WidgetsSection for unified drag & drop
+  const checklistsGridContent = (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
       
       {/* Catering Order Cards */}
       {todaysCateringOrders.map(order => {
@@ -884,7 +890,12 @@ export default function Dashboard() {
               <p className="text-muted-foreground mb-4">Go to Tasks to create your first checklist</p>
               <Button onClick={() => navigate('/tasks')}>Go to Tasks</Button>
             </CardContent>
-          </Card> : dashboardContent}
+          </Card> : (
+            <>
+              {quickTasksContent}
+              {dashboardContent}
+            </>
+          )}
       </div>
       
       {/* Welcome animation overlay */}

@@ -145,7 +145,6 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       id: "am-safe",
       show: showAmSafeCount,
       title: "AM Safe Count",
-      subtitle: "Opening count",
       icon: Vault,
       onClick: () => handleNavigate("safe", "AM"),
     },
@@ -153,7 +152,6 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       id: "pm-safe",
       show: showPmSafeCount,
       title: "PM Safe Count",
-      subtitle: "Closing count",
       icon: Vault,
       onClick: () => handleNavigate("safe", "PM"),
     },
@@ -161,7 +159,6 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       id: "deposit",
       show: showDeposit,
       title: "Deposit",
-      subtitle: "Drawer count",
       icon: Banknote,
       onClick: () => handleNavigate("drawer"),
     },
@@ -176,7 +173,6 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
           key={task.id}
           id={task.id}
           title={task.title}
-          subtitle={task.subtitle}
           icon={task.icon}
           accentColor={TEAL_COLOR}
           onAction={task.onClick}
