@@ -392,11 +392,8 @@ export default function Dashboard() {
         itemCount = checklistItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).length;
       }
 
-      // For monthly checklists, use start/end of month
-      // For weekly checklists, use start/end of current week (Mon-Sun)
-      // Otherwise use business day period
+      // For monthly checklists, use start/end of month; otherwise use business day period
       const isMonthly = checklist.frequency === 'monthly';
-      const isWeekly = checklist.frequency === 'weekly';
       let periodStart: Date;
       let periodEnd: Date;
       
@@ -404,17 +401,6 @@ export default function Dashboard() {
         const now = new Date();
         periodStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
         periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      } else if (isWeekly) {
-        // Get the start of the current week (Monday) in the location timezone
-        const now = new Date();
-        const dayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
-        const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-        periodStart = new Date(now);
-        periodStart.setDate(now.getDate() - daysFromMonday);
-        periodStart.setHours(0, 0, 0, 0);
-        periodEnd = new Date(periodStart);
-        periodEnd.setDate(periodStart.getDate() + 6);
-        periodEnd.setHours(23, 59, 59, 999);
       } else {
         // Use business day range (5 AM to 5 AM) for daily checklists
         periodStart = periodStartBusiness;
