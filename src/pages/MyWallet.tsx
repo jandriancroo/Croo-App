@@ -230,7 +230,7 @@ export default function MyWallet() {
         </div>
 
         {/* Hours & Earnings Summary */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Card className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
               <Clock className="h-4 w-4" />
