@@ -323,7 +323,7 @@ export default function MyWallet() {
             {transactions.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">No transactions yet</p>
             ) : (
-              <ScrollArea className="max-h-[240px]">
+              <ScrollArea className="h-[240px]">
                 <div className="space-y-3 pr-3">
                   {transactions.map((txn) => (
                     <div key={txn.id} className="flex items-center justify-between p-3 border rounded-lg">
