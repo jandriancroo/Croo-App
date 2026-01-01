@@ -192,7 +192,7 @@ export default function MyWallet() {
         </div>
 
         {/* Hours & Earnings Summary */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-2">
@@ -218,33 +218,28 @@ export default function MyWallet() {
               <p className="text-sm text-muted-foreground">@ ${hourlyWage.toFixed(2)}/hr</p>
             </CardContent>
           </Card>
-
-          <Card className="sm:col-span-2 lg:col-span-1">
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2">
-                <img src={crooCashIcon} alt="Croo Cash" className="h-4 w-4" />
-                Croo Cash Balance
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className={`text-3xl font-bold ${getBalanceColor()}`}>
-                ${(crooCashBalance / 100).toFixed(2)}
-              </p>
-              <p className="text-sm text-muted-foreground">balance</p>
-            </CardContent>
-          </Card>
         </div>
 
-        {/* Croo Cash Transactions */}
+        {/* Croo Cash Section */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <img src={crooCashIcon} alt="Croo Cash" className="h-5 w-5" />
-              Recent Croo Cash Activity
-            </CardTitle>
-            <CardDescription>
-              Earn points by picking up shifts, spend them by offering yours
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <img src={crooCashIcon} alt="Croo Cash" className="h-5 w-5" />
+                  Croo Cash
+                </CardTitle>
+                <CardDescription>
+                  Earn points by picking up shifts, spend them by offering yours
+                </CardDescription>
+              </div>
+              <div className="text-right">
+                <p className={`text-3xl font-bold ${getBalanceColor()}`}>
+                  ${(crooCashBalance / 100).toFixed(2)}
+                </p>
+                <p className="text-sm text-muted-foreground">balance</p>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             {transactions.length === 0 ? (
