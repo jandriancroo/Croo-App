@@ -649,10 +649,10 @@ export default function Dashboard() {
                 <div className="text-base text-muted-foreground font-medium flex-shrink-0">
                   {completed}/{expected}
                 </div>
-                {/* Flowing Ribbon Status - inline on mobile, extends on desktop */}
+                {/* Flowing Ribbon Status - fixed width */}
                 <div className="flex flex-col items-end ml-auto -mr-3 sm:-mr-4">
                   <div 
-                    className={`flex items-center gap-1 sm:gap-1.5 pl-2 sm:pl-3 pr-3 sm:pr-4 py-1 text-[10px] sm:text-xs font-semibold text-white shadow-lg ${
+                    className={`flex items-center justify-center gap-1 sm:gap-1.5 w-32 sm:w-36 py-1 text-[10px] sm:text-xs font-semibold text-white shadow-lg ${
                       isComplete ? 'bg-primary' : 'bg-red-500'
                     }`}
                     style={{
@@ -664,10 +664,10 @@ export default function Dashboard() {
                         <div className="flex items-center justify-center w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-white shadow-sm flex-shrink-0">
                           <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary" strokeWidth={3} />
                         </div>
-                        <span className="whitespace-nowrap">100% Completed</span>
+                        <span>100% Completed</span>
                       </>
                     ) : (
-                      <span className="whitespace-nowrap">{completionRate}% Completed</span>
+                      <span>{completionRate}% Completed</span>
                     )}
                   </div>
                   {/* Ribbon wrap-around fold */}
