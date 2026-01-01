@@ -631,7 +631,17 @@ export default function Dashboard() {
         };
         
         return (
-          <Card key={checklist.id} className="hover:shadow-lg transition-shadow p-0 flex flex-col relative overflow-hidden">
+          <Card key={checklist.id} className="hover:shadow-lg transition-shadow p-0 flex flex-col relative overflow-visible">
+            {/* Confetti particles for completed checklists */}
+            {isComplete && (
+              <>
+                <div className="absolute -top-1 left-4 text-lg animate-bounce" style={{ animationDelay: '0s', animationDuration: '2s' }}>🎊</div>
+                <div className="absolute -top-1 left-1/4 text-sm animate-bounce" style={{ animationDelay: '0.3s', animationDuration: '2.5s' }}>✨</div>
+                <div className="absolute -top-2 left-1/2 text-lg animate-bounce" style={{ animationDelay: '0.5s', animationDuration: '2.2s' }}>🎉</div>
+                <div className="absolute -top-1 right-1/4 text-sm animate-bounce" style={{ animationDelay: '0.7s', animationDuration: '2.8s' }}>✨</div>
+              </>
+            )}
+            
             {/* Header Section */}
             <CardHeader className="py-2 px-3">
               <div className="flex items-center gap-2">
@@ -644,15 +654,15 @@ export default function Dashboard() {
             </CardHeader>
 
             {/* Middle Section - Stats with Ribbon */}
-            <CardContent className="py-2 px-3 pt-0 flex-1">
+            <CardContent className="py-2 px-3 pt-0 flex-1 overflow-visible">
               <div className="flex items-center justify-between">
                 <div className="text-base text-muted-foreground font-medium">
                   {completed}/{expected}
                 </div>
-                {/* Flowing Ribbon Status - extends to edge and wraps */}
-                <div className="relative -mr-3">
+                {/* Flowing Ribbon Status - wraps around card edge */}
+                <div className="absolute right-0 flex flex-col items-end">
                   <div 
-                    className={`flex items-center gap-1.5 pl-4 pr-3 py-1 text-xs font-semibold text-white ${
+                    className={`flex items-center gap-1.5 pl-4 pr-3 py-1 text-xs font-semibold text-white shadow-md ${
                       isComplete ? 'bg-primary' : 'bg-destructive'
                     }`}
                     style={{
@@ -668,10 +678,10 @@ export default function Dashboard() {
                       <span>{completionRate}% Completed</span>
                     )}
                   </div>
-                  {/* Ribbon fold/wrap effect */}
+                  {/* Ribbon wrap-around fold */}
                   <div 
-                    className={`absolute -right-0 top-full w-2 h-2 ${
-                      isComplete ? 'bg-primary/60' : 'bg-destructive/60'
+                    className={`w-3 h-3 ${
+                      isComplete ? 'bg-primary/50' : 'bg-destructive/50'
                     }`}
                     style={{
                       clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)'
