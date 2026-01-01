@@ -196,21 +196,11 @@ export function DataCube3D({
 
   return (
     <div className={cn("relative group", className)}>
-      {/* Title above the cube */}
-      {title && (
-        <div 
-          className="text-xs font-semibold mb-1 px-2 truncate"
-          style={{ color: accentColor }}
-        >
-          {title}
-        </div>
-      )}
-      
       {/* 3D Cube Container */}
       <div 
         className="relative w-full aspect-square cursor-pointer p-2"
         onClick={handleClick}
-        style={{ 
+        style={{
           minHeight: '140px',
           perspective: '600px',
           perspectiveOrigin: 'center center',
@@ -225,22 +215,25 @@ export function DataCube3D({
           }}
         >
           {/* Front Face (0) */}
-          <CubeFaceComponent
-            face={faces[0]}
-            accentColor={accentColor}
-            salesData={salesData}
-            isLoading={isLoading}
-            totalFaces={totalFaces}
-            currentFace={currentFace}
-            faceIndex={0}
-            onIndicatorClick={rotateTo}
-            style={{
-              transform: 'translateZ(70px)',
-            }}
-          />
+          {faces[0] && (
+            <CubeFaceComponent
+              face={faces[0]}
+              accentColor={accentColor}
+              salesData={salesData}
+              isLoading={isLoading}
+              totalFaces={totalFaces}
+              currentFace={currentFace}
+              faceIndex={0}
+              onIndicatorClick={rotateTo}
+              title={title}
+              style={{
+                transform: 'translateZ(70px)',
+              }}
+            />
+          )}
           
           {/* Right Face (1) */}
-          {totalFaces > 1 && (
+          {totalFaces > 1 && faces[1] && (
             <CubeFaceComponent
               face={faces[1]}
               accentColor={accentColor}
@@ -250,6 +243,7 @@ export function DataCube3D({
               currentFace={currentFace}
               faceIndex={1}
               onIndicatorClick={rotateTo}
+              title={title}
               style={{
                 transform: 'rotateY(90deg) translateZ(70px)',
               }}
@@ -257,7 +251,7 @@ export function DataCube3D({
           )}
           
           {/* Back Face (2) */}
-          {totalFaces > 2 && (
+          {totalFaces > 2 && faces[2] && (
             <CubeFaceComponent
               face={faces[2]}
               accentColor={accentColor}
@@ -267,6 +261,7 @@ export function DataCube3D({
               currentFace={currentFace}
               faceIndex={2}
               onIndicatorClick={rotateTo}
+              title={title}
               style={{
                 transform: 'rotateY(180deg) translateZ(70px)',
               }}
@@ -274,7 +269,7 @@ export function DataCube3D({
           )}
           
           {/* Left Face (3) */}
-          {totalFaces > 3 && (
+          {totalFaces > 3 && faces[3] && (
             <CubeFaceComponent
               face={faces[3]}
               accentColor={accentColor}
@@ -284,6 +279,7 @@ export function DataCube3D({
               currentFace={currentFace}
               faceIndex={3}
               onIndicatorClick={rotateTo}
+              title={title}
               style={{
                 transform: 'rotateY(270deg) translateZ(70px)',
               }}
@@ -305,6 +301,7 @@ interface CubeFaceComponentProps {
   currentFace: number;
   faceIndex: number;
   onIndicatorClick: (index: number) => void;
+  title?: string;
 }
 
 function CubeFaceComponent({ 
@@ -317,6 +314,7 @@ function CubeFaceComponent({
   currentFace,
   faceIndex,
   onIndicatorClick,
+  title,
 }: CubeFaceComponentProps) {
   // Use lightened version for background, original for icons/labels
   const bgColor = lightenColor(accentColor, 0.55);
@@ -350,8 +348,18 @@ function CubeFaceComponent({
         boxShadow: '0 8px 30px -8px rgba(0, 0, 0, 0.2)',
       }}
     >
+      {/* Title inside the cube */}
+      {title && (
+        <div 
+          className="text-[10px] font-bold px-3 pt-2 truncate uppercase tracking-wide"
+          style={{ color: accentColor }}
+        >
+          {title}
+        </div>
+      )}
+      
       {/* Content */}
-      <div className="flex-1 flex flex-col justify-center px-3 py-2 space-y-2">
+      <div className="flex-1 flex flex-col justify-center px-3 py-1 space-y-1.5">
         {face.metrics.map((metricType, index) => {
           const config = METRIC_CONFIGS[metricType];
           if (!config) return null;
@@ -360,22 +368,12 @@ function CubeFaceComponent({
           const formattedValue = formatValue(value, config.format);
           
           return (
-            <div key={index} className="flex items-center gap-2.5">
-              {/* Icon circle */}
-              <div
-                className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center"
-                style={{ backgroundColor: iconBg }}
-              >
-                <div style={{ color: iconColor }}>
-                  {getIconForMetric(metricType)}
-                </div>
-              </div>
-              
-              {/* Value and label */}
+            <div key={index} className="flex items-center gap-2">
+              {/* Value and label - no icon */}
               <div className="flex-1 min-w-0">
                 <div 
                   className={cn(
-                    "text-base font-bold leading-tight",
+                    "text-lg font-bold leading-tight",
                     isLoading && "animate-pulse bg-white/30 rounded w-16 h-5"
                   )}
                   style={{ color: valueColor }}
