@@ -309,74 +309,93 @@ export function DashboardWidget({
     
     return (
       <Card 
-        className={`aspect-square md:aspect-[2/1] overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 relative group ${isDragging ? 'opacity-50 shadow-2xl scale-105' : ''}`}
+        className={`aspect-square md:aspect-[2/1] overflow-hidden cursor-pointer transition-all duration-300 relative group border-0 shadow-lg hover:shadow-2xl hover:scale-[1.03] ${isDragging ? 'opacity-50 shadow-2xl scale-105' : ''}`}
         onClick={onClick}
         style={{
           background: isOled 
             ? 'hsl(var(--card))' 
-            : `linear-gradient(145deg, ${effectiveColor}12 0%, ${effectiveColor}05 100%)`,
-          borderColor: isOled ? undefined : `${effectiveColor}30`,
+            : `linear-gradient(135deg, ${effectiveColor} 0%, ${effectiveColor}dd 50%, ${effectiveColor}bb 100%)`,
         }}
       >
-        {/* Header with icon badge */}
-        <div className="px-3 py-2 md:py-2.5 flex items-center gap-2">
+        {/* Glassy overlay for depth */}
+        {!isOled && (
+          <div 
+            className="absolute inset-0 opacity-20 pointer-events-none"
+            style={{
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 40%, rgba(0,0,0,0.1) 100%)',
+            }}
+          />
+        )}
+        
+        {/* Header with icon */}
+        <div className="relative px-3 py-2.5 md:py-3 flex items-center gap-2.5">
           {MainIcon && (
-            <div 
-              className="flex items-center justify-center w-7 h-7 rounded-lg shadow-sm"
-              style={{ backgroundColor: effectiveColor }}
-            >
-              <MainIcon className="h-4 w-4 text-white" />
+            <div className={`flex items-center justify-center w-9 h-9 rounded-xl shadow-inner ${isOled ? 'bg-primary/20' : 'bg-white/20 backdrop-blur-sm'}`}>
+              <MainIcon className={`h-5 w-5 drop-shadow-sm ${isOled ? 'text-foreground' : 'text-white'}`} />
             </div>
           )}
-          <span 
-            className="text-xs md:text-sm font-bold truncate flex-1"
-            style={{ color: isOled ? 'hsl(var(--foreground))' : effectiveColor }}
-          >
+          <span className={`text-sm md:text-base font-bold truncate flex-1 drop-shadow-sm ${isOled ? 'text-foreground' : 'text-white/90'}`}>
             {title || 'Data'}
           </span>
           {dragHandleProps && (
             <div {...dragHandleProps} className="cursor-grab active:cursor-grabbing">
-              <GripVertical className="h-4 w-4 text-muted-foreground/40" />
+              <GripVertical className={`h-4 w-4 ${isOled ? 'text-muted-foreground' : 'text-white/50'}`} />
             </div>
           )}
         </div>
         
-        <CardContent className="px-3 pb-3 pt-0 md:px-4 md:pb-4 h-[calc(100%-44px)] md:h-[calc(100%-48px)] flex flex-col justify-center">
+        <CardContent className="relative px-3 pb-4 pt-0 md:px-4 md:pb-5 h-[calc(100%-52px)] md:h-[calc(100%-56px)] flex flex-col justify-center">
           {isLoading ? (
             <div className="space-y-2">
-              <div className="h-8 bg-muted animate-pulse rounded-lg" />
-              <div className="h-4 bg-muted animate-pulse rounded w-2/3" />
+              <div className={`h-10 w-24 rounded animate-pulse ${isOled ? 'bg-muted' : 'bg-white/20'}`} />
+              <div className={`h-3 w-16 rounded animate-pulse ${isOled ? 'bg-muted' : 'bg-white/10'}`} />
+            </div>
+          ) : isSingleMetric ? (
+            <div className="text-center">
+              <span className={`text-4xl md:text-5xl font-black tracking-tight drop-shadow-lg ${isOled ? 'text-foreground' : 'text-white'}`}>
+                {formatValue(getMetricValue(displayMetrics[0]), METRIC_CONFIGS[displayMetrics[0]].format)}
+              </span>
+              <p className={`text-xs mt-1.5 font-medium ${isOled ? 'text-muted-foreground' : 'text-white/70'}`}>
+                {METRIC_CONFIGS[displayMetrics[0]].label}
+              </p>
             </div>
           ) : (
-            <div className={`flex ${isSingleMetric ? 'flex-col items-center text-center md:flex-row md:items-center md:justify-center md:gap-4' : 'flex-col gap-0.5 md:flex-row md:gap-6 md:justify-around'}`}>
-              {displayMetrics.map((metricType) => {
+            <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+              {displayMetrics.map((metricType, index) => {
                 const config = METRIC_CONFIGS[metricType];
                 if (!config) return null;
                 const value = getMetricValue(metricType);
-                
                 return (
-                  <div key={metricType} className={`${isSingleMetric ? 'text-center' : ''} md:flex-1 md:text-center`}>
-                    <div 
-                      className={`font-black tracking-tight ${isSingleMetric ? 'text-3xl md:text-4xl' : 'text-xl md:text-2xl'}`}
-                      style={{ color: isOled ? 'hsl(var(--foreground))' : effectiveColor }}
-                    >
+                  <div key={metricType} className={`${index >= 2 ? 'hidden md:block' : ''}`}>
+                    <span className={`text-xl md:text-2xl font-bold drop-shadow-md block ${isOled ? 'text-foreground' : 'text-white'}`}>
                       {formatValue(value, config.format)}
-                    </div>
-                    <div className={`truncate font-medium text-muted-foreground ${isSingleMetric ? 'text-xs md:text-sm' : 'text-[10px] md:text-xs'}`}>
-                      {isSingleMetric ? config.label : config.shortLabel}
-                    </div>
+                    </span>
+                    <span className={`text-[10px] md:text-xs font-medium truncate block ${isOled ? 'text-muted-foreground' : 'text-white/60'}`}>
+                      {config.shortLabel}
+                    </span>
                   </div>
                 );
               })}
             </div>
           )}
         </CardContent>
+
+        {/* Decorative elements */}
+        {!isOled && (
+          <>
+            <div 
+              className="absolute -bottom-10 -right-10 w-28 h-28 rounded-full opacity-30 blur-2xl pointer-events-none"
+              style={{ backgroundColor: 'white' }}
+            />
+            <div 
+              className="absolute -top-8 -left-8 w-20 h-20 rounded-full opacity-10 blur-xl pointer-events-none"
+              style={{ backgroundColor: 'white' }}
+            />
+          </>
+        )}
         
-        {/* Decorative corner blob */}
-        <div 
-          className="absolute -bottom-6 -right-6 w-20 h-20 rounded-full opacity-15 group-hover:opacity-25 transition-opacity duration-300"
-          style={{ backgroundColor: effectiveColor }}
-        />
+        {/* Sparkle effect on hover */}
+        <Sparkles className={`absolute top-3 right-3 h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none ${isOled ? 'text-muted-foreground' : 'text-white/30'}`} />
       </Card>
     );
   }
