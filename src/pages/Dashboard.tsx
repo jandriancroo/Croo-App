@@ -683,13 +683,15 @@ export default function Dashboard() {
               </div>
             </CardContent>
 
-            {/* Bottom Button */}
-            <Button 
-              className="w-full h-10 text-sm rounded-none rounded-b-lg mt-auto"
-              onClick={() => navigate(`/complete/${checklist.id}`)}
-            >
-              {getButtonText()}
-            </Button>
+            {/* Bottom Button - Centered rounded rectangle */}
+            <div className="px-3 pb-3 pt-1 mt-auto">
+              <Button 
+                className="w-full h-9 text-sm rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                onClick={() => navigate(`/complete/${checklist.id}`)}
+              >
+                {getButtonText()}
+              </Button>
+            </div>
           </Card>
         );
       })}
