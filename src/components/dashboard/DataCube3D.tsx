@@ -306,30 +306,13 @@ function CubeFaceComponent({
       )}
       style={{
         backgroundColor: bgColor,
-        boxShadow: '0 4px 20px -4px rgba(0, 0, 0, 0.15)',
       }}
     >
-      {/* Glossy overlay - iOS style shine effect */}
+      {/* Sharp horizontal gloss line - iOS app icon style */}
       <div 
-        className="absolute inset-0 pointer-events-none rounded-xl"
+        className="absolute inset-x-0 top-0 h-1/2 pointer-events-none rounded-t-xl"
         style={{
-          background: 'linear-gradient(165deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 40%, rgba(255,255,255,0) 50%, rgba(0,0,0,0.08) 100%)',
-        }}
-      />
-      
-      {/* Highlight line at top */}
-      <div 
-        className="absolute top-0 left-2 right-2 h-[1px] pointer-events-none"
-        style={{
-          background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.9) 20%, rgba(255,255,255,0.9) 80%, transparent 100%)',
-        }}
-      />
-      
-      {/* Inner border glow for depth */}
-      <div 
-        className="absolute inset-0 pointer-events-none rounded-xl"
-        style={{
-          boxShadow: 'inset 0 2px 3px rgba(255,255,255,0.7), inset 0 -2px 4px rgba(0,0,0,0.15)',
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.25) 100%)',
         }}
       />
       
