@@ -49,10 +49,10 @@ export function TemporaryTaskCard({
       className="overflow-hidden"
       style={{ borderLeft: `4px solid ${accentColor}` }}
     >
-      <CardContent className="p-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+      <CardContent className="py-2 px-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
           <div
-            className="p-2 rounded-lg shrink-0 relative"
+            className="p-1.5 rounded-md shrink-0 relative"
             style={{ backgroundColor: `${accentColor}20` }}
           >
             <Icon className="h-4 w-4" style={{ color: accentColor }} />
@@ -61,47 +61,40 @@ export function TemporaryTaskCard({
                 className="absolute -top-1 -right-1 p-0.5 rounded-full"
                 style={{ backgroundColor: accentColor }}
               >
-                <AlarmClock className="h-2.5 w-2.5 text-white" />
+                <AlarmClock className="h-2 w-2 text-white" />
               </div>
             )}
           </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <p className="font-medium text-sm truncate">{title}</p>
-              {taskStyle === "alarm" && (
-                <span 
-                  className="px-1 py-0.5 rounded text-[9px] font-medium shrink-0"
-                  style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
-                >
-                  RECURRING
-                </span>
-              )}
-            </div>
-            {(subtitle || badge) && (
-              <p className="text-xs text-muted-foreground flex items-center gap-2">
-                {subtitle}
-                {badge && (
-                  <span
-                    className="px-1.5 py-0.5 rounded text-[10px]"
-                    style={{
-                      backgroundColor: badge.color ? `${badge.color}20` : `${accentColor}20`,
-                      color: badge.color || accentColor,
-                    }}
-                  >
-                    {badge.label}
-                  </span>
-                )}
-              </p>
+          <div className="min-w-0 flex items-center gap-1.5">
+            <p className="font-medium text-sm truncate">{title}</p>
+            {taskStyle === "alarm" && (
+              <span 
+                className="px-1 py-0.5 rounded text-[9px] font-medium shrink-0"
+                style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
+              >
+                RECURRING
+              </span>
+            )}
+            {badge && (
+              <span
+                className="px-1.5 py-0.5 rounded text-[10px] shrink-0"
+                style={{
+                  backgroundColor: badge.color ? `${badge.color}20` : `${accentColor}20`,
+                  color: badge.color || accentColor,
+                }}
+              >
+                {badge.label}
+              </span>
             )}
           </div>
         </div>
         <Button
           size="sm"
-          className="shrink-0 gap-1 h-9 px-4 rounded-lg shadow-md hover:shadow-lg transition-shadow"
+          className="shrink-0 gap-1 h-8 px-3 rounded-lg shadow-md hover:shadow-lg transition-shadow text-xs"
           onClick={onAction}
           disabled={isLoading}
         >
-          <ButtonIcon className="h-3.5 w-3.5" />
+          <ButtonIcon className="h-3 w-3" />
           {buttonLabel}
         </Button>
       </CardContent>
