@@ -221,96 +221,30 @@ export function DataCube3D({
 
   return (
     <div className={cn("relative group", className)}>
-      {/* 3D Cube Container */}
+      {/* Flat Card Container */}
       <div 
-        className="relative w-full aspect-square cursor-pointer p-2"
+        className="relative w-full aspect-square cursor-pointer"
         onClick={handleClick}
         style={{
           minHeight: '140px',
-          perspective: '600px',
-          perspectiveOrigin: 'center center',
         }}
       >
-        {/* Cube */}
-        <div
-          className="absolute inset-2 transition-transform duration-500 ease-in-out"
-          style={{
-            transformStyle: 'preserve-3d',
-            transform: `translateZ(-70px) rotateY(${getRotation()}deg)`,
-          }}
-        >
-          {/* Front Face (0) */}
-          {faces[0] && (
-            <CubeFaceComponent
-              face={faces[0]}
-              accentColor={accentColor}
-              salesData={salesData}
-              isLoading={isLoading}
-              totalFaces={totalFaces}
-              currentFace={currentFace}
-              faceIndex={0}
-              onIndicatorClick={rotateTo}
-              title={title}
-              style={{
-                transform: 'translateZ(70px)',
-              }}
-            />
-          )}
-          
-          {/* Right Face (1) */}
-          {totalFaces > 1 && faces[1] && (
-            <CubeFaceComponent
-              face={faces[1]}
-              accentColor={accentColor}
-              salesData={salesData}
-              isLoading={isLoading}
-              totalFaces={totalFaces}
-              currentFace={currentFace}
-              faceIndex={1}
-              onIndicatorClick={rotateTo}
-              title={title}
-              style={{
-                transform: 'rotateY(90deg) translateZ(70px)',
-              }}
-            />
-          )}
-          
-          {/* Back Face (2) */}
-          {totalFaces > 2 && faces[2] && (
-            <CubeFaceComponent
-              face={faces[2]}
-              accentColor={accentColor}
-              salesData={salesData}
-              isLoading={isLoading}
-              totalFaces={totalFaces}
-              currentFace={currentFace}
-              faceIndex={2}
-              onIndicatorClick={rotateTo}
-              title={title}
-              style={{
-                transform: 'rotateY(180deg) translateZ(70px)',
-              }}
-            />
-          )}
-          
-          {/* Left Face (3) */}
-          {totalFaces > 3 && faces[3] && (
-            <CubeFaceComponent
-              face={faces[3]}
-              accentColor={accentColor}
-              salesData={salesData}
-              isLoading={isLoading}
-              totalFaces={totalFaces}
-              currentFace={currentFace}
-              faceIndex={3}
-              onIndicatorClick={rotateTo}
-              title={title}
-              style={{
-                transform: 'rotateY(270deg) translateZ(70px)',
-              }}
-            />
-          )}
-        </div>
+        {/* Flat faces - only show current face */}
+        {faces.map((face, index) => (
+          <CubeFaceComponent
+            key={index}
+            face={face}
+            accentColor={accentColor}
+            salesData={salesData}
+            isLoading={isLoading}
+            totalFaces={totalFaces}
+            currentFace={currentFace}
+            faceIndex={index}
+            onIndicatorClick={rotateTo}
+            title={title}
+            isVisible={index === currentFace}
+          />
+        ))}
       </div>
     </div>
   );
@@ -321,12 +255,12 @@ interface CubeFaceComponentProps {
   accentColor: string;
   salesData?: SalesDataForWidgets | null;
   isLoading?: boolean;
-  style: React.CSSProperties;
   totalFaces: number;
   currentFace: number;
   faceIndex: number;
   onIndicatorClick: (index: number) => void;
   title?: string;
+  isVisible: boolean;
 }
 
 function CubeFaceComponent({ 
@@ -334,12 +268,12 @@ function CubeFaceComponent({
   accentColor, 
   salesData, 
   isLoading, 
-  style,
   totalFaces,
   currentFace,
   faceIndex,
   onIndicatorClick,
   title,
+  isVisible,
 }: CubeFaceComponentProps) {
   // Use lightened version for background, original for icons/labels
   const bgColor = lightenColor(accentColor, 0.55);
@@ -351,10 +285,11 @@ function CubeFaceComponent({
   if (!face || face.metrics.length === 0) {
     return (
       <div
-        className="absolute inset-0 rounded-xl shadow-lg flex items-center justify-center p-3"
+        className={cn(
+          "absolute inset-0 rounded-xl shadow-lg flex items-center justify-center p-3 transition-opacity duration-300",
+          isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
         style={{
-          ...style,
-          backfaceVisibility: 'hidden',
           backgroundColor: bgColor,
         }}
       >
@@ -365,12 +300,13 @@ function CubeFaceComponent({
   
   return (
     <div
-      className="absolute inset-0 rounded-xl overflow-hidden flex flex-col"
+      className={cn(
+        "absolute inset-0 rounded-xl overflow-hidden flex flex-col transition-opacity duration-300",
+        isVisible ? "opacity-100" : "opacity-0 pointer-events-none"
+      )}
       style={{
-        ...style,
-        backfaceVisibility: 'hidden',
         backgroundColor: bgColor,
-        boxShadow: '0 8px 30px -8px rgba(0, 0, 0, 0.2)',
+        boxShadow: '0 4px 20px -4px rgba(0, 0, 0, 0.15)',
       }}
     >
       {/* Glossy overlay - iOS style shine effect */}
