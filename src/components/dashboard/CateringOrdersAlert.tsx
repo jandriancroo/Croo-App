@@ -114,8 +114,7 @@ export function CateringOrdersAlert() {
           subtitle={`Pickup: ${formatTime(order.pickup_time)}`}
           icon={ChefHat}
           accentColor={ORANGE_COLOR}
-          buttonLabel="View"
-          buttonVariant="view"
+          buttonLabel="Done"
           onAction={() => setSelectedOrder(order)}
           badge={{ label: `${order.items.length} items` }}
         />

@@ -550,9 +550,9 @@ export default function Dashboard() {
   };
 
 
-  // Quick tasks content - mounted at the top of the dashboard
+  // Quick tasks content - mounted at the top of the dashboard with fixed max height
   const quickTasksContent = (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto">
       {/* Assigned Temporary Tasks */}
       <AssignedTemporaryTasks />
       
