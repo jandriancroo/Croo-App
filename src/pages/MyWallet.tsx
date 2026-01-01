@@ -230,31 +230,23 @@ export default function MyWallet() {
         </div>
 
         {/* Hours & Earnings Summary */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />
-                Hours Worked
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{hoursWorked.toFixed(1)}</p>
-              <p className="text-sm text-muted-foreground">this pay period</p>
-            </CardContent>
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+              <Clock className="h-4 w-4" />
+              Hours Worked
+            </div>
+            <p className="text-2xl font-bold">{hoursWorked.toFixed(1)}</p>
+            <p className="text-xs text-muted-foreground">this pay period</p>
           </Card>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardDescription className="flex items-center gap-2">
-                <DollarSign className="h-4 w-4" />
-                Estimated Gross Pay
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">${estimatedGross.toFixed(2)}</p>
-              <p className="text-sm text-muted-foreground">@ ${hourlyWage.toFixed(2)}/hr</p>
-            </CardContent>
+          <Card className="p-4">
+            <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+              <DollarSign className="h-4 w-4" />
+              Estimated Gross Pay
+            </div>
+            <p className="text-2xl font-bold">${estimatedGross.toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground">@ ${hourlyWage.toFixed(2)}/hr</p>
           </Card>
         </div>
 
