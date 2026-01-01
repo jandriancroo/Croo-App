@@ -52,6 +52,26 @@ export function DataCube({
     }
   };
 
+  // Helper to get payment amount by type from payments array
+  const getPaymentAmount = (payments: Array<{ paymentType: string; amount: number }> | undefined, typePatterns: string[]): number | undefined => {
+    if (!payments || payments.length === 0) return undefined;
+    for (const pattern of typePatterns) {
+      const found = payments.find(p => p.paymentType.toLowerCase().includes(pattern.toLowerCase()));
+      if (found) return found.amount;
+    }
+    return undefined;
+  };
+  
+  // Helper to get payment percentage
+  const getPaymentPercent = (payments: Array<{ paymentType: string; amount: number }> | undefined, typePatterns: string[]): number | undefined => {
+    if (!payments || payments.length === 0) return undefined;
+    const amount = getPaymentAmount(payments, typePatterns);
+    if (amount === undefined) return undefined;
+    const total = payments.reduce((sum, p) => sum + p.amount, 0);
+    if (total === 0) return 0;
+    return (amount / total) * 100;
+  };
+
   const getMetricValue = (metricType: MetricType): number | undefined => {
     if (!salesData) return undefined;
     
@@ -111,6 +131,69 @@ export function DataCube({
       case 'labor_percent_mtd': return salesData.monthlyLabor?.laborPercent;
       case 'labor_cost_mtd': return salesData.monthlyLabor?.laborCost;
       case 'labor_hours_mtd': return salesData.monthlyLabor?.hoursWorked;
+      
+      // Payment type metrics - Daily (amount)
+      case 'payment_cash_today': return getPaymentAmount(salesData.payments?.daily, ['cash']);
+      case 'payment_credit_card_today': return getPaymentAmount(salesData.payments?.daily, ['credit card', 'creditcard']);
+      case 'payment_olo_doordash_today': return getPaymentAmount(salesData.payments?.daily, ['doordash', 'door dash']);
+      case 'payment_olo_ubereats_today': return getPaymentAmount(salesData.payments?.daily, ['ubereats', 'uber eats']);
+      case 'payment_olo_visa_today': return getPaymentAmount(salesData.payments?.daily, ['olo visa']);
+      case 'payment_olo_mastercard_today': return getPaymentAmount(salesData.payments?.daily, ['olo mastercard', 'olo mc']);
+      case 'payment_olo_prepaid_today': return getPaymentAmount(salesData.payments?.daily, ['olo prepaid', 'prepaid']);
+      case 'payment_olo_giftcard_today': return getPaymentAmount(salesData.payments?.daily, ['olo gift card', 'olo giftcard']);
+      case 'payment_svs_giftcard_today': return getPaymentAmount(salesData.payments?.daily, ['svs gift card', 'svs giftcard']);
+      // Daily (percent)
+      case 'payment_cash_today_pct': return getPaymentPercent(salesData.payments?.daily, ['cash']);
+      case 'payment_credit_card_today_pct': return getPaymentPercent(salesData.payments?.daily, ['credit card', 'creditcard']);
+      case 'payment_olo_doordash_today_pct': return getPaymentPercent(salesData.payments?.daily, ['doordash', 'door dash']);
+      case 'payment_olo_ubereats_today_pct': return getPaymentPercent(salesData.payments?.daily, ['ubereats', 'uber eats']);
+      case 'payment_olo_visa_today_pct': return getPaymentPercent(salesData.payments?.daily, ['olo visa']);
+      case 'payment_olo_mastercard_today_pct': return getPaymentPercent(salesData.payments?.daily, ['olo mastercard', 'olo mc']);
+      case 'payment_olo_prepaid_today_pct': return getPaymentPercent(salesData.payments?.daily, ['olo prepaid', 'prepaid']);
+      case 'payment_olo_giftcard_today_pct': return getPaymentPercent(salesData.payments?.daily, ['olo gift card', 'olo giftcard']);
+      case 'payment_svs_giftcard_today_pct': return getPaymentPercent(salesData.payments?.daily, ['svs gift card', 'svs giftcard']);
+      
+      // Payment type metrics - Weekly (amount)
+      case 'payment_cash_wtd': return getPaymentAmount(salesData.payments?.weekly, ['cash']);
+      case 'payment_credit_card_wtd': return getPaymentAmount(salesData.payments?.weekly, ['credit card', 'creditcard']);
+      case 'payment_olo_doordash_wtd': return getPaymentAmount(salesData.payments?.weekly, ['doordash', 'door dash']);
+      case 'payment_olo_ubereats_wtd': return getPaymentAmount(salesData.payments?.weekly, ['ubereats', 'uber eats']);
+      case 'payment_olo_visa_wtd': return getPaymentAmount(salesData.payments?.weekly, ['olo visa']);
+      case 'payment_olo_mastercard_wtd': return getPaymentAmount(salesData.payments?.weekly, ['olo mastercard', 'olo mc']);
+      case 'payment_olo_prepaid_wtd': return getPaymentAmount(salesData.payments?.weekly, ['olo prepaid', 'prepaid']);
+      case 'payment_olo_giftcard_wtd': return getPaymentAmount(salesData.payments?.weekly, ['olo gift card', 'olo giftcard']);
+      case 'payment_svs_giftcard_wtd': return getPaymentAmount(salesData.payments?.weekly, ['svs gift card', 'svs giftcard']);
+      // Weekly (percent)
+      case 'payment_cash_wtd_pct': return getPaymentPercent(salesData.payments?.weekly, ['cash']);
+      case 'payment_credit_card_wtd_pct': return getPaymentPercent(salesData.payments?.weekly, ['credit card', 'creditcard']);
+      case 'payment_olo_doordash_wtd_pct': return getPaymentPercent(salesData.payments?.weekly, ['doordash', 'door dash']);
+      case 'payment_olo_ubereats_wtd_pct': return getPaymentPercent(salesData.payments?.weekly, ['ubereats', 'uber eats']);
+      case 'payment_olo_visa_wtd_pct': return getPaymentPercent(salesData.payments?.weekly, ['olo visa']);
+      case 'payment_olo_mastercard_wtd_pct': return getPaymentPercent(salesData.payments?.weekly, ['olo mastercard', 'olo mc']);
+      case 'payment_olo_prepaid_wtd_pct': return getPaymentPercent(salesData.payments?.weekly, ['olo prepaid', 'prepaid']);
+      case 'payment_olo_giftcard_wtd_pct': return getPaymentPercent(salesData.payments?.weekly, ['olo gift card', 'olo giftcard']);
+      case 'payment_svs_giftcard_wtd_pct': return getPaymentPercent(salesData.payments?.weekly, ['svs gift card', 'svs giftcard']);
+      
+      // Payment type metrics - Monthly (amount)
+      case 'payment_cash_mtd': return getPaymentAmount(salesData.payments?.monthly, ['cash']);
+      case 'payment_credit_card_mtd': return getPaymentAmount(salesData.payments?.monthly, ['credit card', 'creditcard']);
+      case 'payment_olo_doordash_mtd': return getPaymentAmount(salesData.payments?.monthly, ['doordash', 'door dash']);
+      case 'payment_olo_ubereats_mtd': return getPaymentAmount(salesData.payments?.monthly, ['ubereats', 'uber eats']);
+      case 'payment_olo_visa_mtd': return getPaymentAmount(salesData.payments?.monthly, ['olo visa']);
+      case 'payment_olo_mastercard_mtd': return getPaymentAmount(salesData.payments?.monthly, ['olo mastercard', 'olo mc']);
+      case 'payment_olo_prepaid_mtd': return getPaymentAmount(salesData.payments?.monthly, ['olo prepaid', 'prepaid']);
+      case 'payment_olo_giftcard_mtd': return getPaymentAmount(salesData.payments?.monthly, ['olo gift card', 'olo giftcard']);
+      case 'payment_svs_giftcard_mtd': return getPaymentAmount(salesData.payments?.monthly, ['svs gift card', 'svs giftcard']);
+      // Monthly (percent)
+      case 'payment_cash_mtd_pct': return getPaymentPercent(salesData.payments?.monthly, ['cash']);
+      case 'payment_credit_card_mtd_pct': return getPaymentPercent(salesData.payments?.monthly, ['credit card', 'creditcard']);
+      case 'payment_olo_doordash_mtd_pct': return getPaymentPercent(salesData.payments?.monthly, ['doordash', 'door dash']);
+      case 'payment_olo_ubereats_mtd_pct': return getPaymentPercent(salesData.payments?.monthly, ['ubereats', 'uber eats']);
+      case 'payment_olo_visa_mtd_pct': return getPaymentPercent(salesData.payments?.monthly, ['olo visa']);
+      case 'payment_olo_mastercard_mtd_pct': return getPaymentPercent(salesData.payments?.monthly, ['olo mastercard', 'olo mc']);
+      case 'payment_olo_prepaid_mtd_pct': return getPaymentPercent(salesData.payments?.monthly, ['olo prepaid', 'prepaid']);
+      case 'payment_olo_giftcard_mtd_pct': return getPaymentPercent(salesData.payments?.monthly, ['olo gift card', 'olo giftcard']);
+      case 'payment_svs_giftcard_mtd_pct': return getPaymentPercent(salesData.payments?.monthly, ['svs gift card', 'svs giftcard']);
       
       default: return undefined;
     }

@@ -251,6 +251,48 @@ export const METRIC_GROUPS = [
       'labor_percent_mtd', 'labor_cost_mtd', 'labor_hours_mtd'
     ] as MetricType[] 
   },
+  {
+    label: 'Payments - Daily',
+    metrics: [
+      'payment_cash_today', 'payment_cash_today_pct',
+      'payment_credit_card_today', 'payment_credit_card_today_pct',
+      'payment_olo_doordash_today', 'payment_olo_doordash_today_pct',
+      'payment_olo_ubereats_today', 'payment_olo_ubereats_today_pct',
+      'payment_olo_visa_today', 'payment_olo_visa_today_pct',
+      'payment_olo_mastercard_today', 'payment_olo_mastercard_today_pct',
+      'payment_olo_prepaid_today', 'payment_olo_prepaid_today_pct',
+      'payment_olo_giftcard_today', 'payment_olo_giftcard_today_pct',
+      'payment_svs_giftcard_today', 'payment_svs_giftcard_today_pct'
+    ] as MetricType[]
+  },
+  {
+    label: 'Payments - Weekly',
+    metrics: [
+      'payment_cash_wtd', 'payment_cash_wtd_pct',
+      'payment_credit_card_wtd', 'payment_credit_card_wtd_pct',
+      'payment_olo_doordash_wtd', 'payment_olo_doordash_wtd_pct',
+      'payment_olo_ubereats_wtd', 'payment_olo_ubereats_wtd_pct',
+      'payment_olo_visa_wtd', 'payment_olo_visa_wtd_pct',
+      'payment_olo_mastercard_wtd', 'payment_olo_mastercard_wtd_pct',
+      'payment_olo_prepaid_wtd', 'payment_olo_prepaid_wtd_pct',
+      'payment_olo_giftcard_wtd', 'payment_olo_giftcard_wtd_pct',
+      'payment_svs_giftcard_wtd', 'payment_svs_giftcard_wtd_pct'
+    ] as MetricType[]
+  },
+  {
+    label: 'Payments - Monthly',
+    metrics: [
+      'payment_cash_mtd', 'payment_cash_mtd_pct',
+      'payment_credit_card_mtd', 'payment_credit_card_mtd_pct',
+      'payment_olo_doordash_mtd', 'payment_olo_doordash_mtd_pct',
+      'payment_olo_ubereats_mtd', 'payment_olo_ubereats_mtd_pct',
+      'payment_olo_visa_mtd', 'payment_olo_visa_mtd_pct',
+      'payment_olo_mastercard_mtd', 'payment_olo_mastercard_mtd_pct',
+      'payment_olo_prepaid_mtd', 'payment_olo_prepaid_mtd_pct',
+      'payment_olo_giftcard_mtd', 'payment_olo_giftcard_mtd_pct',
+      'payment_svs_giftcard_mtd', 'payment_svs_giftcard_mtd_pct'
+    ] as MetricType[]
+  },
 ];
 
 export interface SalesDataForWidgets {
@@ -274,6 +316,12 @@ export interface SalesDataForWidgets {
     hoursPayroll: number;
     payWeek: number;
     payPayroll: number;
+  } | null;
+  // Payment types data
+  payments?: {
+    daily: Array<{ paymentType: string; amount: number }>;
+    weekly: Array<{ paymentType: string; amount: number }>;
+    monthly: Array<{ paymentType: string; amount: number }>;
   } | null;
 }
 
