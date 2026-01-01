@@ -27,6 +27,20 @@ function getContrastColor(hexColor: string): 'light' | 'dark' {
   return luminance > 0.5 ? 'dark' : 'light';
 }
 
+// Lighten a hex color
+function lightenColor(hexColor: string, amount: number = 0.4): string {
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  
+  const newR = Math.min(255, Math.round(r + (255 - r) * amount));
+  const newG = Math.min(255, Math.round(g + (255 - g) * amount));
+  const newB = Math.min(255, Math.round(b + (255 - b) * amount));
+  
+  return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
+}
+
 // Icon mapping for metrics
 function getIconForMetric(metricType: MetricType): React.ReactNode {
   const key = metricType.toLowerCase();
@@ -188,15 +202,16 @@ export function DataCube3D({
         onClick={handleClick}
         style={{ 
           minHeight: '140px',
-          perspective: '800px',
+          perspective: '600px',
+          perspectiveOrigin: 'center center',
         }}
       >
         {/* Cube */}
         <div
-          className="absolute inset-0 transition-transform duration-700 ease-out"
+          className="absolute inset-0 transition-transform duration-500 ease-in-out"
           style={{
             transformStyle: 'preserve-3d',
-            transform: `rotateY(${getRotation()}deg)`,
+            transform: `translateZ(-70px) rotateY(${getRotation()}deg)`,
           }}
         >
           {/* Front Face (0) */}
@@ -293,12 +308,14 @@ function CubeFaceComponent({
   faceIndex,
   onIndicatorClick,
 }: CubeFaceComponentProps) {
-  const contrast = getContrastColor(accentColor);
-  const textColor = contrast === 'light' ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.85)';
-  const textMuted = contrast === 'light' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)';
-  const iconBg = contrast === 'light' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)';
-  const dotActive = contrast === 'light' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.7)';
-  const dotInactive = contrast === 'light' ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)';
+  // Use lightened version for background, original for icons/labels
+  const bgColor = lightenColor(accentColor, 0.55);
+  const iconColor = accentColor;
+  const valueColor = 'rgba(0,0,0,0.85)';
+  const labelColor = accentColor;
+  const iconBg = 'rgba(255,255,255,0.6)';
+  const dotActive = accentColor;
+  const dotInactive = `${accentColor}40`;
 
   if (!face || face.metrics.length === 0) {
     return (
@@ -307,10 +324,10 @@ function CubeFaceComponent({
         style={{
           ...style,
           backfaceVisibility: 'hidden',
-          backgroundColor: accentColor,
+          backgroundColor: bgColor,
         }}
       >
-        <span style={{ color: textMuted }} className="text-xs">No metrics</span>
+        <span style={{ color: labelColor }} className="text-xs">No metrics</span>
       </div>
     );
   }
@@ -321,8 +338,8 @@ function CubeFaceComponent({
       style={{
         ...style,
         backfaceVisibility: 'hidden',
-        backgroundColor: accentColor,
-        boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.3), 0 4px 12px -4px rgba(0, 0, 0, 0.15)',
+        backgroundColor: bgColor,
+        boxShadow: '0 8px 30px -8px rgba(0, 0, 0, 0.2)',
       }}
     >
       {/* Content */}
@@ -341,7 +358,7 @@ function CubeFaceComponent({
                 className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center"
                 style={{ backgroundColor: iconBg }}
               >
-                <div style={{ color: textColor }}>
+                <div style={{ color: iconColor }}>
                   {getIconForMetric(metricType)}
                 </div>
               </div>
@@ -351,15 +368,15 @@ function CubeFaceComponent({
                 <div 
                   className={cn(
                     "text-base font-bold leading-tight",
-                    isLoading && "animate-pulse bg-white/20 rounded w-16 h-5"
+                    isLoading && "animate-pulse bg-white/30 rounded w-16 h-5"
                   )}
-                  style={{ color: textColor }}
+                  style={{ color: valueColor }}
                 >
                   {!isLoading && formattedValue}
                 </div>
                 <div 
-                  className="text-[10px] font-medium"
-                  style={{ color: textMuted }}
+                  className="text-[10px] font-semibold"
+                  style={{ color: labelColor }}
                 >
                   {config.shortLabel}
                 </div>
