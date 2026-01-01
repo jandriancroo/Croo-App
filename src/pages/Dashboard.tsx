@@ -632,16 +632,6 @@ export default function Dashboard() {
         
         return (
           <Card key={checklist.id} className="hover:shadow-lg transition-shadow p-0 flex flex-col relative overflow-visible">
-            {/* Confetti particles for completed checklists */}
-            {isComplete && (
-              <>
-                <div className="absolute -top-1 left-4 text-lg animate-bounce" style={{ animationDelay: '0s', animationDuration: '2s' }}>🎊</div>
-                <div className="absolute -top-1 left-1/4 text-sm animate-bounce" style={{ animationDelay: '0.3s', animationDuration: '2.5s' }}>✨</div>
-                <div className="absolute -top-2 left-1/2 text-lg animate-bounce" style={{ animationDelay: '0.5s', animationDuration: '2.2s' }}>🎉</div>
-                <div className="absolute -top-1 right-1/4 text-sm animate-bounce" style={{ animationDelay: '0.7s', animationDuration: '2.8s' }}>✨</div>
-              </>
-            )}
-            
             {/* Header Section */}
             <CardHeader className="py-2 px-3">
               <div className="flex items-center gap-2">
@@ -659,10 +649,10 @@ export default function Dashboard() {
                 <div className="text-base text-muted-foreground font-medium">
                   {completed}/{expected}
                 </div>
-                {/* Flowing Ribbon Status - wraps around card edge */}
-                <div className="absolute right-0 flex flex-col items-end">
+                {/* Flowing Ribbon Status - extends outside card edge */}
+                <div className="absolute -right-1 flex flex-col items-end">
                   <div 
-                    className={`flex items-center gap-1.5 pl-4 pr-3 py-1 text-xs font-semibold text-white shadow-md ${
+                    className={`flex items-center gap-1.5 pl-3 pr-4 py-1 text-xs font-semibold text-white shadow-lg ${
                       isComplete ? 'bg-primary' : 'bg-destructive'
                     }`}
                     style={{
@@ -671,8 +661,14 @@ export default function Dashboard() {
                   >
                     {isComplete ? (
                       <>
-                        <Check className="h-3.5 w-3.5" />
-                        <span>Completed</span>
+                        <Check 
+                          className="h-5 w-5 fill-white" 
+                          strokeWidth={3}
+                          style={{ 
+                            filter: 'drop-shadow(0 0 2px hsl(var(--primary)))'
+                          }}
+                        />
+                        <span>100% Completed</span>
                       </>
                     ) : (
                       <span>{completionRate}% Completed</span>
