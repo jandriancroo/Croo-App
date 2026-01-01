@@ -326,10 +326,15 @@ export const Layout = ({
       icon: Clock
     }] : [])
   ];
+  // Mobile bottom nav: Dash, Chat, Tasks, Logs, Schedule (no More button - it's in header)
   const mobileMainNavItems = isChecklistOnlyLocation ? checklistOnlyNavItems : [{
     path: '/dashboard',
     label: 'Dash',
     icon: Home
+  }, {
+    path: '/messages',
+    label: 'Chat',
+    icon: MessageSquare
   }, {
     path: '/tasks',
     label: 'Tasks',
@@ -342,10 +347,6 @@ export const Layout = ({
     path: '/schedule',
     label: 'Schedule',
     icon: Calendar
-  }, {
-    path: '/messages',
-    label: 'Chat',
-    icon: MessageSquare
   }];
 
   // For checklist-only locations, only show Settings and Users in the mobile menu
@@ -385,13 +386,18 @@ export const Layout = ({
     }] : [])
   ];
 
-  // Other menu items (non-Time)
+  // Other menu items (non-Time) - includes Alerts now
   const mobileMenuItems = isChecklistOnlyLocation ? checklistOnlyMobileMenuItems : [
-    ...(canAccessLogs ? [{
-      path: '/logbook',
-      label: 'Logs',
-      icon: Scroll
-    }] : []),
+    {
+      path: '/alerts',
+      label: 'Live Alerts',
+      icon: () => (
+        <span className="relative flex h-5 w-5 items-center justify-center">
+          <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-destructive opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+        </span>
+      )
+    },
     ...(isAdmin ? [{
       path: '/users',
       label: 'Users',
@@ -483,14 +489,112 @@ export const Layout = ({
             </div>
           )}
           
-          {/* Mobile Alerts Button - hidden for checklist-only locations */}
-          {!isChecklistOnlyLocation && (
-            <button onClick={() => navigate('/alerts')} title="Live Alerts" className="md:hidden relative p-2 ml-auto hover:opacity-80 transition-opacity">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
-              </span>
-            </button>
+          {/* Mobile More Menu Button in header */}
+          {isMobile && (
+            <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+              <SheetTrigger asChild>
+                <button
+                  className="ml-auto p-2 hover:opacity-80 transition-opacity text-foreground"
+                  title="More options"
+                >
+                  <Menu className="h-6 w-6" />
+                </button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="h-auto">
+                <SheetHeader>
+                  <SheetTitle>Menu</SheetTitle>
+                </SheetHeader>
+                <div className="grid gap-2 py-4">
+                  {/* Profile Section */}
+                  <div 
+                    className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => {
+                      navigate('/my-profile');
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={userProfile?.profile_photo_url || ''} />
+                      <AvatarFallback>{initials}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{userProfile?.full_name || 'User'}</p>
+                      <p className="text-xs text-muted-foreground">Tap to edit profile</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  </div>
+
+                  {hasMultiLocationAccess && (
+                    <Button variant="outline" onClick={() => {
+                      navigate('/multi-location');
+                      setMenuOpen(false);
+                    }} className="justify-start gap-3 h-11">
+                      <Building2 className="h-5 w-5" />
+                      <span className="text-base">Multi-Location</span>
+                    </Button>
+                  )}
+
+                  {/* Time collapsible section */}
+                  {mobileTimeItems.length > 0 && (
+                    <div className="space-y-1">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => setTimeMenuExpanded(!timeMenuExpanded)}
+                        className="justify-between w-full h-11"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Clock className="h-5 w-5" />
+                          <span className="text-base">Time</span>
+                        </div>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${timeMenuExpanded ? 'rotate-180' : ''}`} />
+                      </Button>
+                      {timeMenuExpanded && (
+                        <div className="pl-4 space-y-1">
+                          {mobileTimeItems.map(item => {
+                            const Icon = item.icon;
+                            const isActive = location.pathname === item.path;
+                            return (
+                              <Button 
+                                key={item.path} 
+                                variant={isActive ? 'secondary' : 'ghost'} 
+                                onClick={() => {
+                                  navigate(item.path);
+                                  setMenuOpen(false);
+                                }} 
+                                className="justify-start gap-3 h-10 w-full"
+                              >
+                                <Icon className="h-4 w-4" />
+                                <span className="text-sm">{item.label}</span>
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {mobileMenuItems.map(item => {
+                    const Icon = item.icon;
+                    const isActive = location.pathname === item.path;
+                    return <Button key={item.path} variant={isActive ? 'secondary' : 'outline'} onClick={() => {
+                      navigate(item.path);
+                      setMenuOpen(false);
+                    }} className="justify-start gap-3 h-11">
+                      <Icon className="h-5 w-5" />
+                      <span className="text-base">{item.label}</span>
+                    </Button>;
+                  })}
+
+                  <Button variant="outline" onClick={() => {
+                    signOut();
+                    setMenuOpen(false);
+                  }} className="justify-start gap-3 h-11 text-destructive hover:text-destructive">
+                    <DoorOpen className="h-5 w-5" />
+                    <span className="text-base">Sign Out</span>
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
           )}
           
           <div className="hidden md:flex items-center gap-2">
@@ -595,117 +699,6 @@ export const Layout = ({
             </button>
           );
         })}
-          
-          {/* Hamburger Menu for Additional Items */}
-          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-            <SheetTrigger asChild>
-              <button
-                className={`flex flex-col items-center gap-1 px-3 py-1 rounded-xl transition-colors ${
-                  menuOpen 
-                    ? 'bg-white/20 text-white' 
-                    : 'text-white/70 hover:text-white'
-                }`}
-              >
-                <Menu className="h-6 w-6" strokeWidth={menuOpen ? 2.5 : 2} />
-                <span className={`text-[11px] ${menuOpen ? 'font-semibold' : 'font-medium'}`}>More</span>
-              </button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-auto">
-              <SheetHeader>
-                <SheetTitle>Menu</SheetTitle>
-              </SheetHeader>
-              <div className="grid gap-2 py-4">
-                {/* Profile Section */}
-                <div 
-                  className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2 cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => {
-                    navigate('/my-profile');
-                    setMenuOpen(false);
-                  }}
-                >
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={userProfile?.profile_photo_url || ''} />
-                    <AvatarFallback>{initials}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{userProfile?.full_name || 'User'}</p>
-                    <p className="text-xs text-muted-foreground">Tap to edit profile</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </div>
-
-                {hasMultiLocationAccess && (
-                  <Button variant="outline" onClick={() => {
-                    navigate('/multi-location');
-                    setMenuOpen(false);
-                  }} className="justify-start gap-3 h-11">
-                    <Building2 className="h-5 w-5" />
-                    <span className="text-base">Multi-Location</span>
-                  </Button>
-                )}
-
-
-                {/* Time collapsible section */}
-                {mobileTimeItems.length > 0 && (
-                  <div className="space-y-1">
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setTimeMenuExpanded(!timeMenuExpanded)}
-                      className="justify-between w-full h-11"
-                    >
-                      <div className="flex items-center gap-3">
-                        <Clock className="h-5 w-5" />
-                        <span className="text-base">Time</span>
-                      </div>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${timeMenuExpanded ? 'rotate-180' : ''}`} />
-                    </Button>
-                    {timeMenuExpanded && (
-                      <div className="pl-4 space-y-1">
-                        {mobileTimeItems.map(item => {
-                          const Icon = item.icon;
-                          const isActive = location.pathname === item.path;
-                          return (
-                            <Button 
-                              key={item.path} 
-                              variant={isActive ? 'secondary' : 'ghost'} 
-                              onClick={() => {
-                                navigate(item.path);
-                                setMenuOpen(false);
-                              }} 
-                              className="justify-start gap-3 h-10 w-full"
-                            >
-                              <Icon className="h-4 w-4" />
-                              <span className="text-sm">{item.label}</span>
-                            </Button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {mobileMenuItems.map(item => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.path;
-                return <Button key={item.path} variant={isActive ? 'secondary' : 'outline'} onClick={() => {
-                  navigate(item.path);
-                  setMenuOpen(false);
-                }} className="justify-start gap-3 h-11">
-                      <Icon className="h-5 w-5" />
-                      <span className="text-base">{item.label}</span>
-                    </Button>;
-              })}
-
-                <Button variant="outline" onClick={() => {
-                signOut();
-                setMenuOpen(false);
-              }} className="justify-start gap-3 h-11 text-destructive hover:text-destructive">
-                  <DoorOpen className="h-5 w-5" />
-                  <span className="text-base">Sign Out</span>
-                </Button>
-              </div>
-            </SheetContent>
-          </Sheet>
         </div>
       </nav>
 
