@@ -653,7 +653,7 @@ export default function Dashboard() {
                 <div className="flex flex-col items-end ml-auto -mr-3 sm:-mr-4">
                   <div 
                     className={`flex items-center gap-1 sm:gap-1.5 pl-2 sm:pl-3 pr-3 sm:pr-4 py-1 text-[10px] sm:text-xs font-semibold text-white shadow-lg ${
-                      isComplete ? 'bg-primary' : 'bg-destructive'
+                      isComplete ? 'bg-primary' : 'bg-red-400'
                     }`}
                     style={{
                       clipPath: 'polygon(10px 0%, 100% 0%, 100% 100%, 10px 100%, 0% 50%)'
@@ -673,7 +673,7 @@ export default function Dashboard() {
                   {/* Ribbon wrap-around fold */}
                   <div 
                     className={`w-2 h-2 sm:w-3 sm:h-3 ${
-                      isComplete ? 'bg-primary/50' : 'bg-destructive/50'
+                      isComplete ? 'bg-primary/50' : 'bg-red-400/50'
                     }`}
                     style={{
                       clipPath: 'polygon(0% 0%, 100% 0%, 0% 100%)'
