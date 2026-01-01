@@ -683,15 +683,12 @@ export default function Dashboard() {
               </div>
             </CardContent>
 
-            {/* Bottom Button - Matching app button style */}
-            <div className="px-3 pb-3 pt-1 mt-auto flex justify-end">
+            {/* Bottom Button - Centered rounded rectangle */}
+            <div className="px-3 pb-3 pt-1 mt-auto">
               <Button 
-                variant="outline"
-                size="sm"
-                className="rounded-lg"
+                className="w-full h-9 text-sm rounded-lg shadow-md hover:shadow-lg transition-shadow"
                 onClick={() => navigate(`/complete/${checklist.id}`)}
               >
-                {isComplete && <Check className="h-4 w-4 mr-1" />}
                 {getButtonText()}
               </Button>
             </div>
