@@ -653,18 +653,13 @@ export default function Dashboard() {
             {/* Combined Status Button with Progress Bar */}
             <CardContent className="py-2 px-3 pt-0 flex-1 flex flex-col justify-end">
               <button 
-                className="relative w-full h-10 text-sm rounded-lg shadow-md hover:shadow-lg transition-all overflow-hidden border border-primary/20"
+                className="relative w-full h-10 text-sm rounded-lg shadow-md hover:shadow-lg transition-all overflow-hidden bg-muted"
                 onClick={() => navigate(`/complete/${checklist.id}`)}
               >
                 {/* Progress fill background */}
                 <div 
-                  className="absolute inset-0 bg-primary transition-all duration-300"
-                  style={{ width: `${completionRate}%` }}
-                />
-                {/* Unfilled background */}
-                <div 
-                  className="absolute inset-0 bg-muted"
-                  style={{ left: `${completionRate}%` }}
+                  className="absolute inset-y-0 left-0 bg-primary transition-all duration-300 rounded-lg"
+                  style={{ width: `${Math.max(completionRate, hasStarted ? 45 : 0)}%` }}
                 />
                 {/* Content */}
                 <div className="relative z-10 flex items-center justify-between px-4 h-full">
