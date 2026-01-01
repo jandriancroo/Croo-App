@@ -46,6 +46,11 @@ export type MetricType =
   | 'labor_percent_mtd'
   | 'labor_cost_mtd'
   | 'labor_hours_mtd'
+  // Personal metrics (available to all users)
+  | 'personal_hours_week'
+  | 'personal_hours_payroll'
+  | 'personal_pay_week'
+  | 'personal_pay_payroll'
   // Legacy aliases (for backwards compatibility)
   | 'labor_percent'
   | 'labor_cost'
@@ -99,6 +104,12 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   labor_cost_mtd: { type: 'labor_cost_mtd', label: 'Labor Cost MTD', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'monthly' },
   labor_hours_mtd: { type: 'labor_hours_mtd', label: 'Hours MTD', shortLabel: 'Hours', icon: Clock, format: 'hours', category: 'monthly' },
   
+  // Personal metrics - available to all users
+  personal_hours_week: { type: 'personal_hours_week', label: 'My Hours (Week)', shortLabel: 'Hrs Wk', icon: Clock, format: 'hours', category: 'weekly' },
+  personal_hours_payroll: { type: 'personal_hours_payroll', label: 'My Hours (Payroll)', shortLabel: 'Hrs Pay', icon: Clock, format: 'hours', category: 'weekly' },
+  personal_pay_week: { type: 'personal_pay_week', label: 'Est. Pay (Week)', shortLabel: 'Pay Wk', icon: DollarSign, format: 'currency', category: 'weekly' },
+  personal_pay_payroll: { type: 'personal_pay_payroll', label: 'Est. Pay (Payroll)', shortLabel: 'Pay Per', icon: DollarSign, format: 'currency', category: 'weekly' },
+  
   // Legacy aliases (map to equivalents for backwards compatibility) - hidden from UI
   labor_percent: { type: 'labor_percent', label: 'Labor %', shortLabel: 'Labor%', icon: Users, format: 'percent', category: 'daily' },
   labor_cost: { type: 'labor_cost', label: 'Labor Cost', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'daily' },
@@ -117,6 +128,12 @@ export function migrateMetricType(metric: string): MetricType {
 
 // Consistent order across all time periods: Sales, Pace, Projected, Last Wk, Last Yr, Guests, Pizzas, [Avg Ticket daily only], Labor%, Labor$, Hours
 export const METRIC_GROUPS = [
+  { 
+    label: 'Personal', 
+    metrics: [
+      'personal_hours_week', 'personal_hours_payroll', 'personal_pay_week', 'personal_pay_payroll'
+    ] as MetricType[] 
+  },
   { 
     label: 'Daily', 
     metrics: [
@@ -158,6 +175,13 @@ export interface SalesDataForWidgets {
   monthlyLabor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours?: number; overtimeHours?: number } | null;
   hourly?: Array<{ hour: string; sales: number; projected?: number }>;
   weeklyBreakdown?: Array<{ date: string; sales: number; projected?: number }>;
+  // Personal metrics data
+  personalData?: {
+    hoursWeek: number;
+    hoursPayroll: number;
+    payWeek: number;
+    payPayroll: number;
+  } | null;
 }
 
 interface DashboardWidgetProps {
@@ -263,6 +287,12 @@ export function DashboardWidget({
       case 'labor_percent_mtd': return salesData.monthlyLabor?.laborPercent;
       case 'labor_cost_mtd': return salesData.monthlyLabor?.laborCost;
       case 'labor_hours_mtd': return salesData.monthlyLabor?.hoursWorked;
+      
+      // Personal metrics
+      case 'personal_hours_week': return salesData.personalData?.hoursWeek;
+      case 'personal_hours_payroll': return salesData.personalData?.hoursPayroll;
+      case 'personal_pay_week': return salesData.personalData?.payWeek;
+      case 'personal_pay_payroll': return salesData.personalData?.payPayroll;
       
       default: return undefined;
     }

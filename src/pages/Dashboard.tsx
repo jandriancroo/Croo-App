@@ -28,6 +28,7 @@ import { SalesDataForWidgets } from '@/components/dashboard/DashboardWidget';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
+import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 
 interface CateringOrder {
   id: string;
@@ -91,6 +92,16 @@ export default function Dashboard() {
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
   const queryClient = useQueryClient();
+  
+  // Fetch personal pay data for personal metrics
+  const { data: personalPayData } = usePersonalPayData();
+  
+  // Combine sales data with personal data
+  const combinedSalesData: SalesDataForWidgets | null = salesOverviewData 
+    ? { ...salesOverviewData, personalData: personalPayData }
+    : personalPayData 
+      ? { personalData: personalPayData }
+      : null;
 
   // Fetch cubes for the edit dialog
   const { data: dashboardCubes = [] } = useQuery({
@@ -776,11 +787,15 @@ export default function Dashboard() {
     </div>
   );
 
-  // Only render WidgetsSection if QuBeyond integration is active AND user can see sales
-  // Team members need the location setting enabled; shift managers+ always see it
-  const dashboardContent = (hasQuBeyondIntegration && isSectionVisible('data-cubes') && canSeeSales) ? (
+  // Render WidgetsSection if:
+  // 1. QuBeyond integration is active AND user can see sales, OR
+  // 2. User wants to use personal metrics (always available)
+  // For now, always show WidgetsSection since personal metrics are available to all
+  const showWidgets = isSectionVisible('data-cubes') && (canSeeSales || !hasQuBeyondIntegration);
+  
+  const dashboardContent = showWidgets ? (
     <WidgetsSection 
-      salesData={salesOverviewData} 
+      salesData={combinedSalesData} 
       isLoadingSales={isLoadingSales} 
       hasQuBeyondIntegration={hasQuBeyondIntegration} 
       showAddDialog={showAddCubeDialog} 
@@ -794,7 +809,7 @@ export default function Dashboard() {
       }}
     />
   ) : (
-    // If no QuBeyond or user can't see sales, just render the checklists grid directly
+    // If section not visible, just render the checklists grid directly
     checklistsGridContent
   );
   return <Layout>
