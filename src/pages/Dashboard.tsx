@@ -661,13 +661,9 @@ export default function Dashboard() {
                   >
                     {isComplete ? (
                       <>
-                        <Check 
-                          className="h-5 w-5 fill-white" 
-                          strokeWidth={3}
-                          style={{ 
-                            filter: 'drop-shadow(0 0 2px hsl(var(--primary)))'
-                          }}
-                        />
+                        <div className="flex items-center justify-center w-5 h-5 rounded-full bg-white shadow-sm">
+                          <Check className="h-3.5 w-3.5 text-primary" strokeWidth={3} />
+                        </div>
                         <span>100% Completed</span>
                       </>
                     ) : (
