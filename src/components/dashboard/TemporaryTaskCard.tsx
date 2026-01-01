@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Eye, LucideIcon, AlarmClock } from "lucide-react";
+import { Check, LucideIcon, AlarmClock } from "lucide-react";
 
 export interface TemporaryTaskCardProps {
   /** Unique identifier for the task */
@@ -13,10 +13,8 @@ export interface TemporaryTaskCardProps {
   icon: LucideIcon;
   /** Accent color for the left border and icon background (hex or HSL) */
   accentColor: string;
-  /** Button label - defaults to "Complete" */
+  /** Button label - defaults to "Done" */
   buttonLabel?: string;
-  /** Button variant - "complete" shows check icon, "view" shows eye icon */
-  buttonVariant?: "complete" | "view";
   /** Whether the action is in progress */
   isLoading?: boolean;
   /** Callback when button is clicked */
@@ -35,22 +33,19 @@ export function TemporaryTaskCard({
   subtitle,
   icon: Icon,
   accentColor,
-  buttonLabel = "Complete",
-  buttonVariant = "complete",
+  buttonLabel = "Done",
   isLoading = false,
   onAction,
   badge,
   taskStyle = "standard",
 }: TemporaryTaskCardProps) {
-  const ButtonIcon = buttonVariant === "view" ? Eye : Check;
-
   return (
     <Card
       className="overflow-hidden"
       style={{ borderLeft: `4px solid ${accentColor}` }}
     >
       <CardContent className="py-2 px-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <div
             className="p-1.5 rounded-md shrink-0 relative"
             style={{ backgroundColor: `${accentColor}20` }}
@@ -65,7 +60,7 @@ export function TemporaryTaskCard({
               </div>
             )}
           </div>
-          <div className="min-w-0 flex items-center gap-1.5">
+          <div className="min-w-0 flex items-center gap-1.5 flex-1">
             <p className="font-medium text-sm truncate">{title}</p>
             {taskStyle === "alarm" && (
               <span 
@@ -90,11 +85,11 @@ export function TemporaryTaskCard({
         </div>
         <Button
           size="sm"
-          className="shrink-0 gap-1 h-8 px-3 rounded-lg shadow-md hover:shadow-lg transition-shadow text-xs"
+          className="shrink-0 gap-1 h-8 px-3 rounded-lg shadow-md hover:shadow-lg transition-shadow text-xs bg-green-500 hover:bg-green-600 text-white"
           onClick={onAction}
           disabled={isLoading}
         >
-          <ButtonIcon className="h-3 w-3" />
+          <Check className="h-3 w-3" />
           {buttonLabel}
         </Button>
       </CardContent>

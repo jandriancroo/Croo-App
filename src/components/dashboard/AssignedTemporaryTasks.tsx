@@ -340,8 +340,7 @@ export function AssignedTemporaryTasks({
           subtitle={task.description || undefined}
           icon={getIconComponent(task.icon_name || "ClipboardList")}
           accentColor={task.accent_color || "#8B5CF6"}
-          buttonLabel="View"
-          buttonVariant="view"
+          buttonLabel="Done"
           onAction={() => setSelectedTask(task)}
           taskStyle={(task.task_style as "standard" | "alarm") || "standard"}
         />
@@ -356,8 +355,7 @@ export function AssignedTemporaryTasks({
           subtitle={`Pickup: ${formatTime(order.pickup_time)}`}
           icon={ChefHat}
           accentColor={ORANGE_COLOR}
-          buttonLabel="View"
-          buttonVariant="view"
+          buttonLabel="Done"
           onAction={() => setSelectedOrder(order)}
           badge={{ label: `${order.items.length} items` }}
         />
@@ -391,7 +389,6 @@ export function AssignedTemporaryTasks({
             icon={Check}
             accentColor="#22c55e"
             buttonLabel="Done"
-            buttonVariant="complete"
             onAction={() => {}}
             taskStyle="standard"
           />
@@ -411,7 +408,6 @@ export function AssignedTemporaryTasks({
             icon={Check}
             accentColor="#22c55e"
             buttonLabel="Done"
-            buttonVariant="complete"
             onAction={() => {}}
           />
         </div>
