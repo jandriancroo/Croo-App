@@ -352,7 +352,15 @@ function CubeFaceComponent({
       <div 
         className="absolute inset-0 pointer-events-none rounded-xl"
         style={{
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.15) 45%, rgba(255,255,255,0) 50%, rgba(0,0,0,0.05) 100%)',
+          background: 'linear-gradient(165deg, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.4) 40%, rgba(255,255,255,0) 50%, rgba(0,0,0,0.08) 100%)',
+        }}
+      />
+      
+      {/* Highlight line at top */}
+      <div 
+        className="absolute top-0 left-2 right-2 h-[1px] pointer-events-none"
+        style={{
+          background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.9) 20%, rgba(255,255,255,0.9) 80%, transparent 100%)',
         }}
       />
       
@@ -360,7 +368,7 @@ function CubeFaceComponent({
       <div 
         className="absolute inset-0 pointer-events-none rounded-xl"
         style={{
-          boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.6), inset 0 -1px 2px rgba(0,0,0,0.1)',
+          boxShadow: 'inset 0 2px 3px rgba(255,255,255,0.7), inset 0 -2px 4px rgba(0,0,0,0.15)',
         }}
       />
       
@@ -389,7 +397,7 @@ function CubeFaceComponent({
               <div className="flex-1 min-w-0">
                 <div 
                   className={cn(
-                    "text-sm font-bold leading-tight",
+                    "text-base font-bold leading-tight",
                     isLoading && "animate-pulse bg-white/30 rounded w-14 h-4"
                   )}
                   style={{ color: valueColor }}
@@ -397,7 +405,7 @@ function CubeFaceComponent({
                   {!isLoading && formattedValue}
                 </div>
                 <div 
-                  className="text-[8px] font-semibold"
+                  className="text-[9px] font-semibold"
                   style={{ color: labelColor }}
                 >
                   {config.shortLabel}
