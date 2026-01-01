@@ -684,7 +684,7 @@ export const Layout = ({
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-accent backdrop-blur-lg border-t border-accent-foreground/10 md:hidden">
-        <div className="flex items-center justify-around px-3 py-2" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))' }}>
+        <div className="flex items-center justify-evenly px-1 py-2" style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom, 8px))' }}>
           {mobileMainNavItems.map(item => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -693,7 +693,7 @@ export const Layout = ({
             <button
               key={item.path}
               onClick={() => navigate(item.path)}
-              className={`flex flex-col items-center gap-1.5 px-4 py-1.5 rounded-xl transition-colors relative ${
+              className={`flex-1 flex flex-col items-center gap-1.5 py-1.5 rounded-xl transition-colors relative ${
                 isActive 
                   ? 'bg-white/20 text-white' 
                   : 'text-white/70 hover:text-white'
@@ -702,7 +702,7 @@ export const Layout = ({
               <Icon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
               <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
               {showBadge && (
-                <span className="absolute top-1 right-2 h-2.5 w-2.5 bg-destructive rounded-full" />
+                <span className="absolute top-1 right-1/4 h-2.5 w-2.5 bg-destructive rounded-full" />
               )}
             </button>
           );
