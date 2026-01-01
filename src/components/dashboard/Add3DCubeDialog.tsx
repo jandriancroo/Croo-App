@@ -58,6 +58,7 @@ export function Add3DCubeDialog({
   const [title, setTitle] = useState('');
   const [accentColor, setAccentColor] = useState(ACCENT_COLORS[defaultColorIndex % ACCENT_COLORS.length].value);
   const [faceMetrics, setFaceMetrics] = useState<MetricType[][]>([[], [], [], []]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const resetDialog = () => {
     setNumFaces(2);
@@ -65,6 +66,7 @@ export function Add3DCubeDialog({
     setTitle('');
     setAccentColor(ACCENT_COLORS[defaultColorIndex % ACCENT_COLORS.length].value);
     setFaceMetrics([[], [], [], []]);
+    setIsSubmitting(false);
   };
 
   const handleClose = (isOpen: boolean) => {
@@ -91,7 +93,9 @@ export function Add3DCubeDialog({
     }
   };
 
-  const handleAddCube = () => {
+  const handleAddCube = async () => {
+    if (isSubmitting) return;
+    
     // Get only the faces we're using
     const usedFaces = faceMetrics.slice(0, numFaces);
     
@@ -99,13 +103,20 @@ export function Add3DCubeDialog({
     const hasAnyMetrics = usedFaces.some(face => face.length > 0);
     if (!hasAnyMetrics) return;
 
-    onAdd({
-      title,
-      faceMetrics: usedFaces,
-      numFaces,
-      accentColor,
-    });
-    handleClose(false);
+    setIsSubmitting(true);
+    
+    try {
+      await onAdd({
+        title,
+        faceMetrics: usedFaces,
+        numFaces,
+        accentColor,
+      });
+      handleClose(false);
+    } catch (error) {
+      console.error('Error adding cube:', error);
+      setIsSubmitting(false);
+    }
   };
 
   const currentFaceMetrics = faceMetrics[activeFace];
@@ -283,9 +294,9 @@ export function Add3DCubeDialog({
         <DialogFooter>
           <Button
             onClick={handleAddCube}
-            disabled={!hasAnyMetrics}
+            disabled={!hasAnyMetrics || isSubmitting}
           >
-            Add 3D Cube
+            {isSubmitting ? 'Adding...' : 'Add 3D Cube'}
           </Button>
         </DialogFooter>
       </DialogContent>
