@@ -20,7 +20,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
-import { getBusinessDateInTimezone, getBusinessDayRangeInTimezone, getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
+import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { useCrooCashAnimation } from '@/contexts/CrooCashAnimationContext';
@@ -85,7 +85,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
   const { currentLocation, isChecklistOnlyLocation } = useAppLocation();
-  const { getTodayInTimezone, timezone } = useLocationTimezone();
+  const { getTodayInTimezone, timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone } = useLocationTimezone();
   const { animationAmount } = useCrooCashAnimation();
   const [salesOverviewData, setSalesOverviewData] = useState<SalesDataForWidgets | null>(null);
   const [isLoadingSales, setIsLoadingSales] = useState(true);
@@ -369,15 +369,15 @@ export default function Dashboard() {
   };
   const loadCompletionData = async () => {
     // Use business date which accounts for late-night operations
-    // (submissions before 5 AM count as previous day)
-    const businessDateStr = getBusinessDateInTimezone(timezone);
+    // (submissions before cutoff time count as previous day)
+    const businessDateStr = getBusinessDateInTimezone();
     
     // Get current day of week using timezone-aware function (Mon=0, Sun=6)
     const currentDay = getDayOfWeekInTimezone(timezone);
     
     // Calculate business day period in location timezone
-    // Business day runs from 5 AM today to 5 AM tomorrow
-    const { start: periodStartBusiness, end: periodEndBusiness } = getBusinessDayRangeInTimezone(businessDateStr, timezone);
+    // Business day runs from cutoff hour today to cutoff hour tomorrow
+    const { start: periodStartBusiness, end: periodEndBusiness } = getBusinessDayRangeInTimezone(businessDateStr);
     
     const dataMap: Record<string, {
       expected: number;

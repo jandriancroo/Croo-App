@@ -9,7 +9,6 @@ import { DataCube, MetricType, SalesDataForCubes } from './DataCube';
 import { ChecklistCube } from './ChecklistCube';
 import { TaskCube } from './TaskCube';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
-import { getBusinessDateInTimezone, getBusinessDayRangeInTimezone } from '@/utils/timezoneUtils';
 
 // Section types (sections are now mandatory, keeping types for reference)
 export type SectionKey = 'data-cubes' | 'sales-overview' | 'assigned-tasks' | 'event-tasks' | 'cash-handling' | 'catering-orders' | 'checklists';

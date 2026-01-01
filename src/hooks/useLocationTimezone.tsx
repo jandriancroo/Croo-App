@@ -9,45 +9,71 @@ import {
   toISOStringInTimezone,
   formatTimeDisplay,
   formatDateTimeDisplay,
-  getTimezoneOffset
+  getTimezoneOffset,
+  getBusinessDateInTimezone as getBusinessDateInTz,
+  getBusinessDayRangeInTimezone as getBusinessDayRangeInTz,
+  calculateCutoffHour
 } from '@/utils/timezoneUtils';
+import { getDayOfWeekInTimezone } from '@/utils/dateUtils';
 
 const DEFAULT_TIMEZONE = 'America/Los_Angeles';
 
 export const useLocationTimezone = () => {
   const { currentLocation } = useAppLocation();
   const [timezone, setTimezone] = useState<string>(DEFAULT_TIMEZONE);
+  const [closeTime, setCloseTime] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchTimezone = async () => {
+    const fetchTimezoneAndHours = async () => {
       if (!currentLocation?.id) {
         setTimezone(DEFAULT_TIMEZONE);
+        setCloseTime(null);
         setLoading(false);
         return;
       }
 
       try {
-        const { data, error } = await supabase
+        // Fetch timezone from location_settings
+        const { data: settings, error: settingsError } = await supabase
           .from('location_settings')
           .select('timezone')
           .eq('location_id', currentLocation.id)
           .single();
 
-        if (error && error.code !== 'PGRST116') {
-          console.error('Error fetching timezone:', error);
+        if (settingsError && settingsError.code !== 'PGRST116') {
+          console.error('Error fetching timezone:', settingsError);
         }
 
-        setTimezone(data?.timezone || DEFAULT_TIMEZONE);
+        const tz = settings?.timezone || DEFAULT_TIMEZONE;
+        setTimezone(tz);
+
+        // Get current day of week in the location's timezone to fetch correct close time
+        const currentDayOfWeek = getDayOfWeekInTimezone(tz);
+        
+        // Fetch close time for current day from location_hours
+        const { data: hours, error: hoursError } = await supabase
+          .from('location_hours')
+          .select('close_time')
+          .eq('location_id', currentLocation.id)
+          .eq('day_of_week', currentDayOfWeek)
+          .single();
+
+        if (hoursError && hoursError.code !== 'PGRST116') {
+          console.error('Error fetching location hours:', hoursError);
+        }
+
+        setCloseTime(hours?.close_time || null);
       } catch (error) {
-        console.error('Error fetching timezone:', error);
+        console.error('Error fetching timezone/hours:', error);
         setTimezone(DEFAULT_TIMEZONE);
+        setCloseTime(null);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTimezone();
+    fetchTimezoneAndHours();
   }, [currentLocation?.id]);
 
   // Date utilities using the location's timezone
@@ -65,6 +91,19 @@ export const useLocationTimezone = () => {
 
   const getDateInTimezoneOffset = (daysOffset: number): string => {
     return getDateInTzOffset(daysOffset, timezone);
+  };
+
+  // Business day utilities that use the location's close time for cutoff calculation
+  const getBusinessDateInTimezone = (): string => {
+    return getBusinessDateInTz(timezone, closeTime);
+  };
+
+  const getBusinessDayRangeInTimezone = (dateStr: string): { start: Date; end: Date } => {
+    return getBusinessDayRangeInTz(dateStr, timezone, closeTime);
+  };
+
+  const getCutoffHour = (): number => {
+    return calculateCutoffHour(closeTime);
   };
 
   // Convert a local date and time to ISO string for database storage
@@ -89,11 +128,15 @@ export const useLocationTimezone = () => {
 
   return {
     timezone,
+    closeTime,
     loading,
     getTodayInTimezone,
     getDateInTimezone,
     getStartOfTodayInTimezone,
     getDateInTimezoneOffset,
+    getBusinessDateInTimezone,
+    getBusinessDayRangeInTimezone,
+    getCutoffHour,
     toISO,
     formatTime,
     formatDateTime,
