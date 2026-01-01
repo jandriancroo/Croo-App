@@ -100,73 +100,261 @@ function getDynamicLabel(metricType: MetricType): string {
   }
 }
 
+function getPaymentsForPeriod(
+  salesData: SalesDataForWidgets,
+  period: 'daily' | 'weekly' | 'monthly'
+): Array<{ paymentType: string; amount: number }> | undefined {
+  const paymentsAny = (salesData as any).payments;
+  if (!paymentsAny) return undefined;
+  if (Array.isArray(paymentsAny)) return paymentsAny;
+  if (typeof paymentsAny === 'object') return paymentsAny?.[period] ?? undefined;
+  return undefined;
+}
+
+function getPaymentAmount(
+  payments: Array<{ paymentType: string; amount: number }> | undefined,
+  typePatterns: string[]
+): number | undefined {
+  if (!payments || payments.length === 0) return undefined;
+  for (const pattern of typePatterns) {
+    const found = payments.find((p) => p.paymentType.toLowerCase().includes(pattern.toLowerCase()));
+    if (found) return found.amount;
+  }
+  return undefined;
+}
+
+function getPaymentPercent(
+  payments: Array<{ paymentType: string; amount: number }> | undefined,
+  typePatterns: string[]
+): number | undefined {
+  if (!payments || payments.length === 0) return undefined;
+  const amount = getPaymentAmount(payments, typePatterns);
+  if (amount === undefined) return undefined;
+  const total = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+  if (total === 0) return 0;
+  return (amount / total) * 100;
+}
+
 function getMetricValue(metricType: MetricType, salesData?: SalesDataForWidgets | null): number | undefined {
   if (!salesData) return undefined;
-  
+
   switch (metricType) {
     // Daily sales
-    case 'sales_today': return salesData.daily;
-    case 'sales_pace': return salesData.projections?.todayPaceAdjusted;
-    case 'sales_projected_today': return salesData.projections?.todayProjected;
+    case 'sales_today':
+      return salesData.daily;
+    case 'sales_pace':
+      return salesData.projections?.todayPaceAdjusted;
+    case 'sales_projected_today':
+      return salesData.projections?.todayProjected;
     case 'sales_last_week':
-    case 'sales_last_year': return salesData.comparison?.prevDayFullDay;
-    case 'sales_last_year_day': return salesData.lastYear?.sameDay;
-    case 'avg_ticket': return salesData.avgTicket;
-    
+    case 'sales_last_year':
+      return salesData.comparison?.prevDayFullDay;
+    case 'sales_last_year_day':
+      return salesData.lastYear?.sameDay;
+    case 'avg_ticket':
+      return salesData.avgTicket;
+
     // Daily guests/products
-    case 'guest_count_today': return salesData.guestCount?.daily;
-    case 'pizza_count_today': 
+    case 'guest_count_today':
+      return salesData.guestCount?.daily;
+    case 'pizza_count_today':
       return typeof salesData.pizzaCount === 'number' ? salesData.pizzaCount : salesData.pizzaCount?.daily;
-    
+
     // Daily labor
     case 'labor_percent_today':
-    case 'labor_percent': return salesData.labor?.laborPercent;
+    case 'labor_percent':
+      return salesData.labor?.laborPercent;
     case 'labor_cost_today':
-    case 'labor_cost': return salesData.labor?.laborCost;
+    case 'labor_cost':
+      return salesData.labor?.laborCost;
     case 'labor_hours_today':
-    case 'labor_hours': return salesData.labor?.hoursWorked;
-    
+    case 'labor_hours':
+      return salesData.labor?.hoursWorked;
+
     // Weekly sales
-    case 'sales_wtd': return salesData.weekly;
-    case 'sales_pace_week': return salesData.projections?.weekPaceAdjusted ?? salesData.projections?.weekProjected;
-    case 'sales_projected_week': return salesData.projections?.weekProjected;
-    case 'sales_prev_week': return salesData.comparison?.prevWeekFullWeek ?? salesData.comparison?.prevWeek;
-    case 'sales_last_year_week': return salesData.lastYear?.sameWeek;
-    
-    // Weekly guests/products  
-    case 'guest_count_wtd': return salesData.guestCount?.weekly;
+    case 'sales_wtd':
+      return salesData.weekly;
+    case 'sales_pace_week':
+      return salesData.projections?.weekPaceAdjusted ?? salesData.projections?.weekProjected;
+    case 'sales_projected_week':
+      return salesData.projections?.weekProjected;
+    case 'sales_prev_week':
+      return salesData.comparison?.prevWeekFullWeek ?? salesData.comparison?.prevWeek;
+    case 'sales_last_year_week':
+      return salesData.lastYear?.sameWeek;
+
+    // Weekly guests/products
+    case 'guest_count_wtd':
+      return salesData.guestCount?.weekly;
     case 'pizza_count_wtd':
       return typeof salesData.pizzaCount === 'object' ? salesData.pizzaCount?.weekly : undefined;
-    
+
     // Weekly labor
-    case 'labor_percent_wtd': return salesData.weeklyLabor?.laborPercent;
-    case 'labor_cost_wtd': return salesData.weeklyLabor?.laborCost;
-    case 'labor_hours_wtd': return salesData.weeklyLabor?.hoursWorked;
-    
+    case 'labor_percent_wtd':
+      return salesData.weeklyLabor?.laborPercent;
+    case 'labor_cost_wtd':
+      return salesData.weeklyLabor?.laborCost;
+    case 'labor_hours_wtd':
+      return salesData.weeklyLabor?.hoursWorked;
+
     // Monthly sales
-    case 'sales_mtd': return salesData.monthly;
-    case 'sales_pace_month': return salesData.projections?.monthPaceAdjusted ?? salesData.projections?.monthProjected;
-    case 'sales_projected_month': return salesData.projections?.monthProjected;
-    case 'sales_prev_month': return salesData.comparison?.prevMonthFullMonth ?? salesData.comparison?.prevMonth;
-    case 'sales_last_year_month': return salesData.lastYear?.sameMonth;
-    
+    case 'sales_mtd':
+      return salesData.monthly;
+    case 'sales_pace_month':
+      return salesData.projections?.monthPaceAdjusted ?? salesData.projections?.monthProjected;
+    case 'sales_projected_month':
+      return salesData.projections?.monthProjected;
+    case 'sales_prev_month':
+      return salesData.comparison?.prevMonthFullMonth ?? salesData.comparison?.prevMonth;
+    case 'sales_last_year_month':
+      return salesData.lastYear?.sameMonth;
+
     // Monthly guests/products
-    case 'guest_count_mtd': return salesData.guestCount?.monthly;
+    case 'guest_count_mtd':
+      return salesData.guestCount?.monthly;
     case 'pizza_count_mtd':
       return typeof salesData.pizzaCount === 'object' ? salesData.pizzaCount?.monthly : undefined;
-    
+
     // Monthly labor
-    case 'labor_percent_mtd': return salesData.monthlyLabor?.laborPercent;
-    case 'labor_cost_mtd': return salesData.monthlyLabor?.laborCost;
-    case 'labor_hours_mtd': return salesData.monthlyLabor?.hoursWorked;
-    
+    case 'labor_percent_mtd':
+      return salesData.monthlyLabor?.laborPercent;
+    case 'labor_cost_mtd':
+      return salesData.monthlyLabor?.laborCost;
+    case 'labor_hours_mtd':
+      return salesData.monthlyLabor?.hoursWorked;
+
     // Personal metrics
-    case 'personal_hours_week': return salesData.personalData?.hoursWeek;
-    case 'personal_hours_payroll': return salesData.personalData?.hoursPayroll;
-    case 'personal_pay_week': return salesData.personalData?.payWeek;
-    case 'personal_pay_payroll': return salesData.personalData?.payPayroll;
-    
-    default: return undefined;
+    case 'personal_hours_week':
+      return salesData.personalData?.hoursWeek;
+    case 'personal_hours_payroll':
+      return salesData.personalData?.hoursPayroll;
+    case 'personal_pay_week':
+      return salesData.personalData?.payWeek;
+    case 'personal_pay_payroll':
+      return salesData.personalData?.payPayroll;
+
+    // Payment type metrics - Daily (amount)
+    case 'payment_cash_today':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'daily'), ['cash']);
+    case 'payment_credit_card_today':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'daily'), ['credit card', 'creditcard']);
+    case 'payment_olo_doordash_today':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'daily'), ['doordash', 'door dash']);
+    case 'payment_olo_ubereats_today':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'daily'), ['ubereats', 'uber eats']);
+    case 'payment_olo_visa_today':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'daily'), ['olo visa']);
+    case 'payment_olo_mastercard_today':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'daily'), ['olo mastercard', 'olo mc']);
+    case 'payment_olo_prepaid_today':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'daily'), ['olo prepaid', 'prepaid']);
+    case 'payment_olo_giftcard_today':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'daily'), ['olo gift card', 'olo giftcard']);
+    case 'payment_svs_giftcard_today':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'daily'), ['svs gift card', 'svs giftcard']);
+
+    // Payment type metrics - Daily (percent)
+    case 'payment_cash_today_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['cash']);
+    case 'payment_credit_card_today_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['credit card', 'creditcard']);
+    case 'payment_olo_doordash_today_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['doordash', 'door dash']);
+    case 'payment_olo_ubereats_today_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['ubereats', 'uber eats']);
+    case 'payment_olo_visa_today_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['olo visa']);
+    case 'payment_olo_mastercard_today_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['olo mastercard', 'olo mc']);
+    case 'payment_olo_prepaid_today_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['olo prepaid', 'prepaid']);
+    case 'payment_olo_giftcard_today_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['olo gift card', 'olo giftcard']);
+    case 'payment_svs_giftcard_today_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['svs gift card', 'svs giftcard']);
+
+    // Payment type metrics - Weekly (amount)
+    case 'payment_cash_wtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'weekly'), ['cash']);
+    case 'payment_credit_card_wtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'weekly'), ['credit card', 'creditcard']);
+    case 'payment_olo_doordash_wtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'weekly'), ['doordash', 'door dash']);
+    case 'payment_olo_ubereats_wtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'weekly'), ['ubereats', 'uber eats']);
+    case 'payment_olo_visa_wtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'weekly'), ['olo visa']);
+    case 'payment_olo_mastercard_wtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'weekly'), ['olo mastercard', 'olo mc']);
+    case 'payment_olo_prepaid_wtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'weekly'), ['olo prepaid', 'prepaid']);
+    case 'payment_olo_giftcard_wtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'weekly'), ['olo gift card', 'olo giftcard']);
+    case 'payment_svs_giftcard_wtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'weekly'), ['svs gift card', 'svs giftcard']);
+
+    // Payment type metrics - Weekly (percent)
+    case 'payment_cash_wtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'weekly'), ['cash']);
+    case 'payment_credit_card_wtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'weekly'), ['credit card', 'creditcard']);
+    case 'payment_olo_doordash_wtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'weekly'), ['doordash', 'door dash']);
+    case 'payment_olo_ubereats_wtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'weekly'), ['ubereats', 'uber eats']);
+    case 'payment_olo_visa_wtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'weekly'), ['olo visa']);
+    case 'payment_olo_mastercard_wtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'weekly'), ['olo mastercard', 'olo mc']);
+    case 'payment_olo_prepaid_wtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'weekly'), ['olo prepaid', 'prepaid']);
+    case 'payment_olo_giftcard_wtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'weekly'), ['olo gift card', 'olo giftcard']);
+    case 'payment_svs_giftcard_wtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'weekly'), ['svs gift card', 'svs giftcard']);
+
+    // Payment type metrics - Monthly (amount)
+    case 'payment_cash_mtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'monthly'), ['cash']);
+    case 'payment_credit_card_mtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'monthly'), ['credit card', 'creditcard']);
+    case 'payment_olo_doordash_mtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'monthly'), ['doordash', 'door dash']);
+    case 'payment_olo_ubereats_mtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'monthly'), ['ubereats', 'uber eats']);
+    case 'payment_olo_visa_mtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'monthly'), ['olo visa']);
+    case 'payment_olo_mastercard_mtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'monthly'), ['olo mastercard', 'olo mc']);
+    case 'payment_olo_prepaid_mtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'monthly'), ['olo prepaid', 'prepaid']);
+    case 'payment_olo_giftcard_mtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'monthly'), ['olo gift card', 'olo giftcard']);
+    case 'payment_svs_giftcard_mtd':
+      return getPaymentAmount(getPaymentsForPeriod(salesData, 'monthly'), ['svs gift card', 'svs giftcard']);
+
+    // Payment type metrics - Monthly (percent)
+    case 'payment_cash_mtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'monthly'), ['cash']);
+    case 'payment_credit_card_mtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'monthly'), ['credit card', 'creditcard']);
+    case 'payment_olo_doordash_mtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'monthly'), ['doordash', 'door dash']);
+    case 'payment_olo_ubereats_mtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'monthly'), ['ubereats', 'uber eats']);
+    case 'payment_olo_visa_mtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'monthly'), ['olo visa']);
+    case 'payment_olo_mastercard_mtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'monthly'), ['olo mastercard', 'olo mc']);
+    case 'payment_olo_prepaid_mtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'monthly'), ['olo prepaid', 'prepaid']);
+    case 'payment_olo_giftcard_mtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'monthly'), ['olo gift card', 'olo giftcard']);
+    case 'payment_svs_giftcard_mtd_pct':
+      return getPaymentPercent(getPaymentsForPeriod(salesData, 'monthly'), ['svs gift card', 'svs giftcard']);
+
+    default:
+      return undefined;
   }
 }
 
