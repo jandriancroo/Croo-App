@@ -622,75 +622,123 @@ async function fetchProductMix(
 }
 
 // Fetch payment types breakdown from QuBeyond using gateway API
-// Uses the payments report endpoint to get actual payment method breakdown (Cash, CC, DoorDash, etc.)
+// Qu's report endpoints vary by tenant; we try a small set of known candidates.
 async function fetchPaymentTypes(
   tokenGw: string,
   dateStr: string,
   qbLocationId: string
 ): Promise<{ paymentType: string; amount: number }[]> {
   console.log(`[PAYMENTS] Fetching payment types for ${dateStr}`);
-  
-  try {
-    // Use the payments report endpoint
-    const requestPayload = {
-      fields: [
-        { fieldName: "paymentType" },
-        { fieldName: "amount" },
-        { fieldName: "checkCount" }
-      ],
-      filters: {
-        date: { from: null, to: null, values: [dateStr], type: "custom" },
-        singleLocation: parseInt(qbLocationId),
-        location: { operationalUnits: [parseInt(qbLocationId)] }
-      },
-      params: { sectionId: "main", pageNumber: 1, pageSize: 50, totalRecords: null, sort: null, showTotals: true }
-    };
-    
-    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/payments/sections/main', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': tokenGw,
-        'Origin': 'https://admin.qubeyond.com',
-        'Referer': 'https://admin.qubeyond.com/',
-      },
-      body: JSON.stringify(requestPayload),
-    });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[PAYMENTS] Fetch failed:', response.status, errorText.substring(0, 300));
-      return [];
-    }
+  const commonHeaders = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Authorization': tokenGw,
+    'Origin': 'https://admin.qubeyond.com',
+    'Referer': 'https://admin.qubeyond.com/',
+  };
 
-    const data = await response.json();
-    console.log('[PAYMENTS] Full response:', JSON.stringify(data).substring(0, 1000));
-    
+  const candidates: Array<{ name: string; url: string; payload: unknown }> = [
+    {
+      name: 'payments/main',
+      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/payments/sections/main',
+      payload: {
+        fields: [{ fieldName: 'paymentType' }, { fieldName: 'amount' }, { fieldName: 'checkCount' }],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: 'custom' },
+          singleLocation: parseInt(qbLocationId),
+          location: { operationalUnits: [parseInt(qbLocationId)] },
+        },
+        params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true },
+      },
+    },
+    {
+      name: 'payment-types/main',
+      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/payment-types/sections/main',
+      payload: {
+        fields: [{ fieldName: 'paymentType' }, { fieldName: 'amount' }, { fieldName: 'checkCount' }],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: 'custom' },
+          singleLocation: parseInt(qbLocationId),
+          location: { operationalUnits: [parseInt(qbLocationId)] },
+        },
+        params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true },
+      },
+    },
+    {
+      name: 'summary/payments',
+      url: 'https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/payments',
+      payload: {
+        fields: [{ fieldName: 'paymentType' }, { fieldName: 'total' }],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: 'custom' },
+          location: { operationalUnits: [parseInt(qbLocationId)] },
+        },
+        params: { sectionId: 'main', pageNumber: 1, pageSize: 100, totalRecords: null, sort: null, showTotals: true },
+      },
+    },
+  ];
+
+  const parsePayments = (data: any): { paymentType: string; amount: number }[] => {
     const payments: { paymentType: string; amount: number }[] = [];
-    
-    // Parse response - expecting items with paymentType/amount pairs
-    if (data.items && Array.isArray(data.items)) {
-      for (const item of data.items) {
-        const paymentType = item.paymentType || item.name || item.metric || '';
-        if (!paymentType || paymentType === 'Total' || paymentType === 'Totals') continue;
-        
-        const amount = parseFloat(String(item.amount || item.total || item.value || '0').replace(/[$,]/g, '')) || 0;
-        payments.push({ paymentType, amount });
-      }
+    const items = Array.isArray(data?.items) ? data.items : [];
+
+    for (const item of items) {
+      const rawName =
+        item.paymentType ??
+        item.tenderType ??
+        item.tenderName ??
+        item.name ??
+        item.metric ??
+        item.type ??
+        '';
+
+      const paymentType = String(rawName || '').trim();
+      if (!paymentType || paymentType === 'Total' || paymentType === 'Totals') continue;
+
+      const rawAmount = item.amount ?? item.total ?? item.value ?? item.netSales ?? 0;
+      const amount = parseFloat(String(rawAmount).replace(/[$,]/g, '')) || 0;
+      payments.push({ paymentType, amount });
     }
-    
-    // Also check totals if present
-    if (data.totals && typeof data.totals === 'object') {
-      console.log('[PAYMENTS] Totals found:', JSON.stringify(data.totals));
-    }
-    
-    console.log(`[PAYMENTS] Parsed ${payments.length} payment types:`, JSON.stringify(payments));
+
     return payments;
-  } catch (error) {
-    console.error('[PAYMENTS] Error fetching payment types:', error);
-    return [];
+  };
+
+  for (const c of candidates) {
+    try {
+      const resp = await fetch(c.url, {
+        method: 'POST',
+        headers: commonHeaders,
+        body: JSON.stringify(c.payload),
+      });
+
+      if (!resp.ok) {
+        const txt = await resp.text().catch(() => '');
+        console.error(`[PAYMENTS] ${c.name} failed: ${resp.status} ${txt.substring(0, 120)}`);
+        continue;
+      }
+
+      const data = await resp.json();
+      const parsed = parsePayments(data);
+
+      // Heuristic: only accept if it looks like real payment methods
+      const looksLikePaymentMethods = parsed.some((p) =>
+        /(cash|credit|card|visa|master|amex|doordash|uber|olo|delivery|online|grub|gift)/i.test(p.paymentType)
+      );
+
+      console.log(`[PAYMENTS] ${c.name} ok: items=${Array.isArray(data?.items) ? data.items.length : 0}, parsed=${parsed.length}, looksLikeMethods=${looksLikePaymentMethods}`);
+
+      if (looksLikePaymentMethods) {
+        console.log(`[PAYMENTS] Using ${c.name}:`, JSON.stringify(parsed).substring(0, 800));
+        return parsed;
+      }
+    } catch (e) {
+      console.error(`[PAYMENTS] ${c.name} error:`, e);
+    }
   }
+
+  console.log('[PAYMENTS] No payment-method endpoint matched; returning empty.');
+  return [];
 }
 
 // Fetch payment types for multiple dates and aggregate
