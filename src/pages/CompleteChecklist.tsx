@@ -947,7 +947,7 @@ export default function CompleteChecklist() {
                                 <img
                                   src={photoUrl}
                                   alt={`Checklist photo ${idx + 1}`}
-                                  className="rounded border w-full object-contain"
+                                  className="rounded border w-full aspect-square object-cover"
                                   loading="lazy"
                                 />
                                 <div className="absolute top-1 left-1 bg-background/80 text-xs px-1.5 py-0.5 rounded">
