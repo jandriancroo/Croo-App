@@ -171,22 +171,16 @@ export function DataCube3D({
   };
 
   return (
-    <div className={cn("relative group", className)}>
+    <div className={cn("relative group p-2", className)}>
       {/* 3D Cube Container */}
       <div 
         className="relative w-full aspect-square cursor-pointer"
         onClick={handleClick}
         style={{ 
-          minHeight: '160px',
-          perspective: '1000px',
+          minHeight: '140px',
+          perspective: '800px',
         }}
       >
-        {/* Ambient glow effect */}
-        <div 
-          className="absolute inset-4 rounded-2xl blur-2xl opacity-30 transition-opacity duration-500 group-hover:opacity-50"
-          style={{ backgroundColor: accentColor }}
-        />
-        
         {/* Cube */}
         <div
           className="absolute inset-0 transition-transform duration-700 ease-out"
@@ -206,7 +200,7 @@ export function DataCube3D({
             faceIndex={0}
             onIndicatorClick={rotateTo}
             style={{
-              transform: 'translateZ(80px)',
+              transform: 'translateZ(70px)',
             }}
           />
           
@@ -222,7 +216,7 @@ export function DataCube3D({
               faceIndex={1}
               onIndicatorClick={rotateTo}
               style={{
-                transform: 'rotateY(90deg) translateZ(80px)',
+                transform: 'rotateY(90deg) translateZ(70px)',
               }}
             />
           )}
@@ -239,7 +233,7 @@ export function DataCube3D({
               faceIndex={2}
               onIndicatorClick={rotateTo}
               style={{
-                transform: 'rotateY(180deg) translateZ(80px)',
+                transform: 'rotateY(180deg) translateZ(70px)',
               }}
             />
           )}
@@ -256,7 +250,7 @@ export function DataCube3D({
               faceIndex={3}
               onIndicatorClick={rotateTo}
               style={{
-                transform: 'rotateY(270deg) translateZ(80px)',
+                transform: 'rotateY(270deg) translateZ(70px)',
               }}
             />
           )}
@@ -292,42 +286,35 @@ function CubeFaceComponent({
   if (!face || face.metrics.length === 0) {
     return (
       <div
-        className="absolute inset-0 rounded-2xl bg-gradient-to-br from-card via-card to-muted/50 shadow-xl flex items-center justify-center p-4"
+        className="absolute inset-0 rounded-xl bg-card shadow-lg flex items-center justify-center p-3 border border-border/40"
         style={{
           ...style,
           backfaceVisibility: 'hidden',
-          border: '1px solid hsl(var(--border) / 0.3)',
         }}
       >
-        <span className="text-muted-foreground text-sm">No metrics</span>
+        <span className="text-muted-foreground text-xs">No metrics</span>
       </div>
     );
   }
   
   return (
     <div
-      className="absolute inset-0 rounded-2xl overflow-hidden flex flex-col"
+      className="absolute inset-0 rounded-xl overflow-hidden flex flex-col border border-border/40"
       style={{
         ...style,
         backfaceVisibility: 'hidden',
-        background: `linear-gradient(145deg, hsl(var(--card)) 0%, hsl(var(--card)) 60%, ${accentColor}08 100%)`,
-        boxShadow: `
-          0 25px 50px -12px rgba(0, 0, 0, 0.25),
-          0 0 0 1px hsl(var(--border) / 0.2),
-          inset 0 1px 0 0 hsl(var(--card) / 0.8)
-        `,
+        background: 'hsl(var(--card))',
+        boxShadow: '0 10px 40px -10px rgba(0, 0, 0, 0.2), 0 4px 12px -4px rgba(0, 0, 0, 0.1)',
       }}
     >
-      {/* Subtle accent gradient at top */}
+      {/* Accent bar at top */}
       <div 
-        className="absolute top-0 left-0 right-0 h-1 opacity-80"
-        style={{ 
-          background: `linear-gradient(90deg, ${accentColor}00, ${accentColor}, ${accentColor}00)` 
-        }}
+        className="h-1 w-full"
+        style={{ backgroundColor: accentColor }}
       />
       
       {/* Content */}
-      <div className="flex-1 flex flex-col justify-center p-4 space-y-3">
+      <div className="flex-1 flex flex-col justify-center px-3 py-2 space-y-2">
         {face.metrics.map((metricType, index) => {
           const config = METRIC_CONFIGS[metricType];
           if (!config) return null;
@@ -336,16 +323,15 @@ function CubeFaceComponent({
           const formattedValue = formatValue(value, config.format);
           
           return (
-            <div key={index} className="flex items-center gap-3">
-              {/* Icon with glassmorphism */}
+            <div key={index} className="flex items-center gap-2.5">
+              {/* Icon circle */}
               <div
-                className="p-2.5 rounded-xl shrink-0 shadow-sm"
+                className="w-8 h-8 rounded-full shrink-0 flex items-center justify-center"
                 style={{ 
                   backgroundColor: `${accentColor}15`,
-                  boxShadow: `0 2px 8px ${accentColor}20`,
                 }}
               >
-                <div style={{ color: accentColor }}>
+                <div style={{ color: accentColor }} className="scale-75">
                   {getIconForMetric(metricType)}
                 </div>
               </div>
@@ -353,12 +339,12 @@ function CubeFaceComponent({
               {/* Value and label */}
               <div className="flex-1 min-w-0">
                 <div className={cn(
-                  "text-xl font-bold text-foreground tracking-tight",
-                  isLoading && "animate-pulse bg-muted rounded w-20 h-6"
+                  "text-base font-bold text-foreground leading-tight",
+                  isLoading && "animate-pulse bg-muted rounded w-16 h-5"
                 )}>
                   {!isLoading && formattedValue}
                 </div>
-                <div className="text-xs text-muted-foreground/80 font-medium uppercase tracking-wider">
+                <div className="text-[10px] text-muted-foreground font-medium">
                   {config.shortLabel}
                 </div>
               </div>
@@ -369,7 +355,7 @@ function CubeFaceComponent({
       
       {/* Face Indicator - inside the cube at the bottom */}
       {totalFaces > 1 && (
-        <div className="flex justify-center items-center gap-2 pb-3">
+        <div className="flex justify-center items-center gap-1.5 pb-2">
           {Array.from({ length: totalFaces }).map((_, index) => (
             <button
               key={index}
@@ -377,15 +363,9 @@ function CubeFaceComponent({
                 e.stopPropagation();
                 onIndicatorClick(index);
               }}
-              className={cn(
-                "w-2 h-2 rounded-full transition-all duration-300",
-                index === faceIndex
-                  ? "scale-100"
-                  : "scale-75 hover:scale-90"
-              )}
+              className="w-1.5 h-1.5 rounded-full transition-all duration-300"
               style={{
-                backgroundColor: index === faceIndex ? accentColor : `${accentColor}40`,
-                boxShadow: index === faceIndex ? `0 0 8px ${accentColor}60` : 'none',
+                backgroundColor: index === faceIndex ? accentColor : `${accentColor}30`,
               }}
             />
           ))}
