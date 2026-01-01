@@ -621,32 +621,34 @@ async function fetchProductMix(
   }
 }
 
-// Fetch payment types breakdown from QuBeyond
+// Fetch payment types breakdown from QuBeyond using gateway API
 async function fetchPaymentTypes(
-  bearerToken: string,
+  tokenGw: string,
   dateStr: string,
-  qbLocationId: string,
-  companyId: string
+  qbLocationId: string
 ): Promise<{ paymentType: string; amount: number }[]> {
   console.log(`[PAYMENTS] Fetching payment types for ${dateStr}`);
   
   try {
-    const response = await fetch('https://admin.qubeyond.com/api/data/reporting/payment-types', {
+    const requestPayload = {
+      fields: [{ fieldName: "metric" }, { fieldName: "total" }],
+      filters: {
+        date: { from: null, to: null, values: [dateStr], type: "custom" },
+        location: { operationalUnits: [parseInt(qbLocationId)] }
+      },
+      params: { sectionId: "paymentTypes", pageNumber: 1, pageSize: 50, totalRecords: null, sort: null, showTotals: true }
+    };
+    
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/payment-types', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json, text/plain, */*',
-        'Authorization': `Bearer ${bearerToken}`,
-        'X-Company-ID': companyId,
+        'Accept': 'application/json',
+        'Authorization': tokenGw,
         'Origin': 'https://admin.qubeyond.com',
-        'Referer': 'https://admin.qubeyond.com/reports/overview/summary',
+        'Referer': 'https://admin.qubeyond.com/',
       },
-      body: JSON.stringify({
-        filters: {
-          date: { from: null, to: null, values: [dateStr], type: "custom" },
-          location: { operationalUnits: [parseInt(qbLocationId)] }
-        }
-      }),
+      body: JSON.stringify(requestPayload),
     });
 
     if (!response.ok) {
@@ -660,18 +662,18 @@ async function fetchPaymentTypes(
     
     const payments: { paymentType: string; amount: number }[] = [];
     
-    // Parse response - expecting items with metric/value pairs
+    // Parse response - expecting items with metric/value pairs like other summary endpoints
     if (data.items && Array.isArray(data.items)) {
       for (const item of data.items) {
         const metric = item.metric || item.paymentType || item.name || '';
-        if (!metric || metric === 'Total') continue;
+        if (!metric || metric === 'Total' || metric === 'Totals') continue;
         
-        const value = parseFloat(String(item.value || item.amount || item.total || '0').replace(/[$,]/g, '')) || 0;
+        const value = parseFloat(String(item.total || item.value || item.amount || '0').replace(/[$,]/g, '')) || 0;
         payments.push({ paymentType: metric, amount: value });
       }
     }
     
-    console.log(`[PAYMENTS] Parsed ${payments.length} payment types`);
+    console.log(`[PAYMENTS] Parsed ${payments.length} payment types:`, JSON.stringify(payments));
     return payments;
   } catch (error) {
     console.error('[PAYMENTS] Error fetching payment types:', error);
@@ -681,10 +683,9 @@ async function fetchPaymentTypes(
 
 // Fetch payment types for multiple dates and aggregate
 async function fetchPaymentTypesForDates(
-  bearerToken: string,
+  tokenGw: string,
   dates: string[],
-  qbLocationId: string,
-  companyId: string
+  qbLocationId: string
 ): Promise<{ paymentType: string; amount: number }[]> {
   console.log(`[PAYMENTS] Fetching payment types for ${dates.length} days`);
   
@@ -692,7 +693,7 @@ async function fetchPaymentTypesForDates(
   
   // Batch fetch for all dates
   for (const dateStr of dates) {
-    const dayPayments = await fetchPaymentTypes(bearerToken, dateStr, qbLocationId, companyId);
+    const dayPayments = await fetchPaymentTypes(tokenGw, dateStr, qbLocationId);
     for (const p of dayPayments) {
       const current = aggregated.get(p.paymentType) || 0;
       aggregated.set(p.paymentType, current + p.amount);
@@ -1939,7 +1940,7 @@ serve(async (req) => {
       fetchHourlySales(tokenGw, prevDayStr, qbLocationId),
       fetchProductMix(tokenGw, [todayStr], qbLocationId),
       fetchTillsData(tokenGw, todayStr, qbLocationId),
-      companyId ? fetchPaymentTypes(bearerToken, todayStr, qbLocationId, companyId) : Promise.resolve([])
+      fetchPaymentTypes(tokenGw, todayStr, qbLocationId)
     ]);
 
     // Fetch labor data if pull_labor is enabled
@@ -1978,35 +1979,33 @@ serve(async (req) => {
     let weeklyPayments: { paymentType: string; amount: number }[] = [];
     let monthlyPayments: { paymentType: string; amount: number }[] = [];
     
-    if (companyId) {
-      // Aggregate weekly and monthly payment data from past days (today already fetched)
-      const pastWeekPaymentDates = weekDates.filter(d => d !== todayStr);
-      const pastMonthPaymentDates = monthDates.filter(d => d !== todayStr);
-      
-      const [weekPayments, monthPayments] = await Promise.all([
-        pastWeekPaymentDates.length > 0 
-          ? fetchPaymentTypesForDates(bearerToken, pastWeekPaymentDates, qbLocationId, companyId)
-          : Promise.resolve([]),
-        pastMonthPaymentDates.length > 0
-          ? fetchPaymentTypesForDates(bearerToken, pastMonthPaymentDates, qbLocationId, companyId)
-          : Promise.resolve([])
-      ]);
-      
-      // Merge today's payments with weekly/monthly
-      const mergePayments = (existing: { paymentType: string; amount: number }[], today: { paymentType: string; amount: number }[]) => {
-        const map = new Map<string, number>();
-        for (const p of existing) {
-          map.set(p.paymentType, (map.get(p.paymentType) || 0) + p.amount);
-        }
-        for (const p of today) {
-          map.set(p.paymentType, (map.get(p.paymentType) || 0) + p.amount);
-        }
-        return Array.from(map.entries()).map(([paymentType, amount]) => ({ paymentType, amount }));
-      };
-      
-      weeklyPayments = mergePayments(weekPayments, todayPayments);
-      monthlyPayments = mergePayments(monthPayments, todayPayments);
-    }
+    // Aggregate weekly and monthly payment data from past days (today already fetched)
+    const pastWeekPaymentDates = weekDates.filter(d => d !== todayStr);
+    const pastMonthPaymentDates = monthDates.filter(d => d !== todayStr);
+    
+    const [weekPayments, monthPayments] = await Promise.all([
+      pastWeekPaymentDates.length > 0 
+        ? fetchPaymentTypesForDates(tokenGw, pastWeekPaymentDates, qbLocationId)
+        : Promise.resolve([]),
+      pastMonthPaymentDates.length > 0
+        ? fetchPaymentTypesForDates(tokenGw, pastMonthPaymentDates, qbLocationId)
+        : Promise.resolve([])
+    ]);
+    
+    // Merge today's payments with weekly/monthly
+    const mergePayments = (existing: { paymentType: string; amount: number }[], today: { paymentType: string; amount: number }[]) => {
+      const map = new Map<string, number>();
+      for (const p of existing) {
+        map.set(p.paymentType, (map.get(p.paymentType) || 0) + p.amount);
+      }
+      for (const p of today) {
+        map.set(p.paymentType, (map.get(p.paymentType) || 0) + p.amount);
+      }
+      return Array.from(map.entries()).map(([paymentType, amount]) => ({ paymentType, amount }));
+    };
+    
+    weeklyPayments = mergePayments(weekPayments, todayPayments);
+    monthlyPayments = mergePayments(monthPayments, todayPayments);
 
     const dailySales = todayHourly.reduce((sum, h) => sum + h.sales, 0);
     const dailyGuestCount = todayHourly.reduce((sum, h) => sum + h.checksCount, 0);
