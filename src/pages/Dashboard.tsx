@@ -622,12 +622,24 @@ export default function Dashboard() {
         const completionRate = expected > 0 ? Math.min(100, Math.round(completed / expected * 100)) : 0;
         const isComplete = completionRate === 100;
         return (
-          <Card key={checklist.id} className="hover:shadow-lg transition-shadow p-0 flex flex-col">
+          <Card key={checklist.id} className="hover:shadow-lg transition-shadow p-0 flex flex-col relative overflow-hidden">
+            {/* Completion Ribbon */}
+            {isComplete && (
+              <div className="absolute top-0 right-0 z-10">
+                <div 
+                  className="bg-green-500 text-white text-[10px] font-bold px-6 py-0.5 transform rotate-45 translate-x-4 translate-y-2 shadow-sm"
+                  style={{ transformOrigin: 'center' }}
+                >
+                  DONE
+                </div>
+              </div>
+            )}
+            
             {/* Header Section - Original style */}
             <CardHeader className="py-2 px-3">
               <div className="flex items-center gap-2">
                 <ClipboardCheck className="h-5 w-5 text-primary flex-shrink-0" />
-                <CardTitle className="text-base font-semibold flex-1 truncate">{checklist.title}</CardTitle>
+                <CardTitle className="text-base font-semibold flex-1 truncate pr-6">{checklist.title}</CardTitle>
                 <Badge className={`text-xs px-2 py-0.5 flex-shrink-0 ${getFrequencyColor(checklist.frequency)}`}>
                   {checklist.frequency}
                 </Badge>
@@ -641,8 +653,8 @@ export default function Dashboard() {
                   {completed}/{expected}
                 </div>
                 {isComplete ? (
-                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/15">
-                    <Check className="h-5 w-5 text-primary" />
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-500/15">
+                    <Check className="h-5 w-5 text-green-500" />
                   </div>
                 ) : (
                   <div className="text-lg font-bold text-primary">
@@ -654,10 +666,10 @@ export default function Dashboard() {
 
             {/* Bottom Button - Contoured to card shape */}
             <Button 
-              className="w-full h-10 text-sm rounded-none rounded-b-lg mt-auto"
+              className={`w-full h-10 text-sm rounded-none rounded-b-lg mt-auto ${isComplete ? 'bg-green-500 hover:bg-green-600' : ''}`}
               onClick={() => navigate(`/complete/${checklist.id}`)}
             >
-              {isComplete ? 'Review' : 'Complete'}
+              {isComplete ? 'View Submission' : 'Start Checklist'}
             </Button>
           </Card>
         );
