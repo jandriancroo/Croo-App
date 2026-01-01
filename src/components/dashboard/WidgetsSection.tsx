@@ -156,7 +156,8 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
             </div>
           </div>
         )}
-        <div className={isReorderMode ? 'opacity-85 cursor-grab active:cursor-grabbing' : ''}>
+        {/* Responsive container: square on mobile, rectangular on tablet/desktop */}
+        <div className={`${isReorderMode ? 'opacity-85 cursor-grab active:cursor-grabbing' : ''} aspect-square md:aspect-[2/1]`}>
           <DataCube3D
             title={cube.title}
             faces={faces}
@@ -610,7 +611,7 @@ export function WidgetsSection({
           items={sortableItems.map(item => item.id)}
           strategy={rectSortingStrategy}
         >
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {sortableItems.map(item => {
               if (item.id === CHECKLISTS_BLOCK_ID) {
                 return (
