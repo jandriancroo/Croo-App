@@ -1330,13 +1330,18 @@ export type Database = {
       }
       inventory_items: {
         Row: {
+          brand: string | null
           cost_per_unit: number | null
           created_at: string
           display_order: number | null
           id: string
+          image_url: string | null
           is_active: boolean | null
+          item_number: string | null
           location_id: string | null
           name: string
+          pack_quantity: number | null
+          pack_size: string | null
           par_level: number | null
           qubeyond_item_id: string | null
           storage_location_id: string | null
@@ -1344,13 +1349,18 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          brand?: string | null
           cost_per_unit?: number | null
           created_at?: string
           display_order?: number | null
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
+          item_number?: string | null
           location_id?: string | null
           name: string
+          pack_quantity?: number | null
+          pack_size?: string | null
           par_level?: number | null
           qubeyond_item_id?: string | null
           storage_location_id?: string | null
@@ -1358,13 +1368,18 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          brand?: string | null
           cost_per_unit?: number | null
           created_at?: string
           display_order?: number | null
           id?: string
+          image_url?: string | null
           is_active?: boolean | null
+          item_number?: string | null
           location_id?: string | null
           name?: string
+          pack_quantity?: number | null
+          pack_size?: string | null
           par_level?: number | null
           qubeyond_item_id?: string | null
           storage_location_id?: string | null

@@ -141,35 +141,36 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             .maybeSingle();
           
           const price = product.price ? Number(product.price) : null;
+          const packQuantity = product.packQuantity ? Number(product.packQuantity) : null;
+          
+          const itemData = {
+            name: product.name,
+            unit: product.unit?.toLowerCase() || "case",
+            storage_location_id: storageLocationId,
+            cost_per_unit: price,
+            pack_size: product.packSize || null,
+            pack_quantity: packQuantity,
+            brand: product.brand || null,
+            item_number: product.itemNumber || null,
+            image_url: product.imageUrl || null,
+            is_active: true
+          };
           
           if (existing) {
-            // Update if name/unit/location/price changed
-            const newUnit = product.unit?.toLowerCase() || "case";
-            const priceChanged = price !== null && existing.cost_per_unit !== price;
-            if (existing.name !== product.name || existing.unit !== newUnit || existing.storage_location_id !== storageLocationId || priceChanged) {
-              await supabase
-                .from("inventory_items")
-                .update({
-                  name: product.name,
-                  unit: newUnit,
-                  storage_location_id: storageLocationId,
-                  cost_per_unit: price ?? existing.cost_per_unit,
-                  is_active: true
-                })
-                .eq("id", existing.id);
-              itemsUpdated++;
-            }
+            // Always update to ensure all fields are current
+            await supabase
+              .from("inventory_items")
+              .update(itemData)
+              .eq("id", existing.id);
+            itemsUpdated++;
           } else {
             const { error: insertError } = await supabase
               .from("inventory_items")
               .insert({
                 location_id: locationId,
-                storage_location_id: storageLocationId,
-                name: product.name,
-                unit: product.unit?.toLowerCase() || "case",
                 qubeyond_item_id: product.id,
-                cost_per_unit: price,
-                display_order: itemsAdded
+                display_order: itemsAdded,
+                ...itemData
               });
             
             if (!insertError) itemsAdded++;

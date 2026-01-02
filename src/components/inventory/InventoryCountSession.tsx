@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Check, ChevronLeft, ChevronRight, X, Minus, Plus } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, X, Minus, Plus, DollarSign } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -21,15 +21,25 @@ interface CountItem {
   unit: string;
   storage_location: string;
   storage_location_id: string;
-  quantity: number;
   par_level: number | null;
   cost_per_unit: number | null;
+  pack_size: string | null;
+  pack_quantity: number | null;
+  item_number: string | null;
+  brand: string | null;
+  image_url: string | null;
+}
+
+// Count state: cases + individual units
+interface ItemCount {
+  cases: number;
+  units: number;
 }
 
 const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountSessionProps) => {
   const queryClient = useQueryClient();
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [counts, setCounts] = useState<Record<string, ItemCount>>({});
   const [isSaving, setIsSaving] = useState(false);
 
   // Fetch storage locations
@@ -60,6 +70,11 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
           unit,
           par_level,
           cost_per_unit,
+          pack_size,
+          pack_quantity,
+          item_number,
+          brand,
+          image_url,
           storage_location_id,
           storage_location:inventory_locations(name)
         `)
@@ -86,19 +101,30 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
         unit: item.unit,
         storage_location: (item.storage_location as any)?.name || "Uncategorized",
         storage_location_id: item.storage_location_id || "uncategorized",
-        quantity: countMap.get(item.id) ?? 0,
         par_level: item.par_level,
-        cost_per_unit: item.cost_per_unit
-      })) as CountItem[];
+        cost_per_unit: item.cost_per_unit,
+        pack_size: item.pack_size,
+        pack_quantity: item.pack_quantity,
+        item_number: item.item_number,
+        brand: item.brand,
+        image_url: item.image_url,
+        // Store existing quantity to convert back
+        _existingQuantity: countMap.get(item.id) ?? 0
+      })) as (CountItem & { _existingQuantity: number })[];
     }
   });
 
-  // Initialize counts from items
+  // Initialize counts from items (convert flat quantity to cases + units)
   useEffect(() => {
     if (items) {
-      const initialCounts: Record<string, number> = {};
+      const initialCounts: Record<string, ItemCount> = {};
       items.forEach(item => {
-        initialCounts[item.item_id] = item.quantity;
+        const totalUnits = (item as any)._existingQuantity || 0;
+        const packQty = item.pack_quantity || 1;
+        initialCounts[item.item_id] = {
+          cases: Math.floor(totalUnits / packQty),
+          units: totalUnits % packQty
+        };
       });
       setCounts(initialCounts);
     }
@@ -121,10 +147,32 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
   const currentLocation = locationKeys[currentLocationIndex];
   const currentItems = currentLocation ? itemsByLocation[currentLocation].items : [];
 
+  // Calculate total quantity for an item (cases * pack_quantity + units)
+  const getTotalQuantity = useCallback((itemId: string, packQuantity: number | null) => {
+    const count = counts[itemId] || { cases: 0, units: 0 };
+    const packQty = packQuantity || 1;
+    return count.cases * packQty + count.units;
+  }, [counts]);
+
+  // Calculate cost for a single item
+  const getItemCost = useCallback((item: CountItem) => {
+    const count = counts[item.item_id] || { cases: 0, units: 0 };
+    const costPerCase = item.cost_per_unit || 0;
+    const packQty = item.pack_quantity || 1;
+    const costPerUnit = costPerCase / packQty;
+    
+    return count.cases * costPerCase + count.units * costPerUnit;
+  }, [counts]);
+
+  // Calculate total running cost
+  const totalCost = useMemo(() => {
+    if (!items) return 0;
+    return items.reduce((sum, item) => sum + getItemCost(item), 0);
+  }, [items, getItemCost]);
+
   // Save count mutation
   const saveCountMutation = useMutation({
     mutationFn: async (itemCounts: { item_id: string; quantity: number }[]) => {
-      // Upsert all count items
       const { error } = await supabase
         .from("inventory_count_items")
         .upsert(
@@ -143,15 +191,14 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
   // Complete count mutation
   const completeCountMutation = useMutation({
     mutationFn: async () => {
-      // First save all counts
-      const itemCounts = Object.entries(counts).map(([item_id, quantity]) => ({
-        item_id,
-        quantity
-      }));
+      // Convert counts to flat quantities
+      const itemCounts = items?.map(item => ({
+        item_id: item.item_id,
+        quantity: getTotalQuantity(item.item_id, item.pack_quantity)
+      })) || [];
       
       await saveCountMutation.mutateAsync(itemCounts);
 
-      // Then mark as complete
       const { error } = await supabase
         .from("inventory_counts")
         .update({ 
@@ -174,12 +221,12 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
 
   // Auto-save counts periodically
   const saveCurrentCounts = useCallback(async () => {
-    if (Object.keys(counts).length === 0) return;
+    if (!items || Object.keys(counts).length === 0) return;
     
     setIsSaving(true);
-    const itemCounts = Object.entries(counts).map(([item_id, quantity]) => ({
-      item_id,
-      quantity
+    const itemCounts = items.map(item => ({
+      item_id: item.item_id,
+      quantity: getTotalQuantity(item.item_id, item.pack_quantity)
     }));
     
     try {
@@ -189,7 +236,7 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
     } finally {
       setIsSaving(false);
     }
-  }, [counts]);
+  }, [counts, items, getTotalQuantity]);
 
   // Auto-save when changing locations
   useEffect(() => {
@@ -200,24 +247,79 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
     return () => clearTimeout(timer);
   }, [currentLocationIndex]);
 
-  const updateCount = (itemId: string, delta: number) => {
+  const updateCases = (itemId: string, delta: number) => {
     setCounts(prev => ({
       ...prev,
-      [itemId]: Math.max(0, (prev[itemId] || 0) + delta)
+      [itemId]: {
+        cases: Math.max(0, (prev[itemId]?.cases || 0) + delta),
+        units: prev[itemId]?.units || 0
+      }
     }));
   };
 
-  const setCount = (itemId: string, value: number) => {
+  const updateUnits = (itemId: string, delta: number, packQuantity: number | null) => {
+    const packQty = packQuantity || 1;
+    setCounts(prev => {
+      const current = prev[itemId] || { cases: 0, units: 0 };
+      let newUnits = current.units + delta;
+      let newCases = current.cases;
+      
+      // Auto-convert units to cases when exceeding pack quantity
+      if (newUnits >= packQty) {
+        newCases += Math.floor(newUnits / packQty);
+        newUnits = newUnits % packQty;
+      } else if (newUnits < 0 && newCases > 0) {
+        // Borrow from cases if going negative
+        newCases -= 1;
+        newUnits = packQty + newUnits;
+      } else if (newUnits < 0) {
+        newUnits = 0;
+      }
+      
+      return {
+        ...prev,
+        [itemId]: { cases: Math.max(0, newCases), units: Math.max(0, newUnits) }
+      };
+    });
+  };
+
+  const setCases = (itemId: string, value: number) => {
     setCounts(prev => ({
       ...prev,
-      [itemId]: Math.max(0, value)
+      [itemId]: {
+        cases: Math.max(0, value),
+        units: prev[itemId]?.units || 0
+      }
     }));
+  };
+
+  const setUnits = (itemId: string, value: number, packQuantity: number | null) => {
+    const packQty = packQuantity || 1;
+    setCounts(prev => {
+      let newUnits = Math.max(0, value);
+      let newCases = prev[itemId]?.cases || 0;
+      
+      if (newUnits >= packQty) {
+        newCases += Math.floor(newUnits / packQty);
+        newUnits = newUnits % packQty;
+      }
+      
+      return {
+        ...prev,
+        [itemId]: { cases: newCases, units: newUnits }
+      };
+    });
   };
 
   // Calculate progress
   const totalItems = items?.length || 0;
-  const countedItems = Object.values(counts).filter(q => q > 0).length;
+  const countedItems = Object.values(counts).filter(c => c.cases > 0 || c.units > 0).length;
   const progress = totalItems > 0 ? (countedItems / totalItems) * 100 : 0;
+
+  // Format currency
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+  };
 
   if (!items || items.length === 0) {
     return (
@@ -237,20 +339,22 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
 
   return (
     <div className="space-y-4">
-      {/* Header with progress */}
-      <Card>
+      {/* Header with progress and live cost */}
+      <Card className="bg-primary/5 border-primary/20">
         <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" onClick={onClose}>
                 <X className="h-5 w-5" />
               </Button>
-              <span className="font-medium">
-                {countedItems} / {totalItems} items
-              </span>
-              {isSaving && (
-                <Badge variant="secondary" className="text-xs">Saving...</Badge>
-              )}
+              <div>
+                <span className="font-medium">
+                  {countedItems} / {totalItems} items
+                </span>
+                {isSaving && (
+                  <Badge variant="secondary" className="text-xs ml-2">Saving...</Badge>
+                )}
+              </div>
             </div>
             <Button 
               onClick={() => completeCountMutation.mutate()}
@@ -260,7 +364,17 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
               Complete
             </Button>
           </div>
-          <Progress value={progress} className="h-2" />
+          
+          <Progress value={progress} className="h-2 mb-3" />
+          
+          {/* Live cost display */}
+          <div className="flex items-center justify-center gap-2 p-3 bg-background rounded-lg border">
+            <DollarSign className="h-5 w-5 text-primary" />
+            <span className="text-2xl font-bold text-primary">
+              {formatCurrency(totalCost)}
+            </span>
+            <span className="text-sm text-muted-foreground">total value</span>
+          </div>
         </CardContent>
       </Card>
 
@@ -292,60 +406,130 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
         </div>
       )}
 
-      {/* Item list - optimized for fast mobile counting */}
-      <div className="space-y-2">
-        {currentItems.map((item) => (
-          <Card key={item.item_id} className="overflow-hidden">
-            <CardContent className="p-0">
-              <div className="flex items-center">
-                {/* Item info */}
-                <div className="flex-1 p-4 min-w-0">
-                  <p className="font-medium truncate">{item.item_name}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {item.unit}
-                    {item.par_level && (
-                      <span className={cn(
-                        "ml-2",
-                        (counts[item.item_id] || 0) < item.par_level && "text-destructive"
-                      )}>
-                        Par: {item.par_level}
-                      </span>
+      {/* Item list with dual counting */}
+      <div className="space-y-3">
+        {currentItems.map((item) => {
+          const count = counts[item.item_id] || { cases: 0, units: 0 };
+          const itemCost = getItemCost(item);
+          const packQty = item.pack_quantity || 1;
+          const costPerUnit = (item.cost_per_unit || 0) / packQty;
+          
+          return (
+            <Card key={item.item_id} className="overflow-hidden">
+              <CardContent className="p-0">
+                {/* Item header with details */}
+                <div className="p-3 border-b border-border bg-muted/30">
+                  <div className="flex items-start gap-3">
+                    {item.image_url && (
+                      <img 
+                        src={item.image_url} 
+                        alt={item.item_name}
+                        className="w-12 h-12 rounded object-cover flex-shrink-0"
+                      />
                     )}
-                  </p>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{item.item_name}</p>
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
+                        {item.item_number && <span>#{item.item_number}</span>}
+                        {item.pack_size && <span>{item.pack_size}</span>}
+                        {item.cost_per_unit && (
+                          <span className="text-primary font-medium">
+                            {formatCurrency(item.cost_per_unit)}/case
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Item value */}
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-semibold text-primary">{formatCurrency(itemCost)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {getTotalQuantity(item.item_id, item.pack_quantity)} units
+                      </p>
+                    </div>
+                  </div>
                 </div>
                 
-                {/* Count controls - large touch targets */}
-                <div className="flex items-center gap-0 border-l border-border">
-                  <Button
-                    variant="ghost"
-                    size="lg"
-                    className="h-16 w-14 rounded-none text-xl font-bold hover:bg-destructive/10"
-                    onClick={() => updateCount(item.item_id, -1)}
-                  >
-                    <Minus className="h-6 w-6" />
-                  </Button>
+                {/* Dual count controls */}
+                <div className="grid grid-cols-2 divide-x divide-border">
+                  {/* Cases counter */}
+                  <div className="p-2">
+                    <p className="text-xs text-center text-muted-foreground mb-1 uppercase tracking-wide">
+                      Cases
+                      {item.cost_per_unit && (
+                        <span className="ml-1 text-primary">@ {formatCurrency(item.cost_per_unit)}</span>
+                      )}
+                    </p>
+                    <div className="flex items-center justify-center gap-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-12 w-10 rounded-r-none text-lg font-bold hover:bg-destructive/10"
+                        onClick={() => updateCases(item.item_id, -1)}
+                      >
+                        <Minus className="h-5 w-5" />
+                      </Button>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={count.cases}
+                        onChange={(e) => setCases(item.item_id, parseInt(e.target.value) || 0)}
+                        className="w-14 h-12 text-center text-xl font-bold bg-muted/50 border-x border-border focus:outline-none focus:bg-primary/5"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-12 w-10 rounded-l-none text-lg font-bold hover:bg-primary/10"
+                        onClick={() => updateCases(item.item_id, 1)}
+                      >
+                        <Plus className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </div>
                   
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    value={counts[item.item_id] || 0}
-                    onChange={(e) => setCount(item.item_id, parseInt(e.target.value) || 0)}
-                    className="w-16 h-16 text-center text-xl font-bold bg-transparent border-x border-border focus:outline-none focus:bg-primary/5"
-                  />
-                  
-                  <Button
-                    variant="ghost"
-                    size="lg"
-                    className="h-16 w-14 rounded-none text-xl font-bold hover:bg-primary/10"
-                    onClick={() => updateCount(item.item_id, 1)}
-                  >
-                    <Plus className="h-6 w-6" />
-                  </Button>
+                  {/* Units counter */}
+                  <div className="p-2">
+                    <p className="text-xs text-center text-muted-foreground mb-1 uppercase tracking-wide">
+                      Units
+                      {costPerUnit > 0 && (
+                        <span className="ml-1 text-primary">@ {formatCurrency(costPerUnit)}</span>
+                      )}
+                    </p>
+                    <div className="flex items-center justify-center gap-0">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-12 w-10 rounded-r-none text-lg font-bold hover:bg-destructive/10"
+                        onClick={() => updateUnits(item.item_id, -1, item.pack_quantity)}
+                      >
+                        <Minus className="h-5 w-5" />
+                      </Button>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={count.units}
+                        onChange={(e) => setUnits(item.item_id, parseInt(e.target.value) || 0, item.pack_quantity)}
+                        className="w-14 h-12 text-center text-xl font-bold bg-muted/50 border-x border-border focus:outline-none focus:bg-primary/5"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-12 w-10 rounded-l-none text-lg font-bold hover:bg-primary/10"
+                        onClick={() => updateUnits(item.item_id, 1, item.pack_quantity)}
+                      >
+                        <Plus className="h-5 w-5" />
+                      </Button>
+                    </div>
+                    {packQty > 1 && (
+                      <p className="text-[10px] text-center text-muted-foreground mt-1">
+                        {packQty} per case
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Quick navigation dots */}
