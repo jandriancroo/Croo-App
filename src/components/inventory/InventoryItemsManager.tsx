@@ -175,13 +175,18 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         body: { locationId, action: "categories", productListHeaderId, customerId }
       });
 
+      console.log('[PFG Sync] Response:', JSON.stringify(data, null, 2));
+
       if (error) throw error;
       if (!data?.authenticated) {
         toast.error("PFG authentication failed. Check your settings.");
         return;
       }
 
+      // The edge function returns { authenticated, data: { categories: [...] } }
       const categories = data?.data?.categories || [];
+      console.log('[PFG Sync] Categories found:', categories.length, categories.map((c: any) => c.name));
+      
       if (categories.length === 0) {
         toast.info("No categories found in PFG");
         return;
