@@ -35,7 +35,7 @@ const ACCENT_COLORS = [
 
 export interface New3DCubeConfig {
   title: string;
-  faceMetrics: MetricType[][]; // Array of faces, each face has up to 3 metrics
+  faceMetrics: MetricType[][]; // Array of faces, each face has up to 4 metrics
   numFaces: number;
   accentColor: string;
 }
@@ -78,7 +78,7 @@ export function Add3DCubeDialog({
 
   const toggleMetric = (metric: MetricType) => {
     const currentFaceMetrics = faceMetrics[activeFace];
-    const maxMetrics = 3;
+    const maxMetrics = 4;
     
     if (currentFaceMetrics.includes(metric)) {
       // Remove metric
@@ -212,10 +212,10 @@ export function Add3DCubeDialog({
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        Select up to 3 metrics for this face
+                        Select up to 4 metrics for this face
                       </span>
                       <span className="text-xs font-medium">
-                        {faceMetrics[idx].length}/3
+                        {faceMetrics[idx].length}/4
                       </span>
                     </div>
                     
