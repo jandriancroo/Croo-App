@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Edit2, Trash2, MapPin, Package } from "lucide-react";
+import { Plus, Edit2, Trash2, MapPin, Package, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface InventoryItemsManagerProps {
@@ -18,6 +18,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const queryClient = useQueryClient();
   const [isAddingLocation, setIsAddingLocation] = useState(false);
   const [isAddingItem, setIsAddingItem] = useState(false);
+  const [isSyncingPFG, setIsSyncingPFG] = useState(false);
   const [newLocationName, setNewLocationName] = useState("");
   const [newItem, setNewItem] = useState({
     name: "",
@@ -25,6 +26,21 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     storage_location_id: "",
     par_level: "",
     cost_per_unit: ""
+  });
+
+  // Check if PFG is configured
+  const { data: pfgIntegration } = useQuery({
+    queryKey: ["pfg-integration", locationId],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("location_integrations")
+        .select("*")
+        .eq("location_id", locationId)
+        .eq("integration_type", "pfg")
+        .eq("is_active", true)
+        .maybeSingle();
+      return data;
+    }
   });
 
   // Fetch storage locations
@@ -145,6 +161,59 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     }
   });
 
+  // Sync from PFG
+  const syncFromPFG = async () => {
+    setIsSyncingPFG(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("fetch-pfg-orders", {
+        body: { locationId, action: "categories" }
+      });
+
+      if (error) throw error;
+      if (!data?.authenticated) {
+        toast.error("PFG authentication failed. Check your settings.");
+        return;
+      }
+
+      const categories = data?.data?.categories || [];
+      if (categories.length === 0) {
+        toast.info("No categories found in PFG");
+        return;
+      }
+
+      // Get existing storage locations to avoid duplicates
+      const existingNames = new Set(storageLocations?.map(l => l.name.toLowerCase()) || []);
+      
+      let added = 0;
+      for (const cat of categories) {
+        if (!existingNames.has(cat.name.toLowerCase())) {
+          const { error: insertError } = await supabase
+            .from("inventory_locations")
+            .insert({
+              location_id: locationId,
+              name: cat.name,
+              display_order: (storageLocations?.length || 0) + added
+            });
+          
+          if (!insertError) added++;
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
+      
+      if (added > 0) {
+        toast.success(`Added ${added} storage locations from PFG`);
+      } else {
+        toast.info("All PFG categories already exist");
+      }
+    } catch (err) {
+      console.error("PFG sync error:", err);
+      toast.error("Failed to sync from PFG");
+    } finally {
+      setIsSyncingPFG(false);
+    }
+  };
+
   const units = ["each", "case", "lb", "oz", "gal", "bag", "box", "pack"];
 
   return (
@@ -156,13 +225,29 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             <MapPin className="h-5 w-5" />
             Storage Locations
           </CardTitle>
-          <Dialog open={isAddingLocation} onOpenChange={setIsAddingLocation}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-1" />
-                Add
+          <div className="flex gap-2">
+            {pfgIntegration && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={syncFromPFG}
+                disabled={isSyncingPFG}
+              >
+                {isSyncingPFG ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-1" />
+                )}
+                PFG
               </Button>
-            </DialogTrigger>
+            )}
+            <Dialog open={isAddingLocation} onOpenChange={setIsAddingLocation}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add Storage Location</DialogTitle>
@@ -185,7 +270,8 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 </Button>
               </div>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           {storageLocations && storageLocations.length > 0 ? (
