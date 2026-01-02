@@ -73,6 +73,7 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
           cost_per_unit,
           pack_size,
           pack_quantity,
+          pack_quantity_override,
           item_number,
           brand,
           image_url,
@@ -105,7 +106,8 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
         par_level: item.par_level,
         cost_per_unit: item.cost_per_unit,
         pack_size: item.pack_size,
-        pack_quantity: item.pack_quantity,
+        // Use override if set, otherwise fall back to PFG pack_quantity
+        pack_quantity: item.pack_quantity_override ?? item.pack_quantity,
         item_number: item.item_number,
         brand: item.brand,
         image_url: item.image_url,
@@ -249,37 +251,37 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
   }, [currentLocationIndex]);
 
   const updateCases = (itemId: string, delta: number) => {
-    setCounts(prev => ({
-      ...prev,
-      [itemId]: {
-        cases: Math.max(0, Math.round(((prev[itemId]?.cases || 0) + delta) * 10) / 10),
-        units: prev[itemId]?.units || 0
-      }
-    }));
-  };
-
-  const updateUnits = (itemId: string, delta: number, packQuantity: number | null) => {
-    const packQty = packQuantity || 1;
     setCounts(prev => {
-      const current = prev[itemId] || { cases: 0, units: 0 };
-      let newUnits = current.units + delta;
-      let newCases = current.cases;
-      
-      // Auto-convert units to cases when exceeding pack quantity
-      if (newUnits >= packQty) {
-        newCases += Math.floor(newUnits / packQty);
-        newUnits = newUnits % packQty;
-      } else if (newUnits < 0 && newCases > 0) {
-        // Borrow from cases if going negative
-        newCases -= 1;
-        newUnits = packQty + newUnits;
-      } else if (newUnits < 0) {
-        newUnits = 0;
-      }
-      
+      const newValue = Math.max(0, Math.round(((prev[itemId]?.cases || 0) + delta) * 100) / 100);
+      // Also update raw input to stay in sync
+      setRawInputs(p => ({
+        ...p,
+        [itemId]: { ...p[itemId], cases: String(newValue) }
+      }));
       return {
         ...prev,
-        [itemId]: { cases: Math.max(0, newCases), units: Math.max(0, newUnits) }
+        [itemId]: {
+          cases: newValue,
+          units: prev[itemId]?.units || 0
+        }
+      };
+    });
+  };
+
+  const updateUnits = (itemId: string, delta: number) => {
+    setCounts(prev => {
+      const newValue = Math.max(0, Math.round(((prev[itemId]?.units || 0) + delta) * 100) / 100);
+      // Also update raw input to stay in sync
+      setRawInputs(p => ({
+        ...p,
+        [itemId]: { ...p[itemId], units: String(newValue) }
+      }));
+      return {
+        ...prev,
+        [itemId]: {
+          cases: prev[itemId]?.cases || 0,
+          units: newValue
+        }
       };
     });
   };
@@ -522,7 +524,7 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
                       <button
                         type="button"
                         className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all"
-                        onClick={() => updateUnits(item.item_id, -1, item.pack_quantity)}
+                        onClick={() => updateUnits(item.item_id, -1)}
                       >
                         <Minus className="h-6 w-6" strokeWidth={3} />
                       </button>
@@ -537,7 +539,7 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
                       <button
                         type="button"
                         className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all"
-                        onClick={() => updateUnits(item.item_id, 1, item.pack_quantity)}
+                        onClick={() => updateUnits(item.item_id, 1)}
                       >
                         <Plus className="h-6 w-6" strokeWidth={3} />
                       </button>

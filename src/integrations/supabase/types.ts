@@ -1341,6 +1341,7 @@ export type Database = {
           location_id: string | null
           name: string
           pack_quantity: number | null
+          pack_quantity_override: number | null
           pack_size: string | null
           par_level: number | null
           qubeyond_item_id: string | null
@@ -1360,6 +1361,7 @@ export type Database = {
           location_id?: string | null
           name: string
           pack_quantity?: number | null
+          pack_quantity_override?: number | null
           pack_size?: string | null
           par_level?: number | null
           qubeyond_item_id?: string | null
@@ -1379,6 +1381,7 @@ export type Database = {
           location_id?: string | null
           name?: string
           pack_quantity?: number | null
+          pack_quantity_override?: number | null
           pack_size?: string | null
           par_level?: number | null
           qubeyond_item_id?: string | null
