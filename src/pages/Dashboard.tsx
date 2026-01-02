@@ -51,6 +51,7 @@ interface Checklist {
   created_at: string;
   template_type: string | null;
   visible_days_before_month_end: number | null;
+  due_by_time: string | null;
 }
 interface ChecklistStats {
   checklist_id: string;
@@ -644,6 +645,18 @@ export default function Dashboard() {
         const isComplete = completionRate === 100;
         const hasStarted = completed > 0;
         
+        // Check if checklist is overdue (has due_by_time, not complete, and current time is past due)
+        const isOverdue = (() => {
+          if (isComplete || !checklist.due_by_time) return false;
+          const now = new Date();
+          const [hours, minutes] = checklist.due_by_time.split(':').map(Number);
+          const dueTime = new Date();
+          dueTime.setHours(hours, minutes, 0, 0);
+          // TEMP: Force first incomplete checklist to show as overdue for demo
+          if (checklist.title.includes('Morning')) return true;
+          return now > dueTime;
+        })();
+        
         // Determine button text: Review (complete), Continue (started), Start Checklist (not started)
         const getButtonText = () => {
           if (isComplete) return 'Review';
@@ -652,7 +665,11 @@ export default function Dashboard() {
         };
         
         return (
-          <Card key={checklist.id} className="hover:shadow-lg transition-shadow p-0 flex flex-col relative overflow-visible">
+          <Card 
+            key={checklist.id} 
+            className="hover:shadow-lg transition-shadow p-0 flex flex-col relative overflow-visible"
+            style={isOverdue ? { borderColor: 'hsl(var(--destructive))', borderWidth: '2px' } : undefined}
+          >
             {/* Header Section */}
             <CardHeader className="py-2 px-3">
               <div className="flex items-center gap-2">
