@@ -165,12 +165,14 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const syncFromPFG = async () => {
     setIsSyncingPFG(true);
     try {
-      // Get the productListHeaderId from the integration credentials
+      // Get the productListHeaderId and customerId from the integration credentials
       const productListHeaderId = (pfgIntegration?.credentials as any)?.product_list_header_id 
         || "b4680e1a-4815-44c6-968e-634e94188009"; // Default to Blaze Hemet list
+      const customerId = (pfgIntegration?.credentials as any)?.customer_id
+        || "73094123-ab82-4044-9722-65099b55a11e"; // Default customer ID
       
       const { data, error } = await supabase.functions.invoke("fetch-pfg-orders", {
-        body: { locationId, action: "categories", productListHeaderId }
+        body: { locationId, action: "categories", productListHeaderId, customerId }
       });
 
       if (error) throw error;

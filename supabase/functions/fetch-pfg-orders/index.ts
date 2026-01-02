@@ -12,11 +12,12 @@ const PFG_B2C_POLICY = 'b2c_1a_signup_signin';
 const PFG_CLIENT_ID = 'c68e7fae-80a1-42db-bd89-3fb37d1224a2';
 const PFG_SCOPE = 'https://pfgcustomerfirst.onmicrosoft.com/api/customer-first-site-api openid profile offline_access';
 const PFG_TOKEN_URL = `https://${PFG_B2C_TENANT}.b2clogin.com/${PFG_B2C_TENANT}.onmicrosoft.com/${PFG_B2C_POLICY}/oauth2/v2.0/token`;
-const PFG_API_BASE = 'https://api.customerfirstsolutions.com/api/v1';
+const PFG_API_BASE = 'https://www.customerfirstsolutions.com/api/v1';
 
 interface PFGCredentials {
   username?: string; // For display only
   refresh_token: string;
+  customer_id?: string; // PFG customer ID
 }
 
 interface TokenResponse {
@@ -90,8 +91,18 @@ async function fetchProductList(accessToken: string, searchTerm: string = ''): P
 }
 
 // Fetch product list items from a specific list (using ProductListHeaderId)
-async function fetchProductListItems(accessToken: string, productListHeaderId: string): Promise<any> {
-  console.log('[PFG API] Fetching product list items for list:', productListHeaderId);
+async function fetchProductListItems(accessToken: string, productListHeaderId: string, customerId: string): Promise<any> {
+  console.log('[PFG API] Fetching product list items for list:', productListHeaderId, 'customer:', customerId);
+  
+  const requestBody = {
+    CustomerId: customerId,
+    ProductListHeaderId: productListHeaderId,
+    QueryText: "",
+    SortByType: 5,
+    IncludeRecipeItems: true
+  };
+  
+  console.log('[PFG API] Request body:', JSON.stringify(requestBody));
   
   const response = await fetch(`${PFG_API_BASE}/Search/SearchProductList`, {
     method: 'POST',
@@ -100,12 +111,7 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
-    body: JSON.stringify({
-      ProductListHeaderId: productListHeaderId,
-      QueryText: "",
-      SortByType: 5,
-      IncludeRecipeItems: true
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
@@ -170,7 +176,7 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const body = await req.json();
-    const { locationId, testCredentials, action = 'test', productListHeaderId } = body;
+    const { locationId, testCredentials, action = 'test', productListHeaderId, customerId } = body;
 
     let credentials: PFGCredentials;
     let integrationId: string | null = null;
@@ -290,7 +296,20 @@ serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
-      const categories = await fetchProductListItems(tokenData.access_token, productListHeaderId);
+      
+      // Get customer ID from request or stored credentials
+      const customerIdToUse = customerId || credentials.customer_id;
+      if (!customerIdToUse) {
+        return new Response(JSON.stringify({ 
+          error: 'customerId is required for categories action',
+          authenticated: true
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      const categories = await fetchProductListItems(tokenData.access_token, productListHeaderId, customerIdToUse);
       return new Response(JSON.stringify({ 
         authenticated: true,
         data: categories 
