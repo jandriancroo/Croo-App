@@ -226,8 +226,24 @@ export function DataCube3D({
 }: DataCube3DProps) {
   const [currentFace, setCurrentFace] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [cubeDepth, setCubeDepth] = useState(60);
   
   const totalFaces = Math.min(faces.length, 4);
+  
+  // Calculate cube depth based on container width
+  useEffect(() => {
+    const updateDepth = () => {
+      if (containerRef.current) {
+        const width = containerRef.current.offsetWidth;
+        setCubeDepth(width / 2);
+      }
+    };
+    
+    updateDepth();
+    window.addEventListener('resize', updateDepth);
+    return () => window.removeEventListener('resize', updateDepth);
+  }, []);
   
   const rotateTo = useCallback((faceIndex: number) => {
     if (isAnimating || faceIndex === currentFace) return;
@@ -263,17 +279,15 @@ export function DataCube3D({
     return currentFace * -90;
   };
 
-  // Cube depth for 3D effect - responsive
-  const cubeDepth = 60;
-
   return (
     <div className={cn("relative group h-full", className)}>
       {/* 3D Cube Container - fills parent, uses perspective */}
       <div 
-        className="relative w-full h-full cursor-pointer"
+        ref={containerRef}
+        className="relative w-full h-full cursor-pointer overflow-visible"
         onClick={handleClick}
         style={{
-          perspective: '600px',
+          perspective: `${cubeDepth * 4}px`,
           perspectiveOrigin: 'center center',
         }}
       >
@@ -282,7 +296,7 @@ export function DataCube3D({
           className="relative w-full h-full transition-transform duration-700 ease-[cubic-bezier(0.4,0,0.2,1)]"
           style={{
             transformStyle: 'preserve-3d',
-            transform: `rotateY(${getRotationY()}deg)`,
+            transform: `translateZ(-${cubeDepth}px) rotateY(${getRotationY()}deg)`,
           }}
         >
           {/* Render all 4 faces of the cube */}
