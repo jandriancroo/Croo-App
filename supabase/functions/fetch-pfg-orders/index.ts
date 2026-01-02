@@ -12,7 +12,7 @@ const PFG_B2C_POLICY = 'b2c_1a_signup_signin';
 const PFG_CLIENT_ID = 'c68e7fae-80a1-42db-bd89-3fb37d1224a2';
 const PFG_SCOPE = 'https://pfgcustomerfirst.onmicrosoft.com/api/customer-first-site-api openid profile offline_access';
 const PFG_TOKEN_URL = `https://${PFG_B2C_TENANT}.b2clogin.com/${PFG_B2C_TENANT}.onmicrosoft.com/${PFG_B2C_POLICY}/oauth2/v2.0/token`;
-const PFG_API_BASE = 'https://www.customerfirstsolutions.com/api/v1';
+const PFG_API_BASE = 'https://apps-zz-cusfst-mw-p-eus01.azurewebsites.net/api';
 
 interface PFGCredentials {
   username?: string; // For display only
