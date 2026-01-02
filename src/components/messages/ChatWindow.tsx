@@ -26,6 +26,13 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
+interface ParentMessageData {
+  content: string | null;
+  profiles: {
+    full_name: string;
+  } | null;
+}
+
 interface Message {
   id: string;
   content: string | null;
@@ -33,10 +40,12 @@ interface Message {
   attachment_url: string | null;
   attachment_type: string | null;
   created_at: string;
+  parent_message_id: string | null;
   profiles?: {
     full_name: string;
     profile_photo_url: string | null;
   };
+  parent_message?: ParentMessageData[] | ParentMessageData | null;
 }
 
 interface ChatDetails {
@@ -105,7 +114,11 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         .from('messages')
         .select(`
           *,
-          profiles!messages_sender_id_fkey(full_name, profile_photo_url)
+          profiles!messages_sender_id_fkey(full_name, profile_photo_url),
+          parent_message:messages!messages_parent_message_id_fkey(
+            content,
+            profiles:profiles!messages_sender_id_fkey(full_name)
+          )
         `)
         .eq('chat_id', chatId)
         .order('created_at', { ascending: true });
@@ -529,6 +542,27 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                         : 'bg-muted'
                     }`}
                   >
+                    {/* Reply reference */}
+                    {message.parent_message && (() => {
+                      const parent = Array.isArray(message.parent_message) 
+                        ? message.parent_message[0] 
+                        : message.parent_message;
+                      if (!parent) return null;
+                      return (
+                        <div className={`mb-2 p-2 rounded text-sm border-l-2 ${
+                          isOwnMessage 
+                            ? 'bg-primary-foreground/10 border-primary-foreground/50' 
+                            : 'bg-background/50 border-primary/50'
+                        }`}>
+                          <p className={`text-xs font-medium ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                            Replying to {parent.profiles?.full_name || 'Unknown'}
+                          </p>
+                          <p className={`truncate ${isOwnMessage ? 'text-primary-foreground/80' : 'text-foreground/70'}`}>
+                            {parent.content || 'Attachment'}
+                          </p>
+                        </div>
+                      );
+                    })()}
                     {message.attachment_url && (
                       <div className="mb-2">
                         {message.attachment_type?.startsWith('image/') ? (
