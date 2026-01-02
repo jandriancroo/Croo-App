@@ -45,11 +45,16 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const isListeningRef = useRef(false);
+  const onTranscriptRef = useRef(onTranscript);
 
-  // Keep ref in sync with state
+  // Keep refs in sync
   useEffect(() => {
     isListeningRef.current = isListening;
   }, [isListening]);
+
+  useEffect(() => {
+    onTranscriptRef.current = onTranscript;
+  }, [onTranscript]);
 
   useEffect(() => {
     // Check for browser support
@@ -63,36 +68,40 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
       recognition.lang = 'en-US';
 
       recognition.onresult = (event: SpeechRecognitionEventType) => {
+        console.log('[Voice] Got result event');
         const lastResult = event.results[event.results.length - 1];
         if (lastResult.isFinal) {
           const transcript = lastResult[0].transcript.trim();
-          console.log('[Voice] Transcript:', transcript);
+          console.log('[Voice] Final transcript:', transcript);
           if (transcript) {
-            onTranscript(transcript);
+            // Use ref to get latest callback
+            onTranscriptRef.current(transcript);
           }
         }
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEventType) => {
         console.error('[Voice] Error:', event.error);
-        if (event.error === 'not-allowed') {
+        if (event.error === 'not-allowed' || event.error === 'aborted') {
           setIsListening(false);
         }
       };
 
       recognition.onend = () => {
-        console.log('[Voice] Recognition ended, isListening:', isListeningRef.current);
+        console.log('[Voice] Recognition ended, shouldContinue:', isListeningRef.current);
         // Restart if we're supposed to be listening (continuous mode)
         if (isListeningRef.current && continuous) {
-          try {
-            setTimeout(() => {
-              if (isListeningRef.current) {
-                recognition.start();
+          setTimeout(() => {
+            if (isListeningRef.current && recognitionRef.current) {
+              try {
+                console.log('[Voice] Restarting...');
+                recognitionRef.current.start();
+              } catch (e) {
+                console.error('[Voice] Restart failed:', e);
+                setIsListening(false);
               }
-            }, 100);
-          } catch (e) {
-            console.error('[Voice] Restart failed:', e);
-          }
+            }
+          }, 100);
         } else {
           setIsListening(false);
         }
@@ -110,10 +119,13 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
         }
       }
     };
-  }, [continuous, onTranscript]);
+  }, [continuous]);
 
   const startListening = useCallback(async () => {
-    if (!recognitionRef.current) return;
+    if (!recognitionRef.current) {
+      console.error('[Voice] Recognition not available');
+      return;
+    }
 
     try {
       // Request microphone permission first
@@ -123,6 +135,7 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
       console.log('[Voice] Started listening');
     } catch (error) {
       console.error('[Voice] Failed to start:', error);
+      setIsListening(false);
     }
   }, []);
 
