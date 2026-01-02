@@ -678,8 +678,8 @@ export default function Dashboard() {
                 <Badge className={`text-xs px-2 py-0.5 flex-shrink-0 ${isOverdue ? 'bg-destructive text-destructive-foreground' : getFrequencyColor(checklist.frequency)}`}>
                   {isOverdue ? (
                     <span className="flex items-center gap-1">
-                      overdue
                       <AlertTriangle className="h-3 w-3" />
+                      overdue
                     </span>
                   ) : checklist.frequency}
                 </Badge>
