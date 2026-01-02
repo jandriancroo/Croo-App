@@ -416,8 +416,8 @@ function CubeFaceComponent({
         metricCount === 4 ? "p-2 md:p-3" : "px-2 md:px-3 py-1"
       )}>
         {metricCount === 4 ? (
-          // 4 metrics: position in corners
-          <div className="absolute inset-2 md:inset-3">
+          // 4 metrics: 2x2 grid layout
+          <div className="grid grid-cols-2 grid-rows-2 h-full gap-1">
             {displayMetrics.map((metricType, index) => {
               const config = METRIC_CONFIGS[metricType];
               if (!config) return null;
@@ -425,19 +425,14 @@ function CubeFaceComponent({
               const value = getMetricValue(metricType, salesData);
               const formattedValue = formatValue(value, config.format);
               
-              // Position: 0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right
-              const positionClasses = [
-                "top-0 left-0",
-                "top-0 right-0 text-right",
-                "bottom-0 left-0",
-                "bottom-0 right-0 text-right"
-              ][index];
+              // Align: 0=left, 1=right, 2=left, 3=right
+              const isRight = index % 2 === 1;
               
               return (
-                  <div key={index} className={cn("absolute flex flex-col min-w-0", positionClasses)}>
+                  <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
                     <div 
                       className={cn(
-                        "font-bold leading-tight truncate text-lg md:text-2xl",
+                        "font-bold leading-tight truncate text-base md:text-lg",
                         isLoading && "animate-pulse bg-white/30 rounded w-12 h-5"
                       )}
                       style={{ color: textColor }}
@@ -445,7 +440,7 @@ function CubeFaceComponent({
                       {!isLoading && formattedValue}
                     </div>
                     <div 
-                      className="text-[9px] md:text-[11px] font-semibold truncate"
+                      className="text-[8px] md:text-[10px] font-semibold truncate"
                       style={{ color: labelColor }}
                     >
                       {getDynamicLabel(metricType)}
