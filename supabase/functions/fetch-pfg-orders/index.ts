@@ -149,7 +149,7 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
   console.log('[PFG API] Request body:', JSON.stringify(requestBody));
 
   const data = await fetchPfgJson(
-    '/Search/SearchProductList',
+    '/ProductListSearch/V1/SearchProductList',
     {
       method: 'POST',
       headers: {
