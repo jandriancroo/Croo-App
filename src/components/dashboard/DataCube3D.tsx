@@ -410,45 +410,88 @@ function CubeFaceComponent({
         </div>
       )}
       
-      {/* Content - responsive grid for metrics */}
+      {/* Content - positioned layout for metrics */}
       <div className={cn(
-        "flex-1 px-2 md:px-3 py-1 relative z-10",
-        // Mobile: vertical stack, Tablet/Desktop: 2x2 grid for 4 metrics
-        metricCount <= 2 
-          ? "flex flex-col justify-center space-y-0.5" 
-          : "grid gap-x-2 gap-y-0.5 md:gap-x-3",
-        metricCount === 3 && "grid-cols-1 md:grid-cols-3",
-        metricCount === 4 && "grid-cols-2"
+        "flex-1 relative z-10",
+        metricCount === 4 ? "p-2 md:p-3" : "px-2 md:px-3 py-1"
       )}>
-        {displayMetrics.map((metricType, index) => {
-          const config = METRIC_CONFIGS[metricType];
-          if (!config) return null;
-          
-          const value = getMetricValue(metricType, salesData);
-          const formattedValue = formatValue(value, config.format);
-          
-          return (
-            <div key={index} className="flex flex-col min-w-0">
-              <div 
-                className={cn(
-                  "font-bold leading-tight truncate",
-                  isLoading && "animate-pulse bg-white/30 rounded w-12 h-4",
-                  // Responsive text sizes - smaller on tablet/desktop with more metrics
-                  metricCount <= 2 ? "text-lg md:text-xl" : "text-base md:text-lg"
-                )}
-                style={{ color: textColor }}
-              >
-                {!isLoading && formattedValue}
-              </div>
-              <div 
-                className="text-[9px] md:text-[10px] font-semibold truncate"
-                style={{ color: labelColor }}
-              >
-                {getDynamicLabel(metricType)}
-              </div>
-            </div>
-          );
-        })}
+        {metricCount === 4 ? (
+          // 4 metrics: position in corners
+          <div className="absolute inset-2 md:inset-3">
+            {displayMetrics.map((metricType, index) => {
+              const config = METRIC_CONFIGS[metricType];
+              if (!config) return null;
+              
+              const value = getMetricValue(metricType, salesData);
+              const formattedValue = formatValue(value, config.format);
+              
+              // Position: 0=top-left, 1=top-right, 2=bottom-left, 3=bottom-right
+              const positionClasses = [
+                "top-0 left-0",
+                "top-0 right-0 text-right",
+                "bottom-0 left-0",
+                "bottom-0 right-0 text-right"
+              ][index];
+              
+              return (
+                <div key={index} className={cn("absolute flex flex-col min-w-0", positionClasses)}>
+                  <div 
+                    className={cn(
+                      "font-bold leading-tight truncate text-sm md:text-base",
+                      isLoading && "animate-pulse bg-white/30 rounded w-10 h-3"
+                    )}
+                    style={{ color: textColor }}
+                  >
+                    {!isLoading && formattedValue}
+                  </div>
+                  <div 
+                    className="text-[8px] md:text-[9px] font-semibold truncate"
+                    style={{ color: labelColor }}
+                  >
+                    {getDynamicLabel(metricType)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          // 1-3 metrics: vertical stack or grid
+          <div className={cn(
+            "h-full",
+            metricCount <= 2 
+              ? "flex flex-col justify-center space-y-0.5" 
+              : "grid grid-cols-1 md:grid-cols-3 gap-x-2 gap-y-0.5 md:gap-x-3 items-center"
+          )}>
+            {displayMetrics.map((metricType, index) => {
+              const config = METRIC_CONFIGS[metricType];
+              if (!config) return null;
+              
+              const value = getMetricValue(metricType, salesData);
+              const formattedValue = formatValue(value, config.format);
+              
+              return (
+                <div key={index} className="flex flex-col min-w-0">
+                  <div 
+                    className={cn(
+                      "font-bold leading-tight truncate",
+                      isLoading && "animate-pulse bg-white/30 rounded w-12 h-4",
+                      metricCount <= 2 ? "text-lg md:text-xl" : "text-base md:text-lg"
+                    )}
+                    style={{ color: textColor }}
+                  >
+                    {!isLoading && formattedValue}
+                  </div>
+                  <div 
+                    className="text-[9px] md:text-[10px] font-semibold truncate"
+                    style={{ color: labelColor }}
+                  >
+                    {getDynamicLabel(metricType)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
       
       {/* Face Indicator dots */}
