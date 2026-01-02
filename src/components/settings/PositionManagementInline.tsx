@@ -21,7 +21,11 @@ type Position = {
   count: number;
 };
 
-export function PositionManagementInline() {
+interface PositionManagementInlineProps {
+  organizationId?: string;
+}
+
+export function PositionManagementInline({ organizationId }: PositionManagementInlineProps) {
   const [positions, setPositions] = useState<Position[]>([]);
   const [loading, setLoading] = useState(true);
   const [newPosition, setNewPosition] = useState('');
@@ -29,16 +33,36 @@ export function PositionManagementInline() {
   const [editValue, setEditValue] = useState('');
   const [deletePosition, setDeletePosition] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [locationIds, setLocationIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetchPositions();
-  }, []);
+  }, [organizationId]);
 
   const fetchPositions = async () => {
     try {
-      const { data, error } = await supabase
-        .from('shift_templates')
-        .select('position');
+      let locIds: string[] = [];
+      
+      if (organizationId) {
+        // Get all locations in this organization
+        const { data: orgLocations, error: orgError } = await supabase
+          .from('locations')
+          .select('id')
+          .eq('organization_id', organizationId);
+
+        if (orgError) throw orgError;
+        locIds = orgLocations?.map(l => l.id) || [];
+        setLocationIds(locIds);
+      }
+
+      // Get positions only from templates in this organization's locations
+      let query = supabase.from('shift_templates').select('position');
+      
+      if (locIds.length > 0) {
+        query = query.in('location_id', locIds);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -92,10 +116,17 @@ export function PositionManagementInline() {
     }
 
     try {
-      const { error } = await supabase
+      // Only update positions within this organization's locations
+      let query = supabase
         .from('shift_templates')
         .update({ position: newPositionName.trim() })
         .eq('position', oldPosition);
+      
+      if (locationIds.length > 0) {
+        query = query.in('location_id', locationIds);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
 
@@ -111,10 +142,17 @@ export function PositionManagementInline() {
 
   const handleDeletePosition = async (position: string) => {
     try {
-      const { error } = await supabase
+      // Only delete positions within this organization's locations
+      let query = supabase
         .from('shift_templates')
         .update({ position: null })
         .eq('position', position);
+      
+      if (locationIds.length > 0) {
+        query = query.in('location_id', locationIds);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
 

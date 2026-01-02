@@ -99,10 +99,52 @@ export default function ShiftTemplates() {
   }, [canManageTemplates, roleLoading, navigate, currentLocation?.id]);
 
   const fetchPositions = async () => {
+    if (!currentLocation?.id) return;
+    
     try {
+      // First get the organization_id for the current location
+      const { data: locationData, error: locationError } = await supabase
+        .from('locations')
+        .select('organization_id')
+        .eq('id', currentLocation.id)
+        .single();
+
+      if (locationError) throw locationError;
+
+      if (!locationData?.organization_id) {
+        // Fallback: just get positions from current location
+        const { data, error } = await supabase
+          .from('shift_templates')
+          .select('position')
+          .eq('location_id', currentLocation.id);
+
+        if (error) throw error;
+
+        const uniquePositions = new Set<string>();
+        data?.forEach((template: any) => {
+          if (template.position) {
+            uniquePositions.add(template.position);
+          }
+        });
+        setPositions(Array.from(uniquePositions).sort());
+        return;
+      }
+
+      // Get all locations in this organization
+      const { data: orgLocations, error: orgError } = await supabase
+        .from('locations')
+        .select('id')
+        .eq('organization_id', locationData.organization_id);
+
+      if (orgError) throw orgError;
+
+      const locationIds = orgLocations?.map(l => l.id) || [];
+
+      // Get positions only from templates in this organization's locations
       const { data, error } = await supabase
         .from('shift_templates')
-        .select('position');
+        .select('position')
+        .in('location_id', locationIds);
 
       if (error) throw error;
 
