@@ -19,6 +19,10 @@ interface ParsedCommand {
   confidence: 'high' | 'medium' | 'low';
 }
 
+interface ParsedResponse {
+  commands: ParsedCommand[];
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -48,10 +52,7 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are an inventory voice command parser. Parse the user's spoken command to extract:
-1. The item name (match to one of the available items)
-2. The number of cases (default 0 if not mentioned)
-3. The number of units (default 0 if not mentioned)
+            content: `You are an inventory voice command parser. Parse the user's spoken command to extract ONE OR MORE items with their quantities.
 
 Available inventory items: ${itemNames}
 
@@ -61,21 +62,28 @@ Common patterns:
 - "Chicken half a case" → item: Chicken, cases: 0.5, units: 0
 - "Brownies 1" → item: Brownies, cases: 1, units: 0 (assume cases if not specified)
 - "5 cookies" → item: Cookies, cases: 5, units: 0
+- "Cookies 5 brownies 3" → TWO items: Cookies 5 cases, Brownies 3 cases
 
-Match the spoken item name to the closest matching inventory item name. Be flexible with:
+IMPORTANT: Users may say multiple items in one command. Extract ALL of them.
+
+Match spoken item names to the closest matching inventory item name. Be flexible with:
 - Plurals (cookie vs cookies)
 - Common abbreviations
 - Similar sounding words
 
 Respond ONLY with valid JSON in this exact format:
 {
-  "item_name": "matched item name from the list",
-  "cases": 0,
-  "units": 0,
-  "confidence": "high" | "medium" | "low"
+  "commands": [
+    {
+      "item_name": "matched item name from the list",
+      "cases": 0,
+      "units": 0,
+      "confidence": "high" | "medium" | "low"
+    }
+  ]
 }
 
-If you cannot match the item, set confidence to "low".`
+Always return an array of commands, even if there's only one item.`
           },
           {
             role: 'user',
@@ -97,7 +105,7 @@ If you cannot match the item, set confidence to "low".`
     console.log('[ParseVoice] AI response:', content);
 
     // Parse the JSON from the AI response
-    let parsed: ParsedCommand;
+    let parsed: ParsedResponse;
     try {
       // Extract JSON from response (handle markdown code blocks)
       const jsonMatch = content.match(/\{[\s\S]*\}/);
@@ -113,19 +121,24 @@ If you cannot match the item, set confidence to "low".`
       );
     }
 
-    // Find the matching item ID
-    const matchedItem = items.find((i: InventoryItem) => 
-      i.item_name.toLowerCase() === parsed.item_name.toLowerCase()
-    );
+    // Ensure we have commands array
+    const commands = parsed.commands || [parsed as unknown as ParsedCommand];
 
-    if (matchedItem) {
-      parsed.matched_item_id = matchedItem.item_id;
-    }
+    // Match item IDs for each command
+    const results = commands.map((cmd: ParsedCommand) => {
+      const matchedItem = items.find((i: InventoryItem) => 
+        i.item_name.toLowerCase() === cmd.item_name.toLowerCase()
+      );
+      return {
+        ...cmd,
+        matched_item_id: matchedItem?.item_id
+      };
+    });
 
-    console.log('[ParseVoice] Parsed result:', parsed);
+    console.log('[ParseVoice] Parsed results:', results);
 
     return new Response(
-      JSON.stringify(parsed),
+      JSON.stringify({ commands: results }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
