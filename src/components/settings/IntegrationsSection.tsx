@@ -14,8 +14,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 interface QuBeyondCredentials {
   username: string;
   password: string;
-  location_id?: string; // Optional - will try to auto-detect from JWT
-  pull_labor?: boolean; // Enable pulling labor % from Real Time Summary
+  location_id?: string;
+  pull_labor?: boolean;
+}
+
+interface PFGCredentials {
+  username: string;
+  password: string;
+  refresh_token?: string;
 }
 
 interface IntegrationsSectionProps {
@@ -25,6 +31,7 @@ interface IntegrationsSectionProps {
 export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const queryClient = useQueryClient();
   
+  // QuBeyond state
   const [credentials, setCredentials] = useState<QuBeyondCredentials>({
     username: "",
     password: "",
@@ -40,7 +47,17 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   const [syncProgress, setSyncProgress] = useState(0);
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
-  // Fetch existing integration
+  // PFG state
+  const [pfgCredentials, setPfgCredentials] = useState<PFGCredentials>({
+    username: "",
+    password: "",
+  });
+  const [pfgIsActive, setPfgIsActive] = useState(true);
+  const [pfgShowPassword, setPfgShowPassword] = useState(false);
+  const [pfgIsTesting, setPfgIsTesting] = useState(false);
+  const [pfgTestResult, setPfgTestResult] = useState<'success' | 'error' | null>(null);
+
+  // Fetch existing QuBeyond integration
   const { data: integration, isLoading } = useQuery({
     queryKey: ['location-integration', locationId, 'qubeyond'],
     queryFn: async () => {
@@ -59,7 +76,26 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     enabled: !!locationId
   });
 
-  // Update local state when integration data loads
+  // Fetch existing PFG integration
+  const { data: pfgIntegration, isLoading: pfgIsLoading } = useQuery({
+    queryKey: ['location-integration', locationId, 'pfg'],
+    queryFn: async () => {
+      if (!locationId) return null;
+      
+      const { data, error } = await supabase
+        .from('location_integrations')
+        .select('*')
+        .eq('location_id', locationId)
+        .eq('integration_type', 'pfg')
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!locationId
+  });
+
+  // Update local state when QuBeyond integration data loads
   useEffect(() => {
     if (integration) {
       const creds = integration.credentials as unknown as QuBeyondCredentials;
@@ -72,6 +108,19 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       setIsActive(integration.is_active);
     }
   }, [integration]);
+
+  // Update local state when PFG integration data loads
+  useEffect(() => {
+    if (pfgIntegration) {
+      const creds = pfgIntegration.credentials as unknown as PFGCredentials;
+      setPfgCredentials({
+        username: creds?.username || "",
+        password: creds?.password || "",
+        refresh_token: creds?.refresh_token,
+      });
+      setPfgIsActive(pfgIntegration.is_active);
+    }
+  }, [pfgIntegration]);
 
   // Trigger background backfill of historical sales data
   const triggerBackfill = async (integrationId: string) => {
@@ -186,7 +235,49 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     }
   });
 
-  // Test connection
+  // PFG Save mutation
+  const pfgSaveMutation = useMutation({
+    mutationFn: async () => {
+      if (!locationId) throw new Error("No location selected");
+      
+      const { data: existing } = await supabase
+        .from('location_integrations')
+        .select('id')
+        .eq('location_id', locationId)
+        .eq('integration_type', 'pfg')
+        .maybeSingle();
+      
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('location_integrations')
+          .update({
+            credentials: JSON.parse(JSON.stringify(pfgCredentials)),
+            is_active: pfgIsActive
+          })
+          .eq('id', existing.id);
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from('location_integrations')
+          .insert({
+            location_id: locationId,
+            integration_type: 'pfg',
+            credentials: JSON.parse(JSON.stringify(pfgCredentials)),
+            is_active: pfgIsActive
+          });
+        if (insertError) throw insertError;
+      }
+    },
+    onSuccess: () => {
+      toast.success("PFG settings saved");
+      queryClient.invalidateQueries({ queryKey: ['location-integration'] });
+    },
+    onError: (error) => {
+      toast.error("Failed to save: " + (error instanceof Error ? error.message : "Unknown error"));
+    }
+  });
+
+  // QuBeyond Test connection
   const testConnection = async () => {
     if (!credentials.username || !credentials.password) {
       toast.error("Please enter username and password");
@@ -221,6 +312,42 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
     }
   };
 
+  // PFG Test connection
+  const testPfgConnection = async () => {
+    if (!pfgCredentials.username || !pfgCredentials.password) {
+      toast.error("Please enter PFG username and password");
+      return;
+    }
+    
+    setPfgIsTesting(true);
+    setPfgTestResult(null);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-pfg-orders', {
+        body: { 
+          locationId: locationId,
+          testCredentials: pfgCredentials,
+          action: 'test'
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data?.authenticated) {
+        setPfgTestResult('success');
+        toast.success("PFG connection successful!");
+      } else {
+        setPfgTestResult('error');
+        toast.error("PFG authentication failed: " + (data?.error || "Invalid credentials"));
+      }
+    } catch (error) {
+      setPfgTestResult('error');
+      toast.error("PFG test failed: " + (error instanceof Error ? error.message : "Unknown error"));
+    } finally {
+      setPfgIsTesting(false);
+    }
+  };
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card>
@@ -232,7 +359,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 <div>
                   <CardTitle className="text-base">Integrations</CardTitle>
                   <CardDescription className="text-sm">
-                    Connect external services like QuBeyond POS
+                    Connect external services like QuBeyond POS and PFG
                   </CardDescription>
                 </div>
               </div>
@@ -383,6 +510,104 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                       </p>
                     </div>
                   )}
+                </>
+              )}
+            </div>
+
+            {/* PFG Section */}
+            <div className="border rounded-lg p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-medium">PFG (Performance Food Group)</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Connect to PFG ordering system
+                  </p>
+                </div>
+                <Switch
+                  checked={pfgIsActive}
+                  onCheckedChange={setPfgIsActive}
+                />
+              </div>
+
+              {pfgIsLoading ? (
+                <div className="flex justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pfg-username" className="text-sm">PFG Email</Label>
+                      <Input
+                        id="pfg-username"
+                        type="email"
+                        value={pfgCredentials.username}
+                        onChange={(e) => setPfgCredentials(prev => ({ ...prev, username: e.target.value }))}
+                        placeholder="your@email.com"
+                        className="h-9"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="pfg-password" className="text-sm">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="pfg-password"
+                          type={pfgShowPassword ? "text" : "password"}
+                          value={pfgCredentials.password}
+                          onChange={(e) => setPfgCredentials(prev => ({ ...prev, password: e.target.value }))}
+                          placeholder="PFG password"
+                          className="h-9 pr-10"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3"
+                          onClick={() => setPfgShowPassword(!pfgShowPassword)}
+                        >
+                          {pfgShowPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Use the same email and password you use to log in to customerfirstsolutions.com
+                  </p>
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={testPfgConnection}
+                      disabled={pfgIsTesting || !pfgCredentials.username || !pfgCredentials.password}
+                    >
+                      {pfgIsTesting ? (
+                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      ) : pfgTestResult === 'success' ? (
+                        <Check className="h-4 w-4 mr-1.5 text-green-500" />
+                      ) : pfgTestResult === 'error' ? (
+                        <X className="h-4 w-4 mr-1.5 text-red-500" />
+                      ) : (
+                        <TestTube className="h-4 w-4 mr-1.5" />
+                      )}
+                      Test
+                    </Button>
+                    
+                    <Button
+                      size="sm"
+                      onClick={() => pfgSaveMutation.mutate()}
+                      disabled={pfgSaveMutation.isPending}
+                    >
+                      {pfgSaveMutation.isPending ? (
+                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      ) : (
+                        <Save className="h-4 w-4 mr-1.5" />
+                      )}
+                      Save
+                    </Button>
+                  </div>
                 </>
               )}
             </div>
