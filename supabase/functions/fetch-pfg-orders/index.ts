@@ -406,28 +406,16 @@ serve(async (req) => {
       }
       
       const categoriesData = await fetchProductListItems(tokenData.access_token, productListHeaderId, customerIdToUse);
-      
-      // Fetch prices for all products
       const categories = categoriesData.categories || [];
-      let pricesFetched = 0;
       
-      for (const category of categories) {
-        for (const product of category.products || []) {
-          if (product.id && !product.price) {
-            try {
-              const detail = await fetchProductDetail(tokenData.access_token, product.id, customerIdToUse);
-              if (detail?.price) {
-                product.price = detail.price;
-                pricesFetched++;
-              }
-            } catch (e) {
-              console.warn('[PFG API] Failed to fetch price for product:', product.id, e);
-            }
-          }
+      // Count products with prices from the list response
+      let productsWithPrice = 0;
+      for (const cat of categories) {
+        for (const p of cat.products || []) {
+          if (p.price) productsWithPrice++;
         }
       }
-      
-      console.log('[PFG API] Fetched prices for', pricesFetched, 'products');
+      console.log('[PFG API] Products with price from list:', productsWithPrice);
       
       return new Response(JSON.stringify({ 
         authenticated: true,
