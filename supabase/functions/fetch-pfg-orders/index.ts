@@ -12,7 +12,7 @@ const PFG_B2C_POLICY = 'b2c_1a_signup_signin';
 const PFG_CLIENT_ID = 'c68e7fae-80a1-42db-bd89-3fb37d1224a2';
 const PFG_SCOPE = 'https://pfgcustomerfirst.onmicrosoft.com/api/customer-first-site-api openid profile offline_access';
 const PFG_TOKEN_URL = `https://${PFG_B2C_TENANT}.b2clogin.com/${PFG_B2C_TENANT}.onmicrosoft.com/${PFG_B2C_POLICY}/oauth2/v2.0/token`;
-const PFG_API_BASE = 'https://apps-zz-cusfst-mw-p-eus01.azurewebsites.net/api';
+const PFG_API_BASE = 'https://api.customerfirstsolutions.com/api/v1';
 
 interface PFGCredentials {
   username?: string; // For display only
@@ -89,12 +89,11 @@ async function fetchProductList(accessToken: string, searchTerm: string = ''): P
   return response.json();
 }
 
-// Fetch product categories (storage locations) from PFG
-async function fetchProductCategories(accessToken: string): Promise<any> {
-  console.log('[PFG API] Fetching product categories');
+// Fetch product list items from a specific list (using ProductListHeaderId)
+async function fetchProductListItems(accessToken: string, productListHeaderId: string): Promise<any> {
+  console.log('[PFG API] Fetching product list items for list:', productListHeaderId);
   
-  // Use empty search to get all categories
-  const response = await fetch(`${PFG_API_BASE}/ProductListSearch/V1/SearchProductList`, {
+  const response = await fetch(`${PFG_API_BASE}/Search/SearchProductList`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -102,15 +101,16 @@ async function fetchProductCategories(accessToken: string): Promise<any> {
       'Accept': 'application/json',
     },
     body: JSON.stringify({
-      searchTerm: '',
-      pageNumber: 1,
-      pageSize: 1000,
+      ProductListHeaderId: productListHeaderId,
+      QueryText: "",
+      SortByType: 5,
+      IncludeRecipeItems: true
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('[PFG API] Categories fetch failed:', response.status, errorText);
+    console.error('[PFG API] Product list fetch failed:', response.status, errorText);
     throw new Error(`PFG API error: ${response.status}`);
   }
 
@@ -120,9 +120,9 @@ async function fetchProductCategories(accessToken: string): Promise<any> {
   console.log('[PFG API] Raw response keys:', Object.keys(data || {}));
   console.log('[PFG API] ResultObject keys:', Object.keys(data?.ResultObject || {}));
   
-  // Extract unique categories from the response
+  // The response should have ProductListCategories which are the storage locations
   const rawCategories = data?.ResultObject?.ProductListCategories || [];
-  console.log('[PFG API] Found', rawCategories.length, 'categories');
+  console.log('[PFG API] Found', rawCategories.length, 'categories in list');
   
   if (rawCategories.length > 0) {
     console.log('[PFG API] First category sample:', JSON.stringify(rawCategories[0]).substring(0, 500));
@@ -131,13 +131,8 @@ async function fetchProductCategories(accessToken: string): Promise<any> {
   return {
     categories: rawCategories.map((cat: any) => ({
       id: cat.ProductListCategoryId,
-      name: cat.CategoryTitle,
+      name: cat.CategoryTitle || cat.Name || 'Unnamed',
       productCount: cat.Products?.length || 0,
-      products: cat.Products?.map((p: any) => ({
-        id: p.ProductListDetailId,
-        name: p.ProductName || p.Description,
-        unit: p.UnitOfMeasure,
-      })) || []
     }))
   };
 }
@@ -174,7 +169,8 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { locationId, testCredentials, action = 'test' } = await req.json();
+    const body = await req.json();
+    const { locationId, testCredentials, action = 'test', productListHeaderId } = body;
 
     let credentials: PFGCredentials;
     let integrationId: string | null = null;
@@ -285,7 +281,16 @@ serve(async (req) => {
     }
 
     if (action === 'categories') {
-      const categories = await fetchProductCategories(tokenData.access_token);
+      if (!productListHeaderId) {
+        return new Response(JSON.stringify({ 
+          error: 'productListHeaderId is required for categories action',
+          authenticated: true
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const categories = await fetchProductListItems(tokenData.access_token, productListHeaderId);
       return new Response(JSON.stringify({ 
         authenticated: true,
         data: categories 
