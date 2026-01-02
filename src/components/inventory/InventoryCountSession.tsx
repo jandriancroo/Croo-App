@@ -30,9 +30,9 @@ interface CountItem {
   image_url: string | null;
 }
 
-// Count state: cases + individual units
+// Count state: cases + individual units (supports decimals for partial cases)
 interface ItemCount {
-  cases: number;
+  cases: number; // Can be decimal (e.g., 0.5 for half case)
   units: number;
 }
 
@@ -251,7 +251,7 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
     setCounts(prev => ({
       ...prev,
       [itemId]: {
-        cases: Math.max(0, (prev[itemId]?.cases || 0) + delta),
+        cases: Math.max(0, Math.round(((prev[itemId]?.cases || 0) + delta) * 10) / 10),
         units: prev[itemId]?.units || 0
       }
     }));
@@ -283,14 +283,40 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
     });
   };
 
-  const setCases = (itemId: string, value: number) => {
-    setCounts(prev => ({
-      ...prev,
-      [itemId]: {
-        cases: Math.max(0, value),
-        units: prev[itemId]?.units || 0
+  // Handle decimal cases input (e.g., 0.5 for half case)
+  const setCasesFromInput = (itemId: string, inputValue: string, packQuantity: number | null) => {
+    const value = parseFloat(inputValue);
+    if (isNaN(value)) {
+      setCounts(prev => ({
+        ...prev,
+        [itemId]: { cases: 0, units: prev[itemId]?.units || 0 }
+      }));
+      return;
+    }
+    
+    const packQty = packQuantity || 1;
+    
+    // Handle decimal cases - convert fraction to units
+    const wholeCases = Math.floor(value);
+    const fractionalPart = value - wholeCases;
+    const additionalUnits = Math.round(fractionalPart * packQty);
+    
+    setCounts(prev => {
+      const currentUnits = prev[itemId]?.units || 0;
+      let newUnits = currentUnits + additionalUnits;
+      let newCases = wholeCases;
+      
+      // Convert excess units to cases
+      if (newUnits >= packQty) {
+        newCases += Math.floor(newUnits / packQty);
+        newUnits = newUnits % packQty;
       }
-    }));
+      
+      return {
+        ...prev,
+        [itemId]: { cases: Math.max(0, newCases), units: Math.max(0, newUnits) }
+      };
+    });
   };
 
   const setUnits = (itemId: string, value: number, packQuantity: number | null) => {
@@ -449,75 +475,71 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
                   </div>
                 </div>
                 
-                {/* Dual count controls */}
+                {/* Dual count controls - Mobile optimized */}
                 <div className="grid grid-cols-2 divide-x divide-border">
                   {/* Cases counter */}
-                  <div className="p-2">
-                    <p className="text-xs text-center text-muted-foreground mb-1 uppercase tracking-wide">
+                  <div className="p-3">
+                    <p className="text-xs text-center text-muted-foreground mb-2 uppercase tracking-wide font-medium">
                       Cases
                       {item.cost_per_unit && (
                         <span className="ml-1 text-primary">@ {formatCurrency(item.cost_per_unit)}</span>
                       )}
                     </p>
-                    <div className="flex items-center justify-center gap-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-12 w-10 rounded-r-none text-lg font-bold hover:bg-destructive/10"
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all"
                         onClick={() => updateCases(item.item_id, -1)}
                       >
-                        <Minus className="h-5 w-5" />
-                      </Button>
+                        <Minus className="h-6 w-6" strokeWidth={3} />
+                      </button>
                       <input
-                        type="number"
-                        inputMode="numeric"
+                        type="text"
+                        inputMode="decimal"
                         value={count.cases}
-                        onChange={(e) => setCases(item.item_id, parseInt(e.target.value) || 0)}
-                        className="w-14 h-12 text-center text-xl font-bold bg-muted/50 border-x border-border focus:outline-none focus:bg-primary/5"
+                        onChange={(e) => setCasesFromInput(item.item_id, e.target.value, item.pack_quantity)}
+                        className="w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-12 w-10 rounded-l-none text-lg font-bold hover:bg-primary/10"
+                      <button
+                        type="button"
+                        className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all"
                         onClick={() => updateCases(item.item_id, 1)}
                       >
-                        <Plus className="h-5 w-5" />
-                      </Button>
+                        <Plus className="h-6 w-6" strokeWidth={3} />
+                      </button>
                     </div>
                   </div>
                   
                   {/* Units counter */}
-                  <div className="p-2">
-                    <p className="text-xs text-center text-muted-foreground mb-1 uppercase tracking-wide">
+                  <div className="p-3">
+                    <p className="text-xs text-center text-muted-foreground mb-2 uppercase tracking-wide font-medium">
                       Units
                       {costPerUnit > 0 && (
                         <span className="ml-1 text-primary">@ {formatCurrency(costPerUnit)}</span>
                       )}
                     </p>
-                    <div className="flex items-center justify-center gap-0">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-12 w-10 rounded-r-none text-lg font-bold hover:bg-destructive/10"
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        type="button"
+                        className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all"
                         onClick={() => updateUnits(item.item_id, -1, item.pack_quantity)}
                       >
-                        <Minus className="h-5 w-5" />
-                      </Button>
+                        <Minus className="h-6 w-6" strokeWidth={3} />
+                      </button>
                       <input
                         type="number"
                         inputMode="numeric"
                         value={count.units}
                         onChange={(e) => setUnits(item.item_id, parseInt(e.target.value) || 0, item.pack_quantity)}
-                        className="w-14 h-12 text-center text-xl font-bold bg-muted/50 border-x border-border focus:outline-none focus:bg-primary/5"
+                        className="w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-12 w-10 rounded-l-none text-lg font-bold hover:bg-primary/10"
+                      <button
+                        type="button"
+                        className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all"
                         onClick={() => updateUnits(item.item_id, 1, item.pack_quantity)}
                       >
-                        <Plus className="h-5 w-5" />
-                      </Button>
+                        <Plus className="h-6 w-6" strokeWidth={3} />
+                      </button>
                     </div>
                     {packQty > 1 && (
                       <p className="text-[10px] text-center text-muted-foreground mt-1">
