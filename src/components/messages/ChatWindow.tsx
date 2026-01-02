@@ -110,21 +110,32 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
 
   const fetchMessages = async () => {
     try {
+      // Fetch messages without self-join (parent_message_id FK doesn't exist)
       const { data, error } = await supabase
         .from('messages')
         .select(`
           *,
-          profiles!messages_sender_id_fkey(full_name, profile_photo_url),
-          parent_message:messages!messages_parent_message_id_fkey(
-            content,
-            profiles:profiles!messages_sender_id_fkey(full_name)
-          )
+          profiles!messages_sender_id_fkey(full_name, profile_photo_url)
         `)
         .eq('chat_id', chatId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      setMessages(data || []);
+      
+      // Enrich messages with parent message data
+      const messagesWithParent = await Promise.all((data || []).map(async (msg) => {
+        if (msg.parent_message_id) {
+          const { data: parentData } = await supabase
+            .from('messages')
+            .select('content, profiles:profiles!messages_sender_id_fkey(full_name)')
+            .eq('id', msg.parent_message_id)
+            .maybeSingle();
+          return { ...msg, parent_message: parentData };
+        }
+        return { ...msg, parent_message: null };
+      }));
+      
+      setMessages(messagesWithParent);
       setTimeout(scrollToBottom, 100);
 
       // Mark ALL unread messages as read
