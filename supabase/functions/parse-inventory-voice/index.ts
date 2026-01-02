@@ -37,7 +37,7 @@ serve(async (req) => {
     // Create a list of item names for the AI
     const itemNames = items.map((i: InventoryItem) => i.item_name).join(', ');
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${Deno.env.get('LOVABLE_API_KEY')}`,
@@ -82,8 +82,6 @@ If you cannot match the item, set confidence to "low".`
             content: transcript
           }
         ],
-        temperature: 0.1,
-        max_tokens: 200,
       }),
     });
 
