@@ -669,15 +669,14 @@ export default function Dashboard() {
           <Card 
             key={checklist.id} 
             className="hover:shadow-lg transition-shadow p-0 flex flex-col relative overflow-visible"
-            style={isOverdue ? { borderColor: 'hsl(var(--destructive))', borderWidth: '2px' } : undefined}
           >
             {/* Header Section */}
             <CardHeader className="py-2 px-3">
               <div className="flex items-center gap-2">
                 <ClipboardCheck className="h-5 w-5 text-primary flex-shrink-0" />
                 <CardTitle className="text-base font-semibold flex-1 truncate">{checklist.title}</CardTitle>
-                <Badge className={`text-xs px-2 py-0.5 flex-shrink-0 ${getFrequencyColor(checklist.frequency)}`}>
-                  {checklist.frequency}
+                <Badge className={`text-xs px-2 py-0.5 flex-shrink-0 ${isOverdue ? 'bg-destructive text-destructive-foreground' : getFrequencyColor(checklist.frequency)}`}>
+                  {isOverdue ? 'overdue' : checklist.frequency}
                 </Badge>
               </div>
             </CardHeader>
