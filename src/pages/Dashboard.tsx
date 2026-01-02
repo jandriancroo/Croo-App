@@ -647,13 +647,14 @@ export default function Dashboard() {
         
         // Check if checklist is overdue (has due_by_time, not complete, and current time is past due)
         const isOverdue = (() => {
+          // TEMP DEMO: Force Morning checklist to show overdue border
+          if (checklist.title.includes('Morning')) return true;
+          
           if (isComplete || !checklist.due_by_time) return false;
           const now = new Date();
           const [hours, minutes] = checklist.due_by_time.split(':').map(Number);
           const dueTime = new Date();
           dueTime.setHours(hours, minutes, 0, 0);
-          // TEMP: Force first incomplete checklist to show as overdue for demo
-          if (checklist.title.includes('Morning')) return true;
           return now > dueTime;
         })();
         
