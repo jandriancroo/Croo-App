@@ -150,6 +150,9 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       let itemsUpdated = 0;
       let processedItems = 0;
       
+      // Collect items needing AI images
+      const itemsNeedingImages: { itemId: string; productName: string; brand?: string }[] = [];
+      
       for (const cat of categories) {
         const storageLocationId = locationMap.get(cat.name.toLowerCase());
         if (!storageLocationId) continue;
@@ -159,7 +162,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           
           // Update progress every 5 items
           if (processedItems % 5 === 0 || processedItems === totalProducts) {
-            const progressPct = 30 + Math.floor((processedItems / totalProducts) * 65);
+            const progressPct = 30 + Math.floor((processedItems / totalProducts) * 55);
             setProgress({ 
               phase: "Syncing inventory items...", 
               current: progressPct, 
@@ -170,13 +173,18 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           
           const { data: existing } = await supabase
             .from("inventory_items")
-            .select("id, name, unit, storage_location_id, cost_per_unit")
+            .select("id, name, unit, storage_location_id, cost_per_unit, image_url")
             .eq("location_id", locationId)
             .eq("qubeyond_item_id", product.id)
             .maybeSingle();
           
           const price = product.price ? Number(product.price) : null;
           const packQuantity = product.packQuantity ? Number(product.packQuantity) : null;
+          
+          // Use existing image, PFG image, or mark for AI generation
+          const hasExistingImage = existing?.image_url && !existing.image_url.includes('blob.core.windows.net');
+          const hasPfgImage = product.imageUrl;
+          const imageUrl = hasExistingImage ? existing.image_url : (hasPfgImage || null);
           
           const itemData = {
             name: product.name,
@@ -187,9 +195,11 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             pack_quantity: packQuantity,
             brand: product.brand || null,
             item_number: product.itemNumber || null,
-            image_url: product.imageUrl || null,
+            image_url: imageUrl,
             is_active: true
           };
+          
+          let itemId: string | null = null;
           
           if (existing) {
             await supabase
@@ -197,19 +207,88 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               .update(itemData)
               .eq("id", existing.id);
             itemsUpdated++;
+            itemId = existing.id;
           } else {
-            const { error: insertError } = await supabase
+            const { data: inserted, error: insertError } = await supabase
               .from("inventory_items")
               .insert({
                 location_id: locationId,
                 qubeyond_item_id: product.id,
                 display_order: itemsAdded,
                 ...itemData
-              });
+              })
+              .select("id")
+              .single();
             
-            if (!insertError) itemsAdded++;
+            if (!insertError && inserted) {
+              itemsAdded++;
+              itemId = inserted.id;
+            }
+          }
+          
+          // Queue for AI image generation if no image
+          if (itemId && !imageUrl) {
+            itemsNeedingImages.push({
+              itemId,
+              productName: product.name,
+              brand: product.brand
+            });
           }
         }
+      }
+      
+      // Step 3: Generate AI images for items without images (batch of 3 at a time)
+      if (itemsNeedingImages.length > 0) {
+        setProgress({ 
+          phase: "Generating images for items...", 
+          current: 85, 
+          total: 100, 
+          detail: `0 / ${itemsNeedingImages.length} images` 
+        });
+        
+        const BATCH_SIZE = 3;
+        let imagesGenerated = 0;
+        
+        for (let i = 0; i < itemsNeedingImages.length; i += BATCH_SIZE) {
+          const batch = itemsNeedingImages.slice(i, i + BATCH_SIZE);
+          
+          const results = await Promise.allSettled(
+            batch.map(async (item) => {
+              try {
+                const { data, error } = await supabase.functions.invoke("generate-product-image", {
+                  body: { productName: item.productName, brand: item.brand }
+                });
+                
+                if (error || !data?.imageUrl) {
+                  console.log(`Failed to generate image for ${item.productName}:`, error);
+                  return null;
+                }
+                
+                // Update the item with the generated image
+                await supabase
+                  .from("inventory_items")
+                  .update({ image_url: data.imageUrl })
+                  .eq("id", item.itemId);
+                
+                return data.imageUrl;
+              } catch (err) {
+                console.error(`Error generating image for ${item.productName}:`, err);
+                return null;
+              }
+            })
+          );
+          
+          imagesGenerated += results.filter(r => r.status === 'fulfilled' && r.value).length;
+          
+          setProgress({ 
+            phase: "Generating images for items...", 
+            current: 85 + Math.floor((imagesGenerated / itemsNeedingImages.length) * 10), 
+            total: 100, 
+            detail: `${imagesGenerated} / ${itemsNeedingImages.length} images` 
+          });
+        }
+        
+        console.log(`Generated ${imagesGenerated} AI images for items without PFG images`);
       }
 
       setProgress({ phase: "Complete!", current: 100, total: 100 });
