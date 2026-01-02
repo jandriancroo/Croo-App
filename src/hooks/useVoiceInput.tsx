@@ -47,14 +47,9 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
   const isListeningRef = useRef(false);
   const onTranscriptRef = useRef(onTranscript);
 
-  // Keep refs in sync
-  useEffect(() => {
-    isListeningRef.current = isListening;
-  }, [isListening]);
-
-  useEffect(() => {
-    onTranscriptRef.current = onTranscript;
-  }, [onTranscript]);
+  // Keep refs in sync with latest values
+  isListeningRef.current = isListening;
+  onTranscriptRef.current = onTranscript;
 
   useEffect(() => {
     // Check for browser support
@@ -74,7 +69,6 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
           const transcript = lastResult[0].transcript.trim();
           console.log('[Voice] Final transcript:', transcript);
           if (transcript) {
-            // Use ref to get latest callback
             onTranscriptRef.current(transcript);
           }
         }
@@ -89,7 +83,6 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
 
       recognition.onend = () => {
         console.log('[Voice] Recognition ended, shouldContinue:', isListeningRef.current);
-        // Restart if we're supposed to be listening (continuous mode)
         if (isListeningRef.current && continuous) {
           setTimeout(() => {
             if (isListeningRef.current && recognitionRef.current) {
@@ -128,7 +121,6 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
     }
 
     try {
-      // Request microphone permission first
       await navigator.mediaDevices.getUserMedia({ audio: true });
       recognitionRef.current.start();
       setIsListening(true);
