@@ -173,13 +173,27 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
     console.log('[PFG API] First category sample:', JSON.stringify(rawCategories[0]).substring(0, 500));
   }
 
-  return {
-    categories: rawCategories.map((cat: any) => ({
-      id: cat.ProductListCategoryId,
-      name: cat.CategoryTitle || cat.Name || 'Unnamed',
-      productCount: cat.Products?.length || 0,
-    }))
-  };
+  // Build categories with their products
+  const categories = rawCategories.map((cat: any) => ({
+    id: cat.ProductListCategoryId,
+    name: cat.CategoryTitle || cat.Name || 'Unnamed',
+    productCount: cat.Products?.length || 0,
+    products: (cat.Products || []).map((p: any) => {
+      const product = p.Product || {};
+      const uom = product.UnitOfMeasureOrderQuantities?.[0] || {};
+      return {
+        id: product.ProductKey || product.Id,
+        name: product.CustomProductDescription || product.DisplayProductDescription || product.ProductDescription || 'Unknown',
+        fullDescription: product.ProductDescription,
+        brand: product.ProductBrand,
+        packSize: uom.PackSize || product.ProductPackSizes?.[0],
+        unit: uom.UnitOfMeasureAbbreviation || 'CS',
+        imageUrl: product.ProductImageUrlThumbnail,
+      };
+    }),
+  }));
+
+  return { categories };
 }
 
 // Fetch order history from PFG

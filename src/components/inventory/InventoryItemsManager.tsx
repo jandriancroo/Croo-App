@@ -19,6 +19,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const [isAddingLocation, setIsAddingLocation] = useState(false);
   const [isAddingItem, setIsAddingItem] = useState(false);
   const [isSyncingPFG, setIsSyncingPFG] = useState(false);
+  const [isImportingItems, setIsImportingItems] = useState(false);
   const [newLocationName, setNewLocationName] = useState("");
   const [newItem, setNewItem] = useState({
     name: "",
@@ -225,6 +226,86 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
     }
   };
 
+  // Import items from PFG
+  const importItemsFromPFG = async () => {
+    setIsImportingItems(true);
+    try {
+      const productListHeaderId = (pfgIntegration?.credentials as any)?.product_list_header_id 
+        || "b4680e1a-4815-44c6-968e-634e94188009";
+      const customerId = (pfgIntegration?.credentials as any)?.customer_id
+        || "73094123-ab82-4044-9722-65099b55a11e";
+      
+      const { data, error } = await supabase.functions.invoke("fetch-pfg-orders", {
+        body: { locationId, action: "categories", productListHeaderId, customerId }
+      });
+
+      if (error) throw error;
+      if (!data?.authenticated) {
+        toast.error("PFG authentication failed.");
+        return;
+      }
+
+      const categories = data?.data?.categories || [];
+      
+      // Refresh storage locations to get current IDs
+      const { data: currentLocations } = await supabase
+        .from("inventory_locations")
+        .select("id, name")
+        .eq("location_id", locationId);
+      
+      const locationMap = new Map(
+        (currentLocations || []).map(l => [l.name.toLowerCase(), l.id])
+      );
+
+      // Get existing items to avoid duplicates
+      const { data: existingItems } = await supabase
+        .from("inventory_items")
+        .select("qubeyond_item_id")
+        .eq("location_id", locationId);
+      
+      const existingIds = new Set((existingItems || []).map(i => i.qubeyond_item_id));
+
+      let added = 0;
+      for (const cat of categories) {
+        const storageLocationId = locationMap.get(cat.name.toLowerCase());
+        if (!storageLocationId) continue;
+
+        for (const product of cat.products || []) {
+          if (existingIds.has(product.id)) continue;
+          
+          const { error: insertError } = await supabase
+            .from("inventory_items")
+            .insert({
+              location_id: locationId,
+              storage_location_id: storageLocationId,
+              name: product.name,
+              unit: product.unit?.toLowerCase() || "case",
+              qubeyond_item_id: product.id,
+              display_order: added
+            });
+          
+          if (!insertError) {
+            added++;
+            existingIds.add(product.id);
+          }
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      
+      if (added > 0) {
+        toast.success(`Imported ${added} items from PFG`);
+      } else {
+        toast.info("All PFG items already imported");
+      }
+    } catch (err) {
+      console.error("PFG import error:", err);
+      toast.error("Failed to import items from PFG");
+    } finally {
+      setIsImportingItems(false);
+    }
+  };
+
   const units = ["each", "case", "lb", "oz", "gal", "bag", "box", "pack"];
 
   return (
@@ -319,13 +400,29 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             <Package className="h-5 w-5" />
             Items ({items?.length || 0})
           </CardTitle>
-          <Dialog open={isAddingItem} onOpenChange={setIsAddingItem}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm">
-                <Plus className="h-4 w-4 mr-1" />
-                Add
+          <div className="flex gap-2">
+            {pfgIntegration && storageLocations && storageLocations.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={importItemsFromPFG}
+                disabled={isImportingItems}
+              >
+                {isImportingItems ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-1" />
+                )}
+                Import PFG
               </Button>
-            </DialogTrigger>
+            )}
+            <Dialog open={isAddingItem} onOpenChange={setIsAddingItem}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add Inventory Item</DialogTitle>
@@ -409,6 +506,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               </div>
             </DialogContent>
           </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           {items && items.length > 0 ? (
