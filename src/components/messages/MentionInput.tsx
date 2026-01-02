@@ -88,8 +88,11 @@ export function MentionInput({
 
   const insertMention = (member: Profile) => {
     const beforeMention = value.substring(0, mentionStartIndex);
-    const afterMention = value.substring(mentionStartIndex + mentionQuery.length + 1);
-    const newValue = `${beforeMention}@${member.full_name} ${afterMention}`;
+    // Get cursor position to find where the mention query ends
+    const cursorPos = inputRef.current?.selectionStart || (mentionStartIndex + mentionQuery.length + 1);
+    const afterMention = value.substring(cursorPos);
+    // Build new value, trimming any extra whitespace at start if mention is at beginning
+    const newValue = beforeMention + `@${member.full_name} ` + afterMention.replace(/^\s+/, '');
     
     onChange(newValue);
     setShowSuggestions(false);
