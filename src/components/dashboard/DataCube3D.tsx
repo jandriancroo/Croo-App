@@ -434,23 +434,23 @@ function CubeFaceComponent({
               ][index];
               
               return (
-                <div key={index} className={cn("absolute flex flex-col min-w-0", positionClasses)}>
-                  <div 
-                    className={cn(
-                      "font-bold leading-tight truncate text-sm md:text-base",
-                      isLoading && "animate-pulse bg-white/30 rounded w-10 h-3"
-                    )}
-                    style={{ color: textColor }}
-                  >
-                    {!isLoading && formattedValue}
+                  <div key={index} className={cn("absolute flex flex-col min-w-0", positionClasses)}>
+                    <div 
+                      className={cn(
+                        "font-bold leading-tight truncate text-lg md:text-2xl",
+                        isLoading && "animate-pulse bg-white/30 rounded w-12 h-5"
+                      )}
+                      style={{ color: textColor }}
+                    >
+                      {!isLoading && formattedValue}
+                    </div>
+                    <div 
+                      className="text-[9px] md:text-[11px] font-semibold truncate"
+                      style={{ color: labelColor }}
+                    >
+                      {getDynamicLabel(metricType)}
+                    </div>
                   </div>
-                  <div 
-                    className="text-[8px] md:text-[9px] font-semibold truncate"
-                    style={{ color: labelColor }}
-                  >
-                    {getDynamicLabel(metricType)}
-                  </div>
-                </div>
               );
             })}
           </div>
