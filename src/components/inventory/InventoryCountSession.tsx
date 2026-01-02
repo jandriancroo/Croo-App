@@ -40,6 +40,7 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
   const queryClient = useQueryClient();
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
   const [counts, setCounts] = useState<Record<string, ItemCount>>({});
+  const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string }>>({});
   const [isSaving, setIsSaving] = useState(false);
 
   // Fetch storage locations
@@ -283,13 +284,28 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
     });
   };
 
-  // Handle decimal cases input (e.g., 0.5 for half case)
-  const setCasesFromInput = (itemId: string, inputValue: string, packQuantity: number | null) => {
-    const value = parseFloat(inputValue);
-    if (isNaN(value)) {
+  // Handle raw input for cases - allows typing decimals like ".5"
+  const handleCasesInput = (itemId: string, inputValue: string, packQuantity: number | null) => {
+    // Store raw input for display
+    setRawInputs(prev => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], cases: inputValue, units: prev[itemId]?.units || '' }
+    }));
+  };
+
+  // Process cases input on blur - convert decimal to units
+  const handleCasesBlur = (itemId: string, packQuantity: number | null) => {
+    const rawValue = rawInputs[itemId]?.cases || '';
+    const value = parseFloat(rawValue);
+    
+    if (isNaN(value) || value === 0) {
       setCounts(prev => ({
         ...prev,
         [itemId]: { cases: 0, units: prev[itemId]?.units || 0 }
+      }));
+      setRawInputs(prev => ({
+        ...prev,
+        [itemId]: { ...prev[itemId], cases: '0' }
       }));
       return;
     }
@@ -312,11 +328,49 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
         newUnits = newUnits % packQty;
       }
       
+      // Update raw input to show computed value
+      setRawInputs(p => ({
+        ...p,
+        [itemId]: { ...p[itemId], cases: String(newCases) }
+      }));
+      
       return {
         ...prev,
         [itemId]: { cases: Math.max(0, newCases), units: Math.max(0, newUnits) }
       };
     });
+  };
+
+  // Handle raw input for units
+  const handleUnitsInput = (itemId: string, inputValue: string) => {
+    setRawInputs(prev => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], units: inputValue, cases: prev[itemId]?.cases || '' }
+    }));
+  };
+
+  // Process units input on blur
+  const handleUnitsBlur = (itemId: string, packQuantity: number | null) => {
+    const rawValue = rawInputs[itemId]?.units || '';
+    const value = parseFloat(rawValue);
+    
+    if (isNaN(value)) {
+      setCounts(prev => ({
+        ...prev,
+        [itemId]: { cases: prev[itemId]?.cases || 0, units: 0 }
+      }));
+      setRawInputs(prev => ({
+        ...prev,
+        [itemId]: { ...prev[itemId], units: '0' }
+      }));
+      return;
+    }
+    
+    setUnits(itemId, value, packQuantity);
+    setRawInputs(prev => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], units: String(counts[itemId]?.units || 0) }
+    }));
   };
 
   const setUnits = (itemId: string, value: number, packQuantity: number | null) => {
@@ -329,6 +383,12 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
         newCases += Math.floor(newUnits / packQty);
         newUnits = newUnits % packQty;
       }
+      
+      // Update raw display
+      setRawInputs(p => ({
+        ...p,
+        [itemId]: { cases: String(newCases), units: String(newUnits) }
+      }));
       
       return {
         ...prev,
@@ -496,8 +556,9 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
                       <input
                         type="text"
                         inputMode="decimal"
-                        value={count.cases}
-                        onChange={(e) => setCasesFromInput(item.item_id, e.target.value, item.pack_quantity)}
+                        value={rawInputs[item.item_id]?.cases ?? count.cases}
+                        onChange={(e) => handleCasesInput(item.item_id, e.target.value, item.pack_quantity)}
+                        onBlur={() => handleCasesBlur(item.item_id, item.pack_quantity)}
                         className="w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                       <button
@@ -529,8 +590,9 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
                       <input
                         type="text"
                         inputMode="decimal"
-                        value={count.units}
-                        onChange={(e) => setUnits(item.item_id, parseFloat(e.target.value) || 0, item.pack_quantity)}
+                        value={rawInputs[item.item_id]?.units ?? count.units}
+                        onChange={(e) => handleUnitsInput(item.item_id, e.target.value)}
+                        onBlur={() => handleUnitsBlur(item.item_id, item.pack_quantity)}
                         className="w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                       <button
