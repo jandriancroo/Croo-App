@@ -419,64 +419,62 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
 
   return (
     <div className="space-y-4">
-      {/* Header with progress and live cost */}
+      {/* Header with progress and actions */}
       <Card className="bg-primary/5 border-primary/20">
-        <CardContent className="p-4">
-          <div className="flex items-center justify-between mb-3">
+        <CardContent className="p-4 space-y-3">
+          {/* Top row: items count + total value */}
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={onClose}>
-                <X className="h-5 w-5" />
+              <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
+                <X className="h-4 w-4" />
               </Button>
-              <div>
-                <span className="font-medium">
-                  {countedItems} / {totalItems} items
-                </span>
-                {isSaving && (
-                  <Badge variant="secondary" className="text-xs ml-2">Saving...</Badge>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {/* Voice input button */}
-              {isSupported && (
-                <Button
-                  variant={isListening ? "destructive" : "outline"}
-                  size="icon"
-                  onClick={toggleListening}
-                  className={cn(
-                    "relative",
-                    isListening && "animate-pulse"
-                  )}
-                >
-                  {isListening ? (
-                    <MicOff className="h-5 w-5" />
-                  ) : (
-                    <Mic className="h-5 w-5" />
-                  )}
-                  {isListening && (
-                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-ping" />
-                  )}
-                </Button>
+              <span className="font-semibold text-lg">
+                {countedItems}/{totalItems} items
+              </span>
+              {isSaving && (
+                <Badge variant="secondary" className="text-xs">Saving...</Badge>
               )}
-              <Button 
-                onClick={() => completeCountMutation.mutate()}
-                disabled={completeCountMutation.isPending}
-              >
-                <Check className="h-4 w-4 mr-2" />
-                Complete
-              </Button>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <DollarSign className="h-4 w-4 text-primary" />
+              <span className="text-lg font-bold text-primary">
+                {formatCurrency(totalCost)}
+              </span>
             </div>
           </div>
+
+          <Progress value={progress} className="h-2" />
           
-          <Progress value={progress} className="h-2 mb-3" />
-          
-          {/* Live cost display */}
-          <div className="flex items-center justify-center gap-2 p-3 bg-background rounded-lg border">
-            <DollarSign className="h-5 w-5 text-primary" />
-            <span className="text-2xl font-bold text-primary">
-              {formatCurrency(totalCost)}
-            </span>
-            <span className="text-sm text-muted-foreground">total value</span>
+          {/* Bottom row: Complete button + Microphone */}
+          <div className="flex items-center gap-2">
+            <Button 
+              onClick={() => completeCountMutation.mutate()}
+              disabled={completeCountMutation.isPending}
+              className="flex-1 h-12 text-base"
+            >
+              <Check className="h-5 w-5 mr-2" />
+              Complete Count
+            </Button>
+            {isSupported && (
+              <Button
+                variant={isListening ? "destructive" : "secondary"}
+                size="icon"
+                onClick={toggleListening}
+                className={cn(
+                  "h-12 w-12 relative",
+                  !isListening && "bg-orange-500 hover:bg-orange-600 text-white border-0"
+                )}
+              >
+                {isListening ? (
+                  <MicOff className="h-6 w-6" />
+                ) : (
+                  <Mic className="h-6 w-6" />
+                )}
+                {isListening && (
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-ping" />
+                )}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
