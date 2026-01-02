@@ -181,10 +181,12 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           const price = product.price ? Number(product.price) : null;
           const packQuantity = product.packQuantity ? Number(product.packQuantity) : null;
           
-          // Use existing image, PFG image, or mark for AI generation
-          const hasExistingImage = existing?.image_url && !existing.image_url.includes('blob.core.windows.net');
+          // Use existing image if present, otherwise use PFG image, otherwise leave null for AI generation
+          // Only generate AI images for items with NO image at all
+          const hasExistingImage = existing?.image_url;
           const hasPfgImage = product.imageUrl;
-          const imageUrl = hasExistingImage ? existing.image_url : (hasPfgImage || null);
+          const imageUrl = hasExistingImage || hasPfgImage || null;
+          const needsAiImage = !hasExistingImage && !hasPfgImage;
           
           const itemData = {
             name: product.name,
@@ -226,8 +228,8 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
             }
           }
           
-          // Queue for AI image generation if no image
-          if (itemId && !imageUrl) {
+          // Queue for AI image generation only if no existing image AND no PFG image
+          if (itemId && needsAiImage) {
             itemsNeedingImages.push({
               itemId,
               productName: product.name,
