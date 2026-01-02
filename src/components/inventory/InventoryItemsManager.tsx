@@ -1,14 +1,24 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { RefreshCw, MapPin, Package, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { RefreshCw, MapPin, Package, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 
 interface InventoryItemsManagerProps {
   locationId: string;
+}
+
+interface EditingItem {
+  id: string;
+  name: string;
+  pack_quantity: number | null;
+  pack_quantity_override: number | null;
 }
 
 interface SyncProgress {
@@ -22,6 +32,8 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
   const [progress, setProgress] = useState<SyncProgress | null>(null);
+  const [editingItem, setEditingItem] = useState<EditingItem | null>(null);
+  const [overrideValue, setOverrideValue] = useState("");
 
   // Check if PFG is configured
   const { data: pfgIntegration } = useQuery({
@@ -71,6 +83,42 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       return data;
     }
   });
+
+  // Update pack quantity override mutation
+  const updateOverrideMutation = useMutation({
+    mutationFn: async ({ itemId, override }: { itemId: string; override: number | null }) => {
+      const { error } = await supabase
+        .from("inventory_items")
+        .update({ pack_quantity_override: override })
+        .eq("id", itemId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Pack quantity override saved");
+      queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
+      setEditingItem(null);
+    },
+    onError: () => {
+      toast.error("Failed to save override");
+    }
+  });
+
+  const openEditDialog = (item: any) => {
+    setEditingItem({
+      id: item.id,
+      name: item.name,
+      pack_quantity: item.pack_quantity,
+      pack_quantity_override: item.pack_quantity_override
+    });
+    setOverrideValue(item.pack_quantity_override?.toString() || "");
+  };
+
+  const saveOverride = () => {
+    if (!editingItem) return;
+    const value = overrideValue.trim() === "" ? null : parseInt(overrideValue);
+    updateOverrideMutation.mutate({ itemId: editingItem.id, override: value });
+  };
 
   // Sync everything from PFG (locations + items)
   const syncFromPFG = async () => {
@@ -318,6 +366,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   };
 
   return (
+    <>
     <div className="space-y-6">
       {/* PFG Sync Button */}
       {pfgIntegration && (
@@ -403,13 +452,26 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                     <h4 className="text-sm font-medium text-muted-foreground mb-2">{loc.name}</h4>
                     <div className="grid gap-1">
                       {locItems.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded text-sm">
-                          <span>{item.name}</span>
+                        <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded text-sm group">
+                          <span className="truncate flex-1">{item.name}</span>
                           <div className="flex items-center gap-2 text-muted-foreground">
+                            {item.pack_quantity_override && (
+                              <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded">
+                                {item.pack_quantity_override}/case
+                              </span>
+                            )}
                             {item.pack_size && <span className="text-xs">{item.pack_size}</span>}
                             {item.cost_per_unit && (
                               <span className="text-xs text-primary">${item.cost_per_unit.toFixed(2)}</span>
                             )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => openEditDialog(item)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
                           </div>
                         </div>
                       ))}
@@ -426,6 +488,63 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         </CardContent>
       </Card>
     </div>
+
+      {/* Edit Item Dialog */}
+      <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-base">Edit Pack Quantity</DialogTitle>
+          </DialogHeader>
+          {editingItem && (
+            <div className="space-y-4">
+              <p className="text-sm font-medium">{editingItem.name}</p>
+              
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">
+                  PFG Pack Quantity: {editingItem.pack_quantity || "Not set"}
+                </Label>
+                
+                <div className="space-y-1">
+                  <Label htmlFor="override">Units per Case Override</Label>
+                  <Input
+                    id="override"
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="e.g., 64 for 64 brownies per case"
+                    value={overrideValue}
+                    onChange={(e) => setOverrideValue(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to use PFG value. Set this if PFG's pack size doesn't match the smallest unit you count.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setEditingItem(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className="flex-1"
+                  onClick={saveOverride}
+                  disabled={updateOverrideMutation.isPending}
+                >
+                  {updateOverrideMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Save"
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 
