@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ChefHat, ClipboardCheck, ArrowUpDown, Banknote, Sparkles, Check, Users, Settings2 } from 'lucide-react';
+import { ChefHat, ClipboardCheck, ArrowUpDown, Banknote, Sparkles, Check, Users, Settings2, AlertTriangle } from 'lucide-react';
 import { EditDashboardDialog, CubeConfig } from '@/components/dashboard/EditDashboardDialog';
 import { MetricType, WidgetSize } from '@/components/dashboard/DashboardWidget';
 import { CubeType } from '@/components/dashboard/AddWidgetDialog';
@@ -676,7 +676,12 @@ export default function Dashboard() {
                 <ClipboardCheck className="h-5 w-5 text-primary flex-shrink-0" />
                 <CardTitle className="text-base font-semibold flex-1 truncate">{checklist.title}</CardTitle>
                 <Badge className={`text-xs px-2 py-0.5 flex-shrink-0 ${isOverdue ? 'bg-destructive text-destructive-foreground' : getFrequencyColor(checklist.frequency)}`}>
-                  {isOverdue ? 'overdue' : checklist.frequency}
+                  {isOverdue ? (
+                    <span className="flex items-center gap-1">
+                      overdue
+                      <AlertTriangle className="h-3 w-3" />
+                    </span>
+                  ) : checklist.frequency}
                 </Badge>
               </div>
             </CardHeader>
