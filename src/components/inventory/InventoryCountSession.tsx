@@ -527,7 +527,7 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
                         <Minus className="h-6 w-6" strokeWidth={3} />
                       </button>
                       <input
-                        type="number"
+                        type="text"
                         inputMode="numeric"
                         value={count.units}
                         onChange={(e) => setUnits(item.item_id, parseInt(e.target.value) || 0, item.pack_quantity)}
