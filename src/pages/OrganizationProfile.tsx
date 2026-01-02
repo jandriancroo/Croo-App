@@ -266,10 +266,10 @@ export default function OrganizationProfile() {
         )}
 
         {/* Positions */}
-        {!isNew && (
+        {!isNew && id && (
           <Card>
             <CardContent className="pt-6">
-              <PositionManagementInline />
+              <PositionManagementInline organizationId={id} />
             </CardContent>
           </Card>
         )}
