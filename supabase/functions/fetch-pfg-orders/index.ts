@@ -408,14 +408,54 @@ serve(async (req) => {
       const categoriesData = await fetchProductListItems(tokenData.access_token, productListHeaderId, customerIdToUse);
       const categories = categoriesData.categories || [];
       
-      // Count products with prices from the list response
+      // Collect all products that need price fetching
+      const productsNeedingPrice: { category: any; product: any }[] = [];
       let productsWithPrice = 0;
+      
       for (const cat of categories) {
         for (const p of cat.products || []) {
-          if (p.price) productsWithPrice++;
+          if (p.price) {
+            productsWithPrice++;
+          } else if (p.id) {
+            productsNeedingPrice.push({ category: cat, product: p });
+          }
         }
       }
+      
       console.log('[PFG API] Products with price from list:', productsWithPrice);
+      console.log('[PFG API] Products needing individual price fetch:', productsNeedingPrice.length);
+      
+      // Fetch missing prices in parallel batches of 10
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < productsNeedingPrice.length; i += BATCH_SIZE) {
+        const batch = productsNeedingPrice.slice(i, i + BATCH_SIZE);
+        console.log(`[PFG API] Fetching price batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(productsNeedingPrice.length / BATCH_SIZE)}`);
+        
+        const results = await Promise.allSettled(
+          batch.map(({ product }) => 
+            fetchProductDetail(tokenData.access_token, product.id, customerIdToUse)
+          )
+        );
+        
+        results.forEach((result, idx) => {
+          if (result.status === 'fulfilled' && result.value?.price) {
+            batch[idx].product.price = result.value.price;
+            // Also update packSize if missing
+            if (!batch[idx].product.packSize && result.value.packSize) {
+              batch[idx].product.packSize = result.value.packSize;
+            }
+          }
+        });
+      }
+      
+      // Count final products with prices
+      let finalWithPrice = 0;
+      for (const cat of categories) {
+        for (const p of cat.products || []) {
+          if (p.price) finalWithPrice++;
+        }
+      }
+      console.log('[PFG API] Final products with price:', finalWithPrice);
       
       return new Response(JSON.stringify({ 
         authenticated: true,

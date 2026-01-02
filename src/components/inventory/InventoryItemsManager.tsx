@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import { RefreshCw, MapPin, Package, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -10,9 +11,17 @@ interface InventoryItemsManagerProps {
   locationId: string;
 }
 
+interface SyncProgress {
+  phase: string;
+  current: number;
+  total: number;
+  detail?: string;
+}
+
 const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const queryClient = useQueryClient();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [progress, setProgress] = useState<SyncProgress | null>(null);
 
   // Check if PFG is configured
   const { data: pfgIntegration } = useQuery({
@@ -66,11 +75,15 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   // Sync everything from PFG (locations + items)
   const syncFromPFG = async () => {
     setIsSyncing(true);
+    setProgress({ phase: "Connecting to PFG...", current: 0, total: 100 });
+    
     try {
       const productListHeaderId = (pfgIntegration?.credentials as any)?.product_list_header_id 
         || "b4680e1a-4815-44c6-968e-634e94188009";
       const customerId = (pfgIntegration?.credentials as any)?.customer_id
         || "73094123-ab82-4044-9722-65099b55a11e";
+      
+      setProgress({ phase: "Fetching product list from PFG...", current: 10, total: 100 });
       
       const { data, error } = await supabase.functions.invoke("fetch-pfg-orders", {
         body: { locationId, action: "categories", productListHeaderId, customerId }
@@ -89,13 +102,20 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         return;
       }
 
+      // Count total items
+      let totalProducts = 0;
+      for (const cat of categories) {
+        totalProducts += (cat.products || []).length;
+      }
+
+      setProgress({ phase: "Creating storage locations...", current: 20, total: 100, detail: `${categories.length} locations` });
+
       // Step 1: Upsert storage locations
       let locationsAdded = 0;
       const locationMap = new Map<string, string>();
       
       for (let i = 0; i < categories.length; i++) {
         const cat = categories[i];
-        // Check if exists
         const { data: existing } = await supabase
           .from("inventory_locations")
           .select("id")
@@ -123,16 +143,31 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         }
       }
 
-      // Step 2: Upsert items
+      setProgress({ phase: "Syncing inventory items...", current: 30, total: 100, detail: `0 / ${totalProducts} items` });
+
+      // Step 2: Upsert items with progress
       let itemsAdded = 0;
       let itemsUpdated = 0;
+      let processedItems = 0;
       
       for (const cat of categories) {
         const storageLocationId = locationMap.get(cat.name.toLowerCase());
         if (!storageLocationId) continue;
 
         for (const product of cat.products || []) {
-          // Check if item exists by qubeyond_item_id
+          processedItems++;
+          
+          // Update progress every 5 items
+          if (processedItems % 5 === 0 || processedItems === totalProducts) {
+            const progressPct = 30 + Math.floor((processedItems / totalProducts) * 65);
+            setProgress({ 
+              phase: "Syncing inventory items...", 
+              current: progressPct, 
+              total: 100, 
+              detail: `${processedItems} / ${totalProducts} items` 
+            });
+          }
+          
           const { data: existing } = await supabase
             .from("inventory_items")
             .select("id, name, unit, storage_location_id, cost_per_unit")
@@ -157,7 +192,6 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
           };
           
           if (existing) {
-            // Always update to ensure all fields are current
             await supabase
               .from("inventory_items")
               .update(itemData)
@@ -178,6 +212,8 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         }
       }
 
+      setProgress({ phase: "Complete!", current: 100, total: 100 });
+
       queryClient.invalidateQueries({ queryKey: ["inventory-storage-locations", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-items", locationId] });
       
@@ -196,6 +232,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
       toast.error("Failed to sync from PFG");
     } finally {
       setIsSyncing(false);
+      setTimeout(() => setProgress(null), 2000);
     }
   };
 
@@ -217,9 +254,26 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
               )}
               Sync with PFG
             </Button>
-            <p className="text-xs text-muted-foreground text-center mt-2">
-              Syncs storage locations and items from your PFG product list
-            </p>
+            
+            {/* Progress indicator */}
+            {progress && (
+              <div className="mt-4 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="font-medium">{progress.phase}</span>
+                  <span className="text-muted-foreground">{progress.current}%</span>
+                </div>
+                <Progress value={progress.current} className="h-2" />
+                {progress.detail && (
+                  <p className="text-xs text-muted-foreground text-center">{progress.detail}</p>
+                )}
+              </div>
+            )}
+            
+            {!progress && (
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                Syncs storage locations and items from your PFG product list
+              </p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -270,7 +324,12 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                       {locItems.map((item) => (
                         <div key={item.id} className="flex items-center justify-between py-1.5 px-2 bg-muted/50 rounded text-sm">
                           <span>{item.name}</span>
-                          <span className="text-muted-foreground">{item.unit}</span>
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            {item.pack_size && <span className="text-xs">{item.pack_size}</span>}
+                            {item.cost_per_unit && (
+                              <span className="text-xs text-primary">${item.cost_per_unit.toFixed(2)}</span>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
