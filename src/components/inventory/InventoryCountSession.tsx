@@ -528,9 +528,9 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
                       </button>
                       <input
                         type="text"
-                        inputMode="numeric"
+                        inputMode="decimal"
                         value={count.units}
-                        onChange={(e) => setUnits(item.item_id, parseInt(e.target.value) || 0, item.pack_quantity)}
+                        onChange={(e) => setUnits(item.item_id, parseFloat(e.target.value) || 0, item.pack_quantity)}
                         className="w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                       <button
