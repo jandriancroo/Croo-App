@@ -578,7 +578,7 @@ export default function Dashboard() {
 
   // Checklists grid content - passed to WidgetsSection for unified drag & drop
   const checklistsGridContent = (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 items-start">
+    <div className="grid gap-3 grid-cols-1 md:grid-cols-2 items-start">
       
       {/* Catering Order Cards */}
       {todaysCateringOrders.map(order => {
