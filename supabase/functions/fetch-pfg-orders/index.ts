@@ -116,10 +116,20 @@ async function fetchProductCategories(accessToken: string): Promise<any> {
 
   const data = await response.json();
   
+  // Log the raw response structure for debugging
+  console.log('[PFG API] Raw response keys:', Object.keys(data || {}));
+  console.log('[PFG API] ResultObject keys:', Object.keys(data?.ResultObject || {}));
+  
   // Extract unique categories from the response
-  const categories = data?.ResultObject?.ProductListCategories || [];
+  const rawCategories = data?.ResultObject?.ProductListCategories || [];
+  console.log('[PFG API] Found', rawCategories.length, 'categories');
+  
+  if (rawCategories.length > 0) {
+    console.log('[PFG API] First category sample:', JSON.stringify(rawCategories[0]).substring(0, 500));
+  }
+  
   return {
-    categories: categories.map((cat: any) => ({
+    categories: rawCategories.map((cat: any) => ({
       id: cat.ProductListCategoryId,
       name: cat.CategoryTitle,
       productCount: cat.Products?.length || 0,
