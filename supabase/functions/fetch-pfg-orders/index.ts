@@ -178,6 +178,13 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
     }
   }
 
+  // Helper to parse pack quantity from pack size string (e.g., "48/2 OZ" -> 48)
+  const parsePackQuantity = (packSize: string | undefined): number | null => {
+    if (!packSize) return null;
+    const match = packSize.match(/^(\d+)/);
+    return match ? parseInt(match[1], 10) : null;
+  };
+
   // Build categories with their products
   const categories = rawCategories.map((cat: any) => ({
     id: cat.ProductListCategoryId,
@@ -190,18 +197,19 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
       
       // Extract price - check various possible price fields
       const price = uom.Price || uom.UnitPrice || uom.ListPrice || product.Price || null;
+      const packSize = uom.PackSize || product.ProductPackSizes?.[0];
       
       return {
         id: product.ProductKey || product.Id,
+        itemNumber: product.DisplayProductNumber || product.ProductNumber || product.ProductKey,
         name: product.CustomProductDescription || product.DisplayProductDescription || product.ProductDescription || 'Unknown',
         fullDescription: product.ProductDescription,
         brand: product.ProductBrand,
-        packSize: uom.PackSize || product.ProductPackSizes?.[0],
+        packSize: packSize,
+        packQuantity: parsePackQuantity(packSize),
         unit: uom.UnitOfMeasureAbbreviation || 'CS',
         imageUrl: product.ProductImageUrlThumbnail,
         price: price,
-        // Include raw UOM data for debugging
-        uomData: uomList.length > 0 ? uomList[0] : null,
       };
     }),
   }));
