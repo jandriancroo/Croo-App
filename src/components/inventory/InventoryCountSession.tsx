@@ -43,6 +43,7 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
   const [counts, setCounts] = useState<Record<string, ItemCount>>({});
   const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string }>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
 
   // Fetch storage locations
   const { data: storageLocations } = useQuery({
@@ -370,6 +371,10 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
           [itemId]: { cases: String(cases), units: String(units) }
         }));
 
+        // Highlight the item
+        setHighlightedItemId(itemId);
+        setTimeout(() => setHighlightedItemId(null), 2000);
+
         const matchedItem = items.find(i => i.item_id === itemId);
         toast.success(`${matchedItem?.item_name}: ${cases} cases, ${units} units`);
       } else {
@@ -511,9 +516,16 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
           const itemCost = getItemCost(item);
           const packQty = item.pack_quantity || 1;
           const costPerUnit = (item.cost_per_unit || 0) / packQty;
+          const isHighlighted = highlightedItemId === item.item_id;
           
           return (
-            <Card key={item.item_id} className="overflow-hidden">
+            <Card 
+              key={item.item_id} 
+              className={cn(
+                "overflow-hidden transition-all duration-300",
+                isHighlighted && "ring-2 ring-primary ring-offset-2 ring-offset-background scale-[1.02] shadow-lg"
+              )}
+            >
               <CardContent className="p-0">
                 {/* Item header with details */}
                 <div className="p-3 border-b border-border bg-muted/30">
