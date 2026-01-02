@@ -83,7 +83,7 @@ export function MessageContent({ content, chatId }: MessageContentProps) {
       elements.push(
         <span
           key={`mention-${idx}`}
-          className="bg-primary/20 text-primary font-semibold px-1 rounded"
+          className="bg-primary-foreground/15 font-semibold px-1 rounded"
         >
           @{mention.name}
         </span>

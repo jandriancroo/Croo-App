@@ -311,15 +311,16 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string, loc
 
     // Send hourly overdue reminders (with deduplication)
     for (const activeOverdueChecklist of overdueChecklists) {
-      // Check if we've already sent an hourly notification for this checklist in the last hour
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      // Check if we've already sent an hourly notification for this checklist recently.
+      // We intentionally use a < 60m window so an "hourly" cron (e.g. xx:05) doesn't suppress the next hour due to a few seconds of drift.
+      const recentWindowAgo = new Date(Date.now() - 59 * 60 * 1000).toISOString();
       const { data: recentNotification } = await supabaseClient
         .from('checklist_notification_logs')
         .select('id')
         .eq('checklist_id', activeOverdueChecklist.id)
         .eq('location_id', locationId)
         .eq('notification_type', 'overdue_hourly')
-        .gte('sent_at', oneHourAgo)
+        .gte('sent_at', recentWindowAgo)
         .limit(1);
 
       if (recentNotification && recentNotification.length > 0) {
@@ -336,7 +337,7 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string, loc
           ? `${activeOverdueChecklist.title} is not started` 
           : `${activeOverdueChecklist.title} not completed, ${activeOverdueChecklist.remainingTasks} task${activeOverdueChecklist.remainingTasks === 1 ? '' : 's'} remaining`;
         
-        await supabaseClient.functions.invoke('send-push-notification', {
+        const pushResult = await supabaseClient.functions.invoke('send-push-notification', {
           body: {
             user_ids: adminUsers.map((u: any) => u.user_id),
             title: `Overdue Checklist - ${locationName}`,
@@ -349,8 +350,13 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string, loc
             }
           }
         });
+
+        if (pushResult?.error) {
+          console.error(`[${locationName}] Failed to send overdue checklist push:`, pushResult.error);
+          continue;
+        }
         
-        // Log the notification to prevent duplicates
+        // Log the notification to prevent duplicates (only if push send succeeded)
         await supabaseClient.from('checklist_notification_logs').insert({
           checklist_id: activeOverdueChecklist.id,
           location_id: locationId,
@@ -360,7 +366,6 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string, loc
         console.log(`[${locationName}] Notification sent to ${adminUsers.length} users`);
       }
     }
-
     if (overdueChecklists.length === 0) {
       console.log(`[${locationName}] No active overdue checklists`);
     }
