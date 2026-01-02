@@ -62,7 +62,7 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResponse |
   }
 }
 
-// Fetch product search results from PFG
+// Fetch product list with categories from PFG
 async function fetchProductList(accessToken: string, searchTerm: string = ''): Promise<any> {
   console.log('[PFG API] Fetching product list, search:', searchTerm);
   
@@ -87,6 +87,49 @@ async function fetchProductList(accessToken: string, searchTerm: string = ''): P
   }
 
   return response.json();
+}
+
+// Fetch product categories (storage locations) from PFG
+async function fetchProductCategories(accessToken: string): Promise<any> {
+  console.log('[PFG API] Fetching product categories');
+  
+  // Use empty search to get all categories
+  const response = await fetch(`${PFG_API_BASE}/ProductListSearch/V1/SearchProductList`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+    body: JSON.stringify({
+      searchTerm: '',
+      pageNumber: 1,
+      pageSize: 1000,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[PFG API] Categories fetch failed:', response.status, errorText);
+    throw new Error(`PFG API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  
+  // Extract unique categories from the response
+  const categories = data?.ResultObject?.ProductListCategories || [];
+  return {
+    categories: categories.map((cat: any) => ({
+      id: cat.ProductListCategoryId,
+      name: cat.CategoryTitle,
+      productCount: cat.Products?.length || 0,
+      products: cat.Products?.map((p: any) => ({
+        id: p.ProductListDetailId,
+        name: p.ProductName || p.Description,
+        unit: p.UnitOfMeasure,
+      })) || []
+    }))
+  };
 }
 
 // Fetch order history from PFG
@@ -222,11 +265,20 @@ serve(async (req) => {
     }
 
     if (action === 'products') {
-      const body = await req.json();
-      const products = await fetchProductList(tokenData.access_token, body.searchTerm || '');
+      const products = await fetchProductList(tokenData.access_token, '');
       return new Response(JSON.stringify({ 
         authenticated: true,
         data: products 
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (action === 'categories') {
+      const categories = await fetchProductCategories(tokenData.access_token);
+      return new Response(JSON.stringify({ 
+        authenticated: true,
+        data: categories 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
