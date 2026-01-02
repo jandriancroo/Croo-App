@@ -209,6 +209,33 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
   return { categories };
 }
 
+// Fetch product detail (with pricing) from PFG
+async function fetchProductDetail(accessToken: string, productKey: string, customerId: string): Promise<any> {
+  console.log('[PFG API] Fetching product detail for:', productKey);
+
+  const data = await fetchPfgJson(
+    `/ProductDetail/V1/GetProductDetail?ProductKey=${productKey}&CustomerId=${customerId}`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json',
+      },
+    },
+  );
+
+  const result = data?.ResultObject;
+  if (!result) return null;
+
+  const uom = result.UnitOfMeasureOrderQuantities?.[0] || {};
+  return {
+    id: result.ProductKey || result.Id,
+    price: uom.Price || null,
+    packSize: uom.PackSize,
+    unit: uom.UnitOfMeasureAbbreviation || 'CS',
+  };
+}
+
 // Fetch order history from PFG
 async function fetchOrderHistory(accessToken: string): Promise<any> {
   console.log('[PFG API] Fetching order history');
@@ -370,10 +397,33 @@ serve(async (req) => {
         });
       }
       
-      const categories = await fetchProductListItems(tokenData.access_token, productListHeaderId, customerIdToUse);
+      const categoriesData = await fetchProductListItems(tokenData.access_token, productListHeaderId, customerIdToUse);
+      
+      // Fetch prices for all products
+      const categories = categoriesData.categories || [];
+      let pricesFetched = 0;
+      
+      for (const category of categories) {
+        for (const product of category.products || []) {
+          if (product.id && !product.price) {
+            try {
+              const detail = await fetchProductDetail(tokenData.access_token, product.id, customerIdToUse);
+              if (detail?.price) {
+                product.price = detail.price;
+                pricesFetched++;
+              }
+            } catch (e) {
+              console.warn('[PFG API] Failed to fetch price for product:', product.id, e);
+            }
+          }
+        }
+      }
+      
+      console.log('[PFG API] Fetched prices for', pricesFetched, 'products');
+      
       return new Response(JSON.stringify({ 
         authenticated: true,
-        data: categories 
+        data: { categories } 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

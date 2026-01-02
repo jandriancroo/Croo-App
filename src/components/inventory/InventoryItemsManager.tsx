@@ -132,29 +132,28 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         if (!storageLocationId) continue;
 
         for (const product of cat.products || []) {
-          // Log first product to see price data
-          if (itemsAdded === 0) {
-            console.log('[PFG Sync] Sample product data:', JSON.stringify(product, null, 2));
-          }
-          
           // Check if item exists by qubeyond_item_id
           const { data: existing } = await supabase
             .from("inventory_items")
-            .select("id, name, unit, storage_location_id")
+            .select("id, name, unit, storage_location_id, cost_per_unit")
             .eq("location_id", locationId)
             .eq("qubeyond_item_id", product.id)
             .maybeSingle();
           
+          const price = product.price ? Number(product.price) : null;
+          
           if (existing) {
-            // Update if name/unit/location changed
+            // Update if name/unit/location/price changed
             const newUnit = product.unit?.toLowerCase() || "case";
-            if (existing.name !== product.name || existing.unit !== newUnit || existing.storage_location_id !== storageLocationId) {
+            const priceChanged = price !== null && existing.cost_per_unit !== price;
+            if (existing.name !== product.name || existing.unit !== newUnit || existing.storage_location_id !== storageLocationId || priceChanged) {
               await supabase
                 .from("inventory_items")
                 .update({
                   name: product.name,
                   unit: newUnit,
                   storage_location_id: storageLocationId,
+                  cost_per_unit: price ?? existing.cost_per_unit,
                   is_active: true
                 })
                 .eq("id", existing.id);
@@ -169,6 +168,7 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
                 name: product.name,
                 unit: product.unit?.toLowerCase() || "case",
                 qubeyond_item_id: product.id,
+                cost_per_unit: price,
                 display_order: itemsAdded
               });
             
