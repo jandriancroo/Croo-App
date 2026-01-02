@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Check, ChevronLeft, ChevronRight, X, Minus, Plus, DollarSign } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, X, Minus, Plus, DollarSign, Mic, MicOff } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
 
 interface InventoryCountSessionProps {
   countId: string;
@@ -338,6 +339,53 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
     }));
   };
 
+  // Voice input handler
+  const handleVoiceTranscript = useCallback(async (transcript: string) => {
+    if (!items || items.length === 0) return;
+
+    toast.info(`Processing: "${transcript}"`);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('parse-inventory-voice', {
+        body: {
+          transcript,
+          items: items.map(i => ({ item_id: i.item_id, item_name: i.item_name }))
+        }
+      });
+
+      if (error) throw error;
+
+      if (data.matched_item_id && data.confidence !== 'low') {
+        const itemId = data.matched_item_id;
+        const cases = data.cases || 0;
+        const units = data.units || 0;
+
+        // Update counts
+        setCounts(prev => ({
+          ...prev,
+          [itemId]: { cases, units }
+        }));
+        setRawInputs(prev => ({
+          ...prev,
+          [itemId]: { cases: String(cases), units: String(units) }
+        }));
+
+        const matchedItem = items.find(i => i.item_id === itemId);
+        toast.success(`${matchedItem?.item_name}: ${cases} cases, ${units} units`);
+      } else {
+        toast.warning(`Couldn't match "${data.item_name || transcript}" to an item`);
+      }
+    } catch (error) {
+      console.error('[Voice] Parse error:', error);
+      toast.error('Failed to process voice command');
+    }
+  }, [items]);
+
+  const { isListening, isSupported, toggleListening } = useVoiceInput({
+    onTranscript: handleVoiceTranscript,
+    continuous: true
+  });
+
   // Calculate progress
   const totalItems = items?.length || 0;
   const countedItems = Object.values(counts).filter(c => c.cases > 0 || c.units > 0).length;
@@ -383,13 +431,36 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
                 )}
               </div>
             </div>
-            <Button 
-              onClick={() => completeCountMutation.mutate()}
-              disabled={completeCountMutation.isPending}
-            >
-              <Check className="h-4 w-4 mr-2" />
-              Complete
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Voice input button */}
+              {isSupported && (
+                <Button
+                  variant={isListening ? "destructive" : "outline"}
+                  size="icon"
+                  onClick={toggleListening}
+                  className={cn(
+                    "relative",
+                    isListening && "animate-pulse"
+                  )}
+                >
+                  {isListening ? (
+                    <MicOff className="h-5 w-5" />
+                  ) : (
+                    <Mic className="h-5 w-5" />
+                  )}
+                  {isListening && (
+                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-ping" />
+                  )}
+                </Button>
+              )}
+              <Button 
+                onClick={() => completeCountMutation.mutate()}
+                disabled={completeCountMutation.isPending}
+              >
+                <Check className="h-4 w-4 mr-2" />
+                Complete
+              </Button>
+            </div>
           </div>
           
           <Progress value={progress} className="h-2 mb-3" />
