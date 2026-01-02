@@ -281,7 +281,13 @@ export function EditPunchDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-sm">
+        <DialogContent
+          className="max-w-sm"
+          onOpenAutoFocus={(e) => {
+            // Prevent Radix from auto-focusing the first input (iOS opens the native time picker immediately)
+            e.preventDefault();
+          }}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
