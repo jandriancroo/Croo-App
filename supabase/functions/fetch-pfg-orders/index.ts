@@ -15,9 +15,8 @@ const PFG_TOKEN_URL = `https://${PFG_B2C_TENANT}.b2clogin.com/${PFG_B2C_TENANT}.
 const PFG_API_BASE = 'https://apps-zz-cusfst-mw-p-eus01.azurewebsites.net/api';
 
 interface PFGCredentials {
-  username: string;
-  password: string;
-  refresh_token?: string;
+  username?: string; // For display only
+  refresh_token: string;
 }
 
 interface TokenResponse {
@@ -25,43 +24,6 @@ interface TokenResponse {
   refresh_token: string;
   expires_in: number;
   token_type: string;
-}
-
-// Authenticate using ROPC (Resource Owner Password Credentials) flow
-async function authenticateWithPassword(username: string, password: string): Promise<TokenResponse | null> {
-  try {
-    console.log('[PFG Auth] Attempting ROPC authentication for:', username);
-    
-    const params = new URLSearchParams({
-      client_id: PFG_CLIENT_ID,
-      scope: PFG_SCOPE,
-      grant_type: 'password',
-      username: username,
-      password: password,
-      client_info: '1',
-    });
-
-    const response = await fetch(PFG_TOKEN_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params.toString(),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[PFG Auth] ROPC failed:', response.status, errorText);
-      return null;
-    }
-
-    const tokenData = await response.json();
-    console.log('[PFG Auth] ROPC authentication successful');
-    return tokenData;
-  } catch (error) {
-    console.error('[PFG Auth] ROPC error:', error);
-    return null;
-  }
 }
 
 // Refresh an existing token
@@ -100,34 +62,10 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResponse |
   }
 }
 
-// Get a valid access token (try refresh first, then password auth)
-async function getAccessToken(credentials: PFGCredentials): Promise<{ token: string; newRefreshToken?: string } | null> {
-  // Try refresh token first if available
-  if (credentials.refresh_token) {
-    const refreshed = await refreshAccessToken(credentials.refresh_token);
-    if (refreshed) {
-      return { 
-        token: refreshed.access_token, 
-        newRefreshToken: refreshed.refresh_token 
-      };
-    }
-    console.log('[PFG Auth] Refresh failed, falling back to password auth');
-  }
-
-  // Fall back to password authentication
-  const tokenData = await authenticateWithPassword(credentials.username, credentials.password);
-  if (tokenData) {
-    return { 
-      token: tokenData.access_token, 
-      newRefreshToken: tokenData.refresh_token 
-    };
-  }
-
-  return null;
-}
-
 // Fetch product search results from PFG
 async function fetchProductList(accessToken: string, searchTerm: string = ''): Promise<any> {
+  console.log('[PFG API] Fetching product list, search:', searchTerm);
+  
   const response = await fetch(`${PFG_API_BASE}/ProductListSearch/V1/SearchProductList`, {
     method: 'POST',
     headers: {
@@ -143,6 +81,8 @@ async function fetchProductList(accessToken: string, searchTerm: string = ''): P
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[PFG API] Product search failed:', response.status, errorText);
     throw new Error(`PFG API error: ${response.status}`);
   }
 
@@ -151,6 +91,8 @@ async function fetchProductList(accessToken: string, searchTerm: string = ''): P
 
 // Fetch order history from PFG
 async function fetchOrderHistory(accessToken: string): Promise<any> {
+  console.log('[PFG API] Fetching order history');
+  
   const response = await fetch(`${PFG_API_BASE}/OrderHistory/V1/GetOrderHistory`, {
     method: 'GET',
     headers: {
@@ -160,6 +102,8 @@ async function fetchOrderHistory(accessToken: string): Promise<any> {
   });
 
   if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[PFG API] Order history failed:', response.status, errorText);
     throw new Error(`PFG API error: ${response.status}`);
   }
 
@@ -185,7 +129,10 @@ serve(async (req) => {
     // Use test credentials or fetch from database
     if (testCredentials) {
       credentials = testCredentials;
+      console.log('[PFG] Using test credentials');
     } else if (locationId) {
+      console.log('[PFG] Fetching credentials for location:', locationId);
+      
       const { data: integration, error } = await supabase
         .from('location_integrations')
         .select('id, credentials')
@@ -195,6 +142,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (error || !integration) {
+        console.log('[PFG] No integration found:', error?.message);
         return new Response(JSON.stringify({ 
           error: 'PFG integration not configured',
           authenticated: false 
@@ -215,12 +163,22 @@ serve(async (req) => {
       });
     }
 
-    // Get access token
-    const authResult = await getAccessToken(credentials);
-    
-    if (!authResult) {
+    if (!credentials.refresh_token) {
       return new Response(JSON.stringify({ 
-        error: 'Authentication failed - check username and password',
+        error: 'No refresh token provided',
+        authenticated: false 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Refresh the token
+    const tokenData = await refreshAccessToken(credentials.refresh_token);
+    
+    if (!tokenData) {
+      return new Response(JSON.stringify({ 
+        error: 'Token refresh failed - the refresh token may have expired. Please log in to PFG again and get a new refresh token.',
         authenticated: false 
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -228,13 +186,14 @@ serve(async (req) => {
     }
 
     // Update stored refresh token if we got a new one
-    if (integrationId && authResult.newRefreshToken) {
+    if (integrationId && tokenData.refresh_token) {
+      console.log('[PFG] Updating stored refresh token');
       await supabase
         .from('location_integrations')
         .update({
           credentials: {
             ...credentials,
-            refresh_token: authResult.newRefreshToken,
+            refresh_token: tokenData.refresh_token,
           },
         })
         .eq('id', integrationId);
@@ -242,9 +201,10 @@ serve(async (req) => {
 
     // For test action, just return success
     if (action === 'test') {
+      console.log('[PFG] Test successful');
       return new Response(JSON.stringify({ 
         authenticated: true,
-        message: 'PFG authentication successful'
+        message: 'PFG authentication successful! Token is valid.'
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -252,7 +212,7 @@ serve(async (req) => {
 
     // For other actions, fetch data
     if (action === 'orders') {
-      const orders = await fetchOrderHistory(authResult.token);
+      const orders = await fetchOrderHistory(tokenData.access_token);
       return new Response(JSON.stringify({ 
         authenticated: true,
         data: orders 
@@ -262,8 +222,8 @@ serve(async (req) => {
     }
 
     if (action === 'products') {
-      const { searchTerm } = await req.json();
-      const products = await fetchProductList(authResult.token, searchTerm);
+      const body = await req.json();
+      const products = await fetchProductList(tokenData.access_token, body.searchTerm || '');
       return new Response(JSON.stringify({ 
         authenticated: true,
         data: products 

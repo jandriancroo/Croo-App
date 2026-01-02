@@ -19,9 +19,8 @@ interface QuBeyondCredentials {
 }
 
 interface PFGCredentials {
-  username: string;
-  password: string;
-  refresh_token?: string;
+  username: string; // For display purposes only
+  refresh_token: string;
 }
 
 interface IntegrationsSectionProps {
@@ -50,10 +49,10 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
   // PFG state
   const [pfgCredentials, setPfgCredentials] = useState<PFGCredentials>({
     username: "",
-    password: "",
+    refresh_token: "",
   });
   const [pfgIsActive, setPfgIsActive] = useState(true);
-  const [pfgShowPassword, setPfgShowPassword] = useState(false);
+  const [pfgShowToken, setPfgShowToken] = useState(false);
   const [pfgIsTesting, setPfgIsTesting] = useState(false);
   const [pfgTestResult, setPfgTestResult] = useState<'success' | 'error' | null>(null);
 
@@ -115,8 +114,7 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
       const creds = pfgIntegration.credentials as unknown as PFGCredentials;
       setPfgCredentials({
         username: creds?.username || "",
-        password: creds?.password || "",
-        refresh_token: creds?.refresh_token,
+        refresh_token: creds?.refresh_token || "",
       });
       setPfgIsActive(pfgIntegration.is_active);
     }
@@ -314,8 +312,8 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
 
   // PFG Test connection
   const testPfgConnection = async () => {
-    if (!pfgCredentials.username || !pfgCredentials.password) {
-      toast.error("Please enter PFG username and password");
+    if (!pfgCredentials.refresh_token) {
+      toast.error("Please enter PFG refresh token");
       return;
     }
     
@@ -535,53 +533,55 @@ export function IntegrationsSection({ locationId }: IntegrationsSectionProps) {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-3">
                     <div className="space-y-1.5">
-                      <Label htmlFor="pfg-username" className="text-sm">PFG Email</Label>
+                      <Label htmlFor="pfg-username" className="text-sm">PFG Account (optional)</Label>
                       <Input
                         id="pfg-username"
                         type="email"
                         value={pfgCredentials.username}
                         onChange={(e) => setPfgCredentials(prev => ({ ...prev, username: e.target.value }))}
-                        placeholder="your@email.com"
+                        placeholder="your@email.com (for reference only)"
                         className="h-9"
                       />
+                      <p className="text-xs text-muted-foreground">
+                        Just for your reference - not used for authentication
+                      </p>
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label htmlFor="pfg-password" className="text-sm">Password</Label>
+                      <Label htmlFor="pfg-token" className="text-sm">Refresh Token</Label>
                       <div className="relative">
                         <Input
-                          id="pfg-password"
-                          type={pfgShowPassword ? "text" : "password"}
-                          value={pfgCredentials.password}
-                          onChange={(e) => setPfgCredentials(prev => ({ ...prev, password: e.target.value }))}
-                          placeholder="PFG password"
-                          className="h-9 pr-10"
+                          id="pfg-token"
+                          type={pfgShowToken ? "text" : "password"}
+                          value={pfgCredentials.refresh_token}
+                          onChange={(e) => setPfgCredentials(prev => ({ ...prev, refresh_token: e.target.value }))}
+                          placeholder="Paste refresh_token from browser DevTools"
+                          className="h-9 pr-10 font-mono text-xs"
                         />
                         <Button
                           type="button"
                           variant="ghost"
                           size="sm"
                           className="absolute right-0 top-0 h-full px-3"
-                          onClick={() => setPfgShowPassword(!pfgShowPassword)}
+                          onClick={() => setPfgShowToken(!pfgShowToken)}
                         >
-                          {pfgShowPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          {pfgShowToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </Button>
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        Get this from DevTools: Log in to customerfirstsolutions.com → Network tab → find token request → copy refresh_token from response
+                      </p>
                     </div>
                   </div>
-
-                  <p className="text-xs text-muted-foreground">
-                    Use the same email and password you use to log in to customerfirstsolutions.com
-                  </p>
 
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={testPfgConnection}
-                      disabled={pfgIsTesting || !pfgCredentials.username || !pfgCredentials.password}
+                      disabled={pfgIsTesting || !pfgCredentials.refresh_token}
                     >
                       {pfgIsTesting ? (
                         <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
