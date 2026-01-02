@@ -31,6 +31,7 @@ export default function ShiftTemplates() {
   const { canManageTemplates, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
+  const [positions, setPositions] = useState<string[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ShiftTemplate | null>(null);
   const [customPosition, setCustomPosition] = useState("");
@@ -62,7 +63,7 @@ export default function ShiftTemplates() {
 
   const openEditDialog = (template: ShiftTemplate) => {
     setEditingTemplate(template);
-    const isPredefined = predefinedPositions.includes(template.position || "");
+    const isPredefined = positions.includes(template.position || "");
     setShowCustomPosition(!isPredefined && !!template.position);
     setCustomPosition(!isPredefined ? template.position || "" : "");
     setFormData({
@@ -82,16 +83,6 @@ export default function ShiftTemplates() {
     setDialogOpen(true);
   };
 
-  const predefinedPositions = [
-    "Pizza Smith",
-    "Dough",
-    "Line",
-    "Prep",
-    "Dishwasher",
-    "Front Counter",
-    "Delivery Driver",
-  ];
-
   const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
   useEffect(() => {
@@ -103,8 +94,30 @@ export default function ShiftTemplates() {
     }
     if (currentLocation?.id) {
       fetchTemplates();
+      fetchPositions();
     }
   }, [canManageTemplates, roleLoading, navigate, currentLocation?.id]);
+
+  const fetchPositions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('shift_templates')
+        .select('position');
+
+      if (error) throw error;
+
+      const uniquePositions = new Set<string>();
+      data?.forEach((template: any) => {
+        if (template.position) {
+          uniquePositions.add(template.position);
+        }
+      });
+
+      setPositions(Array.from(uniquePositions).sort());
+    } catch (error: any) {
+      console.error('Error fetching positions:', error);
+    }
+  };
 
   const fetchTemplates = async () => {
     if (!currentLocation?.id) return;
@@ -176,6 +189,7 @@ export default function ShiftTemplates() {
       setDialogOpen(false);
       resetForm();
       fetchTemplates();
+      fetchPositions(); // Refresh positions after creating/updating
     } catch (error: any) {
       console.error("Error saving template:", error);
       toast.error(editingTemplate ? "Failed to update shift template" : "Failed to create shift template");
@@ -303,7 +317,7 @@ export default function ShiftTemplates() {
                         <SelectValue placeholder="Select a position" />
                       </SelectTrigger>
                       <SelectContent>
-                        {predefinedPositions.map((pos) => (
+                        {positions.map((pos) => (
                           <SelectItem key={pos} value={pos}>
                             {pos}
                           </SelectItem>
