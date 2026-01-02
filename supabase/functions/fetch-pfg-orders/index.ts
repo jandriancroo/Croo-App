@@ -408,13 +408,13 @@ serve(async (req) => {
       const categoriesData = await fetchProductListItems(tokenData.access_token, productListHeaderId, customerIdToUse);
       const categories = categoriesData.categories || [];
       
-      // Collect all products that need price fetching
+      // Collect all products that need price fetching (price must be > 0 to be valid)
       const productsNeedingPrice: { category: any; product: any }[] = [];
       let productsWithPrice = 0;
       
       for (const cat of categories) {
         for (const p of cat.products || []) {
-          if (p.price) {
+          if (p.price && p.price > 0) {
             productsWithPrice++;
           } else if (p.id) {
             productsNeedingPrice.push({ category: cat, product: p });
@@ -438,7 +438,7 @@ serve(async (req) => {
         );
         
         results.forEach((result, idx) => {
-          if (result.status === 'fulfilled' && result.value?.price) {
+          if (result.status === 'fulfilled' && result.value?.price && result.value.price > 0) {
             batch[idx].product.price = result.value.price;
             // Also update packSize if missing
             if (!batch[idx].product.packSize && result.value.packSize) {
@@ -452,7 +452,7 @@ serve(async (req) => {
       let finalWithPrice = 0;
       for (const cat of categories) {
         for (const p of cat.products || []) {
-          if (p.price) finalWithPrice++;
+          if (p.price && p.price > 0) finalWithPrice++;
         }
       }
       console.log('[PFG API] Final products with price:', finalWithPrice);
