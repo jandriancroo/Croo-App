@@ -132,6 +132,11 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
         if (!storageLocationId) continue;
 
         for (const product of cat.products || []) {
+          // Log first product to see price data
+          if (itemsAdded === 0) {
+            console.log('[PFG Sync] Sample product data:', JSON.stringify(product, null, 2));
+          }
+          
           // Check if item exists by qubeyond_item_id
           const { data: existing } = await supabase
             .from("inventory_items")
