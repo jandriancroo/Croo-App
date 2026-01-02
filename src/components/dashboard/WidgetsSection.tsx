@@ -96,7 +96,7 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
       <div 
         ref={setNodeRef} 
         style={style} 
-        className={`col-span-2 ${isDragging ? 'opacity-50' : ''} relative`}
+        className={`w-full ${isDragging ? 'opacity-50' : ''} relative`}
         {...(isReorderMode ? { ...attributes, ...listeners } : {})}
       >
         <Card className={`overflow-hidden ${isReorderMode ? 'cursor-grab active:cursor-grabbing' : ''}`}>
@@ -145,7 +145,7 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
       <div 
         ref={setNodeRef} 
         style={style} 
-        className={`col-span-1 ${isDragging ? 'opacity-50' : ''} relative`}
+        className={`${isDragging ? 'opacity-50' : ''} relative`}
         {...(isReorderMode ? { ...attributes, ...listeners } : {})}
       >
         {/* Reorder overlay */}
@@ -599,30 +599,25 @@ export function WidgetsSection({
     );
   }
 
+  // Separate cubes, checklists, and sales chart for stacked layout on tablet/desktop
+  const dataCubes = localCubes.filter(c => c.cubeType === 'data-3d' || c.cubeType === 'data');
+  const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
+
   return (
-    <div className="space-y-3">
-      {/* Data Cubes Grid with Drag & Drop */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <SortableContext
-          items={sortableItems.map(item => item.id)}
-          strategy={rectSortingStrategy}
+    <div className="space-y-4 md:max-w-2xl">
+      {/* Data Cubes Row */}
+      {dataCubes.length > 0 && (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
         >
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {sortableItems.map(item => {
-              if (item.id === CHECKLISTS_BLOCK_ID) {
-                return (
-                  <SortableChecklistsBlock key={CHECKLISTS_BLOCK_ID} isReorderMode={isReorderMode}>
-                    {checklistsContent}
-                  </SortableChecklistsBlock>
-                );
-              }
-              
-              const cube = item as DataCubeConfig;
-              return (
+          <SortableContext
+            items={dataCubes.map(cube => cube.id)}
+            strategy={rectSortingStrategy}
+          >
+            <div className="grid grid-cols-2 gap-3">
+              {dataCubes.map(cube => (
                 <SortableDataCube
                   key={cube.id}
                   cube={cube}
@@ -632,11 +627,31 @@ export function WidgetsSection({
                   isReorderMode={isReorderMode}
                   onSalesDataChange={onSalesDataChange}
                 />
-              );
-            })}
-          </div>
-        </SortableContext>
-      </DndContext>
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+      
+      {/* Checklists Section - Full Width */}
+      {checklistsContent && (
+        <div className="w-full">
+          {checklistsContent}
+        </div>
+      )}
+      
+      {/* Sales Summary - Full Width */}
+      {salesChart && (
+        <SortableDataCube
+          key={salesChart.id}
+          cube={salesChart}
+          salesData={salesData}
+          isLoading={isLoadingSales}
+          locationSettings={locationSettings}
+          isReorderMode={isReorderMode}
+          onSalesDataChange={onSalesDataChange}
+        />
+      )}
 
       {/* Add Data Cube Dialog */}
       <AddWidgetDialog
