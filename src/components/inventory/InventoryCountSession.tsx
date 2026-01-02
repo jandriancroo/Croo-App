@@ -340,7 +340,7 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
     }));
   };
 
-  // Voice input handler
+  // Voice input handler - supports multiple items in one transcript
   const handleVoiceTranscript = useCallback(async (transcript: string) => {
     if (!items || items.length === 0) return;
 
@@ -356,29 +356,44 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
 
       if (error) throw error;
 
-      if (data.matched_item_id && data.confidence !== 'low') {
-        const itemId = data.matched_item_id;
-        const cases = data.cases || 0;
-        const units = data.units || 0;
+      const commands = data.commands || [];
+      let successCount = 0;
+      let lastMatchedId: string | null = null;
 
-        // Update counts
-        setCounts(prev => ({
-          ...prev,
-          [itemId]: { cases, units }
-        }));
-        setRawInputs(prev => ({
-          ...prev,
-          [itemId]: { cases: String(cases), units: String(units) }
-        }));
+      for (const cmd of commands) {
+        if (cmd.matched_item_id && cmd.confidence !== 'low') {
+          const itemId = cmd.matched_item_id;
+          const cases = cmd.cases || 0;
+          const units = cmd.units || 0;
 
-        // Highlight the item
-        setHighlightedItemId(itemId);
+          // Update counts
+          setCounts(prev => ({
+            ...prev,
+            [itemId]: { cases, units }
+          }));
+          setRawInputs(prev => ({
+            ...prev,
+            [itemId]: { cases: String(cases), units: String(units) }
+          }));
+
+          lastMatchedId = itemId;
+          successCount++;
+
+          const matchedItem = items.find(i => i.item_id === itemId);
+          toast.success(`${matchedItem?.item_name}: ${cases} cases, ${units} units`);
+        } else if (cmd.item_name) {
+          toast.warning(`Couldn't match "${cmd.item_name}" to an item`);
+        }
+      }
+
+      // Highlight the last matched item
+      if (lastMatchedId) {
+        setHighlightedItemId(lastMatchedId);
         setTimeout(() => setHighlightedItemId(null), 2000);
+      }
 
-        const matchedItem = items.find(i => i.item_id === itemId);
-        toast.success(`${matchedItem?.item_name}: ${cases} cases, ${units} units`);
-      } else {
-        toast.warning(`Couldn't match "${data.item_name || transcript}" to an item`);
+      if (successCount === 0 && commands.length === 0) {
+        toast.warning(`Couldn't understand: "${transcript}"`);
       }
     } catch (error) {
       console.error('[Voice] Parse error:', error);
