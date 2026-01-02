@@ -171,6 +171,11 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
 
   if (rawCategories.length > 0) {
     console.log('[PFG API] First category sample:', JSON.stringify(rawCategories[0]).substring(0, 500));
+    // Log first product in detail to see all available fields
+    const firstCatProducts = rawCategories[0]?.Products || [];
+    if (firstCatProducts.length > 0) {
+      console.log('[PFG API] First product FULL structure:', JSON.stringify(firstCatProducts[0], null, 2));
+    }
   }
 
   // Build categories with their products
@@ -180,7 +185,12 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
     productCount: cat.Products?.length || 0,
     products: (cat.Products || []).map((p: any) => {
       const product = p.Product || {};
-      const uom = product.UnitOfMeasureOrderQuantities?.[0] || {};
+      const uomList = product.UnitOfMeasureOrderQuantities || [];
+      const uom = uomList[0] || {};
+      
+      // Extract price - check various possible price fields
+      const price = uom.Price || uom.UnitPrice || uom.ListPrice || product.Price || null;
+      
       return {
         id: product.ProductKey || product.Id,
         name: product.CustomProductDescription || product.DisplayProductDescription || product.ProductDescription || 'Unknown',
@@ -189,6 +199,9 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
         packSize: uom.PackSize || product.ProductPackSizes?.[0],
         unit: uom.UnitOfMeasureAbbreviation || 'CS',
         imageUrl: product.ProductImageUrlThumbnail,
+        price: price,
+        // Include raw UOM data for debugging
+        uomData: uomList.length > 0 ? uomList[0] : null,
       };
     }),
   }));
