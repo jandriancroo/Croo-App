@@ -12,7 +12,56 @@ const PFG_B2C_POLICY = 'b2c_1a_signup_signin';
 const PFG_CLIENT_ID = 'c68e7fae-80a1-42db-bd89-3fb37d1224a2';
 const PFG_SCOPE = 'https://pfgcustomerfirst.onmicrosoft.com/api/customer-first-site-api openid profile offline_access';
 const PFG_TOKEN_URL = `https://${PFG_B2C_TENANT}.b2clogin.com/${PFG_B2C_TENANT}.onmicrosoft.com/${PFG_B2C_POLICY}/oauth2/v2.0/token`;
-const PFG_API_BASE = 'https://apps-zz-cusfst-mw-p-eus01.azurewebsites.net/api';
+
+// PFG API base URLs
+// Note: PFG appears to serve different endpoints from different hosts/environments.
+// We try the primary (customerfirstsolutions) first, and fall back to the Azure host.
+const PFG_API_BASES = [
+  'https://www.customerfirstsolutions.com/api/v1',
+  'https://apps-zz-cusfst-mw-p-eus01.azurewebsites.net/api',
+] as const;
+
+type PfgApiBase = typeof PFG_API_BASES[number];
+
+function joinUrl(base: string, path: string) {
+  const b = base.endsWith('/') ? base.slice(0, -1) : base;
+  const p = path.startsWith('/') ? path : `/${path}`;
+  return `${b}${p}`;
+}
+
+async function fetchPfgJson(
+  path: string,
+  init: RequestInit,
+  bases: readonly PfgApiBase[] = PFG_API_BASES,
+): Promise<any> {
+  let lastText = '';
+  let lastStatus = 0;
+
+  for (const base of bases) {
+    const url = joinUrl(base, path);
+    console.log('[PFG API] Request →', init.method || 'GET', url);
+
+    const res = await fetch(url, init);
+
+    if (res.ok) {
+      const json = await res.json();
+      console.log('[PFG API] Success ←', res.status, url);
+      return json;
+    }
+
+    lastStatus = res.status;
+    lastText = await res.text().catch(() => '');
+    console.warn('[PFG API] Failed ←', res.status, url, (lastText || '').slice(0, 200));
+
+    // If the endpoint isn't found on this host, try the next one.
+    if (res.status === 404) continue;
+
+    // For other failures (401/403/500/etc), stop here.
+    throw new Error(`PFG API error: ${res.status}${lastText ? ` - ${lastText.slice(0, 200)}` : ''}`);
+  }
+
+  throw new Error(`PFG API error: ${lastStatus || 404}${lastText ? ` - ${lastText.slice(0, 200)}` : ''}`);
+}
 
 interface PFGCredentials {
   username?: string; // For display only
@@ -31,7 +80,7 @@ interface TokenResponse {
 async function refreshAccessToken(refreshToken: string): Promise<TokenResponse | null> {
   try {
     console.log('[PFG Auth] Refreshing access token');
-    
+
     const params = new URLSearchParams({
       client_id: PFG_CLIENT_ID,
       scope: PFG_SCOPE,
@@ -66,34 +115,29 @@ async function refreshAccessToken(refreshToken: string): Promise<TokenResponse |
 // Fetch product list with categories from PFG
 async function fetchProductList(accessToken: string, searchTerm: string = ''): Promise<any> {
   console.log('[PFG API] Fetching product list, search:', searchTerm);
-  
-  const response = await fetch(`${PFG_API_BASE}/ProductListSearch/V1/SearchProductList`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
+
+  return fetchPfgJson(
+    '/ProductListSearch/V1/SearchProductList',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({
+        searchTerm: searchTerm,
+        pageNumber: 1,
+        pageSize: 50,
+      }),
     },
-    body: JSON.stringify({
-      searchTerm: searchTerm,
-      pageNumber: 1,
-      pageSize: 50,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[PFG API] Product search failed:', response.status, errorText);
-    throw new Error(`PFG API error: ${response.status}`);
-  }
-
-  return response.json();
+  );
 }
 
 // Fetch product list items from a specific list (using ProductListHeaderId)
 async function fetchProductListItems(accessToken: string, productListHeaderId: string, customerId: string): Promise<any> {
   console.log('[PFG API] Fetching product list items for list:', productListHeaderId, 'customer:', customerId);
-  
+
   const requestBody = {
     CustomerId: customerId,
     ProductListHeaderId: productListHeaderId,
@@ -101,39 +145,34 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
     SortByType: 5,
     IncludeRecipeItems: true
   };
-  
+
   console.log('[PFG API] Request body:', JSON.stringify(requestBody));
-  
-  const response = await fetch(`${PFG_API_BASE}/Search/SearchProductList`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
+
+  const data = await fetchPfgJson(
+    '/Search/SearchProductList',
+    {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
     },
-    body: JSON.stringify(requestBody),
-  });
+  );
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[PFG API] Product list fetch failed:', response.status, errorText);
-    throw new Error(`PFG API error: ${response.status}`);
-  }
-
-  const data = await response.json();
-  
   // Log the raw response structure for debugging
   console.log('[PFG API] Raw response keys:', Object.keys(data || {}));
   console.log('[PFG API] ResultObject keys:', Object.keys(data?.ResultObject || {}));
-  
+
   // The response should have ProductListCategories which are the storage locations
   const rawCategories = data?.ResultObject?.ProductListCategories || [];
   console.log('[PFG API] Found', rawCategories.length, 'categories in list');
-  
+
   if (rawCategories.length > 0) {
     console.log('[PFG API] First category sample:', JSON.stringify(rawCategories[0]).substring(0, 500));
   }
-  
+
   return {
     categories: rawCategories.map((cat: any) => ({
       id: cat.ProductListCategoryId,
@@ -146,22 +185,17 @@ async function fetchProductListItems(accessToken: string, productListHeaderId: s
 // Fetch order history from PFG
 async function fetchOrderHistory(accessToken: string): Promise<any> {
   console.log('[PFG API] Fetching order history');
-  
-  const response = await fetch(`${PFG_API_BASE}/OrderHistory/V1/GetOrderHistory`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'application/json',
+
+  return fetchPfgJson(
+    '/OrderHistory/V1/GetOrderHistory',
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json',
+      },
     },
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[PFG API] Order history failed:', response.status, errorText);
-    throw new Error(`PFG API error: ${response.status}`);
-  }
-
-  return response.json();
+  );
 }
 
 serve(async (req) => {
