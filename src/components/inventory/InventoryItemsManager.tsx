@@ -165,8 +165,12 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   const syncFromPFG = async () => {
     setIsSyncingPFG(true);
     try {
+      // Get the productListHeaderId from the integration credentials
+      const productListHeaderId = (pfgIntegration?.credentials as any)?.product_list_header_id 
+        || "b4680e1a-4815-44c6-968e-634e94188009"; // Default to Blaze Hemet list
+      
       const { data, error } = await supabase.functions.invoke("fetch-pfg-orders", {
-        body: { locationId, action: "categories" }
+        body: { locationId, action: "categories", productListHeaderId }
       });
 
       if (error) throw error;
