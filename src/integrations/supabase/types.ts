@@ -1229,6 +1229,200 @@ export type Database = {
           },
         ]
       }
+      inventory_count_items: {
+        Row: {
+          count_id: string | null
+          counted_at: string
+          id: string
+          item_id: string | null
+          quantity: number
+          theoretical_quantity: number | null
+          variance: number | null
+          variance_cost: number | null
+        }
+        Insert: {
+          count_id?: string | null
+          counted_at?: string
+          id?: string
+          item_id?: string | null
+          quantity?: number
+          theoretical_quantity?: number | null
+          variance?: number | null
+          variance_cost?: number | null
+        }
+        Update: {
+          count_id?: string | null
+          counted_at?: string
+          id?: string
+          item_id?: string | null
+          quantity?: number
+          theoretical_quantity?: number | null
+          variance?: number | null
+          variance_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_count_items_count_id_fkey"
+            columns: ["count_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_counts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_count_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_counts: {
+        Row: {
+          completed_at: string | null
+          count_date: string
+          counted_by: string | null
+          created_at: string
+          id: string
+          location_id: string | null
+          notes: string | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          count_date?: string
+          counted_by?: string | null
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          notes?: string | null
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          count_date?: string
+          counted_by?: string | null
+          created_at?: string
+          id?: string
+          location_id?: string | null
+          notes?: string | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_counts_counted_by_fkey"
+            columns: ["counted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_counts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_items: {
+        Row: {
+          cost_per_unit: number | null
+          created_at: string
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          location_id: string | null
+          name: string
+          par_level: number | null
+          qubeyond_item_id: string | null
+          storage_location_id: string | null
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          cost_per_unit?: number | null
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          location_id?: string | null
+          name: string
+          par_level?: number | null
+          qubeyond_item_id?: string | null
+          storage_location_id?: string | null
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          cost_per_unit?: number | null
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          location_id?: string | null
+          name?: string
+          par_level?: number | null
+          qubeyond_item_id?: string | null
+          storage_location_id?: string | null
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_items_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_items_storage_location_id_fkey"
+            columns: ["storage_location_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inventory_locations: {
+        Row: {
+          created_at: string
+          display_order: number | null
+          id: string
+          location_id: string | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          location_id?: string | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          location_id?: string | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_locations_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_application_references: {
         Row: {
           application_id: string

@@ -56,6 +56,7 @@ import PunchClockCustomization from "./pages/PunchClockCustomization";
 import FBCDashboard from "./pages/FBCDashboard";
 import MyProfile from "./pages/MyProfile";
 import MultiLocationDashboard from "./pages/MultiLocationDashboard";
+import Inventory from "./pages/Inventory";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
@@ -113,6 +114,7 @@ const AppContent = () => {
       <Route path="/changelog" element={<ProtectedRoute><Changelog /></ProtectedRoute>} />
       {/* FBC Dashboard hidden - <Route path="/fbc-dashboard" element={<ProtectedRoute><FBCDashboard /></ProtectedRoute>} /> */}
       <Route path="/multi-location" element={<ProtectedRoute><MultiLocationDashboard /></ProtectedRoute>} />
+      <Route path="/inventory/:locationId" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
       <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
