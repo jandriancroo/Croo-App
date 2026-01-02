@@ -12,6 +12,7 @@ export interface ChecklistCubeProps {
   onClick?: () => void;
   dragHandleProps?: any;
   isDragging?: boolean;
+  isOverdue?: boolean;
 }
 
 export function ChecklistCube({ 
@@ -23,6 +24,7 @@ export function ChecklistCube({
   onClick,
   dragHandleProps,
   isDragging = false,
+  isOverdue = false,
 }: ChecklistCubeProps) {
   const navigate = useNavigate();
   const isOled = useIsOledTheme();
@@ -37,6 +39,12 @@ export function ChecklistCube({
     }
   };
 
+  // Overdue styling - subtle red border
+  const overdueStyles = isOverdue && !isComplete ? {
+    borderColor: 'hsl(var(--destructive))',
+    borderWidth: '2px',
+  } : {};
+
   return (
     <Card 
       className={`aspect-square overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 relative group ${isDragging ? 'opacity-50 shadow-2xl scale-105' : ''}`}
@@ -46,6 +54,7 @@ export function ChecklistCube({
           ? 'hsl(var(--card))' 
           : `linear-gradient(135deg, ${accentColor}08 0%, ${accentColor}15 100%)`,
         borderColor: isOled ? undefined : `${accentColor}25`,
+        ...overdueStyles,
       }}
     >
       {/* Progress ring background */}
