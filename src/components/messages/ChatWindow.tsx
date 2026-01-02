@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { MentionInput } from './MentionInput';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Paperclip, File, Settings, MessageSquare, Trash2, Megaphone, Users } from 'lucide-react';
 import { GifPicker } from './GifPicker';
@@ -657,10 +657,11 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             <Paperclip className="h-4 w-4" />
           </Button>
           <GifPicker onSelect={handleGifSelect} />
-          <Input
+          <MentionInput
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
+            onChange={setNewMessage}
+            placeholder="Type a message... Use @ to mention"
+            chatId={chatId}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
