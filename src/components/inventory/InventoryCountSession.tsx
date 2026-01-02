@@ -285,60 +285,29 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
   };
 
   // Handle raw input for cases - allows typing decimals like ".5"
-  const handleCasesInput = (itemId: string, inputValue: string, packQuantity: number | null) => {
-    // Store raw input for display
+  const handleCasesInput = (itemId: string, inputValue: string) => {
     setRawInputs(prev => ({
       ...prev,
       [itemId]: { ...prev[itemId], cases: inputValue, units: prev[itemId]?.units || '' }
     }));
   };
 
-  // Process cases input on blur - convert decimal to units
-  const handleCasesBlur = (itemId: string, packQuantity: number | null) => {
+  // Process cases input on blur - just store the decimal value
+  const handleCasesBlur = (itemId: string) => {
     const rawValue = rawInputs[itemId]?.cases || '';
     const value = parseFloat(rawValue);
     
-    if (isNaN(value) || value === 0) {
-      setCounts(prev => ({
-        ...prev,
-        [itemId]: { cases: 0, units: prev[itemId]?.units || 0 }
-      }));
-      setRawInputs(prev => ({
-        ...prev,
-        [itemId]: { ...prev[itemId], cases: '0' }
-      }));
-      return;
-    }
+    const finalValue = isNaN(value) ? 0 : Math.max(0, value);
     
-    const packQty = packQuantity || 1;
+    setCounts(prev => ({
+      ...prev,
+      [itemId]: { cases: finalValue, units: prev[itemId]?.units || 0 }
+    }));
     
-    // Handle decimal cases - convert fraction to units
-    const wholeCases = Math.floor(value);
-    const fractionalPart = value - wholeCases;
-    const additionalUnits = Math.round(fractionalPart * packQty);
-    
-    setCounts(prev => {
-      const currentUnits = prev[itemId]?.units || 0;
-      let newUnits = currentUnits + additionalUnits;
-      let newCases = wholeCases;
-      
-      // Convert excess units to cases
-      if (newUnits >= packQty) {
-        newCases += Math.floor(newUnits / packQty);
-        newUnits = newUnits % packQty;
-      }
-      
-      // Update raw input to show computed value
-      setRawInputs(p => ({
-        ...p,
-        [itemId]: { ...p[itemId], cases: String(newCases) }
-      }));
-      
-      return {
-        ...prev,
-        [itemId]: { cases: Math.max(0, newCases), units: Math.max(0, newUnits) }
-      };
-    });
+    setRawInputs(prev => ({
+      ...prev,
+      [itemId]: { ...prev[itemId], cases: String(finalValue) }
+    }));
   };
 
   // Handle raw input for units
@@ -350,51 +319,21 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
   };
 
   // Process units input on blur
-  const handleUnitsBlur = (itemId: string, packQuantity: number | null) => {
+  const handleUnitsBlur = (itemId: string) => {
     const rawValue = rawInputs[itemId]?.units || '';
     const value = parseFloat(rawValue);
     
-    if (isNaN(value)) {
-      setCounts(prev => ({
-        ...prev,
-        [itemId]: { cases: prev[itemId]?.cases || 0, units: 0 }
-      }));
-      setRawInputs(prev => ({
-        ...prev,
-        [itemId]: { ...prev[itemId], units: '0' }
-      }));
-      return;
-    }
+    const finalValue = isNaN(value) ? 0 : Math.max(0, value);
     
-    setUnits(itemId, value, packQuantity);
+    setCounts(prev => ({
+      ...prev,
+      [itemId]: { cases: prev[itemId]?.cases || 0, units: finalValue }
+    }));
+    
     setRawInputs(prev => ({
       ...prev,
-      [itemId]: { ...prev[itemId], units: String(counts[itemId]?.units || 0) }
+      [itemId]: { ...prev[itemId], units: String(finalValue) }
     }));
-  };
-
-  const setUnits = (itemId: string, value: number, packQuantity: number | null) => {
-    const packQty = packQuantity || 1;
-    setCounts(prev => {
-      let newUnits = Math.max(0, value);
-      let newCases = prev[itemId]?.cases || 0;
-      
-      if (newUnits >= packQty) {
-        newCases += Math.floor(newUnits / packQty);
-        newUnits = newUnits % packQty;
-      }
-      
-      // Update raw display
-      setRawInputs(p => ({
-        ...p,
-        [itemId]: { cases: String(newCases), units: String(newUnits) }
-      }));
-      
-      return {
-        ...prev,
-        [itemId]: { cases: newCases, units: newUnits }
-      };
-    });
   };
 
   // Calculate progress
@@ -557,8 +496,8 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
                         type="text"
                         inputMode="decimal"
                         value={rawInputs[item.item_id]?.cases ?? count.cases}
-                        onChange={(e) => handleCasesInput(item.item_id, e.target.value, item.pack_quantity)}
-                        onBlur={() => handleCasesBlur(item.item_id, item.pack_quantity)}
+                        onChange={(e) => handleCasesInput(item.item_id, e.target.value)}
+                        onBlur={() => handleCasesBlur(item.item_id)}
                         className="w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                       <button
@@ -592,7 +531,7 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
                         inputMode="decimal"
                         value={rawInputs[item.item_id]?.units ?? count.units}
                         onChange={(e) => handleUnitsInput(item.item_id, e.target.value)}
-                        onBlur={() => handleUnitsBlur(item.item_id, item.pack_quantity)}
+                        onBlur={() => handleUnitsBlur(item.item_id)}
                         className="w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                       />
                       <button
