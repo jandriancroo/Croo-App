@@ -441,7 +441,7 @@ export default function Messages() {
         </div>
 
         {/* Desktop: Chat Window */}
-        <div className="flex-1 bg-card rounded-lg flex">
+        <div className="flex-1 bg-card rounded-lg flex min-w-0">
           {viewMode === 'hiring' && selectedHiringConversation ? (
             <div className="p-4 w-full">
               <HiringChatPanel
@@ -450,18 +450,20 @@ export default function Messages() {
               />
             </div>
           ) : selectedChatId || viewMode === 'marketplace' ? (
-            <ChatWindow
-              chatId={viewMode === 'marketplace' ? marketplaceChatId : selectedChatId}
-              chatDetails={chats.find(c => c.id === (viewMode === 'marketplace' ? marketplaceChatId : selectedChatId)) || null}
-              onChatDeleted={() => {
-                setSelectedChatId(null);
-                if (viewMode === 'marketplace') {
-                  setViewMode('chats');
-                }
-                fetchChats();
-              }}
-              onChatUpdated={fetchChats}
-            />
+            <div className="w-full">
+              <ChatWindow
+                chatId={viewMode === 'marketplace' ? marketplaceChatId : selectedChatId}
+                chatDetails={chats.find(c => c.id === (viewMode === 'marketplace' ? marketplaceChatId : selectedChatId)) || null}
+                onChatDeleted={() => {
+                  setSelectedChatId(null);
+                  if (viewMode === 'marketplace') {
+                    setViewMode('chats');
+                  }
+                  fetchChats();
+                }}
+                onChatUpdated={fetchChats}
+              />
+            </div>
           ) : (
             <div className="flex items-center justify-center h-full text-muted-foreground w-full">
               <div className="text-center">
