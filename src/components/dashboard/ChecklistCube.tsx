@@ -39,7 +39,7 @@ export function ChecklistCube({
 
   return (
     <Card 
-      className={`aspect-square overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 relative group ${isDragging ? 'opacity-50 shadow-2xl scale-105' : ''}`}
+      className={`aspect-square md:aspect-[4/3] overflow-hidden cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 relative group ${isDragging ? 'opacity-50 shadow-2xl scale-105' : ''}`}
       onClick={handleClick}
       style={{
         background: isOled 
