@@ -8,6 +8,7 @@ import { ArrowLeft, Play, RotateCcw, Trophy, Share2, Heart, ChevronLeft, Chevron
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ShareScoreDialog } from "@/components/games/ShareScoreDialog";
+import { useGameMusic } from "@/hooks/useGameMusic";
 
 // Import Karen head images
 import karenHead1 from "@/assets/karen-head-1.jpeg";
@@ -249,6 +250,9 @@ const PizzaPaddleGame = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number>();
   const karenImagesRef = useRef<HTMLImageElement[]>([]);
+  
+  // Background music
+  const { play: playMusic, stop: stopMusic } = useGameMusic('bad-pop');
 
   const [gameState, setGameState] = useState<'idle' | 'playing' | 'gameover'>('idle');
   const [score, setScore] = useState(0);
@@ -352,7 +356,8 @@ const PizzaPaddleGame = () => {
     setCombo(0);
     setCurrentLevel(LEVELS[0]);
     setGameState('playing');
-  }, [getCanvasDimensions]);
+    playMusic(); // Start background music
+  }, [getCanvasDimensions, playMusic]);
 
   const handleJump = useCallback(() => {
     if (gameState !== 'playing') return;
@@ -1873,34 +1878,55 @@ const PizzaPaddleGame = () => {
 
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent) => {
+      if (e.repeat) return; // Prevent key repeat causing issues
       if (e.code === 'Space') {
         e.preventDefault();
         handleJump();
       }
       if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
-        handleMoveLeft(true);
+        e.preventDefault();
+        movingLeftRef.current = true;
+        setMovingLeft(true);
+        playerRef.current.facingRight = false;
       }
       if (e.code === 'ArrowRight' || e.code === 'KeyD') {
-        handleMoveRight(true);
+        e.preventDefault();
+        movingRightRef.current = true;
+        setMovingRight(true);
+        playerRef.current.facingRight = true;
       }
     };
     
     const handleKeyup = (e: KeyboardEvent) => {
       if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
-        handleMoveLeft(false);
+        movingLeftRef.current = false;
+        setMovingLeft(false);
       }
       if (e.code === 'ArrowRight' || e.code === 'KeyD') {
-        handleMoveRight(false);
+        movingRightRef.current = false;
+        setMovingRight(false);
       }
     };
     
-    window.addEventListener('keydown', handleKeydown);
-    window.addEventListener('keyup', handleKeyup);
-    return () => {
-      window.removeEventListener('keydown', handleKeydown);
-      window.removeEventListener('keyup', handleKeyup);
+    // Use capture phase for more reliable input
+    window.addEventListener('keydown', handleKeydown, { capture: true });
+    window.addEventListener('keyup', handleKeyup, { capture: true });
+    
+    // Clear stuck keys on blur
+    const handleBlur = () => {
+      movingLeftRef.current = false;
+      movingRightRef.current = false;
+      setMovingLeft(false);
+      setMovingRight(false);
     };
-  }, [handleJump, handleMoveLeft, handleMoveRight]);
+    window.addEventListener('blur', handleBlur);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeydown, { capture: true });
+      window.removeEventListener('keyup', handleKeyup, { capture: true });
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [handleJump]); // Only depend on handleJump
 
   const { width, height } = getCanvasDimensions();
 
@@ -2008,24 +2034,76 @@ const PizzaPaddleGame = () => {
                   <Button
                     size="lg"
                     variant={movingLeft ? "default" : "secondary"}
-                    className="pointer-events-auto h-14 w-14 rounded-full opacity-70"
-                    onTouchStart={(e) => { e.preventDefault(); handleMoveLeft(true); }}
-                    onTouchEnd={(e) => { e.preventDefault(); handleMoveLeft(false); }}
-                    onMouseDown={() => handleMoveLeft(true)}
-                    onMouseUp={() => handleMoveLeft(false)}
-                    onMouseLeave={() => handleMoveLeft(false)}
+                    className="pointer-events-auto h-14 w-14 rounded-full opacity-70 select-none"
+                    onTouchStart={(e) => { 
+                      e.preventDefault(); 
+                      e.stopPropagation();
+                      movingLeftRef.current = true;
+                      setMovingLeft(true);
+                      playerRef.current.facingRight = false;
+                    }}
+                    onTouchEnd={(e) => { 
+                      e.preventDefault();
+                      e.stopPropagation();
+                      movingLeftRef.current = false;
+                      setMovingLeft(false);
+                    }}
+                    onTouchCancel={(e) => {
+                      e.preventDefault();
+                      movingLeftRef.current = false;
+                      setMovingLeft(false);
+                    }}
+                    onMouseDown={() => {
+                      movingLeftRef.current = true;
+                      setMovingLeft(true);
+                      playerRef.current.facingRight = false;
+                    }}
+                    onMouseUp={() => {
+                      movingLeftRef.current = false;
+                      setMovingLeft(false);
+                    }}
+                    onMouseLeave={() => {
+                      movingLeftRef.current = false;
+                      setMovingLeft(false);
+                    }}
                   >
                     <ChevronLeft className="h-8 w-8" />
                   </Button>
                   <Button
                     size="lg"
                     variant={movingRight ? "default" : "secondary"}
-                    className="pointer-events-auto h-14 w-14 rounded-full opacity-70"
-                    onTouchStart={(e) => { e.preventDefault(); handleMoveRight(true); }}
-                    onTouchEnd={(e) => { e.preventDefault(); handleMoveRight(false); }}
-                    onMouseDown={() => handleMoveRight(true)}
-                    onMouseUp={() => handleMoveRight(false)}
-                    onMouseLeave={() => handleMoveRight(false)}
+                    className="pointer-events-auto h-14 w-14 rounded-full opacity-70 select-none"
+                    onTouchStart={(e) => { 
+                      e.preventDefault();
+                      e.stopPropagation();
+                      movingRightRef.current = true;
+                      setMovingRight(true);
+                      playerRef.current.facingRight = true;
+                    }}
+                    onTouchEnd={(e) => { 
+                      e.preventDefault();
+                      e.stopPropagation();
+                      movingRightRef.current = false;
+                      setMovingRight(false);
+                    }}
+                    onTouchCancel={(e) => {
+                      e.preventDefault();
+                      movingRightRef.current = false;
+                      setMovingRight(false);
+                    }}
+                    onMouseDown={() => {
+                      movingRightRef.current = true;
+                      setMovingRight(true);
+                      playerRef.current.facingRight = true;
+                    }}
+                    onMouseUp={() => {
+                      movingRightRef.current = false;
+                      setMovingRight(false);
+                    }}
+                    onMouseLeave={() => {
+                      movingRightRef.current = false;
+                      setMovingRight(false);
+                    }}
                   >
                     <ChevronRight className="h-8 w-8" />
                   </Button>
