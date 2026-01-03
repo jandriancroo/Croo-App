@@ -353,18 +353,31 @@ async function checkOverdueChecklists(supabaseClient: any, timezone: string, loc
         });
 
         if (pushResult?.error) {
-          console.error(`[${locationName}] Failed to send overdue checklist push:`, pushResult.error);
+          console.error(`[${locationName}] Failed to send overdue checklist push (invoke error):`, pushResult.error);
           continue;
         }
-        
-        // Log the notification to prevent duplicates (only if push send succeeded)
+
+        const successful = Number((pushResult as any)?.data?.successful ?? NaN);
+        const failed = Number((pushResult as any)?.data?.failed ?? NaN);
+
+        // Treat 0-success as a failure so we don't suppress retries for an hour when delivery actually failed.
+        if (!Number.isNaN(successful) && successful === 0) {
+          console.error(
+            `[${locationName}] Push delivery returned 0 successful (failed=${Number.isNaN(failed) ? 'unknown' : failed}). Not logging notification so it will retry.`
+          );
+          continue;
+        }
+
+        // Log the notification to prevent duplicates (only if push send succeeded / had at least 1 success)
         await supabaseClient.from('checklist_notification_logs').insert({
           checklist_id: activeOverdueChecklist.id,
           location_id: locationId,
           notification_type: 'overdue_hourly'
         });
-        
-        console.log(`[${locationName}] Notification sent to ${adminUsers.length} users`);
+
+        console.log(
+          `[${locationName}] Notification sent to ${adminUsers.length} users (delivery: ${Number.isNaN(successful) ? 'unknown' : successful} ok, ${Number.isNaN(failed) ? 'unknown' : failed} failed)`
+        );
       }
     }
     if (overdueChecklists.length === 0) {
