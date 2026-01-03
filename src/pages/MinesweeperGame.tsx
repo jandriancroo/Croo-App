@@ -5,10 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Play, RotateCcw, Trophy, Flag, Bomb } from "lucide-react";
+import { ArrowLeft, Play, RotateCcw, Trophy, Flag, Bomb, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { ShareScoreDialog } from "@/components/games/ShareScoreDialog";
 
 type CellState = {
   isMine: boolean;
@@ -38,6 +39,8 @@ const MinesweeperGame = () => {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [finalScore, setFinalScore] = useState(0);
 
   const config = DIFFICULTIES[difficulty];
 
@@ -217,6 +220,9 @@ const MinesweeperGame = () => {
     const timeBonus = Math.max(0, 1000 - elapsedTime);
     const difficultyMultiplier = difficulty === 'easy' ? 1 : difficulty === 'medium' ? 2 : 3;
     const score = (config.mines * 10 + timeBonus) * difficultyMultiplier;
+    
+    // Store the final score for sharing
+    setFinalScore(score);
 
     try {
       await supabase.from('game_high_scores').insert({
@@ -406,10 +412,23 @@ const MinesweeperGame = () => {
                       {gameState === 'won' ? 'You Won!' : 'Game Over!'}
                     </p>
                     <p className="text-lg mb-4">Time: {elapsedTime}s</p>
-                    <Button onClick={startGame} size="lg" className="gap-2">
-                      <RotateCcw className="h-5 w-5" />
-                      Play Again
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button onClick={startGame} size="lg" className="gap-2">
+                        <RotateCcw className="h-5 w-5" />
+                        Play Again
+                      </Button>
+                      {gameState === 'won' && finalScore > 0 && (
+                        <Button 
+                          onClick={() => setShareDialogOpen(true)} 
+                          size="lg" 
+                          variant="outline"
+                          className="gap-2"
+                        >
+                          <Share2 className="h-5 w-5" />
+                          Share
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -424,6 +443,13 @@ const MinesweeperGame = () => {
           </p>
         )}
       </div>
+
+      <ShareScoreDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        gameType="minesweeper"
+        score={finalScore}
+      />
     </Layout>
   );
 };
