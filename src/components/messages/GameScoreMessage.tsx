@@ -16,7 +16,7 @@ export function GameScoreMessage({ gameType, score, playerName }: GameScoreMessa
   const getGameConfig = () => {
     if (isSnake) return { icon: Gamepad2, color: 'bg-green-500/20', iconColor: 'text-green-500', name: 'Snake', emoji: '🐍' };
     if (isMinesweeper) return { icon: Grid3X3, color: 'bg-blue-500/20', iconColor: 'text-blue-500', name: 'Minesweeper', emoji: '💣' };
-    if (isPizza) return { icon: Gamepad2, color: 'bg-red-500/20', iconColor: 'text-red-500', name: 'Pizza Paddle', emoji: '🍕' };
+    if (isPizza) return { icon: Gamepad2, color: 'bg-red-500/20', iconColor: 'text-red-500', name: 'Super Karen Destroy 3', emoji: '👨‍🍳' };
     return { icon: Target, color: 'bg-orange-500/20', iconColor: 'text-orange-500', name: 'Hoops', emoji: '🏀' };
   };
 

@@ -1201,31 +1201,40 @@ const PizzaPaddleGame = () => {
       ctx.font = 'bold 20px sans-serif';
       ctx.fillText(`Score: ${scoreRef.current}`, 12, 28);
 
-      // Lives display
-      ctx.font = '22px serif';
+      // Lives display - simple approach with full/half/empty hearts
+      ctx.font = '20px sans-serif';
+      ctx.textAlign = 'right';
       const fullHearts = Math.floor(livesRef.current);
       const hasHalfHeart = livesRef.current % 1 !== 0;
       
-      for (let i = 0; i < 3; i++) {
-        const xPos = width - 32 - i * 30;
-        if (i < fullHearts) {
-          ctx.fillText('❤️', xPos, 30);
-        } else if (i === fullHearts && hasHalfHeart) {
+      // Draw hearts from right to left (reversed order: 3rd, 2nd, 1st)
+      for (let i = 2; i >= 0; i--) {
+        const xPos = width - 10 - (2 - i) * 26;
+        const heartIndex = 2 - i; // Reverse the index
+        
+        if (heartIndex < fullHearts) {
+          // Full heart
+          ctx.fillText('❤️', xPos, 28);
+        } else if (heartIndex === fullHearts && hasHalfHeart) {
+          // Half heart - draw empty first, then partial red on top
+          ctx.globalAlpha = 0.35;
+          ctx.fillText('🖤', xPos, 28);
+          ctx.globalAlpha = 1;
+          // Draw half red heart using clip
           ctx.save();
-          ctx.globalAlpha = 1;
-          ctx.fillText('❤️', xPos, 30);
-          ctx.globalCompositeOperation = 'destination-out';
-          ctx.fillRect(xPos + 11, 8, 18, 28);
+          ctx.beginPath();
+          ctx.rect(xPos - 22, 0, 11, 40);
+          ctx.clip();
+          ctx.fillText('❤️', xPos, 28);
           ctx.restore();
-          ctx.globalAlpha = 0.3;
-          ctx.fillText('🖤', xPos, 30);
-          ctx.globalAlpha = 1;
         } else {
-          ctx.globalAlpha = 0.3;
-          ctx.fillText('🖤', xPos, 30);
+          // Empty heart
+          ctx.globalAlpha = 0.35;
+          ctx.fillText('🖤', xPos, 28);
           ctx.globalAlpha = 1;
         }
       }
+      ctx.textAlign = 'left';
 
       gameLoopRef.current = requestAnimationFrame(gameLoop);
     };
@@ -1299,8 +1308,8 @@ const PizzaPaddleGame = () => {
 
   return (
     <Layout>
-      <div className="flex flex-col h-[calc(100vh-4rem)] px-3 py-2">
-        <div className="flex items-center gap-2 mb-1">
+      <div className="flex flex-col h-[calc(100vh-4rem)] px-3 py-1">
+        <div className="flex items-center gap-2 mb-0">
           <Button variant="ghost" size="icon" onClick={() => navigate('/games')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -1315,20 +1324,18 @@ const PizzaPaddleGame = () => {
                   const isHalf = i === fullHearts && hasHalfHeart;
                   
                   return (
-                    <div key={i} className="relative">
-                      <Heart 
-                        className={`h-5 w-5 ${isFull || isHalf ? 'text-red-500' : 'text-muted-foreground/30'}`}
-                        fill={isFull ? 'currentColor' : isHalf ? 'url(#halfGradient)' : 'none'}
-                      />
-                      {isHalf && (
-                        <svg width="0" height="0" className="absolute">
-                          <defs>
-                            <linearGradient id="halfGradient">
-                              <stop offset="50%" stopColor="currentColor" />
-                              <stop offset="50%" stopColor="transparent" />
-                            </linearGradient>
-                          </defs>
-                        </svg>
+                    <div key={i} className="relative w-5 h-5 flex items-center justify-center">
+                      {isFull ? (
+                        <Heart className="h-5 w-5 text-red-500" fill="currentColor" />
+                      ) : isHalf ? (
+                        <div className="relative w-5 h-5">
+                          <Heart className="absolute h-5 w-5 text-muted-foreground/30" fill="currentColor" />
+                          <div className="absolute inset-0 overflow-hidden" style={{ width: '50%' }}>
+                            <Heart className="h-5 w-5 text-red-500" fill="currentColor" />
+                          </div>
+                        </div>
+                      ) : (
+                        <Heart className="h-5 w-5 text-muted-foreground/30" fill="currentColor" />
                       )}
                     </div>
                   );
@@ -1342,22 +1349,22 @@ const PizzaPaddleGame = () => {
           </div>
         </div>
 
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-start justify-center pt-1">
           {gameState === 'idle' ? (
             <div className="text-center">
-              <div className="text-7xl mb-4">👨‍🍳💥💇‍♀️</div>
-              <h2 className="text-2xl font-bold mb-2">Super Karen Destroy 3</h2>
-              <p className="text-muted-foreground mb-3 max-w-xs mx-auto">
+              <div className="text-6xl mb-3">👨‍🍳💥💇‍♀️</div>
+              <h2 className="text-xl font-bold mb-2">Super Karen Destroy 3</h2>
+              <p className="text-muted-foreground mb-2 max-w-xs mx-auto text-sm">
                 Jump on platforms, avoid pipes, defeat Karens!
               </p>
-              <div className="text-xs text-muted-foreground mb-3 space-y-1">
+              <div className="text-xs text-muted-foreground mb-2 space-y-0.5">
                 <p className="font-semibold text-foreground">Points per Karen:</p>
                 <p>💇‍♀️ Basic: 10 • Manager: 15 • Supervisor: 20</p>
                 <p>Regional: 25 • 👹 MEGA KAREN: 100</p>
-                <p className="font-semibold text-foreground mt-2">Bonus Toppings:</p>
+                <p className="font-semibold text-foreground mt-1">Bonus Toppings:</p>
                 <p>🍕 5 • 🍄 8 • 🫒 6 • 🌶️ 10 • 🧀 15</p>
               </div>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="text-xs text-muted-foreground mb-3">
                 ❤️ 3 Lives (half heart per Karen, full heart per Boss)
               </p>
               <Button onClick={initGame} size="lg" className="gap-2">
@@ -1411,7 +1418,7 @@ const PizzaPaddleGame = () => {
         </div>
 
         {gameState === 'playing' && (
-          <p className="text-center text-xs text-muted-foreground py-1">
+          <p className="text-center text-xs text-muted-foreground py-0.5">
             Tap to jump & swing • Use platforms, avoid pipes!
           </p>
         )}
