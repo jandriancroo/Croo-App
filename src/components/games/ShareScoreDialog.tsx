@@ -109,7 +109,7 @@ export function ShareScoreDialog({ open, onOpenChange, gameType, score }: ShareS
               body: `${score.toLocaleString()} pts in ${
                 gameType === 'snake' ? 'Snake' : 
                 gameType === 'minesweeper' ? 'Minesweeper' : 
-                gameType === 'basketball' ? 'Hoops' : 'Pizza Paddle'
+                gameType === 'basketball' ? 'Hoops' : 'Super Karen Destroy 3'
               }`,
               notification_type: 'chat_messages',
               data: { chat_id: chatId, type: 'message' }
@@ -142,7 +142,7 @@ export function ShareScoreDialog({ open, onOpenChange, gameType, score }: ShareS
             Brag about your <span className="font-semibold text-primary">{score.toLocaleString()} pts</span> in {
               gameType === 'snake' ? 'Snake' : 
               gameType === 'minesweeper' ? 'Minesweeper' : 
-              gameType === 'basketball' ? 'Hoops' : 'Pizza Paddle'
+              gameType === 'basketball' ? 'Hoops' : 'Super Karen Destroy 3'
             }!
           </p>
 
