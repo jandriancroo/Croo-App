@@ -84,7 +84,11 @@ interface Level {
 const LEVELS: Level[] = [
   { theme: 'city', name: 'Downtown Pizza', scoreThreshold: 0 },
   { theme: 'desert', name: 'Desert Heat', scoreThreshold: 150 },
-  { theme: 'hemet', name: 'HEMET', scoreThreshold: 350 },
+  { theme: 'mountains', name: 'Mountain High', scoreThreshold: 300 },
+  { theme: 'hemet', name: 'HEMET', scoreThreshold: 500 },
+  { theme: 'space', name: 'Space Station', scoreThreshold: 750 },
+  { theme: 'hell', name: 'Karen\'s Lair', scoreThreshold: 1000 },
+  { theme: 'heaven', name: 'Pizza Paradise', scoreThreshold: 1500 },
 ];
 
 const GRAVITY = 0.6;
@@ -263,6 +267,8 @@ const PizzaPaddleGame = () => {
   const [currentLevel, setCurrentLevel] = useState<Level>(LEVELS[0]);
   const [movingLeft, setMovingLeft] = useState(false);
   const [movingRight, setMovingRight] = useState(false);
+  const [screenShake, setScreenShake] = useState(0);
+  const screenShakeRef = useRef(0);
 
   const playerRef = useRef<Player>({
     x: 80,
@@ -397,18 +403,25 @@ const PizzaPaddleGame = () => {
     }
   }, []);
 
-  const spawnParticles = (x: number, y: number, color: string, count: number, text?: string) => {
+  const spawnParticles = (x: number, y: number, color: string, count: number, text?: string, isExplosion?: boolean) => {
     for (let i = 0; i < count; i++) {
+      const angle = isExplosion ? (i / count) * Math.PI * 2 : Math.random() * Math.PI * 2;
+      const speed = isExplosion ? 4 + Math.random() * 6 : (Math.random() - 0.5) * 8;
       particlesRef.current.push({
         x,
         y,
-        vx: (Math.random() - 0.5) * 8,
-        vy: (Math.random() - 1) * 6,
-        life: 30,
+        vx: isExplosion ? Math.cos(angle) * speed : (Math.random() - 0.5) * 8,
+        vy: isExplosion ? Math.sin(angle) * speed : (Math.random() - 1) * 6,
+        life: isExplosion ? 40 : 30,
         color,
         text: i === 0 ? text : undefined,
       });
     }
+  };
+
+  const triggerScreenShake = (intensity: number) => {
+    screenShakeRef.current = intensity;
+    setScreenShake(intensity);
   };
 
   const checkCollision = (rect1: { x: number; y: number; width: number; height: number }, rect2: { x: number; y: number; width: number; height: number }) => {
@@ -1148,13 +1161,30 @@ const PizzaPaddleGame = () => {
 
       const colors = getLevelColors(currentLevelRef.current.theme);
 
-      // Sky gradient
+      // Apply screen shake
+      if (screenShakeRef.current > 0) {
+        const shakeX = (Math.random() - 0.5) * screenShakeRef.current * 2;
+        const shakeY = (Math.random() - 0.5) * screenShakeRef.current * 2;
+        ctx.save();
+        ctx.translate(shakeX, shakeY);
+        screenShakeRef.current *= 0.9;
+        if (screenShakeRef.current < 0.5) screenShakeRef.current = 0;
+      }
+
+      // Sky gradient with enhanced colors
       const gradient = ctx.createLinearGradient(0, 0, 0, height);
       gradient.addColorStop(0, colors.sky[0]);
       gradient.addColorStop(0.5, colors.sky[1]);
       gradient.addColorStop(1, colors.sky[2]);
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
+
+      // Add atmospheric glow at horizon
+      const horizonGlow = ctx.createLinearGradient(0, height - 100, 0, height - 50);
+      horizonGlow.addColorStop(0, 'rgba(255, 200, 150, 0)');
+      horizonGlow.addColorStop(1, 'rgba(255, 200, 150, 0.15)');
+      ctx.fillStyle = horizonGlow;
+      ctx.fillRect(0, height - 100, width, 50);
 
       // Stars for space theme
       if (currentLevelRef.current.theme === 'space') {
@@ -1592,19 +1622,29 @@ const PizzaPaddleGame = () => {
         p.vy += 0.2;
         p.life--;
         
-        ctx.globalAlpha = p.life / 30;
+        ctx.globalAlpha = p.life / (p.text ? 30 : 40);
         if (p.text) {
-          ctx.font = 'bold 14px sans-serif';
+          const scale = 1 + (40 - p.life) * 0.02;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.scale(scale, scale);
+          ctx.font = 'bold 16px sans-serif';
           ctx.fillStyle = '#ffff00';
           ctx.strokeStyle = '#000';
-          ctx.lineWidth = 2;
-          ctx.strokeText(p.text, p.x, p.y);
-          ctx.fillText(p.text, p.x, p.y);
+          ctx.lineWidth = 3;
+          ctx.strokeText(p.text, 0, 0);
+          ctx.fillText(p.text, 0, 0);
+          ctx.restore();
         } else {
+          // Glowing particles
+          const size = 3 + (40 - p.life) * 0.05;
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 8;
           ctx.fillStyle = p.color;
           ctx.beginPath();
-          ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+          ctx.arc(p.x, p.y, size, 0, Math.PI * 2);
           ctx.fill();
+          ctx.shadowBlur = 0;
         }
         ctx.globalAlpha = 1;
         
@@ -1721,7 +1761,8 @@ const PizzaPaddleGame = () => {
             setScore(scoreRef.current);
             
             playSound(karen.isBoss ? 'bossHit' : 'hit');
-            spawnParticles(karen.x + 20, karen.y, karen.isBoss ? '#ff0000' : '#e91e63', 12, `+${points}`);
+            spawnParticles(karen.x + 20, karen.y, karen.isBoss ? '#ff0000' : '#e91e63', karen.isBoss ? 20 : 12, `+${points}`, true);
+            triggerScreenShake(karen.isBoss ? 12 : 6);
             
             if (scoreRef.current % 100 === 0) {
               gameSpeedRef.current += 0.12;
@@ -1747,7 +1788,8 @@ const PizzaPaddleGame = () => {
           setCombo(0);
           
           playSound('hurt');
-          spawnParticles(karen.x, karen.y, '#ff0000', 15);
+          spawnParticles(karen.x, karen.y, '#ff0000', 15, undefined, true);
+          triggerScreenShake(8);
           
           if (livesRef.current <= 0) {
             playSound('gameOver');
@@ -1806,18 +1848,32 @@ const PizzaPaddleGame = () => {
         }
 
         if (!topping.collected) {
-          ctx.font = '22px sans-serif';
-          ctx.textAlign = 'center';
-          ctx.fillText(TOPPING_CONFIG[topping.type].emoji, topping.x + 14, topping.y + 20);
+          // Pulsing glow effect
+          const pulse = Math.sin(frameCountRef.current * 0.1 + i) * 0.3 + 0.7;
           
+          // Outer glow ring
+          ctx.save();
           ctx.shadowColor = TOPPING_CONFIG[topping.type].color;
-          ctx.shadowBlur = 6;
+          ctx.shadowBlur = 12 * pulse;
           ctx.beginPath();
-          ctx.arc(topping.x + 14, topping.y + 14, 16, 0, Math.PI * 2);
-          ctx.strokeStyle = `${TOPPING_CONFIG[topping.type].color}44`;
-          ctx.lineWidth = 2;
-          ctx.stroke();
+          ctx.arc(topping.x + 14, topping.y + 14, 18 + pulse * 3, 0, Math.PI * 2);
+          ctx.fillStyle = `${TOPPING_CONFIG[topping.type].color}22`;
+          ctx.fill();
           ctx.shadowBlur = 0;
+          ctx.restore();
+          
+          // Inner circle background
+          ctx.fillStyle = `${TOPPING_CONFIG[topping.type].color}44`;
+          ctx.beginPath();
+          ctx.arc(topping.x + 14, topping.y + 14, 15, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Emoji
+          ctx.font = '24px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(TOPPING_CONFIG[topping.type].emoji, topping.x + 14, topping.y + 14);
+          ctx.textBaseline = 'alphabetic';
         }
 
         if (topping.x + topping.width < 0 || topping.collected) {
@@ -1825,30 +1881,49 @@ const PizzaPaddleGame = () => {
         }
       }
 
-      // Level indicator
+      // Level indicator with better styling
       ctx.save();
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      const levelPulse = Math.sin(frameCountRef.current * 0.05) * 0.1 + 0.9;
+      ctx.font = 'bold 13px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(currentLevelRef.current.name, width / 2, 60);
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 4;
+      ctx.fillStyle = `rgba(255,255,255,${levelPulse})`;
+      ctx.fillText(`🎮 ${currentLevelRef.current.name}`, width / 2, 60);
+      ctx.shadowBlur = 0;
       ctx.restore();
 
-      // Combo display
+      // Combo display with animated effect
       if (comboRef.current > 1) {
         ctx.save();
-        ctx.font = 'bold 22px sans-serif';
-        ctx.fillStyle = '#e74c3c';
+        const comboPulse = Math.sin(frameCountRef.current * 0.15) * 0.1 + 1;
+        const comboColors = ['#e74c3c', '#f39c12', '#9b59b6', '#3498db', '#2ecc71'];
+        const comboColor = comboColors[Math.min(comboRef.current - 1, comboColors.length - 1)];
+        
+        ctx.font = `bold ${20 + comboPulse * 4}px sans-serif`;
+        ctx.shadowColor = comboColor;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = comboColor;
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 3;
         const comboText = `${comboRef.current}x COMBO!`;
-        ctx.strokeText(comboText, width / 2 - 55, 85);
-        ctx.fillText(comboText, width / 2 - 55, 85);
+        ctx.textAlign = 'center';
+        ctx.strokeText(comboText, width / 2, 85);
+        ctx.fillText(comboText, width / 2, 85);
+        ctx.shadowBlur = 0;
         ctx.restore();
       }
 
-      // UI bar
-      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      // UI bar with gradient
+      const uiGradient = ctx.createLinearGradient(0, 0, 0, 44);
+      uiGradient.addColorStop(0, 'rgba(0, 0, 0, 0.9)');
+      uiGradient.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
+      ctx.fillStyle = uiGradient;
       ctx.fillRect(0, 0, width, 44);
+      
+      // Decorative line under UI
+      ctx.fillStyle = 'linear-gradient(90deg, #e74c3c, #f39c12, #e74c3c)';
+      ctx.fillRect(0, 42, width, 2);
       
       // Format score with K/M for huge numbers
       const formatScore = (s: number) => {
@@ -1857,10 +1932,14 @@ const PizzaPaddleGame = () => {
         return s.toString();
       };
       
+      // Score with glow
+      ctx.shadowColor = '#ffd700';
+      ctx.shadowBlur = 4;
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 16px sans-serif';
+      ctx.font = 'bold 18px sans-serif';
       ctx.textAlign = 'left';
-      ctx.fillText(`Score: ${formatScore(scoreRef.current)}`, 10, 26);
+      ctx.fillText(`🍕 ${formatScore(scoreRef.current)}`, 10, 28);
+      ctx.shadowBlur = 0;
       
       // Show current multiplier
       const currentMultiplier = Math.min(comboRef.current, 10);
@@ -1899,6 +1978,27 @@ const PizzaPaddleGame = () => {
         }
       }
       ctx.textAlign = 'left';
+
+      // Retro scanline effect overlay
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
+      for (let y = 0; y < height; y += 3) {
+        ctx.fillRect(0, y, width, 1);
+      }
+
+      // Vignette effect
+      const vignetteGradient = ctx.createRadialGradient(
+        width / 2, height / 2, height * 0.3,
+        width / 2, height / 2, height * 0.8
+      );
+      vignetteGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      vignetteGradient.addColorStop(1, 'rgba(0, 0, 0, 0.25)');
+      ctx.fillStyle = vignetteGradient;
+      ctx.fillRect(0, 0, width, height);
+
+      // Restore canvas after screen shake
+      if (screenShakeRef.current > 0 || true) {
+        ctx.restore();
+      }
 
       gameLoopRef.current = requestAnimationFrame(gameLoop);
     };
@@ -2055,24 +2155,37 @@ const PizzaPaddleGame = () => {
 
         <div className="flex-1 flex items-start justify-center pt-1">
           {gameState === 'idle' ? (
-            <div className="text-center">
-              <div className="text-6xl mb-3">👨‍🍳💥💇‍♀️</div>
-              <h2 className="text-xl font-bold mb-2">Super Karen Destroy 3</h2>
-              <p className="text-muted-foreground mb-2 max-w-xs mx-auto text-sm">
-                Jump on platforms, avoid pipes, defeat Karens with real Karen faces!
+            <div className="text-center p-6 rounded-2xl bg-gradient-to-b from-background/80 to-background border border-border/50 backdrop-blur-sm max-w-sm">
+              <div className="text-7xl mb-4 animate-bounce">👨‍🍳💥💇‍♀️</div>
+              <h2 className="text-2xl font-black mb-2 bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 bg-clip-text text-transparent">
+                Super Karen Destroy 3
+              </h2>
+              <p className="text-muted-foreground mb-4 text-sm">
+                Smash Karens with your pizza paddle across 7 epic levels!
               </p>
-              <div className="text-xs text-muted-foreground mb-2 space-y-0.5">
-                <p className="font-semibold text-foreground">Controls:</p>
-                <p>Tap/Space: Jump & Swing Paddle</p>
-                <p>← → Buttons or Arrows: Move Left/Right</p>
-                <p className="font-semibold text-foreground mt-1">Levels:</p>
-                <p>🏙️ City → 🏜️ Desert → ⛰️ Mountains</p>
-                <p>🌌 Space → 🔥 Hell → ☁️ Heaven</p>
+              <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground mb-4 bg-muted/30 rounded-lg p-3">
+                <div className="text-left">
+                  <p className="font-bold text-foreground mb-1">🎮 Controls</p>
+                  <p>⬆️ Jump & Attack</p>
+                  <p>⬅️➡️ Move</p>
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-foreground mb-1">🗺️ Levels</p>
+                  <p className="truncate">🏙️ City → 🏜️ Desert</p>
+                  <p className="truncate">⛰️ Mountains → 🌌 Space</p>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                ❤️ 3 Lives (half heart per Karen, full heart per Boss)
-              </p>
-              <Button onClick={initGame} size="lg" className="gap-2">
+              <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground mb-4">
+                <span className="flex items-center gap-1">
+                  <Heart className="h-3 w-3 text-red-500" fill="currentColor" />
+                  <Heart className="h-3 w-3 text-red-500" fill="currentColor" />
+                  <Heart className="h-3 w-3 text-red-500" fill="currentColor" />
+                  3 Lives
+                </span>
+                <span className="text-border">•</span>
+                <span>🔥 Combo multipliers up to 10x</span>
+              </div>
+              <Button onClick={initGame} size="lg" className="gap-2 w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-bold shadow-lg shadow-red-500/25">
                 <Play className="h-5 w-5" />
                 Start Game
               </Button>
@@ -2186,14 +2299,24 @@ const PizzaPaddleGame = () => {
               )}
 
               {gameState === 'gameover' && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm rounded-xl">
-                  <div className="text-5xl mb-2">💇‍♀️💢</div>
-                  <p className="text-2xl font-bold text-destructive mb-1">The Karens Won!</p>
-                  <p className="text-muted-foreground mb-1">You reached: {currentLevel.name}</p>
-                  <p className="text-5xl font-bold text-primary mb-1">{score}</p>
-                  <p className="text-muted-foreground mb-4">points</p>
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-background/95 to-destructive/10 backdrop-blur-sm rounded-xl p-6">
+                  <div className="text-6xl mb-3 animate-pulse">💇‍♀️💢</div>
+                  <p className="text-3xl font-black text-destructive mb-2">The Karens Won!</p>
+                  <div className="bg-muted/50 rounded-lg px-4 py-2 mb-3">
+                    <p className="text-sm text-muted-foreground">You reached</p>
+                    <p className="text-lg font-bold text-foreground">{currentLevel.name}</p>
+                  </div>
+                  <div className="relative mb-4">
+                    <div className="absolute inset-0 bg-primary/20 blur-xl rounded-full" />
+                    <p className="relative text-6xl font-black bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent">
+                      {score.toLocaleString()}
+                    </p>
+                  </div>
+                  <p className="text-muted-foreground mb-4 text-sm">
+                    {score > highScore ? '🎉 NEW HIGH SCORE!' : `Best: ${highScore.toLocaleString()}`}
+                  </p>
                   <div className="flex gap-3">
-                    <Button onClick={initGame} size="lg" className="gap-2">
+                    <Button onClick={initGame} size="lg" className="gap-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-bold shadow-lg">
                       <RotateCcw className="h-5 w-5" />
                       Try Again
                     </Button>
@@ -2202,7 +2325,7 @@ const PizzaPaddleGame = () => {
                         onClick={() => setShareDialogOpen(true)}
                         size="lg"
                         variant="outline"
-                        className="gap-2"
+                        className="gap-2 border-2"
                       >
                         <Share2 className="h-5 w-5" />
                         Share
