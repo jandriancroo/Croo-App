@@ -185,13 +185,14 @@ async function getLocationAdminsAndManagers(supabaseClient: any, locationId: str
   if (!adminUsers || adminUsers.length === 0) return [];
 
   // Check for users who have disabled this specific notification type for this location
+  // Use user_notification_settings table (the one the UI writes to) with push_enabled column
   const adminUserIds = adminUsers.map((u: any) => u.user_id);
   const { data: disabledPrefs } = await supabaseClient
-    .from('user_location_notifications')
+    .from('user_notification_settings')
     .select('user_id')
     .eq('location_id', locationId)
     .eq('notification_type', notificationType)
-    .eq('enabled', false)
+    .eq('push_enabled', false)
     .in('user_id', adminUserIds);
 
   const disabledUserIds = new Set(disabledPrefs?.map((p: any) => p.user_id) || []);
