@@ -18,7 +18,7 @@ interface Chat {
 interface ShareScoreDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  gameType: 'snake' | 'minesweeper';
+  gameType: 'snake' | 'minesweeper' | 'basketball';
   score: number;
 }
 
@@ -135,7 +135,9 @@ export function ShareScoreDialog({ open, onOpenChange, gameType, score }: ShareS
 
         <div className="py-2">
           <p className="text-sm text-muted-foreground mb-4">
-            Brag about your <span className="font-semibold text-primary">{score.toLocaleString()} pts</span> in {gameType === 'snake' ? 'Snake' : 'Minesweeper'}!
+            Brag about your <span className="font-semibold text-primary">{score.toLocaleString()} pts</span> in {
+              gameType === 'snake' ? 'Snake' : gameType === 'minesweeper' ? 'Minesweeper' : 'Hoops'
+            }!
           </p>
 
           {loading ? (
