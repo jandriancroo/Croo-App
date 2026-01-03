@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { ShareScoreDialog } from '@/components/games/ShareScoreDialog';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import * as THREE from 'three';
+import { createDungeonTexture } from './karen-dungeon/proceduralTextures';
 
 // Karen insults for chat bubbles
 const KAREN_INSULTS = [
@@ -698,6 +699,8 @@ export default function KarenDungeon3D() {
       color: 0x7a4522,
       roughness: 0.75,
       metalness: 0.05,
+      emissive: 0x330000,
+      emissiveIntensity: 0.6,
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.castShadow = true;
@@ -717,11 +720,11 @@ export default function KarenDungeon3D() {
     const trailGeom = new THREE.BufferGeometry();
     const trailPositions = new Float32Array(30 * 3);
     trailGeom.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
-    const trailMat = new THREE.PointsMaterial({ 
-      color: 0xff4400, 
-      size: 0.08, 
-      transparent: true, 
-      opacity: 0.7 
+    const trailMat = new THREE.PointsMaterial({
+      color: 0xff6600,
+      size: 0.12,
+      transparent: true,
+      opacity: 0.85,
     });
     const trail = new THREE.Points(trailGeom, trailMat);
     scene.add(trail);
@@ -965,20 +968,31 @@ export default function KarenDungeon3D() {
     cameraRef.current = camera;
     
     // Enhanced Renderer with dramatic tone mapping
-    const renderer = new THREE.WebGLRenderer({ 
-      antialias: true, 
-      powerPreference: 'high-performance' 
+    const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+    const renderer = new THREE.WebGLRenderer({
+      antialias: !isMobileDevice,
+      powerPreference: 'high-performance',
+      alpha: false,
+      preserveDrawingBuffer: false,
     });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobileDevice ? 1.25 : 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.4;
+    renderer.toneMappingExposure = 1.35;
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
-    
+
+    // Procedural gritty 90s-style textures (no network, mobile-friendly)
+    const wallTexture = createDungeonTexture('wall', 2468);
+    wallTexture.repeat.set(2, 1);
+
+    const floorTexture = createDungeonTexture('floor', 1357);
+    floorTexture.repeat.set(22, 22);
+
     // Dim ambient for gritty feel - shadows matter
     const ambient = new THREE.AmbientLight(0x331111, 0.4);
     scene.add(ambient);
@@ -992,8 +1006,9 @@ export default function KarenDungeon3D() {
     const dirLight = new THREE.DirectionalLight(0xff8866, 1.2);
     dirLight.position.set(5, 25, 5);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 2048;
-    dirLight.shadow.mapSize.height = 2048;
+    const shadowSize = isMobileDevice ? 1024 : 2048;
+    dirLight.shadow.mapSize.width = shadowSize;
+    dirLight.shadow.mapSize.height = shadowSize;
     dirLight.shadow.camera.near = 0.5;
     dirLight.shadow.camera.far = 60;
     dirLight.shadow.camera.left = -30;
@@ -1130,8 +1145,9 @@ export default function KarenDungeon3D() {
     flashlight.position.set(0, 0, 0);
     flashlight.target.position.set(0, 0, -1);
     flashlight.castShadow = true;
-    flashlight.shadow.mapSize.width = 1024;
-    flashlight.shadow.mapSize.height = 1024;
+    const flashShadowSize = isMobileDevice ? 512 : 1024;
+    flashlight.shadow.mapSize.width = flashShadowSize;
+    flashlight.shadow.mapSize.height = flashShadowSize;
     camera.add(flashlight);
     camera.add(flashlight.target);
     scene.add(camera);
@@ -1224,8 +1240,8 @@ export default function KarenDungeon3D() {
     
     // Enhanced Floor with texture-like pattern
     const floorSize = 100;
-    const floorGeom = new THREE.PlaneGeometry(floorSize, floorSize, 50, 50);
-    
+    const floorGeom = new THREE.PlaneGeometry(floorSize, floorSize, 20, 20);
+
     // Add slight height variation for depth
     const floorPositions = floorGeom.attributes.position;
     for (let i = 0; i < floorPositions.count; i++) {
@@ -1233,11 +1249,12 @@ export default function KarenDungeon3D() {
       floorPositions.setZ(i, y);
     }
     floorGeom.computeVertexNormals();
-    
+
     const floorMat = new THREE.MeshStandardMaterial({
       color: 0x2a1a15,
       roughness: 0.92,
       metalness: 0.05,
+      map: floorTexture,
     });
     const floor = new THREE.Mesh(floorGeom, floorMat);
     floor.rotation.x = -Math.PI / 2;
@@ -1262,22 +1279,23 @@ export default function KarenDungeon3D() {
       const wallHeight = 4.5;
       const wallThickness = 0.4;
       
-      // Wall material with subtle variation
+      // Wall material with texture
       const wallMat = new THREE.MeshStandardMaterial({
         color: theme.wallColor,
         roughness: 0.85,
         metalness: 0.05,
+        map: wallTexture,
       });
-      
+
       // Create textured walls
       const createWall = (width: number, height: number, depth: number, x: number, y: number, z: number) => {
-        const geom = new THREE.BoxGeometry(width, height, depth, 4, 4, 1);
+        const geom = new THREE.BoxGeometry(width, height, depth, 2, 2, 1);
         const mesh = new THREE.Mesh(geom, wallMat);
         mesh.position.set(room.x + x, y, room.z + z);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         scene.add(mesh);
-        
+
         // Add wall trim
         const trimGeom = new THREE.BoxGeometry(width + 0.05, 0.1, depth + 0.05);
         const trimMat = new THREE.MeshStandardMaterial({ color: 0x3a2a20, roughness: 0.7 });
@@ -1288,12 +1306,12 @@ export default function KarenDungeon3D() {
         bottomTrim.position.set(room.x + x, 0.05, room.z + z);
         scene.add(bottomTrim);
       };
-      
+
       createWall(room.width, wallHeight, wallThickness, 0, wallHeight / 2, -room.depth / 2);
       createWall(room.width, wallHeight, wallThickness, 0, wallHeight / 2, room.depth / 2);
       createWall(wallThickness, wallHeight, room.depth, room.width / 2, wallHeight / 2, 0);
       createWall(wallThickness, wallHeight, room.depth, -room.width / 2, wallHeight / 2, 0);
-      
+
       // Ceiling with detail
       const ceilGeom = new THREE.PlaneGeometry(room.width, room.depth);
       const ceilMat = new THREE.MeshStandardMaterial({ color: 0x1a0c0c, roughness: 0.95 });
@@ -1302,13 +1320,17 @@ export default function KarenDungeon3D() {
       ceiling.position.set(room.x, wallHeight, room.z);
       ceiling.receiveShadow = true;
       scene.add(ceiling);
-      
+
       // Room floor
       const roomFloorGeom = new THREE.PlaneGeometry(room.width - 0.3, room.depth - 0.3);
+      const roomFloorTex = floorTexture.clone();
+      roomFloorTex.repeat.set(Math.max(2, room.width / 2), Math.max(2, room.depth / 2));
+      roomFloorTex.needsUpdate = true;
       const roomFloorMat = new THREE.MeshStandardMaterial({
         color: theme.floorColor,
         roughness: 0.8,
         metalness: 0.08,
+        map: roomFloorTex,
       });
       const roomFloor = new THREE.Mesh(roomFloorGeom, roomFloorMat);
       roomFloor.rotation.x = -Math.PI / 2;
@@ -1401,7 +1423,73 @@ export default function KarenDungeon3D() {
         });
       }
     });
-    
+
+    // Simple corridor/hallway network (visual only; keeps the "90s FPS level" vibe)
+    const corridorHeight = 4.5;
+    const corridorWallT = 0.35;
+    const corridorWidth = 4.0;
+
+    const corridorWallMat = new THREE.MeshStandardMaterial({
+      color: 0x3a2022,
+      roughness: 0.9,
+      metalness: 0.03,
+      map: wallTexture,
+    });
+
+    const corridorFloorMat = new THREE.MeshStandardMaterial({
+      color: 0x1a1013,
+      roughness: 0.95,
+      metalness: 0.02,
+      map: floorTexture,
+    });
+
+    const addCorridor = (from: THREE.Vector3, to: THREE.Vector3) => {
+      const dx = to.x - from.x;
+      const dz = to.z - from.z;
+      const len = Math.sqrt(dx * dx + dz * dz);
+      if (len < 0.01) return;
+
+      const mid = new THREE.Vector3((from.x + to.x) / 2, 0, (from.z + to.z) / 2);
+      const angle = Math.atan2(dx, dz);
+
+      // Floor
+      const floorGeom = new THREE.PlaneGeometry(corridorWidth, len);
+      const floorMesh = new THREE.Mesh(floorGeom, corridorFloorMat);
+      floorMesh.rotation.x = -Math.PI / 2;
+      floorMesh.rotation.z = angle;
+      floorMesh.position.set(mid.x, 0.021, mid.z);
+      floorMesh.receiveShadow = true;
+      scene.add(floorMesh);
+
+      // Side walls
+      const wallGeom = new THREE.BoxGeometry(corridorWallT, corridorHeight, len);
+      const leftWall = new THREE.Mesh(wallGeom, corridorWallMat);
+      const rightWall = new THREE.Mesh(wallGeom, corridorWallMat);
+
+      const offset = corridorWidth / 2;
+      leftWall.position.set(mid.x + Math.sin(angle) * offset, corridorHeight / 2, mid.z + Math.cos(angle) * offset);
+      rightWall.position.set(mid.x - Math.sin(angle) * offset, corridorHeight / 2, mid.z - Math.cos(angle) * offset);
+
+      leftWall.rotation.y = angle;
+      rightWall.rotation.y = angle;
+      leftWall.castShadow = true;
+      rightWall.castShadow = true;
+      leftWall.receiveShadow = true;
+      rightWall.receiveShadow = true;
+
+      scene.add(leftWall);
+      scene.add(rightWall);
+    };
+
+    const center = new THREE.Vector3(0, 0, 0);
+    rooms
+      .filter(r => !(r.x === 0 && r.z === 0))
+      .forEach(r => {
+        // L-shaped corridor (axis-aligned): center -> (r.x, 0) -> (r.x, r.z)
+        addCorridor(center, new THREE.Vector3(r.x, 0, 0));
+        addCorridor(new THREE.Vector3(r.x, 0, 0), new THREE.Vector3(r.x, 0, r.z));
+      });
+
     // Create detailed meatball cannon
     const cannonGroup = new THREE.Group();
     
@@ -1995,7 +2083,14 @@ export default function KarenDungeon3D() {
           {/* Fire Button */}
           <button
             className="absolute right-4 bottom-4 w-32 h-32 rounded-full bg-gradient-to-br from-red-600 to-red-800 border-4 border-red-400 flex items-center justify-center z-20 active:scale-95 active:from-red-500 active:to-red-700 shadow-lg shadow-red-500/40"
-            onTouchStart={(e) => { e.preventDefault(); shootMeatball(); }}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              shootMeatball();
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              shootMeatball();
+            }}
           >
             <span className="text-white font-bold text-xl drop-shadow-lg">FIRE</span>
           </button>
