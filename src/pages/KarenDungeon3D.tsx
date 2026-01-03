@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, RotateCcw } from 'lucide-react';
@@ -12,7 +12,7 @@ import { createDungeonTexture } from './karen-dungeon/proceduralTextures';
 import { createPizzaEnvironment } from './karen-dungeon/createPizzaEnvironment';
 import { createDukeArms, animateRecoil } from './karen-dungeon/createDukeArms';
 import { setupLighting } from './karen-dungeon/setupLighting';
-import { DesktopFPSControls, MobileTouchControls } from './karen-dungeon/FPSControls';
+// Mobile-only game - no desktop controls needed
 
 // Karen insults for chat bubbles
 const KAREN_INSULTS = [
@@ -149,9 +149,8 @@ export default function KarenDungeon3D() {
   const cannonRef = useRef<THREE.Group | null>(null);
   const dukeArmsRef = useRef<THREE.Group | null>(null);
   
-  // Desktop FPS controls ref
-  const desktopControlsRef = useRef<DesktopFPSControls | null>(null);
-  const mobileControlsRef = useRef<MobileTouchControls | null>(null);
+  // Auto-aim assist for easier mobile aiming
+  const autoAimRef = useRef({ targetId: -1, lockStrength: 0 });
   
   // Screen shake ref
   const screenShakeRef = useRef({ intensity: 0, duration: 0 });
@@ -159,11 +158,8 @@ export default function KarenDungeon3D() {
   // Muzzle flash particles ref
   const muzzleFlashRef = useRef<THREE.PointLight | null>(null);
   
-  // Desktop keyboard state
-  const keyStateRef = useRef({ forward: false, backward: false, left: false, right: false, shoot: false });
-  
-  // Detect mobile
-  const isMobileDevice = useMemo(() => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent), []);
+  // This game is mobile-only - always treat as mobile
+  const isMobileDevice = true;
 
   // Check orientation
   useEffect(() => {
@@ -187,103 +183,40 @@ export default function KarenDungeon3D() {
     };
   }, [gameState]);
 
-  // Desktop keyboard + mouse controls
-  useEffect(() => {
-    if (isMobileDevice) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (gameState !== 'playing') return;
-      switch (e.code) {
-        case 'KeyW':
-        case 'ArrowUp':
-          keyStateRef.current.forward = true;
-          break;
-        case 'KeyS':
-        case 'ArrowDown':
-          keyStateRef.current.backward = true;
-          break;
-        case 'KeyA':
-        case 'ArrowLeft':
-          keyStateRef.current.left = true;
-          break;
-        case 'KeyD':
-        case 'ArrowRight':
-          keyStateRef.current.right = true;
-          break;
-      }
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      switch (e.code) {
-        case 'KeyW':
-        case 'ArrowUp':
-          keyStateRef.current.forward = false;
-          break;
-        case 'KeyS':
-        case 'ArrowDown':
-          keyStateRef.current.backward = false;
-          break;
-        case 'KeyA':
-        case 'ArrowLeft':
-          keyStateRef.current.left = false;
-          break;
-        case 'KeyD':
-        case 'ArrowRight':
-          keyStateRef.current.right = false;
-          break;
-      }
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (gameState !== 'playing') return;
-      // Only rotate if we have pointer lock
-      if (document.pointerLockElement === containerRef.current) {
-        const sensitivity = 0.002;
-        playerRotRef.current -= e.movementX * sensitivity;
-      }
-    };
-
-    const handleClick = () => {
-      if (gameState === 'playing') {
-        // Request pointer lock on first click
-        if (document.pointerLockElement !== containerRef.current && containerRef.current) {
-          containerRef.current.requestPointerLock();
+  // Auto-aim helper - finds nearest Karen in view cone
+  const findAutoAimTarget = useCallback(() => {
+    const karens = karensRef.current.filter(k => !k.dying);
+    if (karens.length === 0) return null;
+    
+    let bestTarget: Karen | null = null;
+    let bestScore = Infinity;
+    
+    const playerPos = playerPosRef.current;
+    const playerRot = playerRotRef.current;
+    const forwardDir = new THREE.Vector3(-Math.sin(playerRot), 0, -Math.cos(playerRot));
+    
+    for (const karen of karens) {
+      const toKaren = new THREE.Vector3().subVectors(karen.position, playerPos);
+      const dist = toKaren.length();
+      
+      if (dist > 25) continue; // Too far
+      
+      toKaren.normalize();
+      const dot = forwardDir.dot(toKaren);
+      
+      // Generous aim cone (about 60 degrees each side)
+      if (dot > 0.5) {
+        // Score = distance / dot (lower = better target)
+        const score = dist / dot;
+        if (score < bestScore) {
+          bestScore = score;
+          bestTarget = karen;
         }
       }
-    };
-
-    const handleMouseDown = (e: MouseEvent) => {
-      if (gameState === 'playing' && e.button === 0) {
-        keyStateRef.current.shoot = true;
-      }
-    };
-
-    const handleSpaceKey = (e: KeyboardEvent) => {
-      if (gameState === 'playing' && e.code === 'Space') {
-        e.preventDefault();
-        keyStateRef.current.shoot = true;
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('keyup', handleKeyUp);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('click', handleClick);
-    document.addEventListener('mousedown', handleMouseDown);
-    document.addEventListener('keydown', handleSpaceKey);
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('keyup', handleKeyUp);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('click', handleClick);
-      document.removeEventListener('mousedown', handleMouseDown);
-      document.removeEventListener('keydown', handleSpaceKey);
-      if (document.pointerLockElement) {
-        document.exitPointerLock();
-      }
-    };
-  }, [isMobileDevice, gameState]);
+    }
+    
+    return bestTarget;
+  }, []);
 
   // Fetch high score
   useEffect(() => {
@@ -1745,35 +1678,14 @@ export default function KarenDungeon3D() {
         return;
       }
       
-      const moveSpeed = 6.0 * delta;
-      const turnSpeed = 3.5 * delta;
+      const moveSpeed = 7.0 * delta;
+      const turnSpeed = 4.5 * delta;
       
-      // Desktop keyboard controls (WASD)
-      if (!isMobileDevice) {
-        const keyState = keyStateRef.current;
-        if (keyState.forward) {
-          playerPosRef.current.x -= Math.sin(playerRotRef.current) * moveSpeed;
-          playerPosRef.current.z -= Math.cos(playerRotRef.current) * moveSpeed;
-        }
-        if (keyState.backward) {
-          playerPosRef.current.x += Math.sin(playerRotRef.current) * moveSpeed;
-          playerPosRef.current.z += Math.cos(playerRotRef.current) * moveSpeed;
-        }
-        if (keyState.left) {
-          playerPosRef.current.x -= Math.sin(playerRotRef.current + Math.PI / 2) * moveSpeed;
-          playerPosRef.current.z -= Math.cos(playerRotRef.current + Math.PI / 2) * moveSpeed;
-        }
-        if (keyState.right) {
-          playerPosRef.current.x += Math.sin(playerRotRef.current + Math.PI / 2) * moveSpeed;
-          playerPosRef.current.z += Math.cos(playerRotRef.current + Math.PI / 2) * moveSpeed;
-        }
-      }
-      
-      // Mobile: Left stick - movement only (relative to current facing direction)
-      if (isMobileDevice && thumbpadRef.current.active) {
+      // Left stick - movement (relative to current facing direction)
+      if (thumbpadRef.current.active) {
         const dx = thumbpadRef.current.currentX - thumbpadRef.current.startX;
         const dy = thumbpadRef.current.currentY - thumbpadRef.current.startY;
-        const maxDist = 50;
+        const maxDist = 60; // Larger dead zone for easier control
         
         const moveX = Math.max(-1, Math.min(1, dx / maxDist));
         const moveY = Math.max(-1, Math.min(1, dy / maxDist));
@@ -1786,15 +1698,31 @@ export default function KarenDungeon3D() {
         playerPosRef.current.z += Math.cos(playerRotRef.current + Math.PI / 2) * moveX * moveSpeed;
       }
       
-      // Mobile: Right stick - aiming (rotation on both axes)
-      if (isMobileDevice && lookpadRef.current.active) {
+      // Right stick - aiming with auto-aim assist
+      if (lookpadRef.current.active) {
         const dx = lookpadRef.current.currentX - lookpadRef.current.startX;
-        const maxDist = 40;
+        const maxDist = 50; // Larger threshold for smoother aiming
         const turn = Math.max(-1, Math.min(1, dx / maxDist));
         playerRotRef.current -= turn * turnSpeed;
         
-        // Reset start position for continuous aiming feel
-        lookpadRef.current.startX = lookpadRef.current.currentX * 0.1 + lookpadRef.current.startX * 0.9;
+        // Smooth reset for continuous aiming feel
+        lookpadRef.current.startX = lookpadRef.current.currentX * 0.15 + lookpadRef.current.startX * 0.85;
+      }
+      
+      // Auto-aim assist - gently rotate toward nearest enemy in view
+      const autoTarget = findAutoAimTarget();
+      if (autoTarget && !autoTarget.dying) {
+        const toTarget = new THREE.Vector3().subVectors(autoTarget.position, playerPosRef.current);
+        const targetAngle = Math.atan2(-toTarget.x, -toTarget.z);
+        let angleDiff = targetAngle - playerRotRef.current;
+        
+        // Normalize angle difference
+        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+        
+        // Gentle auto-aim (stronger when not manually aiming)
+        const autoAimStrength = lookpadRef.current.active ? 0.02 : 0.06;
+        playerRotRef.current += angleDiff * autoAimStrength;
       }
       
       // Apply screen shake
@@ -1998,7 +1926,7 @@ export default function KarenDungeon3D() {
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [gameState, initScene, sounds, createKaren, createGoreExplosion, createHitEffect, triggerScreenShake, playKarenScream, saveScore]);
+  }, [gameState, initScene, sounds, createKaren, createGoreExplosion, createHitEffect, triggerScreenShake, playKarenScream, saveScore, findAutoAimTarget]);
 
   // Handle resize
   useEffect(() => {
@@ -2136,36 +2064,39 @@ export default function KarenDungeon3D() {
         </div>
       )}
       
-      {/* Touch Controls - Mobile Only */}
-      {gameState === 'playing' && isMobileDevice && (
+      {/* Touch Controls */}
+      {gameState === 'playing' && (
         <>
           {/* Left Stick - Movement */}
           <div
-            className="absolute left-4 bottom-4 w-36 h-36 rounded-full bg-blue-900/30 border-2 border-blue-400/50 flex items-center justify-center z-20"
+            className="absolute left-3 bottom-3 w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-blue-900/50 to-blue-800/30 border-3 border-blue-400/60 flex items-center justify-center z-20 shadow-xl shadow-blue-500/30"
             onTouchStart={handleLeftTouchStart}
             onTouchMove={handleLeftTouchMove}
             onTouchEnd={handleLeftTouchEnd}
           >
-            <div className="w-14 h-14 rounded-full bg-blue-500/40 border-2 border-blue-300/60 flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <span className="text-blue-200 text-xs font-bold">MOVE</span>
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-blue-400/60 to-blue-600/40 border-2 border-blue-200/70 flex items-center justify-center shadow-inner">
+              <span className="text-blue-100 text-xs font-black tracking-wide">MOVE</span>
             </div>
           </div>
           
-          {/* Right Stick - Aiming */}
+          {/* Right Stick - Aiming (bigger for easier use) */}
           <div
-            className="absolute right-40 bottom-4 w-36 h-36 rounded-full bg-orange-900/30 border-2 border-orange-400/50 flex items-center justify-center z-20"
+            className="absolute right-36 sm:right-44 bottom-3 w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-amber-900/50 to-orange-800/30 border-3 border-orange-400/60 flex items-center justify-center z-20 shadow-xl shadow-orange-500/30"
             onTouchStart={handleRightTouchStart}
             onTouchMove={handleRightTouchMove}
             onTouchEnd={handleRightTouchEnd}
           >
-            <div className="w-14 h-14 rounded-full bg-orange-500/40 border-2 border-orange-300/60 flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <span className="text-orange-200 text-xs font-bold">AIM</span>
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br from-orange-400/60 to-amber-600/40 border-2 border-orange-200/70 flex items-center justify-center shadow-inner">
+              <span className="text-orange-100 text-xs font-black tracking-wide">AIM</span>
             </div>
           </div>
           
-          {/* Fire Button */}
+          {/* Fire Button - Bigger and more prominent */}
           <button
-            className="absolute right-4 bottom-4 w-32 h-32 rounded-full bg-gradient-to-br from-red-600 to-red-800 border-4 border-red-400 flex items-center justify-center z-20 active:scale-95 active:from-red-500 active:to-red-700 shadow-lg shadow-red-500/40"
+            className="absolute right-3 bottom-3 w-28 h-28 sm:w-36 sm:h-36 rounded-full bg-gradient-to-br from-red-500 via-red-600 to-red-800 border-4 border-red-300 flex items-center justify-center z-20 active:scale-90 shadow-2xl shadow-red-500/60"
+            style={{ 
+              boxShadow: '0 0 30px rgba(239, 68, 68, 0.6), inset 0 2px 10px rgba(255,255,255,0.3)' 
+            }}
             onPointerDown={(e) => {
               e.preventDefault();
               shootMeatball();
@@ -2175,16 +2106,14 @@ export default function KarenDungeon3D() {
               shootMeatball();
             }}
           >
-            <span className="text-white font-bold text-xl drop-shadow-lg">FIRE</span>
+            <span className="text-white font-black text-xl sm:text-2xl drop-shadow-lg tracking-wider">FIRE</span>
           </button>
+          
+          {/* Auto-aim indicator */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10">
+            <div className="text-xs text-green-400/70 font-mono">AUTO-AIM</div>
+          </div>
         </>
-      )}
-      
-      {/* Desktop Controls Hint */}
-      {gameState === 'playing' && !isMobileDevice && (
-        <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm rounded-lg px-4 py-2 text-white/70 text-sm z-10 pointer-events-none">
-          <div>WASD - Move | Mouse - Aim | Click/Space - Fire</div>
-        </div>
       )}
       
       {/* Start/Game Over Overlay */}
