@@ -2,7 +2,7 @@ import { Layout } from "@/components/Layout";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy, Gamepad2, Grid3X3, Target, ChevronRight, Castle } from "lucide-react";
+import { Trophy, Gamepad2, Grid3X3, Target, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,7 +38,7 @@ const Games = () => {
         `)
         .eq('game_type', 'snake')
         .order('score', { ascending: false })
-        .limit(10);
+        .limit(5);
 
       if (error) throw error;
       return data as HighScore[];
@@ -60,7 +60,7 @@ const Games = () => {
         `)
         .eq('game_type', 'minesweeper')
         .order('score', { ascending: false })
-        .limit(10);
+        .limit(5);
 
       if (error) throw error;
       return data as HighScore[];
@@ -82,7 +82,7 @@ const Games = () => {
         `)
         .eq('game_type', 'basketball')
         .order('score', { ascending: false })
-        .limit(10);
+        .limit(5);
 
       if (error) throw error;
       return data as HighScore[];
@@ -104,29 +104,7 @@ const Games = () => {
         `)
         .eq('game_type', 'pizza')
         .order('score', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      return data as HighScore[];
-    },
-  });
-
-  const { data: dungeonScores, isLoading: dungeonLoading } = useQuery({
-    queryKey: ['high-scores', 'karen-dungeon'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('game_high_scores')
-        .select(`
-          id,
-          user_id,
-          game_type,
-          score,
-          created_at,
-          profiles(full_name, profile_photo_url)
-        `)
-        .eq('game_type', 'karen-dungeon')
-        .order('score', { ascending: false })
-        .limit(10);
+        .limit(5);
 
       if (error) throw error;
       return data as HighScore[];
@@ -136,12 +114,12 @@ const Games = () => {
   const renderLeaderboard = (scores: HighScore[] | undefined, loading: boolean, scoreLabel: string) => {
     if (loading) {
       return (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-3">
-              <Skeleton className="h-8 w-8 rounded-full" />
-              <Skeleton className="h-4 flex-1" />
-              <Skeleton className="h-4 w-16" />
+            <div key={i} className="flex items-center gap-2">
+              <Skeleton className="h-6 w-6 rounded-full" />
+              <Skeleton className="h-3 flex-1" />
+              <Skeleton className="h-3 w-12" />
             </div>
           ))}
         </div>
@@ -150,14 +128,14 @@ const Games = () => {
 
     if (!scores || scores.length === 0) {
       return (
-        <p className="text-muted-foreground text-center py-4">
+        <p className="text-muted-foreground text-center py-3 text-sm">
           No scores yet. Be the first!
         </p>
       );
     }
 
     return (
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {scores.map((score, index) => {
           const initials = score.profiles?.full_name
             ?.split(' ')
@@ -171,20 +149,20 @@ const Games = () => {
           return (
             <div
               key={score.id}
-              className="flex items-center gap-3 p-2 rounded-lg bg-muted/30"
+              className="flex items-center gap-2 p-1.5 rounded-lg bg-muted/30"
             >
-              <span className={`w-6 text-center font-bold ${index < 3 ? medalColors[index] : 'text-muted-foreground'}`}>
+              <span className={`w-5 text-center font-bold text-sm ${index < 3 ? medalColors[index] : 'text-muted-foreground'}`}>
                 {index + 1}
               </span>
-              <Avatar className="h-8 w-8">
+              <Avatar className="h-6 w-6">
                 <AvatarImage src={score.profiles?.profile_photo_url || ''} />
-                <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
               </Avatar>
-              <span className="flex-1 truncate font-medium">
+              <span className="flex-1 truncate text-sm font-medium">
                 {score.profiles?.full_name || 'Unknown'}
               </span>
-              <span className="text-sm font-semibold text-primary">
-                {score.score.toLocaleString()} {scoreLabel}
+              <span className="text-xs font-semibold text-primary">
+                {score.score.toLocaleString()}
               </span>
             </div>
           );
@@ -197,7 +175,7 @@ const Games = () => {
     {
       id: 'pizza',
       title: 'Super Karen Destroy 3',
-      description: 'Defend your shop from angry Karens!',
+      description: 'Defend your shop!',
       icon: Gamepad2,
       path: '/games/pizza',
       color: 'from-red-500/20 to-yellow-500/20',
@@ -205,19 +183,9 @@ const Games = () => {
       emoji: '🍕',
     },
     {
-      id: 'karen-dungeon',
-      title: 'Karen Dungeon 3D',
-      description: 'First-person Karen hunting! Landscape only.',
-      icon: Castle,
-      path: '/games/karen-dungeon',
-      color: 'from-purple-500/20 to-pink-500/20',
-      iconColor: 'text-purple-500',
-      emoji: '🏰',
-    },
-    {
       id: 'snake',
       title: 'Snake',
-      description: 'Tap to turn! Eat food and grow longer.',
+      description: 'Tap to turn!',
       icon: Gamepad2,
       path: '/games/snake',
       color: 'from-green-500/20 to-emerald-500/20',
@@ -227,7 +195,7 @@ const Games = () => {
     {
       id: 'minesweeper',
       title: 'Minesweeper',
-      description: 'Clear the board without hitting mines.',
+      description: 'Clear the board!',
       icon: Grid3X3,
       path: '/games/minesweeper',
       color: 'from-blue-500/20 to-cyan-500/20',
@@ -237,7 +205,7 @@ const Games = () => {
     {
       id: 'basketball',
       title: 'Hoops',
-      description: 'Shoot baskets and build streaks!',
+      description: 'Shoot baskets!',
       icon: Target,
       path: '/games/basketball',
       color: 'from-orange-500/20 to-amber-500/20',
@@ -248,80 +216,66 @@ const Games = () => {
 
   return (
     <Layout>
-      <div className="container max-w-2xl mx-auto px-4 py-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Gamepad2 className="h-8 w-8 text-primary" />
-          <h1 className="text-2xl font-bold">Games</h1>
+      <div className="container max-w-md mx-auto px-3 py-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <Gamepad2 className="h-6 w-6 text-primary" />
+          <h1 className="text-xl font-bold">Games</h1>
         </div>
 
-        {/* Leaderboard */}
+        {/* Game Selection - Compact grid */}
+        <div className="grid grid-cols-2 gap-2">
+          {games.map((game) => (
+            <Card
+              key={game.id}
+              className="cursor-pointer hover:bg-muted/50 transition-colors"
+              onClick={() => navigate(game.path)}
+            >
+              <CardContent className="p-3">
+                <div className="flex flex-col items-center gap-1 text-center">
+                  <div className={`p-2 rounded-xl bg-gradient-to-br ${game.color}`}>
+                    <span className="text-2xl">{game.emoji}</span>
+                  </div>
+                  <h3 className="font-semibold text-sm leading-tight">{game.title}</h3>
+                  <p className="text-[10px] text-muted-foreground">
+                    {game.description}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Leaderboard - Compact */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2 pt-3 px-3">
             <div className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-yellow-500" />
-              <CardTitle className="text-lg">Leaderboard</CardTitle>
+              <Trophy className="h-4 w-4 text-yellow-500" />
+              <CardTitle className="text-base">Top 5</CardTitle>
             </div>
-            <CardDescription>Top scores from the team</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="snake">
-              <TabsList className="w-full mb-4">
-                <TabsTrigger value="snake" className="flex-1 text-xs">🐍</TabsTrigger>
-                <TabsTrigger value="minesweeper" className="flex-1 text-xs">💣</TabsTrigger>
-                <TabsTrigger value="basketball" className="flex-1 text-xs">🏀</TabsTrigger>
-                <TabsTrigger value="pizza" className="flex-1 text-xs">🍕</TabsTrigger>
-                <TabsTrigger value="dungeon" className="flex-1 text-xs">🏰</TabsTrigger>
+          <CardContent className="px-3 pb-3">
+            <Tabs defaultValue="pizza">
+              <TabsList className="w-full mb-2 h-8">
+                <TabsTrigger value="pizza" className="flex-1 text-xs px-1">🍕</TabsTrigger>
+                <TabsTrigger value="snake" className="flex-1 text-xs px-1">🐍</TabsTrigger>
+                <TabsTrigger value="minesweeper" className="flex-1 text-xs px-1">💣</TabsTrigger>
+                <TabsTrigger value="basketball" className="flex-1 text-xs px-1">🏀</TabsTrigger>
               </TabsList>
-              <TabsContent value="snake">
-                {renderLeaderboard(snakeScores, snakeLoading, 'pts')}
-              </TabsContent>
-              <TabsContent value="minesweeper">
-                {renderLeaderboard(minesweeperScores, minesweeperLoading, 'pts')}
-              </TabsContent>
-              <TabsContent value="basketball">
-                {renderLeaderboard(basketballScores, basketballLoading, 'pts')}
-              </TabsContent>
-              <TabsContent value="pizza">
+              <TabsContent value="pizza" className="mt-0">
                 {renderLeaderboard(pizzaScores, pizzaLoading, 'pts')}
               </TabsContent>
-              <TabsContent value="dungeon">
-                {renderLeaderboard(dungeonScores, dungeonLoading, 'pts')}
+              <TabsContent value="snake" className="mt-0">
+                {renderLeaderboard(snakeScores, snakeLoading, 'pts')}
+              </TabsContent>
+              <TabsContent value="minesweeper" className="mt-0">
+                {renderLeaderboard(minesweeperScores, minesweeperLoading, 'pts')}
+              </TabsContent>
+              <TabsContent value="basketball" className="mt-0">
+                {renderLeaderboard(basketballScores, basketballLoading, 'pts')}
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
-
-        {/* Game Selection */}
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Choose a Game</h2>
-          <div className="grid gap-3">
-            {games.map((game) => {
-              const Icon = game.icon;
-              return (
-                <Card
-                  key={game.id}
-                  className="cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => navigate(game.path)}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-4">
-                      <div className={`p-3 rounded-xl bg-gradient-to-br ${game.color}`}>
-                        <span className="text-2xl">{game.emoji}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-lg">{game.title}</h3>
-                        <p className="text-sm text-muted-foreground line-clamp-1">
-                          {game.description}
-                        </p>
-                      </div>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
       </div>
     </Layout>
   );
