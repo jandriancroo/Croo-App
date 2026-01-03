@@ -204,8 +204,8 @@ const Games = () => {
     },
     {
       id: 'pizza',
-      title: 'Pizza Paddle',
-      description: 'Jump and hit pizza toppings!',
+      title: 'Super Karen Destroy 3',
+      description: 'Defend your shop from angry Karens!',
       icon: Gamepad2,
       path: '/games/pizza',
       color: 'from-red-500/20 to-yellow-500/20',

@@ -811,7 +811,7 @@ const PizzaPaddleGame = () => {
           <Button variant="ghost" size="icon" onClick={() => navigate('/games')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-lg font-bold flex-1">Karen Paddle</h1>
+          <h1 className="text-lg font-bold flex-1">Super Karen Destroy 3</h1>
           <div className="flex items-center gap-2">
             {gameState === 'playing' && (
               <div className="flex items-center gap-1">
@@ -834,7 +834,7 @@ const PizzaPaddleGame = () => {
           {gameState === 'idle' ? (
             <div className="text-center">
               <div className="text-7xl mb-4">👨‍🍳💥💇‍♀️</div>
-              <h2 className="text-2xl font-bold mb-2">Karen Paddle</h2>
+              <h2 className="text-2xl font-bold mb-2">Super Karen Destroy 3</h2>
               <p className="text-muted-foreground mb-2 max-w-xs mx-auto">
                 Defend your pizza shop from angry Karens!
               </p>
