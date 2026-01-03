@@ -998,12 +998,11 @@ export default function KarenDungeon3D() {
       ];
       
       torchPositions.forEach(([x, y, z]) => {
-        // Torch light
+        // Torch light (no shadows - keeps mobile GPUs from blowing the shader limit)
         const torchLight = new THREE.PointLight(0xff6622, 1.8, 10, 1.5);
         torchLight.position.set(room.x + x, y, room.z + z);
-        torchLight.castShadow = true;
-        torchLight.shadow.mapSize.width = 256;
-        torchLight.shadow.mapSize.height = 256;
+        // IMPORTANT: do not castShadow here; too many shadow maps can break rendering on mobile/low-end GPUs
+        torchLight.castShadow = false;
         scene.add(torchLight);
         
         // Torch bracket
