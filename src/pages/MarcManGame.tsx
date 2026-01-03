@@ -48,7 +48,6 @@ const MAZE_TEMPLATE = [
 ];
 
 const TOPPINGS = ['🍅', '🧀', '🫒', '🌶️', '🍄', '🧅', '🥓', '🍕'];
-const CELL_SIZE = 22;
 const GAME_SPEED = 180;
 
 const MarcManGame = () => {
@@ -71,6 +70,8 @@ const MarcManGame = () => {
   const [highScore, setHighScore] = useState(0);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [mouthOpen, setMouthOpen] = useState(true);
+  const [cellSize, setCellSize] = useState(22);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const mazeWidth = MAZE_TEMPLATE[0].length;
   const mazeHeight = MAZE_TEMPLATE.length;
@@ -382,52 +383,62 @@ const MarcManGame = () => {
     }
   };
 
+  // Calculate cell size to fit screen
+  useEffect(() => {
+    const updateSize = () => {
+      if (!containerRef.current) return;
+      const container = containerRef.current;
+      const availableWidth = container.clientWidth - 16; // padding
+      const availableHeight = container.clientHeight - 16;
+      
+      const cellByWidth = Math.floor(availableWidth / mazeWidth);
+      const cellByHeight = Math.floor(availableHeight / mazeHeight);
+      const newCellSize = Math.min(cellByWidth, cellByHeight, 40); // max 40px
+      
+      setCellSize(Math.max(newCellSize, 16)); // min 16px
+    };
+
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, [mazeWidth, mazeHeight]);
+
   return (
     <Layout>
-      <div className="flex flex-col h-[calc(100vh-4rem)] px-2 py-2">
-        {/* Header */}
+      <div className="flex flex-col h-[calc(100vh-4rem)] px-2 py-1">
+        {/* Header - compact */}
         <div className="flex items-center gap-2 mb-1">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/games')}>
-            <ArrowLeft className="h-5 w-5" />
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate('/games')}>
+            <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-lg font-bold flex-1">MarcMAN</h1>
-          <div className="flex items-center gap-3">
-            <div className="text-center">
-              <p className="text-xl font-bold text-primary">{score}</p>
-            </div>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <Trophy className="h-4 w-4 text-yellow-500" />
+          <h1 className="text-base font-bold flex-1">MarcMAN</h1>
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-bold text-primary">{score}</span>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <Trophy className="h-3 w-3 text-yellow-500" />
               <span>{highScore}</span>
             </div>
+            <div className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-0.5">
+              <span className="text-sm">🍕</span>
+              <span className="font-bold text-xs">×{pizzaCount}</span>
+            </div>
           </div>
         </div>
 
-        {/* Pizza counter */}
-        <div className="flex items-center justify-center gap-2 mb-1">
-          <div className="flex items-center gap-1 bg-muted/50 rounded-full px-3 py-1">
-            <span className="text-lg">🍕</span>
-            <span className="font-bold text-sm">×{pizzaCount}</span>
-          </div>
-          {/* Pizza progress bar */}
-          <div className="flex-1 max-w-[150px] h-3 bg-muted rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-yellow-500 to-orange-500 transition-all"
-              style={{ width: `${(pizzaProgress / 12) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Game Area */}
-        <div className="flex-1 flex flex-col items-center justify-center">
+        {/* Game Area - fills remaining space */}
+        <div 
+          ref={containerRef}
+          className="flex-1 flex flex-col items-center justify-center min-h-0"
+        >
           <div
             className="relative rounded-lg overflow-hidden border-4 border-blue-900"
             style={{
-              width: mazeWidth * CELL_SIZE,
-              height: mazeHeight * CELL_SIZE,
+              width: mazeWidth * cellSize,
+              height: mazeHeight * cellSize,
               background: '#000',
             }}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
+            onTouchStart={gameState === 'playing' ? handleTouchStart : undefined}
+            onTouchEnd={gameState === 'playing' ? handleTouchEnd : undefined}
           >
             {/* Maze walls */}
             {MAZE_TEMPLATE.map((row, y) =>
@@ -437,10 +448,10 @@ const MarcManGame = () => {
                     key={`${x}-${y}`}
                     className="absolute bg-blue-800 border border-blue-600"
                     style={{
-                      left: x * CELL_SIZE,
-                      top: y * CELL_SIZE,
-                      width: CELL_SIZE,
-                      height: CELL_SIZE,
+                      left: x * cellSize,
+                      top: y * cellSize,
+                      width: cellSize,
+                      height: cellSize,
                     }}
                   />
                 )
@@ -453,11 +464,11 @@ const MarcManGame = () => {
                 key={i}
                 className="absolute flex items-center justify-center"
                 style={{
-                  left: t.x * CELL_SIZE,
-                  top: t.y * CELL_SIZE,
-                  width: CELL_SIZE,
-                  height: CELL_SIZE,
-                  fontSize: CELL_SIZE * 0.6,
+                  left: t.x * cellSize,
+                  top: t.y * cellSize,
+                  width: cellSize,
+                  height: cellSize,
+                  fontSize: cellSize * 0.6,
                 }}
               >
                 {t.type}
@@ -468,15 +479,15 @@ const MarcManGame = () => {
             <div
               className="absolute transition-all duration-100"
               style={{
-                left: marc.x * CELL_SIZE + CELL_SIZE / 2,
-                top: marc.y * CELL_SIZE + CELL_SIZE / 2,
+                left: marc.x * cellSize + cellSize / 2,
+                top: marc.y * cellSize + cellSize / 2,
                 transform: `translate(-50%, -50%) rotate(${getMarcRotation()}deg)`,
               }}
             >
               {/* Cowboy body */}
               <div 
                 className="relative"
-                style={{ width: CELL_SIZE * 0.9, height: CELL_SIZE * 0.9 }}
+                style={{ width: cellSize * 0.9, height: cellSize * 0.9 }}
               >
                 {/* Cowboy hat */}
                 <div 
@@ -485,7 +496,7 @@ const MarcManGame = () => {
                     top: -4,
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    width: CELL_SIZE * 0.8,
+                    width: cellSize * 0.8,
                     height: 6,
                     background: '#8B4513',
                     borderRadius: '50% 50% 0 0',
@@ -497,14 +508,14 @@ const MarcManGame = () => {
                     top: -8,
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    width: CELL_SIZE * 0.5,
+                    width: cellSize * 0.5,
                     height: 8,
                     background: '#A0522D',
                     borderRadius: '50% 50% 0 0',
                   }}
                 />
                 {/* Face - Pac-Man style */}
-                <svg width={CELL_SIZE * 0.9} height={CELL_SIZE * 0.9} viewBox="0 0 100 100">
+                <svg width={cellSize * 0.9} height={cellSize * 0.9} viewBox="0 0 100 100">
                   <defs>
                     <linearGradient id="faceGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                       <stop offset="0%" stopColor="#FFDAB9" />
@@ -534,15 +545,15 @@ const MarcManGame = () => {
                 key={i}
                 className="absolute transition-all duration-100"
                 style={{
-                  left: ghost.x * CELL_SIZE,
-                  top: ghost.y * CELL_SIZE,
-                  width: CELL_SIZE,
-                  height: CELL_SIZE,
+                  left: ghost.x * cellSize,
+                  top: ghost.y * cellSize,
+                  width: cellSize,
+                  height: cellSize,
                 }}
               >
                 {ghost.type === 'ghost' ? (
                   // Classic ghost shape
-                  <svg viewBox="0 0 100 100" width={CELL_SIZE} height={CELL_SIZE}>
+                  <svg viewBox="0 0 100 100" width={cellSize} height={cellSize}>
                     <path
                       d="M15 95 L15 45 A35 35 0 0 1 85 45 L85 95 L70 80 L55 95 L40 80 L25 95 L15 95 Z"
                       fill={ghost.color}
@@ -555,7 +566,7 @@ const MarcManGame = () => {
                 ) : (
                   // Firefighter
                   <div className="flex flex-col items-center justify-center h-full">
-                    <span style={{ fontSize: CELL_SIZE * 0.8 }}>👨‍🚒</span>
+                    <span style={{ fontSize: cellSize * 0.8 }}>👨‍🚒</span>
                   </div>
                 )}
               </div>
@@ -564,22 +575,26 @@ const MarcManGame = () => {
             {/* Overlays */}
             {gameState === 'idle' && (
               <div 
-                className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-50"
-                onClick={(e) => e.stopPropagation()}
+                className="absolute inset-0 flex flex-col items-center justify-center bg-black/95 z-50"
+                onTouchStart={(e) => e.stopPropagation()}
+                onTouchEnd={(e) => e.stopPropagation()}
               >
-                <div className="text-4xl mb-2">🤠</div>
-                <h2 className="text-xl font-bold text-yellow-400 mb-2">MarcMAN</h2>
+                <div className="text-5xl mb-3">🤠</div>
+                <h2 className="text-2xl font-bold text-yellow-400 mb-4">MarcMAN</h2>
                 <Button 
-                  onClick={(e) => {
+                  size="lg"
+                  onClick={() => startGame()} 
+                  onTouchEnd={(e) => {
+                    e.preventDefault();
                     e.stopPropagation();
                     startGame();
-                  }} 
-                  className="gap-2 mb-2 z-50"
+                  }}
+                  className="gap-2 mb-3 text-lg px-8 py-6"
                 >
-                  <Play className="h-4 w-4" />
+                  <Play className="h-5 w-5" />
                   Start Game
                 </Button>
-                <p className="text-xs text-white/60 text-center px-4">
+                <p className="text-sm text-white/60 text-center px-4">
                   Swipe to move • Collect toppings • Avoid ghosts & firefighters
                 </p>
               </div>
@@ -611,9 +626,9 @@ const MarcManGame = () => {
 
           {/* Pizza being built - visual */}
           {gameState === 'playing' && (
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-1 flex items-center gap-2">
               <div 
-                className="relative w-12 h-12 rounded-full border-4 border-yellow-600 overflow-hidden"
+                className="relative w-10 h-10 rounded-full border-3 border-yellow-600 overflow-hidden"
                 style={{ background: '#f4d03f' }}
               >
                 {/* Cheese base */}
@@ -626,7 +641,7 @@ const MarcManGame = () => {
                   }}
                 />
                 {/* Crust */}
-                <div className="absolute inset-0 rounded-full border-4 border-yellow-700/50" />
+                <div className="absolute inset-0 rounded-full border-3 border-yellow-700/50" />
               </div>
               <span className="text-xs text-muted-foreground">{pizzaProgress}/12</span>
             </div>
@@ -635,8 +650,8 @@ const MarcManGame = () => {
 
         {/* Controls hint */}
         {gameState === 'playing' && (
-          <p className="text-center text-xs text-muted-foreground py-1">
-            Swipe or Arrow Keys to move
+          <p className="text-center text-xs text-muted-foreground py-0.5">
+            Swipe or Arrow Keys
           </p>
         )}
       </div>
