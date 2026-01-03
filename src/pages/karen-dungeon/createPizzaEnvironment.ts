@@ -1,27 +1,32 @@
 import * as THREE from 'three';
-import { createDungeonTexture } from './proceduralTextures';
+import { createBrickTexture, createDirtFloorTexture, createStoneTexture } from './proceduralTextures';
 
 /**
  * Creates a pizza shop dungeon environment with:
+ * - High-res brick wall textures (1024x1024)
+ * - Dirt/stone floor textures
  * - Pizza ovens with glowing interiors
  * - Countertops with prep stations
  * - Neon signs
- * - Checkered floor tiles
- * - Brick walls
+ * - Atmospheric lighting
  */
 export function createPizzaEnvironment(scene: THREE.Scene, isMobile: boolean) {
-  const wallTex = createDungeonTexture('wall', 9999);
-  wallTex.repeat.set(4, 2);
+  // High-res textures (1024x1024)
+  const wallTex = createBrickTexture(9999);
+  wallTex.repeat.set(isMobile ? 3 : 4, isMobile ? 1.5 : 2);
 
-  const floorTex = createDungeonTexture('floor', 8888);
-  floorTex.repeat.set(40, 40);
+  const floorTex = createDirtFloorTexture(8888);
+  floorTex.repeat.set(isMobile ? 20 : 30, isMobile ? 20 : 30);
+  
+  const stoneTex = createStoneTexture(7777);
+  stoneTex.repeat.set(8, 8);
 
-  // === MAIN FLOOR ===
+  // === MAIN FLOOR (dirt/stone) ===
   const floorGeom = new THREE.PlaneGeometry(100, 100, 20, 20);
   const floorMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1210,
-    roughness: 0.85,
-    metalness: 0.05,
+    color: 0x3a3028,
+    roughness: 0.9,
+    metalness: 0.02,
     map: floorTex,
   });
   const floor = new THREE.Mesh(floorGeom, floorMat);
@@ -29,8 +34,8 @@ export function createPizzaEnvironment(scene: THREE.Scene, isMobile: boolean) {
   floor.receiveShadow = true;
   scene.add(floor);
 
-  // Checkered tile overlay in main arena
-  createCheckeredFloor(scene, 0, 0, 16, 16);
+  // Stone tile floor in main arena (high-quality)
+  createCheckeredStoneFloor(scene, 0, 0, 16, 16, stoneTex);
 
   // === PIZZA OVENS (multiple) ===
   const ovenPositions = [
@@ -113,42 +118,53 @@ export function createPizzaEnvironment(scene: THREE.Scene, isMobile: boolean) {
     createHangingLamp(scene, x, wallHeight - 0.5, z);
   });
 
-  return { floorTex, wallTex };
+  return { floorTex, wallTex, stoneTex };
 }
 
-function createCheckeredFloor(
+// High-quality stone checkered floor with textures
+function createCheckeredStoneFloor(
   scene: THREE.Scene,
   cx: number,
   cz: number,
   w: number,
-  d: number
+  d: number,
+  stoneTex: THREE.CanvasTexture
 ) {
-  const tileSize = 1;
+  const tileSize = 1.5;
   const tilesX = Math.floor(w / tileSize);
   const tilesZ = Math.floor(d / tileSize);
 
+  // Create materials with stone texture
+  const darkStoneTex = stoneTex.clone();
+  darkStoneTex.needsUpdate = true;
+  
   const darkMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1a1a,
-    roughness: 0.8,
+    color: 0x252520,
+    roughness: 0.85,
+    metalness: 0.02,
+    map: stoneTex,
   });
+  
   const lightMat = new THREE.MeshStandardMaterial({
-    color: 0x2a2222,
-    roughness: 0.75,
+    color: 0x3a3530,
+    roughness: 0.8,
+    metalness: 0.03,
+    map: stoneTex,
   });
 
-  const tileGeom = new THREE.PlaneGeometry(tileSize * 0.95, tileSize * 0.95);
+  const tileGeom = new THREE.BoxGeometry(tileSize * 0.94, 0.08, tileSize * 0.94);
 
   for (let i = 0; i < tilesX; i++) {
     for (let j = 0; j < tilesZ; j++) {
       const isLight = (i + j) % 2 === 0;
       const tile = new THREE.Mesh(tileGeom, isLight ? lightMat : darkMat);
-      tile.rotation.x = -Math.PI / 2;
       tile.position.set(
         cx - w / 2 + i * tileSize + tileSize / 2,
-        0.005,
+        0.04,
         cz - d / 2 + j * tileSize + tileSize / 2
       );
       tile.receiveShadow = true;
+      tile.castShadow = true;
       scene.add(tile);
     }
   }
