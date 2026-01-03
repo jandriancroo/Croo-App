@@ -817,10 +817,10 @@ export default function KarenDungeon3D() {
   const initScene = useCallback(() => {
     if (!containerRef.current) return;
     
-    // Scene
+    // Scene - brighter background for visibility
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x080606);
-    scene.fog = new THREE.FogExp2(0x120808, 0.035);
+    scene.background = new THREE.Color(0x1a1215);
+    scene.fog = new THREE.FogExp2(0x1a1215, 0.02);
     sceneRef.current = scene;
     
     // Camera
@@ -839,17 +839,22 @@ export default function KarenDungeon3D() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.3;
+    renderer.toneMappingExposure = 1.8;
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
     
-    // Ambient light (warm)
-    const ambient = new THREE.AmbientLight(0x442222, 0.5);
+    // Strong ambient light for base visibility
+    const ambient = new THREE.AmbientLight(0xffeedd, 1.2);
     scene.add(ambient);
     
-    // Main directional light
-    const dirLight = new THREE.DirectionalLight(0xff8855, 1.0);
-    dirLight.position.set(5, 15, 5);
+    // Hemisphere light for natural feel
+    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+    hemiLight.position.set(0, 20, 0);
+    scene.add(hemiLight);
+    
+    // Main directional light - bright sun-like
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+    dirLight.position.set(10, 20, 10);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
@@ -862,8 +867,13 @@ export default function KarenDungeon3D() {
     dirLight.shadow.bias = -0.0005;
     scene.add(dirLight);
     
-    // Player flashlight
-    const flashlight = new THREE.SpotLight(0xffffdd, 2.5, 25, Math.PI / 4.5, 0.4, 1.5);
+    // Secondary fill light
+    const fillLight = new THREE.DirectionalLight(0x88aaff, 0.6);
+    fillLight.position.set(-10, 15, -10);
+    scene.add(fillLight);
+    
+    // Player flashlight - much brighter
+    const flashlight = new THREE.SpotLight(0xffffff, 8, 40, Math.PI / 3.5, 0.3, 1);
     flashlight.position.set(0, 0, 0);
     flashlight.target.position.set(0, 0, -1);
     flashlight.castShadow = true;
@@ -872,6 +882,18 @@ export default function KarenDungeon3D() {
     camera.add(flashlight);
     camera.add(flashlight.target);
     scene.add(camera);
+    
+    // Extra point lights scattered around for visibility
+    const colors = [0xff4444, 0x44ff44, 0x4444ff, 0xffff44];
+    for (let i = 0; i < 8; i++) {
+      const pointLight = new THREE.PointLight(colors[i % 4], 1.5, 20);
+      pointLight.position.set(
+        Math.cos(i * Math.PI / 4) * 15,
+        3,
+        Math.sin(i * Math.PI / 4) * 15
+      );
+      scene.add(pointLight);
+    }
     
     // Enhanced Floor with texture-like pattern
     const floorSize = 100;
