@@ -1,12 +1,14 @@
+import { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy, Gamepad2, Grid3X3, Target, ChevronRight } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Trophy, Gamepad2, Grid3X3, Target, ChevronDown, ChevronUp } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 interface HighScore {
   id: string;
@@ -22,118 +24,53 @@ interface HighScore {
 
 const Games = () => {
   const navigate = useNavigate();
+  const [expanded, setExpanded] = useState(false);
+
+  const fetchScores = async (gameType: string) => {
+    const { data, error } = await supabase
+      .from('game_high_scores')
+      .select(`
+        id,
+        user_id,
+        game_type,
+        score,
+        created_at,
+        profiles(full_name, profile_photo_url)
+      `)
+      .eq('game_type', gameType)
+      .order('score', { ascending: false })
+      .limit(15);
+
+    if (error) throw error;
+    return data as HighScore[];
+  };
 
   const { data: snakeScores, isLoading: snakeLoading } = useQuery({
     queryKey: ['high-scores', 'snake'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('game_high_scores')
-        .select(`
-          id,
-          user_id,
-          game_type,
-          score,
-          created_at,
-          profiles(full_name, profile_photo_url)
-        `)
-        .eq('game_type', 'snake')
-        .order('score', { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
-      return data as HighScore[];
-    },
+    queryFn: () => fetchScores('snake'),
   });
 
   const { data: marcmanScores, isLoading: marcmanLoading } = useQuery({
     queryKey: ['high-scores', 'marcman'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('game_high_scores')
-        .select(`
-          id,
-          user_id,
-          game_type,
-          score,
-          created_at,
-          profiles(full_name, profile_photo_url)
-        `)
-        .eq('game_type', 'marcman')
-        .order('score', { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
-      return data as HighScore[];
-    },
+    queryFn: () => fetchScores('marcman'),
   });
 
   const { data: minesweeperScores, isLoading: minesweeperLoading } = useQuery({
     queryKey: ['high-scores', 'minesweeper'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('game_high_scores')
-        .select(`
-          id,
-          user_id,
-          game_type,
-          score,
-          created_at,
-          profiles(full_name, profile_photo_url)
-        `)
-        .eq('game_type', 'minesweeper')
-        .order('score', { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
-      return data as HighScore[];
-    },
+    queryFn: () => fetchScores('minesweeper'),
   });
 
   const { data: basketballScores, isLoading: basketballLoading } = useQuery({
     queryKey: ['high-scores', 'basketball'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('game_high_scores')
-        .select(`
-          id,
-          user_id,
-          game_type,
-          score,
-          created_at,
-          profiles(full_name, profile_photo_url)
-        `)
-        .eq('game_type', 'basketball')
-        .order('score', { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
-      return data as HighScore[];
-    },
+    queryFn: () => fetchScores('basketball'),
   });
 
   const { data: pizzaScores, isLoading: pizzaLoading } = useQuery({
     queryKey: ['high-scores', 'pizza'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('game_high_scores')
-        .select(`
-          id,
-          user_id,
-          game_type,
-          score,
-          created_at,
-          profiles(full_name, profile_photo_url)
-        `)
-        .eq('game_type', 'pizza')
-        .order('score', { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
-      return data as HighScore[];
-    },
+    queryFn: () => fetchScores('pizza'),
   });
 
-  const renderLeaderboard = (scores: HighScore[] | undefined, loading: boolean, scoreLabel: string) => {
+  const renderLeaderboard = (scores: HighScore[] | undefined, loading: boolean) => {
     if (loading) {
       return (
         <div className="space-y-2">
@@ -156,9 +93,12 @@ const Games = () => {
       );
     }
 
+    const displayScores = expanded ? scores.slice(0, 15) : scores.slice(0, 5);
+    const hasMore = scores.length > 5;
+
     return (
       <div className="space-y-1.5">
-        {scores.map((score, index) => {
+        {displayScores.map((score, index) => {
           const initials = score.profiles?.full_name
             ?.split(' ')
             .map((n) => n[0])
@@ -189,6 +129,27 @@ const Games = () => {
             </div>
           );
         })}
+        
+        {hasMore && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full h-7 text-xs text-muted-foreground"
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? (
+              <>
+                <ChevronUp className="h-3 w-3 mr-1" />
+                Show less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-3 w-3 mr-1" />
+                Show more ({Math.min(scores.length, 15) - 5} more)
+              </>
+            )}
+          </Button>
+        )}
       </div>
     );
   };
@@ -277,16 +238,16 @@ const Games = () => {
           ))}
         </div>
 
-        {/* Leaderboard - Compact */}
+        {/* Leaderboard */}
         <Card>
           <CardHeader className="pb-2 pt-3 px-3">
             <div className="flex items-center gap-2">
               <Trophy className="h-4 w-4 text-yellow-500" />
-              <CardTitle className="text-base">Top 5</CardTitle>
+              <CardTitle className="text-base">Leaderboard</CardTitle>
             </div>
           </CardHeader>
           <CardContent className="px-3 pb-3">
-            <Tabs defaultValue="pizza">
+            <Tabs defaultValue="pizza" onValueChange={() => setExpanded(false)}>
               <TabsList className="w-full mb-2 h-8">
                 <TabsTrigger value="pizza" className="flex-1 text-xs px-1">🍕</TabsTrigger>
                 <TabsTrigger value="marcman" className="flex-1 text-xs px-1">🤠</TabsTrigger>
@@ -295,19 +256,19 @@ const Games = () => {
                 <TabsTrigger value="basketball" className="flex-1 text-xs px-1">🏀</TabsTrigger>
               </TabsList>
               <TabsContent value="pizza" className="mt-0">
-                {renderLeaderboard(pizzaScores, pizzaLoading, 'pts')}
+                {renderLeaderboard(pizzaScores, pizzaLoading)}
               </TabsContent>
               <TabsContent value="marcman" className="mt-0">
-                {renderLeaderboard(marcmanScores, marcmanLoading, 'pts')}
+                {renderLeaderboard(marcmanScores, marcmanLoading)}
               </TabsContent>
               <TabsContent value="snake" className="mt-0">
-                {renderLeaderboard(snakeScores, snakeLoading, 'pts')}
+                {renderLeaderboard(snakeScores, snakeLoading)}
               </TabsContent>
               <TabsContent value="minesweeper" className="mt-0">
-                {renderLeaderboard(minesweeperScores, minesweeperLoading, 'pts')}
+                {renderLeaderboard(minesweeperScores, minesweeperLoading)}
               </TabsContent>
               <TabsContent value="basketball" className="mt-0">
-                {renderLeaderboard(basketballScores, basketballLoading, 'pts')}
+                {renderLeaderboard(basketballScores, basketballLoading)}
               </TabsContent>
             </Tabs>
           </CardContent>
