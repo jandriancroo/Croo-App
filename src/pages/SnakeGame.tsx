@@ -35,6 +35,7 @@ const SnakeGame = () => {
   const [highScore, setHighScore] = useState(0);
   const [speed, setSpeed] = useState(INITIAL_SPEED);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const lastTurnTime = useRef(0);
 
   const directionRef = useRef(direction);
   directionRef.current = direction;
@@ -93,9 +94,14 @@ const SnakeGame = () => {
     sounds.startMusic('retro'); // Start retro arcade music
   }, [generateFood, dimensions.gridWidth, dimensions.gridHeight, sounds]);
 
-  // Handle tap to turn (clockwise rotation)
+  // Handle tap to turn (clockwise rotation) - debounced to prevent double turns
   const handleTap = useCallback(() => {
     if (gameState !== 'playing') return;
+    
+    // Debounce to prevent double turns from both click and touch events
+    const now = Date.now();
+    if (now - lastTurnTime.current < 100) return;
+    lastTurnTime.current = now;
     
     const rotationMap: Record<Direction, Direction> = {
       'UP': 'RIGHT',

@@ -18,7 +18,7 @@ interface Chat {
 interface ShareScoreDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  gameType: 'snake' | 'minesweeper' | 'basketball' | 'pizza' | 'karen-dungeon';
+  gameType: 'snake' | 'minesweeper' | 'basketball' | 'pizza' | 'karen-dungeon' | 'marcman';
   score: number;
   gameName?: string;
 }
@@ -107,6 +107,7 @@ export function ShareScoreDialog({ open, onOpenChange, gameType, score, gameName
             gameType === 'snake' ? 'Snake' : 
             gameType === 'minesweeper' ? 'Minesweeper' : 
             gameType === 'basketball' ? 'Hoops' : 
+            gameType === 'marcman' ? 'MarcMAN' :
             gameType === 'karen-dungeon' ? 'Karen Dungeon 3D' : 'Super Karen Destroy 3'
           );
           await supabase.functions.invoke('send-push-notification', {
@@ -147,6 +148,7 @@ export function ShareScoreDialog({ open, onOpenChange, gameType, score, gameName
                 gameType === 'snake' ? 'Snake' : 
                 gameType === 'minesweeper' ? 'Minesweeper' : 
                 gameType === 'basketball' ? 'Hoops' : 
+                gameType === 'marcman' ? 'MarcMAN' :
                 gameType === 'karen-dungeon' ? 'Karen Dungeon 3D' : 'Super Karen Destroy 3'
               )
             }!
