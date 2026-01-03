@@ -43,25 +43,25 @@ const BOSS_INSULTS = [
 
 // Karen variations - different hair colors and sizes
 const KAREN_TYPES = [
-  { hairColor: 0xFFD700, skinTone: 0xFFDDB4, size: 1.0, isBoss: false }, // Blonde
-  { hairColor: 0x8B4513, skinTone: 0xE8C4A8, size: 1.0, isBoss: false }, // Brown
-  { hairColor: 0xF5DEB3, skinTone: 0xFFE4C4, size: 1.0, isBoss: false }, // Platinum
-  { hairColor: 0xA52A2A, skinTone: 0xDEB887, size: 1.0, isBoss: false }, // Auburn
-  { hairColor: 0xD2691E, skinTone: 0xFFDAB9, size: 1.0, isBoss: false }, // Copper
-  { hairColor: 0xBC8F8F, skinTone: 0xFFE4E1, size: 1.0, isBoss: false }, // Rose
-  { hairColor: 0xCD853F, skinTone: 0xFAEBD7, size: 1.0, isBoss: false }, // Tan
-  { hairColor: 0xDAA520, skinTone: 0xFFEBCD, size: 1.0, isBoss: false }, // Goldenrod
-  { hairColor: 0x2F1810, skinTone: 0xFFE4C4, size: 1.5, isBoss: true },  // Boss 1
-  { hairColor: 0x1a0a05, skinTone: 0xE8C4A8, size: 1.8, isBoss: true },  // Boss 2
+  { hairColor: 0xFFD700, skinTone: 0xFFDDB4, size: 1.0, isBoss: false, outfit: 0xE91E63 }, // Blonde
+  { hairColor: 0x8B4513, skinTone: 0xE8C4A8, size: 1.0, isBoss: false, outfit: 0x9C27B0 }, // Brown
+  { hairColor: 0xF5DEB3, skinTone: 0xFFE4C4, size: 1.0, isBoss: false, outfit: 0x2196F3 }, // Platinum
+  { hairColor: 0xA52A2A, skinTone: 0xDEB887, size: 1.0, isBoss: false, outfit: 0x4CAF50 }, // Auburn
+  { hairColor: 0xD2691E, skinTone: 0xFFDAB9, size: 1.0, isBoss: false, outfit: 0xFF5722 }, // Copper
+  { hairColor: 0xBC8F8F, skinTone: 0xFFE4E1, size: 1.0, isBoss: false, outfit: 0x795548 }, // Rose
+  { hairColor: 0xCD853F, skinTone: 0xFAEBD7, size: 1.0, isBoss: false, outfit: 0x00BCD4 }, // Tan
+  { hairColor: 0xDAA520, skinTone: 0xFFEBCD, size: 1.0, isBoss: false, outfit: 0xFF4081 }, // Goldenrod
+  { hairColor: 0x2F1810, skinTone: 0xFFE4C4, size: 1.5, isBoss: true, outfit: 0x1a0000 },  // Boss 1
+  { hairColor: 0x1a0a05, skinTone: 0xE8C4A8, size: 1.8, isBoss: true, outfit: 0x330000 },  // Boss 2
 ];
 
-// Room themes
+// Room themes with enhanced detail
 const ROOM_THEMES = [
-  { name: 'Tea Party', wallColor: 0xE8D5B7, floorColor: 0xD4C4A7 },
-  { name: 'Kids Birthday', wallColor: 0xFFB6C1, floorColor: 0xFFE4E1 },
-  { name: 'Rom-Com Couch', wallColor: 0xD8BFD8, floorColor: 0xE6E6FA },
-  { name: 'HOA Meeting', wallColor: 0xF5F5DC, floorColor: 0xFFFACD },
-  { name: 'Hallway', wallColor: 0x696969, floorColor: 0x505050 },
+  { name: 'Tea Party', wallColor: 0xE8D5B7, floorColor: 0xD4C4A7, accent: 0xFFD700 },
+  { name: 'Kids Birthday', wallColor: 0xFFB6C1, floorColor: 0xFFE4E1, accent: 0xFF69B4 },
+  { name: 'Rom-Com Couch', wallColor: 0xD8BFD8, floorColor: 0xE6E6FA, accent: 0xDA70D6 },
+  { name: 'HOA Meeting', wallColor: 0xF5F5DC, floorColor: 0xFFFACD, accent: 0x8B4513 },
+  { name: 'Hallway', wallColor: 0x696969, floorColor: 0x505050, accent: 0x8B0000 },
 ];
 
 interface Karen {
@@ -75,6 +75,7 @@ interface Karen {
   deathTime: number;
   insult: string;
   chatBubble: THREE.Sprite | null;
+  animPhase: number;
 }
 
 interface Meatball {
@@ -88,11 +89,12 @@ interface Particle {
   mesh: THREE.Mesh;
   velocity: THREE.Vector3;
   life: number;
+  rotationSpeed: THREE.Vector3;
 }
 
 interface AmmoPickup {
   id: number;
-  mesh: THREE.Mesh;
+  mesh: THREE.Group;
   collected: boolean;
 }
 
@@ -197,169 +199,427 @@ export default function KarenDungeon3D() {
     }
   };
 
-  // Create Karen 3D model
+  // Create high-poly Karen 3D model with full body
   const createKaren = useCallback((typeIndex: number, position: THREE.Vector3): Karen => {
     const type = KAREN_TYPES[typeIndex];
     const group = new THREE.Group();
     const scale = type.size;
     
-    // Body
-    const bodyGeom = new THREE.CylinderGeometry(0.3 * scale, 0.4 * scale, 0.8 * scale, 12);
-    const bodyMat = new THREE.MeshStandardMaterial({ 
-      color: type.isBoss ? 0x2a0000 : 0xe91e63,
-      roughness: 0.7,
+    // Skin material with subsurface scattering simulation
+    const skinMat = new THREE.MeshStandardMaterial({ 
+      color: type.skinTone,
+      roughness: 0.6,
+      metalness: 0,
+    });
+    
+    // Hair material
+    const hairMat = new THREE.MeshStandardMaterial({ 
+      color: type.hairColor,
+      roughness: 0.8,
       metalness: 0.1
     });
-    const body = new THREE.Mesh(bodyGeom, bodyMat);
-    body.position.y = 0.4 * scale;
-    body.castShadow = true;
-    group.add(body);
     
-    // Head
-    const headGeom = new THREE.SphereGeometry(0.25 * scale, 16, 16);
-    const headMat = new THREE.MeshStandardMaterial({ 
-      color: type.skinTone,
-      roughness: 0.8,
-      metalness: 0
+    // Outfit material
+    const outfitMat = new THREE.MeshStandardMaterial({ 
+      color: type.outfit,
+      roughness: 0.5,
+      metalness: 0.1
     });
-    const head = new THREE.Mesh(headGeom, headMat);
-    head.position.y = 1.0 * scale;
+
+    // === LEGS ===
+    const legHeight = 0.6 * scale;
+    const legRadius = 0.08 * scale;
+    const legGeom = new THREE.CylinderGeometry(legRadius, legRadius * 0.8, legHeight, 16);
+    
+    // Left leg
+    const leftLeg = new THREE.Mesh(legGeom, outfitMat);
+    leftLeg.position.set(-0.12 * scale, legHeight / 2, 0);
+    leftLeg.castShadow = true;
+    group.add(leftLeg);
+    
+    // Right leg
+    const rightLeg = new THREE.Mesh(legGeom, outfitMat);
+    rightLeg.position.set(0.12 * scale, legHeight / 2, 0);
+    rightLeg.castShadow = true;
+    group.add(rightLeg);
+    
+    // Shoes
+    const shoeGeom = new THREE.BoxGeometry(0.1 * scale, 0.06 * scale, 0.15 * scale);
+    const shoeMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4 });
+    const leftShoe = new THREE.Mesh(shoeGeom, shoeMat);
+    leftShoe.position.set(-0.12 * scale, 0.03 * scale, 0.02 * scale);
+    group.add(leftShoe);
+    const rightShoe = new THREE.Mesh(shoeGeom, shoeMat);
+    rightShoe.position.set(0.12 * scale, 0.03 * scale, 0.02 * scale);
+    group.add(rightShoe);
+    
+    // === TORSO ===
+    // Lower body / skirt
+    const skirtGeom = new THREE.CylinderGeometry(0.18 * scale, 0.25 * scale, 0.3 * scale, 24);
+    const skirt = new THREE.Mesh(skirtGeom, outfitMat);
+    skirt.position.y = legHeight + 0.15 * scale;
+    skirt.castShadow = true;
+    group.add(skirt);
+    
+    // Upper body
+    const torsoGeom = new THREE.CylinderGeometry(0.2 * scale, 0.18 * scale, 0.4 * scale, 24);
+    const torso = new THREE.Mesh(torsoGeom, outfitMat);
+    torso.position.y = legHeight + 0.5 * scale;
+    torso.castShadow = true;
+    group.add(torso);
+    
+    // Shoulders
+    const shoulderGeom = new THREE.SphereGeometry(0.08 * scale, 16, 12);
+    const leftShoulder = new THREE.Mesh(shoulderGeom, outfitMat);
+    leftShoulder.position.set(-0.22 * scale, legHeight + 0.65 * scale, 0);
+    group.add(leftShoulder);
+    const rightShoulder = new THREE.Mesh(shoulderGeom, outfitMat);
+    rightShoulder.position.set(0.22 * scale, legHeight + 0.65 * scale, 0);
+    group.add(rightShoulder);
+    
+    // === ARMS ===
+    const armGeom = new THREE.CylinderGeometry(0.05 * scale, 0.04 * scale, 0.35 * scale, 12);
+    const forearmGeom = new THREE.CylinderGeometry(0.04 * scale, 0.035 * scale, 0.3 * scale, 12);
+    
+    // Left arm (pointing/accusing pose)
+    const leftUpperArm = new THREE.Mesh(armGeom, skinMat);
+    leftUpperArm.position.set(-0.28 * scale, legHeight + 0.5 * scale, 0.05 * scale);
+    leftUpperArm.rotation.z = -Math.PI / 4;
+    leftUpperArm.rotation.x = Math.PI / 6;
+    leftUpperArm.castShadow = true;
+    group.add(leftUpperArm);
+    
+    const leftForearm = new THREE.Mesh(forearmGeom, skinMat);
+    leftForearm.position.set(-0.4 * scale, legHeight + 0.35 * scale, 0.15 * scale);
+    leftForearm.rotation.z = -Math.PI / 3;
+    leftForearm.rotation.x = Math.PI / 4;
+    leftForearm.castShadow = true;
+    group.add(leftForearm);
+    
+    // Left hand (pointing finger)
+    const handGeom = new THREE.SphereGeometry(0.035 * scale, 12, 8);
+    const leftHand = new THREE.Mesh(handGeom, skinMat);
+    leftHand.position.set(-0.48 * scale, legHeight + 0.25 * scale, 0.22 * scale);
+    group.add(leftHand);
+    
+    // Pointing finger
+    const fingerGeom = new THREE.CylinderGeometry(0.012 * scale, 0.01 * scale, 0.08 * scale, 8);
+    const finger = new THREE.Mesh(fingerGeom, skinMat);
+    finger.position.set(-0.52 * scale, legHeight + 0.22 * scale, 0.28 * scale);
+    finger.rotation.x = Math.PI / 3;
+    finger.rotation.z = -Math.PI / 6;
+    group.add(finger);
+    
+    // Right arm (on hip, sassy pose)
+    const rightUpperArm = new THREE.Mesh(armGeom, skinMat);
+    rightUpperArm.position.set(0.28 * scale, legHeight + 0.45 * scale, -0.05 * scale);
+    rightUpperArm.rotation.z = Math.PI / 3;
+    rightUpperArm.rotation.x = -Math.PI / 8;
+    rightUpperArm.castShadow = true;
+    group.add(rightUpperArm);
+    
+    const rightForearm = new THREE.Mesh(forearmGeom, skinMat);
+    rightForearm.position.set(0.35 * scale, legHeight + 0.28 * scale, -0.1 * scale);
+    rightForearm.rotation.z = Math.PI / 2;
+    rightForearm.castShadow = true;
+    group.add(rightForearm);
+    
+    const rightHand = new THREE.Mesh(handGeom, skinMat);
+    rightHand.position.set(0.32 * scale, legHeight + 0.15 * scale, -0.08 * scale);
+    group.add(rightHand);
+    
+    // === NECK ===
+    const neckGeom = new THREE.CylinderGeometry(0.06 * scale, 0.08 * scale, 0.1 * scale, 12);
+    const neck = new THREE.Mesh(neckGeom, skinMat);
+    neck.position.y = legHeight + 0.75 * scale;
+    group.add(neck);
+    
+    // === HEAD (high poly) ===
+    const headGeom = new THREE.SphereGeometry(0.18 * scale, 32, 24);
+    const head = new THREE.Mesh(headGeom, skinMat);
+    head.position.y = legHeight + 0.95 * scale;
     head.castShadow = true;
     group.add(head);
     
-    // Karen hair - the "speak to the manager" cut
+    // Jaw / chin definition
+    const jawGeom = new THREE.SphereGeometry(0.12 * scale, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+    const jaw = new THREE.Mesh(jawGeom, skinMat);
+    jaw.position.set(0, legHeight + 0.85 * scale, 0.04 * scale);
+    jaw.scale.set(1, 0.6, 0.8);
+    group.add(jaw);
+    
+    // === KAREN HAIRCUT (The "Speak to the Manager" cut) ===
     const hairGroup = new THREE.Group();
     
-    // Main hair volume
-    const hairMainGeom = new THREE.SphereGeometry(0.28 * scale, 16, 12);
-    hairMainGeom.scale(1, 0.7, 1);
-    const hairMat = new THREE.MeshStandardMaterial({ 
-      color: type.hairColor,
-      roughness: 0.9,
-      metalness: 0
-    });
+    // Main hair volume - asymmetric bob
+    const hairMainGeom = new THREE.SphereGeometry(0.2 * scale, 32, 24);
     const hairMain = new THREE.Mesh(hairMainGeom, hairMat);
-    hairMain.position.y = 0.12 * scale;
+    hairMain.position.set(0, 0.08 * scale, -0.02 * scale);
+    hairMain.scale.set(1.1, 0.85, 1);
     hairGroup.add(hairMain);
     
-    // Spiky parts for boss Karens
+    // Spiky/layered top
+    for (let i = 0; i < 12; i++) {
+      const spikeSize = 0.06 + Math.random() * 0.04;
+      const spikeGeom = new THREE.ConeGeometry(spikeSize * scale, 0.15 * scale, 8);
+      const spike = new THREE.Mesh(spikeGeom, hairMat);
+      const angle = (i / 12) * Math.PI * 2;
+      const radius = 0.12 + Math.random() * 0.05;
+      spike.position.set(
+        Math.cos(angle) * radius * scale,
+        0.12 * scale + Math.random() * 0.05 * scale,
+        Math.sin(angle) * radius * scale * 0.8
+      );
+      spike.rotation.x = Math.cos(angle) * 0.4;
+      spike.rotation.z = -Math.sin(angle) * 0.4;
+      hairGroup.add(spike);
+    }
+    
+    // Back layered spikes (extra volume)
+    for (let i = 0; i < 8; i++) {
+      const spikeGeom = new THREE.ConeGeometry(0.05 * scale, 0.18 * scale, 6);
+      const spike = new THREE.Mesh(spikeGeom, hairMat);
+      const angle = Math.PI + (i / 8 - 0.5) * Math.PI * 0.8;
+      spike.position.set(
+        Math.cos(angle) * 0.15 * scale,
+        0.05 * scale,
+        Math.sin(angle) * 0.18 * scale
+      );
+      spike.rotation.x = 0.3;
+      spike.rotation.z = Math.sin(angle) * 0.3;
+      hairGroup.add(spike);
+    }
+    
+    // Front swept bangs (asymmetric)
+    const bangsGeom = new THREE.BoxGeometry(0.2 * scale, 0.06 * scale, 0.08 * scale);
+    bangsGeom.translate(-0.05 * scale, 0, 0);
+    const bangs = new THREE.Mesh(bangsGeom, hairMat);
+    bangs.position.set(0.02 * scale, 0.1 * scale, 0.16 * scale);
+    bangs.rotation.x = 0.2;
+    bangs.rotation.z = 0.1;
+    hairGroup.add(bangs);
+    
+    // Boss Karens get extra spiky crazy hair
     if (type.isBoss) {
-      for (let i = 0; i < 6; i++) {
-        const spikeGeom = new THREE.ConeGeometry(0.08 * scale, 0.25 * scale, 4);
-        const spike = new THREE.Mesh(spikeGeom, hairMat);
-        const angle = (i / 6) * Math.PI * 2;
+      for (let i = 0; i < 16; i++) {
+        const spikeGeom = new THREE.ConeGeometry(0.04 * scale, 0.25 * scale, 6);
+        const spikeMat = new THREE.MeshStandardMaterial({ 
+          color: type.hairColor,
+          roughness: 0.7,
+          emissive: 0x330000,
+          emissiveIntensity: 0.3
+        });
+        const spike = new THREE.Mesh(spikeGeom, spikeMat);
+        const angle = (i / 16) * Math.PI * 2;
         spike.position.set(
-          Math.cos(angle) * 0.2 * scale,
-          0.2 * scale,
-          Math.sin(angle) * 0.2 * scale
+          Math.cos(angle) * 0.18 * scale,
+          0.15 * scale,
+          Math.sin(angle) * 0.18 * scale
         );
-        spike.rotation.x = Math.cos(angle) * 0.5;
-        spike.rotation.z = -Math.sin(angle) * 0.5;
+        spike.rotation.x = Math.cos(angle) * 0.6;
+        spike.rotation.z = -Math.sin(angle) * 0.6;
         hairGroup.add(spike);
       }
     }
     
-    hairGroup.position.y = 1.0 * scale;
+    hairGroup.position.y = legHeight + 0.95 * scale;
     group.add(hairGroup);
     
-    // Eyes - angry expression
-    const eyeGeom = new THREE.SphereGeometry(0.04 * scale, 8, 8);
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x000000 });
+    // === FACE FEATURES ===
+    // Eye sockets (slightly inset)
+    const eyeSocketGeom = new THREE.SphereGeometry(0.035 * scale, 16, 12);
+    const eyeSocketMat = new THREE.MeshStandardMaterial({ color: 0xf0d0c0 });
     
-    [-0.08, 0.08].forEach(offsetX => {
-      const eye = new THREE.Mesh(eyeGeom, eyeMat);
-      eye.position.set(offsetX * scale, 1.02 * scale, 0.2 * scale);
-      group.add(eye);
+    // Eyes (angry, squinting)
+    const eyeWhiteGeom = new THREE.SphereGeometry(0.028 * scale, 16, 12);
+    const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+    const pupilGeom = new THREE.SphereGeometry(0.015 * scale, 12, 8);
+    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x2a1a0a });
+    const irisGeom = new THREE.SphereGeometry(0.018 * scale, 12, 8);
+    const irisMat = new THREE.MeshStandardMaterial({ color: type.isBoss ? 0xff0000 : 0x4a7c4e });
+    
+    [-0.06, 0.06].forEach(offsetX => {
+      // Eye socket
+      const socket = new THREE.Mesh(eyeSocketGeom, eyeSocketMat);
+      socket.position.set(offsetX * scale, legHeight + 0.98 * scale, 0.14 * scale);
+      socket.scale.set(1, 0.7, 0.5);
+      group.add(socket);
       
-      const pupil = new THREE.Mesh(
-        new THREE.SphereGeometry(0.02 * scale, 6, 6),
-        pupilMat
-      );
-      pupil.position.set(offsetX * scale, 1.02 * scale, 0.23 * scale);
+      // Eye white
+      const eyeWhite = new THREE.Mesh(eyeWhiteGeom, eyeWhiteMat);
+      eyeWhite.position.set(offsetX * scale, legHeight + 0.98 * scale, 0.15 * scale);
+      eyeWhite.scale.set(1, 0.6, 0.6);
+      group.add(eyeWhite);
+      
+      // Iris
+      const iris = new THREE.Mesh(irisGeom, irisMat);
+      iris.position.set(offsetX * scale, legHeight + 0.98 * scale, 0.17 * scale);
+      group.add(iris);
+      
+      // Pupil
+      const pupil = new THREE.Mesh(pupilGeom, pupilMat);
+      pupil.position.set(offsetX * scale, legHeight + 0.98 * scale, 0.175 * scale);
       group.add(pupil);
     });
     
-    // Angry eyebrows
-    const browGeom = new THREE.BoxGeometry(0.08 * scale, 0.02 * scale, 0.02 * scale);
+    // Angry eyebrows (thick, furrowed)
+    const browGeom = new THREE.BoxGeometry(0.08 * scale, 0.025 * scale, 0.03 * scale);
     const browMat = new THREE.MeshStandardMaterial({ color: type.hairColor });
-    [-0.08, 0.08].forEach((offsetX, i) => {
+    [-0.06, 0.06].forEach((offsetX, i) => {
       const brow = new THREE.Mesh(browGeom, browMat);
-      brow.position.set(offsetX * scale, 1.08 * scale, 0.2 * scale);
-      brow.rotation.z = (i === 0 ? 0.3 : -0.3);
+      brow.position.set(offsetX * scale, legHeight + 1.03 * scale, 0.14 * scale);
+      brow.rotation.z = (i === 0 ? 0.35 : -0.35);
+      brow.rotation.x = -0.1;
       group.add(brow);
     });
     
-    // Mouth - shouting
-    const mouthGeom = new THREE.TorusGeometry(0.06 * scale, 0.02 * scale, 8, 12, Math.PI);
-    const mouthMat = new THREE.MeshStandardMaterial({ color: 0x8b0000 });
+    // Nose
+    const noseGeom = new THREE.ConeGeometry(0.025 * scale, 0.06 * scale, 8);
+    const nose = new THREE.Mesh(noseGeom, skinMat);
+    nose.position.set(0, legHeight + 0.93 * scale, 0.17 * scale);
+    nose.rotation.x = -Math.PI / 2 + 0.3;
+    group.add(nose);
+    
+    // Nostrils
+    const nostrilGeom = new THREE.SphereGeometry(0.01 * scale, 8, 6);
+    const nostrilMat = new THREE.MeshStandardMaterial({ color: 0x4a3030 });
+    [-0.015, 0.015].forEach(offsetX => {
+      const nostril = new THREE.Mesh(nostrilGeom, nostrilMat);
+      nostril.position.set(offsetX * scale, legHeight + 0.91 * scale, 0.18 * scale);
+      group.add(nostril);
+    });
+    
+    // === MOUTH (shouting, showing teeth) ===
+    // Open mouth
+    const mouthGeom = new THREE.SphereGeometry(0.05 * scale, 16, 12, 0, Math.PI * 2, 0, Math.PI);
+    const mouthMat = new THREE.MeshStandardMaterial({ color: 0x3a0a0a });
     const mouth = new THREE.Mesh(mouthGeom, mouthMat);
-    mouth.position.set(0, 0.92 * scale, 0.22 * scale);
-    mouth.rotation.x = Math.PI / 2;
-    mouth.rotation.z = Math.PI;
+    mouth.position.set(0, legHeight + 0.86 * scale, 0.15 * scale);
+    mouth.scale.set(1.2, 0.8, 0.6);
+    mouth.rotation.x = Math.PI;
     group.add(mouth);
     
-    // Sharp teeth for bosses
-    if (type.isBoss) {
-      for (let i = 0; i < 4; i++) {
-        const toothGeom = new THREE.ConeGeometry(0.015 * scale, 0.04 * scale, 4);
-        const toothMat = new THREE.MeshStandardMaterial({ color: 0xffffee });
-        const tooth = new THREE.Mesh(toothGeom, toothMat);
-        tooth.position.set((i - 1.5) * 0.03 * scale, 0.9 * scale, 0.23 * scale);
-        tooth.rotation.x = Math.PI;
-        group.add(tooth);
-      }
+    // Lips
+    const upperLipGeom = new THREE.TorusGeometry(0.04 * scale, 0.012 * scale, 8, 16, Math.PI);
+    const lipMat = new THREE.MeshStandardMaterial({ color: 0xcc4466 });
+    const upperLip = new THREE.Mesh(upperLipGeom, lipMat);
+    upperLip.position.set(0, legHeight + 0.89 * scale, 0.155 * scale);
+    upperLip.rotation.x = Math.PI / 2;
+    upperLip.rotation.z = Math.PI;
+    group.add(upperLip);
+    
+    const lowerLip = new THREE.Mesh(upperLipGeom, lipMat);
+    lowerLip.position.set(0, legHeight + 0.84 * scale, 0.155 * scale);
+    lowerLip.rotation.x = Math.PI / 2;
+    group.add(lowerLip);
+    
+    // Sharp teeth (Karen's defining feature!)
+    const teethMat = new THREE.MeshStandardMaterial({ color: 0xfffef0 });
+    for (let i = 0; i < 8; i++) {
+      const isSharp = type.isBoss || i % 2 === 0;
+      const toothGeom = isSharp 
+        ? new THREE.ConeGeometry(0.008 * scale, 0.025 * scale, 4)
+        : new THREE.BoxGeometry(0.012 * scale, 0.018 * scale, 0.008 * scale);
+      const tooth = new THREE.Mesh(toothGeom, teethMat);
+      const x = (i - 3.5) * 0.012 * scale;
+      tooth.position.set(x, legHeight + 0.875 * scale, 0.16 * scale);
+      if (isSharp) tooth.rotation.x = Math.PI;
+      group.add(tooth);
     }
     
-    // Arms (crossed, angry pose)
-    const armGeom = new THREE.CylinderGeometry(0.06 * scale, 0.06 * scale, 0.4 * scale, 8);
-    const armMat = new THREE.MeshStandardMaterial({ color: type.skinTone });
+    // Bottom teeth
+    for (let i = 0; i < 6; i++) {
+      const toothGeom = type.isBoss 
+        ? new THREE.ConeGeometry(0.007 * scale, 0.02 * scale, 4)
+        : new THREE.BoxGeometry(0.01 * scale, 0.012 * scale, 0.006 * scale);
+      const tooth = new THREE.Mesh(toothGeom, teethMat);
+      const x = (i - 2.5) * 0.014 * scale;
+      tooth.position.set(x, legHeight + 0.845 * scale, 0.155 * scale);
+      group.add(tooth);
+    }
     
-    const leftArm = new THREE.Mesh(armGeom, armMat);
-    leftArm.position.set(-0.35 * scale, 0.5 * scale, 0.1 * scale);
-    leftArm.rotation.z = -Math.PI / 3;
-    leftArm.rotation.x = Math.PI / 6;
-    leftArm.castShadow = true;
-    group.add(leftArm);
+    // Earrings
+    const earringGeom = new THREE.SphereGeometry(0.02 * scale, 12, 8);
+    const earringMat = new THREE.MeshStandardMaterial({ 
+      color: 0xFFD700, 
+      metalness: 0.9, 
+      roughness: 0.1 
+    });
+    [-0.17, 0.17].forEach(offsetX => {
+      const earring = new THREE.Mesh(earringGeom, earringMat);
+      earring.position.set(offsetX * scale, legHeight + 0.9 * scale, 0);
+      group.add(earring);
+    });
     
-    const rightArm = new THREE.Mesh(armGeom, armMat);
-    rightArm.position.set(0.35 * scale, 0.5 * scale, 0.1 * scale);
-    rightArm.rotation.z = Math.PI / 3;
-    rightArm.rotation.x = Math.PI / 6;
-    rightArm.castShadow = true;
-    group.add(rightArm);
+    // Sunglasses on head (Karen signature)
+    const glassesGroup = new THREE.Group();
+    const frameGeom = new THREE.TorusGeometry(0.04 * scale, 0.008 * scale, 8, 24);
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.3 });
+    const leftFrame = new THREE.Mesh(frameGeom, frameMat);
+    leftFrame.position.set(-0.055 * scale, 0.22 * scale, 0.08 * scale);
+    leftFrame.rotation.x = Math.PI / 2 - 0.2;
+    glassesGroup.add(leftFrame);
+    const rightFrame = new THREE.Mesh(frameGeom, frameMat);
+    rightFrame.position.set(0.055 * scale, 0.22 * scale, 0.08 * scale);
+    rightFrame.rotation.x = Math.PI / 2 - 0.2;
+    glassesGroup.add(rightFrame);
+    const bridgeGeom = new THREE.CylinderGeometry(0.006 * scale, 0.006 * scale, 0.03 * scale, 8);
+    const bridge = new THREE.Mesh(bridgeGeom, frameMat);
+    bridge.position.set(0, 0.22 * scale, 0.1 * scale);
+    bridge.rotation.z = Math.PI / 2;
+    glassesGroup.add(bridge);
+    glassesGroup.position.y = legHeight + 0.78 * scale;
+    group.add(glassesGroup);
+    
+    // Handbag (on arm)
+    const bagGeom = new THREE.BoxGeometry(0.12 * scale, 0.1 * scale, 0.05 * scale);
+    const bagMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.3 });
+    const bag = new THREE.Mesh(bagGeom, bagMat);
+    bag.position.set(0.4 * scale, legHeight + 0.4 * scale, 0);
+    bag.rotation.z = Math.PI / 6;
+    group.add(bag);
     
     group.position.copy(position);
     
     // Create chat bubble sprite
     const canvas = document.createElement('canvas');
     canvas.width = 512;
-    canvas.height = 128;
+    canvas.height = 160;
     const ctx = canvas.getContext('2d')!;
     
     const insult = type.isBoss 
       ? BOSS_INSULTS[Math.floor(Math.random() * BOSS_INSULTS.length)]
       : KAREN_INSULTS[Math.floor(Math.random() * KAREN_INSULTS.length)];
     
-    // Draw bubble background
-    ctx.fillStyle = type.isBoss ? '#ff0000' : '#ffffff';
+    // Draw bubble background with shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 5;
+    
+    ctx.fillStyle = type.isBoss ? '#ff2020' : '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(15, 15, 482, 105, 20);
+    ctx.fill();
+    
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+    
     ctx.strokeStyle = type.isBoss ? '#aa0000' : '#333333';
     ctx.lineWidth = 4;
+    ctx.stroke();
+    
+    // Draw pointer triangle
+    ctx.fillStyle = type.isBoss ? '#ff2020' : '#ffffff';
     ctx.beginPath();
-    ctx.roundRect(10, 10, 492, 90, 20);
+    ctx.moveTo(220, 120);
+    ctx.lineTo(256, 155);
+    ctx.lineTo(292, 120);
     ctx.fill();
     ctx.stroke();
     
-    // Draw pointer
-    ctx.beginPath();
-    ctx.moveTo(230, 100);
-    ctx.lineTo(256, 120);
-    ctx.lineTo(282, 100);
-    ctx.fill();
-    
     // Draw text
-    ctx.fillStyle = type.isBoss ? '#ffffff' : '#000000';
-    ctx.font = 'bold 24px Arial';
+    ctx.fillStyle = type.isBoss ? '#ffffff' : '#1a1a1a';
+    ctx.font = 'bold 26px Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     
@@ -369,7 +629,7 @@ export default function KarenDungeon3D() {
     let lines: string[] = [];
     for (const word of words) {
       const test = line + word + ' ';
-      if (ctx.measureText(test).width > 470) {
+      if (ctx.measureText(test).width > 450) {
         lines.push(line.trim());
         line = word + ' ';
       } else {
@@ -378,8 +638,10 @@ export default function KarenDungeon3D() {
     }
     lines.push(line.trim());
     
+    const lineHeight = 30;
+    const startY = 70 - ((lines.length - 1) * lineHeight) / 2;
     lines.forEach((l, i) => {
-      ctx.fillText(l, 256, 40 + i * 28);
+      ctx.fillText(l, 256, startY + i * lineHeight);
     });
     
     const texture = new THREE.CanvasTexture(canvas);
@@ -389,98 +651,176 @@ export default function KarenDungeon3D() {
       depthTest: false
     });
     const sprite = new THREE.Sprite(spriteMat);
-    sprite.scale.set(2 * scale, 0.5 * scale, 1);
-    sprite.position.y = 1.6 * scale;
+    sprite.scale.set(2.5 * scale, 0.8 * scale, 1);
+    sprite.position.y = legHeight + 1.4 * scale;
     group.add(sprite);
     
     return {
       id: nextIdRef.current++,
       mesh: group,
       position: position.clone(),
-      health: type.isBoss ? 200 : 100,
+      health: type.isBoss ? 300 : 100,
       typeIndex,
-      speed: type.isBoss ? 1.5 : 2 + Math.random(),
+      speed: type.isBoss ? 1.2 : 2.2 + Math.random() * 0.8,
       dying: false,
       deathTime: 0,
       insult,
       chatBubble: sprite,
+      animPhase: Math.random() * Math.PI * 2,
     };
   }, []);
 
-  // Create meatball
+  // Create realistic meatball with sauce detail
   const createMeatball = useCallback((scene: THREE.Scene, pos: THREE.Vector3, dir: THREE.Vector3): Meatball => {
-    const geometry = new THREE.SphereGeometry(0.15, 16, 16);
+    const group = new THREE.Group();
+    
+    // Main meatball
+    const geometry = new THREE.SphereGeometry(0.12, 32, 24);
+    
+    // Add surface bumps for texture
+    const positionAttr = geometry.attributes.position;
+    for (let i = 0; i < positionAttr.count; i++) {
+      const x = positionAttr.getX(i);
+      const y = positionAttr.getY(i);
+      const z = positionAttr.getZ(i);
+      const noise = (Math.random() - 0.5) * 0.015;
+      positionAttr.setXYZ(i, x + noise, y + noise, z + noise);
+    }
+    geometry.computeVertexNormals();
+    
     const material = new THREE.MeshStandardMaterial({
-      color: 0x8b4513,
-      roughness: 0.6,
-      metalness: 0.2,
+      color: 0x7a4522,
+      roughness: 0.75,
+      metalness: 0.05,
     });
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.position.copy(pos);
     mesh.castShadow = true;
+    
+    // Add sauce drizzle
+    const sauceGeom = new THREE.TorusGeometry(0.08, 0.02, 8, 16, Math.PI * 1.5);
+    const sauceMat = new THREE.MeshStandardMaterial({ color: 0xcc2211, roughness: 0.4 });
+    const sauce = new THREE.Mesh(sauceGeom, sauceMat);
+    sauce.rotation.x = Math.PI / 2;
+    sauce.position.y = 0.02;
+    mesh.add(sauce);
+    
+    mesh.position.copy(pos);
     scene.add(mesh);
     
     // Trail particles
     const trailGeom = new THREE.BufferGeometry();
     const trailPositions = new Float32Array(30 * 3);
     trailGeom.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
-    const trailMat = new THREE.PointsMaterial({ color: 0xcc0000, size: 0.05, transparent: true, opacity: 0.6 });
+    const trailMat = new THREE.PointsMaterial({ 
+      color: 0xff4400, 
+      size: 0.08, 
+      transparent: true, 
+      opacity: 0.7 
+    });
     const trail = new THREE.Points(trailGeom, trailMat);
     scene.add(trail);
     
     return {
       id: nextIdRef.current++,
       mesh,
-      velocity: dir.clone().multiplyScalar(20),
+      velocity: dir.clone().multiplyScalar(22),
       trail,
     };
   }, []);
 
-  // Create gore explosion
+  // Create detailed gore explosion with body parts
   const createGoreExplosion = useCallback((scene: THREE.Scene, position: THREE.Vector3, type: typeof KAREN_TYPES[0]) => {
-    const colors = [0x8b0000, 0xdc143c, 0xb22222, type.hairColor, type.skinTone, 0xff6347];
+    const colors = [0x8b0000, 0xdc143c, 0xb22222, 0xff4040, type.hairColor, type.skinTone, type.outfit, 0xff6347];
     
-    for (let i = 0; i < 40; i++) {
-      const geom = new THREE.SphereGeometry(0.05 + Math.random() * 0.1, 6, 6);
+    // Gore chunks
+    for (let i = 0; i < 50; i++) {
+      const size = 0.03 + Math.random() * 0.12;
+      const geomType = Math.random();
+      let geom: THREE.BufferGeometry;
+      
+      if (geomType < 0.3) {
+        geom = new THREE.SphereGeometry(size, 8, 6);
+      } else if (geomType < 0.6) {
+        geom = new THREE.BoxGeometry(size, size * 0.6, size * 0.8);
+      } else {
+        geom = new THREE.ConeGeometry(size * 0.5, size * 1.5, 6);
+      }
+      
       const mat = new THREE.MeshStandardMaterial({
         color: colors[Math.floor(Math.random() * colors.length)],
-        roughness: 0.9,
+        roughness: 0.8,
         metalness: 0,
       });
       const mesh = new THREE.Mesh(geom, mat);
       mesh.position.copy(position);
-      mesh.position.y += 1;
+      mesh.position.y += 0.8 + Math.random() * 0.4;
       mesh.castShadow = true;
       scene.add(mesh);
+      
+      const speed = 6 + Math.random() * 8;
+      const angle = Math.random() * Math.PI * 2;
+      const upAngle = Math.random() * Math.PI * 0.4 + 0.2;
       
       particlesRef.current.push({
         mesh,
         velocity: new THREE.Vector3(
-          (Math.random() - 0.5) * 8,
-          Math.random() * 6 + 2,
-          (Math.random() - 0.5) * 8
+          Math.cos(angle) * Math.cos(upAngle) * speed,
+          Math.sin(upAngle) * speed,
+          Math.sin(angle) * Math.cos(upAngle) * speed
         ),
-        life: 2,
+        life: 2 + Math.random(),
+        rotationSpeed: new THREE.Vector3(
+          (Math.random() - 0.5) * 10,
+          (Math.random() - 0.5) * 10,
+          (Math.random() - 0.5) * 10
+        ),
       });
     }
     
-    // Muzzle flash / explosion light
-    const light = new THREE.PointLight(0xff4400, 5, 5);
+    // Blood splatter sprites
+    for (let i = 0; i < 20; i++) {
+      const splatGeom = new THREE.SphereGeometry(0.15 + Math.random() * 0.2, 8, 6);
+      splatGeom.scale(1, 0.1, 1);
+      const splatMat = new THREE.MeshStandardMaterial({ 
+        color: 0x8b0000, 
+        transparent: true,
+        opacity: 0.8 
+      });
+      const splat = new THREE.Mesh(splatGeom, splatMat);
+      
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 1 + Math.random() * 3;
+      splat.position.set(
+        position.x + Math.cos(angle) * dist,
+        0.01,
+        position.z + Math.sin(angle) * dist
+      );
+      splat.rotation.y = Math.random() * Math.PI * 2;
+      scene.add(splat);
+      
+      // Fade out and remove
+      setTimeout(() => {
+        scene.remove(splat);
+      }, 5000);
+    }
+    
+    // Explosion light
+    const light = new THREE.PointLight(0xff2200, 8, 8);
     light.position.copy(position);
     light.position.y += 1;
     scene.add(light);
     
-    setTimeout(() => scene.remove(light), 100);
+    setTimeout(() => scene.remove(light), 150);
   }, []);
 
-  // Initialize Three.js scene
+  // Initialize Three.js scene with enhanced graphics
   const initScene = useCallback(() => {
     if (!containerRef.current) return;
     
     // Scene
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0a0808);
-    scene.fog = new THREE.FogExp2(0x1a0a0a, 0.05);
+    scene.background = new THREE.Color(0x080606);
+    scene.fog = new THREE.FogExp2(0x120808, 0.035);
     sceneRef.current = scene;
     
     // Camera
@@ -488,216 +828,293 @@ export default function KarenDungeon3D() {
     camera.position.set(0, 1.6, 0);
     cameraRef.current = camera;
     
-    // Renderer with post-processing support
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // Enhanced Renderer
+    const renderer = new THREE.WebGLRenderer({ 
+      antialias: true, 
+      powerPreference: 'high-performance' 
+    });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Cap for mobile performance
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.2;
+    renderer.toneMappingExposure = 1.3;
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
     
-    // Ambient light
-    const ambient = new THREE.AmbientLight(0x331111, 0.4);
+    // Ambient light (warm)
+    const ambient = new THREE.AmbientLight(0x442222, 0.5);
     scene.add(ambient);
     
-    // Main directional light (like a torch)
-    const dirLight = new THREE.DirectionalLight(0xff6644, 1.2);
-    dirLight.position.set(5, 10, 5);
+    // Main directional light
+    const dirLight = new THREE.DirectionalLight(0xff8855, 1.0);
+    dirLight.position.set(5, 15, 5);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.width = 1024;
-    dirLight.shadow.mapSize.height = 1024;
+    dirLight.shadow.mapSize.width = 2048;
+    dirLight.shadow.mapSize.height = 2048;
     dirLight.shadow.camera.near = 0.5;
-    dirLight.shadow.camera.far = 50;
-    dirLight.shadow.camera.left = -20;
-    dirLight.shadow.camera.right = 20;
-    dirLight.shadow.camera.top = 20;
-    dirLight.shadow.camera.bottom = -20;
+    dirLight.shadow.camera.far = 60;
+    dirLight.shadow.camera.left = -30;
+    dirLight.shadow.camera.right = 30;
+    dirLight.shadow.camera.top = 30;
+    dirLight.shadow.camera.bottom = -30;
+    dirLight.shadow.bias = -0.0005;
     scene.add(dirLight);
     
     // Player flashlight
-    const flashlight = new THREE.SpotLight(0xffffcc, 2, 30, Math.PI / 4, 0.5, 1);
+    const flashlight = new THREE.SpotLight(0xffffdd, 2.5, 25, Math.PI / 4.5, 0.4, 1.5);
     flashlight.position.set(0, 0, 0);
     flashlight.target.position.set(0, 0, -1);
+    flashlight.castShadow = true;
+    flashlight.shadow.mapSize.width = 1024;
+    flashlight.shadow.mapSize.height = 1024;
     camera.add(flashlight);
     camera.add(flashlight.target);
     scene.add(camera);
     
-    // Floor
-    const floorGeom = new THREE.PlaneGeometry(100, 100);
+    // Enhanced Floor with texture-like pattern
+    const floorSize = 100;
+    const floorGeom = new THREE.PlaneGeometry(floorSize, floorSize, 50, 50);
+    
+    // Add slight height variation for depth
+    const floorPositions = floorGeom.attributes.position;
+    for (let i = 0; i < floorPositions.count; i++) {
+      const y = (Math.random() - 0.5) * 0.02;
+      floorPositions.setZ(i, y);
+    }
+    floorGeom.computeVertexNormals();
+    
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x2a1818,
-      roughness: 0.9,
-      metalness: 0.1,
+      color: 0x2a1a15,
+      roughness: 0.92,
+      metalness: 0.05,
     });
     const floor = new THREE.Mesh(floorGeom, floorMat);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
     
-    // Generate dungeon rooms
+    // Generate dungeon rooms with more detail
     const rooms = [
-      { x: 0, z: 0, width: 12, depth: 12, theme: 4 }, // Start room
-      { x: 18, z: 0, width: 10, depth: 10, theme: 0 },
-      { x: -18, z: 0, width: 10, depth: 10, theme: 1 },
-      { x: 0, z: 18, width: 10, depth: 10, theme: 2 },
-      { x: 0, z: -18, width: 10, depth: 10, theme: 3 },
-      { x: 20, z: 18, width: 8, depth: 8, theme: 0 },
-      { x: -20, z: 18, width: 8, depth: 8, theme: 1 },
-      { x: 20, z: -18, width: 8, depth: 8, theme: 2 },
-      { x: -20, z: -18, width: 8, depth: 8, theme: 3 },
+      { x: 0, z: 0, width: 14, depth: 14, theme: 4 },
+      { x: 20, z: 0, width: 12, depth: 12, theme: 0 },
+      { x: -20, z: 0, width: 12, depth: 12, theme: 1 },
+      { x: 0, z: 20, width: 12, depth: 12, theme: 2 },
+      { x: 0, z: -20, width: 12, depth: 12, theme: 3 },
+      { x: 22, z: 20, width: 10, depth: 10, theme: 0 },
+      { x: -22, z: 20, width: 10, depth: 10, theme: 1 },
+      { x: 22, z: -20, width: 10, depth: 10, theme: 2 },
+      { x: -22, z: -20, width: 10, depth: 10, theme: 3 },
     ];
     
     rooms.forEach(room => {
       const theme = ROOM_THEMES[room.theme];
-      const wallHeight = 4;
-      const wallThickness = 0.3;
+      const wallHeight = 4.5;
+      const wallThickness = 0.4;
       
-      // Wall material
+      // Wall material with subtle variation
       const wallMat = new THREE.MeshStandardMaterial({
         color: theme.wallColor,
         roughness: 0.85,
         metalness: 0.05,
       });
       
-      // Create walls
+      // Create textured walls
       const createWall = (width: number, height: number, depth: number, x: number, y: number, z: number) => {
-        const geom = new THREE.BoxGeometry(width, height, depth);
+        const geom = new THREE.BoxGeometry(width, height, depth, 4, 4, 1);
         const mesh = new THREE.Mesh(geom, wallMat);
         mesh.position.set(room.x + x, y, room.z + z);
         mesh.castShadow = true;
         mesh.receiveShadow = true;
         scene.add(mesh);
+        
+        // Add wall trim
+        const trimGeom = new THREE.BoxGeometry(width + 0.05, 0.1, depth + 0.05);
+        const trimMat = new THREE.MeshStandardMaterial({ color: 0x3a2a20, roughness: 0.7 });
+        const topTrim = new THREE.Mesh(trimGeom, trimMat);
+        topTrim.position.set(room.x + x, height - 0.05, room.z + z);
+        scene.add(topTrim);
+        const bottomTrim = new THREE.Mesh(trimGeom, trimMat);
+        bottomTrim.position.set(room.x + x, 0.05, room.z + z);
+        scene.add(bottomTrim);
       };
       
-      // North wall
       createWall(room.width, wallHeight, wallThickness, 0, wallHeight / 2, -room.depth / 2);
-      // South wall  
       createWall(room.width, wallHeight, wallThickness, 0, wallHeight / 2, room.depth / 2);
-      // East wall
       createWall(wallThickness, wallHeight, room.depth, room.width / 2, wallHeight / 2, 0);
-      // West wall
       createWall(wallThickness, wallHeight, room.depth, -room.width / 2, wallHeight / 2, 0);
       
-      // Ceiling
+      // Ceiling with detail
       const ceilGeom = new THREE.PlaneGeometry(room.width, room.depth);
-      const ceilMat = new THREE.MeshStandardMaterial({ color: 0x1a0a0a, roughness: 0.95 });
+      const ceilMat = new THREE.MeshStandardMaterial({ color: 0x1a0c0c, roughness: 0.95 });
       const ceiling = new THREE.Mesh(ceilGeom, ceilMat);
       ceiling.rotation.x = Math.PI / 2;
       ceiling.position.set(room.x, wallHeight, room.z);
       ceiling.receiveShadow = true;
       scene.add(ceiling);
       
-      // Room floor (different color per theme)
-      const roomFloorGeom = new THREE.PlaneGeometry(room.width - 0.2, room.depth - 0.2);
+      // Room floor
+      const roomFloorGeom = new THREE.PlaneGeometry(room.width - 0.3, room.depth - 0.3);
       const roomFloorMat = new THREE.MeshStandardMaterial({
         color: theme.floorColor,
         roughness: 0.8,
-        metalness: 0.1,
+        metalness: 0.08,
       });
       const roomFloor = new THREE.Mesh(roomFloorGeom, roomFloorMat);
       roomFloor.rotation.x = -Math.PI / 2;
-      roomFloor.position.set(room.x, 0.01, room.z);
+      roomFloor.position.set(room.x, 0.02, room.z);
       roomFloor.receiveShadow = true;
       scene.add(roomFloor);
       
-      // Torches for lighting
+      // Torches with animated flames
       const torchPositions = [
-        [room.width / 2 - 0.5, 2.5, room.depth / 2 - 0.5],
-        [-room.width / 2 + 0.5, 2.5, room.depth / 2 - 0.5],
-        [room.width / 2 - 0.5, 2.5, -room.depth / 2 + 0.5],
-        [-room.width / 2 + 0.5, 2.5, -room.depth / 2 + 0.5],
+        [room.width / 2 - 0.6, 2.8, room.depth / 2 - 0.6],
+        [-room.width / 2 + 0.6, 2.8, room.depth / 2 - 0.6],
+        [room.width / 2 - 0.6, 2.8, -room.depth / 2 + 0.6],
+        [-room.width / 2 + 0.6, 2.8, -room.depth / 2 + 0.6],
       ];
       
       torchPositions.forEach(([x, y, z]) => {
-        const torchLight = new THREE.PointLight(0xff6600, 1.5, 8);
+        // Torch light
+        const torchLight = new THREE.PointLight(0xff6622, 1.8, 10, 1.5);
         torchLight.position.set(room.x + x, y, room.z + z);
+        torchLight.castShadow = true;
+        torchLight.shadow.mapSize.width = 256;
+        torchLight.shadow.mapSize.height = 256;
         scene.add(torchLight);
         
-        // Torch mesh
-        const torchGeom = new THREE.CylinderGeometry(0.05, 0.08, 0.4, 6);
-        const torchMat = new THREE.MeshStandardMaterial({ color: 0x4a3020 });
+        // Torch bracket
+        const bracketGeom = new THREE.BoxGeometry(0.08, 0.15, 0.15);
+        const bracketMat = new THREE.MeshStandardMaterial({ color: 0x2a2020, metalness: 0.7 });
+        const bracket = new THREE.Mesh(bracketGeom, bracketMat);
+        bracket.position.set(room.x + x, y - 0.25, room.z + z);
+        scene.add(bracket);
+        
+        // Torch handle
+        const torchGeom = new THREE.CylinderGeometry(0.04, 0.06, 0.5, 8);
+        const torchMat = new THREE.MeshStandardMaterial({ color: 0x4a3525 });
         const torch = new THREE.Mesh(torchGeom, torchMat);
-        torch.position.set(room.x + x, y - 0.2, room.z + z);
+        torch.position.set(room.x + x, y - 0.1, room.z + z);
         scene.add(torch);
         
-        // Flame (billboard sprite or just a small bright sphere)
-        const flameGeom = new THREE.SphereGeometry(0.1, 8, 8);
-        const flameMat = new THREE.MeshBasicMaterial({ color: 0xff4400 });
-        const flame = new THREE.Mesh(flameGeom, flameMat);
-        flame.position.set(room.x + x, y + 0.1, room.z + z);
-        scene.add(flame);
+        // Flame (multiple layers for depth)
+        for (let f = 0; f < 3; f++) {
+          const flameGeom = new THREE.ConeGeometry(0.06 - f * 0.015, 0.15 - f * 0.03, 8);
+          const flameMat = new THREE.MeshBasicMaterial({ 
+            color: f === 0 ? 0xff4400 : f === 1 ? 0xff8800 : 0xffcc00,
+            transparent: true,
+            opacity: 0.9 - f * 0.2
+          });
+          const flame = new THREE.Mesh(flameGeom, flameMat);
+          flame.position.set(room.x + x, y + 0.2 + f * 0.02, room.z + z);
+          scene.add(flame);
+        }
       });
       
-      // Spawn ammo in rooms
-      if (room.theme !== 4 && Math.random() > 0.3) {
-        const ammoGeom = new THREE.BoxGeometry(0.4, 0.3, 0.4);
-        const ammoMat = new THREE.MeshStandardMaterial({ color: 0x4a7c59 });
-        const ammoMesh = new THREE.Mesh(ammoGeom, ammoMat);
-        ammoMesh.position.set(
-          room.x + (Math.random() - 0.5) * room.width * 0.5,
-          0.15,
-          room.z + (Math.random() - 0.5) * room.depth * 0.5
+      // Spawn ammo crates
+      if (room.theme !== 4 && Math.random() > 0.25) {
+        const crateGroup = new THREE.Group();
+        
+        // Crate body
+        const crateGeom = new THREE.BoxGeometry(0.5, 0.35, 0.5);
+        const crateMat = new THREE.MeshStandardMaterial({ color: 0x3a5a3a, roughness: 0.8 });
+        const crate = new THREE.Mesh(crateGeom, crateMat);
+        crate.castShadow = true;
+        crateGroup.add(crate);
+        
+        // Crate bands
+        const bandGeom = new THREE.BoxGeometry(0.52, 0.04, 0.52);
+        const bandMat = new THREE.MeshStandardMaterial({ color: 0x2a3a2a, metalness: 0.5 });
+        [-0.12, 0.12].forEach(y => {
+          const band = new THREE.Mesh(bandGeom, bandMat);
+          band.position.y = y;
+          crateGroup.add(band);
+        });
+        
+        // Ammo label
+        const labelGeom = new THREE.PlaneGeometry(0.25, 0.15);
+        const labelMat = new THREE.MeshStandardMaterial({ color: 0xccaa44 });
+        const label = new THREE.Mesh(labelGeom, labelMat);
+        label.position.set(0, 0, 0.26);
+        crateGroup.add(label);
+        
+        crateGroup.position.set(
+          room.x + (Math.random() - 0.5) * room.width * 0.6,
+          0.175,
+          room.z + (Math.random() - 0.5) * room.depth * 0.6
         );
-        ammoMesh.castShadow = true;
-        scene.add(ammoMesh);
+        scene.add(crateGroup);
         
         ammoPickupsRef.current.push({
           id: nextIdRef.current++,
-          mesh: ammoMesh,
+          mesh: crateGroup,
           collected: false,
         });
       }
     });
     
-    // Create meatball cannon (attached to camera)
+    // Create detailed meatball cannon
     const cannonGroup = new THREE.Group();
     
-    // Cannon barrel
-    const barrelGeom = new THREE.CylinderGeometry(0.08, 0.12, 0.5, 12);
+    // Cannon barrel (detailed)
+    const barrelGeom = new THREE.CylinderGeometry(0.06, 0.1, 0.6, 24);
     const barrelMat = new THREE.MeshStandardMaterial({ 
-      color: 0x3a3a3a, 
-      roughness: 0.3, 
-      metalness: 0.8 
+      color: 0x404040, 
+      roughness: 0.25, 
+      metalness: 0.85 
     });
     const barrel = new THREE.Mesh(barrelGeom, barrelMat);
     barrel.rotation.x = Math.PI / 2;
-    barrel.position.z = -0.3;
+    barrel.position.z = -0.35;
     cannonGroup.add(barrel);
     
-    // Cannon base
-    const baseGeom = new THREE.BoxGeometry(0.2, 0.15, 0.2);
-    const baseMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.7 });
-    const base = new THREE.Mesh(baseGeom, baseMat);
-    base.position.set(0, -0.1, 0);
-    cannonGroup.add(base);
+    // Barrel rings
+    for (let i = 0; i < 3; i++) {
+      const ringGeom = new THREE.TorusGeometry(0.08 - i * 0.01, 0.015, 8, 24);
+      const ringMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, metalness: 0.9 });
+      const ring = new THREE.Mesh(ringGeom, ringMat);
+      ring.position.z = -0.15 - i * 0.18;
+      cannonGroup.add(ring);
+    }
     
-    // Meatball in cannon
-    const loadedMeatGeom = new THREE.SphereGeometry(0.06, 12, 12);
-    const loadedMeatMat = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+    // Cannon body
+    const bodyGeom = new THREE.BoxGeometry(0.18, 0.14, 0.25);
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.7, roughness: 0.3 });
+    const body = new THREE.Mesh(bodyGeom, bodyMat);
+    body.position.set(0, -0.02, -0.05);
+    cannonGroup.add(body);
+    
+    // Handle grip
+    const gripGeom = new THREE.CylinderGeometry(0.035, 0.04, 0.12, 12);
+    const gripMat = new THREE.MeshStandardMaterial({ color: 0x4a3020, roughness: 0.9 });
+    const grip = new THREE.Mesh(gripGeom, gripMat);
+    grip.position.set(0, -0.12, 0.02);
+    cannonGroup.add(grip);
+    
+    // Loaded meatball visible in chamber
+    const loadedMeatGeom = new THREE.SphereGeometry(0.05, 16, 12);
+    const loadedMeatMat = new THREE.MeshStandardMaterial({ color: 0x7a4522 });
     const loadedMeat = new THREE.Mesh(loadedMeatGeom, loadedMeatMat);
-    loadedMeat.position.z = -0.4;
+    loadedMeat.position.z = -0.52;
     cannonGroup.add(loadedMeat);
     
-    cannonGroup.position.set(0.25, -0.2, -0.5);
-    cannonGroup.rotation.x = 0.1;
+    cannonGroup.position.set(0.22, -0.18, -0.45);
+    cannonGroup.rotation.x = 0.08;
     camera.add(cannonGroup);
     cannonRef.current = cannonGroup;
     
     // Spawn initial Karens
     const spawnPositions = [
-      new THREE.Vector3(15, 0, 0),
-      new THREE.Vector3(-15, 0, 0),
-      new THREE.Vector3(0, 0, 15),
-      new THREE.Vector3(0, 0, -15),
-      new THREE.Vector3(18, 0, 15),
+      new THREE.Vector3(17, 0, 0),
+      new THREE.Vector3(-17, 0, 0),
+      new THREE.Vector3(0, 0, 17),
+      new THREE.Vector3(0, 0, -17),
+      new THREE.Vector3(20, 0, 17),
     ];
     
     spawnPositions.forEach(pos => {
-      const typeIndex = Math.floor(Math.random() * 8); // Regular Karens only at start
+      const typeIndex = Math.floor(Math.random() * 8);
       const karen = createKaren(typeIndex, pos);
       scene.add(karen.mesh);
       karensRef.current.push(karen);
@@ -725,7 +1142,6 @@ export default function KarenDungeon3D() {
     setCombo(0);
     setMultiplier(1);
     
-    // Clear existing entities
     karensRef.current.forEach(k => sceneRef.current?.remove(k.mesh));
     karensRef.current = [];
     meatballsRef.current.forEach(m => {
@@ -736,14 +1152,15 @@ export default function KarenDungeon3D() {
     particlesRef.current.forEach(p => sceneRef.current?.remove(p.mesh));
     particlesRef.current = [];
     
-    // Reset ammo pickups
-    ammoPickupsRef.current.forEach(a => a.collected = false);
+    ammoPickupsRef.current.forEach(a => {
+      a.collected = false;
+      if (a.mesh) a.mesh.visible = true;
+    });
     
-    // Spawn fresh Karens
     if (sceneRef.current) {
       for (let i = 0; i < 5; i++) {
         const angle = (i / 5) * Math.PI * 2;
-        const dist = 12 + Math.random() * 8;
+        const dist = 14 + Math.random() * 8;
         const pos = new THREE.Vector3(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
         const typeIndex = Math.floor(Math.random() * 8);
         const karen = createKaren(typeIndex, pos);
@@ -765,15 +1182,13 @@ export default function KarenDungeon3D() {
     setAmmo(ammoRef.current);
     sounds.shoot();
     
-    // Cannon recoil animation
     if (cannonRef.current) {
       cannonRef.current.position.z = -0.3;
       setTimeout(() => {
-        if (cannonRef.current) cannonRef.current.position.z = -0.5;
+        if (cannonRef.current) cannonRef.current.position.z = -0.45;
       }, 100);
     }
     
-    // Create meatball
     const dir = new THREE.Vector3(0, 0, -1);
     dir.applyQuaternion(cameraRef.current.quaternion);
     
@@ -784,11 +1199,10 @@ export default function KarenDungeon3D() {
     );
     meatballsRef.current.push(meatball);
     
-    // Muzzle flash
-    const flash = new THREE.PointLight(0xff8800, 3, 3);
+    const flash = new THREE.PointLight(0xff8800, 5, 4);
     flash.position.copy(playerPosRef.current);
     sceneRef.current.add(flash);
-    setTimeout(() => sceneRef.current?.remove(flash), 50);
+    setTimeout(() => sceneRef.current?.remove(flash), 60);
   }, [sounds, createMeatball]);
 
   // Game loop
@@ -818,9 +1232,8 @@ export default function KarenDungeon3D() {
         return;
       }
       
-      // Player movement from thumbpad
-      const moveSpeed = 5 * delta;
-      const turnSpeed = 2 * delta;
+      const moveSpeed = 5.5 * delta;
+      const turnSpeed = 2.2 * delta;
       
       if (thumbpadRef.current.active) {
         const dx = thumbpadRef.current.currentX - thumbpadRef.current.startX;
@@ -830,11 +1243,8 @@ export default function KarenDungeon3D() {
         const moveX = Math.max(-1, Math.min(1, dx / maxDist));
         const moveY = Math.max(-1, Math.min(1, dy / maxDist));
         
-        // Forward/backward
         playerPosRef.current.x += Math.sin(playerRotRef.current) * -moveY * moveSpeed;
         playerPosRef.current.z += Math.cos(playerRotRef.current) * -moveY * moveSpeed;
-        
-        // Strafe
         playerPosRef.current.x += Math.sin(playerRotRef.current + Math.PI / 2) * moveX * moveSpeed;
         playerPosRef.current.z += Math.cos(playerRotRef.current + Math.PI / 2) * moveX * moveSpeed;
       }
@@ -846,15 +1256,15 @@ export default function KarenDungeon3D() {
         playerRotRef.current -= turn * turnSpeed;
       }
       
-      // Update camera
       camera.position.copy(playerPosRef.current);
       camera.rotation.y = playerRotRef.current;
       
       // Update meatballs
       meatballsRef.current = meatballsRef.current.filter(mb => {
         mb.mesh.position.add(mb.velocity.clone().multiplyScalar(delta));
+        mb.mesh.rotation.x += delta * 5;
+        mb.mesh.rotation.z += delta * 3;
         
-        // Check if out of range
         const dist = mb.mesh.position.distanceTo(playerPosRef.current);
         if (dist > 50) {
           scene.remove(mb.mesh);
@@ -862,13 +1272,12 @@ export default function KarenDungeon3D() {
           return false;
         }
         
-        // Check collision with Karens
         for (const karen of karensRef.current) {
           if (karen.dying) continue;
           
           const karenDist = mb.mesh.position.distanceTo(karen.position);
-          if (karenDist < 1) {
-            karen.health -= 60;
+          if (karenDist < 1.2) {
+            karen.health -= 65;
             sounds.splat();
             
             if (karen.health <= 0) {
@@ -877,7 +1286,6 @@ export default function KarenDungeon3D() {
               createGoreExplosion(scene, karen.position, KAREN_TYPES[karen.typeIndex]);
               sounds.explosion();
               
-              // Score
               const now = Date.now();
               if (now - lastComboTimeRef.current < 2000) {
                 comboRef.current++;
@@ -904,36 +1312,42 @@ export default function KarenDungeon3D() {
         return true;
       });
       
-      // Update particles
+      // Update particles with rotation
       particlesRef.current = particlesRef.current.filter(p => {
         p.mesh.position.add(p.velocity.clone().multiplyScalar(delta));
-        p.velocity.y -= 9.8 * delta;
+        p.velocity.y -= 12 * delta;
         p.life -= delta;
         
-        if (p.life <= 0 || p.mesh.position.y < 0) {
+        if (p.rotationSpeed) {
+          p.mesh.rotation.x += p.rotationSpeed.x * delta;
+          p.mesh.rotation.y += p.rotationSpeed.y * delta;
+          p.mesh.rotation.z += p.rotationSpeed.z * delta;
+        }
+        
+        if (p.life <= 0 || p.mesh.position.y < -0.1) {
           scene.remove(p.mesh);
           return false;
         }
         
-        p.mesh.scale.setScalar(p.life);
+        p.mesh.scale.setScalar(Math.max(0.1, p.life * 0.5));
         return true;
       });
       
-      // Update Karens
+      // Update Karens with walking animation
       karensRef.current = karensRef.current.filter(karen => {
         if (karen.dying) {
           karen.deathTime += delta;
-          karen.mesh.scale.setScalar(1 - karen.deathTime * 0.5);
-          karen.mesh.rotation.y += delta * 10;
+          karen.mesh.scale.setScalar(1 - karen.deathTime * 0.6);
+          karen.mesh.rotation.y += delta * 12;
+          karen.mesh.position.y -= delta * 2;
           
-          if (karen.deathTime > 1.5) {
+          if (karen.deathTime > 1.2) {
             scene.remove(karen.mesh);
             return false;
           }
           return true;
         }
         
-        // Move toward player
         const dir = new THREE.Vector3()
           .subVectors(playerPosRef.current, karen.position)
           .normalize();
@@ -942,26 +1356,27 @@ export default function KarenDungeon3D() {
         karen.mesh.position.copy(karen.position);
         karen.mesh.lookAt(playerPosRef.current.x, karen.position.y, playerPosRef.current.z);
         
-        // Bobbing animation
-        karen.mesh.position.y = Math.sin(Date.now() * 0.005 + karen.id) * 0.1;
+        // Walking bob animation
+        karen.animPhase += delta * 8;
+        karen.mesh.position.y = Math.abs(Math.sin(karen.animPhase)) * 0.08;
         
-        // Chat bubble always faces camera
+        // Slight body sway
+        karen.mesh.rotation.z = Math.sin(karen.animPhase * 0.5) * 0.05;
+        
         if (karen.chatBubble) {
           karen.chatBubble.quaternion.copy(camera.quaternion);
         }
         
-        // Check collision with player
         const playerDist = karen.position.distanceTo(playerPosRef.current);
-        if (playerDist < 1.2) {
-          healthRef.current -= 20;
+        if (playerDist < 1.3) {
+          healthRef.current -= 25;
           setHealth(healthRef.current);
           comboRef.current = 0;
           setCombo(0);
           setMultiplier(1);
           sounds.hurt();
           
-          // Knockback Karen
-          karen.position.add(dir.multiplyScalar(-3));
+          karen.position.add(dir.multiplyScalar(-3.5));
           
           if (healthRef.current <= 0) {
             sounds.stopMusic();
@@ -979,34 +1394,32 @@ export default function KarenDungeon3D() {
         if (pickup.collected) return;
         
         const dist = pickup.mesh.position.distanceTo(playerPosRef.current);
-        if (dist < 1.5) {
+        if (dist < 1.8) {
           pickup.collected = true;
           pickup.mesh.visible = false;
-          ammoRef.current = Math.min(50, ammoRef.current + 10);
+          ammoRef.current = Math.min(50, ammoRef.current + 12);
           setAmmo(ammoRef.current);
           sounds.pickup();
         }
         
-        // Floating animation
-        pickup.mesh.position.y = 0.15 + Math.sin(Date.now() * 0.003) * 0.05;
-        pickup.mesh.rotation.y += delta;
+        pickup.mesh.position.y = 0.175 + Math.sin(Date.now() * 0.003) * 0.05;
+        pickup.mesh.rotation.y += delta * 0.5;
       });
       
       // Spawn more Karens
       spawnTimerRef.current += delta;
-      if (spawnTimerRef.current > 3) {
+      if (spawnTimerRef.current > 2.8) {
         spawnTimerRef.current = 0;
         
         const angle = Math.random() * Math.PI * 2;
-        const dist = 15 + Math.random() * 10;
+        const dist = 16 + Math.random() * 10;
         const pos = new THREE.Vector3(
           playerPosRef.current.x + Math.cos(angle) * dist,
           0,
           playerPosRef.current.z + Math.sin(angle) * dist
         );
         
-        // Chance for boss Karen
-        const typeIndex = Math.random() < 0.1 
+        const typeIndex = Math.random() < 0.12 
           ? 8 + Math.floor(Math.random() * 2) 
           : Math.floor(Math.random() * 8);
         
@@ -1122,7 +1535,7 @@ export default function KarenDungeon3D() {
             <div className="text-xl font-bold text-white">{formatScore(score)}</div>
           </div>
           {combo > 1 && (
-            <div className="bg-orange-900/80 backdrop-blur-sm rounded-lg px-3 py-1 border border-orange-500/50">
+            <div className="bg-orange-900/80 backdrop-blur-sm rounded-lg px-3 py-1 border border-orange-500/50 animate-pulse">
               <div className="text-sm font-bold text-orange-300">
                 {combo}x COMBO! ({multiplier}x)
               </div>
@@ -1131,7 +1544,6 @@ export default function KarenDungeon3D() {
         </div>
         
         <div className="flex flex-col gap-1 items-end">
-          {/* Health bar */}
           <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-red-900/50 w-32">
             <div className="text-xs text-red-400 mb-1">HEALTH</div>
             <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
@@ -1142,7 +1554,6 @@ export default function KarenDungeon3D() {
             </div>
           </div>
           
-          {/* Ammo */}
           <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-1.5 border border-amber-900/50">
             <div className="text-xs text-amber-400">AMMO</div>
             <div className="text-xl font-bold text-amber-300">{ammo}</div>
@@ -1166,7 +1577,6 @@ export default function KarenDungeon3D() {
       {/* Touch Controls */}
       {gameState === 'playing' && (
         <>
-          {/* Left thumbpad - movement */}
           <div
             className="absolute left-4 bottom-4 w-32 h-32 rounded-full bg-white/10 border-2 border-white/30 flex items-center justify-center z-20"
             onTouchStart={handleLeftTouchStart}
@@ -1178,7 +1588,6 @@ export default function KarenDungeon3D() {
             </div>
           </div>
           
-          {/* Right thumbpad - look */}
           <div
             className="absolute right-36 bottom-4 w-32 h-32 rounded-full bg-white/10 border-2 border-white/30 flex items-center justify-center z-20"
             onTouchStart={handleRightTouchStart}
@@ -1190,7 +1599,6 @@ export default function KarenDungeon3D() {
             </div>
           </div>
           
-          {/* Fire button */}
           <button
             className="absolute right-4 bottom-4 w-28 h-28 rounded-full bg-red-600/80 border-4 border-red-400 flex items-center justify-center z-20 active:scale-95 active:bg-red-500"
             onTouchStart={(e) => { e.preventDefault(); shootMeatball(); }}
