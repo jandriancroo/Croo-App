@@ -2,7 +2,7 @@ import { Layout } from "@/components/Layout";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy, Gamepad2, Grid3X3, Target, ChevronRight } from "lucide-react";
+import { Trophy, Gamepad2, Grid3X3, Target, ChevronRight, Castle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -111,6 +111,28 @@ const Games = () => {
     },
   });
 
+  const { data: dungeonScores, isLoading: dungeonLoading } = useQuery({
+    queryKey: ['high-scores', 'karen-dungeon'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('game_high_scores')
+        .select(`
+          id,
+          user_id,
+          game_type,
+          score,
+          created_at,
+          profiles(full_name, profile_photo_url)
+        `)
+        .eq('game_type', 'karen-dungeon')
+        .order('score', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      return data as HighScore[];
+    },
+  });
+
   const renderLeaderboard = (scores: HighScore[] | undefined, loading: boolean, scoreLabel: string) => {
     if (loading) {
       return (
@@ -183,6 +205,16 @@ const Games = () => {
       emoji: '🍕',
     },
     {
+      id: 'karen-dungeon',
+      title: 'Karen Dungeon 3D',
+      description: 'First-person Karen hunting! Landscape only.',
+      icon: Castle,
+      path: '/games/karen-dungeon',
+      color: 'from-purple-500/20 to-pink-500/20',
+      iconColor: 'text-purple-500',
+      emoji: '🏰',
+    },
+    {
       id: 'snake',
       title: 'Snake',
       description: 'Tap to turn! Eat food and grow longer.',
@@ -238,6 +270,7 @@ const Games = () => {
                 <TabsTrigger value="minesweeper" className="flex-1 text-xs">💣</TabsTrigger>
                 <TabsTrigger value="basketball" className="flex-1 text-xs">🏀</TabsTrigger>
                 <TabsTrigger value="pizza" className="flex-1 text-xs">🍕</TabsTrigger>
+                <TabsTrigger value="dungeon" className="flex-1 text-xs">🏰</TabsTrigger>
               </TabsList>
               <TabsContent value="snake">
                 {renderLeaderboard(snakeScores, snakeLoading, 'pts')}
@@ -250,6 +283,9 @@ const Games = () => {
               </TabsContent>
               <TabsContent value="pizza">
                 {renderLeaderboard(pizzaScores, pizzaLoading, 'pts')}
+              </TabsContent>
+              <TabsContent value="dungeon">
+                {renderLeaderboard(dungeonScores, dungeonLoading, 'pts')}
               </TabsContent>
             </Tabs>
           </CardContent>
