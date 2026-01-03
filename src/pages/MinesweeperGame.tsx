@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { ShareScoreDialog } from "@/components/games/ShareScoreDialog";
+import { useGameMusic } from "@/hooks/useGameMusic";
 
 type CellState = {
   isMine: boolean;
@@ -24,6 +25,9 @@ const MinesweeperGame = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  
+  // Background music - puzzle theme
+  const { play: playMusic, stop: stopMusic } = useGameMusic('puzzle');
 
   const [difficulty, setDifficulty] = useState<Difficulty>('easy');
   const [gameState, setGameState] = useState<'idle' | 'playing' | 'won' | 'lost'>('idle');
@@ -128,7 +132,8 @@ const MinesweeperGame = () => {
     setFlagCount(0);
     setStartTime(null);
     setElapsedTime(0);
-  }, [config]);
+    playMusic(); // Start puzzle music
+  }, [config, playMusic]);
 
   // Reveal cell
   const revealCell = useCallback((row: number, col: number, currentBoard: CellState[][], revealTime: number): CellState[][] => {

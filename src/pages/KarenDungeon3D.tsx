@@ -9,6 +9,7 @@ import { ShareScoreDialog } from '@/components/games/ShareScoreDialog';
 import karenHead1 from '@/assets/karen-head-1.jpeg';
 import karenHead2 from '@/assets/karen-head-2.jpeg';
 import karenHead3 from '@/assets/karen-head-3.jpeg';
+import { useGameMusic } from '@/hooks/useGameMusic';
 
 interface Karen {
   id: number;
@@ -47,6 +48,9 @@ export default function KarenDungeon3D() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
+  
+  // Background music - dungeon theme
+  const { play: playMusic, stop: stopMusic } = useGameMusic('dungeon');
   
   const [gameState, setGameState] = useState<GameState>('portrait-warning');
   const [score, setScore] = useState(0);
@@ -217,6 +221,7 @@ export default function KarenDungeon3D() {
     setCombo(0);
     setMultiplier(1);
     setGameState('playing');
+    playMusic(); // Start dungeon music
     
     // Spawn initial Karens
     for (let i = 0; i < 3; i++) {
@@ -244,23 +249,108 @@ export default function KarenDungeon3D() {
       const width = canvas.width;
       const height = canvas.height;
       
-      // Clear canvas with dungeon floor color
-      ctx.fillStyle = '#1a1a2e';
+      // Clear canvas
+      ctx.fillStyle = '#0a0a15';
       ctx.fillRect(0, 0, width, height);
       
-      // Draw floor gradient
-      const floorGradient = ctx.createLinearGradient(0, height * 0.5, 0, height);
-      floorGradient.addColorStop(0, '#2d2d44');
-      floorGradient.addColorStop(1, '#1a1a2e');
-      ctx.fillStyle = floorGradient;
-      ctx.fillRect(0, height * 0.5, width, height * 0.5);
+      // === DUKE NUKEM STYLE TEXTURED DUNGEON ===
       
-      // Draw ceiling
-      const ceilGradient = ctx.createLinearGradient(0, 0, 0, height * 0.5);
-      ceilGradient.addColorStop(0, '#0f0f1a');
-      ceilGradient.addColorStop(1, '#1a1a2e');
+      // Draw ceiling with stone texture pattern
+      const ceilGradient = ctx.createLinearGradient(0, 0, 0, height * 0.45);
+      ceilGradient.addColorStop(0, '#1a1a2e');
+      ceilGradient.addColorStop(0.5, '#252542');
+      ceilGradient.addColorStop(1, '#0f0f1a');
       ctx.fillStyle = ceilGradient;
-      ctx.fillRect(0, 0, width, height * 0.5);
+      ctx.fillRect(0, 0, width, height * 0.45);
+      
+      // Ceiling stone pattern
+      ctx.strokeStyle = 'rgba(100, 100, 120, 0.2)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < width; i += 40) {
+        const offsetX = (playerRef.current.x * 10 + i) % 40;
+        for (let j = 0; j < height * 0.45; j += 30) {
+          ctx.strokeRect(i - offsetX, j, 38, 28);
+        }
+      }
+      
+      // Draw floor with tile pattern
+      const floorGradient = ctx.createLinearGradient(0, height * 0.55, 0, height);
+      floorGradient.addColorStop(0, '#1a1a2e');
+      floorGradient.addColorStop(0.3, '#2d2d44');
+      floorGradient.addColorStop(1, '#3a3a55');
+      ctx.fillStyle = floorGradient;
+      ctx.fillRect(0, height * 0.55, width, height * 0.45);
+      
+      // Floor tile pattern with perspective
+      for (let row = 0; row < 8; row++) {
+        const y = height * 0.55 + row * (height * 0.06);
+        const perspective = 1 - (row / 12);
+        const tileWidth = 60 / perspective;
+        const offsetX = (playerRef.current.angle * 100) % tileWidth;
+        
+        for (let i = -1; i < width / tileWidth + 1; i++) {
+          const x = i * tileWidth - offsetX;
+          const shade = ((Math.floor(i) + row) % 2 === 0) ? 0.1 : 0;
+          ctx.fillStyle = `rgba(80, 80, 100, ${shade})`;
+          ctx.fillRect(x, y, tileWidth - 1, height * 0.06 - 1);
+        }
+      }
+      
+      // Draw distant walls
+      const wallCount = 12;
+      for (let i = 0; i < wallCount; i++) {
+        const wallAngle = (i / wallCount) * Math.PI * 2;
+        const relAngle = wallAngle - playerRef.current.angle;
+        const normalizedAngle = ((relAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+        
+        if (Math.abs(normalizedAngle) < Math.PI / 2) {
+          const screenX = width / 2 + Math.tan(normalizedAngle) * (width / 2);
+          const distance = 15 + Math.sin(wallAngle * 3) * 3;
+          const wallHeight = height * 0.4 / (distance / 10);
+          const wallWidth = 120 / (distance / 10);
+          
+          // Stone wall texture
+          const darkness = Math.max(0.2, 1 - distance / 25);
+          const wallGradient = ctx.createLinearGradient(screenX - wallWidth/2, 0, screenX + wallWidth/2, 0);
+          wallGradient.addColorStop(0, `rgba(60, 50, 70, ${darkness})`);
+          wallGradient.addColorStop(0.5, `rgba(80, 70, 90, ${darkness})`);
+          wallGradient.addColorStop(1, `rgba(50, 40, 60, ${darkness})`);
+          
+          ctx.fillStyle = wallGradient;
+          ctx.fillRect(screenX - wallWidth/2, height * 0.5 - wallHeight, wallWidth, wallHeight * 2);
+          
+          // Stone brick pattern
+          ctx.strokeStyle = `rgba(40, 30, 50, ${darkness * 0.8})`;
+          ctx.lineWidth = 2;
+          const brickRows = Math.floor(wallHeight * 2 / 20);
+          for (let br = 0; br < brickRows; br++) {
+            const brickY = height * 0.5 - wallHeight + br * 20;
+            const offsetBrick = (br % 2) * (wallWidth / 4);
+            for (let bc = 0; bc < 4; bc++) {
+              const brickX = screenX - wallWidth/2 + bc * (wallWidth / 3) + offsetBrick;
+              ctx.strokeRect(brickX, brickY, wallWidth / 3 - 2, 18);
+            }
+          }
+          
+          // Torch on wall occasionally
+          if (i % 3 === 0) {
+            // Torch holder
+            ctx.fillStyle = `rgba(100, 70, 40, ${darkness})`;
+            ctx.fillRect(screenX - 5, height * 0.5 - wallHeight * 0.5, 10, 15);
+            
+            // Flame
+            const flameFlicker = Math.sin(timestamp / 100 + i) * 3;
+            const flameGradient = ctx.createRadialGradient(screenX, height * 0.5 - wallHeight * 0.5 - 10, 0, screenX, height * 0.5 - wallHeight * 0.5 - 10, 15);
+            flameGradient.addColorStop(0, 'rgba(255, 200, 50, 0.9)');
+            flameGradient.addColorStop(0.5, 'rgba(255, 100, 20, 0.6)');
+            flameGradient.addColorStop(1, 'rgba(255, 50, 0, 0)');
+            ctx.fillStyle = flameGradient;
+            ctx.beginPath();
+            ctx.ellipse(screenX, height * 0.5 - wallHeight * 0.5 - 10 + flameFlicker, 12, 18 + flameFlicker, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
       
       // Player movement
       const moveSpeed = 0.08 * (deltaTime / 16);
@@ -502,7 +592,7 @@ export default function KarenDungeon3D() {
         }
       });
       
-      // Draw meatballs
+      // Draw meatballs - realistic style
       meatballsRef.current.forEach(meatball => {
         const relX = meatball.x - playerRef.current.x;
         const relZ = meatball.z - playerRef.current.z;
@@ -513,36 +603,145 @@ export default function KarenDungeon3D() {
         
         const screenX = width / 2 + Math.tan(angle) * (width / 2);
         const scale = Math.max(0.1, 2 / dist);
-        const size = 20 * scale;
+        const size = 25 * scale;
         const screenY = height * 0.5;
         
-        // Meatball
-        const gradient = ctx.createRadialGradient(screenX - size * 0.2, screenY - size * 0.2, 0, screenX, screenY, size);
-        gradient.addColorStop(0, '#8b4513');
-        gradient.addColorStop(1, '#5c3317');
-        ctx.fillStyle = gradient;
+        // Meatball shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.beginPath();
+        ctx.ellipse(screenX + 3, screenY + size * 0.8, size * 0.9, size * 0.3, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Meatball base with realistic shading
+        const meatGradient = ctx.createRadialGradient(screenX - size * 0.3, screenY - size * 0.3, 0, screenX, screenY, size);
+        meatGradient.addColorStop(0, '#a0522d');
+        meatGradient.addColorStop(0.3, '#8b4513');
+        meatGradient.addColorStop(0.7, '#6b3810');
+        meatGradient.addColorStop(1, '#4a2508');
+        ctx.fillStyle = meatGradient;
         ctx.beginPath();
         ctx.arc(screenX, screenY, size, 0, Math.PI * 2);
         ctx.fill();
+        
+        // Meat texture (bumps)
+        ctx.fillStyle = 'rgba(90, 50, 20, 0.5)';
+        for (let b = 0; b < 4; b++) {
+          const bumpAngle = (b / 4) * Math.PI * 2 + timestamp / 500;
+          const bumpX = screenX + Math.cos(bumpAngle) * size * 0.5;
+          const bumpY = screenY + Math.sin(bumpAngle) * size * 0.5;
+          ctx.beginPath();
+          ctx.arc(bumpX, bumpY, size * 0.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        
+        // Highlight
+        ctx.fillStyle = 'rgba(255, 200, 150, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(screenX - size * 0.3, screenY - size * 0.3, size * 0.25, size * 0.15, -0.5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Sauce drip
+        ctx.fillStyle = '#8b0000';
+        ctx.beginPath();
+        ctx.arc(screenX + size * 0.5, screenY + size * 0.2, size * 0.15, 0, Math.PI * 2);
+        ctx.fill();
       });
       
-      // Draw paddle if swinging
+      // Draw pizza paddle if swinging - realistic wooden paddle
       if (swingingRef.current) {
-        const paddleX = width / 2 + Math.sin(swingAngleRef.current * Math.PI / 180) * 100;
-        const paddleY = height * 0.7;
+        const swingProgress = swingAngleRef.current / 180;
+        const paddleX = width / 2 + Math.sin(swingAngleRef.current * Math.PI / 180) * 150;
+        const paddleY = height * 0.65 - Math.sin(swingProgress * Math.PI) * 50;
+        const paddleRotation = -0.3 + swingProgress * 1.2;
         
-        // Paddle handle
-        ctx.fillStyle = '#8b4513';
-        ctx.fillRect(paddleX - 10, paddleY, 20, 80);
+        ctx.save();
+        ctx.translate(paddleX, paddleY);
+        ctx.rotate(paddleRotation);
+        
+        // Paddle handle - wooden texture
+        const handleGradient = ctx.createLinearGradient(-8, 0, 8, 0);
+        handleGradient.addColorStop(0, '#5c3d2e');
+        handleGradient.addColorStop(0.3, '#8b5a2b');
+        handleGradient.addColorStop(0.7, '#6b4423');
+        handleGradient.addColorStop(1, '#4a3020');
+        ctx.fillStyle = handleGradient;
+        ctx.beginPath();
+        ctx.roundRect(-12, 20, 24, 100, 4);
+        ctx.fill();
+        
+        // Wood grain on handle
+        ctx.strokeStyle = 'rgba(60, 40, 25, 0.4)';
+        ctx.lineWidth = 1;
+        for (let g = 0; g < 5; g++) {
+          ctx.beginPath();
+          ctx.moveTo(-8 + g * 5, 25);
+          ctx.lineTo(-8 + g * 5, 115);
+          ctx.stroke();
+        }
+        
+        // Paddle head - circular wooden
+        const headGradient = ctx.createRadialGradient(-10, -30, 0, 0, 0, 70);
+        headGradient.addColorStop(0, '#deb887');
+        headGradient.addColorStop(0.5, '#c9a86c');
+        headGradient.addColorStop(1, '#a0825a');
+        ctx.fillStyle = headGradient;
+        ctx.beginPath();
+        ctx.ellipse(0, -30, 60, 70, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Wood grain on paddle head
+        ctx.strokeStyle = 'rgba(100, 70, 40, 0.3)';
+        ctx.lineWidth = 2;
+        for (let g = 0; g < 6; g++) {
+          ctx.beginPath();
+          ctx.ellipse(0, -30, 15 + g * 10, 20 + g * 12, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        
+        // Border
+        ctx.strokeStyle = '#6b4423';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.ellipse(0, -30, 60, 70, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Highlight
+        ctx.fillStyle = 'rgba(255, 255, 200, 0.2)';
+        ctx.beginPath();
+        ctx.ellipse(-20, -50, 25, 30, -0.4, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+      } else {
+        // Draw paddle at rest position (bottom right)
+        ctx.save();
+        ctx.translate(width - 80, height - 60);
+        ctx.rotate(-0.3);
+        
+        // Handle
+        const handleGradient = ctx.createLinearGradient(-5, 0, 5, 0);
+        handleGradient.addColorStop(0, '#5c3d2e');
+        handleGradient.addColorStop(0.5, '#8b5a2b');
+        handleGradient.addColorStop(1, '#4a3020');
+        ctx.fillStyle = handleGradient;
+        ctx.beginPath();
+        ctx.roundRect(-8, 15, 16, 60, 3);
+        ctx.fill();
         
         // Paddle head
-        ctx.fillStyle = '#deb887';
+        const headGradient = ctx.createRadialGradient(-5, -15, 0, 0, 0, 40);
+        headGradient.addColorStop(0, '#deb887');
+        headGradient.addColorStop(1, '#a0825a');
+        ctx.fillStyle = headGradient;
         ctx.beginPath();
-        ctx.ellipse(paddleX, paddleY - 30, 50, 60, 0, 0, Math.PI * 2);
+        ctx.ellipse(0, -20, 35, 45, 0, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = '#8b4513';
+        
+        ctx.strokeStyle = '#6b4423';
         ctx.lineWidth = 3;
         ctx.stroke();
+        
+        ctx.restore();
       }
       
       // Draw crosshair

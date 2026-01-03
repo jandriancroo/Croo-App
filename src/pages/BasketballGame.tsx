@@ -8,6 +8,7 @@ import { ArrowLeft, Play, RotateCcw, Trophy, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ShareScoreDialog } from "@/components/games/ShareScoreDialog";
+import { useGameMusic } from "@/hooks/useGameMusic";
 
 const GAME_DURATION = 45; // More time
 const GRAVITY = 0.4; // Slower gravity for more control
@@ -29,6 +30,9 @@ const BasketballGame = () => {
   const queryClient = useQueryClient();
   const canvasRef = useRef<HTMLDivElement>(null);
   const animationRef = useRef<number>();
+  
+  // Background music - sports theme
+  const { play: playMusic, stop: stopMusic } = useGameMusic('sports');
 
   const [gameState, setGameState] = useState<'idle' | 'playing' | 'gameover'>('idle');
   const [score, setScore] = useState(0);
@@ -70,7 +74,8 @@ const BasketballGame = () => {
     setBallIdCounter(0);
     setHoopX(50);
     setGameState('playing');
-  }, []);
+    playMusic(); // Start sports music
+  }, [playMusic]);
 
   // Handle aim preview
   const handlePointerMove = useCallback((clientX: number, clientY: number) => {
