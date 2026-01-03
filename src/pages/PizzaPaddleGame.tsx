@@ -576,6 +576,87 @@ const PizzaPaddleGame = () => {
     ctx.strokeRect(platform.x + 1, platform.y + 1, platform.width - 2, 20);
   };
 
+  // Draw chat bubble with Karen phrase
+  const drawChatBubble = (ctx: CanvasRenderingContext2D, x: number, y: number, phrase: string, isBoss: boolean) => {
+    ctx.save();
+    
+    // Measure text for bubble size
+    const fontSize = isBoss ? 11 : 9;
+    ctx.font = `bold ${fontSize}px Arial`;
+    
+    // Word wrap the phrase
+    const maxWidth = isBoss ? 140 : 110;
+    const words = phrase.split(' ');
+    let lines: string[] = [];
+    let currentLine = '';
+    
+    for (const word of words) {
+      const testLine = currentLine + word + ' ';
+      if (ctx.measureText(testLine).width > maxWidth) {
+        if (currentLine) lines.push(currentLine.trim());
+        currentLine = word + ' ';
+      } else {
+        currentLine = testLine;
+      }
+    }
+    if (currentLine.trim()) lines.push(currentLine.trim());
+    
+    // Calculate bubble dimensions
+    const lineHeight = fontSize + 4;
+    const padding = 8;
+    const bubbleHeight = lines.length * lineHeight + padding * 2;
+    const maxLineWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
+    const bubbleWidth = maxLineWidth + padding * 2;
+    
+    const bubbleX = x - bubbleWidth / 2;
+    const bubbleY = y - bubbleHeight - 15;
+    
+    // Draw bubble shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+    ctx.beginPath();
+    ctx.roundRect(bubbleX + 3, bubbleY + 3, bubbleWidth, bubbleHeight, 8);
+    ctx.fill();
+    
+    // Draw bubble background
+    ctx.fillStyle = isBoss ? '#ff2222' : '#ffffff';
+    ctx.strokeStyle = isBoss ? '#aa0000' : '#333333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 8);
+    ctx.fill();
+    ctx.stroke();
+    
+    // Draw bubble pointer (triangle pointing down)
+    ctx.fillStyle = isBoss ? '#ff2222' : '#ffffff';
+    ctx.beginPath();
+    ctx.moveTo(x - 8, bubbleY + bubbleHeight);
+    ctx.lineTo(x, bubbleY + bubbleHeight + 10);
+    ctx.lineTo(x + 8, bubbleY + bubbleHeight);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw pointer border
+    ctx.strokeStyle = isBoss ? '#aa0000' : '#333333';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x - 8, bubbleY + bubbleHeight);
+    ctx.lineTo(x, bubbleY + bubbleHeight + 10);
+    ctx.lineTo(x + 8, bubbleY + bubbleHeight);
+    ctx.stroke();
+    
+    // Draw text
+    ctx.fillStyle = isBoss ? '#ffffff' : '#000000';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    lines.forEach((line, i) => {
+      const textY = bubbleY + padding + lineHeight / 2 + i * lineHeight;
+      ctx.fillText(line, x, textY);
+    });
+    
+    ctx.restore();
+  };
+
   // Draw Karen - either photo or cartoon style
   const drawKaren = (ctx: CanvasRenderingContext2D, karen: Karen, frame: number) => {
     const { x, y, type, isBoss, headImage, usePhoto } = karen;
@@ -586,11 +667,10 @@ const PizzaPaddleGame = () => {
 
     ctx.save();
     
-    // Draw phrase above Karen
-    ctx.font = isBoss ? 'bold 12px sans-serif' : 'bold 10px sans-serif';
-    ctx.fillStyle = isBoss ? '#ff0000' : '#333';
-    ctx.textAlign = 'center';
-    ctx.fillText(karen.phrase, x + 22 * scale, y - 30 * scale);
+    // Draw chat bubble with phrase
+    const bubbleX = x + 22 * scale;
+    const bubbleY = y - 20 * scale;
+    drawChatBubble(ctx, bubbleX, bubbleY, karen.phrase, isBoss);
 
     // Body (smaller relative to head for comedic effect)
     ctx.fillStyle = isBoss ? '#2c0000' : '#e91e63';
