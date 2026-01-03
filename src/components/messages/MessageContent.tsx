@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 import { ShiftOfferMessage } from "./ShiftOfferMessage";
+import { GameScoreMessage } from "./GameScoreMessage";
 
 interface MessageContentProps {
   content: string;
@@ -18,6 +19,18 @@ export function MessageContent({ content, chatId }: MessageContentProps) {
   if (content?.startsWith("SHIFT_OFFER:")) {
     const offerId = content.replace("SHIFT_OFFER:", "");
     return <ShiftOfferMessage offerId={offerId} messageId={chatId} />;
+  }
+
+  // Check if this is a game score message
+  // Format: GAME_SCORE:gameType:score:playerName
+  if (content?.startsWith("GAME_SCORE:")) {
+    const parts = content.replace("GAME_SCORE:", "").split(":");
+    if (parts.length >= 3) {
+      const gameType = parts[0];
+      const score = parseInt(parts[1], 10);
+      const playerName = parts.slice(2).join(":"); // Handle names with colons
+      return <GameScoreMessage gameType={gameType} score={score} playerName={playerName} />;
+    }
   }
 
   const [profiles, setProfiles] = useState<Profile[]>([]);

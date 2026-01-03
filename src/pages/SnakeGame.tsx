@@ -5,10 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowLeft, Play, RotateCcw, Trophy } from "lucide-react";
+import { ArrowLeft, Play, RotateCcw, Trophy, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
-
+import { ShareScoreDialog } from "@/components/games/ShareScoreDialog";
 type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
 type Position = { x: number; y: number };
 
@@ -31,6 +31,7 @@ const SnakeGame = () => {
   const [score, setScore] = useState(0);
   const [highScore, setHighScore] = useState(0);
   const [speed, setSpeed] = useState(INITIAL_SPEED);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
 
   const directionRef = useRef(direction);
   directionRef.current = direction;
@@ -285,10 +286,23 @@ const SnakeGame = () => {
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
                   <p className="text-xl font-bold text-destructive mb-2">Game Over!</p>
                   <p className="text-2xl font-bold mb-4">{score} points</p>
-                  <Button onClick={startGame} size="lg" className="gap-2">
-                    <RotateCcw className="h-5 w-5" />
-                    Play Again
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={startGame} size="lg" className="gap-2">
+                      <RotateCcw className="h-5 w-5" />
+                      Play Again
+                    </Button>
+                    {score > 0 && (
+                      <Button 
+                        onClick={() => setShareDialogOpen(true)} 
+                        size="lg" 
+                        variant="outline"
+                        className="gap-2"
+                      >
+                        <Share2 className="h-5 w-5" />
+                        Share
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -302,6 +316,13 @@ const SnakeGame = () => {
           </p>
         )}
       </div>
+
+      <ShareScoreDialog
+        open={shareDialogOpen}
+        onOpenChange={setShareDialogOpen}
+        gameType="snake"
+        score={score}
+      />
     </Layout>
   );
 };
