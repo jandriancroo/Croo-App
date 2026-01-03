@@ -177,12 +177,12 @@ const PizzaPaddleGame = () => {
 
     ctx.save();
     
-    // Draw title above Karen
-    ctx.font = isBoss ? 'bold 11px sans-serif' : '9px sans-serif';
+    // Draw title above Karen (static, no shake)
+    ctx.font = isBoss ? 'bold 14px sans-serif' : 'bold 12px sans-serif';
     ctx.fillStyle = isBoss ? '#ff0000' : '#333';
     ctx.textAlign = 'center';
     const title = config.title;
-    ctx.fillText(title, x + 20 * scale, y - 15 * scale + bobOffset);
+    ctx.fillText(title, x + 20 * scale, y - 20 * scale);
 
     // Body
     ctx.fillStyle = isBoss ? '#2c0000' : '#e91e63';
