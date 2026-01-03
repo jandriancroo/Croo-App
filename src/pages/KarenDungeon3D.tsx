@@ -1232,9 +1232,10 @@ export default function KarenDungeon3D() {
         return;
       }
       
-      const moveSpeed = 5.5 * delta;
-      const turnSpeed = 2.2 * delta;
+      const moveSpeed = 6.0 * delta;
+      const turnSpeed = 3.5 * delta;
       
+      // Left stick - movement only (relative to current facing direction)
       if (thumbpadRef.current.active) {
         const dx = thumbpadRef.current.currentX - thumbpadRef.current.startX;
         const dy = thumbpadRef.current.currentY - thumbpadRef.current.startY;
@@ -1243,17 +1244,23 @@ export default function KarenDungeon3D() {
         const moveX = Math.max(-1, Math.min(1, dx / maxDist));
         const moveY = Math.max(-1, Math.min(1, dy / maxDist));
         
+        // Forward/backward movement
         playerPosRef.current.x += Math.sin(playerRotRef.current) * -moveY * moveSpeed;
         playerPosRef.current.z += Math.cos(playerRotRef.current) * -moveY * moveSpeed;
+        // Strafe left/right
         playerPosRef.current.x += Math.sin(playerRotRef.current + Math.PI / 2) * moveX * moveSpeed;
         playerPosRef.current.z += Math.cos(playerRotRef.current + Math.PI / 2) * moveX * moveSpeed;
       }
       
+      // Right stick - aiming (rotation on both axes)
       if (lookpadRef.current.active) {
         const dx = lookpadRef.current.currentX - lookpadRef.current.startX;
-        const maxDist = 50;
+        const maxDist = 40;
         const turn = Math.max(-1, Math.min(1, dx / maxDist));
         playerRotRef.current -= turn * turnSpeed;
+        
+        // Reset start position for continuous aiming feel
+        lookpadRef.current.startX = lookpadRef.current.currentX * 0.1 + lookpadRef.current.startX * 0.9;
       }
       
       camera.position.copy(playerPosRef.current);
@@ -1577,33 +1584,36 @@ export default function KarenDungeon3D() {
       {/* Touch Controls */}
       {gameState === 'playing' && (
         <>
+          {/* Left Stick - Movement */}
           <div
-            className="absolute left-4 bottom-4 w-32 h-32 rounded-full bg-white/10 border-2 border-white/30 flex items-center justify-center z-20"
+            className="absolute left-4 bottom-4 w-36 h-36 rounded-full bg-blue-900/30 border-2 border-blue-400/50 flex items-center justify-center z-20"
             onTouchStart={handleLeftTouchStart}
             onTouchMove={handleLeftTouchMove}
             onTouchEnd={handleLeftTouchEnd}
           >
-            <div className="w-16 h-16 rounded-full bg-white/20 border border-white/40 flex items-center justify-center">
-              <span className="text-white/60 text-xs">MOVE</span>
+            <div className="w-14 h-14 rounded-full bg-blue-500/40 border-2 border-blue-300/60 flex items-center justify-center shadow-lg shadow-blue-500/20">
+              <span className="text-blue-200 text-xs font-bold">MOVE</span>
             </div>
           </div>
           
+          {/* Right Stick - Aiming */}
           <div
-            className="absolute right-36 bottom-4 w-32 h-32 rounded-full bg-white/10 border-2 border-white/30 flex items-center justify-center z-20"
+            className="absolute right-40 bottom-4 w-36 h-36 rounded-full bg-orange-900/30 border-2 border-orange-400/50 flex items-center justify-center z-20"
             onTouchStart={handleRightTouchStart}
             onTouchMove={handleRightTouchMove}
             onTouchEnd={handleRightTouchEnd}
           >
-            <div className="w-16 h-16 rounded-full bg-white/20 border border-white/40 flex items-center justify-center">
-              <span className="text-white/60 text-xs">LOOK</span>
+            <div className="w-14 h-14 rounded-full bg-orange-500/40 border-2 border-orange-300/60 flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <span className="text-orange-200 text-xs font-bold">AIM</span>
             </div>
           </div>
           
+          {/* Fire Button */}
           <button
-            className="absolute right-4 bottom-4 w-28 h-28 rounded-full bg-red-600/80 border-4 border-red-400 flex items-center justify-center z-20 active:scale-95 active:bg-red-500"
+            className="absolute right-4 bottom-4 w-32 h-32 rounded-full bg-gradient-to-br from-red-600 to-red-800 border-4 border-red-400 flex items-center justify-center z-20 active:scale-95 active:from-red-500 active:to-red-700 shadow-lg shadow-red-500/40"
             onTouchStart={(e) => { e.preventDefault(); shootMeatball(); }}
           >
-            <span className="text-white font-bold text-lg">FIRE</span>
+            <span className="text-white font-bold text-xl drop-shadow-lg">FIRE</span>
           </button>
         </>
       )}
