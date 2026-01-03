@@ -823,26 +823,28 @@ export default function UserManagement() {
           newEmail: emailChanged ? newEmail.trim() : undefined,
         },
       });
- 
+
       if (error) throw error;
- 
+
       const response = data as { resetLink?: string | null } | null;
       const resetLink = response?.resetLink ?? null;
- 
+
       if (resetLink) {
-        console.log('Resend invite reset link:', resetLink);
+        // Show a dedicated dialog so the link can be copied without truncation/formatting issues.
+        setResetPasswordLink(resetLink);
+        setResetPasswordUserName(resendUser.full_name || resendUser.email || 'User');
+        setIsResetPasswordDialogOpen(true);
+
+        toast({
+          title: 'Invitation link generated',
+          description: emailChanged ? 'Sent to new email (and link is available to copy).' : 'Link is available to copy.',
+        });
+      } else {
+        toast({
+          title: 'Success',
+          description: emailChanged ? 'Invitation sent to new email address' : 'Invitation resent successfully',
+        });
       }
- 
-      toast({
-        title: 'Success',
-        description: resetLink
-          ? (emailChanged
-              ? 'Invitation sent to new email. Copy this link and share it manually: ' + resetLink
-              : 'Invitation resent. Copy this link and share it manually: ' + resetLink)
-          : emailChanged
-            ? 'Invitation sent to new email address'
-            : 'Invitation resent successfully',
-      });
 
       setIsResendDialogOpen(false);
       setResendUser(null);
