@@ -20,6 +20,7 @@ interface Player {
   velocityY: number;
   velocityX: number;
   isJumping: boolean;
+  jumpCount: number;
   width: number;
   height: number;
   frame: number;
@@ -268,6 +269,7 @@ const PizzaPaddleGame = () => {
     velocityY: 0,
     velocityX: 0,
     isJumping: false,
+    jumpCount: 0,
     width: 40,
     height: 50,
     frame: 0,
@@ -321,6 +323,7 @@ const PizzaPaddleGame = () => {
       velocityY: 0,
       velocityX: 0,
       isJumping: false,
+      jumpCount: 0,
       width: 40,
       height: 50,
       frame: 0,
@@ -358,9 +361,11 @@ const PizzaPaddleGame = () => {
     if (gameState !== 'playing') return;
     
     const player = playerRef.current;
-    if (!player.isJumping) {
+    // Allow double jump (up to 2 jumps)
+    if (player.jumpCount < 2) {
       player.velocityY = JUMP_FORCE;
       player.isJumping = true;
+      player.jumpCount++;
       wasJumpingRef.current = true;
       playSound('jump');
     }
@@ -1151,6 +1156,7 @@ const PizzaPaddleGame = () => {
               wasJumpingRef.current = false;
             }
             player.isJumping = false;
+            player.jumpCount = 0;
             onPlatform = true;
             break;
           }
@@ -1180,6 +1186,7 @@ const PizzaPaddleGame = () => {
           wasJumpingRef.current = false;
         }
         player.isJumping = false;
+        player.jumpCount = 0;
       }
 
       // Particles
