@@ -360,15 +360,20 @@ const PizzaPaddleGame = () => {
     const player = playerRef.current;
     // Allow double jump (up to 2 jumps)
     if (player.jumpCount < 2) {
-      player.velocityY = JUMP_FORCE;
+      // For double jump, give slightly less velocity
+      const jumpForce = player.jumpCount === 0 ? JUMP_FORCE : JUMP_FORCE * 0.85;
+      player.velocityY = jumpForce;
       player.isJumping = true;
       player.jumpCount++;
       wasJumpingRef.current = true;
       playSound('jump');
+      
+      // Only trigger paddle swing if not already swinging
+      if (!player.isSwinging) {
+        player.isSwinging = true;
+        player.paddleSwing = 0;
+      }
     }
-    // Trigger paddle swing
-    player.isSwinging = true;
-    player.paddleSwing = 0;
   }, [gameState]);
 
   const handleMoveLeft = useCallback((start: boolean) => {
@@ -569,64 +574,80 @@ const PizzaPaddleGame = () => {
   // Draw Karen - either photo or cartoon style
   const drawKaren = (ctx: CanvasRenderingContext2D, karen: Karen, frame: number) => {
     const { x, y, type, isBoss, headImage, usePhoto } = karen;
-    const scale = isBoss ? 1.4 : 1;
-    const headSize = isBoss ? 32 : 22;
+    const scale = isBoss ? 1.6 : 1.2;
+    const headSize = isBoss ? 55 : 40; // MUCH BIGGER HEADS
     const bobOffset = Math.sin(frame * 0.1 + x) * 3;
     const config = KAREN_CONFIG[type];
 
     ctx.save();
     
     // Draw phrase above Karen
-    ctx.font = isBoss ? 'bold 11px sans-serif' : 'bold 9px sans-serif';
+    ctx.font = isBoss ? 'bold 12px sans-serif' : 'bold 10px sans-serif';
     ctx.fillStyle = isBoss ? '#ff0000' : '#333';
     ctx.textAlign = 'center';
-    ctx.fillText(karen.phrase, x + 18 * scale, y - 20 * scale);
+    ctx.fillText(karen.phrase, x + 22 * scale, y - 30 * scale);
 
-    // Body
+    // Body (smaller relative to head for comedic effect)
     ctx.fillStyle = isBoss ? '#2c0000' : '#e91e63';
     ctx.beginPath();
-    ctx.ellipse(x + 18 * scale, y + 32 * scale + bobOffset, 13 * scale, 18 * scale, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 22 * scale, y + 40 * scale + bobOffset, 10 * scale, 14 * scale, 0, 0, Math.PI * 2);
     ctx.fill();
 
     // Arms crossed
     ctx.strokeStyle = '#fdbba4';
-    ctx.lineWidth = 5 * scale;
+    ctx.lineWidth = 4 * scale;
     ctx.beginPath();
-    ctx.moveTo(x + 5 * scale, y + 28 * scale + bobOffset);
-    ctx.lineTo(x + 32 * scale, y + 32 * scale + bobOffset);
+    ctx.moveTo(x + 10 * scale, y + 36 * scale + bobOffset);
+    ctx.lineTo(x + 34 * scale, y + 40 * scale + bobOffset);
     ctx.stroke();
 
     if (usePhoto) {
-      // Real Karen head image (meme photo)
+      // Real Karen head image (meme photo) - MUCH BIGGER with proper face cropping
       const img = karenImagesRef.current[headImage];
       if (img && img.complete) {
         ctx.save();
         ctx.beginPath();
-        ctx.arc(x + 18 * scale, y + 6 * scale + bobOffset, headSize, 0, Math.PI * 2);
+        ctx.arc(x + 22 * scale, y + 5 * scale + bobOffset, headSize, 0, Math.PI * 2);
         ctx.clip();
         
-        const imgSize = headSize * 2.5;
+        // Draw image larger and centered - crop to show face better
+        const imgSize = headSize * 2.8;
+        // Offset to center on face (assuming faces are in upper portion of photo)
+        const yOffset = headSize * 0.3; // Move up slightly to focus on face
         ctx.drawImage(
           img,
-          x + 18 * scale - imgSize / 2,
-          y + 6 * scale + bobOffset - imgSize / 2,
+          x + 22 * scale - imgSize / 2,
+          y + 5 * scale + bobOffset - imgSize / 2 - yOffset,
           imgSize,
           imgSize
         );
         ctx.restore();
         
+        // Border around head
         ctx.strokeStyle = isBoss ? '#ff0000' : '#e91e63';
-        ctx.lineWidth = isBoss ? 3 : 2;
+        ctx.lineWidth = isBoss ? 4 : 3;
         ctx.beginPath();
-        ctx.arc(x + 18 * scale, y + 6 * scale + bobOffset, headSize, 0, Math.PI * 2);
+        ctx.arc(x + 22 * scale, y + 5 * scale + bobOffset, headSize, 0, Math.PI * 2);
         ctx.stroke();
+        
+        // Glowing effect for boss
+        if (isBoss) {
+          ctx.shadowColor = '#ff0000';
+          ctx.shadowBlur = 20;
+          ctx.strokeStyle = '#ff000088';
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.arc(x + 22 * scale, y + 5 * scale + bobOffset, headSize + 3, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
       }
     } else {
-      // Cartoon Karen head
-      const headX = x + 18 * scale;
-      const headY = y + 6 * scale + bobOffset;
+      // Cartoon Karen head - BIGGER to match photo heads
+      const headX = x + 22 * scale;
+      const headY = y + 5 * scale + bobOffset;
       
-      // Head shape (oval)
+      // Head shape (oval) - bigger
       ctx.fillStyle = '#fdbba4';
       ctx.beginPath();
       ctx.ellipse(headX, headY, headSize * 0.85, headSize, 0, 0, Math.PI * 2);
@@ -660,7 +681,7 @@ const PizzaPaddleGame = () => {
       
       // Angry eyebrows
       ctx.strokeStyle = config.hairColor;
-      ctx.lineWidth = 2 * scale;
+      ctx.lineWidth = 3 * scale;
       ctx.beginPath();
       ctx.moveTo(headX - headSize * 0.5, headY - headSize * 0.2);
       ctx.lineTo(headX - headSize * 0.15, headY);
@@ -668,50 +689,50 @@ const PizzaPaddleGame = () => {
       ctx.lineTo(headX + headSize * 0.15, headY);
       ctx.stroke();
       
-      // Eyes (angry)
+      // Eyes (angry) - bigger
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.ellipse(headX - headSize * 0.3, headY + headSize * 0.05, headSize * 0.2, headSize * 0.15, 0, 0, Math.PI * 2);
-      ctx.ellipse(headX + headSize * 0.3, headY + headSize * 0.05, headSize * 0.2, headSize * 0.15, 0, 0, Math.PI * 2);
+      ctx.ellipse(headX - headSize * 0.3, headY + headSize * 0.05, headSize * 0.22, headSize * 0.18, 0, 0, Math.PI * 2);
+      ctx.ellipse(headX + headSize * 0.3, headY + headSize * 0.05, headSize * 0.22, headSize * 0.18, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#000000';
       ctx.beginPath();
-      ctx.arc(headX - headSize * 0.3, headY + headSize * 0.08, headSize * 0.08, 0, Math.PI * 2);
-      ctx.arc(headX + headSize * 0.3, headY + headSize * 0.08, headSize * 0.08, 0, Math.PI * 2);
+      ctx.arc(headX - headSize * 0.3, headY + headSize * 0.08, headSize * 0.1, 0, Math.PI * 2);
+      ctx.arc(headX + headSize * 0.3, headY + headSize * 0.08, headSize * 0.1, 0, Math.PI * 2);
       ctx.fill();
       
       // Angry frowning mouth
       ctx.strokeStyle = '#8b0000';
-      ctx.lineWidth = 2 * scale;
+      ctx.lineWidth = 3 * scale;
       ctx.beginPath();
-      ctx.arc(headX, headY + headSize * 0.6, headSize * 0.3, Math.PI * 0.2, Math.PI * 0.8);
+      ctx.arc(headX, headY + headSize * 0.55, headSize * 0.3, Math.PI * 0.2, Math.PI * 0.8);
       ctx.stroke();
       
       // Earrings (gaudy)
       ctx.fillStyle = '#ffd700';
       ctx.beginPath();
-      ctx.arc(headX - headSize * 0.85, headY + headSize * 0.2, 3 * scale, 0, Math.PI * 2);
-      ctx.arc(headX + headSize * 0.85, headY + headSize * 0.2, 3 * scale, 0, Math.PI * 2);
+      ctx.arc(headX - headSize * 0.85, headY + headSize * 0.2, 4 * scale, 0, Math.PI * 2);
+      ctx.arc(headX + headSize * 0.85, headY + headSize * 0.2, 4 * scale, 0, Math.PI * 2);
       ctx.fill();
       
       // Outline
       ctx.strokeStyle = isBoss ? '#ff0000' : '#cc1466';
-      ctx.lineWidth = isBoss ? 3 : 2;
+      ctx.lineWidth = isBoss ? 4 : 3;
       ctx.beginPath();
       ctx.ellipse(headX, headY, headSize * 0.85, headSize, 0, 0, Math.PI * 2);
       ctx.stroke();
-    }
-    
-    // Glowing effect for boss
-    if (isBoss) {
-      ctx.shadowColor = '#ff0000';
-      ctx.shadowBlur = 15;
-      ctx.strokeStyle = '#ff000066';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.arc(x + 18 * scale, y + 6 * scale + bobOffset, headSize, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.shadowBlur = 0;
+      
+      // Glowing effect for cartoon boss
+      if (isBoss) {
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 20;
+        ctx.strokeStyle = '#ff000088';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.ellipse(headX, headY, headSize * 0.85 + 3, headSize + 3, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
     }
 
     ctx.restore();
@@ -753,7 +774,7 @@ const PizzaPaddleGame = () => {
       ctx.translate(-player.x, 0);
     }
 
-    // === MARIO-STYLE PIZZA CHEF (SIDE VIEW) ===
+    // === MARIO-STYLE PIZZA GUY (SIDE VIEW) - NO HAT, WITH BEARD ===
     
     // Back leg
     ctx.fillStyle = '#1e3a5f';
@@ -828,70 +849,93 @@ const PizzaPaddleGame = () => {
     ctx.fillStyle = '#f4d0a8';
     ctx.fillRect(player.x + 17, yOffset + 6, 8, 6);
 
-    // Head (side profile)
+    // Head (side profile - rounder like Mario)
     ctx.fillStyle = '#f4d0a8';
     ctx.beginPath();
-    ctx.ellipse(player.x + 24, yOffset - 2, 11, 13, 0.1, 0, Math.PI * 2);
+    ctx.ellipse(player.x + 24, yOffset - 2, 12, 14, 0.1, 0, Math.PI * 2);
     ctx.fill();
 
-    // Big Mario nose
+    // Big Mario nose (bigger and rounder)
     ctx.fillStyle = '#e8c090';
     ctx.beginPath();
-    ctx.ellipse(player.x + 35, yOffset + 2, 6, 4, 0.2, 0, Math.PI * 2);
+    ctx.ellipse(player.x + 36, yOffset + 1, 7, 5, 0.15, 0, Math.PI * 2);
     ctx.fill();
 
-    // Hair/sideburns (brown like Mario)
+    // Hair on top (brown like Mario) - no hat, just hair
     ctx.fillStyle = '#4a2c0a';
+    // Main hair on top
     ctx.beginPath();
-    ctx.arc(player.x + 18, yOffset - 2, 10, Math.PI * 0.6, Math.PI * 1.6);
-    ctx.lineTo(player.x + 16, yOffset + 8);
+    ctx.ellipse(player.x + 23, yOffset - 14, 12, 6, 0.1, 0, Math.PI * 2);
+    ctx.fill();
+    // Hair swoop on front
+    ctx.beginPath();
+    ctx.arc(player.x + 30, yOffset - 12, 5, 0, Math.PI * 2);
+    ctx.fill();
+    // More volume
+    ctx.beginPath();
+    ctx.arc(player.x + 18, yOffset - 12, 6, 0, Math.PI * 2);
     ctx.fill();
     
     // Sideburn
-    ctx.fillRect(player.x + 12, yOffset + 2, 4, 8);
+    ctx.fillRect(player.x + 12, yOffset - 2, 5, 12);
 
-    // Chef hat
+    // Ear
+    ctx.fillStyle = '#f4d0a8';
+    ctx.beginPath();
+    ctx.ellipse(player.x + 12, yOffset, 4, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Eye (bigger, more expressive)
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.ellipse(player.x + 22, yOffset - 18, 13, 9, 0.15, 0, Math.PI * 2);
+    ctx.ellipse(player.x + 29, yOffset - 4, 5, 6, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.beginPath();
-    ctx.arc(player.x + 18, yOffset - 22, 7, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(player.x + 26, yOffset - 24, 8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(player.x + 32, yOffset - 20, 6, 0, Math.PI * 2);
-    ctx.fill();
-    
-    // Hat band (red like Mario's cap M)
-    ctx.fillStyle = '#e74c3c';
-    ctx.fillRect(player.x + 11, yOffset - 10, 22, 4);
-    
-    // Pizza logo on hat
-    ctx.font = '8px sans-serif';
-    ctx.fillText('🍕', player.x + 18, yOffset - 15);
-
-    // Eye
     ctx.fillStyle = '#2c3e50';
     ctx.beginPath();
-    ctx.ellipse(player.x + 29, yOffset - 2, 3, 4, 0, 0, Math.PI * 2);
+    ctx.arc(player.x + 30, yOffset - 3, 3, 0, Math.PI * 2);
     ctx.fill();
-    
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(player.x + 30, yOffset - 3, 1.5, 0, Math.PI * 2);
+    ctx.arc(player.x + 31, yOffset - 4, 1.5, 0, Math.PI * 2);
     ctx.fill();
+    
+    // Eyebrow
+    ctx.strokeStyle = '#4a2c0a';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(player.x + 24, yOffset - 9);
+    ctx.quadraticCurveTo(player.x + 29, yOffset - 12, player.x + 34, yOffset - 9);
+    ctx.stroke();
 
     // Big Mario mustache
     ctx.fillStyle = '#4a2c0a';
     ctx.beginPath();
-    ctx.moveTo(player.x + 28, yOffset + 5);
-    ctx.quadraticCurveTo(player.x + 38, yOffset + 9, player.x + 42, yOffset + 4);
-    ctx.quadraticCurveTo(player.x + 40, yOffset + 2, player.x + 34, yOffset + 4);
-    ctx.quadraticCurveTo(player.x + 30, yOffset + 3, player.x + 28, yOffset + 5);
+    ctx.moveTo(player.x + 26, yOffset + 4);
+    ctx.quadraticCurveTo(player.x + 36, yOffset + 10, player.x + 44, yOffset + 3);
+    ctx.quadraticCurveTo(player.x + 42, yOffset + 0, player.x + 35, yOffset + 3);
+    ctx.quadraticCurveTo(player.x + 30, yOffset + 2, player.x + 26, yOffset + 4);
     ctx.fill();
+    
+    // BEARD - full beard below mustache for copyright safety
+    ctx.fillStyle = '#3a1c00';
+    // Main beard mass
+    ctx.beginPath();
+    ctx.moveTo(player.x + 14, yOffset + 6);
+    ctx.quadraticCurveTo(player.x + 10, yOffset + 12, player.x + 14, yOffset + 18);
+    ctx.quadraticCurveTo(player.x + 22, yOffset + 22, player.x + 32, yOffset + 16);
+    ctx.quadraticCurveTo(player.x + 36, yOffset + 12, player.x + 34, yOffset + 8);
+    ctx.quadraticCurveTo(player.x + 28, yOffset + 8, player.x + 22, yOffset + 8);
+    ctx.quadraticCurveTo(player.x + 16, yOffset + 8, player.x + 14, yOffset + 6);
+    ctx.fill();
+    // Beard detail/texture
+    ctx.strokeStyle = '#2a0c00';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.moveTo(player.x + 16 + i * 3, yOffset + 10);
+      ctx.lineTo(player.x + 14 + i * 4, yOffset + 18);
+      ctx.stroke();
+    }
 
     ctx.restore();
 
@@ -974,14 +1018,30 @@ const PizzaPaddleGame = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) return;
 
     const { width, height } = getCanvasDimensions();
     canvas.width = width;
     canvas.height = height;
+    
+    // Performance optimization: use delta time for smooth animation
+    let lastTime = performance.now();
+    const targetFPS = 60;
+    const frameTime = 1000 / targetFPS;
 
-    const gameLoop = () => {
+    const gameLoop = (currentTimestamp: number) => {
+      const deltaTime = currentTimestamp - lastTime;
+      
+      // Skip frames if we're running too fast (reduces CPU usage)
+      if (deltaTime < frameTime * 0.8) {
+        gameLoopRef.current = requestAnimationFrame(gameLoop);
+        return;
+      }
+      
+      lastTime = currentTimestamp;
+      const timeScale = Math.min(deltaTime / frameTime, 2); // Cap at 2x to prevent huge jumps
+      
       const player = playerRef.current;
       const karens = karensRef.current;
       const toppings = toppingsRef.current;
@@ -1568,8 +1628,10 @@ const PizzaPaddleGame = () => {
             setCombo(comboRef.current);
             lastHitTimeRef.current = currentTime;
             
-            const multiplier = Math.min(comboRef.current, 5);
-            const points = config.points * multiplier;
+            // Robust multiplier system - scales up to 10x for huge combos
+            const multiplier = Math.min(comboRef.current, 10);
+            const basePoints = config.points;
+            const points = basePoints * multiplier;
             scoreRef.current += points;
             setScore(scoreRef.current);
             
@@ -1700,12 +1762,28 @@ const PizzaPaddleGame = () => {
       }
 
       // UI bar
-      ctx.fillStyle = 'rgba(0,0,0,0.65)';
-      ctx.fillRect(0, 0, width, 42);
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
+      ctx.fillRect(0, 0, width, 44);
+      
+      // Format score with K/M for huge numbers
+      const formatScore = (s: number) => {
+        if (s >= 1000000) return (s / 1000000).toFixed(1) + 'M';
+        if (s >= 10000) return (s / 1000).toFixed(1) + 'K';
+        return s.toString();
+      };
       
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillText(`Score: ${scoreRef.current}`, 12, 28);
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`Score: ${formatScore(scoreRef.current)}`, 10, 26);
+      
+      // Show current multiplier
+      const currentMultiplier = Math.min(comboRef.current, 10);
+      if (currentMultiplier > 1) {
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.fillText(`x${currentMultiplier}`, 10, 40);
+      }
 
       // Lives display
       ctx.font = '20px sans-serif';
@@ -1740,7 +1818,7 @@ const PizzaPaddleGame = () => {
       gameLoopRef.current = requestAnimationFrame(gameLoop);
     };
 
-    gameLoopRef.current = requestAnimationFrame(gameLoop);
+    gameLoopRef.current = requestAnimationFrame((t) => gameLoop(t));
 
     return () => {
       if (gameLoopRef.current) {
