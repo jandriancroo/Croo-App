@@ -4,15 +4,21 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Play, RotateCcw, Trophy, Share2, Heart } from "lucide-react";
+import { ArrowLeft, Play, RotateCcw, Trophy, Share2, Heart, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ShareScoreDialog } from "@/components/games/ShareScoreDialog";
+
+// Import Karen head images
+import karenHead1 from "@/assets/karen-head-1.jpeg";
+import karenHead2 from "@/assets/karen-head-2.jpeg";
+import karenHead3 from "@/assets/karen-head-3.jpeg";
 
 interface Player {
   x: number;
   y: number;
   velocityY: number;
+  velocityX: number;
   isJumping: boolean;
   width: number;
   height: number;
@@ -33,6 +39,7 @@ interface Karen {
   velocityY: number;
   isBoss: boolean;
   phrase: string;
+  headImage: number;
 }
 
 interface Particle {
@@ -63,14 +70,32 @@ interface Platform {
   type: 'brick' | 'pipe';
 }
 
+type LevelTheme = 'city' | 'desert' | 'mountains' | 'space' | 'hell' | 'heaven';
+
+interface Level {
+  theme: LevelTheme;
+  name: string;
+  scoreThreshold: number;
+}
+
+const LEVELS: Level[] = [
+  { theme: 'city', name: 'Downtown Pizza', scoreThreshold: 0 },
+  { theme: 'desert', name: 'Desert Heat', scoreThreshold: 150 },
+  { theme: 'mountains', name: 'Mountain Top', scoreThreshold: 350 },
+  { theme: 'space', name: 'Cosmic Kitchen', scoreThreshold: 600 },
+  { theme: 'hell', name: 'Hell\'s Kitchen', scoreThreshold: 900 },
+  { theme: 'heaven', name: 'Pizza Paradise', scoreThreshold: 1200 },
+];
+
 const GRAVITY = 0.6;
 const JUMP_FORCE = -14;
 const GAME_SPEED_START = 3;
-const KAREN_SPAWN_RATE = 90;
-const BOSS_SPAWN_RATE = 600;
+const KAREN_SPAWN_RATE_START = 150; // Start with fewer Karens
+const BOSS_SPAWN_RATE = 700;
 const TOPPING_SPAWN_RATE = 140;
 const PLATFORM_SPAWN_RATE = 180;
-const PIPE_SPAWN_RATE = 250;
+const PIPE_SPAWN_RATE = 280;
+const PLAYER_SPEED = 4;
 
 const TOPPING_CONFIG = {
   pepperoni: { emoji: '🍕', points: 5, color: '#e74c3c' },
@@ -131,7 +156,7 @@ const getAudioContext = () => {
   return audioContextRef.current;
 };
 
-const playSound = (type: 'hit' | 'hurt' | 'collect' | 'jump' | 'bossHit' | 'gameOver' | 'land') => {
+const playSound = (type: 'hit' | 'hurt' | 'collect' | 'jump' | 'bossHit' | 'gameOver' | 'land' | 'levelUp') => {
   try {
     const ctx = getAudioContext();
     const oscillator = ctx.createOscillator();
@@ -201,6 +226,17 @@ const playSound = (type: 'hit' | 'hurt' | 'collect' | 'jump' | 'bossHit' | 'game
         oscillator.start(ctx.currentTime);
         oscillator.stop(ctx.currentTime + 0.5);
         break;
+      case 'levelUp':
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(400, ctx.currentTime);
+        oscillator.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.15);
+        oscillator.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.3);
+        oscillator.frequency.exponentialRampToValueAtTime(1000, ctx.currentTime + 0.45);
+        gainNode.gain.setValueAtTime(0.25, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+        oscillator.start(ctx.currentTime);
+        oscillator.stop(ctx.currentTime + 0.5);
+        break;
     }
   } catch (e) {
     // Audio not supported
@@ -213,6 +249,7 @@ const PizzaPaddleGame = () => {
   const queryClient = useQueryClient();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameLoopRef = useRef<number>();
+  const karenImagesRef = useRef<HTMLImageElement[]>([]);
 
   const [gameState, setGameState] = useState<'idle' | 'playing' | 'gameover'>('idle');
   const [score, setScore] = useState(0);
@@ -220,11 +257,15 @@ const PizzaPaddleGame = () => {
   const [lives, setLives] = useState(3);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [combo, setCombo] = useState(0);
+  const [currentLevel, setCurrentLevel] = useState<Level>(LEVELS[0]);
+  const [movingLeft, setMovingLeft] = useState(false);
+  const [movingRight, setMovingRight] = useState(false);
 
   const playerRef = useRef<Player>({
     x: 80,
     y: 0,
     velocityY: 0,
+    velocityX: 0,
     isJumping: false,
     width: 40,
     height: 50,
@@ -247,6 +288,21 @@ const PizzaPaddleGame = () => {
   const comboRef = useRef(0);
   const lastHitTimeRef = useRef(0);
   const wasJumpingRef = useRef(false);
+  const currentLevelRef = useRef<Level>(LEVELS[0]);
+  const karenSpawnRateRef = useRef(KAREN_SPAWN_RATE_START);
+  const touchStartXRef = useRef(0);
+  const movingLeftRef = useRef(false);
+  const movingRightRef = useRef(false);
+
+  // Load Karen head images
+  useEffect(() => {
+    const images = [karenHead1, karenHead2, karenHead3].map(src => {
+      const img = new Image();
+      img.src = src;
+      return img;
+    });
+    karenImagesRef.current = images;
+  }, []);
 
   const getCanvasDimensions = useCallback(() => {
     const width = Math.min(window.innerWidth - 24, 500);
@@ -262,6 +318,7 @@ const PizzaPaddleGame = () => {
       x: 80,
       y: groundYRef.current - 50,
       velocityY: 0,
+      velocityX: 0,
       isJumping: false,
       width: 40,
       height: 50,
@@ -287,9 +344,12 @@ const PizzaPaddleGame = () => {
     livesRef.current = 3;
     comboRef.current = 0;
     lastHitTimeRef.current = 0;
+    currentLevelRef.current = LEVELS[0];
+    karenSpawnRateRef.current = KAREN_SPAWN_RATE_START;
     setScore(0);
     setLives(3);
     setCombo(0);
+    setCurrentLevel(LEVELS[0]);
     setGameState('playing');
   }, [getCanvasDimensions]);
 
@@ -307,6 +367,22 @@ const PizzaPaddleGame = () => {
     player.isSwinging = true;
     player.paddleSwing = 0;
   }, [gameState]);
+
+  const handleMoveLeft = useCallback((start: boolean) => {
+    movingLeftRef.current = start;
+    setMovingLeft(start);
+    if (start) {
+      playerRef.current.facingRight = false;
+    }
+  }, []);
+
+  const handleMoveRight = useCallback((start: boolean) => {
+    movingRightRef.current = start;
+    setMovingRight(start);
+    if (start) {
+      playerRef.current.facingRight = true;
+    }
+  }, []);
 
   const spawnParticles = (x: number, y: number, color: string, count: number, text?: string) => {
     for (let i = 0; i < count; i++) {
@@ -331,8 +407,86 @@ const PizzaPaddleGame = () => {
     );
   };
 
+  // Get level colors based on theme
+  const getLevelColors = (theme: LevelTheme) => {
+    switch (theme) {
+      case 'city':
+        return {
+          sky: ['#5c94fc', '#87ceeb', '#5c94fc'],
+          ground: '#555555',
+          groundPattern: '#666666',
+          groundDark: '#444444',
+          grass: '#00a800',
+          hills: '#2a8000',
+          clouds: '#ffffff',
+          pipe: ['#1a1a1a', '#3a3a3a'],
+          brick: ['#c84c0c', '#e87020', '#8c3808'],
+        };
+      case 'desert':
+        return {
+          sky: ['#ff9966', '#ffcc99', '#ff9966'],
+          ground: '#d4a574',
+          groundPattern: '#c49464',
+          groundDark: '#b48454',
+          grass: '#8b7355',
+          hills: '#d4a574',
+          clouds: '#ffe4c4',
+          pipe: ['#654321', '#8b5a2b'],
+          brick: ['#cd853f', '#deb887', '#a0522d'],
+        };
+      case 'mountains':
+        return {
+          sky: ['#87ceeb', '#b0e0e6', '#e0f0ff'],
+          ground: '#696969',
+          groundPattern: '#808080',
+          groundDark: '#505050',
+          grass: '#228b22',
+          hills: '#556b2f',
+          clouds: '#ffffff',
+          pipe: ['#2f4f4f', '#3f5f5f'],
+          brick: ['#808080', '#a0a0a0', '#606060'],
+        };
+      case 'space':
+        return {
+          sky: ['#0a0a2e', '#1a1a4e', '#0a0a2e'],
+          ground: '#2a2a4a',
+          groundPattern: '#3a3a5a',
+          groundDark: '#1a1a3a',
+          grass: '#4a0080',
+          hills: '#1a0040',
+          clouds: '#4a4a8a',
+          pipe: ['#4a0080', '#6a00a0'],
+          brick: ['#3a3a6a', '#4a4a8a', '#2a2a5a'],
+        };
+      case 'hell':
+        return {
+          sky: ['#1a0000', '#4a0000', '#8b0000'],
+          ground: '#2a0a0a',
+          groundPattern: '#3a1a1a',
+          groundDark: '#1a0505',
+          grass: '#ff4500',
+          hills: '#8b0000',
+          clouds: '#4a2020',
+          pipe: ['#4a0000', '#6a0000'],
+          brick: ['#8b0000', '#a01010', '#600000'],
+        };
+      case 'heaven':
+        return {
+          sky: ['#e6f3ff', '#ffffff', '#fffacd'],
+          ground: '#f0e68c',
+          groundPattern: '#fffacd',
+          groundDark: '#daa520',
+          grass: '#ffd700',
+          hills: '#fffacd',
+          clouds: '#ffffff',
+          pipe: ['#ffd700', '#ffec8b'],
+          brick: ['#ffd700', '#ffec8b', '#daa520'],
+        };
+    }
+  };
+
   // Draw brick platform (Mario style)
-  const drawBrickPlatform = (ctx: CanvasRenderingContext2D, platform: Platform) => {
+  const drawBrickPlatform = (ctx: CanvasRenderingContext2D, platform: Platform, colors: ReturnType<typeof getLevelColors>) => {
     const brickWidth = 20;
     const brickHeight = 12;
     const rows = Math.floor(platform.height / brickHeight);
@@ -344,45 +498,45 @@ const PizzaPaddleGame = () => {
         const brickX = platform.x + col * brickWidth - offsetX;
         const brickY = platform.y + row * brickHeight;
         
-        // Brick face - warm orange-brown
-        ctx.fillStyle = '#c84c0c';
+        // Brick face
+        ctx.fillStyle = colors.brick[0];
         ctx.fillRect(brickX, brickY, brickWidth - 1, brickHeight - 1);
         
         // Highlights
-        ctx.fillStyle = '#e87020';
+        ctx.fillStyle = colors.brick[1];
         ctx.fillRect(brickX, brickY, brickWidth - 2, 2);
         ctx.fillRect(brickX, brickY, 2, brickHeight - 2);
         
         // Shadows
-        ctx.fillStyle = '#8c3808';
+        ctx.fillStyle = colors.brick[2];
         ctx.fillRect(brickX + brickWidth - 2, brickY, 1, brickHeight - 1);
         ctx.fillRect(brickX, brickY + brickHeight - 2, brickWidth - 1, 1);
       }
     }
   };
 
-  // Draw PVC pipe (black style)
-  const drawPipe = (ctx: CanvasRenderingContext2D, platform: Platform, groundY: number) => {
+  // Draw PVC pipe
+  const drawPipe = (ctx: CanvasRenderingContext2D, platform: Platform, groundY: number, colors: ReturnType<typeof getLevelColors>) => {
     const pipeHeight = groundY - platform.y;
     
-    // Main pipe body - black PVC
+    // Main pipe body
     const gradient = ctx.createLinearGradient(platform.x, 0, platform.x + platform.width, 0);
-    gradient.addColorStop(0, '#1a1a1a');
-    gradient.addColorStop(0.2, '#3a3a3a');
-    gradient.addColorStop(0.5, '#2a2a2a');
-    gradient.addColorStop(0.8, '#1a1a1a');
-    gradient.addColorStop(1, '#0a0a0a');
+    gradient.addColorStop(0, colors.pipe[0]);
+    gradient.addColorStop(0.2, colors.pipe[1]);
+    gradient.addColorStop(0.5, colors.pipe[0]);
+    gradient.addColorStop(0.8, colors.pipe[0]);
+    gradient.addColorStop(1, colors.pipe[0]);
     
     ctx.fillStyle = gradient;
     ctx.fillRect(platform.x + 5, platform.y + 20, platform.width - 10, pipeHeight - 20);
     
     // Pipe top rim (wider)
     const topGradient = ctx.createLinearGradient(platform.x, 0, platform.x + platform.width, 0);
-    topGradient.addColorStop(0, '#2a2a2a');
-    topGradient.addColorStop(0.2, '#4a4a4a');
-    topGradient.addColorStop(0.5, '#3a3a3a');
-    topGradient.addColorStop(0.8, '#2a2a2a');
-    topGradient.addColorStop(1, '#1a1a1a');
+    topGradient.addColorStop(0, colors.pipe[0]);
+    topGradient.addColorStop(0.2, colors.pipe[1]);
+    topGradient.addColorStop(0.5, colors.pipe[0]);
+    topGradient.addColorStop(0.8, colors.pipe[0]);
+    topGradient.addColorStop(1, colors.pipe[0]);
     
     ctx.fillStyle = topGradient;
     ctx.fillRect(platform.x, platform.y, platform.width, 22);
@@ -392,26 +546,25 @@ const PizzaPaddleGame = () => {
     ctx.fillRect(platform.x + 8, platform.y + 22, 4, pipeHeight - 25);
     
     // Pipe rim highlight
-    ctx.strokeStyle = '#4a4a4a';
+    ctx.strokeStyle = colors.pipe[1];
     ctx.lineWidth = 2;
     ctx.strokeRect(platform.x + 1, platform.y + 1, platform.width - 2, 20);
   };
 
-  // Draw Karen character
+  // Draw Karen with real head image
   const drawKaren = (ctx: CanvasRenderingContext2D, karen: Karen, frame: number) => {
-    const { x, y, type, isBoss } = karen;
-    const config = KAREN_CONFIG[type];
+    const { x, y, type, isBoss, headImage } = karen;
     const scale = isBoss ? 1.4 : 1;
-    const headSize = isBoss ? 26 : 16;
+    const headSize = isBoss ? 32 : 22;
     const bobOffset = Math.sin(frame * 0.1 + x) * 3;
 
     ctx.save();
     
     // Draw phrase above Karen
-    ctx.font = isBoss ? 'bold 12px sans-serif' : 'bold 10px sans-serif';
+    ctx.font = isBoss ? 'bold 11px sans-serif' : 'bold 9px sans-serif';
     ctx.fillStyle = isBoss ? '#ff0000' : '#333';
     ctx.textAlign = 'center';
-    ctx.fillText(karen.phrase, x + 18 * scale, y - 15 * scale);
+    ctx.fillText(karen.phrase, x + 18 * scale, y - 20 * scale);
 
     // Body
     ctx.fillStyle = isBoss ? '#2c0000' : '#e91e63';
@@ -427,103 +580,48 @@ const PizzaPaddleGame = () => {
     ctx.lineTo(x + 32 * scale, y + 32 * scale + bobOffset);
     ctx.stroke();
 
-    // Head
-    ctx.fillStyle = '#fdbba4';
-    ctx.beginPath();
-    ctx.arc(x + 18 * scale, y + 10 * scale + bobOffset, headSize, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Karen haircut
-    ctx.fillStyle = config.hairColor;
-    ctx.beginPath();
-    ctx.ellipse(x + 18 * scale, y + 5 * scale + bobOffset, headSize + 4, headSize + 1, 0, Math.PI, 0);
-    ctx.fill();
-    
-    // Asymmetric front
-    ctx.beginPath();
-    ctx.moveTo(x + 2 * scale, y + 5 * scale + bobOffset);
-    ctx.quadraticCurveTo(x - 4 * scale, y + 22 * scale + bobOffset, x + 5 * scale, y + 26 * scale + bobOffset);
-    ctx.lineTo(x + 10 * scale, y + 12 * scale + bobOffset);
-    ctx.fill();
-    
-    // Short side
-    ctx.beginPath();
-    ctx.moveTo(x + 34 * scale, y + 5 * scale + bobOffset);
-    ctx.quadraticCurveTo(x + 38 * scale, y + 10 * scale + bobOffset, x + 34 * scale, y + 15 * scale + bobOffset);
-    ctx.lineTo(x + 26 * scale, y + 8 * scale + bobOffset);
-    ctx.fill();
-
-    // Spiky top
-    ctx.beginPath();
-    ctx.moveTo(x + 8 * scale, y - 4 * scale + bobOffset);
-    ctx.lineTo(x + 12 * scale, y - 10 * scale + bobOffset);
-    ctx.lineTo(x + 18 * scale, y - 6 * scale + bobOffset);
-    ctx.lineTo(x + 24 * scale, y - 12 * scale + bobOffset);
-    ctx.lineTo(x + 28 * scale, y - 4 * scale + bobOffset);
-    ctx.closePath();
-    ctx.fill();
-
-    // Eyes
-    if (isBoss) {
-      ctx.shadowColor = '#ff0000';
-      ctx.shadowBlur = 12;
-      ctx.fillStyle = '#ff0000';
+    // Real Karen head image
+    const img = karenImagesRef.current[headImage];
+    if (img && img.complete) {
+      ctx.save();
+      // Circular clip for head
       ctx.beginPath();
-      ctx.arc(x + 12 * scale, y + 8 * scale + bobOffset, 3.5 * scale, 0, Math.PI * 2);
-      ctx.arc(x + 24 * scale, y + 8 * scale + bobOffset, 3.5 * scale, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.shadowBlur = 0;
+      ctx.arc(x + 18 * scale, y + 6 * scale + bobOffset, headSize, 0, Math.PI * 2);
+      ctx.clip();
       
-      ctx.fillStyle = '#000';
-      ctx.beginPath();
-      ctx.arc(x + 12 * scale, y + 8 * scale + bobOffset, 1.5 * scale, 0, Math.PI * 2);
-      ctx.arc(x + 24 * scale, y + 8 * scale + bobOffset, 1.5 * scale, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.ellipse(x + 12 * scale, y + 8 * scale + bobOffset, 3.5 * scale, 4 * scale, 0, 0, Math.PI * 2);
-      ctx.ellipse(x + 24 * scale, y + 8 * scale + bobOffset, 3.5 * scale, 4 * scale, 0, 0, Math.PI * 2);
-      ctx.fill();
+      // Draw the image centered on the head position
+      const imgSize = headSize * 2.5;
+      ctx.drawImage(
+        img,
+        x + 18 * scale - imgSize / 2,
+        y + 6 * scale + bobOffset - imgSize / 2,
+        imgSize,
+        imgSize
+      );
+      ctx.restore();
       
-      ctx.fillStyle = '#000';
+      // Border around head
+      ctx.strokeStyle = isBoss ? '#ff0000' : '#e91e63';
+      ctx.lineWidth = isBoss ? 3 : 2;
       ctx.beginPath();
-      ctx.arc(x + 12 * scale, y + 9 * scale + bobOffset, 1.8 * scale, 0, Math.PI * 2);
-      ctx.arc(x + 24 * scale, y + 9 * scale + bobOffset, 1.8 * scale, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    // Angry eyebrows
-    ctx.strokeStyle = config.hairColor;
-    ctx.lineWidth = 2 * scale;
-    ctx.beginPath();
-    ctx.moveTo(x + 8 * scale, y + 2 * scale + bobOffset);
-    ctx.lineTo(x + 16 * scale, y + 5 * scale + bobOffset);
-    ctx.moveTo(x + 28 * scale, y + 2 * scale + bobOffset);
-    ctx.lineTo(x + 20 * scale, y + 5 * scale + bobOffset);
-    ctx.stroke();
-
-    // Frowning mouth
-    ctx.strokeStyle = '#c0392b';
-    ctx.lineWidth = 2 * scale;
-    ctx.beginPath();
-    ctx.arc(x + 18 * scale, y + 18 * scale + bobOffset, 4 * scale, Math.PI + 0.3, -0.3);
-    ctx.stroke();
-
-    if (isBoss) {
-      ctx.fillStyle = '#fdbba4';
-      ctx.beginPath();
-      ctx.moveTo(x + 36 * scale, y + 22 * scale + bobOffset);
-      ctx.lineTo(x + 50 * scale, y + 18 * scale + bobOffset);
-      ctx.lineTo(x + 50 * scale, y + 22 * scale + bobOffset);
-      ctx.lineTo(x + 36 * scale, y + 26 * scale + bobOffset);
-      ctx.fill();
+      ctx.arc(x + 18 * scale, y + 6 * scale + bobOffset, headSize, 0, Math.PI * 2);
+      ctx.stroke();
+      
+      // Glowing effect for boss
+      if (isBoss) {
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 15;
+        ctx.strokeStyle = '#ff000066';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
     }
 
     ctx.restore();
   };
 
-  // Draw Mario-style Pizza Chef (more Mario-like!)
+  // Draw Mario-style Pizza Chef (side view) with paddle held DOWN by default
   const drawPlayer = (ctx: CanvasRenderingContext2D, player: Player, frame: number) => {
     ctx.save();
     
@@ -562,12 +660,11 @@ const PizzaPaddleGame = () => {
     // === MARIO-STYLE PIZZA CHEF (SIDE VIEW) ===
     
     // Back leg
-    ctx.fillStyle = '#1e3a5f'; // Blue overalls like Mario
+    ctx.fillStyle = '#1e3a5f';
     ctx.save();
     ctx.translate(player.x + 12, yOffset + 35);
     ctx.rotate((player.isJumping ? 0.3 : runCycle * 0.03));
     ctx.fillRect(-4, 0, 9, 16);
-    // Brown shoe (Mario style)
     ctx.fillStyle = '#8b4513';
     ctx.beginPath();
     ctx.ellipse(2, 16, 8, 4, 0, 0, Math.PI * 2);
@@ -575,12 +672,11 @@ const PizzaPaddleGame = () => {
     ctx.restore();
 
     // Back arm (behind body)
-    ctx.fillStyle = '#e74c3c'; // Red shirt like Mario
+    ctx.fillStyle = '#e74c3c';
     ctx.save();
     ctx.translate(player.x + 16, yOffset + 18);
     ctx.rotate(-0.2 + Math.sin(frame * 0.2) * 0.1);
     ctx.fillRect(-3, 0, 7, 14);
-    // Hand
     ctx.fillStyle = '#f4d0a8';
     ctx.beginPath();
     ctx.arc(0, 15, 4, 0, Math.PI * 2);
@@ -626,7 +722,6 @@ const PizzaPaddleGame = () => {
     ctx.translate(player.x + 22, yOffset + 35);
     ctx.rotate((player.isJumping ? -0.3 : -runCycle * 0.03));
     ctx.fillRect(-4, 0, 9, 16);
-    // Brown shoe
     ctx.fillStyle = '#8b4513';
     ctx.beginPath();
     ctx.ellipse(4, 16, 9, 4, 0, 0, Math.PI * 2);
@@ -637,7 +732,7 @@ const PizzaPaddleGame = () => {
     ctx.fillStyle = '#f4d0a8';
     ctx.fillRect(player.x + 17, yOffset + 6, 8, 6);
 
-    // Head (side profile - oval, more Mario-like proportions)
+    // Head (side profile)
     ctx.fillStyle = '#f4d0a8';
     ctx.beginPath();
     ctx.ellipse(player.x + 24, yOffset - 2, 11, 13, 0.1, 0, Math.PI * 2);
@@ -659,7 +754,7 @@ const PizzaPaddleGame = () => {
     // Sideburn
     ctx.fillRect(player.x + 12, yOffset + 2, 4, 8);
 
-    // Chef hat (white, puffy like Mario's cap but chef style)
+    // Chef hat
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.ellipse(player.x + 22, yOffset - 18, 13, 9, 0.15, 0, Math.PI * 2);
@@ -682,7 +777,7 @@ const PizzaPaddleGame = () => {
     ctx.font = '8px sans-serif';
     ctx.fillText('🍕', player.x + 18, yOffset - 15);
 
-    // Eye (just one visible in side view)
+    // Eye
     ctx.fillStyle = '#2c3e50';
     ctx.beginPath();
     ctx.ellipse(player.x + 29, yOffset - 2, 3, 4, 0, 0, Math.PI * 2);
@@ -704,11 +799,12 @@ const PizzaPaddleGame = () => {
 
     ctx.restore();
 
-    // FRONT ARM WITH PIZZA PADDLE (always visible, not flipped)
-    const baseSwing = player.facingRight ? -0.4 : 0.4;
+    // FRONT ARM WITH PIZZA PADDLE - Held DOWN by default (pointing down), swings UP when attacking
+    // Base angle is pointing down (PI/2 = 90 degrees downward)
+    const baseSwing = player.facingRight ? Math.PI * 0.4 : -Math.PI * 0.4; // Pointing downward
     const swingAngle = player.isSwinging 
-      ? baseSwing - Math.sin(player.paddleSwing) * 1.3 * (player.facingRight ? 1 : -1)
-      : baseSwing + Math.sin(frame * 0.15) * 0.08 * (player.facingRight ? 1 : -1);
+      ? baseSwing - Math.sin(player.paddleSwing) * 1.5 * (player.facingRight ? 1 : -1) // Swing up and forward
+      : baseSwing + Math.sin(frame * 0.1) * 0.05 * (player.facingRight ? 1 : -1); // Slight idle bob
     
     const armX = player.facingRight ? player.x + 30 : player.x + 10;
     
@@ -798,16 +894,67 @@ const PizzaPaddleGame = () => {
       const groundY = groundYRef.current;
       const currentTime = Date.now();
 
-      // Sky gradient (Mario style - brighter blue)
+      // Check for level changes
+      const newLevel = [...LEVELS].reverse().find(l => scoreRef.current >= l.scoreThreshold) || LEVELS[0];
+      if (newLevel.theme !== currentLevelRef.current.theme) {
+        currentLevelRef.current = newLevel;
+        setCurrentLevel(newLevel);
+        playSound('levelUp');
+        spawnParticles(width / 2, height / 2, '#ffd700', 20, `🌟 ${newLevel.name}!`);
+        // Increase Karen spawn rate as levels progress
+        karenSpawnRateRef.current = Math.max(60, KAREN_SPAWN_RATE_START - (LEVELS.indexOf(newLevel) * 15));
+      }
+
+      const colors = getLevelColors(currentLevelRef.current.theme);
+
+      // Sky gradient
       const gradient = ctx.createLinearGradient(0, 0, 0, height);
-      gradient.addColorStop(0, '#5c94fc');
-      gradient.addColorStop(0.7, '#87ceeb');
-      gradient.addColorStop(1, '#5c94fc');
+      gradient.addColorStop(0, colors.sky[0]);
+      gradient.addColorStop(0.5, colors.sky[1]);
+      gradient.addColorStop(1, colors.sky[2]);
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, width, height);
 
-      // Background hills (Mario style)
-      ctx.fillStyle = '#2a8000';
+      // Stars for space theme
+      if (currentLevelRef.current.theme === 'space') {
+        ctx.fillStyle = '#ffffff';
+        for (let i = 0; i < 50; i++) {
+          const starX = (i * 47 + frameCountRef.current * 0.2) % width;
+          const starY = (i * 31) % (height - 80);
+          const size = (i % 3) + 1;
+          ctx.beginPath();
+          ctx.arc(starX, starY, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Fire effects for hell theme
+      if (currentLevelRef.current.theme === 'hell') {
+        for (let i = 0; i < 8; i++) {
+          const fireX = (i * 70 + frameCountRef.current * 0.5) % (width + 50) - 25;
+          const fireY = height - 60 + Math.sin(frameCountRef.current * 0.1 + i) * 10;
+          ctx.fillStyle = `rgba(255, ${100 + Math.random() * 100}, 0, 0.6)`;
+          ctx.beginPath();
+          ctx.moveTo(fireX, fireY);
+          ctx.lineTo(fireX + 15, fireY - 30 - Math.random() * 20);
+          ctx.lineTo(fireX + 30, fireY);
+          ctx.fill();
+        }
+      }
+
+      // Clouds or halos for heaven theme
+      if (currentLevelRef.current.theme === 'heaven') {
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+        for (let i = 0; i < 5; i++) {
+          const haloX = (i * 120 + frameCountRef.current * 0.3) % (width + 100) - 50;
+          ctx.beginPath();
+          ctx.arc(haloX, 60 + (i % 3) * 30, 25, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // Background hills
+      ctx.fillStyle = colors.hills;
       for (let i = -1; i < 3; i++) {
         const hillX = (i * 200 - (frameCountRef.current * 0.3) % 200);
         ctx.beginPath();
@@ -815,8 +962,8 @@ const PizzaPaddleGame = () => {
         ctx.fill();
       }
 
-      // Clouds (Mario style blocks)
-      ctx.fillStyle = '#ffffff';
+      // Clouds
+      ctx.fillStyle = colors.clouds;
       const cloudPositions = [100, 280, 450];
       cloudPositions.forEach((baseX, i) => {
         const cloudX = (baseX - (frameCountRef.current * 0.4) % (width + 100));
@@ -826,32 +973,38 @@ const PizzaPaddleGame = () => {
         ctx.arc(cloudX + 22, cloudY - 5, 22, 0, Math.PI * 2);
         ctx.arc(cloudX + 44, cloudY, 18, 0, Math.PI * 2);
         ctx.fill();
-        // Cloud eyes
-        ctx.fillStyle = '#000';
-        ctx.beginPath();
-        ctx.arc(cloudX + 14, cloudY - 3, 2, 0, Math.PI * 2);
-        ctx.arc(cloudX + 30, cloudY - 3, 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#ffffff';
       });
 
-      // Ground (Mario style)
-      ctx.fillStyle = '#c84c0c';
+      // Ground
+      ctx.fillStyle = colors.ground;
       ctx.fillRect(0, height - 50, width, 50);
       
-      // Ground pattern (bricks)
+      // Ground pattern
       for (let i = 0; i < width; i += 24) {
         const offsetX = (frameCountRef.current * gameSpeedRef.current) % 24;
-        ctx.fillStyle = '#e87020';
+        ctx.fillStyle = colors.groundPattern;
         ctx.fillRect(i - offsetX, height - 50, 22, 2);
         ctx.fillRect(i - offsetX, height - 50, 2, 50);
-        ctx.fillStyle = '#8c3808';
+        ctx.fillStyle = colors.groundDark;
         ctx.fillRect(i - offsetX + 21, height - 50, 2, 50);
       }
       
-      // Ground top grass
-      ctx.fillStyle = '#00a800';
+      // Ground top
+      ctx.fillStyle = colors.grass;
       ctx.fillRect(0, height - 52, width, 4);
+
+      // Handle player horizontal movement
+      if (movingLeftRef.current) {
+        player.x -= PLAYER_SPEED;
+        player.facingRight = false;
+      }
+      if (movingRightRef.current) {
+        player.x += PLAYER_SPEED;
+        player.facingRight = true;
+      }
+      
+      // Keep player in bounds
+      player.x = Math.max(10, Math.min(width - player.width - 10, player.x));
 
       // Update platforms
       for (let i = platforms.length - 1; i >= 0; i--) {
@@ -859,9 +1012,9 @@ const PizzaPaddleGame = () => {
         platform.x -= gameSpeedRef.current;
         
         if (platform.type === 'brick') {
-          drawBrickPlatform(ctx, platform);
+          drawBrickPlatform(ctx, platform, colors);
         } else if (platform.type === 'pipe') {
-          drawPipe(ctx, platform, groundY);
+          drawPipe(ctx, platform, groundY, colors);
         }
         
         if (platform.x + platform.width < -50) {
@@ -928,7 +1081,7 @@ const PizzaPaddleGame = () => {
           
           if (playerRight > pipeLeft && playerLeft < pipeRight &&
               playerBottom > platform.y + 10 && player.y < groundY) {
-            // Push player back or damage
+            // Push player back
             if (playerRight - pipeLeft < 15) {
               player.x = pipeLeft - player.width - 2;
             }
@@ -990,7 +1143,7 @@ const PizzaPaddleGame = () => {
       // Spawn Karens
       frameCountRef.current++;
       
-      if (frameCountRef.current % KAREN_SPAWN_RATE === 0) {
+      if (frameCountRef.current % karenSpawnRateRef.current === 0) {
         const types: ('basic' | 'manager' | 'supervisor' | 'regional')[] = 
           ['basic', 'manager', 'supervisor', 'regional'];
         const type = types[Math.floor(Math.random() * types.length)];
@@ -1009,11 +1162,12 @@ const PizzaPaddleGame = () => {
           velocityY: 0,
           isBoss: false,
           phrase,
+          headImage: Math.floor(Math.random() * 3),
         });
       }
       
       // Boss Karen
-      if (frameCountRef.current % BOSS_SPAWN_RATE === 0 && frameCountRef.current > 200) {
+      if (frameCountRef.current % BOSS_SPAWN_RATE === 0 && frameCountRef.current > 300) {
         const bossPhrase = BOSS_KAREN_PHRASES[Math.floor(Math.random() * BOSS_KAREN_PHRASES.length)];
         karens.push({
           x: width + 30,
@@ -1025,6 +1179,7 @@ const PizzaPaddleGame = () => {
           velocityY: 0,
           isBoss: true,
           phrase: bossPhrase,
+          headImage: Math.floor(Math.random() * 3),
         });
       }
 
@@ -1054,33 +1209,35 @@ const PizzaPaddleGame = () => {
           }
         }
 
-        // Paddle hit detection
-        const swingBonus = player.isSwinging ? 18 : 0;
-        const paddleRect = {
-          x: player.facingRight ? player.x + 40 : player.x - 40,
-          y: player.y + 5,
-          width: 45 + swingBonus,
-          height: 45,
-        };
+        // Paddle hit detection - only when swinging!
+        if (player.isSwinging && player.paddleSwing > 0.3 && player.paddleSwing < 2.5) {
+          const swingBonus = 20;
+          const paddleRect = {
+            x: player.facingRight ? player.x + 35 : player.x - 50,
+            y: player.y - 10,
+            width: 50 + swingBonus,
+            height: 50,
+          };
 
-        if (!karen.isHit && checkCollision(paddleRect, karen)) {
-          karen.isHit = true;
-          const config = KAREN_CONFIG[karen.type];
-          
-          comboRef.current++;
-          setCombo(comboRef.current);
-          lastHitTimeRef.current = currentTime;
-          
-          const multiplier = Math.min(comboRef.current, 5);
-          const points = config.points * multiplier;
-          scoreRef.current += points;
-          setScore(scoreRef.current);
-          
-          playSound(karen.isBoss ? 'bossHit' : 'hit');
-          spawnParticles(karen.x + 20, karen.y, karen.isBoss ? '#ff0000' : '#e91e63', 12, `+${points}`);
-          
-          if (scoreRef.current % 100 === 0) {
-            gameSpeedRef.current += 0.12;
+          if (!karen.isHit && checkCollision(paddleRect, karen)) {
+            karen.isHit = true;
+            const config = KAREN_CONFIG[karen.type];
+            
+            comboRef.current++;
+            setCombo(comboRef.current);
+            lastHitTimeRef.current = currentTime;
+            
+            const multiplier = Math.min(comboRef.current, 5);
+            const points = config.points * multiplier;
+            scoreRef.current += points;
+            setScore(scoreRef.current);
+            
+            playSound(karen.isBoss ? 'bossHit' : 'hit');
+            spawnParticles(karen.x + 20, karen.y, karen.isBoss ? '#ff0000' : '#e91e63', 12, `+${points}`);
+            
+            if (scoreRef.current % 100 === 0) {
+              gameSpeedRef.current += 0.12;
+            }
           }
         }
 
@@ -1180,6 +1337,14 @@ const PizzaPaddleGame = () => {
         }
       }
 
+      // Level indicator
+      ctx.save();
+      ctx.font = 'bold 11px sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.textAlign = 'center';
+      ctx.fillText(currentLevelRef.current.name, width / 2, 60);
+      ctx.restore();
+
       // Combo display
       if (comboRef.current > 1) {
         ctx.save();
@@ -1188,8 +1353,8 @@ const PizzaPaddleGame = () => {
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 3;
         const comboText = `${comboRef.current}x COMBO!`;
-        ctx.strokeText(comboText, width / 2 - 55, 75);
-        ctx.fillText(comboText, width / 2 - 55, 75);
+        ctx.strokeText(comboText, width / 2 - 55, 85);
+        ctx.fillText(comboText, width / 2 - 55, 85);
         ctx.restore();
       }
 
@@ -1201,26 +1366,22 @@ const PizzaPaddleGame = () => {
       ctx.font = 'bold 20px sans-serif';
       ctx.fillText(`Score: ${scoreRef.current}`, 12, 28);
 
-      // Lives display - simple approach with full/half/empty hearts
+      // Lives display
       ctx.font = '20px sans-serif';
       ctx.textAlign = 'right';
       const fullHearts = Math.floor(livesRef.current);
       const hasHalfHeart = livesRef.current % 1 !== 0;
       
-      // Draw hearts from right to left (reversed order: 3rd, 2nd, 1st)
       for (let i = 2; i >= 0; i--) {
         const xPos = width - 10 - (2 - i) * 26;
-        const heartIndex = 2 - i; // Reverse the index
+        const heartIndex = 2 - i;
         
         if (heartIndex < fullHearts) {
-          // Full heart
           ctx.fillText('❤️', xPos, 28);
         } else if (heartIndex === fullHearts && hasHalfHeart) {
-          // Half heart - draw empty first, then partial red on top
           ctx.globalAlpha = 0.35;
           ctx.fillText('🖤', xPos, 28);
           ctx.globalAlpha = 1;
-          // Draw half red heart using clip
           ctx.save();
           ctx.beginPath();
           ctx.rect(xPos - 22, 0, 11, 40);
@@ -1228,7 +1389,6 @@ const PizzaPaddleGame = () => {
           ctx.fillText('❤️', xPos, 28);
           ctx.restore();
         } else {
-          // Empty heart
           ctx.globalAlpha = 0.35;
           ctx.fillText('🖤', xPos, 28);
           ctx.globalAlpha = 1;
@@ -1298,11 +1458,30 @@ const PizzaPaddleGame = () => {
         e.preventDefault();
         handleJump();
       }
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+        handleMoveLeft(true);
+      }
+      if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+        handleMoveRight(true);
+      }
+    };
+    
+    const handleKeyup = (e: KeyboardEvent) => {
+      if (e.code === 'ArrowLeft' || e.code === 'KeyA') {
+        handleMoveLeft(false);
+      }
+      if (e.code === 'ArrowRight' || e.code === 'KeyD') {
+        handleMoveRight(false);
+      }
     };
     
     window.addEventListener('keydown', handleKeydown);
-    return () => window.removeEventListener('keydown', handleKeydown);
-  }, [handleJump]);
+    window.addEventListener('keyup', handleKeyup);
+    return () => {
+      window.removeEventListener('keydown', handleKeydown);
+      window.removeEventListener('keyup', handleKeyup);
+    };
+  }, [handleJump, handleMoveLeft, handleMoveRight]);
 
   const { width, height } = getCanvasDimensions();
 
@@ -1355,14 +1534,15 @@ const PizzaPaddleGame = () => {
               <div className="text-6xl mb-3">👨‍🍳💥💇‍♀️</div>
               <h2 className="text-xl font-bold mb-2">Super Karen Destroy 3</h2>
               <p className="text-muted-foreground mb-2 max-w-xs mx-auto text-sm">
-                Jump on platforms, avoid pipes, defeat Karens!
+                Jump on platforms, avoid pipes, defeat Karens with real Karen faces!
               </p>
               <div className="text-xs text-muted-foreground mb-2 space-y-0.5">
-                <p className="font-semibold text-foreground">Points per Karen:</p>
-                <p>💇‍♀️ Basic: 10 • Manager: 15 • Supervisor: 20</p>
-                <p>Regional: 25 • 👹 MEGA KAREN: 100</p>
-                <p className="font-semibold text-foreground mt-1">Bonus Toppings:</p>
-                <p>🍕 5 • 🍄 8 • 🫒 6 • 🌶️ 10 • 🧀 15</p>
+                <p className="font-semibold text-foreground">Controls:</p>
+                <p>Tap/Space: Jump & Swing Paddle</p>
+                <p>← → Buttons or Arrows: Move Left/Right</p>
+                <p className="font-semibold text-foreground mt-1">Levels:</p>
+                <p>🏙️ City → 🏜️ Desert → ⛰️ Mountains</p>
+                <p>🌌 Space → 🔥 Hell → ☁️ Heaven</p>
               </div>
               <p className="text-xs text-muted-foreground mb-3">
                 ❤️ 3 Lives (half heart per Karen, full heart per Boss)
@@ -1381,17 +1561,63 @@ const PizzaPaddleGame = () => {
                 onClick={handleJump}
                 onTouchStart={(e) => {
                   e.preventDefault();
+                  touchStartXRef.current = e.touches[0].clientX;
                   handleJump();
+                }}
+                onTouchMove={(e) => {
+                  const touchX = e.touches[0].clientX;
+                  const diff = touchX - touchStartXRef.current;
+                  if (diff < -20) {
+                    handleMoveLeft(true);
+                    handleMoveRight(false);
+                  } else if (diff > 20) {
+                    handleMoveRight(true);
+                    handleMoveLeft(false);
+                  }
+                }}
+                onTouchEnd={() => {
+                  handleMoveLeft(false);
+                  handleMoveRight(false);
                 }}
                 className="rounded-xl shadow-2xl touch-none"
                 style={{ width, height }}
               />
 
+              {/* Movement buttons for mobile */}
+              {gameState === 'playing' && (
+                <div className="absolute bottom-2 left-2 right-2 flex justify-between pointer-events-none">
+                  <Button
+                    size="lg"
+                    variant={movingLeft ? "default" : "secondary"}
+                    className="pointer-events-auto h-14 w-14 rounded-full opacity-70"
+                    onTouchStart={(e) => { e.preventDefault(); handleMoveLeft(true); }}
+                    onTouchEnd={(e) => { e.preventDefault(); handleMoveLeft(false); }}
+                    onMouseDown={() => handleMoveLeft(true)}
+                    onMouseUp={() => handleMoveLeft(false)}
+                    onMouseLeave={() => handleMoveLeft(false)}
+                  >
+                    <ChevronLeft className="h-8 w-8" />
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant={movingRight ? "default" : "secondary"}
+                    className="pointer-events-auto h-14 w-14 rounded-full opacity-70"
+                    onTouchStart={(e) => { e.preventDefault(); handleMoveRight(true); }}
+                    onTouchEnd={(e) => { e.preventDefault(); handleMoveRight(false); }}
+                    onMouseDown={() => handleMoveRight(true)}
+                    onMouseUp={() => handleMoveRight(false)}
+                    onMouseLeave={() => handleMoveRight(false)}
+                  >
+                    <ChevronRight className="h-8 w-8" />
+                  </Button>
+                </div>
+              )}
+
               {gameState === 'gameover' && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm rounded-xl">
                   <div className="text-5xl mb-2">💇‍♀️💢</div>
                   <p className="text-2xl font-bold text-destructive mb-1">The Karens Won!</p>
-                  <p className="text-muted-foreground mb-2">You ran out of lives!</p>
+                  <p className="text-muted-foreground mb-1">You reached: {currentLevel.name}</p>
                   <p className="text-5xl font-bold text-primary mb-1">{score}</p>
                   <p className="text-muted-foreground mb-4">points</p>
                   <div className="flex gap-3">
@@ -1419,7 +1645,7 @@ const PizzaPaddleGame = () => {
 
         {gameState === 'playing' && (
           <p className="text-center text-xs text-muted-foreground py-0.5">
-            Tap to jump & swing • Use platforms, avoid pipes!
+            Tap to jump & swing • Use ← → to move • Swipe or buttons!
           </p>
         )}
       </div>
