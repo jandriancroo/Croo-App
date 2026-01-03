@@ -649,23 +649,80 @@ const MarcManGame = () => {
             )}
           </div>
 
-          {/* Pizza progress dots */}
+          {/* Pizza with topping dots */}
           {gameState === 'playing' && (
-            <div className="mt-2 flex items-center gap-1">
-              <span className="text-lg mr-1">🍕</span>
-              <div className="flex gap-1">
-                {Array.from({ length: 12 }).map((_, i) => (
+            <div className="mt-2 flex items-center gap-3">
+              {/* Round pizza with toppings */}
+              <div 
+                className="relative rounded-full shadow-lg"
+                style={{
+                  width: 56,
+                  height: 56,
+                  background: 'linear-gradient(145deg, #d4a556 0%, #c4903e 50%, #a87532 100%)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3), inset 0 2px 4px rgba(255,255,255,0.2)',
+                }}
+              >
+                {/* Cheese/sauce inner circle */}
+                <div 
+                  className="absolute rounded-full"
+                  style={{
+                    top: 4,
+                    left: 4,
+                    right: 4,
+                    bottom: 4,
+                    background: 'linear-gradient(145deg, #f5d77a 0%, #e8c54a 50%, #d4a832 100%)',
+                  }}
+                />
+                {/* Sauce spots */}
+                <div 
+                  className="absolute rounded-full"
+                  style={{
+                    top: 6,
+                    left: 6,
+                    right: 6,
+                    bottom: 6,
+                    background: 'radial-gradient(circle at 30% 30%, rgba(200,60,30,0.3) 0%, transparent 50%), radial-gradient(circle at 70% 60%, rgba(200,60,30,0.25) 0%, transparent 40%)',
+                  }}
+                />
+                {/* Topping dots - positioned in a nice pattern */}
+                {[
+                  { x: 28, y: 12 },  // top center
+                  { x: 42, y: 18 },  // top right
+                  { x: 46, y: 32 },  // right
+                  { x: 40, y: 44 },  // bottom right
+                  { x: 28, y: 46 },  // bottom center
+                  { x: 14, y: 42 },  // bottom left
+                  { x: 10, y: 28 },  // left
+                  { x: 16, y: 16 },  // top left
+                  { x: 28, y: 28 },  // center
+                  { x: 36, y: 24 },  // inner right
+                  { x: 22, y: 36 },  // inner bottom left
+                  { x: 34, y: 36 },  // inner bottom right
+                ].map((pos, i) => (
                   <div
                     key={i}
-                    className={`w-3 h-3 rounded-full transition-all ${
-                      i < pizzaProgress 
-                        ? 'bg-gradient-to-br from-yellow-400 to-orange-500 shadow-[0_0_6px_rgba(251,191,36,0.6)]' 
-                        : 'bg-muted-foreground/30'
-                    }`}
+                    className="absolute rounded-full transition-all duration-300"
+                    style={{
+                      left: pos.x - 4,
+                      top: pos.y - 4,
+                      width: 8,
+                      height: 8,
+                      background: i < pizzaProgress 
+                        ? 'radial-gradient(circle at 30% 30%, #c0392b 0%, #922b21 100%)'
+                        : 'transparent',
+                      boxShadow: i < pizzaProgress 
+                        ? '0 1px 2px rgba(0,0,0,0.3), inset 0 1px 1px rgba(255,255,255,0.2)' 
+                        : 'none',
+                      opacity: i < pizzaProgress ? 1 : 0,
+                      transform: i < pizzaProgress ? 'scale(1)' : 'scale(0)',
+                    }}
                   />
                 ))}
               </div>
-              <span className="text-sm font-bold text-muted-foreground ml-1">×{pizzaCount}</span>
+              <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground">{pizzaProgress}/12 toppings</span>
+                <span className="text-sm font-bold">🍕 ×{pizzaCount}</span>
+              </div>
             </div>
           )}
         </div>
