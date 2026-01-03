@@ -9,10 +9,10 @@ import { ShareScoreDialog } from '@/components/games/ShareScoreDialog';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import * as THREE from 'three';
 import { createKarenModel } from './karen-dungeon/createKarenModel';
-import { createBrickTexture, createDirtFloorTexture } from './karen-dungeon/proceduralTextures';
 import { createPizzaEnvironment } from './karen-dungeon/createPizzaEnvironment';
 import { createDukeArms, animateRecoil } from './karen-dungeon/createDukeArms';
 import { setupLighting } from './karen-dungeon/setupLighting';
+import { createDungeonWallMaterial, createDirtFloorMaterial } from './karen-dungeon/modelLoader';
 // Mobile-only game - no desktop controls needed
 
 // Karen insults for chat bubbles
@@ -675,12 +675,9 @@ export default function KarenDungeon3D() {
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // High-res procedural textures (1024x1024, no network)
-    const wallTexture = createBrickTexture(2468);
-    wallTexture.repeat.set(2, 1);
-
-    const floorTexture = createDirtFloorTexture(1357);
-    floorTexture.repeat.set(22, 22);
+    // Create PBR materials for the dungeon
+    const wallMaterial = createDungeonWallMaterial();
+    const floorMaterial = createDirtFloorMaterial();
 
     // Dim ambient for gritty feel - shadows matter
     const ambient = new THREE.AmbientLight(0x331111, 0.4);
@@ -939,13 +936,8 @@ export default function KarenDungeon3D() {
     }
     floorGeom.computeVertexNormals();
 
-    const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x2a1a15,
-      roughness: 0.92,
-      metalness: 0.05,
-      map: floorTexture,
-    });
-    const floor = new THREE.Mesh(floorGeom, floorMat);
+    // Use PBR floor material
+    const floor = new THREE.Mesh(floorGeom, floorMaterial);
     floor.rotation.x = -Math.PI / 2;
     floor.receiveShadow = true;
     scene.add(floor);
@@ -968,13 +960,9 @@ export default function KarenDungeon3D() {
       const wallHeight = 4.5;
       const wallThickness = 0.4;
       
-      // Wall material with texture
-      const wallMat = new THREE.MeshStandardMaterial({
-        color: theme.wallColor,
-        roughness: 0.85,
-        metalness: 0.05,
-        map: wallTexture,
-      });
+      // Wall material - use the PBR wall material with theme tint
+      const wallMat = wallMaterial.clone();
+      (wallMat as THREE.MeshStandardMaterial).color = new THREE.Color(theme.wallColor);
 
       // Create textured walls
       const createWall = (width: number, height: number, depth: number, x: number, y: number, z: number) => {
@@ -1010,17 +998,10 @@ export default function KarenDungeon3D() {
       ceiling.receiveShadow = true;
       scene.add(ceiling);
 
-      // Room floor
+      // Room floor - use PBR material with theme tint
       const roomFloorGeom = new THREE.PlaneGeometry(room.width - 0.3, room.depth - 0.3);
-      const roomFloorTex = floorTexture.clone();
-      roomFloorTex.repeat.set(Math.max(2, room.width / 2), Math.max(2, room.depth / 2));
-      roomFloorTex.needsUpdate = true;
-      const roomFloorMat = new THREE.MeshStandardMaterial({
-        color: theme.floorColor,
-        roughness: 0.8,
-        metalness: 0.08,
-        map: roomFloorTex,
-      });
+      const roomFloorMat = floorMaterial.clone();
+      (roomFloorMat as THREE.MeshStandardMaterial).color = new THREE.Color(theme.floorColor);
       const roomFloor = new THREE.Mesh(roomFloorGeom, roomFloorMat);
       roomFloor.rotation.x = -Math.PI / 2;
       roomFloor.position.set(room.x, 0.02, room.z);
@@ -1118,19 +1099,12 @@ export default function KarenDungeon3D() {
     const corridorWallT = 0.35;
     const corridorWidth = 4.0;
 
-    const corridorWallMat = new THREE.MeshStandardMaterial({
-      color: 0x3a2022,
-      roughness: 0.9,
-      metalness: 0.03,
-      map: wallTexture,
-    });
+    // Use PBR materials for corridors
+    const corridorWallMat = wallMaterial.clone();
+    (corridorWallMat as THREE.MeshStandardMaterial).color = new THREE.Color(0x3a2022);
 
-    const corridorFloorMat = new THREE.MeshStandardMaterial({
-      color: 0x1a1013,
-      roughness: 0.95,
-      metalness: 0.02,
-      map: floorTexture,
-    });
+    const corridorFloorMat = floorMaterial.clone();
+    (corridorFloorMat as THREE.MeshStandardMaterial).color = new THREE.Color(0x1a1013);
 
     const addCorridor = (from: THREE.Vector3, to: THREE.Vector3) => {
       const dx = to.x - from.x;
