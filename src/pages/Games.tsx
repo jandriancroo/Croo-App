@@ -173,6 +173,16 @@ const Games = () => {
 
   const games = [
     {
+      id: 'pizza',
+      title: 'Super Karen Destroy 3',
+      description: 'Defend your shop from angry Karens!',
+      icon: Gamepad2,
+      path: '/games/pizza',
+      color: 'from-red-500/20 to-yellow-500/20',
+      iconColor: 'text-red-500',
+      emoji: '🍕',
+    },
+    {
       id: 'snake',
       title: 'Snake',
       description: 'Tap to turn! Eat food and grow longer.',
@@ -201,16 +211,6 @@ const Games = () => {
       color: 'from-orange-500/20 to-amber-500/20',
       iconColor: 'text-orange-500',
       emoji: '🏀',
-    },
-    {
-      id: 'pizza',
-      title: 'Super Karen Destroy 3',
-      description: 'Defend your shop from angry Karens!',
-      icon: Gamepad2,
-      path: '/games/pizza',
-      color: 'from-red-500/20 to-yellow-500/20',
-      iconColor: 'text-red-500',
-      emoji: '🍕',
     },
   ];
 
