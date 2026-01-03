@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Play, RotateCcw, Trophy, Share2 } from "lucide-react";
+import { ArrowLeft, Play, RotateCcw, Trophy, Share2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ShareScoreDialog } from "@/components/games/ShareScoreDialog";
@@ -28,23 +28,27 @@ interface Topping {
   collected: boolean;
 }
 
-// Simple maze layout (1 = wall, 0 = path)
+// Portrait maze layout (11 wide x 19 tall) - 1 = wall, 0 = path
 const MAZE_TEMPLATE = [
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-  [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
-  [1,0,1,1,0,1,0,0,0,1,0,1,1,0,1],
-  [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
-  [1,0,1,0,1,1,0,1,0,1,1,0,1,0,1],
-  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-  [1,1,1,0,1,0,1,1,1,0,1,0,1,1,1],
-  [0,0,0,0,1,0,0,0,0,0,1,0,0,0,0],
-  [1,1,1,0,1,0,1,1,1,0,1,0,1,1,1],
-  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-  [1,0,1,0,1,1,0,1,0,1,1,0,1,0,1],
-  [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
-  [1,0,1,1,0,1,0,0,0,1,0,1,1,0,1],
-  [1,0,0,0,0,0,0,1,0,0,0,0,0,0,1],
-  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,1,0,0,0,0,1],
+  [1,0,1,1,0,0,0,1,1,0,1],
+  [1,0,0,0,0,1,0,0,0,0,1],
+  [1,0,1,0,1,1,1,0,1,0,1],
+  [1,0,0,0,0,0,0,0,0,0,1],
+  [1,1,0,1,0,1,0,1,0,1,1],
+  [1,0,0,0,0,0,0,0,0,0,1],
+  [1,0,1,0,1,1,1,0,1,0,1],
+  [0,0,0,0,1,0,1,0,0,0,0],
+  [1,0,1,0,1,1,1,0,1,0,1],
+  [1,0,0,0,0,0,0,0,0,0,1],
+  [1,1,0,1,0,1,0,1,0,1,1],
+  [1,0,0,0,0,0,0,0,0,0,1],
+  [1,0,1,0,1,1,1,0,1,0,1],
+  [1,0,0,0,0,1,0,0,0,0,1],
+  [1,0,1,1,0,0,0,1,1,0,1],
+  [1,0,0,0,0,1,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1],
 ];
 
 const TOPPINGS = ['🍅', '🧀', '🫒', '🌶️', '🍄', '🧅', '🥓', '🍕'];
@@ -59,7 +63,7 @@ const MarcManGame = () => {
   const lastMoveTime = useRef(0);
 
   const [gameState, setGameState] = useState<'idle' | 'playing' | 'gameover'>('idle');
-  const [marc, setMarc] = useState<Position>({ x: 7, y: 7 });
+  const [marc, setMarc] = useState<Position>({ x: 5, y: 9 });
   const [direction, setDirection] = useState<Direction>('RIGHT');
   const [nextDirection, setNextDirection] = useState<Direction>('RIGHT');
   const [ghosts, setGhosts] = useState<Ghost[]>([]);
@@ -82,8 +86,8 @@ const MarcManGame = () => {
     for (let y = 0; y < mazeHeight; y++) {
       for (let x = 0; x < mazeWidth; x++) {
         if (MAZE_TEMPLATE[y][x] === 0) {
-          // Don't place on spawn points
-          if ((y === 7 && x >= 5 && x <= 9) || (y === 7 && x === 7)) continue;
+          // Don't place on spawn points (center row)
+          if (y === 9 && x >= 3 && x <= 7) continue;
           newToppings.push({
             x,
             y,
@@ -97,18 +101,19 @@ const MarcManGame = () => {
   }, []);
 
   // Initialize ghosts
+  // Initialize ghosts
   const initGhosts = useCallback((): Ghost[] => {
     return [
-      { x: 6, y: 7, direction: 'LEFT', type: 'ghost', color: '#FF0000' },
-      { x: 8, y: 7, direction: 'RIGHT', type: 'ghost', color: '#00FFFF' },
-      { x: 7, y: 6, direction: 'UP', type: 'firefighter', color: '#FF6600' },
-      { x: 7, y: 8, direction: 'DOWN', type: 'firefighter', color: '#FFFF00' },
+      { x: 4, y: 9, direction: 'LEFT', type: 'ghost', color: '#FF0000' },
+      { x: 6, y: 9, direction: 'RIGHT', type: 'ghost', color: '#00FFFF' },
+      { x: 5, y: 8, direction: 'UP', type: 'firefighter', color: '#FF6600' },
+      { x: 5, y: 10, direction: 'DOWN', type: 'firefighter', color: '#FFFF00' },
     ];
   }, []);
 
   // Start game
   const startGame = useCallback(() => {
-    setMarc({ x: 7, y: 7 });
+    setMarc({ x: 5, y: 9 });
     setDirection('RIGHT');
     setNextDirection('RIGHT');
     setGhosts(initGhosts());
@@ -122,8 +127,8 @@ const MarcManGame = () => {
 
   // Check if position is valid
   const isValidMove = useCallback((x: number, y: number): boolean => {
-    // Handle tunnel
-    if (y === 7 && (x < 0 || x >= mazeWidth)) return true;
+    // Handle tunnel (row 9 is the tunnel row)
+    if (y === 9 && (x < 0 || x >= mazeWidth)) return true;
     if (x < 0 || x >= mazeWidth || y < 0 || y >= mazeHeight) return false;
     return MAZE_TEMPLATE[y][x] === 0;
   }, []);
@@ -254,8 +259,8 @@ const MarcManGame = () => {
           }
         }
 
-        // Handle tunnel wrap
-        if (newY === 7) {
+        // Handle tunnel wrap (row 9)
+        if (newY === 9) {
           if (newX < 0) newX = mazeWidth - 1;
           if (newX >= mazeWidth) newX = 0;
         }
@@ -294,8 +299,8 @@ const MarcManGame = () => {
           let newX = ghost.x + delta.x;
           let newY = ghost.y + delta.y;
 
-          // Handle tunnel
-          if (newY === 7) {
+          // Handle tunnel (row 9)
+          if (newY === 9) {
             if (newX < 0) newX = mazeWidth - 1;
             if (newX >= mazeWidth) newX = 0;
           }
@@ -419,14 +424,14 @@ const MarcManGame = () => {
       if (!containerRef.current) return;
       const container = containerRef.current;
       const availableWidth = container.clientWidth - 8;
-      const availableHeight = container.clientHeight - 40; // leave room for pizza dots
+      // Leave room for pizza indicator (70px) and controls (140px)
+      const availableHeight = container.clientHeight - 80;
       
       const cellByWidth = Math.floor(availableWidth / mazeWidth);
       const cellByHeight = Math.floor(availableHeight / mazeHeight);
-      // Removed max cap - use full available space
       const newCellSize = Math.min(cellByWidth, cellByHeight);
       
-      setCellSize(Math.max(newCellSize, 20)); // min 20px for visibility
+      setCellSize(Math.max(newCellSize, 18)); // min 18px for visibility
     };
 
     updateSize();
@@ -436,7 +441,7 @@ const MarcManGame = () => {
 
   return (
     <Layout>
-      <div className="flex flex-col h-[calc(100vh-4rem)] px-1 py-1 overflow-hidden">
+      <div className="flex flex-col h-[calc(100vh-4rem)] px-1 overflow-hidden">
         {/* Header - minimal */}
         <div className="flex items-center gap-2 mb-1 shrink-0">
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => navigate('/games')}>
@@ -727,7 +732,47 @@ const MarcManGame = () => {
           )}
         </div>
 
-        {/* Remove controls hint to save space */}
+        {/* On-screen D-pad controls */}
+        {gameState === 'playing' && (
+          <div className="shrink-0 flex justify-center py-2">
+            <div className="relative w-32 h-32">
+              {/* Up */}
+              <button
+                className="absolute top-0 left-1/2 -translate-x-1/2 w-10 h-10 bg-muted/80 hover:bg-muted active:bg-primary/30 rounded-lg flex items-center justify-center touch-none"
+                onTouchStart={(e) => { e.preventDefault(); handleDirectionChange('UP'); }}
+                onClick={() => handleDirectionChange('UP')}
+              >
+                <ChevronUp className="h-6 w-6" />
+              </button>
+              {/* Down */}
+              <button
+                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-10 h-10 bg-muted/80 hover:bg-muted active:bg-primary/30 rounded-lg flex items-center justify-center touch-none"
+                onTouchStart={(e) => { e.preventDefault(); handleDirectionChange('DOWN'); }}
+                onClick={() => handleDirectionChange('DOWN')}
+              >
+                <ChevronDown className="h-6 w-6" />
+              </button>
+              {/* Left */}
+              <button
+                className="absolute left-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-muted/80 hover:bg-muted active:bg-primary/30 rounded-lg flex items-center justify-center touch-none"
+                onTouchStart={(e) => { e.preventDefault(); handleDirectionChange('LEFT'); }}
+                onClick={() => handleDirectionChange('LEFT')}
+              >
+                <ChevronLeft className="h-6 w-6" />
+              </button>
+              {/* Right */}
+              <button
+                className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 bg-muted/80 hover:bg-muted active:bg-primary/30 rounded-lg flex items-center justify-center touch-none"
+                onTouchStart={(e) => { e.preventDefault(); handleDirectionChange('RIGHT'); }}
+                onClick={() => handleDirectionChange('RIGHT')}
+              >
+                <ChevronRight className="h-6 w-6" />
+              </button>
+              {/* Center circle */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-muted/50 rounded-full" />
+            </div>
+          </div>
+        )}
       </div>
 
       <ShareScoreDialog
