@@ -40,6 +40,7 @@ interface Karen {
   isBoss: boolean;
   phrase: string;
   headImage: number;
+  usePhoto: boolean; // true = meme photo, false = cartoon
 }
 
 interface Particle {
@@ -551,12 +552,13 @@ const PizzaPaddleGame = () => {
     ctx.strokeRect(platform.x + 1, platform.y + 1, platform.width - 2, 20);
   };
 
-  // Draw Karen with real head image
+  // Draw Karen - either photo or cartoon style
   const drawKaren = (ctx: CanvasRenderingContext2D, karen: Karen, frame: number) => {
-    const { x, y, type, isBoss, headImage } = karen;
+    const { x, y, type, isBoss, headImage, usePhoto } = karen;
     const scale = isBoss ? 1.4 : 1;
     const headSize = isBoss ? 32 : 22;
     const bobOffset = Math.sin(frame * 0.1 + x) * 3;
+    const config = KAREN_CONFIG[type];
 
     ctx.save();
     
@@ -580,42 +582,122 @@ const PizzaPaddleGame = () => {
     ctx.lineTo(x + 32 * scale, y + 32 * scale + bobOffset);
     ctx.stroke();
 
-    // Real Karen head image
-    const img = karenImagesRef.current[headImage];
-    if (img && img.complete) {
-      ctx.save();
-      // Circular clip for head
+    if (usePhoto) {
+      // Real Karen head image (meme photo)
+      const img = karenImagesRef.current[headImage];
+      if (img && img.complete) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(x + 18 * scale, y + 6 * scale + bobOffset, headSize, 0, Math.PI * 2);
+        ctx.clip();
+        
+        const imgSize = headSize * 2.5;
+        ctx.drawImage(
+          img,
+          x + 18 * scale - imgSize / 2,
+          y + 6 * scale + bobOffset - imgSize / 2,
+          imgSize,
+          imgSize
+        );
+        ctx.restore();
+        
+        ctx.strokeStyle = isBoss ? '#ff0000' : '#e91e63';
+        ctx.lineWidth = isBoss ? 3 : 2;
+        ctx.beginPath();
+        ctx.arc(x + 18 * scale, y + 6 * scale + bobOffset, headSize, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    } else {
+      // Cartoon Karen head
+      const headX = x + 18 * scale;
+      const headY = y + 6 * scale + bobOffset;
+      
+      // Head shape (oval)
+      ctx.fillStyle = '#fdbba4';
       ctx.beginPath();
-      ctx.arc(x + 18 * scale, y + 6 * scale + bobOffset, headSize, 0, Math.PI * 2);
-      ctx.clip();
+      ctx.ellipse(headX, headY, headSize * 0.85, headSize, 0, 0, Math.PI * 2);
+      ctx.fill();
       
-      // Draw the image centered on the head position
-      const imgSize = headSize * 2.5;
-      ctx.drawImage(
-        img,
-        x + 18 * scale - imgSize / 2,
-        y + 6 * scale + bobOffset - imgSize / 2,
-        imgSize,
-        imgSize
-      );
-      ctx.restore();
+      // Karen hairdo - the signature "speak to manager" style
+      ctx.fillStyle = config.hairColor;
+      ctx.beginPath();
+      // Main hair volume on top
+      ctx.ellipse(headX, headY - headSize * 0.7, headSize * 0.9, headSize * 0.6, 0, Math.PI, 0);
+      ctx.fill();
+      // Side swoops
+      ctx.beginPath();
+      ctx.ellipse(headX - headSize * 0.6, headY - headSize * 0.3, headSize * 0.4, headSize * 0.5, -0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(headX + headSize * 0.6, headY - headSize * 0.3, headSize * 0.4, headSize * 0.5, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      // Spiky back
+      for (let i = 0; i < 5; i++) {
+        const spikeAngle = -Math.PI * 0.8 + (i * 0.4);
+        ctx.beginPath();
+        ctx.moveTo(headX, headY - headSize * 0.5);
+        ctx.lineTo(
+          headX + Math.cos(spikeAngle) * headSize * 1.1,
+          headY - headSize * 0.5 + Math.sin(spikeAngle) * headSize * 0.8
+        );
+        ctx.lineTo(headX, headY - headSize * 0.2);
+        ctx.fill();
+      }
       
-      // Border around head
-      ctx.strokeStyle = isBoss ? '#ff0000' : '#e91e63';
+      // Angry eyebrows
+      ctx.strokeStyle = config.hairColor;
+      ctx.lineWidth = 2 * scale;
+      ctx.beginPath();
+      ctx.moveTo(headX - headSize * 0.5, headY - headSize * 0.2);
+      ctx.lineTo(headX - headSize * 0.15, headY);
+      ctx.moveTo(headX + headSize * 0.5, headY - headSize * 0.2);
+      ctx.lineTo(headX + headSize * 0.15, headY);
+      ctx.stroke();
+      
+      // Eyes (angry)
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(headX - headSize * 0.3, headY + headSize * 0.05, headSize * 0.2, headSize * 0.15, 0, 0, Math.PI * 2);
+      ctx.ellipse(headX + headSize * 0.3, headY + headSize * 0.05, headSize * 0.2, headSize * 0.15, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#000000';
+      ctx.beginPath();
+      ctx.arc(headX - headSize * 0.3, headY + headSize * 0.08, headSize * 0.08, 0, Math.PI * 2);
+      ctx.arc(headX + headSize * 0.3, headY + headSize * 0.08, headSize * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Angry frowning mouth
+      ctx.strokeStyle = '#8b0000';
+      ctx.lineWidth = 2 * scale;
+      ctx.beginPath();
+      ctx.arc(headX, headY + headSize * 0.6, headSize * 0.3, Math.PI * 0.2, Math.PI * 0.8);
+      ctx.stroke();
+      
+      // Earrings (gaudy)
+      ctx.fillStyle = '#ffd700';
+      ctx.beginPath();
+      ctx.arc(headX - headSize * 0.85, headY + headSize * 0.2, 3 * scale, 0, Math.PI * 2);
+      ctx.arc(headX + headSize * 0.85, headY + headSize * 0.2, 3 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Outline
+      ctx.strokeStyle = isBoss ? '#ff0000' : '#cc1466';
       ctx.lineWidth = isBoss ? 3 : 2;
+      ctx.beginPath();
+      ctx.ellipse(headX, headY, headSize * 0.85, headSize, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    
+    // Glowing effect for boss
+    if (isBoss) {
+      ctx.shadowColor = '#ff0000';
+      ctx.shadowBlur = 15;
+      ctx.strokeStyle = '#ff000066';
+      ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.arc(x + 18 * scale, y + 6 * scale + bobOffset, headSize, 0, Math.PI * 2);
       ctx.stroke();
-      
-      // Glowing effect for boss
-      if (isBoss) {
-        ctx.shadowColor = '#ff0000';
-        ctx.shadowBlur = 15;
-        ctx.strokeStyle = '#ff000066';
-        ctx.lineWidth = 4;
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-      }
+      ctx.shadowBlur = 0;
     }
 
     ctx.restore();
@@ -1163,6 +1245,7 @@ const PizzaPaddleGame = () => {
           isBoss: false,
           phrase,
           headImage: Math.floor(Math.random() * 3),
+          usePhoto: Math.random() < 0.3, // 30% chance to use meme photo
         });
       }
       
@@ -1180,6 +1263,7 @@ const PizzaPaddleGame = () => {
           isBoss: true,
           phrase: bossPhrase,
           headImage: Math.floor(Math.random() * 3),
+          usePhoto: Math.random() < 0.5, // 50% chance for boss to use meme photo
         });
       }
 
