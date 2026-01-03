@@ -2,7 +2,7 @@ import { Layout } from "@/components/Layout";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Trophy, Gamepad2, Grid3X3, ChevronRight } from "lucide-react";
+import { Trophy, Gamepad2, Grid3X3, Target, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -59,6 +59,28 @@ const Games = () => {
           profiles(full_name, profile_photo_url)
         `)
         .eq('game_type', 'minesweeper')
+        .order('score', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      return data as HighScore[];
+    },
+  });
+
+  const { data: basketballScores, isLoading: basketballLoading } = useQuery({
+    queryKey: ['high-scores', 'basketball'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('game_high_scores')
+        .select(`
+          id,
+          user_id,
+          game_type,
+          score,
+          created_at,
+          profiles(full_name, profile_photo_url)
+        `)
+        .eq('game_type', 'basketball')
         .order('score', { ascending: false })
         .limit(10);
 
@@ -131,20 +153,32 @@ const Games = () => {
     {
       id: 'snake',
       title: 'Snake',
-      description: 'Tap to turn! Eat food and grow longer without hitting walls or yourself.',
+      description: 'Tap to turn! Eat food and grow longer.',
       icon: Gamepad2,
       path: '/games/snake',
       color: 'from-green-500/20 to-emerald-500/20',
       iconColor: 'text-green-500',
+      emoji: '🐍',
     },
     {
       id: 'minesweeper',
       title: 'Minesweeper',
-      description: 'Clear the board without hitting mines. Tap to reveal, long-press to flag.',
+      description: 'Clear the board without hitting mines.',
       icon: Grid3X3,
       path: '/games/minesweeper',
       color: 'from-blue-500/20 to-cyan-500/20',
       iconColor: 'text-blue-500',
+      emoji: '💣',
+    },
+    {
+      id: 'basketball',
+      title: 'Hoops',
+      description: 'Shoot baskets and build streaks!',
+      icon: Target,
+      path: '/games/basketball',
+      color: 'from-orange-500/20 to-amber-500/20',
+      iconColor: 'text-orange-500',
+      emoji: '🏀',
     },
   ];
 
@@ -168,14 +202,18 @@ const Games = () => {
           <CardContent>
             <Tabs defaultValue="snake">
               <TabsList className="w-full mb-4">
-                <TabsTrigger value="snake" className="flex-1">Snake</TabsTrigger>
-                <TabsTrigger value="minesweeper" className="flex-1">Minesweeper</TabsTrigger>
+                <TabsTrigger value="snake" className="flex-1 text-xs">🐍 Snake</TabsTrigger>
+                <TabsTrigger value="minesweeper" className="flex-1 text-xs">💣 Mines</TabsTrigger>
+                <TabsTrigger value="basketball" className="flex-1 text-xs">🏀 Hoops</TabsTrigger>
               </TabsList>
               <TabsContent value="snake">
                 {renderLeaderboard(snakeScores, snakeLoading, 'pts')}
               </TabsContent>
               <TabsContent value="minesweeper">
                 {renderLeaderboard(minesweeperScores, minesweeperLoading, 'pts')}
+              </TabsContent>
+              <TabsContent value="basketball">
+                {renderLeaderboard(basketballScores, basketballLoading, 'pts')}
               </TabsContent>
             </Tabs>
           </CardContent>
@@ -196,11 +234,11 @@ const Games = () => {
                   <CardContent className="p-4">
                     <div className="flex items-center gap-4">
                       <div className={`p-3 rounded-xl bg-gradient-to-br ${game.color}`}>
-                        <Icon className={`h-8 w-8 ${game.iconColor}`} />
+                        <span className="text-2xl">{game.emoji}</span>
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-lg">{game.title}</h3>
-                        <p className="text-sm text-muted-foreground line-clamp-2">
+                        <p className="text-sm text-muted-foreground line-clamp-1">
                           {game.description}
                         </p>
                       </div>

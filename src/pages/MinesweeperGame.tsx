@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Play, RotateCcw, Trophy, Flag, Bomb, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,12 +18,6 @@ type CellState = {
 };
 
 type Difficulty = 'easy' | 'medium' | 'hard';
-
-const DIFFICULTIES: Record<Difficulty, { rows: number; cols: number; mines: number }> = {
-  easy: { rows: 8, cols: 8, mines: 10 },
-  medium: { rows: 12, cols: 10, mines: 25 },
-  hard: { rows: 16, cols: 12, mines: 45 },
-};
 
 const MinesweeperGame = () => {
   const navigate = useNavigate();
@@ -42,7 +35,28 @@ const MinesweeperGame = () => {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
 
-  const config = DIFFICULTIES[difficulty];
+  // Calculate grid size based on screen
+  const getConfig = useCallback(() => {
+    const maxWidth = Math.min(window.innerWidth - 32, 400);
+    const maxHeight = window.innerHeight - 240;
+    
+    const configs = {
+      easy: { rows: 10, cols: 8, mines: 10 },
+      medium: { rows: 14, cols: 10, mines: 25 },
+      hard: { rows: 18, cols: 12, mines: 45 },
+    };
+    
+    const base = configs[difficulty];
+    const cellSize = Math.min(
+      Math.floor(maxWidth / base.cols),
+      Math.floor(maxHeight / base.rows),
+      32
+    );
+    
+    return { ...base, cellSize };
+  }, [difficulty]);
+
+  const config = getConfig();
 
   // Initialize board
   const initializeBoard = useCallback((firstClickRow: number, firstClickCol: number) => {
@@ -63,7 +77,6 @@ const MinesweeperGame = () => {
       const row = Math.floor(Math.random() * config.rows);
       const col = Math.floor(Math.random() * config.cols);
       
-      // Don't place mine on or adjacent to first click
       const isNearFirstClick = Math.abs(row - firstClickRow) <= 1 && Math.abs(col - firstClickCol) <= 1;
       
       if (!newBoard[row][col].isMine && !isNearFirstClick) {
@@ -128,7 +141,6 @@ const MinesweeperGame = () => {
     const newBoard = currentBoard.map(r => r.map(c => ({ ...c })));
     newBoard[row][col].isRevealed = true;
 
-    // If empty cell, reveal adjacent cells
     if (newBoard[row][col].adjacentMines === 0 && !newBoard[row][col].isMine) {
       for (let dr = -1; dr <= 1; dr++) {
         for (let dc = -1; dc <= 1; dc++) {
@@ -154,15 +166,12 @@ const MinesweeperGame = () => {
 
     let currentBoard = board;
 
-    // First click - initialize board
     if (!startTime) {
       currentBoard = initializeBoard(row, col);
       setStartTime(Date.now());
     }
 
-    // Check if mine
     if (currentBoard[row][col].isMine) {
-      // Reveal all mines
       const newBoard = currentBoard.map(r => r.map(c => ({
         ...c,
         isRevealed: c.isMine ? true : c.isRevealed,
@@ -172,18 +181,16 @@ const MinesweeperGame = () => {
       return;
     }
 
-    // Reveal cell
     const newBoard = revealCell(row, col, currentBoard);
     setBoard(newBoard);
 
-    // Check win condition
     const unrevealedNonMines = newBoard.flat().filter(c => !c.isRevealed && !c.isMine).length;
     if (unrevealedNonMines === 0) {
       setGameState('won');
     }
   }, [board, gameState, startTime, initializeBoard, revealCell]);
 
-  // Handle flag (long press)
+  // Handle flag
   const handleFlag = useCallback((row: number, col: number) => {
     if (gameState !== 'playing') return;
     if (board[row][col].isRevealed) return;
@@ -197,11 +204,10 @@ const MinesweeperGame = () => {
     setFlagCount(prev => board[row][col].isFlagged ? prev - 1 : prev + 1);
   }, [board, gameState]);
 
-  // Long press handlers
   const handleTouchStart = (row: number, col: number) => {
     const timer = setTimeout(() => {
       handleFlag(row, col);
-    }, 500);
+    }, 400);
     setLongPressTimer(timer);
   };
 
@@ -216,12 +222,10 @@ const MinesweeperGame = () => {
   const saveScore = useCallback(async () => {
     if (!user?.id || !startTime) return;
     
-    // Score = base points + time bonus
     const timeBonus = Math.max(0, 1000 - elapsedTime);
     const difficultyMultiplier = difficulty === 'easy' ? 1 : difficulty === 'medium' ? 2 : 3;
     const score = (config.mines * 10 + timeBonus) * difficultyMultiplier;
     
-    // Store the final score for sharing
     setFinalScore(score);
 
     try {
@@ -278,7 +282,6 @@ const MinesweeperGame = () => {
     fetchHighScore();
   }, [user?.id]);
 
-  // Get cell color based on adjacent mines
   const getNumberColor = (num: number) => {
     const colors = [
       '',
@@ -288,34 +291,32 @@ const MinesweeperGame = () => {
       'text-purple-500',
       'text-amber-600',
       'text-cyan-500',
-      'text-black dark:text-white',
+      'text-white',
       'text-gray-500',
     ];
     return colors[num] || '';
   };
 
-  const cellSize = difficulty === 'hard' ? 24 : difficulty === 'medium' ? 28 : 32;
-
   return (
     <Layout>
-      <div className="container max-w-lg mx-auto px-4 py-4 space-y-4">
+      <div className="flex flex-col h-[calc(100vh-4rem)] px-4 py-2">
         {/* Header */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 mb-2">
           <Button variant="ghost" size="icon" onClick={() => navigate('/games')}>
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-xl font-bold flex-1">Minesweeper</h1>
-          <div className="flex items-center gap-2 text-sm">
+          <h1 className="text-lg font-bold flex-1">Minesweeper</h1>
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
             <Trophy className="h-4 w-4 text-yellow-500" />
-            <span className="font-medium">{highScore}</span>
+            <span>{highScore}</span>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="flex items-center justify-between">
+        {/* Stats & Difficulty */}
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
             <Bomb className="h-4 w-4 text-destructive" />
-            <span className="font-mono">{config.mines - flagCount}</span>
+            <span className="font-mono text-lg">{config.mines - flagCount}</span>
           </div>
           <div className="flex gap-1">
             {(['easy', 'medium', 'hard'] as Difficulty[]).map((d) => (
@@ -327,121 +328,114 @@ const MinesweeperGame = () => {
                   setDifficulty(d);
                   setGameState('idle');
                 }}
-                className="capitalize text-xs px-2"
+                className="capitalize text-xs px-2 h-7"
               >
                 {d}
               </Button>
             ))}
           </div>
-          <div className="flex items-center gap-2">
-            <span className="font-mono">{elapsedTime}s</span>
-          </div>
+          <span className="font-mono text-lg w-12 text-right">{elapsedTime}s</span>
         </div>
 
         {/* Game Board */}
-        <Card className="overflow-hidden">
-          <CardContent className="p-2 flex justify-center">
-            {gameState === 'idle' ? (
-              <div className="py-12 text-center">
-                <Button onClick={startGame} size="lg" className="gap-2">
-                  <Play className="h-5 w-5" />
-                  Start Game
-                </Button>
-                <p className="text-sm text-muted-foreground mt-3">
-                  Tap to reveal, long-press to flag
-                </p>
-              </div>
-            ) : (
-              <div className="relative">
-                <div
-                  className="grid gap-0.5"
-                  style={{
-                    gridTemplateColumns: `repeat(${config.cols}, ${cellSize}px)`,
-                  }}
-                >
-                  {board.map((row, rowIdx) =>
-                    row.map((cell, colIdx) => (
-                      <button
-                        key={`${rowIdx}-${colIdx}`}
-                        className={cn(
-                          'flex items-center justify-center text-xs font-bold transition-colors select-none',
-                          cell.isRevealed
-                            ? cell.isMine
-                              ? 'bg-destructive text-destructive-foreground'
-                              : 'bg-muted/50'
-                            : 'bg-primary/20 hover:bg-primary/30 active:bg-primary/40'
-                        )}
-                        style={{ width: cellSize, height: cellSize }}
-                        onClick={() => {
-                          if (!longPressTimer) {
-                            handleCellClick(rowIdx, colIdx);
-                          }
-                        }}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          handleFlag(rowIdx, colIdx);
-                        }}
-                        onTouchStart={() => handleTouchStart(rowIdx, colIdx)}
-                        onTouchEnd={handleTouchEnd}
-                        onTouchCancel={handleTouchEnd}
-                        disabled={gameState !== 'playing'}
-                      >
-                        {cell.isRevealed ? (
-                          cell.isMine ? (
-                            <Bomb className="h-3 w-3" />
-                          ) : cell.adjacentMines > 0 ? (
-                            <span className={getNumberColor(cell.adjacentMines)}>
-                              {cell.adjacentMines}
-                            </span>
-                          ) : null
-                        ) : cell.isFlagged ? (
-                          <Flag className="h-3 w-3 text-destructive" />
-                        ) : null}
-                      </button>
-                    ))
-                  )}
-                </div>
-
-                {/* Game Over Overlay */}
-                {(gameState === 'won' || gameState === 'lost') && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/80 backdrop-blur-sm">
-                    <p className={cn(
-                      'text-xl font-bold mb-2',
-                      gameState === 'won' ? 'text-green-500' : 'text-destructive'
-                    )}>
-                      {gameState === 'won' ? 'You Won!' : 'Game Over!'}
-                    </p>
-                    <p className="text-lg mb-4">Time: {elapsedTime}s</p>
-                    <div className="flex gap-2">
-                      <Button onClick={startGame} size="lg" className="gap-2">
-                        <RotateCcw className="h-5 w-5" />
-                        Play Again
-                      </Button>
-                      {gameState === 'won' && finalScore > 0 && (
-                        <Button 
-                          onClick={() => setShareDialogOpen(true)} 
-                          size="lg" 
-                          variant="outline"
-                          className="gap-2"
-                        >
-                          <Share2 className="h-5 w-5" />
-                          Share
-                        </Button>
+        <div className="flex-1 flex items-center justify-center">
+          {gameState === 'idle' ? (
+            <div className="text-center">
+              <div className="text-6xl mb-4">💣</div>
+              <Button onClick={startGame} size="lg" className="gap-2 mb-3">
+                <Play className="h-5 w-5" />
+                Start Game
+              </Button>
+              <p className="text-sm text-muted-foreground">
+                Tap to reveal • Long-press to flag
+              </p>
+            </div>
+          ) : (
+            <div className="relative">
+              <div
+                className="grid gap-0.5 bg-muted/30 p-1 rounded-lg border border-border"
+                style={{
+                  gridTemplateColumns: `repeat(${config.cols}, ${config.cellSize}px)`,
+                }}
+              >
+                {board.map((row, rowIdx) =>
+                  row.map((cell, colIdx) => (
+                    <button
+                      key={`${rowIdx}-${colIdx}`}
+                      className={cn(
+                        'flex items-center justify-center font-bold transition-colors select-none rounded-sm',
+                        cell.isRevealed
+                          ? cell.isMine
+                            ? 'bg-destructive text-destructive-foreground'
+                            : 'bg-muted/50'
+                          : 'bg-primary/20 hover:bg-primary/30 active:bg-primary/40'
                       )}
-                    </div>
-                  </div>
+                      style={{ 
+                        width: config.cellSize, 
+                        height: config.cellSize,
+                        fontSize: config.cellSize * 0.5,
+                      }}
+                      onClick={() => {
+                        if (!longPressTimer) {
+                          handleCellClick(rowIdx, colIdx);
+                        }
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        handleFlag(rowIdx, colIdx);
+                      }}
+                      onTouchStart={() => handleTouchStart(rowIdx, colIdx)}
+                      onTouchEnd={handleTouchEnd}
+                      onTouchCancel={handleTouchEnd}
+                      disabled={gameState !== 'playing'}
+                    >
+                      {cell.isRevealed ? (
+                        cell.isMine ? (
+                          <Bomb style={{ width: config.cellSize * 0.5, height: config.cellSize * 0.5 }} />
+                        ) : cell.adjacentMines > 0 ? (
+                          <span className={getNumberColor(cell.adjacentMines)}>
+                            {cell.adjacentMines}
+                          </span>
+                        ) : null
+                      ) : cell.isFlagged ? (
+                        <Flag className="text-destructive" style={{ width: config.cellSize * 0.5, height: config.cellSize * 0.5 }} />
+                      ) : null}
+                    </button>
+                  ))
                 )}
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Instructions */}
-        {gameState === 'playing' && (
-          <p className="text-center text-sm text-muted-foreground">
-            Tap to reveal • Long-press or right-click to flag
-          </p>
-        )}
+              {/* Game Over Overlay */}
+              {(gameState === 'won' || gameState === 'lost') && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-background/90 backdrop-blur-sm rounded-lg">
+                  <p className={cn(
+                    'text-xl font-bold mb-2',
+                    gameState === 'won' ? 'text-green-500' : 'text-destructive'
+                  )}>
+                    {gameState === 'won' ? '🎉 You Won!' : '💥 Game Over!'}
+                  </p>
+                  <p className="text-lg mb-4">Time: {elapsedTime}s</p>
+                  <div className="flex gap-2">
+                    <Button onClick={startGame} size="lg" className="gap-2">
+                      <RotateCcw className="h-5 w-5" />
+                      Play Again
+                    </Button>
+                    {gameState === 'won' && finalScore > 0 && (
+                      <Button 
+                        onClick={() => setShareDialogOpen(true)} 
+                        size="lg" 
+                        variant="outline"
+                        className="gap-2"
+                      >
+                        <Share2 className="h-5 w-5" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <ShareScoreDialog
