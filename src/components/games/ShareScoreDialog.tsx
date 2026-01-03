@@ -18,7 +18,7 @@ interface Chat {
 interface ShareScoreDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  gameType: 'snake' | 'minesweeper' | 'basketball';
+  gameType: 'snake' | 'minesweeper' | 'basketball' | 'pizza';
   score: number;
 }
 
@@ -106,7 +106,11 @@ export function ShareScoreDialog({ open, onOpenChange, gameType, score }: ShareS
             body: {
               user_ids: members.map(m => m.user_id),
               title: `${playerName} scored!`,
-              body: `${score.toLocaleString()} pts in ${gameType === 'snake' ? 'Snake' : 'Minesweeper'}`,
+              body: `${score.toLocaleString()} pts in ${
+                gameType === 'snake' ? 'Snake' : 
+                gameType === 'minesweeper' ? 'Minesweeper' : 
+                gameType === 'basketball' ? 'Hoops' : 'Pizza Paddle'
+              }`,
               notification_type: 'chat_messages',
               data: { chat_id: chatId, type: 'message' }
             }
@@ -136,7 +140,9 @@ export function ShareScoreDialog({ open, onOpenChange, gameType, score }: ShareS
         <div className="py-2">
           <p className="text-sm text-muted-foreground mb-4">
             Brag about your <span className="font-semibold text-primary">{score.toLocaleString()} pts</span> in {
-              gameType === 'snake' ? 'Snake' : gameType === 'minesweeper' ? 'Minesweeper' : 'Hoops'
+              gameType === 'snake' ? 'Snake' : 
+              gameType === 'minesweeper' ? 'Minesweeper' : 
+              gameType === 'basketball' ? 'Hoops' : 'Pizza Paddle'
             }!
           </p>
 

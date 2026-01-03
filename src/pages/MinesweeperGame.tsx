@@ -15,6 +15,7 @@ type CellState = {
   isRevealed: boolean;
   isFlagged: boolean;
   adjacentMines: number;
+  revealedAt?: number; // timestamp for recent move highlighting
 };
 
 type Difficulty = 'easy' | 'medium' | 'hard';
@@ -34,6 +35,8 @@ const MinesweeperGame = () => {
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [finalScore, setFinalScore] = useState(0);
+  const [lastRevealTime, setLastRevealTime] = useState<number>(0);
+  const [, forceUpdate] = useState({});
 
   // Calculate grid size based on screen
   const getConfig = useCallback(() => {
@@ -128,7 +131,7 @@ const MinesweeperGame = () => {
   }, [config]);
 
   // Reveal cell
-  const revealCell = useCallback((row: number, col: number, currentBoard: CellState[][]): CellState[][] => {
+  const revealCell = useCallback((row: number, col: number, currentBoard: CellState[][], revealTime: number): CellState[][] => {
     if (
       row < 0 || row >= config.rows ||
       col < 0 || col >= config.cols ||
@@ -140,12 +143,13 @@ const MinesweeperGame = () => {
 
     const newBoard = currentBoard.map(r => r.map(c => ({ ...c })));
     newBoard[row][col].isRevealed = true;
+    newBoard[row][col].revealedAt = revealTime;
 
     if (newBoard[row][col].adjacentMines === 0 && !newBoard[row][col].isMine) {
       for (let dr = -1; dr <= 1; dr++) {
         for (let dc = -1; dc <= 1; dc++) {
           if (dr !== 0 || dc !== 0) {
-            const result = revealCell(row + dr, col + dc, newBoard);
+            const result = revealCell(row + dr, col + dc, newBoard, revealTime);
             for (let r = 0; r < config.rows; r++) {
               for (let c = 0; c < config.cols; c++) {
                 newBoard[r][c] = result[r][c];
@@ -165,6 +169,7 @@ const MinesweeperGame = () => {
     if (board[row][col].isFlagged || board[row][col].isRevealed) return;
 
     let currentBoard = board;
+    const revealTime = Date.now();
 
     if (!startTime) {
       currentBoard = initializeBoard(row, col);
@@ -175,14 +180,19 @@ const MinesweeperGame = () => {
       const newBoard = currentBoard.map(r => r.map(c => ({
         ...c,
         isRevealed: c.isMine ? true : c.isRevealed,
+        revealedAt: c.isMine ? revealTime : c.revealedAt,
       })));
       setBoard(newBoard);
       setGameState('lost');
       return;
     }
 
-    const newBoard = revealCell(row, col, currentBoard);
+    const newBoard = revealCell(row, col, currentBoard, revealTime);
     setBoard(newBoard);
+    setLastRevealTime(revealTime);
+
+    // Force update after 1.5 seconds to remove highlight
+    setTimeout(() => forceUpdate({}), 1500);
 
     const unrevealedNonMines = newBoard.flat().filter(c => !c.isRevealed && !c.isMine).length;
     if (unrevealedNonMines === 0) {
@@ -363,12 +373,14 @@ const MinesweeperGame = () => {
                     <button
                       key={`${rowIdx}-${colIdx}`}
                       className={cn(
-                        'flex items-center justify-center font-bold transition-colors select-none rounded-sm',
+                        'flex items-center justify-center font-bold transition-all select-none rounded-sm relative',
                         cell.isRevealed
                           ? cell.isMine
                             ? 'bg-destructive text-destructive-foreground'
                             : 'bg-muted/50'
-                          : 'bg-primary/20 hover:bg-primary/30 active:bg-primary/40'
+                          : 'bg-primary/20 hover:bg-primary/30 active:bg-primary/40',
+                        // Recent move highlight
+                        cell.isRevealed && cell.revealedAt && (Date.now() - cell.revealedAt < 1500) && !cell.isMine && 'ring-2 ring-yellow-400 ring-inset bg-yellow-500/20'
                       )}
                       style={{ 
                         width: config.cellSize, 
@@ -389,6 +401,10 @@ const MinesweeperGame = () => {
                       onTouchCancel={handleTouchEnd}
                       disabled={gameState !== 'playing'}
                     >
+                      {/* Recent move indicator dot */}
+                      {cell.isRevealed && cell.revealedAt && (Date.now() - cell.revealedAt < 1500) && !cell.isMine && (
+                        <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse" />
+                      )}
                       {cell.isRevealed ? (
                         cell.isMine ? (
                           <Bomb style={{ width: config.cellSize * 0.5, height: config.cellSize * 0.5 }} />
