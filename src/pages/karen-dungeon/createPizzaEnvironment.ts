@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createBrickTexture, createDirtFloorTexture, createStoneTexture } from './proceduralTextures';
+import { createDungeonWallMaterial, createDirtFloorMaterial } from './modelLoader';
 
 /**
  * Creates a pizza shop dungeon environment with:
@@ -11,24 +11,33 @@ import { createBrickTexture, createDirtFloorTexture, createStoneTexture } from '
  * - Atmospheric lighting
  */
 export function createPizzaEnvironment(scene: THREE.Scene, isMobile: boolean) {
-  // High-res textures (1024x1024)
-  const wallTex = createBrickTexture(9999);
-  wallTex.repeat.set(isMobile ? 3 : 4, isMobile ? 1.5 : 2);
-
-  const floorTex = createDirtFloorTexture(8888);
-  floorTex.repeat.set(isMobile ? 20 : 30, isMobile ? 20 : 30);
+  // High-quality PBR materials
+  const wallMat = createDungeonWallMaterial();
+  const floorMat = createDirtFloorMaterial();
   
-  const stoneTex = createStoneTexture(7777);
-  stoneTex.repeat.set(8, 8);
+  // Create a stone texture for tiles
+  const stoneCanvas = document.createElement('canvas');
+  stoneCanvas.width = 512;
+  stoneCanvas.height = 512;
+  const ctx = stoneCanvas.getContext('2d')!;
+  ctx.fillStyle = '#2a2520';
+  ctx.fillRect(0, 0, 512, 512);
+  for (let i = 0; i < 800; i++) {
+    const x = Math.random() * 512;
+    const y = Math.random() * 512;
+    const r = 2 + Math.random() * 6;
+    const shade = 30 + Math.random() * 30;
+    ctx.fillStyle = `rgba(${shade + 10}, ${shade + 5}, ${shade}, ${0.3 + Math.random() * 0.4})`;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const stoneTex = new THREE.CanvasTexture(stoneCanvas);
+  stoneTex.wrapS = THREE.RepeatWrapping;
+  stoneTex.wrapT = THREE.RepeatWrapping;
 
-  // === MAIN FLOOR (dirt/stone) ===
+  // === MAIN FLOOR (grimy dirt) ===
   const floorGeom = new THREE.PlaneGeometry(100, 100, 20, 20);
-  const floorMat = new THREE.MeshStandardMaterial({
-    color: 0x3a3028,
-    roughness: 0.9,
-    metalness: 0.02,
-    map: floorTex,
-  });
   const floor = new THREE.Mesh(floorGeom, floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.receiveShadow = true;
@@ -65,21 +74,16 @@ export function createPizzaEnvironment(scene: THREE.Scene, isMobile: boolean) {
   createNeonSign(scene, -10, 3, 8, 'HOT', 0xff6600);
   createNeonSign(scene, 10, 3, 8, 'FRESH', 0x00ff66);
 
-  // === DUNGEON WALLS (outer perimeter) ===
+  // === DUNGEON WALLS (outer perimeter) - use the PBR wall material
   const wallHeight = 5;
   const arenaSize = 16;
-  const wallMat = new THREE.MeshStandardMaterial({
-    color: 0x3a2218,
-    roughness: 0.9,
-    metalness: 0.02,
-    map: wallTex,
-  });
+  const dungeonWallMat = createDungeonWallMaterial();
 
   // Back wall with opening
-  createWallWithOpening(scene, wallMat, wallHeight, arenaSize, 'back');
-  createWallWithOpening(scene, wallMat, wallHeight, arenaSize, 'left');
-  createWallWithOpening(scene, wallMat, wallHeight, arenaSize, 'right');
-  createWallWithOpening(scene, wallMat, wallHeight, arenaSize, 'front');
+  createWallWithOpening(scene, dungeonWallMat, wallHeight, arenaSize, 'back');
+  createWallWithOpening(scene, dungeonWallMat, wallHeight, arenaSize, 'left');
+  createWallWithOpening(scene, dungeonWallMat, wallHeight, arenaSize, 'right');
+  createWallWithOpening(scene, dungeonWallMat, wallHeight, arenaSize, 'front');
 
   // === ADDITIONAL ROOMS / HALLWAYS ===
   const roomConfigs = [
@@ -90,7 +94,7 @@ export function createPizzaEnvironment(scene: THREE.Scene, isMobile: boolean) {
   ];
 
   roomConfigs.forEach((r) => {
-    createRoom(scene, r.x, r.z, r.w, r.d, r.theme, wallMat, floorTex);
+    createRoom(scene, r.x, r.z, r.w, r.d, r.theme, dungeonWallMat);
   });
 
   // === CEILING ===
@@ -118,7 +122,7 @@ export function createPizzaEnvironment(scene: THREE.Scene, isMobile: boolean) {
     createHangingLamp(scene, x, wallHeight - 0.5, z);
   });
 
-  return { floorTex, wallTex, stoneTex };
+  return { stoneTex };
 }
 
 // High-quality stone checkered floor with textures
@@ -421,18 +425,13 @@ function createRoom(
   w: number,
   d: number,
   _theme: string,
-  wallMat: THREE.Material,
-  floorTex: THREE.Texture
+  wallMat: THREE.Material
 ) {
   const height = 4;
 
-  // Floor
+  // Floor with grimy dirt material
   const floorGeom = new THREE.PlaneGeometry(w, d);
-  const floorMat = new THREE.MeshStandardMaterial({
-    color: 0x1a1515,
-    roughness: 0.88,
-    map: floorTex,
-  });
+  const floorMat = createDirtFloorMaterial();
   const floor = new THREE.Mesh(floorGeom, floorMat);
   floor.rotation.x = -Math.PI / 2;
   floor.position.set(x, 0.01, z);
