@@ -84,10 +84,6 @@ const LEVELS: Level[] = [
   { theme: 'city', name: 'Downtown Pizza', scoreThreshold: 0 },
   { theme: 'desert', name: 'Desert Heat', scoreThreshold: 150 },
   { theme: 'hemet', name: 'HEMET', scoreThreshold: 350 },
-  { theme: 'mountains', name: 'Mountain Top', scoreThreshold: 550 },
-  { theme: 'space', name: 'Cosmic Kitchen', scoreThreshold: 800 },
-  { theme: 'hell', name: 'Hell\'s Kitchen', scoreThreshold: 1100 },
-  { theme: 'heaven', name: 'Pizza Paradise', scoreThreshold: 1400 },
 ];
 
 const GRAVITY = 0.6;
@@ -1053,23 +1049,98 @@ const PizzaPaddleGame = () => {
         }
       }
 
-      // HEMET theme - mummies, crackheads, and flying needles
+      // HEMET theme - mummies, crackheads, flying needles, dumpster fires, buildings
       if (currentLevelRef.current.theme === 'hemet') {
-        // Draw wandering mummies in background
-        for (let i = 0; i < 3; i++) {
-          const mummyX = (i * 180 + frameCountRef.current * 0.4) % (width + 100) - 50;
-          const mummyY = height - 90 + Math.sin(frameCountRef.current * 0.05 + i) * 5;
+        // Background buildings (far back)
+        ctx.fillStyle = '#3a3a3a';
+        for (let i = 0; i < 8; i++) {
+          const buildingX = (i * 80 - (frameCountRef.current * 0.15) % 80) - 20;
+          const buildingHeight = 80 + (i % 4) * 40;
+          const buildingWidth = 50 + (i % 3) * 15;
+          ctx.fillRect(buildingX, height - 50 - buildingHeight, buildingWidth, buildingHeight);
+          // Windows
+          ctx.fillStyle = '#1a1a1a';
+          for (let wy = 0; wy < Math.floor(buildingHeight / 20); wy++) {
+            for (let wx = 0; wx < 3; wx++) {
+              const windowLit = (i + wy + wx + Math.floor(frameCountRef.current * 0.02)) % 5 < 2;
+              ctx.fillStyle = windowLit ? '#ffcc44' : '#1a1a1a';
+              ctx.fillRect(buildingX + 8 + wx * 14, height - 45 - buildingHeight + 10 + wy * 20, 8, 12);
+            }
+          }
+          ctx.fillStyle = '#3a3a3a';
+        }
+
+        // Mid-ground buildings (closer)
+        ctx.fillStyle = '#2a2a2a';
+        for (let i = 0; i < 5; i++) {
+          const buildingX = (i * 120 + 40 - (frameCountRef.current * 0.25) % 120) - 30;
+          const buildingHeight = 60 + (i % 3) * 30;
+          ctx.fillRect(buildingX, height - 50 - buildingHeight, 40, buildingHeight);
+          // Broken windows
+          ctx.fillStyle = '#1a1a1a';
+          for (let w = 0; w < 2; w++) {
+            ctx.fillRect(buildingX + 8 + w * 18, height - 40 - buildingHeight + 15, 10, 15);
+          }
+          ctx.fillStyle = '#2a2a2a';
+        }
+
+        // Dumpster fires
+        for (let i = 0; i < 4; i++) {
+          const dumpsterX = (i * 140 + 60 + frameCountRef.current * 0.3) % (width + 100) - 50;
+          const dumpsterY = height - 75;
+          
+          ctx.save();
+          ctx.globalAlpha = 0.85;
+          // Dumpster body
+          ctx.fillStyle = '#2d5a2d';
+          ctx.fillRect(dumpsterX, dumpsterY, 45, 28);
+          ctx.fillStyle = '#1d4a1d';
+          ctx.fillRect(dumpsterX + 2, dumpsterY + 2, 41, 3);
+          // Dumpster lid (open)
+          ctx.fillStyle = '#2d5a2d';
+          ctx.save();
+          ctx.translate(dumpsterX + 45, dumpsterY);
+          ctx.rotate(-0.5);
+          ctx.fillRect(-42, -5, 42, 5);
+          ctx.restore();
+          // Fire coming out
+          for (let f = 0; f < 5; f++) {
+            const flameHeight = 15 + Math.sin(frameCountRef.current * 0.2 + f) * 10 + Math.random() * 8;
+            const flameX = dumpsterX + 8 + f * 8;
+            ctx.fillStyle = f % 2 === 0 ? '#ff4400' : '#ffaa00';
+            ctx.beginPath();
+            ctx.moveTo(flameX, dumpsterY);
+            ctx.lineTo(flameX + 4, dumpsterY - flameHeight);
+            ctx.lineTo(flameX + 8, dumpsterY);
+            ctx.fill();
+          }
+          // Smoke
+          ctx.fillStyle = 'rgba(60, 60, 60, 0.5)';
+          for (let s = 0; s < 3; s++) {
+            const smokeY = dumpsterY - 30 - s * 15 - (frameCountRef.current * 0.5 % 30);
+            const smokeSize = 8 + s * 4;
+            ctx.beginPath();
+            ctx.arc(dumpsterX + 22 + Math.sin(frameCountRef.current * 0.1 + s) * 5, smokeY, smokeSize, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // Draw wandering mummies in background (more of them)
+        for (let i = 0; i < 6; i++) {
+          const mummyX = (i * 100 + frameCountRef.current * 0.4) % (width + 100) - 50;
+          const mummyY = height - 95 + Math.sin(frameCountRef.current * 0.05 + i) * 5;
           const bobble = Math.sin(frameCountRef.current * 0.1 + i * 2) * 2;
           
           ctx.save();
-          ctx.globalAlpha = 0.7;
+          ctx.globalAlpha = 0.75;
           // Mummy body (wrapped in bandages)
           ctx.fillStyle = '#d4c4a8';
-          ctx.fillRect(mummyX + 8, mummyY + 15 + bobble, 14, 25);
+          ctx.fillRect(mummyX + 8, mummyY + 15 + bobble, 14, 30);
           // Bandage strips
           ctx.strokeStyle = '#c9b898';
           ctx.lineWidth = 2;
-          for (let j = 0; j < 5; j++) {
+          for (let j = 0; j < 6; j++) {
             ctx.beginPath();
             ctx.moveTo(mummyX + 6, mummyY + 18 + j * 5 + bobble);
             ctx.lineTo(mummyX + 24, mummyY + 20 + j * 5 + bobble);
@@ -1080,97 +1151,141 @@ const PizzaPaddleGame = () => {
           ctx.beginPath();
           ctx.arc(mummyX + 15, mummyY + 10 + bobble, 10, 0, Math.PI * 2);
           ctx.fill();
+          // Head bandages
+          ctx.strokeStyle = '#b9a888';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(mummyX + 5, mummyY + 8 + bobble);
+          ctx.lineTo(mummyX + 25, mummyY + 12 + bobble);
+          ctx.stroke();
           // Glowing eyes
           ctx.fillStyle = '#ff6600';
+          ctx.shadowColor = '#ff6600';
+          ctx.shadowBlur = 5;
           ctx.beginPath();
           ctx.arc(mummyX + 12, mummyY + 8 + bobble, 2, 0, Math.PI * 2);
           ctx.arc(mummyX + 18, mummyY + 8 + bobble, 2, 0, Math.PI * 2);
           ctx.fill();
+          ctx.shadowBlur = 0;
           // Arms reaching out
           ctx.fillStyle = '#d4c4a8';
-          ctx.fillRect(mummyX - 2, mummyY + 18 + bobble, 12, 4);
-          ctx.fillRect(mummyX + 20, mummyY + 18 + bobble, 12, 4);
+          ctx.fillRect(mummyX - 5, mummyY + 18 + bobble, 15, 5);
+          ctx.fillRect(mummyX + 20, mummyY + 18 + bobble, 15, 5);
           ctx.restore();
         }
 
-        // Draw crackhead characters wandering
-        for (let i = 0; i < 2; i++) {
-          const crackX = (i * 250 + 100 + frameCountRef.current * 0.6) % (width + 120) - 60;
-          const crackY = height - 85;
-          const twitch = Math.random() * 3 - 1.5;
+        // Draw crackhead/druggie characters wandering (more of them)
+        for (let i = 0; i < 5; i++) {
+          const crackX = (i * 110 + 50 + frameCountRef.current * 0.7) % (width + 120) - 60;
+          const crackY = height - 90;
+          const twitch = Math.sin(frameCountRef.current * 0.4 + i * 3) * 4;
           const jitter = Math.sin(frameCountRef.current * 0.3 + i * 5) * 3;
           
           ctx.save();
-          ctx.globalAlpha = 0.6;
+          ctx.globalAlpha = 0.7;
+          // Skinny legs
+          ctx.fillStyle = '#3a3a5a';
+          ctx.fillRect(crackX + 10 + twitch, crackY + 35 + jitter, 4, 15);
+          ctx.fillRect(crackX + 16 + twitch, crackY + 35 + jitter, 4, 15);
           // Skinny body
-          ctx.fillStyle = '#4a4a4a';
-          ctx.fillRect(crackX + 10 + twitch, crackY + 12 + jitter, 10, 28);
+          ctx.fillStyle = i % 2 === 0 ? '#4a4a4a' : '#5a4a3a';
+          ctx.fillRect(crackX + 8 + twitch, crackY + 15 + jitter, 14, 22);
           // Head
           ctx.fillStyle = '#8b7355';
           ctx.beginPath();
-          ctx.arc(crackX + 15 + twitch, crackY + 6 + jitter, 8, 0, Math.PI * 2);
+          ctx.arc(crackX + 15 + twitch, crackY + 8 + jitter, 9, 0, Math.PI * 2);
           ctx.fill();
-          // Messy hair
-          ctx.strokeStyle = '#3a3a3a';
-          ctx.lineWidth = 1;
-          for (let h = 0; h < 5; h++) {
+          // Sunken cheeks
+          ctx.fillStyle = '#7a6345';
+          ctx.beginPath();
+          ctx.arc(crackX + 10 + twitch, crackY + 10 + jitter, 3, 0, Math.PI * 2);
+          ctx.arc(crackX + 20 + twitch, crackY + 10 + jitter, 3, 0, Math.PI * 2);
+          ctx.fill();
+          // Messy/patchy hair
+          ctx.strokeStyle = '#2a2a2a';
+          ctx.lineWidth = 2;
+          for (let h = 0; h < 6; h++) {
             ctx.beginPath();
-            ctx.moveTo(crackX + 10 + h * 2 + twitch, crackY - 2 + jitter);
-            ctx.lineTo(crackX + 8 + h * 3 + twitch, crackY - 8 - Math.random() * 5 + jitter);
+            ctx.moveTo(crackX + 8 + h * 2.5 + twitch, crackY - 1 + jitter);
+            ctx.lineTo(crackX + 6 + h * 3 + twitch, crackY - 10 - Math.random() * 6 + jitter);
             ctx.stroke();
           }
-          // Crazy eyes
+          // Crazy wide eyes
           ctx.fillStyle = '#ffffff';
           ctx.beginPath();
-          ctx.arc(crackX + 12 + twitch, crackY + 4 + jitter, 3, 0, Math.PI * 2);
-          ctx.arc(crackX + 18 + twitch, crackY + 4 + jitter, 3, 0, Math.PI * 2);
+          ctx.arc(crackX + 11 + twitch, crackY + 5 + jitter, 4, 0, Math.PI * 2);
+          ctx.arc(crackX + 19 + twitch, crackY + 5 + jitter, 4, 0, Math.PI * 2);
           ctx.fill();
+          // Dilated pupils (darting around)
           ctx.fillStyle = '#000000';
+          const pupilOffset = Math.sin(frameCountRef.current * 0.2 + i) * 2;
           ctx.beginPath();
-          ctx.arc(crackX + 12 + Math.random() + twitch, crackY + 4 + jitter, 1.5, 0, Math.PI * 2);
-          ctx.arc(crackX + 18 - Math.random() + twitch, crackY + 4 + jitter, 1.5, 0, Math.PI * 2);
+          ctx.arc(crackX + 11 + pupilOffset + twitch, crackY + 5 + jitter, 2, 0, Math.PI * 2);
+          ctx.arc(crackX + 19 - pupilOffset + twitch, crackY + 5 + jitter, 2, 0, Math.PI * 2);
+          ctx.fill();
+          // Open mouth (yelling/mumbling)
+          ctx.fillStyle = '#2a1a1a';
+          ctx.beginPath();
+          ctx.arc(crackX + 15 + twitch, crackY + 13 + jitter, 3, 0, Math.PI);
           ctx.fill();
           // Twitchy arms
           ctx.strokeStyle = '#8b7355';
-          ctx.lineWidth = 3;
+          ctx.lineWidth = 4;
           ctx.beginPath();
-          ctx.moveTo(crackX + 10 + twitch, crackY + 15 + jitter);
-          ctx.lineTo(crackX + 2 + Math.sin(frameCountRef.current * 0.5) * 5, crackY + 25 + jitter);
+          ctx.moveTo(crackX + 8 + twitch, crackY + 18 + jitter);
+          ctx.lineTo(crackX - 2 + Math.sin(frameCountRef.current * 0.6 + i) * 8, crackY + 30 + jitter);
           ctx.stroke();
           ctx.beginPath();
-          ctx.moveTo(crackX + 20 + twitch, crackY + 15 + jitter);
-          ctx.lineTo(crackX + 28 + Math.cos(frameCountRef.current * 0.5) * 5, crackY + 22 + jitter);
+          ctx.moveTo(crackX + 22 + twitch, crackY + 18 + jitter);
+          ctx.lineTo(crackX + 32 + Math.cos(frameCountRef.current * 0.6 + i) * 8, crackY + 28 + jitter);
           ctx.stroke();
           ctx.restore();
         }
 
-        // Flying needles
-        for (let i = 0; i < 6; i++) {
-          const needleX = (i * 90 + frameCountRef.current * 1.5) % (width + 60) - 30;
-          const needleY = 80 + (i * 40) % 150 + Math.sin(frameCountRef.current * 0.08 + i * 2) * 20;
-          const rotation = frameCountRef.current * 0.1 + i;
+        // Flying needles (bigger)
+        for (let i = 0; i < 10; i++) {
+          const needleX = (i * 70 + frameCountRef.current * 2) % (width + 80) - 40;
+          const needleY = 60 + (i * 35) % 180 + Math.sin(frameCountRef.current * 0.08 + i * 2) * 25;
+          const rotation = frameCountRef.current * 0.12 + i;
+          const scale = 1.5 + (i % 3) * 0.3;
           
           ctx.save();
-          ctx.globalAlpha = 0.8;
+          ctx.globalAlpha = 0.85;
           ctx.translate(needleX, needleY);
           ctx.rotate(rotation);
-          // Needle body (syringe)
-          ctx.fillStyle = '#c0c0c0';
-          ctx.fillRect(-15, -2, 25, 4);
-          // Needle tip
-          ctx.fillStyle = '#808080';
+          ctx.scale(scale, scale);
+          // Syringe body (bigger)
+          ctx.fillStyle = '#d0d0d0';
+          ctx.fillRect(-20, -4, 35, 8);
+          // Measurement lines
+          ctx.strokeStyle = '#888888';
+          ctx.lineWidth = 0.5;
+          for (let m = 0; m < 5; m++) {
+            ctx.beginPath();
+            ctx.moveTo(-15 + m * 6, -3);
+            ctx.lineTo(-15 + m * 6, 3);
+            ctx.stroke();
+          }
+          // Needle tip (sharp)
+          ctx.fillStyle = '#707070';
           ctx.beginPath();
-          ctx.moveTo(10, 0);
-          ctx.lineTo(18, 0);
-          ctx.lineTo(10, -1);
-          ctx.lineTo(10, 1);
+          ctx.moveTo(15, 0);
+          ctx.lineTo(28, 0);
+          ctx.lineTo(15, -2);
+          ctx.lineTo(15, 2);
           ctx.fill();
           // Plunger
-          ctx.fillStyle = '#ff4444';
-          ctx.fillRect(-18, -3, 5, 6);
-          // Liquid inside
-          ctx.fillStyle = 'rgba(139, 69, 19, 0.6)';
-          ctx.fillRect(-12, -1, 15, 2);
+          ctx.fillStyle = '#ee3333';
+          ctx.fillRect(-25, -5, 7, 10);
+          // Liquid inside (brownish)
+          ctx.fillStyle = 'rgba(100, 60, 30, 0.7)';
+          ctx.fillRect(-16, -2, 24, 4);
+          // Bubbles in liquid
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+          ctx.beginPath();
+          ctx.arc(-8, 0, 1.5, 0, Math.PI * 2);
+          ctx.arc(2, -1, 1, 0, Math.PI * 2);
+          ctx.fill();
           ctx.restore();
         }
       }
