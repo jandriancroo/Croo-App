@@ -9,6 +9,10 @@ import { ShareScoreDialog } from '@/components/games/ShareScoreDialog';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import * as THREE from 'three';
 import { createDungeonTexture } from './karen-dungeon/proceduralTextures';
+import { createPizzaEnvironment } from './karen-dungeon/createPizzaEnvironment';
+import { createDukeArms, animateRecoil } from './karen-dungeon/createDukeArms';
+import { setupLighting } from './karen-dungeon/setupLighting';
+import { DesktopFPSControls, MobileTouchControls } from './karen-dungeon/FPSControls';
 
 // Karen insults for chat bubbles
 const KAREN_INSULTS = [
@@ -141,14 +145,25 @@ export default function KarenDungeon3D() {
   const thumbpadRef = useRef({ active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 });
   const lookpadRef = useRef({ active: false, startX: 0, startY: 0, currentX: 0, currentY: 0 });
   
-  // Cannon mesh ref
+  // Cannon mesh ref (now Duke arms group)
   const cannonRef = useRef<THREE.Group | null>(null);
+  const dukeArmsRef = useRef<THREE.Group | null>(null);
+  
+  // Desktop FPS controls ref
+  const desktopControlsRef = useRef<DesktopFPSControls | null>(null);
+  const mobileControlsRef = useRef<MobileTouchControls | null>(null);
   
   // Screen shake ref
   const screenShakeRef = useRef({ intensity: 0, duration: 0 });
   
   // Muzzle flash particles ref
   const muzzleFlashRef = useRef<THREE.PointLight | null>(null);
+  
+  // Desktop keyboard state
+  const keyStateRef = useRef({ forward: false, backward: false, left: false, right: false, shoot: false });
+  
+  // Detect mobile
+  const isMobileDevice = useMemo(() => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent), []);
 
   // Check orientation
   useEffect(() => {
@@ -171,6 +186,104 @@ export default function KarenDungeon3D() {
       window.removeEventListener('orientationchange', checkOrientation);
     };
   }, [gameState]);
+
+  // Desktop keyboard + mouse controls
+  useEffect(() => {
+    if (isMobileDevice) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (gameState !== 'playing') return;
+      switch (e.code) {
+        case 'KeyW':
+        case 'ArrowUp':
+          keyStateRef.current.forward = true;
+          break;
+        case 'KeyS':
+        case 'ArrowDown':
+          keyStateRef.current.backward = true;
+          break;
+        case 'KeyA':
+        case 'ArrowLeft':
+          keyStateRef.current.left = true;
+          break;
+        case 'KeyD':
+        case 'ArrowRight':
+          keyStateRef.current.right = true;
+          break;
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      switch (e.code) {
+        case 'KeyW':
+        case 'ArrowUp':
+          keyStateRef.current.forward = false;
+          break;
+        case 'KeyS':
+        case 'ArrowDown':
+          keyStateRef.current.backward = false;
+          break;
+        case 'KeyA':
+        case 'ArrowLeft':
+          keyStateRef.current.left = false;
+          break;
+        case 'KeyD':
+        case 'ArrowRight':
+          keyStateRef.current.right = false;
+          break;
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (gameState !== 'playing') return;
+      // Only rotate if we have pointer lock
+      if (document.pointerLockElement === containerRef.current) {
+        const sensitivity = 0.002;
+        playerRotRef.current -= e.movementX * sensitivity;
+      }
+    };
+
+    const handleClick = () => {
+      if (gameState === 'playing') {
+        // Request pointer lock on first click
+        if (document.pointerLockElement !== containerRef.current && containerRef.current) {
+          containerRef.current.requestPointerLock();
+        }
+      }
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (gameState === 'playing' && e.button === 0) {
+        keyStateRef.current.shoot = true;
+      }
+    };
+
+    const handleSpaceKey = (e: KeyboardEvent) => {
+      if (gameState === 'playing' && e.code === 'Space') {
+        e.preventDefault();
+        keyStateRef.current.shoot = true;
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('click', handleClick);
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('keydown', handleSpaceKey);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('click', handleClick);
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('keydown', handleSpaceKey);
+      if (document.pointerLockElement) {
+        document.exitPointerLock();
+      }
+    };
+  }, [isMobileDevice, gameState]);
 
   // Fetch high score
   useEffect(() => {
@@ -1490,55 +1603,11 @@ export default function KarenDungeon3D() {
         addCorridor(new THREE.Vector3(r.x, 0, 0), new THREE.Vector3(r.x, 0, r.z));
       });
 
-    // Create detailed meatball cannon
-    const cannonGroup = new THREE.Group();
-    
-    // Cannon barrel (detailed)
-    const barrelGeom = new THREE.CylinderGeometry(0.06, 0.1, 0.6, 24);
-    const barrelMat = new THREE.MeshStandardMaterial({ 
-      color: 0x404040, 
-      roughness: 0.25, 
-      metalness: 0.85 
-    });
-    const barrel = new THREE.Mesh(barrelGeom, barrelMat);
-    barrel.rotation.x = Math.PI / 2;
-    barrel.position.z = -0.35;
-    cannonGroup.add(barrel);
-    
-    // Barrel rings
-    for (let i = 0; i < 3; i++) {
-      const ringGeom = new THREE.TorusGeometry(0.08 - i * 0.01, 0.015, 8, 24);
-      const ringMat = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, metalness: 0.9 });
-      const ring = new THREE.Mesh(ringGeom, ringMat);
-      ring.position.z = -0.15 - i * 0.18;
-      cannonGroup.add(ring);
-    }
-    
-    // Cannon body
-    const bodyGeom = new THREE.BoxGeometry(0.18, 0.14, 0.25);
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2a, metalness: 0.7, roughness: 0.3 });
-    const body = new THREE.Mesh(bodyGeom, bodyMat);
-    body.position.set(0, -0.02, -0.05);
-    cannonGroup.add(body);
-    
-    // Handle grip
-    const gripGeom = new THREE.CylinderGeometry(0.035, 0.04, 0.12, 12);
-    const gripMat = new THREE.MeshStandardMaterial({ color: 0x4a3020, roughness: 0.9 });
-    const grip = new THREE.Mesh(gripGeom, gripMat);
-    grip.position.set(0, -0.12, 0.02);
-    cannonGroup.add(grip);
-    
-    // Loaded meatball visible in chamber
-    const loadedMeatGeom = new THREE.SphereGeometry(0.05, 16, 12);
-    const loadedMeatMat = new THREE.MeshStandardMaterial({ color: 0x7a4522 });
-    const loadedMeat = new THREE.Mesh(loadedMeatGeom, loadedMeatMat);
-    loadedMeat.position.z = -0.52;
-    cannonGroup.add(loadedMeat);
-    
-    cannonGroup.position.set(0.22, -0.18, -0.45);
-    cannonGroup.rotation.x = 0.08;
-    camera.add(cannonGroup);
-    cannonRef.current = cannonGroup;
+    // Create Duke Nukem-style arms with meatball cannon
+    const dukeArms = createDukeArms();
+    camera.add(dukeArms);
+    dukeArmsRef.current = dukeArms;
+    cannonRef.current = dukeArms; // For backwards compatibility with recoil
     
     // Spawn initial Karens
     const spawnPositions = [
@@ -1618,16 +1687,9 @@ export default function KarenDungeon3D() {
     setAmmo(ammoRef.current);
     sounds.shoot();
     
-    // Cannon recoil animation
-    if (cannonRef.current) {
-      cannonRef.current.position.z = -0.3;
-      cannonRef.current.rotation.x = 0.15; // Kick up
-      setTimeout(() => {
-        if (cannonRef.current) {
-          cannonRef.current.position.z = -0.45;
-          cannonRef.current.rotation.x = 0.08;
-        }
-      }, 100);
+    // Cannon recoil animation (use Duke arms recoil)
+    if (dukeArmsRef.current) {
+      animateRecoil(dukeArmsRef.current);
     }
     
     // Get camera direction for shooting
@@ -1686,8 +1748,29 @@ export default function KarenDungeon3D() {
       const moveSpeed = 6.0 * delta;
       const turnSpeed = 3.5 * delta;
       
-      // Left stick - movement only (relative to current facing direction)
-      if (thumbpadRef.current.active) {
+      // Desktop keyboard controls (WASD)
+      if (!isMobileDevice) {
+        const keyState = keyStateRef.current;
+        if (keyState.forward) {
+          playerPosRef.current.x -= Math.sin(playerRotRef.current) * moveSpeed;
+          playerPosRef.current.z -= Math.cos(playerRotRef.current) * moveSpeed;
+        }
+        if (keyState.backward) {
+          playerPosRef.current.x += Math.sin(playerRotRef.current) * moveSpeed;
+          playerPosRef.current.z += Math.cos(playerRotRef.current) * moveSpeed;
+        }
+        if (keyState.left) {
+          playerPosRef.current.x -= Math.sin(playerRotRef.current + Math.PI / 2) * moveSpeed;
+          playerPosRef.current.z -= Math.cos(playerRotRef.current + Math.PI / 2) * moveSpeed;
+        }
+        if (keyState.right) {
+          playerPosRef.current.x += Math.sin(playerRotRef.current + Math.PI / 2) * moveSpeed;
+          playerPosRef.current.z += Math.cos(playerRotRef.current + Math.PI / 2) * moveSpeed;
+        }
+      }
+      
+      // Mobile: Left stick - movement only (relative to current facing direction)
+      if (isMobileDevice && thumbpadRef.current.active) {
         const dx = thumbpadRef.current.currentX - thumbpadRef.current.startX;
         const dy = thumbpadRef.current.currentY - thumbpadRef.current.startY;
         const maxDist = 50;
@@ -1703,8 +1786,8 @@ export default function KarenDungeon3D() {
         playerPosRef.current.z += Math.cos(playerRotRef.current + Math.PI / 2) * moveX * moveSpeed;
       }
       
-      // Right stick - aiming (rotation on both axes)
-      if (lookpadRef.current.active) {
+      // Mobile: Right stick - aiming (rotation on both axes)
+      if (isMobileDevice && lookpadRef.current.active) {
         const dx = lookpadRef.current.currentX - lookpadRef.current.startX;
         const maxDist = 40;
         const turn = Math.max(-1, Math.min(1, dx / maxDist));
@@ -2053,8 +2136,8 @@ export default function KarenDungeon3D() {
         </div>
       )}
       
-      {/* Touch Controls */}
-      {gameState === 'playing' && (
+      {/* Touch Controls - Mobile Only */}
+      {gameState === 'playing' && isMobileDevice && (
         <>
           {/* Left Stick - Movement */}
           <div
@@ -2095,6 +2178,13 @@ export default function KarenDungeon3D() {
             <span className="text-white font-bold text-xl drop-shadow-lg">FIRE</span>
           </button>
         </>
+      )}
+      
+      {/* Desktop Controls Hint */}
+      {gameState === 'playing' && !isMobileDevice && (
+        <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm rounded-lg px-4 py-2 text-white/70 text-sm z-10 pointer-events-none">
+          <div>WASD - Move | Mouse - Aim | Click/Space - Fire</div>
+        </div>
       )}
       
       {/* Start/Game Over Overlay */}
