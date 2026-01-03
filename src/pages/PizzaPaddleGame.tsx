@@ -43,11 +43,30 @@ interface Particle {
   text?: string;
 }
 
+interface Topping {
+  x: number;
+  y: number;
+  type: 'pepperoni' | 'mushroom' | 'olive' | 'pepper' | 'cheese';
+  width: number;
+  height: number;
+  collected: boolean;
+  velocityY: number;
+}
+
 const GRAVITY = 0.55;
 const JUMP_FORCE = -15;
 const GAME_SPEED_START = 3.5;
 const KAREN_SPAWN_RATE = 80;
 const BOSS_SPAWN_RATE = 500; // Boss every ~500 frames
+const TOPPING_SPAWN_RATE = 120; // Spawn toppings regularly
+
+const TOPPING_CONFIG = {
+  pepperoni: { emoji: '🍕', points: 5, color: '#e74c3c' },
+  mushroom: { emoji: '🍄', points: 8, color: '#8b7355' },
+  olive: { emoji: '🫒', points: 6, color: '#556b2f' },
+  pepper: { emoji: '🌶️', points: 10, color: '#ff4500' },
+  cheese: { emoji: '🧀', points: 15, color: '#ffd700' },
+};
 
 const KAREN_CONFIG = {
   basic: { title: '"I want to speak to the manager"', points: 10, hairColor: '#c9a227' },
@@ -85,6 +104,7 @@ const PizzaPaddleGame = () => {
   });
 
   const karensRef = useRef<Karen[]>([]);
+  const toppingsRef = useRef<Topping[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const gameSpeedRef = useRef(GAME_SPEED_START);
   const frameCountRef = useRef(0);
@@ -118,6 +138,7 @@ const PizzaPaddleGame = () => {
     };
     
     karensRef.current = [];
+    toppingsRef.current = [];
     particlesRef.current = [];
     gameSpeedRef.current = GAME_SPEED_START;
     frameCountRef.current = 0;
@@ -499,6 +520,7 @@ const PizzaPaddleGame = () => {
     const gameLoop = () => {
       const player = playerRef.current;
       const karens = karensRef.current;
+      const toppings = toppingsRef.current;
       const particles = particlesRef.current;
       const groundY = groundYRef.current;
       const currentTime = Date.now();
@@ -702,7 +724,68 @@ const PizzaPaddleGame = () => {
         }
       }
 
-      // Combo indicator
+      // Spawn toppings
+      if (frameCountRef.current % TOPPING_SPAWN_RATE === 0) {
+        const types: ('pepperoni' | 'mushroom' | 'olive' | 'pepper' | 'cheese')[] = 
+          ['pepperoni', 'mushroom', 'olive', 'pepper', 'cheese'];
+        const type = types[Math.floor(Math.random() * types.length)];
+        
+        toppings.push({
+          x: width + 10,
+          y: 80 + Math.random() * 150,
+          type,
+          width: 30,
+          height: 30,
+          collected: false,
+          velocityY: Math.sin(Math.random() * Math.PI) * 0.5,
+        });
+      }
+
+      // Update and draw toppings
+      for (let i = toppings.length - 1; i >= 0; i--) {
+        const topping = toppings[i];
+        topping.x -= gameSpeedRef.current * 1.2;
+        topping.y += Math.sin(frameCountRef.current * 0.05 + i) * 0.8;
+
+        // Player collision (collect with body or paddle)
+        const playerRect = {
+          x: player.x,
+          y: player.y,
+          width: player.width + 60,
+          height: player.height,
+        };
+
+        if (!topping.collected && checkCollision(playerRect, topping)) {
+          topping.collected = true;
+          const config = TOPPING_CONFIG[topping.type];
+          scoreRef.current += config.points;
+          setScore(scoreRef.current);
+          
+          spawnParticles(topping.x, topping.y, config.color, 8, `+${config.points}`);
+        }
+
+        // Draw topping
+        if (!topping.collected) {
+          ctx.font = '24px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(TOPPING_CONFIG[topping.type].emoji, topping.x + 15, topping.y + 22);
+          
+          // Glow effect
+          ctx.shadowColor = TOPPING_CONFIG[topping.type].color;
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.arc(topping.x + 15, topping.y + 15, 18, 0, Math.PI * 2);
+          ctx.strokeStyle = `${TOPPING_CONFIG[topping.type].color}44`;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
+
+        if (topping.x + topping.width < 0 || topping.collected) {
+          toppings.splice(i, 1);
+        }
+      }
+
       if (comboRef.current > 1) {
         ctx.save();
         ctx.font = 'bold 24px sans-serif';
@@ -842,6 +925,8 @@ const PizzaPaddleGame = () => {
                 <p className="font-semibold text-foreground">Points per Karen:</p>
                 <p>💇‍♀️ Basic: 10 • Manager: 15 • Supervisor: 20</p>
                 <p>Regional: 25 • 👹 MEGA KAREN: 100</p>
+                <p className="font-semibold text-foreground mt-2">Bonus Toppings:</p>
+                <p>🍕 5 • 🍄 8 • 🫒 6 • 🌶️ 10 • 🧀 15</p>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
                 ❤️ 3 Lives • Watch out for 👹 Boss Karens!
