@@ -563,10 +563,19 @@ const MarcManGame = () => {
 
             {/* Overlays */}
             {gameState === 'idle' && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90">
+              <div 
+                className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-50"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="text-4xl mb-2">🤠</div>
                 <h2 className="text-xl font-bold text-yellow-400 mb-2">MarcMAN</h2>
-                <Button onClick={startGame} className="gap-2 mb-2">
+                <Button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startGame();
+                  }} 
+                  className="gap-2 mb-2 z-50"
+                >
                   <Play className="h-4 w-4" />
                   Start Game
                 </Button>
