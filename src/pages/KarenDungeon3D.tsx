@@ -142,6 +142,12 @@ export default function KarenDungeon3D() {
   
   // Cannon mesh ref
   const cannonRef = useRef<THREE.Group | null>(null);
+  
+  // Screen shake ref
+  const screenShakeRef = useRef({ intensity: 0, duration: 0 });
+  
+  // Muzzle flash particles ref
+  const muzzleFlashRef = useRef<THREE.PointLight | null>(null);
 
   // Check orientation
   useEffect(() => {
@@ -728,9 +734,138 @@ export default function KarenDungeon3D() {
     };
   }, []);
 
+  // Create muzzle flash effect
+  const createMuzzleFlash = useCallback((scene: THREE.Scene, camera: THREE.Camera) => {
+    // Create multiple flash particles
+    for (let i = 0; i < 12; i++) {
+      const size = 0.02 + Math.random() * 0.04;
+      const geom = new THREE.SphereGeometry(size, 6, 4);
+      const mat = new THREE.MeshBasicMaterial({ 
+        color: i < 4 ? 0xffff00 : i < 8 ? 0xff8800 : 0xff4400,
+        transparent: true,
+        opacity: 0.9
+      });
+      const flash = new THREE.Mesh(geom, mat);
+      
+      // Position in front of camera
+      const dir = new THREE.Vector3(0, 0, -1);
+      dir.applyQuaternion(camera.quaternion);
+      
+      flash.position.copy(camera.position);
+      flash.position.add(dir.multiplyScalar(0.6));
+      flash.position.x += (Math.random() - 0.5) * 0.15;
+      flash.position.y += (Math.random() - 0.5) * 0.15 - 0.1;
+      
+      scene.add(flash);
+      
+      // Animate and remove
+      const velocity = new THREE.Vector3(
+        (Math.random() - 0.5) * 3,
+        (Math.random() - 0.5) * 3,
+        -2 - Math.random() * 3
+      ).applyQuaternion(camera.quaternion);
+      
+      particlesRef.current.push({
+        mesh: flash,
+        velocity,
+        life: 0.15 + Math.random() * 0.1,
+        rotationSpeed: new THREE.Vector3(0, 0, 0),
+      });
+    }
+    
+    // Smoke puff
+    for (let i = 0; i < 6; i++) {
+      const size = 0.05 + Math.random() * 0.08;
+      const geom = new THREE.SphereGeometry(size, 6, 4);
+      const mat = new THREE.MeshBasicMaterial({ 
+        color: 0x666666,
+        transparent: true,
+        opacity: 0.4
+      });
+      const smoke = new THREE.Mesh(geom, mat);
+      
+      const dir = new THREE.Vector3(0, 0, -1);
+      dir.applyQuaternion(camera.quaternion);
+      
+      smoke.position.copy(camera.position);
+      smoke.position.add(dir.multiplyScalar(0.7));
+      smoke.position.x += (Math.random() - 0.5) * 0.1;
+      smoke.position.y += (Math.random() - 0.5) * 0.1 - 0.1;
+      
+      scene.add(smoke);
+      
+      particlesRef.current.push({
+        mesh: smoke,
+        velocity: new THREE.Vector3(
+          (Math.random() - 0.5) * 0.5,
+          0.5 + Math.random() * 0.5,
+          (Math.random() - 0.5) * 0.5
+        ),
+        life: 0.5 + Math.random() * 0.3,
+        rotationSpeed: new THREE.Vector3(0, 0, 0),
+      });
+    }
+  }, []);
+
+  // Create blood/sauce splatter on Karen hit
+  const createHitEffect = useCallback((scene: THREE.Scene, position: THREE.Vector3, isFatal: boolean) => {
+    const particleCount = isFatal ? 40 : 15;
+    const colors = [0xff0000, 0xcc0000, 0x990000, 0xff3333, 0xcc2211]; // Blood/sauce colors
+    
+    for (let i = 0; i < particleCount; i++) {
+      const size = 0.02 + Math.random() * (isFatal ? 0.08 : 0.05);
+      const geom = new THREE.SphereGeometry(size, 6, 4);
+      const mat = new THREE.MeshBasicMaterial({ 
+        color: colors[Math.floor(Math.random() * colors.length)],
+        transparent: true,
+        opacity: 0.9
+      });
+      const blood = new THREE.Mesh(geom, mat);
+      blood.position.copy(position);
+      blood.position.y += 0.8 + Math.random() * 0.6;
+      scene.add(blood);
+      
+      const speed = isFatal ? 4 + Math.random() * 6 : 2 + Math.random() * 3;
+      const angle = Math.random() * Math.PI * 2;
+      const upAngle = Math.random() * Math.PI * 0.5 + 0.2;
+      
+      particlesRef.current.push({
+        mesh: blood,
+        velocity: new THREE.Vector3(
+          Math.cos(angle) * Math.cos(upAngle) * speed,
+          Math.sin(upAngle) * speed,
+          Math.sin(angle) * Math.cos(upAngle) * speed
+        ),
+        life: 0.8 + Math.random() * 0.5,
+        rotationSpeed: new THREE.Vector3(0, 0, 0),
+      });
+    }
+    
+    // Flash light on hit
+    const hitLight = new THREE.PointLight(0xff2200, isFatal ? 6 : 3, isFatal ? 6 : 4);
+    hitLight.position.copy(position);
+    hitLight.position.y += 1;
+    scene.add(hitLight);
+    setTimeout(() => scene.remove(hitLight), isFatal ? 150 : 80);
+  }, []);
+
+  // Trigger screen shake
+  const triggerScreenShake = useCallback((intensity: number, duration: number) => {
+    screenShakeRef.current = { intensity, duration };
+  }, []);
+
+  // Play Karen scream sound
+  const playKarenScream = useCallback(() => {
+    // Use the existing sounds system - we'll add a scream via the hurt sound
+    sounds.hurt();
+  }, [sounds]);
+
   // Create detailed gore explosion with body parts
   const createGoreExplosion = useCallback((scene: THREE.Scene, position: THREE.Vector3, type: typeof KAREN_TYPES[0]) => {
     const colors = [0x8b0000, 0xdc143c, 0xb22222, 0xff4040, type.hairColor, type.skinTone, type.outfit, 0xff6347];
+    
+    // Trigger big screen shake on explosion
+    triggerScreenShake(0.15, 0.3);
     
     // Gore chunks
     for (let i = 0; i < 50; i++) {
@@ -788,12 +923,12 @@ export default function KarenDungeon3D() {
       });
       const splat = new THREE.Mesh(splatGeom, splatMat);
       
-      const angle = Math.random() * Math.PI * 2;
+      const splatAngle = Math.random() * Math.PI * 2;
       const dist = 1 + Math.random() * 3;
       splat.position.set(
-        position.x + Math.cos(angle) * dist,
+        position.x + Math.cos(splatAngle) * dist,
         0.01,
-        position.z + Math.sin(angle) * dist
+        position.z + Math.sin(splatAngle) * dist
       );
       splat.rotation.y = Math.random() * Math.PI * 2;
       scene.add(splat);
@@ -811,7 +946,7 @@ export default function KarenDungeon3D() {
     scene.add(light);
     
     setTimeout(() => scene.remove(light), 150);
-  }, []);
+  }, [triggerScreenShake]);
 
   // Initialize Three.js scene with enhanced graphics
   const initScene = useCallback(() => {
@@ -1395,28 +1530,43 @@ export default function KarenDungeon3D() {
     setAmmo(ammoRef.current);
     sounds.shoot();
     
+    // Cannon recoil animation
     if (cannonRef.current) {
       cannonRef.current.position.z = -0.3;
+      cannonRef.current.rotation.x = 0.15; // Kick up
       setTimeout(() => {
-        if (cannonRef.current) cannonRef.current.position.z = -0.45;
+        if (cannonRef.current) {
+          cannonRef.current.position.z = -0.45;
+          cannonRef.current.rotation.x = 0.08;
+        }
       }, 100);
     }
     
+    // Get camera direction for shooting
+    const camera = cameraRef.current;
     const dir = new THREE.Vector3(0, 0, -1);
-    dir.applyQuaternion(cameraRef.current.quaternion);
+    dir.applyQuaternion(camera.quaternion);
     
-    const meatball = createMeatball(
-      sceneRef.current,
-      playerPosRef.current.clone().add(dir.clone().multiplyScalar(0.8)),
-      dir
-    );
+    // Calculate spawn position in front of camera/player
+    const spawnPos = playerPosRef.current.clone();
+    spawnPos.add(dir.clone().multiplyScalar(0.8));
+    
+    const meatball = createMeatball(sceneRef.current, spawnPos, dir);
     meatballsRef.current.push(meatball);
     
-    const flash = new THREE.PointLight(0xff8800, 5, 4);
+    // Create muzzle flash particles
+    createMuzzleFlash(sceneRef.current, camera);
+    
+    // Small screen shake on shoot
+    triggerScreenShake(0.02, 0.1);
+    
+    // Bright muzzle flash light
+    const flash = new THREE.PointLight(0xff8800, 8, 6);
     flash.position.copy(playerPosRef.current);
+    flash.position.add(dir.clone().multiplyScalar(0.5));
     sceneRef.current.add(flash);
     setTimeout(() => sceneRef.current?.remove(flash), 60);
-  }, [sounds, createMeatball]);
+  }, [sounds, createMeatball, createMuzzleFlash, triggerScreenShake]);
 
   // Game loop
   useEffect(() => {
@@ -1476,7 +1626,16 @@ export default function KarenDungeon3D() {
         lookpadRef.current.startX = lookpadRef.current.currentX * 0.1 + lookpadRef.current.startX * 0.9;
       }
       
-      camera.position.copy(playerPosRef.current);
+      // Apply screen shake
+      if (screenShakeRef.current.duration > 0) {
+        screenShakeRef.current.duration -= delta;
+        const shakeAmount = screenShakeRef.current.intensity * (screenShakeRef.current.duration / 0.3);
+        camera.position.x = playerPosRef.current.x + (Math.random() - 0.5) * shakeAmount;
+        camera.position.y = playerPosRef.current.y + (Math.random() - 0.5) * shakeAmount;
+        camera.position.z = playerPosRef.current.z + (Math.random() - 0.5) * shakeAmount;
+      } else {
+        camera.position.copy(playerPosRef.current);
+      }
       camera.rotation.y = playerRotRef.current;
       
       // Update meatballs
@@ -1500,7 +1659,19 @@ export default function KarenDungeon3D() {
             karen.health -= 65;
             sounds.splat();
             
-            if (karen.health <= 0) {
+            // Create hit effect (blood/sauce splatter)
+            const isFatal = karen.health <= 0;
+            createHitEffect(scene, karen.position, isFatal);
+            
+            // Screen shake on hit
+            triggerScreenShake(isFatal ? 0.1 : 0.04, isFatal ? 0.25 : 0.1);
+            
+            // Karen scream on hit
+            if (isFatal) {
+              playKarenScream();
+            }
+            
+            if (isFatal) {
               karen.dying = true;
               karen.deathTime = 0;
               createGoreExplosion(scene, karen.position, KAREN_TYPES[karen.typeIndex]);
@@ -1656,7 +1827,7 @@ export default function KarenDungeon3D() {
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [gameState, initScene, sounds, createKaren, createGoreExplosion, saveScore]);
+  }, [gameState, initScene, sounds, createKaren, createGoreExplosion, createHitEffect, triggerScreenShake, playKarenScream, saveScore]);
 
   // Handle resize
   useEffect(() => {
