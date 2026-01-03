@@ -18,11 +18,12 @@ interface Chat {
 interface ShareScoreDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  gameType: 'snake' | 'minesweeper' | 'basketball' | 'pizza';
+  gameType: 'snake' | 'minesweeper' | 'basketball' | 'pizza' | 'karen-dungeon';
   score: number;
+  gameName?: string;
 }
 
-export function ShareScoreDialog({ open, onOpenChange, gameType, score }: ShareScoreDialogProps) {
+export function ShareScoreDialog({ open, onOpenChange, gameType, score, gameName }: ShareScoreDialogProps) {
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState<string | null>(null);
@@ -102,15 +103,17 @@ export function ShareScoreDialog({ open, onOpenChange, gameType, score }: ShareS
           .neq('user_id', user.id);
 
         if (members && members.length > 0) {
+          const displayName = gameName || (
+            gameType === 'snake' ? 'Snake' : 
+            gameType === 'minesweeper' ? 'Minesweeper' : 
+            gameType === 'basketball' ? 'Hoops' : 
+            gameType === 'karen-dungeon' ? 'Karen Dungeon 3D' : 'Super Karen Destroy 3'
+          );
           await supabase.functions.invoke('send-push-notification', {
             body: {
               user_ids: members.map(m => m.user_id),
               title: `${playerName} scored!`,
-              body: `${score.toLocaleString()} pts in ${
-                gameType === 'snake' ? 'Snake' : 
-                gameType === 'minesweeper' ? 'Minesweeper' : 
-                gameType === 'basketball' ? 'Hoops' : 'Super Karen Destroy 3'
-              }`,
+              body: `${score.toLocaleString()} pts in ${displayName}`,
               notification_type: 'chat_messages',
               data: { chat_id: chatId, type: 'message' }
             }
@@ -140,9 +143,12 @@ export function ShareScoreDialog({ open, onOpenChange, gameType, score }: ShareS
         <div className="py-2">
           <p className="text-sm text-muted-foreground mb-4">
             Brag about your <span className="font-semibold text-primary">{score.toLocaleString()} pts</span> in {
-              gameType === 'snake' ? 'Snake' : 
-              gameType === 'minesweeper' ? 'Minesweeper' : 
-              gameType === 'basketball' ? 'Hoops' : 'Super Karen Destroy 3'
+              gameName || (
+                gameType === 'snake' ? 'Snake' : 
+                gameType === 'minesweeper' ? 'Minesweeper' : 
+                gameType === 'basketball' ? 'Hoops' : 
+                gameType === 'karen-dungeon' ? 'Karen Dungeon 3D' : 'Super Karen Destroy 3'
+              )
             }!
           </p>
 
