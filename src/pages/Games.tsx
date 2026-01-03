@@ -89,6 +89,28 @@ const Games = () => {
     },
   });
 
+  const { data: pizzaScores, isLoading: pizzaLoading } = useQuery({
+    queryKey: ['high-scores', 'pizza'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('game_high_scores')
+        .select(`
+          id,
+          user_id,
+          game_type,
+          score,
+          created_at,
+          profiles(full_name, profile_photo_url)
+        `)
+        .eq('game_type', 'pizza')
+        .order('score', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      return data as HighScore[];
+    },
+  });
+
   const renderLeaderboard = (scores: HighScore[] | undefined, loading: boolean, scoreLabel: string) => {
     if (loading) {
       return (
@@ -180,6 +202,16 @@ const Games = () => {
       iconColor: 'text-orange-500',
       emoji: '🏀',
     },
+    {
+      id: 'pizza',
+      title: 'Pizza Paddle',
+      description: 'Jump and hit pizza toppings!',
+      icon: Gamepad2,
+      path: '/games/pizza',
+      color: 'from-red-500/20 to-yellow-500/20',
+      iconColor: 'text-red-500',
+      emoji: '🍕',
+    },
   ];
 
   return (
@@ -202,9 +234,10 @@ const Games = () => {
           <CardContent>
             <Tabs defaultValue="snake">
               <TabsList className="w-full mb-4">
-                <TabsTrigger value="snake" className="flex-1 text-xs">🐍 Snake</TabsTrigger>
-                <TabsTrigger value="minesweeper" className="flex-1 text-xs">💣 Mines</TabsTrigger>
-                <TabsTrigger value="basketball" className="flex-1 text-xs">🏀 Hoops</TabsTrigger>
+                <TabsTrigger value="snake" className="flex-1 text-xs">🐍</TabsTrigger>
+                <TabsTrigger value="minesweeper" className="flex-1 text-xs">💣</TabsTrigger>
+                <TabsTrigger value="basketball" className="flex-1 text-xs">🏀</TabsTrigger>
+                <TabsTrigger value="pizza" className="flex-1 text-xs">🍕</TabsTrigger>
               </TabsList>
               <TabsContent value="snake">
                 {renderLeaderboard(snakeScores, snakeLoading, 'pts')}
@@ -214,6 +247,9 @@ const Games = () => {
               </TabsContent>
               <TabsContent value="basketball">
                 {renderLeaderboard(basketballScores, basketballLoading, 'pts')}
+              </TabsContent>
+              <TabsContent value="pizza">
+                {renderLeaderboard(pizzaScores, pizzaLoading, 'pts')}
               </TabsContent>
             </Tabs>
           </CardContent>
