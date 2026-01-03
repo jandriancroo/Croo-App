@@ -835,9 +835,14 @@ const PizzaPaddleGame = () => {
             <div className="text-center">
               <div className="text-7xl mb-4">👨‍🍳💥💇‍♀️</div>
               <h2 className="text-2xl font-bold mb-2">Super Karen Destroy 3</h2>
-              <p className="text-muted-foreground mb-2 max-w-xs mx-auto">
+              <p className="text-muted-foreground mb-3 max-w-xs mx-auto">
                 Defend your pizza shop from angry Karens!
               </p>
+              <div className="text-xs text-muted-foreground mb-3 space-y-1">
+                <p className="font-semibold text-foreground">Points per Karen:</p>
+                <p>💇‍♀️ Basic: 10 • Manager: 15 • Supervisor: 20</p>
+                <p>Regional: 25 • 👹 MEGA KAREN: 100</p>
+              </div>
               <p className="text-sm text-muted-foreground mb-4">
                 ❤️ 3 Lives • Watch out for 👹 Boss Karens!
               </p>
