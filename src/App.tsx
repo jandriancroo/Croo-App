@@ -62,6 +62,7 @@ import SnakeGame from "./pages/SnakeGame";
 import MinesweeperGame from "./pages/MinesweeperGame";
 import BasketballGame from "./pages/BasketballGame";
 import PizzaPaddleGame from "./pages/PizzaPaddleGame";
+import MarcManGame from "./pages/MarcManGame";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
@@ -125,6 +126,7 @@ const AppContent = () => {
       <Route path="/games/minesweeper" element={<ProtectedRoute><MinesweeperGame /></ProtectedRoute>} />
       <Route path="/games/basketball" element={<ProtectedRoute><BasketballGame /></ProtectedRoute>} />
       <Route path="/games/pizza" element={<ProtectedRoute><PizzaPaddleGame /></ProtectedRoute>} />
+      <Route path="/games/marcman" element={<ProtectedRoute><MarcManGame /></ProtectedRoute>} />
       <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>

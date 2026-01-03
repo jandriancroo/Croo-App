@@ -45,6 +45,28 @@ const Games = () => {
     },
   });
 
+  const { data: marcmanScores, isLoading: marcmanLoading } = useQuery({
+    queryKey: ['high-scores', 'marcman'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('game_high_scores')
+        .select(`
+          id,
+          user_id,
+          game_type,
+          score,
+          created_at,
+          profiles(full_name, profile_photo_url)
+        `)
+        .eq('game_type', 'marcman')
+        .order('score', { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      return data as HighScore[];
+    },
+  });
+
   const { data: minesweeperScores, isLoading: minesweeperLoading } = useQuery({
     queryKey: ['high-scores', 'minesweeper'],
     queryFn: async () => {
@@ -183,6 +205,16 @@ const Games = () => {
       emoji: '🍕',
     },
     {
+      id: 'marcman',
+      title: 'MarcMAN',
+      description: 'Collect toppings!',
+      icon: Gamepad2,
+      path: '/games/marcman',
+      color: 'from-yellow-500/20 to-amber-500/20',
+      iconColor: 'text-yellow-500',
+      emoji: '🤠',
+    },
+    {
       id: 'snake',
       title: 'Snake',
       description: 'Tap to turn!',
@@ -257,12 +289,16 @@ const Games = () => {
             <Tabs defaultValue="pizza">
               <TabsList className="w-full mb-2 h-8">
                 <TabsTrigger value="pizza" className="flex-1 text-xs px-1">🍕</TabsTrigger>
+                <TabsTrigger value="marcman" className="flex-1 text-xs px-1">🤠</TabsTrigger>
                 <TabsTrigger value="snake" className="flex-1 text-xs px-1">🐍</TabsTrigger>
                 <TabsTrigger value="minesweeper" className="flex-1 text-xs px-1">💣</TabsTrigger>
                 <TabsTrigger value="basketball" className="flex-1 text-xs px-1">🏀</TabsTrigger>
               </TabsList>
               <TabsContent value="pizza" className="mt-0">
                 {renderLeaderboard(pizzaScores, pizzaLoading, 'pts')}
+              </TabsContent>
+              <TabsContent value="marcman" className="mt-0">
+                {renderLeaderboard(marcmanScores, marcmanLoading, 'pts')}
               </TabsContent>
               <TabsContent value="snake" className="mt-0">
                 {renderLeaderboard(snakeScores, snakeLoading, 'pts')}

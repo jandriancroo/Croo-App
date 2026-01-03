@@ -11,7 +11,7 @@ import { ShareScoreDialog } from "@/components/games/ShareScoreDialog";
 import { useGameSounds } from "@/hooks/useGameSounds";
 
 const GAME_DURATION = 45; // More time
-const GRAVITY = 0.4; // Slower gravity for more control
+const GRAVITY = 0.22; // Much slower gravity for better arc and control
 
 interface Ball {
   id: number;
