@@ -8,7 +8,8 @@ import { toast } from 'sonner';
 import { ShareScoreDialog } from '@/components/games/ShareScoreDialog';
 import { useGameSounds } from '@/hooks/useGameSounds';
 import * as THREE from 'three';
-import { createDungeonTexture } from './karen-dungeon/proceduralTextures';
+import { createKarenModel } from './karen-dungeon/createKarenModel';
+import { createBrickTexture, createDirtFloorTexture } from './karen-dungeon/proceduralTextures';
 import { createPizzaEnvironment } from './karen-dungeon/createPizzaEnvironment';
 import { createDukeArms, animateRecoil } from './karen-dungeon/createDukeArms';
 import { setupLighting } from './karen-dungeon/setupLighting';
@@ -252,397 +253,37 @@ export default function KarenDungeon3D() {
     }
   };
 
-  // Create high-poly Karen 3D model with full body
+  // Create realistic Karen 3D model using modular creator
   const createKaren = useCallback((typeIndex: number, position: THREE.Vector3): Karen => {
     const type = KAREN_TYPES[typeIndex];
-    const group = new THREE.Group();
     const scale = type.size;
     
-    // Skin material with subsurface scattering simulation
-    const skinMat = new THREE.MeshStandardMaterial({ 
-      color: type.skinTone,
-      roughness: 0.6,
-      metalness: 0,
-    });
+    // Create the Karen model using the new high-quality modular system
+    const karenType = {
+      name: type.isBoss ? 'Boss Karen' : 'Karen',
+      size: type.size,
+      health: type.isBoss ? 300 : 100,
+      speed: type.isBoss ? 1.2 : 2.2 + Math.random() * 0.8,
+      points: type.isBoss ? 500 : 100,
+      skinTone: type.skinTone,
+      hairColor: type.hairColor,
+      outfit: type.outfit,
+      isBoss: type.isBoss,
+    };
     
-    // Hair material
-    const hairMat = new THREE.MeshStandardMaterial({ 
-      color: type.hairColor,
-      roughness: 0.8,
-      metalness: 0.1
-    });
-    
-    // Outfit material
-    const outfitMat = new THREE.MeshStandardMaterial({ 
-      color: type.outfit,
-      roughness: 0.5,
-      metalness: 0.1
-    });
-
-    // === LEGS ===
-    const legHeight = 0.6 * scale;
-    const legRadius = 0.08 * scale;
-    const legGeom = new THREE.CylinderGeometry(legRadius, legRadius * 0.8, legHeight, 16);
-    
-    // Left leg
-    const leftLeg = new THREE.Mesh(legGeom, outfitMat);
-    leftLeg.position.set(-0.12 * scale, legHeight / 2, 0);
-    leftLeg.castShadow = true;
-    group.add(leftLeg);
-    
-    // Right leg
-    const rightLeg = new THREE.Mesh(legGeom, outfitMat);
-    rightLeg.position.set(0.12 * scale, legHeight / 2, 0);
-    rightLeg.castShadow = true;
-    group.add(rightLeg);
-    
-    // Shoes
-    const shoeGeom = new THREE.BoxGeometry(0.1 * scale, 0.06 * scale, 0.15 * scale);
-    const shoeMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.4 });
-    const leftShoe = new THREE.Mesh(shoeGeom, shoeMat);
-    leftShoe.position.set(-0.12 * scale, 0.03 * scale, 0.02 * scale);
-    group.add(leftShoe);
-    const rightShoe = new THREE.Mesh(shoeGeom, shoeMat);
-    rightShoe.position.set(0.12 * scale, 0.03 * scale, 0.02 * scale);
-    group.add(rightShoe);
-    
-    // === TORSO ===
-    // Lower body / skirt
-    const skirtGeom = new THREE.CylinderGeometry(0.18 * scale, 0.25 * scale, 0.3 * scale, 24);
-    const skirt = new THREE.Mesh(skirtGeom, outfitMat);
-    skirt.position.y = legHeight + 0.15 * scale;
-    skirt.castShadow = true;
-    group.add(skirt);
-    
-    // Upper body
-    const torsoGeom = new THREE.CylinderGeometry(0.2 * scale, 0.18 * scale, 0.4 * scale, 24);
-    const torso = new THREE.Mesh(torsoGeom, outfitMat);
-    torso.position.y = legHeight + 0.5 * scale;
-    torso.castShadow = true;
-    group.add(torso);
-    
-    // Shoulders
-    const shoulderGeom = new THREE.SphereGeometry(0.08 * scale, 16, 12);
-    const leftShoulder = new THREE.Mesh(shoulderGeom, outfitMat);
-    leftShoulder.position.set(-0.22 * scale, legHeight + 0.65 * scale, 0);
-    group.add(leftShoulder);
-    const rightShoulder = new THREE.Mesh(shoulderGeom, outfitMat);
-    rightShoulder.position.set(0.22 * scale, legHeight + 0.65 * scale, 0);
-    group.add(rightShoulder);
-    
-    // === ARMS ===
-    const armGeom = new THREE.CylinderGeometry(0.05 * scale, 0.04 * scale, 0.35 * scale, 12);
-    const forearmGeom = new THREE.CylinderGeometry(0.04 * scale, 0.035 * scale, 0.3 * scale, 12);
-    
-    // Left arm (pointing/accusing pose)
-    const leftUpperArm = new THREE.Mesh(armGeom, skinMat);
-    leftUpperArm.position.set(-0.28 * scale, legHeight + 0.5 * scale, 0.05 * scale);
-    leftUpperArm.rotation.z = -Math.PI / 4;
-    leftUpperArm.rotation.x = Math.PI / 6;
-    leftUpperArm.castShadow = true;
-    group.add(leftUpperArm);
-    
-    const leftForearm = new THREE.Mesh(forearmGeom, skinMat);
-    leftForearm.position.set(-0.4 * scale, legHeight + 0.35 * scale, 0.15 * scale);
-    leftForearm.rotation.z = -Math.PI / 3;
-    leftForearm.rotation.x = Math.PI / 4;
-    leftForearm.castShadow = true;
-    group.add(leftForearm);
-    
-    // Left hand (pointing finger)
-    const handGeom = new THREE.SphereGeometry(0.035 * scale, 12, 8);
-    const leftHand = new THREE.Mesh(handGeom, skinMat);
-    leftHand.position.set(-0.48 * scale, legHeight + 0.25 * scale, 0.22 * scale);
-    group.add(leftHand);
-    
-    // Pointing finger
-    const fingerGeom = new THREE.CylinderGeometry(0.012 * scale, 0.01 * scale, 0.08 * scale, 8);
-    const finger = new THREE.Mesh(fingerGeom, skinMat);
-    finger.position.set(-0.52 * scale, legHeight + 0.22 * scale, 0.28 * scale);
-    finger.rotation.x = Math.PI / 3;
-    finger.rotation.z = -Math.PI / 6;
-    group.add(finger);
-    
-    // Right arm (on hip, sassy pose)
-    const rightUpperArm = new THREE.Mesh(armGeom, skinMat);
-    rightUpperArm.position.set(0.28 * scale, legHeight + 0.45 * scale, -0.05 * scale);
-    rightUpperArm.rotation.z = Math.PI / 3;
-    rightUpperArm.rotation.x = -Math.PI / 8;
-    rightUpperArm.castShadow = true;
-    group.add(rightUpperArm);
-    
-    const rightForearm = new THREE.Mesh(forearmGeom, skinMat);
-    rightForearm.position.set(0.35 * scale, legHeight + 0.28 * scale, -0.1 * scale);
-    rightForearm.rotation.z = Math.PI / 2;
-    rightForearm.castShadow = true;
-    group.add(rightForearm);
-    
-    const rightHand = new THREE.Mesh(handGeom, skinMat);
-    rightHand.position.set(0.32 * scale, legHeight + 0.15 * scale, -0.08 * scale);
-    group.add(rightHand);
-    
-    // === NECK ===
-    const neckGeom = new THREE.CylinderGeometry(0.06 * scale, 0.08 * scale, 0.1 * scale, 12);
-    const neck = new THREE.Mesh(neckGeom, skinMat);
-    neck.position.y = legHeight + 0.75 * scale;
-    group.add(neck);
-    
-    // === HEAD (high poly) ===
-    const headGeom = new THREE.SphereGeometry(0.18 * scale, 32, 24);
-    const head = new THREE.Mesh(headGeom, skinMat);
-    head.position.y = legHeight + 0.95 * scale;
-    head.castShadow = true;
-    group.add(head);
-    
-    // Jaw / chin definition
-    const jawGeom = new THREE.SphereGeometry(0.12 * scale, 24, 16, 0, Math.PI * 2, 0, Math.PI / 2);
-    const jaw = new THREE.Mesh(jawGeom, skinMat);
-    jaw.position.set(0, legHeight + 0.85 * scale, 0.04 * scale);
-    jaw.scale.set(1, 0.6, 0.8);
-    group.add(jaw);
-    
-    // === KAREN HAIRCUT (The "Speak to the Manager" cut) ===
-    const hairGroup = new THREE.Group();
-    
-    // Main hair volume - asymmetric bob
-    const hairMainGeom = new THREE.SphereGeometry(0.2 * scale, 32, 24);
-    const hairMain = new THREE.Mesh(hairMainGeom, hairMat);
-    hairMain.position.set(0, 0.08 * scale, -0.02 * scale);
-    hairMain.scale.set(1.1, 0.85, 1);
-    hairGroup.add(hairMain);
-    
-    // Spiky/layered top
-    for (let i = 0; i < 12; i++) {
-      const spikeSize = 0.06 + Math.random() * 0.04;
-      const spikeGeom = new THREE.ConeGeometry(spikeSize * scale, 0.15 * scale, 8);
-      const spike = new THREE.Mesh(spikeGeom, hairMat);
-      const angle = (i / 12) * Math.PI * 2;
-      const radius = 0.12 + Math.random() * 0.05;
-      spike.position.set(
-        Math.cos(angle) * radius * scale,
-        0.12 * scale + Math.random() * 0.05 * scale,
-        Math.sin(angle) * radius * scale * 0.8
-      );
-      spike.rotation.x = Math.cos(angle) * 0.4;
-      spike.rotation.z = -Math.sin(angle) * 0.4;
-      hairGroup.add(spike);
-    }
-    
-    // Back layered spikes (extra volume)
-    for (let i = 0; i < 8; i++) {
-      const spikeGeom = new THREE.ConeGeometry(0.05 * scale, 0.18 * scale, 6);
-      const spike = new THREE.Mesh(spikeGeom, hairMat);
-      const angle = Math.PI + (i / 8 - 0.5) * Math.PI * 0.8;
-      spike.position.set(
-        Math.cos(angle) * 0.15 * scale,
-        0.05 * scale,
-        Math.sin(angle) * 0.18 * scale
-      );
-      spike.rotation.x = 0.3;
-      spike.rotation.z = Math.sin(angle) * 0.3;
-      hairGroup.add(spike);
-    }
-    
-    // Front swept bangs (asymmetric)
-    const bangsGeom = new THREE.BoxGeometry(0.2 * scale, 0.06 * scale, 0.08 * scale);
-    bangsGeom.translate(-0.05 * scale, 0, 0);
-    const bangs = new THREE.Mesh(bangsGeom, hairMat);
-    bangs.position.set(0.02 * scale, 0.1 * scale, 0.16 * scale);
-    bangs.rotation.x = 0.2;
-    bangs.rotation.z = 0.1;
-    hairGroup.add(bangs);
-    
-    // Boss Karens get extra spiky crazy hair
-    if (type.isBoss) {
-      for (let i = 0; i < 16; i++) {
-        const spikeGeom = new THREE.ConeGeometry(0.04 * scale, 0.25 * scale, 6);
-        const spikeMat = new THREE.MeshStandardMaterial({ 
-          color: type.hairColor,
-          roughness: 0.7,
-          emissive: 0x330000,
-          emissiveIntensity: 0.3
-        });
-        const spike = new THREE.Mesh(spikeGeom, spikeMat);
-        const angle = (i / 16) * Math.PI * 2;
-        spike.position.set(
-          Math.cos(angle) * 0.18 * scale,
-          0.15 * scale,
-          Math.sin(angle) * 0.18 * scale
-        );
-        spike.rotation.x = Math.cos(angle) * 0.6;
-        spike.rotation.z = -Math.sin(angle) * 0.6;
-        hairGroup.add(spike);
-      }
-    }
-    
-    hairGroup.position.y = legHeight + 0.95 * scale;
-    group.add(hairGroup);
-    
-    // === FACE FEATURES ===
-    // Eye sockets (slightly inset)
-    const eyeSocketGeom = new THREE.SphereGeometry(0.035 * scale, 16, 12);
-    const eyeSocketMat = new THREE.MeshStandardMaterial({ color: 0xf0d0c0 });
-    
-    // Eyes (angry, squinting)
-    const eyeWhiteGeom = new THREE.SphereGeometry(0.028 * scale, 16, 12);
-    const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
-    const pupilGeom = new THREE.SphereGeometry(0.015 * scale, 12, 8);
-    const pupilMat = new THREE.MeshStandardMaterial({ color: 0x2a1a0a });
-    const irisGeom = new THREE.SphereGeometry(0.018 * scale, 12, 8);
-    const irisMat = new THREE.MeshStandardMaterial({ color: type.isBoss ? 0xff0000 : 0x4a7c4e });
-    
-    [-0.06, 0.06].forEach(offsetX => {
-      // Eye socket
-      const socket = new THREE.Mesh(eyeSocketGeom, eyeSocketMat);
-      socket.position.set(offsetX * scale, legHeight + 0.98 * scale, 0.14 * scale);
-      socket.scale.set(1, 0.7, 0.5);
-      group.add(socket);
-      
-      // Eye white
-      const eyeWhite = new THREE.Mesh(eyeWhiteGeom, eyeWhiteMat);
-      eyeWhite.position.set(offsetX * scale, legHeight + 0.98 * scale, 0.15 * scale);
-      eyeWhite.scale.set(1, 0.6, 0.6);
-      group.add(eyeWhite);
-      
-      // Iris
-      const iris = new THREE.Mesh(irisGeom, irisMat);
-      iris.position.set(offsetX * scale, legHeight + 0.98 * scale, 0.17 * scale);
-      group.add(iris);
-      
-      // Pupil
-      const pupil = new THREE.Mesh(pupilGeom, pupilMat);
-      pupil.position.set(offsetX * scale, legHeight + 0.98 * scale, 0.175 * scale);
-      group.add(pupil);
-    });
-    
-    // Angry eyebrows (thick, furrowed)
-    const browGeom = new THREE.BoxGeometry(0.08 * scale, 0.025 * scale, 0.03 * scale);
-    const browMat = new THREE.MeshStandardMaterial({ color: type.hairColor });
-    [-0.06, 0.06].forEach((offsetX, i) => {
-      const brow = new THREE.Mesh(browGeom, browMat);
-      brow.position.set(offsetX * scale, legHeight + 1.03 * scale, 0.14 * scale);
-      brow.rotation.z = (i === 0 ? 0.35 : -0.35);
-      brow.rotation.x = -0.1;
-      group.add(brow);
-    });
-    
-    // Nose
-    const noseGeom = new THREE.ConeGeometry(0.025 * scale, 0.06 * scale, 8);
-    const nose = new THREE.Mesh(noseGeom, skinMat);
-    nose.position.set(0, legHeight + 0.93 * scale, 0.17 * scale);
-    nose.rotation.x = -Math.PI / 2 + 0.3;
-    group.add(nose);
-    
-    // Nostrils
-    const nostrilGeom = new THREE.SphereGeometry(0.01 * scale, 8, 6);
-    const nostrilMat = new THREE.MeshStandardMaterial({ color: 0x4a3030 });
-    [-0.015, 0.015].forEach(offsetX => {
-      const nostril = new THREE.Mesh(nostrilGeom, nostrilMat);
-      nostril.position.set(offsetX * scale, legHeight + 0.91 * scale, 0.18 * scale);
-      group.add(nostril);
-    });
-    
-    // === MOUTH (shouting, showing teeth) ===
-    // Open mouth
-    const mouthGeom = new THREE.SphereGeometry(0.05 * scale, 16, 12, 0, Math.PI * 2, 0, Math.PI);
-    const mouthMat = new THREE.MeshStandardMaterial({ color: 0x3a0a0a });
-    const mouth = new THREE.Mesh(mouthGeom, mouthMat);
-    mouth.position.set(0, legHeight + 0.86 * scale, 0.15 * scale);
-    mouth.scale.set(1.2, 0.8, 0.6);
-    mouth.rotation.x = Math.PI;
-    group.add(mouth);
-    
-    // Lips
-    const upperLipGeom = new THREE.TorusGeometry(0.04 * scale, 0.012 * scale, 8, 16, Math.PI);
-    const lipMat = new THREE.MeshStandardMaterial({ color: 0xcc4466 });
-    const upperLip = new THREE.Mesh(upperLipGeom, lipMat);
-    upperLip.position.set(0, legHeight + 0.89 * scale, 0.155 * scale);
-    upperLip.rotation.x = Math.PI / 2;
-    upperLip.rotation.z = Math.PI;
-    group.add(upperLip);
-    
-    const lowerLip = new THREE.Mesh(upperLipGeom, lipMat);
-    lowerLip.position.set(0, legHeight + 0.84 * scale, 0.155 * scale);
-    lowerLip.rotation.x = Math.PI / 2;
-    group.add(lowerLip);
-    
-    // Sharp teeth (Karen's defining feature!)
-    const teethMat = new THREE.MeshStandardMaterial({ color: 0xfffef0 });
-    for (let i = 0; i < 8; i++) {
-      const isSharp = type.isBoss || i % 2 === 0;
-      const toothGeom = isSharp 
-        ? new THREE.ConeGeometry(0.008 * scale, 0.025 * scale, 4)
-        : new THREE.BoxGeometry(0.012 * scale, 0.018 * scale, 0.008 * scale);
-      const tooth = new THREE.Mesh(toothGeom, teethMat);
-      const x = (i - 3.5) * 0.012 * scale;
-      tooth.position.set(x, legHeight + 0.875 * scale, 0.16 * scale);
-      if (isSharp) tooth.rotation.x = Math.PI;
-      group.add(tooth);
-    }
-    
-    // Bottom teeth
-    for (let i = 0; i < 6; i++) {
-      const toothGeom = type.isBoss 
-        ? new THREE.ConeGeometry(0.007 * scale, 0.02 * scale, 4)
-        : new THREE.BoxGeometry(0.01 * scale, 0.012 * scale, 0.006 * scale);
-      const tooth = new THREE.Mesh(toothGeom, teethMat);
-      const x = (i - 2.5) * 0.014 * scale;
-      tooth.position.set(x, legHeight + 0.845 * scale, 0.155 * scale);
-      group.add(tooth);
-    }
-    
-    // Earrings
-    const earringGeom = new THREE.SphereGeometry(0.02 * scale, 12, 8);
-    const earringMat = new THREE.MeshStandardMaterial({ 
-      color: 0xFFD700, 
-      metalness: 0.9, 
-      roughness: 0.1 
-    });
-    [-0.17, 0.17].forEach(offsetX => {
-      const earring = new THREE.Mesh(earringGeom, earringMat);
-      earring.position.set(offsetX * scale, legHeight + 0.9 * scale, 0);
-      group.add(earring);
-    });
-    
-    // Sunglasses on head (Karen signature)
-    const glassesGroup = new THREE.Group();
-    const frameGeom = new THREE.TorusGeometry(0.04 * scale, 0.008 * scale, 8, 24);
-    const frameMat = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.3 });
-    const leftFrame = new THREE.Mesh(frameGeom, frameMat);
-    leftFrame.position.set(-0.055 * scale, 0.22 * scale, 0.08 * scale);
-    leftFrame.rotation.x = Math.PI / 2 - 0.2;
-    glassesGroup.add(leftFrame);
-    const rightFrame = new THREE.Mesh(frameGeom, frameMat);
-    rightFrame.position.set(0.055 * scale, 0.22 * scale, 0.08 * scale);
-    rightFrame.rotation.x = Math.PI / 2 - 0.2;
-    glassesGroup.add(rightFrame);
-    const bridgeGeom = new THREE.CylinderGeometry(0.006 * scale, 0.006 * scale, 0.03 * scale, 8);
-    const bridge = new THREE.Mesh(bridgeGeom, frameMat);
-    bridge.position.set(0, 0.22 * scale, 0.1 * scale);
-    bridge.rotation.z = Math.PI / 2;
-    glassesGroup.add(bridge);
-    glassesGroup.position.y = legHeight + 0.78 * scale;
-    group.add(glassesGroup);
-    
-    // Handbag (on arm)
-    const bagGeom = new THREE.BoxGeometry(0.12 * scale, 0.1 * scale, 0.05 * scale);
-    const bagMat = new THREE.MeshStandardMaterial({ color: 0x8B4513, roughness: 0.3 });
-    const bag = new THREE.Mesh(bagGeom, bagMat);
-    bag.position.set(0.4 * scale, legHeight + 0.4 * scale, 0);
-    bag.rotation.z = Math.PI / 6;
-    group.add(bag);
-    
+    const group = createKarenModel(karenType);
     group.position.copy(position);
+    
+    // Get insult for chat bubble
+    const insult = type.isBoss 
+      ? BOSS_INSULTS[Math.floor(Math.random() * BOSS_INSULTS.length)]
+      : KAREN_INSULTS[Math.floor(Math.random() * KAREN_INSULTS.length)];
     
     // Create chat bubble sprite
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 160;
     const ctx = canvas.getContext('2d')!;
-    
-    const insult = type.isBoss 
-      ? BOSS_INSULTS[Math.floor(Math.random() * BOSS_INSULTS.length)]
-      : KAREN_INSULTS[Math.floor(Math.random() * KAREN_INSULTS.length)];
     
     // Draw bubble background with shadow
     ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
@@ -704,8 +345,10 @@ export default function KarenDungeon3D() {
       depthTest: false
     });
     const sprite = new THREE.Sprite(spriteMat);
+    // Position chat bubble above head (accounting for realistic body height)
+    const bodyHeight = 1.8 * scale;
     sprite.scale.set(2.5 * scale, 0.8 * scale, 1);
-    sprite.position.y = legHeight + 1.4 * scale;
+    sprite.position.y = bodyHeight + 0.5 * scale;
     group.add(sprite);
     
     return {
@@ -1032,11 +675,11 @@ export default function KarenDungeon3D() {
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
 
-    // Procedural gritty 90s-style textures (no network, mobile-friendly)
-    const wallTexture = createDungeonTexture('wall', 2468);
+    // High-res procedural textures (1024x1024, no network)
+    const wallTexture = createBrickTexture(2468);
     wallTexture.repeat.set(2, 1);
 
-    const floorTexture = createDungeonTexture('floor', 1357);
+    const floorTexture = createDirtFloorTexture(1357);
     floorTexture.repeat.set(22, 22);
 
     // Dim ambient for gritty feel - shadows matter
