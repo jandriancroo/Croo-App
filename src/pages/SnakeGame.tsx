@@ -8,7 +8,7 @@ import { ArrowLeft, Play, RotateCcw, Trophy, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ShareScoreDialog } from "@/components/games/ShareScoreDialog";
-import { useGameMusic } from "@/hooks/useGameMusic";
+import { useGameSounds } from "@/hooks/useGameSounds";
 
 type Direction = 'UP' | 'DOWN' | 'LEFT' | 'RIGHT';
 type Position = { x: number; y: number };
@@ -25,7 +25,7 @@ const SnakeGame = () => {
   const [dimensions, setDimensions] = useState({ width: 0, height: 0, cellSize: 20, gridWidth: 15, gridHeight: 20 });
   
   // Background music - retro arcade theme
-  const { play: playMusic, stop: stopMusic } = useGameMusic('retro-arcade');
+  const sounds = useGameSounds();
 
   const [gameState, setGameState] = useState<'idle' | 'playing' | 'gameover'>('idle');
   const [snake, setSnake] = useState<Position[]>([{ x: 7, y: 10 }, { x: 6, y: 10 }, { x: 5, y: 10 }]);
@@ -90,8 +90,8 @@ const SnakeGame = () => {
     setScore(0);
     setSpeed(INITIAL_SPEED);
     setGameState('playing');
-    playMusic(); // Start retro arcade music
-  }, [generateFood, dimensions.gridWidth, dimensions.gridHeight, playMusic]);
+    sounds.startMusic('retro'); // Start retro arcade music
+  }, [generateFood, dimensions.gridWidth, dimensions.gridHeight, sounds]);
 
   // Handle tap to turn (clockwise rotation)
   const handleTap = useCallback(() => {

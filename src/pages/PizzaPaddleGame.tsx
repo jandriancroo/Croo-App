@@ -8,7 +8,7 @@ import { ArrowLeft, Play, RotateCcw, Trophy, Share2, Heart, ChevronLeft, Chevron
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { ShareScoreDialog } from "@/components/games/ShareScoreDialog";
-import { useGameMusic } from "@/hooks/useGameMusic";
+import { useGameSounds } from "@/hooks/useGameSounds";
 
 // Import Karen head images
 import karenHead1 from "@/assets/karen-head-1.jpeg";
@@ -251,8 +251,8 @@ const PizzaPaddleGame = () => {
   const gameLoopRef = useRef<number>();
   const karenImagesRef = useRef<HTMLImageElement[]>([]);
   
-  // Background music
-  const { play: playMusic, stop: stopMusic } = useGameMusic('bad-pop');
+  // Background music using WebAudio
+  const sounds = useGameSounds();
 
   const [gameState, setGameState] = useState<'idle' | 'playing' | 'gameover'>('idle');
   const [score, setScore] = useState(0);
@@ -356,8 +356,8 @@ const PizzaPaddleGame = () => {
     setCombo(0);
     setCurrentLevel(LEVELS[0]);
     setGameState('playing');
-    playMusic(); // Start background music
-  }, [getCanvasDimensions, playMusic]);
+    sounds.startMusic('retro'); // Start background music
+  }, [getCanvasDimensions, sounds]);
 
   const handleJump = useCallback(() => {
     if (gameState !== 'playing') return;
@@ -2003,38 +2003,18 @@ const PizzaPaddleGame = () => {
                 ref={canvasRef}
                 width={width}
                 height={height}
-                onClick={handleJump}
-                onTouchStart={(e) => {
-                  e.preventDefault();
-                  touchStartXRef.current = e.touches[0].clientX;
-                  handleJump();
-                }}
-                onTouchMove={(e) => {
-                  const touchX = e.touches[0].clientX;
-                  const diff = touchX - touchStartXRef.current;
-                  if (diff < -20) {
-                    handleMoveLeft(true);
-                    handleMoveRight(false);
-                  } else if (diff > 20) {
-                    handleMoveRight(true);
-                    handleMoveLeft(false);
-                  }
-                }}
-                onTouchEnd={() => {
-                  handleMoveLeft(false);
-                  handleMoveRight(false);
-                }}
                 className="rounded-xl shadow-2xl touch-none"
                 style={{ width, height }}
               />
 
-              {/* Movement buttons for mobile */}
+              {/* Mobile controls overlay */}
               {gameState === 'playing' && (
-                <div className="absolute bottom-2 left-2 right-2 flex justify-between pointer-events-none">
+                <div className="absolute bottom-2 left-2 right-2 flex justify-between items-end pointer-events-none">
+                  {/* Left button */}
                   <Button
                     size="lg"
                     variant={movingLeft ? "default" : "secondary"}
-                    className="pointer-events-auto h-14 w-14 rounded-full opacity-70 select-none"
+                    className="pointer-events-auto h-16 w-16 rounded-full opacity-80 select-none"
                     onTouchStart={(e) => { 
                       e.preventDefault(); 
                       e.stopPropagation();
@@ -2048,8 +2028,7 @@ const PizzaPaddleGame = () => {
                       movingLeftRef.current = false;
                       setMovingLeft(false);
                     }}
-                    onTouchCancel={(e) => {
-                      e.preventDefault();
+                    onTouchCancel={() => {
                       movingLeftRef.current = false;
                       setMovingLeft(false);
                     }}
@@ -2067,12 +2046,29 @@ const PizzaPaddleGame = () => {
                       setMovingLeft(false);
                     }}
                   >
-                    <ChevronLeft className="h-8 w-8" />
+                    <ChevronLeft className="h-10 w-10" />
                   </Button>
+                  
+                  {/* Center jump button - LARGE for easy tapping */}
+                  <Button
+                    size="lg"
+                    variant="default"
+                    className="pointer-events-auto h-20 w-20 rounded-full bg-primary/90 hover:bg-primary select-none text-2xl font-bold"
+                    onTouchStart={(e) => { 
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleJump();
+                    }}
+                    onClick={handleJump}
+                  >
+                    ⬆️
+                  </Button>
+                  
+                  {/* Right button */}
                   <Button
                     size="lg"
                     variant={movingRight ? "default" : "secondary"}
-                    className="pointer-events-auto h-14 w-14 rounded-full opacity-70 select-none"
+                    className="pointer-events-auto h-16 w-16 rounded-full opacity-80 select-none"
                     onTouchStart={(e) => { 
                       e.preventDefault();
                       e.stopPropagation();
@@ -2086,8 +2082,7 @@ const PizzaPaddleGame = () => {
                       movingRightRef.current = false;
                       setMovingRight(false);
                     }}
-                    onTouchCancel={(e) => {
-                      e.preventDefault();
+                    onTouchCancel={() => {
                       movingRightRef.current = false;
                       setMovingRight(false);
                     }}
@@ -2105,7 +2100,7 @@ const PizzaPaddleGame = () => {
                       setMovingRight(false);
                     }}
                   >
-                    <ChevronRight className="h-8 w-8" />
+                    <ChevronRight className="h-10 w-10" />
                   </Button>
                 </div>
               )}
@@ -2142,7 +2137,7 @@ const PizzaPaddleGame = () => {
 
         {gameState === 'playing' && (
           <p className="text-center text-xs text-muted-foreground py-0.5">
-            Tap to jump & swing • Use ← → to move • Swipe or buttons!
+            ← Move Left • ⬆️ Jump (tap twice for double jump!) • Move Right →
           </p>
         )}
       </div>
