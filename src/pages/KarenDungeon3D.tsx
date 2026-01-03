@@ -817,10 +817,11 @@ export default function KarenDungeon3D() {
   const initScene = useCallback(() => {
     if (!containerRef.current) return;
     
-    // Scene - brighter background for visibility
+    // Scene - gritty dungeon atmosphere
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1215);
-    scene.fog = new THREE.FogExp2(0x1a1215, 0.02);
+    scene.background = new THREE.Color(0x0a0608);
+    // Thick volumetric-style fog for dungeon atmosphere
+    scene.fog = new THREE.FogExp2(0x1a0a0a, 0.025);
     sceneRef.current = scene;
     
     // Camera
@@ -828,7 +829,7 @@ export default function KarenDungeon3D() {
     camera.position.set(0, 1.6, 0);
     cameraRef.current = camera;
     
-    // Enhanced Renderer
+    // Enhanced Renderer with dramatic tone mapping
     const renderer = new THREE.WebGLRenderer({ 
       antialias: true, 
       powerPreference: 'high-performance' 
@@ -839,22 +840,22 @@ export default function KarenDungeon3D() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.8;
+    renderer.toneMappingExposure = 1.4;
     containerRef.current.appendChild(renderer.domElement);
     rendererRef.current = renderer;
     
-    // Strong ambient light for base visibility
-    const ambient = new THREE.AmbientLight(0xffeedd, 1.2);
+    // Dim ambient for gritty feel - shadows matter
+    const ambient = new THREE.AmbientLight(0x331111, 0.4);
     scene.add(ambient);
     
-    // Hemisphere light for natural feel
-    const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.8);
+    // Hemisphere light - red from below (hell vibe), dim white from above
+    const hemiLight = new THREE.HemisphereLight(0x444444, 0x220000, 0.5);
     hemiLight.position.set(0, 20, 0);
     scene.add(hemiLight);
     
-    // Main directional light - bright sun-like
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
-    dirLight.position.set(10, 20, 10);
+    // Main directional light - harsh overhead
+    const dirLight = new THREE.DirectionalLight(0xff8866, 1.2);
+    dirLight.position.set(5, 25, 5);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.width = 2048;
     dirLight.shadow.mapSize.height = 2048;
@@ -864,16 +865,133 @@ export default function KarenDungeon3D() {
     dirLight.shadow.camera.right = 30;
     dirLight.shadow.camera.top = 30;
     dirLight.shadow.camera.bottom = -30;
-    dirLight.shadow.bias = -0.0005;
+    dirLight.shadow.bias = -0.001;
     scene.add(dirLight);
     
-    // Secondary fill light
-    const fillLight = new THREE.DirectionalLight(0x88aaff, 0.6);
-    fillLight.position.set(-10, 15, -10);
-    scene.add(fillLight);
+    // ============ NEON "KAREN DUNGEON 3D" SIGN ============
+    const signGroup = new THREE.Group();
     
-    // Player flashlight - much brighter
-    const flashlight = new THREE.SpotLight(0xffffff, 8, 40, Math.PI / 3.5, 0.3, 1);
+    // Sign backing (dark metal)
+    const signBackGeom = new THREE.BoxGeometry(8, 1.5, 0.2);
+    const signBackMat = new THREE.MeshStandardMaterial({ 
+      color: 0x1a1a1a, 
+      roughness: 0.3, 
+      metalness: 0.8 
+    });
+    const signBack = new THREE.Mesh(signBackGeom, signBackMat);
+    signGroup.add(signBack);
+    
+    // Neon tubes - "KAREN DUNGEON 3D" letters approximation
+    const neonMat = new THREE.MeshBasicMaterial({ 
+      color: 0xff0033,
+      transparent: true,
+      opacity: 1
+    });
+    const neonGlowMat = new THREE.MeshBasicMaterial({ 
+      color: 0xff0044,
+      transparent: true,
+      opacity: 0.3
+    });
+    
+    // Create neon letter tubes (simplified geometric letters)
+    const createNeonLetter = (char: string, xPos: number) => {
+      const letterGroup = new THREE.Group();
+      const tubeRadius = 0.03;
+      const height = 0.6;
+      const width = 0.35;
+      
+      // Simplified letter shapes using cylinders and boxes
+      if ('KARNDUGE3'.includes(char)) {
+        // Vertical bar
+        const vBar = new THREE.Mesh(
+          new THREE.CylinderGeometry(tubeRadius, tubeRadius, height, 8),
+          neonMat
+        );
+        letterGroup.add(vBar);
+        
+        // Horizontal bars for letters like K, A, E, etc
+        if ('AE3'.includes(char)) {
+          const hBar = new THREE.Mesh(
+            new THREE.CylinderGeometry(tubeRadius, tubeRadius, width * 0.6, 8),
+            neonMat
+          );
+          hBar.rotation.z = Math.PI / 2;
+          hBar.position.set(width * 0.2, 0, 0);
+          letterGroup.add(hBar);
+        }
+        
+        // Top bar for letters
+        if ('EKRD3'.includes(char)) {
+          const topBar = new THREE.Mesh(
+            new THREE.CylinderGeometry(tubeRadius, tubeRadius, width * 0.5, 8),
+            neonMat
+          );
+          topBar.rotation.z = Math.PI / 2;
+          topBar.position.set(width * 0.15, height * 0.4, 0);
+          letterGroup.add(topBar);
+        }
+        
+        // Bottom bar
+        if ('EL3'.includes(char)) {
+          const botBar = new THREE.Mesh(
+            new THREE.CylinderGeometry(tubeRadius, tubeRadius, width * 0.5, 8),
+            neonMat
+          );
+          botBar.rotation.z = Math.PI / 2;
+          botBar.position.set(width * 0.15, -height * 0.4, 0);
+          letterGroup.add(botBar);
+        }
+      }
+      
+      // Add glow sphere around each letter
+      const glowSphere = new THREE.Mesh(
+        new THREE.SphereGeometry(0.25, 8, 8),
+        neonGlowMat
+      );
+      letterGroup.add(glowSphere);
+      
+      letterGroup.position.x = xPos;
+      return letterGroup;
+    };
+    
+    // Create the sign text
+    const text = "KARENDUNGEON3D";
+    const letterSpacing = 0.5;
+    const startX = -(text.length * letterSpacing) / 2;
+    
+    text.split('').forEach((char, i) => {
+      const letter = createNeonLetter(char, startX + i * letterSpacing);
+      signGroup.add(letter);
+    });
+    
+    // Neon glow lights behind sign
+    const signGlow1 = new THREE.PointLight(0xff0033, 15, 12);
+    signGlow1.position.set(0, 0, 0.5);
+    signGroup.add(signGlow1);
+    
+    const signGlow2 = new THREE.PointLight(0xff2244, 8, 8);
+    signGlow2.position.set(-2, 0, 0.3);
+    signGroup.add(signGlow2);
+    
+    const signGlow3 = new THREE.PointLight(0xff2244, 8, 8);
+    signGlow3.position.set(2, 0, 0.3);
+    signGroup.add(signGlow3);
+    
+    // Position sign above spawn area
+    signGroup.position.set(0, 4, -6);
+    signGroup.rotation.x = -0.15;
+    scene.add(signGroup);
+    
+    // ============ DRAMATIC SPOTLIGHTS ============
+    // Player rim light (follows camera) - dramatic backlight
+    const rimLight = new THREE.SpotLight(0xff4422, 3, 15, Math.PI / 6, 0.5, 1);
+    rimLight.position.set(0, 3, 2);
+    rimLight.target.position.set(0, 0, -1);
+    camera.add(rimLight);
+    camera.add(rimLight.target);
+    
+    // Player flashlight - bright white cone
+    const flashlight = new THREE.SpotLight(0xffffee, 6, 35, Math.PI / 4, 0.4, 1);
     flashlight.position.set(0, 0, 0);
     flashlight.target.position.set(0, 0, -1);
     flashlight.castShadow = true;
@@ -883,17 +1001,91 @@ export default function KarenDungeon3D() {
     camera.add(flashlight.target);
     scene.add(camera);
     
-    // Extra point lights scattered around for visibility
-    const colors = [0xff4444, 0x44ff44, 0x4444ff, 0xffff44];
-    for (let i = 0; i < 8; i++) {
-      const pointLight = new THREE.PointLight(colors[i % 4], 1.5, 20);
-      pointLight.position.set(
-        Math.cos(i * Math.PI / 4) * 15,
-        3,
-        Math.sin(i * Math.PI / 4) * 15
-      );
-      scene.add(pointLight);
-    }
+    // Dramatic colored spotlights in arena corners
+    const spotConfigs = [
+      { pos: [12, 8, 12], target: [0, 0, 0], color: 0xff2200, intensity: 4 },
+      { pos: [-12, 8, 12], target: [0, 0, 0], color: 0xff0044, intensity: 4 },
+      { pos: [12, 8, -12], target: [0, 0, 0], color: 0xff4400, intensity: 4 },
+      { pos: [-12, 8, -12], target: [0, 0, 0], color: 0xff0022, intensity: 4 },
+    ];
+    
+    spotConfigs.forEach(config => {
+      const spot = new THREE.SpotLight(config.color, config.intensity, 30, Math.PI / 5, 0.6, 1);
+      spot.position.set(config.pos[0], config.pos[1], config.pos[2]);
+      spot.target.position.set(config.target[0], config.target[1], config.target[2]);
+      scene.add(spot);
+      scene.add(spot.target);
+    });
+    
+    // ============ VOLUMETRIC FOG BEAMS (simulated with cone meshes) ============
+    const fogBeamMat = new THREE.MeshBasicMaterial({
+      color: 0xff4422,
+      transparent: true,
+      opacity: 0.04,
+      side: THREE.DoubleSide
+    });
+    
+    const beamPositions = [
+      { x: 8, z: 8, rot: 0.2 },
+      { x: -8, z: 8, rot: -0.2 },
+      { x: 8, z: -8, rot: 0.15 },
+      { x: -8, z: -8, rot: -0.15 },
+    ];
+    
+    beamPositions.forEach(bp => {
+      const beamGeom = new THREE.ConeGeometry(4, 12, 16, 1, true);
+      const beam = new THREE.Mesh(beamGeom, fogBeamMat);
+      beam.position.set(bp.x, 6, bp.z);
+      beam.rotation.x = Math.PI;
+      beam.rotation.z = bp.rot;
+      scene.add(beam);
+    });
+    
+    // ============ AMBIENT OCCLUSION SHADOWS (ground darkening) ============
+    // Dark vignette on floor edges for AO effect
+    const aoRingGeom = new THREE.RingGeometry(15, 50, 32);
+    const aoMat = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.4,
+      side: THREE.DoubleSide
+    });
+    const aoRing = new THREE.Mesh(aoRingGeom, aoMat);
+    aoRing.rotation.x = -Math.PI / 2;
+    aoRing.position.y = 0.01;
+    scene.add(aoRing);
+    
+    // Wall/corner darkening planes
+    const cornerDarkMat = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0.5,
+      side: THREE.DoubleSide
+    });
+    
+    // Red accent lights at floor level for drama
+    const floorLightPositions = [
+      [6, 0, 0], [-6, 0, 0], [0, 0, 6], [0, 0, -6],
+      [10, 0, 10], [-10, 0, 10], [10, 0, -10], [-10, 0, -10]
+    ];
+    
+    floorLightPositions.forEach(([x, y, z]) => {
+      const floorGlow = new THREE.PointLight(0xff1100, 1.5, 8);
+      floorGlow.position.set(x, 0.2, z);
+      scene.add(floorGlow);
+      
+      // Glowing floor plate
+      const plateGeom = new THREE.CircleGeometry(0.5, 16);
+      const plateMat = new THREE.MeshBasicMaterial({ 
+        color: 0xff2200, 
+        transparent: true, 
+        opacity: 0.6 
+      });
+      const plate = new THREE.Mesh(plateGeom, plateMat);
+      plate.rotation.x = -Math.PI / 2;
+      plate.position.set(x, 0.02, z);
+      scene.add(plate);
+    });
     
     // Enhanced Floor with texture-like pattern
     const floorSize = 100;
