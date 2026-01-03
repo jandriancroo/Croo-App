@@ -72,7 +72,7 @@ interface Platform {
   type: 'brick' | 'pipe';
 }
 
-type LevelTheme = 'city' | 'desert' | 'mountains' | 'space' | 'hell' | 'heaven';
+type LevelTheme = 'city' | 'desert' | 'mountains' | 'space' | 'hell' | 'heaven' | 'hemet';
 
 interface Level {
   theme: LevelTheme;
@@ -83,10 +83,11 @@ interface Level {
 const LEVELS: Level[] = [
   { theme: 'city', name: 'Downtown Pizza', scoreThreshold: 0 },
   { theme: 'desert', name: 'Desert Heat', scoreThreshold: 150 },
-  { theme: 'mountains', name: 'Mountain Top', scoreThreshold: 350 },
-  { theme: 'space', name: 'Cosmic Kitchen', scoreThreshold: 600 },
-  { theme: 'hell', name: 'Hell\'s Kitchen', scoreThreshold: 900 },
-  { theme: 'heaven', name: 'Pizza Paradise', scoreThreshold: 1200 },
+  { theme: 'hemet', name: 'HEMET', scoreThreshold: 350 },
+  { theme: 'mountains', name: 'Mountain Top', scoreThreshold: 550 },
+  { theme: 'space', name: 'Cosmic Kitchen', scoreThreshold: 800 },
+  { theme: 'hell', name: 'Hell\'s Kitchen', scoreThreshold: 1100 },
+  { theme: 'heaven', name: 'Pizza Paradise', scoreThreshold: 1400 },
 ];
 
 const GRAVITY = 0.6;
@@ -487,6 +488,18 @@ const PizzaPaddleGame = () => {
           clouds: '#ffffff',
           pipe: ['#ffd700', '#ffec8b'],
           brick: ['#ffd700', '#ffec8b', '#daa520'],
+        };
+      case 'hemet':
+        return {
+          sky: ['#c9a86c', '#d4b896', '#e8d4b8'],
+          ground: '#8b7355',
+          groundPattern: '#9b8365',
+          groundDark: '#6b5345',
+          grass: '#a89070',
+          hills: '#c9a86c',
+          clouds: '#d4c4a8',
+          pipe: ['#4a3c2a', '#5a4c3a'],
+          brick: ['#8b7355', '#9b8365', '#6b5345'],
         };
     }
   };
@@ -1037,6 +1050,128 @@ const PizzaPaddleGame = () => {
           ctx.beginPath();
           ctx.arc(haloX, 60 + (i % 3) * 30, 25, 0, Math.PI * 2);
           ctx.fill();
+        }
+      }
+
+      // HEMET theme - mummies, crackheads, and flying needles
+      if (currentLevelRef.current.theme === 'hemet') {
+        // Draw wandering mummies in background
+        for (let i = 0; i < 3; i++) {
+          const mummyX = (i * 180 + frameCountRef.current * 0.4) % (width + 100) - 50;
+          const mummyY = height - 90 + Math.sin(frameCountRef.current * 0.05 + i) * 5;
+          const bobble = Math.sin(frameCountRef.current * 0.1 + i * 2) * 2;
+          
+          ctx.save();
+          ctx.globalAlpha = 0.7;
+          // Mummy body (wrapped in bandages)
+          ctx.fillStyle = '#d4c4a8';
+          ctx.fillRect(mummyX + 8, mummyY + 15 + bobble, 14, 25);
+          // Bandage strips
+          ctx.strokeStyle = '#c9b898';
+          ctx.lineWidth = 2;
+          for (let j = 0; j < 5; j++) {
+            ctx.beginPath();
+            ctx.moveTo(mummyX + 6, mummyY + 18 + j * 5 + bobble);
+            ctx.lineTo(mummyX + 24, mummyY + 20 + j * 5 + bobble);
+            ctx.stroke();
+          }
+          // Mummy head
+          ctx.fillStyle = '#d4c4a8';
+          ctx.beginPath();
+          ctx.arc(mummyX + 15, mummyY + 10 + bobble, 10, 0, Math.PI * 2);
+          ctx.fill();
+          // Glowing eyes
+          ctx.fillStyle = '#ff6600';
+          ctx.beginPath();
+          ctx.arc(mummyX + 12, mummyY + 8 + bobble, 2, 0, Math.PI * 2);
+          ctx.arc(mummyX + 18, mummyY + 8 + bobble, 2, 0, Math.PI * 2);
+          ctx.fill();
+          // Arms reaching out
+          ctx.fillStyle = '#d4c4a8';
+          ctx.fillRect(mummyX - 2, mummyY + 18 + bobble, 12, 4);
+          ctx.fillRect(mummyX + 20, mummyY + 18 + bobble, 12, 4);
+          ctx.restore();
+        }
+
+        // Draw crackhead characters wandering
+        for (let i = 0; i < 2; i++) {
+          const crackX = (i * 250 + 100 + frameCountRef.current * 0.6) % (width + 120) - 60;
+          const crackY = height - 85;
+          const twitch = Math.random() * 3 - 1.5;
+          const jitter = Math.sin(frameCountRef.current * 0.3 + i * 5) * 3;
+          
+          ctx.save();
+          ctx.globalAlpha = 0.6;
+          // Skinny body
+          ctx.fillStyle = '#4a4a4a';
+          ctx.fillRect(crackX + 10 + twitch, crackY + 12 + jitter, 10, 28);
+          // Head
+          ctx.fillStyle = '#8b7355';
+          ctx.beginPath();
+          ctx.arc(crackX + 15 + twitch, crackY + 6 + jitter, 8, 0, Math.PI * 2);
+          ctx.fill();
+          // Messy hair
+          ctx.strokeStyle = '#3a3a3a';
+          ctx.lineWidth = 1;
+          for (let h = 0; h < 5; h++) {
+            ctx.beginPath();
+            ctx.moveTo(crackX + 10 + h * 2 + twitch, crackY - 2 + jitter);
+            ctx.lineTo(crackX + 8 + h * 3 + twitch, crackY - 8 - Math.random() * 5 + jitter);
+            ctx.stroke();
+          }
+          // Crazy eyes
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(crackX + 12 + twitch, crackY + 4 + jitter, 3, 0, Math.PI * 2);
+          ctx.arc(crackX + 18 + twitch, crackY + 4 + jitter, 3, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#000000';
+          ctx.beginPath();
+          ctx.arc(crackX + 12 + Math.random() + twitch, crackY + 4 + jitter, 1.5, 0, Math.PI * 2);
+          ctx.arc(crackX + 18 - Math.random() + twitch, crackY + 4 + jitter, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+          // Twitchy arms
+          ctx.strokeStyle = '#8b7355';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(crackX + 10 + twitch, crackY + 15 + jitter);
+          ctx.lineTo(crackX + 2 + Math.sin(frameCountRef.current * 0.5) * 5, crackY + 25 + jitter);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(crackX + 20 + twitch, crackY + 15 + jitter);
+          ctx.lineTo(crackX + 28 + Math.cos(frameCountRef.current * 0.5) * 5, crackY + 22 + jitter);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Flying needles
+        for (let i = 0; i < 6; i++) {
+          const needleX = (i * 90 + frameCountRef.current * 1.5) % (width + 60) - 30;
+          const needleY = 80 + (i * 40) % 150 + Math.sin(frameCountRef.current * 0.08 + i * 2) * 20;
+          const rotation = frameCountRef.current * 0.1 + i;
+          
+          ctx.save();
+          ctx.globalAlpha = 0.8;
+          ctx.translate(needleX, needleY);
+          ctx.rotate(rotation);
+          // Needle body (syringe)
+          ctx.fillStyle = '#c0c0c0';
+          ctx.fillRect(-15, -2, 25, 4);
+          // Needle tip
+          ctx.fillStyle = '#808080';
+          ctx.beginPath();
+          ctx.moveTo(10, 0);
+          ctx.lineTo(18, 0);
+          ctx.lineTo(10, -1);
+          ctx.lineTo(10, 1);
+          ctx.fill();
+          // Plunger
+          ctx.fillStyle = '#ff4444';
+          ctx.fillRect(-18, -3, 5, 6);
+          // Liquid inside
+          ctx.fillStyle = 'rgba(139, 69, 19, 0.6)';
+          ctx.fillRect(-12, -1, 15, 2);
+          ctx.restore();
         }
       }
 
