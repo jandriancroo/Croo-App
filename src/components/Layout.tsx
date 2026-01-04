@@ -411,19 +411,17 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       {/* Desktop/Tablet Header with unified teal nav bar */}
       <header className="sticky top-0 z-50 hidden md:block bg-background" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="px-4">
-          <div className="nav-bar-unified rounded-lg flex items-center">
-            {/* Logo drop area */}
-            <div className="nav-logo-drop">
-              <button onClick={() => navigate('/dashboard')} className="nav-logo-container hover:opacity-80 transition-opacity">
-                <img 
-                  src={headerLogo} 
-                  alt={headerLogoAlt} 
-                />
-              </button>
-            </div>
+          <div className="nav-bar-unified rounded-lg flex items-center px-2">
+            {/* Logo */}
+            <button onClick={() => navigate('/dashboard')} className="nav-logo-inline hover:opacity-80 transition-opacity mr-2">
+              <img 
+                src={headerLogo} 
+                alt={headerLogoAlt} 
+              />
+            </button>
             
             {/* Nav items */}
-            <div className="flex items-center gap-0.5 px-2">
+            <div className="flex items-center gap-0.5">
               {mainNavItems.map(item => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
