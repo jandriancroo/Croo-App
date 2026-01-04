@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, Building2, Tag, FlaskConical, ChevronDown } from 'lucide-react';
+import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, Building2, Tag, FlaskConical, ChevronDown, Palette, Bell } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
@@ -30,8 +30,8 @@ const themes = [
 const SECTION_ORDER = ['theme', 'notifications', 'brands', 'organizations', 'maintenance'];
 
 const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
-  theme: { title: 'Theme', icon: null },
-  notifications: { title: 'Notifications', icon: null },
+  theme: { title: 'Theme', icon: <Palette className="h-4 w-4" /> },
+  notifications: { title: 'Notifications', icon: <Bell className="h-4 w-4" /> },
   brands: { title: 'Brands', icon: <Tag className="h-4 w-4" /> },
   organizations: { title: 'Organizations', icon: <Building2 className="h-4 w-4" /> },
   maintenance: { title: 'System Maintenance', icon: <Wrench className="h-4 w-4" /> },
