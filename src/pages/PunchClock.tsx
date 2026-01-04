@@ -893,6 +893,15 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
               {/* Right Side - Number Pad */}
               <CardContent className="p-8 flex flex-col justify-center">
                 <div className="space-y-6">
+                  {/* Location Name Badge */}
+                  {currentLocation && (
+                    <div className="text-center">
+                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-full">
+                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                        <span className="text-sm font-medium text-primary">{currentLocation.name}</span>
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <h3 className="text-xl font-semibold mb-4 text-center">Enter Your PIN</h3>
                     <div className="text-center mb-6">
