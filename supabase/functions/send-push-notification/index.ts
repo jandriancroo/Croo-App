@@ -351,7 +351,7 @@ interface PushNotificationRequest {
   title: string;
   body: string;
   data?: Record<string, any>;
-  notification_type?: 'overdue_checklists' | 'late_arrivals' | 'announcements' | 'chat_messages' | 'schedule_updates' | 'shift_approvals' | 'certification_expiring' | 'logbook_entry' | 'catering_order' | 'drawer_count' | 'safe_count';
+  notification_type?: 'overdue_checklists' | 'late_arrivals' | 'announcements' | 'chat_messages' | 'schedule_updates' | 'shift_approvals' | 'certification_expiring' | 'logbook_entry' | 'catering_order' | 'drawer_count' | 'safe_count' | 'arcade_scores';
   badge_count?: number;
 }
 
@@ -383,6 +383,8 @@ function formatNotificationContent(type: string | undefined, title: string, body
       return { title: `💵 ${title}`, body };
     case 'safe_count':
       return { title: `🔐 ${title}`, body };
+    case 'arcade_scores':
+      return { title: `🕹️ ${title}`, body };
     default:
       return { title, body };
   }
@@ -505,9 +507,34 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Filtered to ${enabledUserIds.length} users based on role permissions`);
 
-    if (enabledUserIds.length === 0) {
+    // Also filter by user notification preferences (for personal notifications like arcade_scores)
+    let finalUserIds = enabledUserIds;
+    if (notification_type) {
+      const { data: userPrefs, error: prefsError } = await supabaseClient
+        .from('notification_preferences')
+        .select('*')
+        .in('user_id', enabledUserIds);
+      
+      if (!prefsError && userPrefs) {
+        finalUserIds = enabledUserIds.filter(userId => {
+          const userPref = userPrefs.find((p: any) => p.user_id === userId);
+          // If no preference record, default to enabled
+          if (!userPref) return true;
+          // Check if this specific notification type is enabled
+          const prefValue = (userPref as any)[notification_type];
+          if (prefValue === false) {
+            console.log(`Filtering out user ${userId} - ${notification_type} disabled in user preferences`);
+            return false;
+          }
+          return true;
+        });
+        console.log(`Filtered to ${finalUserIds.length} users based on user preferences`);
+      }
+    }
+
+    if (finalUserIds.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No users have this notification type enabled for their role" }),
+        JSON.stringify({ message: "No users have this notification type enabled" }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -516,13 +543,13 @@ const handler = async (req: Request): Promise<Response> => {
     const { data: tokens, error: tokensError } = await supabaseClient
       .from('push_notification_tokens')
       .select('token, platform, user_id')
-      .in('user_id', enabledUserIds);
+      .in('user_id', finalUserIds);
 
     // Get user names for logging
     const { data: userProfiles } = await supabaseClient
       .from('profiles')
       .select('id, full_name, email')
-      .in('id', enabledUserIds);
+      .in('id', finalUserIds);
 
     const userNameMap = new Map(userProfiles?.map(u => [u.id, u.full_name || u.email]) || []);
 

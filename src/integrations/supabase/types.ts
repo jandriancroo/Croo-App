@@ -2543,6 +2543,7 @@ export type Database = {
       notification_preferences: {
         Row: {
           announcements: boolean
+          arcade_scores: boolean
           certification_expiring: boolean
           chat_messages: boolean
           created_at: string
@@ -2556,6 +2557,7 @@ export type Database = {
         }
         Insert: {
           announcements?: boolean
+          arcade_scores?: boolean
           certification_expiring?: boolean
           chat_messages?: boolean
           created_at?: string
@@ -2569,6 +2571,7 @@ export type Database = {
         }
         Update: {
           announcements?: boolean
+          arcade_scores?: boolean
           certification_expiring?: boolean
           chat_messages?: boolean
           created_at?: string

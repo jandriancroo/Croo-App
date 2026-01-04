@@ -25,6 +25,7 @@ interface NotificationPreferences {
   schedule_updates: boolean;
   shift_approvals: boolean;
   certification_expiring: boolean;
+  arcade_scores: boolean;
 }
 
 interface UserLocation {
@@ -64,6 +65,7 @@ export const NotificationSettings = () => {
     schedule_updates: true,
     shift_approvals: true,
     certification_expiring: true,
+    arcade_scores: true,
   });
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
@@ -121,6 +123,7 @@ export const NotificationSettings = () => {
             schedule_updates: data.schedule_updates ?? true,
             shift_approvals: data.shift_approvals ?? true,
             certification_expiring: data.certification_expiring ?? true,
+            arcade_scores: data.arcade_scores ?? true,
           });
         }
 
@@ -446,6 +449,15 @@ export const NotificationSettings = () => {
                     id="shift-approvals"
                     checked={preferences.shift_approvals}
                     onCheckedChange={(checked) => updatePreference('shift_approvals', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between py-1.5">
+                  <Label htmlFor="arcade-scores" className="text-sm font-normal">Arcade Scores</Label>
+                  <Switch
+                    id="arcade-scores"
+                    checked={preferences.arcade_scores}
+                    onCheckedChange={(checked) => updatePreference('arcade_scores', checked)}
                   />
                 </div>
               </div>
