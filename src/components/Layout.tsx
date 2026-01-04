@@ -420,8 +420,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               />
             </button>
           </div>
-          <nav className="hidden items-center gap-2 md:flex flex-1 min-w-0">
-            <div className="glass-nav rounded-xl px-1.5 py-1 flex items-center gap-0.5">
+          <nav className="hidden items-center md:flex flex-1 min-w-0">
+            <div className="glass-nav rounded-xl px-1.5 py-1 flex items-center gap-0.5 flex-1">
               {mainNavItems.map(item => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -476,17 +476,76 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
+
+              {/* Spacer to push right-side items */}
+              <div className="flex-1" />
+
+              {/* Alerts button - hidden for checklist-only locations */}
+              {!isChecklistOnlyLocation && (
+                <button onClick={() => navigate('/alerts')} title="Live Alerts" className="relative p-2 hover:opacity-80 transition-opacity">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+                  </span>
+                </button>
+              )}
+
+              {/* Location Selector */}
+              {currentLocation && (
+                <button 
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-accent-foreground/80 hover:bg-white/15 hover:text-accent-foreground"
+                  onClick={() => setLocationDialogOpen(true)}
+                >
+                  <MapPin className="h-4 w-4 flex-shrink-0" />
+                  <span className="max-w-[120px] truncate text-sm">{currentLocation.name}</span>
+                </button>
+              )}
+
+              {/* Profile dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-2 px-2 py-1 rounded-lg transition-all text-accent-foreground/80 hover:bg-white/15 hover:text-accent-foreground">
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage src={userProfile?.profile_photo_url || ''} />
+                      <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                    </Avatar>
+                    <span className="hidden lg:inline text-sm font-medium text-accent-foreground">{firstName}</span>
+                    <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={() => navigate('/my-profile')} className="gap-2 cursor-pointer">
+                    <User className="h-4 w-4" />
+                    My Profile
+                  </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
+                        <Users className="h-4 w-4" />
+                        User Management
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate('/hiring')} className="gap-2 cursor-pointer">
+                        <Briefcase className="h-4 w-4" />
+                        Hiring
+                      </DropdownMenuItem>
+                    </>
+                  )}
+                  <DropdownMenuItem onClick={() => navigate('/games')} className="gap-2 cursor-pointer">
+                    <Gamepad2 className="h-4 w-4" />
+                    Arcade
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
+                    <SettingsIcon className="h-4 w-4" />
+                    Settings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={signOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
+                    <DoorOpen className="h-4 w-4" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
-            
-            {/* Alerts button - hidden for checklist-only locations */}
-            {!isChecklistOnlyLocation && (
-              <button onClick={() => navigate('/alerts')} title="Live Alerts" className="relative ml-1 p-2 hover:opacity-80 transition-opacity">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
-                </span>
-              </button>
-            )}
           </nav>
           
           {/* Mobile Location Picker - truly centered with absolute positioning */}
@@ -621,64 +680,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             </Sheet>
           )}
           
-          <div className="hidden md:flex items-center gap-2">
-            {/* Location Selector */}
-            {currentLocation && (
-              <Button 
-                variant="outline" 
-                className="gap-2 h-9"
-                onClick={() => setLocationDialogOpen(true)}
-              >
-                <MapPin className="h-4 w-4 flex-shrink-0" />
-                <span className="max-w-[120px] truncate">{currentLocation.name}</span>
-              </Button>
-            )}
-
-            {/* Profile dropdown - replaces settings icon */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="gap-2 h-auto py-1.5 px-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={userProfile?.profile_photo_url || ''} />
-                    <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                  </Avatar>
-                  <span className="hidden lg:inline text-sm font-medium">{firstName}</span>
-                  <ChevronDown className="h-3 w-3 flex-shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={() => navigate('/my-profile')} className="gap-2 cursor-pointer">
-                  <User className="h-4 w-4" />
-                  My Profile
-                </DropdownMenuItem>
-                {isAdmin && (
-                  <>
-                    <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
-                      <Users className="h-4 w-4" />
-                      User Management
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/hiring')} className="gap-2 cursor-pointer">
-                      <Briefcase className="h-4 w-4" />
-                      Hiring
-                    </DropdownMenuItem>
-                  </>
-                )}
-                <DropdownMenuItem onClick={() => navigate('/games')} className="gap-2 cursor-pointer">
-                  <Gamepad2 className="h-4 w-4" />
-                  Arcade
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
-                  <SettingsIcon className="h-4 w-4" />
-                  Settings
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={signOut} className="gap-2 cursor-pointer text-destructive focus:text-destructive">
-                  <DoorOpen className="h-4 w-4" />
-                  Sign Out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
 
         </div>
       </header>
