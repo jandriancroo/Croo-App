@@ -65,7 +65,7 @@ export const NotificationSettings = () => {
     schedule_updates: true,
     shift_approvals: true,
     certification_expiring: true,
-    arcade_scores: true,
+    arcade_scores: false,
   });
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
@@ -123,7 +123,7 @@ export const NotificationSettings = () => {
             schedule_updates: data.schedule_updates ?? true,
             shift_approvals: data.shift_approvals ?? true,
             certification_expiring: data.certification_expiring ?? true,
-            arcade_scores: data.arcade_scores ?? true,
+            arcade_scores: data.arcade_scores ?? false,
           });
         }
 
