@@ -915,7 +915,7 @@ export default function CompleteChecklist() {
                         </div>}
                     </div>}
                 </CardHeader>
-                <CardContent className={`pt-0 ${hasResponse ? 'pointer-events-none sm:pb-3' : ''}`}>
+                <CardContent className={`pt-0 ${hasResponse ? 'pointer-events-none sm:pb-3 sm:flex sm:items-center sm:justify-center' : ''}`}>
                   {item.item_type === 'text' && <Textarea value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter your response" required={item.is_required} className="min-h-[60px] text-sm" />}
                   {item.item_type === 'multiple_choice' && item.options && <RadioGroup value={responses[item.id] || ''} onValueChange={value => handleResponseChange(item.id, value)} required={item.is_required} className="space-y-1.5">
                       {item.options.map(option => <div key={option} className="flex items-center space-x-2">
