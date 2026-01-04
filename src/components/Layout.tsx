@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { CircleGauge, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw, BarChart3, Building2, User, Gamepad2, LayoutDashboard } from 'lucide-react';
+import { BarChart3, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw, Building2, User, Gamepad2, LayoutDashboard } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -291,7 +291,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const checklistOnlyNavItems = [{
     path: '/dashboard',
     label: 'Dash',
-    icon: CircleGauge
+    icon: BarChart3
   }, {
     path: '/tasks',
     label: 'Tasks',
@@ -309,7 +309,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const mainNavItems = isChecklistOnlyLocation ? checklistOnlyNavItems : [{
     path: '/dashboard',
     label: 'Dash',
-    icon: CircleGauge
+    icon: BarChart3
   }, {
     path: '/tasks',
     label: 'Tasks',
@@ -351,7 +351,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   const mobileMainNavItems = isChecklistOnlyLocation ? checklistOnlyNavItems : [{
     path: '/dashboard',
     label: 'Dash',
-    icon: CircleGauge
+    icon: BarChart3
   }, {
     path: '/messages',
     label: 'Chat',
