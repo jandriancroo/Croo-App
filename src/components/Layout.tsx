@@ -408,20 +408,24 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     }];
 
   return <div className="flex min-h-screen flex-col bg-background overflow-x-hidden">
-      <header className="sticky top-0 z-50 bg-background border-b border-border/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className={`container max-w-7xl mx-auto flex items-center relative ${isMobile ? 'h-14' : 'h-16'}`}>
-          <div className="flex items-center gap-2 mr-4 flex-shrink-0 min-w-[120px] md:min-w-[150px]">
-            <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
-              <img 
-                src={headerLogo} 
-                alt={headerLogoAlt} 
-                className={`${isMobile ? 'h-10' : 'h-12'} w-auto max-w-[120px] object-contain rounded-lg`}
-                style={{ background: 'transparent' }}
-              />
-            </button>
-          </div>
-          <nav className="hidden items-center md:flex flex-1 min-w-0">
-            <div className="glass-nav rounded-xl px-1.5 py-1 flex items-center gap-0.5 flex-1">
+      {/* Desktop/Tablet Header with unified teal nav bar */}
+      <header className="sticky top-0 z-50 hidden md:block bg-background" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="container max-w-7xl mx-auto py-2">
+          <div className="nav-bar-unified rounded-2xl flex items-center">
+            {/* Logo bulge area */}
+            <div className="nav-logo-bulge flex items-center justify-center px-3">
+              <button onClick={() => navigate('/dashboard')} className="flex items-center hover:opacity-80 transition-opacity">
+                <img 
+                  src={headerLogo} 
+                  alt={headerLogoAlt} 
+                  className="h-12 w-auto max-w-[120px] object-contain"
+                  style={{ background: 'transparent' }}
+                />
+              </button>
+            </div>
+            
+            {/* Nav items */}
+            <div className="flex items-center gap-0.5 px-2">
               {mainNavItems.map(item => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -432,8 +436,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     onClick={() => navigate(item.path)} 
                     className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
                       isActive 
-                        ? 'bg-white/25 text-accent-foreground font-medium' 
-                        : 'text-accent-foreground/80 hover:bg-white/15 hover:text-accent-foreground'
+                        ? 'bg-white/25 text-primary-foreground font-medium' 
+                        : 'text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground'
                     }`}
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
@@ -454,8 +458,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     <button 
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
                         ['/my-wallet', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname)
-                          ? 'bg-white/25 text-accent-foreground font-medium' 
-                          : 'text-accent-foreground/80 hover:bg-white/15 hover:text-accent-foreground'
+                          ? 'bg-white/25 text-primary-foreground font-medium' 
+                          : 'text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground'
                       }`}
                     >
                       <Clock className="h-4 w-4 flex-shrink-0" />
@@ -476,11 +480,14 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
+            </div>
 
-              {/* Spacer to push right-side items */}
-              <div className="flex-1" />
+            {/* Spacer */}
+            <div className="flex-1" />
 
-              {/* Alerts button - hidden for checklist-only locations */}
+            {/* Right side items */}
+            <div className="flex items-center gap-1 px-2">
+              {/* Alerts button */}
               {!isChecklistOnlyLocation && (
                 <button onClick={() => navigate('/alerts')} title="Live Alerts" className="relative p-2 hover:opacity-80 transition-opacity">
                   <span className="relative flex h-3 w-3">
@@ -493,7 +500,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               {/* Location Selector */}
               {currentLocation && (
                 <button 
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-accent-foreground/80 hover:bg-white/15 hover:text-accent-foreground"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground"
                   onClick={() => setLocationDialogOpen(true)}
                 >
                   <MapPin className="h-4 w-4 flex-shrink-0" />
@@ -504,12 +511,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               {/* Profile dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 px-2 py-1 rounded-lg transition-all text-accent-foreground/80 hover:bg-white/15 hover:text-accent-foreground">
-                    <Avatar className="h-7 w-7">
+                  <button className="flex items-center gap-2 px-2 py-1 rounded-lg transition-all text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground">
+                    <Avatar className="h-7 w-7 ring-2 ring-white/20">
                       <AvatarImage src={userProfile?.profile_photo_url || ''} />
-                      <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+                      <AvatarFallback className="text-xs bg-white/20 text-primary-foreground">{initials}</AvatarFallback>
                     </Avatar>
-                    <span className="hidden lg:inline text-sm font-medium text-accent-foreground">{firstName}</span>
+                    <span className="hidden lg:inline text-sm font-medium text-primary-foreground">{firstName}</span>
                     <ChevronDown className="h-3 w-3 flex-shrink-0" />
                   </button>
                 </DropdownMenuTrigger>
@@ -546,10 +553,26 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-          </nav>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile Header */}
+      <header className="sticky top-0 z-50 md:hidden bg-background border-b border-border/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="container max-w-7xl mx-auto flex items-center relative h-14">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+              <img 
+                src={headerLogo} 
+                alt={headerLogoAlt} 
+                className="h-10 w-auto max-w-[120px] object-contain rounded-lg"
+                style={{ background: 'transparent' }}
+              />
+            </button>
+          </div>
           
-          {/* Mobile Location Picker - truly centered with absolute positioning */}
-          {isMobile && currentLocation && (
+          {/* Mobile Location Picker - centered */}
+          {currentLocation && (
             <div className="absolute left-1/2 -translate-x-1/2">
               <Button 
                 variant="ghost" 
@@ -563,124 +586,132 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             </div>
           )}
           
-          {/* Mobile More Menu Button in header */}
-          {isMobile && (
-            <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
-              <SheetTrigger asChild>
-                <button
-                  className="ml-auto p-2 hover:opacity-80 transition-opacity text-foreground"
-                  title="More options"
+          {/* Mobile More Menu Button */}
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild>
+              <button
+                className="ml-auto p-2 hover:opacity-80 transition-opacity text-foreground"
+                title="More options"
+              >
+                <Menu className="h-7 w-7" />
+              </button>
+            </SheetTrigger>
+            <SheetContent side="bottom" className="h-auto">
+              <SheetHeader>
+                <SheetTitle>Menu</SheetTitle>
+              </SheetHeader>
+              <div className="grid gap-2 py-4">
+                {/* Profile Section */}
+                <div 
+                  className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => {
+                    navigate('/my-profile');
+                    setMenuOpen(false);
+                  }}
                 >
-                  <Menu className="h-7 w-7" />
-                </button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="h-auto">
-                <SheetHeader>
-                  <SheetTitle>Menu</SheetTitle>
-                </SheetHeader>
-                <div className="grid gap-2 py-4">
-                  {/* Profile Section */}
-                  <div 
-                    className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30 mb-2 cursor-pointer hover:bg-muted/50 transition-colors"
-                    onClick={() => {
-                      navigate('/my-profile');
-                      setMenuOpen(false);
-                    }}
-                  >
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={userProfile?.profile_photo_url || ''} />
-                      <AvatarFallback>{initials}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{userProfile?.full_name || 'User'}</p>
-                      <p className="text-xs text-muted-foreground">Tap to edit profile</p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={userProfile?.profile_photo_url || ''} />
+                    <AvatarFallback>{initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{userProfile?.full_name || 'User'}</p>
+                    <p className="text-xs text-muted-foreground">Tap to edit profile</p>
                   </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
 
-                  {/* Alerts - Admin only, right after profile */}
-                  {isAdmin && !isChecklistOnlyLocation && (
+                {/* Alerts - Admin only */}
+                {isAdmin && !isChecklistOnlyLocation && (
+                  <Button 
+                    variant={location.pathname === '/alerts' ? 'secondary' : 'outline'} 
+                    onClick={() => {
+                      navigate('/alerts');
+                      setMenuOpen(false);
+                    }} 
+                    className="justify-start gap-3 h-11"
+                  >
+                    <span className="relative flex h-5 w-5 items-center justify-center">
+                      <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-destructive opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
+                    </span>
+                    <span className="text-base">Live Alerts</span>
+                  </Button>
+                )}
+
+                {/* Time collapsible section */}
+                {mobileTimeItems.length > 0 && (
+                  <div className="space-y-1">
                     <Button 
-                      variant={location.pathname === '/alerts' ? 'secondary' : 'outline'} 
+                      variant="outline" 
+                      onClick={() => setTimeMenuExpanded(!timeMenuExpanded)}
+                      className="justify-between w-full h-11"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Clock className="h-5 w-5" />
+                        <span className="text-base">Time</span>
+                      </div>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${timeMenuExpanded ? 'rotate-180' : ''}`} />
+                    </Button>
+                    {timeMenuExpanded && (
+                      <div className="pl-4 space-y-1">
+                        {mobileTimeItems.map(item => {
+                          const Icon = item.icon;
+                          const isActive = location.pathname === item.path;
+                          return (
+                            <Button 
+                              key={item.path} 
+                              variant={isActive ? 'secondary' : 'ghost'} 
+                              onClick={() => {
+                                navigate(item.path);
+                                setMenuOpen(false);
+                              }} 
+                              className="justify-start gap-3 h-10 w-full"
+                            >
+                              <Icon className="h-4 w-4" />
+                              <span className="text-sm">{item.label}</span>
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {mobileMenuItems.map(item => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.path;
+                  const showBadge = item.path === '/messages' && unreadCount > 0;
+                  return (
+                    <Button 
+                      key={item.path} 
+                      variant={isActive ? 'secondary' : 'outline'} 
                       onClick={() => {
-                        navigate('/alerts');
+                        navigate(item.path);
                         setMenuOpen(false);
                       }} 
-                      className="justify-start gap-3 h-11"
+                      className="justify-start gap-3 h-11 relative"
                     >
-                      <span className="relative flex h-5 w-5 items-center justify-center">
-                        <span className="animate-ping absolute inline-flex h-3 w-3 rounded-full bg-destructive opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
-                      </span>
-                      <span className="text-base">Live Alerts</span>
-                    </Button>
-                  )}
-
-
-                  {/* Time collapsible section */}
-                  {mobileTimeItems.length > 0 && (
-                    <div className="space-y-1">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setTimeMenuExpanded(!timeMenuExpanded)}
-                        className="justify-between w-full h-11"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Clock className="h-5 w-5" />
-                          <span className="text-base">Time</span>
-                        </div>
-                        <ChevronDown className={`h-4 w-4 transition-transform ${timeMenuExpanded ? 'rotate-180' : ''}`} />
-                      </Button>
-                      {timeMenuExpanded && (
-                        <div className="pl-4 space-y-1">
-                          {mobileTimeItems.map(item => {
-                            const Icon = item.icon;
-                            const isActive = location.pathname === item.path;
-                            return (
-                              <Button 
-                                key={item.path} 
-                                variant={isActive ? 'secondary' : 'ghost'} 
-                                onClick={() => {
-                                  navigate(item.path);
-                                  setMenuOpen(false);
-                                }} 
-                                className="justify-start gap-3 h-10 w-full"
-                              >
-                                <Icon className="h-4 w-4" />
-                                <span className="text-sm">{item.label}</span>
-                              </Button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {mobileMenuItems.map(item => {
-                    const Icon = item.icon;
-                    const isActive = location.pathname === item.path;
-                    return <Button key={item.path} variant={isActive ? 'secondary' : 'outline'} onClick={() => {
-                      navigate(item.path);
-                      setMenuOpen(false);
-                    }} className="justify-start gap-3 h-11">
                       <Icon className="h-5 w-5" />
                       <span className="text-base">{item.label}</span>
-                    </Button>;
-                  })}
+                      {showBadge && (
+                        <Badge variant="destructive" className="ml-auto h-5 min-w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  );
+                })}
 
-                  <Button variant="outline" onClick={() => {
-                    signOut();
-                    setMenuOpen(false);
-                  }} className="justify-start gap-3 h-11 text-destructive hover:text-destructive">
-                    <DoorOpen className="h-5 w-5" />
-                    <span className="text-base">Sign Out</span>
-                  </Button>
-                </div>
-              </SheetContent>
-            </Sheet>
-          )}
-          
-
+                <Button variant="outline" onClick={() => {
+                  signOut();
+                  setMenuOpen(false);
+                }} className="justify-start gap-3 h-11 text-destructive hover:text-destructive">
+                  <DoorOpen className="h-5 w-5" />
+                  <span className="text-base">Sign Out</span>
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </header>
       <main className="container max-w-7xl mx-auto flex-1 px-3 md:px-4 py-3 md:py-8 pb-24 md:pb-8 overflow-x-hidden relative">
