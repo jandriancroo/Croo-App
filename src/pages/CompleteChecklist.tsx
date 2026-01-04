@@ -817,7 +817,7 @@ export default function CompleteChecklist() {
               {/* Card with content - this gets blurred when completed */}
               <Card className="overflow-hidden relative">
               {hasResponse && <div 
-                  className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-4 gap-3" 
+                  className="absolute inset-0 bg-background/60 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 gap-3" 
                   style={{ pointerEvents: 'auto' }}
                 >
                     <div className="flex items-center gap-3">
