@@ -187,6 +187,98 @@ export type Database = {
           },
         ]
       }
+      bank_deposit_entries: {
+        Row: {
+          bank_deposit_id: string
+          created_at: string
+          deposit_amount: number
+          entry_date: string
+          id: string
+          logbook_entry_id: string
+        }
+        Insert: {
+          bank_deposit_id: string
+          created_at?: string
+          deposit_amount?: number
+          entry_date: string
+          id?: string
+          logbook_entry_id: string
+        }
+        Update: {
+          bank_deposit_id?: string
+          created_at?: string
+          deposit_amount?: number
+          entry_date?: string
+          id?: string
+          logbook_entry_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_deposit_entries_bank_deposit_id_fkey"
+            columns: ["bank_deposit_id"]
+            isOneToOne: false
+            referencedRelation: "bank_deposits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bank_deposit_entries_logbook_entry_id_fkey"
+            columns: ["logbook_entry_id"]
+            isOneToOne: true
+            referencedRelation: "logbook_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      bank_deposits: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          days_included: number
+          end_date: string
+          id: string
+          location_id: string
+          notes: string | null
+          start_date: string
+          total_amount: number
+          total_change: number
+          total_dollars: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          days_included?: number
+          end_date: string
+          id?: string
+          location_id: string
+          notes?: string | null
+          start_date: string
+          total_amount?: number
+          total_change?: number
+          total_dollars?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          days_included?: number
+          end_date?: string
+          id?: string
+          location_id?: string
+          notes?: string | null
+          start_date?: string
+          total_amount?: number
+          total_change?: number
+          total_dollars?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bank_deposits_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       brand_members: {
         Row: {
           brand_id: string
