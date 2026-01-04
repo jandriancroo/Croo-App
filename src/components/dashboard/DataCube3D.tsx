@@ -379,24 +379,24 @@ function CubeFaceComponent({
         `,
       }}
     >
-      {/* Strong gradient from top-left corner for 3D pillowy look */}
+      {/* Subtle gradient from top-left corner for 3D pillowy look */}
       <div 
         className="absolute inset-0 pointer-events-none rounded-2xl"
         style={{
           background: `
             radial-gradient(ellipse 120% 100% at 15% -10%, 
-              rgba(255,255,255,0.5) 0%, 
-              rgba(255,255,255,0.25) 25%, 
+              rgba(255,255,255,0.25) 0%, 
+              rgba(255,255,255,0.12) 25%, 
               transparent 55%
             ),
             linear-gradient(160deg,
-              rgba(255,255,255,0.3) 0%,
+              rgba(255,255,255,0.15) 0%,
               transparent 40%
             ),
             linear-gradient(180deg,
               transparent 60%,
-              rgba(0,0,0,0.12) 90%,
-              rgba(0,0,0,0.18) 100%
+              rgba(0,0,0,0.06) 90%,
+              rgba(0,0,0,0.09) 100%
             )
           `,
         }}
