@@ -415,7 +415,7 @@ function CubeFaceComponent({
       {title && (
         <div 
           className={cn(
-            "text-[10px] md:text-xs font-bold px-2 md:px-3 pt-1 truncate uppercase tracking-wide relative z-10",
+            "text-sm md:text-base font-bold px-2.5 md:px-3 pt-2 md:pt-2.5 truncate uppercase tracking-wide relative z-10",
             isLightBg ? "text-foreground" : "text-white"
           )}
         >
@@ -426,51 +426,69 @@ function CubeFaceComponent({
       {/* Content - positioned layout for metrics */}
       <div className={cn(
         "flex-1 relative z-10",
-        metricCount === 4 ? "p-2 md:p-3" : "px-2 md:px-3 py-1"
+        metricCount === 4 ? "p-2 md:p-3" : "px-2.5 md:px-3 py-1"
       )}>
         {metricCount === 4 ? (
-          // 4 metrics: 2x2 grid layout
-          <div className="grid grid-cols-2 grid-rows-2 h-full gap-1">
-            {displayMetrics.map((metricType, index) => {
-              const config = METRIC_CONFIGS[metricType];
-              if (!config) return null;
-              
-              const value = getMetricValue(metricType, salesData);
-              const formattedValue = formatValue(value, config.format);
-              
-              // Align: 0=left, 1=right, 2=left, 3=right
-              const isRight = index % 2 === 1;
-              
-              return (
-                  <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
-                    <div 
-                      className={cn(
-                        "font-bold leading-tight truncate text-base md:text-lg",
-                        isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
-                        isLightBg ? "text-foreground" : "text-white"
-                      )}
-                    >
-                      {!isLoading && formattedValue}
+          // 4 metrics: 2x2 grid layout with quadrant dividers
+          <div className="relative h-full">
+            {/* Quadrant glow dividers */}
+            <div 
+              className="absolute left-1/2 top-2 bottom-2 w-px pointer-events-none"
+              style={{
+                background: 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 80%, transparent 100%)',
+                boxShadow: '0 0 8px rgba(255,255,255,0.15)',
+              }}
+            />
+            <div 
+              className="absolute top-1/2 left-2 right-2 h-px pointer-events-none"
+              style={{
+                background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 80%, transparent 100%)',
+                boxShadow: '0 0 8px rgba(255,255,255,0.15)',
+              }}
+            />
+            
+            <div className="grid grid-cols-2 grid-rows-2 h-full gap-1">
+              {displayMetrics.map((metricType, index) => {
+                const config = METRIC_CONFIGS[metricType];
+                if (!config) return null;
+                
+                const value = getMetricValue(metricType, salesData);
+                const formattedValue = formatValue(value, config.format);
+                
+                // Align: 0=left, 1=right, 2=left, 3=right
+                const isRight = index % 2 === 1;
+                
+                return (
+                    <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
+                      <div 
+                        className={cn(
+                          "font-bold leading-none truncate text-lg md:text-xl",
+                          isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
+                          isLightBg ? "text-foreground" : "text-white"
+                        )}
+                      >
+                        {!isLoading && formattedValue}
+                      </div>
+                      <div 
+                        className={cn(
+                          "text-[8px] md:text-[9px] font-semibold truncate mt-0.5",
+                          isLightBg ? "text-muted-foreground" : "text-white/70"
+                        )}
+                      >
+                        {getDynamicLabel(metricType)}
+                      </div>
                     </div>
-                    <div 
-                      className={cn(
-                        "text-[8px] md:text-[10px] font-semibold truncate",
-                        isLightBg ? "text-muted-foreground" : "text-white/75"
-                      )}
-                    >
-                      {getDynamicLabel(metricType)}
-                    </div>
-                  </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         ) : (
           // 1-3 metrics: vertical stack or grid
           <div className={cn(
             "h-full",
             metricCount <= 2 
-              ? "flex flex-col justify-center space-y-0.5" 
-              : "grid grid-cols-1 md:grid-cols-3 gap-x-2 gap-y-0.5 md:gap-x-3 items-center"
+              ? "flex flex-col justify-center space-y-0" 
+              : "grid grid-cols-1 md:grid-cols-3 gap-x-2 gap-y-0 md:gap-x-3 items-center"
           )}>
             {displayMetrics.map((metricType, index) => {
               const config = METRIC_CONFIGS[metricType];
@@ -483,9 +501,8 @@ function CubeFaceComponent({
                 <div key={index} className="flex flex-col min-w-0">
                   <div 
                     className={cn(
-                      "font-bold leading-tight truncate",
+                      "font-bold leading-none truncate text-lg md:text-xl",
                       isLoading && "animate-pulse bg-white/30 rounded w-12 h-4",
-                      metricCount <= 2 ? "text-lg md:text-xl" : "text-base md:text-lg",
                       isLightBg ? "text-foreground" : "text-white"
                     )}
                   >
@@ -493,8 +510,8 @@ function CubeFaceComponent({
                   </div>
                   <div 
                     className={cn(
-                      "text-[9px] md:text-[10px] font-semibold truncate",
-                      isLightBg ? "text-muted-foreground" : "text-white/75"
+                      "text-[8px] md:text-[9px] font-semibold truncate mt-0.5",
+                      isLightBg ? "text-muted-foreground" : "text-white/70"
                     )}
                   >
                     {getDynamicLabel(metricType)}
