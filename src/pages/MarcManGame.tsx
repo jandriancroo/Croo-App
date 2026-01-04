@@ -26,6 +26,7 @@ interface Topping {
   y: number;
   type: string;
   collected: boolean;
+  isPowerPellet?: boolean;
 }
 
 // Portrait maze layout (11 wide x 19 tall) - 1 = wall, 0 = path
@@ -75,10 +76,21 @@ const MarcManGame = () => {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [mouthOpen, setMouthOpen] = useState(true);
   const [cellSize, setCellSize] = useState(22);
+  const [powerMode, setPowerMode] = useState(false);
+  const [powerModeTimer, setPowerModeTimer] = useState<NodeJS.Timeout | null>(null);
+  const [eatenGhosts, setEatenGhosts] = useState<Set<number>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
 
   const mazeWidth = MAZE_TEMPLATE[0].length;
   const mazeHeight = MAZE_TEMPLATE.length;
+
+  // Power pellet positions (corners of the maze)
+  const POWER_PELLET_POSITIONS = [
+    { x: 1, y: 1 },
+    { x: 9, y: 1 },
+    { x: 1, y: 17 },
+    { x: 9, y: 17 },
+  ];
 
   // Initialize toppings
   const initToppings = useCallback(() => {
@@ -88,11 +100,16 @@ const MarcManGame = () => {
         if (MAZE_TEMPLATE[y][x] === 0) {
           // Don't place on spawn points (center row)
           if (y === 9 && x >= 3 && x <= 7) continue;
+          
+          // Check if this is a power pellet position
+          const isPowerPellet = POWER_PELLET_POSITIONS.some(p => p.x === x && p.y === y);
+          
           newToppings.push({
             x,
             y,
-            type: TOPPINGS[Math.floor(Math.random() * TOPPINGS.length)],
+            type: isPowerPellet ? '🌟' : TOPPINGS[Math.floor(Math.random() * TOPPINGS.length)],
             collected: false,
+            isPowerPellet,
           });
         }
       }
@@ -111,6 +128,25 @@ const MarcManGame = () => {
     ];
   }, []);
 
+  // Activate power mode
+  const activatePowerMode = useCallback(() => {
+    // Clear existing timer
+    if (powerModeTimer) {
+      clearTimeout(powerModeTimer);
+    }
+    
+    setPowerMode(true);
+    setEatenGhosts(new Set());
+    
+    // Power mode lasts 8 seconds
+    const timer = setTimeout(() => {
+      setPowerMode(false);
+      setEatenGhosts(new Set());
+    }, 8000);
+    
+    setPowerModeTimer(timer);
+  }, [powerModeTimer]);
+
   // Start game
   const startGame = useCallback(() => {
     setMarc({ x: 5, y: 9 });
@@ -121,9 +157,12 @@ const MarcManGame = () => {
     setPizzaProgress(0);
     setPizzaCount(0);
     setScore(0);
+    setPowerMode(false);
+    setEatenGhosts(new Set());
+    if (powerModeTimer) clearTimeout(powerModeTimer);
     setGameState('playing');
     sounds.startMusic('retro');
-  }, [initGhosts, initToppings, sounds]);
+  }, [initGhosts, initToppings, sounds, powerModeTimer]);
 
   // Check if position is valid
   const isValidMove = useCallback((x: number, y: number): boolean => {
@@ -323,36 +362,64 @@ const MarcManGame = () => {
     if (gameState !== 'playing') return;
 
     // Check ghost collision
-    for (const ghost of ghosts) {
+    for (let i = 0; i < ghosts.length; i++) {
+      const ghost = ghosts[i];
       if (ghost.x === marc.x && ghost.y === marc.y) {
-        setGameState('gameover');
-        sounds.stopMusic();
-        return;
+        if (powerMode && !eatenGhosts.has(i)) {
+          // Eat the ghost! 200 points for first, 400 for second, etc.
+          const ghostsEatenSoFar = eatenGhosts.size;
+          const points = 200 * Math.pow(2, ghostsEatenSoFar);
+          setScore(s => s + points);
+          setEatenGhosts(prev => new Set([...prev, i]));
+          
+          // Respawn ghost at center
+          setGhosts(prev => prev.map((g, idx) => 
+            idx === i ? { ...g, x: 5, y: 9 } : g
+          ));
+          
+          toast.success(`+${points} Ghost eaten!`);
+        } else if (!eatenGhosts.has(i)) {
+          // Ghost catches Marc
+          setGameState('gameover');
+          sounds.stopMusic();
+          if (powerModeTimer) clearTimeout(powerModeTimer);
+          return;
+        }
       }
     }
 
     // Check topping collection
     setToppings(prev => {
       let collected = false;
+      let powerPelletCollected = false;
       const updated = prev.map(t => {
         if (!t.collected && t.x === marc.x && t.y === marc.y) {
           collected = true;
+          if (t.isPowerPellet) {
+            powerPelletCollected = true;
+          }
           return { ...t, collected: true };
         }
         return t;
       });
 
       if (collected) {
-        setScore(s => s + 10);
-        setPizzaProgress(p => {
-          const newProgress = p + 1;
-          // Complete pizza at 12 toppings
-          if (newProgress >= 12) {
-            setPizzaCount(c => c + 1);
-            return 0;
-          }
-          return newProgress;
-        });
+        if (powerPelletCollected) {
+          setScore(s => s + 50);
+          activatePowerMode();
+          toast.success('Power Mode! Eat the ghosts!');
+        } else {
+          setScore(s => s + 10);
+          setPizzaProgress(p => {
+            const newProgress = p + 1;
+            // Complete pizza at 12 toppings
+            if (newProgress >= 12) {
+              setPizzaCount(c => c + 1);
+              return 0;
+            }
+            return newProgress;
+          });
+        }
       }
 
       // Check if all toppings collected - reset level
@@ -363,7 +430,7 @@ const MarcManGame = () => {
 
       return updated;
     });
-  }, [gameState, marc, ghosts, sounds, initToppings]);
+  }, [gameState, marc, ghosts, sounds, initToppings, powerMode, eatenGhosts, activatePowerMode, powerModeTimer]);
 
   // Save high score
   useEffect(() => {
@@ -488,17 +555,17 @@ const MarcManGame = () => {
               ))
             )}
 
-            {/* Toppings */}
+            {/* Toppings and Power Pellets */}
             {toppings.map((t, i) => !t.collected && (
               <div
                 key={i}
-                className="absolute flex items-center justify-center"
+                className={`absolute flex items-center justify-center ${t.isPowerPellet ? 'animate-pulse' : ''}`}
                 style={{
                   left: t.x * cellSize,
                   top: t.y * cellSize,
                   width: cellSize,
                   height: cellSize,
-                  fontSize: cellSize * 0.6,
+                  fontSize: t.isPowerPellet ? cellSize * 0.85 : cellSize * 0.6,
                 }}
               >
                 {t.type}
@@ -570,37 +637,54 @@ const MarcManGame = () => {
             </div>
 
             {/* Ghosts and Firefighters */}
-            {ghosts.map((ghost, i) => (
-              <div
-                key={i}
-                className="absolute transition-all duration-100"
-                style={{
-                  left: ghost.x * cellSize,
-                  top: ghost.y * cellSize,
-                  width: cellSize,
-                  height: cellSize,
-                }}
-              >
-                {ghost.type === 'ghost' ? (
-                  // Classic ghost shape
-                  <svg viewBox="0 0 100 100" width={cellSize} height={cellSize}>
-                    <path
-                      d="M15 95 L15 45 A35 35 0 0 1 85 45 L85 95 L70 80 L55 95 L40 80 L25 95 L15 95 Z"
-                      fill={ghost.color}
-                    />
-                    <circle cx="35" cy="45" r="8" fill="white" />
-                    <circle cx="65" cy="45" r="8" fill="white" />
-                    <circle cx="38" cy="45" r="4" fill="#333" />
-                    <circle cx="68" cy="45" r="4" fill="#333" />
-                  </svg>
-                ) : (
-                  // Firefighter
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <span style={{ fontSize: cellSize * 0.8 }}>👨‍🚒</span>
-                  </div>
-                )}
-              </div>
-            ))}
+            {ghosts.map((ghost, i) => {
+              const isVulnerable = powerMode && !eatenGhosts.has(i);
+              return (
+                <div
+                  key={i}
+                  className={`absolute transition-all duration-100 ${isVulnerable ? 'animate-pulse' : ''}`}
+                  style={{
+                    left: ghost.x * cellSize,
+                    top: ghost.y * cellSize,
+                    width: cellSize,
+                    height: cellSize,
+                  }}
+                >
+                  {ghost.type === 'ghost' ? (
+                    // Classic ghost shape - blue when vulnerable
+                    <svg viewBox="0 0 100 100" width={cellSize} height={cellSize}>
+                      <path
+                        d="M15 95 L15 45 A35 35 0 0 1 85 45 L85 95 L70 80 L55 95 L40 80 L25 95 L15 95 Z"
+                        fill={isVulnerable ? '#0066FF' : ghost.color}
+                      />
+                      {isVulnerable ? (
+                        // Scared face
+                        <>
+                          <circle cx="35" cy="45" r="6" fill="white" />
+                          <circle cx="65" cy="45" r="6" fill="white" />
+                          <path d="M30 65 Q40 55 50 65 Q60 55 70 65" stroke="white" strokeWidth="4" fill="none" />
+                        </>
+                      ) : (
+                        // Normal face
+                        <>
+                          <circle cx="35" cy="45" r="8" fill="white" />
+                          <circle cx="65" cy="45" r="8" fill="white" />
+                          <circle cx="38" cy="45" r="4" fill="#333" />
+                          <circle cx="68" cy="45" r="4" fill="#333" />
+                        </>
+                      )}
+                    </svg>
+                  ) : (
+                    // Firefighter - shows scared emoji when vulnerable
+                    <div className="flex flex-col items-center justify-center h-full">
+                      <span style={{ fontSize: cellSize * 0.8 }}>
+                        {isVulnerable ? '😨' : '👨‍🚒'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {/* Overlays */}
             {gameState === 'idle' && (
@@ -625,7 +709,7 @@ const MarcManGame = () => {
                   Start Game
                 </Button>
                 <p className="text-sm text-white/60 text-center px-4">
-                  Swipe to move • Collect toppings • Avoid ghosts & firefighters
+                  Swipe to move • Collect toppings • 🌟 = eat ghosts!
                 </p>
               </div>
             )}
