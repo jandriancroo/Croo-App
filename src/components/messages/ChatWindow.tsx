@@ -401,7 +401,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     }
   };
 
-  const handleSmackTalk = async (smackText: string) => {
+  const handleSmackTalk = async (smackText: string, targetMessageId?: string) => {
     setSending(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -415,6 +415,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           chat_id: chatId,
           sender_id: user.id,
           content,
+          parent_message_id: targetMessageId || null,
         });
 
       if (error) throw error;
@@ -614,34 +615,38 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
         {(() => {
-          // Build a map of game score messages to their smack talk overlays
-          const smackTalkMap = new Map<number, { text: string; senderName: string }[]>();
-          let lastGameScoreIndex = -1;
+          // Build a map of game score message IDs to their smack talk overlays
+          const smackTalkMap = new Map<string, { text: string; senderName: string }[]>();
 
-          messages.forEach((msg, idx) => {
+          // First pass: identify all game score messages
+          messages.forEach((msg) => {
             if (msg.content?.startsWith('GAME_SCORE:')) {
-              lastGameScoreIndex = idx;
-              smackTalkMap.set(idx, []);
-            } else if (msg.content?.startsWith('SMACK_TALK:') && lastGameScoreIndex >= 0) {
-              const smacks = smackTalkMap.get(lastGameScoreIndex) || [];
+              smackTalkMap.set(msg.id, []);
+            }
+          });
+
+          // Second pass: associate smack talks with their target game scores via parent_message_id
+          messages.forEach((msg) => {
+            if (msg.content?.startsWith('SMACK_TALK:') && msg.parent_message_id) {
+              const smacks = smackTalkMap.get(msg.parent_message_id) || [];
               smacks.push({
                 text: msg.content.replace('SMACK_TALK:', ''),
                 senderName: msg.profiles?.full_name || 'Someone'
               });
-              smackTalkMap.set(lastGameScoreIndex, smacks);
+              smackTalkMap.set(msg.parent_message_id, smacks);
             }
           });
 
-          return messages.map((message, messageIndex) => {
+          return messages.map((message) => {
             const isOwnMessage = currentUserId && message.sender_id === currentUserId;
             
-            // Skip standalone smack talk messages - they're shown as overlays
-            if (message.content?.startsWith('SMACK_TALK:')) {
+            // Skip smack talk messages that are linked to a game score - they're shown as overlays
+            if (message.content?.startsWith('SMACK_TALK:') && message.parent_message_id) {
               return null;
             }
 
-            // Get smack talks for this game score
-            const smackTalks = smackTalkMap.get(messageIndex) || [];
+            // Get smack talks for this game score (by message ID)
+            const smackTalks = smackTalkMap.get(message.id) || [];
             
             return (
               <div
@@ -733,7 +738,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                         <div className="flex items-center gap-2 mt-1">
                           <ReactionPicker onSelect={(reaction) => handleReaction(message.id, reaction)} />
                           {isArcadeChat && message.content?.startsWith('GAME_SCORE:') && (
-                            <SmackTalkPicker onSelect={handleSmackTalk} disabled={sending} />
+                            <SmackTalkPicker onSelect={(text) => handleSmackTalk(text, message.id)} disabled={sending} />
                           )}
                           <Button
                             variant="ghost"
