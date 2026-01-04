@@ -412,14 +412,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       <header className="sticky top-0 z-50 hidden md:block bg-background" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="container max-w-7xl mx-auto py-2">
           <div className="nav-bar-unified rounded-2xl flex items-center">
-            {/* Logo bulge area */}
-            <div className="nav-logo-bulge flex items-center justify-center px-3">
-              <button onClick={() => navigate('/dashboard')} className="flex items-center hover:opacity-80 transition-opacity">
+            {/* Logo drop area */}
+            <div className="nav-logo-drop">
+              <button onClick={() => navigate('/dashboard')} className="nav-logo-container hover:opacity-80 transition-opacity">
                 <img 
                   src={headerLogo} 
                   alt={headerLogoAlt} 
-                  className="h-12 w-auto max-w-[120px] object-contain"
-                  style={{ background: 'transparent' }}
                 />
               </button>
             </div>

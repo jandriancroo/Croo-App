@@ -503,7 +503,7 @@ All colors MUST be HSL.
     );
   }
   
-  /* Unified nav bar with logo bulge for desktop/tablet */
+  /* Unified nav bar with logo drop for desktop/tablet */
   .nav-bar-unified {
     position: relative;
     background: hsl(var(--primary));
@@ -529,33 +529,36 @@ All colors MUST be HSL.
     border-radius: inherit;
   }
   
-  /* Logo bulge - extends taller to wrap around logo */
-  .nav-logo-bulge {
+  /* Logo drop - extends down only, continuous with bar */
+  .nav-logo-drop {
     position: relative;
-    height: 64px;
-    margin-top: -10px;
-    margin-bottom: -10px;
-    padding: 0 12px;
+    height: 60px;
+    margin-bottom: -16px;
+    padding: 0 8px;
     background: hsl(var(--primary));
-    border-radius: 0 0 1rem 1rem;
-    box-shadow: 
-      0 4px 12px hsl(0 0% 0% / 0.15);
+    border-radius: 0 0 1.25rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   
-  .nav-logo-bulge::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 50%;
-    background: linear-gradient(
-      180deg,
-      hsl(0 0% 100% / 0.12) 0%,
-      transparent 100%
-    );
-    pointer-events: none;
-    border-radius: inherit;
+  /* Round logo container */
+  .nav-logo-container {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: hsl(var(--background));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-shadow: 0 2px 8px hsl(0 0% 0% / 0.1);
+  }
+  
+  .nav-logo-container img {
+    width: 36px;
+    height: 36px;
+    object-fit: contain;
   }
   
   .dark .nav-bar-unified {
@@ -572,16 +575,8 @@ All colors MUST be HSL.
     );
   }
   
-  .dark .nav-logo-bulge {
-    box-shadow: 0 4px 12px hsl(0 0% 0% / 0.3);
-  }
-  
-  .dark .nav-logo-bulge::before {
-    background: linear-gradient(
-      180deg,
-      hsl(0 0% 100% / 0.08) 0%,
-      transparent 100%
-    );
+  .dark .nav-logo-container {
+    box-shadow: 0 2px 8px hsl(0 0% 0% / 0.3);
   }
   
   [data-theme="oled"] .nav-bar-unified {
@@ -598,8 +593,8 @@ All colors MUST be HSL.
     );
   }
   
-  [data-theme="oled"] .nav-logo-bulge {
-    box-shadow: 0 4px 12px hsl(0 0% 0% / 0.5);
+  [data-theme="oled"] .nav-logo-container {
+    box-shadow: 0 2px 8px hsl(0 0% 0% / 0.5);
   }
   
   [data-theme="oled"] .nav-logo-bulge::before {
