@@ -47,66 +47,126 @@ function formatDateForDisplay(dateStr: string): string {
   return dateStr; // Return original if parsing fails
 }
 
+// Helpers for timezone-safe date handling
+function getLocalDateString(iso: string, timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(iso));
+  } catch {
+    // Fallback: assume ISO date already in local date
+    return iso.slice(0, 10);
+  }
+}
+
+function getWideIsoRangeForDate(dateStr: string): { startIso: string; endIso: string } {
+  // Wide window around the day to safely capture punches/submissions across timezones.
+  const base = new Date(dateStr + 'T00:00:00Z');
+  const start = new Date(base);
+  start.setHours(start.getHours() - 14);
+  const end = new Date(base);
+  end.setHours(end.getHours() + 38);
+  return { startIso: start.toISOString(), endIso: end.toISOString() };
+}
+
 // Fetch labor data from time_punches
 async function fetchLaborData(supabase: any, locationId: string, dateStr: string) {
   try {
+    const { data: locationSettings, error: settingsError } = await supabase
+      .from('location_settings')
+      .select('timezone')
+      .eq('location_id', locationId)
+      .maybeSingle();
+
+    if (settingsError) {
+      console.warn('[labor] location_settings lookup error:', settingsError);
+    }
+
+    const timeZone = locationSettings?.timezone || 'America/Los_Angeles';
+
     // Get users at this location
-    const { data: locationUsers } = await supabase
+    const { data: locationUsers, error: usersError } = await supabase
       .from('user_locations')
       .select('user_id')
       .eq('location_id', locationId);
-    
+
+    if (usersError) {
+      console.error('[labor] user_locations error:', usersError);
+    }
+
     if (!locationUsers || locationUsers.length === 0) {
       return { hoursWorked: 0, laborCost: 0, hasData: false };
     }
-    
+
     const userIds = locationUsers.map((u: any) => u.user_id);
-    
-    // Get time punches for the date
-    const startOfDay = `${dateStr}T00:00:00`;
-    const endOfDay = `${dateStr}T23:59:59`;
-    
-    const { data: punches } = await supabase
+
+    const { startIso, endIso } = getWideIsoRangeForDate(dateStr);
+
+    const { data: punches, error: punchesError } = await supabase
       .from('time_punches')
       .select('user_id, punch_in, punch_out, meal_break_hours, meal_break_duration')
       .in('user_id', userIds)
-      .gte('punch_in', startOfDay)
-      .lte('punch_in', endOfDay);
-    
+      .gte('punch_in', startIso)
+      .lte('punch_in', endIso);
+
+    if (punchesError) {
+      console.error('[labor] time_punches error:', punchesError);
+    }
+
     if (!punches || punches.length === 0) {
       return { hoursWorked: 0, laborCost: 0, hasData: false };
     }
-    
+
+    // Filter punches to the requested local date
+    const punchesForDay = punches.filter((p: any) =>
+      p?.punch_in && getLocalDateString(p.punch_in, timeZone) === dateStr
+    );
+
+    if (punchesForDay.length === 0) {
+      console.log('[labor] punches found, but none matched local date', { dateStr, timeZone, total: punches.length });
+      return { hoursWorked: 0, laborCost: 0, hasData: false };
+    }
+
     // Get user wages
-    const { data: profiles } = await supabase
+    const { data: profiles, error: profilesError } = await supabase
       .from('profiles')
       .select('id, hourly_wage')
       .in('id', userIds);
-    
+
+    if (profilesError) {
+      console.error('[labor] profiles wage lookup error:', profilesError);
+    }
+
     const wageMap = new Map((profiles || []).map((p: any) => [p.id, p.hourly_wage || 15]));
-    
+
     let totalHours = 0;
     let totalCost = 0;
-    
-    for (const punch of punches) {
-      if (!punch.punch_out) continue;
-      
+
+    for (const punch of punchesForDay) {
+      // If someone is still clocked in, count them through now (test emails often happen before close).
+      const punchOutValue = punch.punch_out || new Date().toISOString();
+
       const punchIn = new Date(punch.punch_in);
-      const punchOut = new Date(punch.punch_out);
+      const punchOut = new Date(punchOutValue);
       let hoursWorked = (punchOut.getTime() - punchIn.getTime()) / (1000 * 60 * 60);
-      
+
+      if (hoursWorked < 0) continue;
+
       // Subtract unpaid break if applicable
       if (punch.meal_break_hours && punch.meal_break_duration) {
         hoursWorked -= punch.meal_break_duration / 60;
       }
-      
+
       if (hoursWorked > 0) {
         totalHours += hoursWorked;
         const wage = Number(wageMap.get(punch.user_id)) || 15;
         totalCost += hoursWorked * wage;
       }
     }
-    
+
     return { hoursWorked: totalHours, laborCost: totalCost, hasData: totalHours > 0 };
   } catch (error) {
     console.error('Error fetching labor data:', error);
@@ -114,10 +174,13 @@ async function fetchLaborData(supabase: any, locationId: string, dateStr: string
   }
 }
 
-// Fetch QuBeyond product mix (top 20 items sorted by sales)
+// Fetch QuBeyond product mix (top items sorted by sales)
 async function fetchProductMix(supabase: any, locationId: string, dateStr: string) {
   try {
-    const { data: integration } = await supabase
+    // Reuse the same login + report mechanics as our existing sales backend.
+    // (We keep this function self-contained rather than importing.)
+
+    const { data: integration, error: integrationError } = await supabase
       .from('location_integrations')
       .select('credentials')
       .eq('location_id', locationId)
@@ -125,134 +188,247 @@ async function fetchProductMix(supabase: any, locationId: string, dateStr: strin
       .eq('is_active', true)
       .maybeSingle();
 
-    if (!integration?.credentials) return [];
+    if (integrationError) {
+      console.error('[productMix] location_integrations error:', integrationError);
+    }
 
-    const credentials = integration.credentials as { username: string; password: string; location_id?: string };
-    
+    if (!integration?.credentials) {
+      console.log('[productMix] No qubeyond credentials found');
+      return [];
+    }
+
+    const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
+    if (!credentials?.username || !credentials?.password) {
+      console.warn('[productMix] Missing username/password in credentials');
+      return [];
+    }
+
     const authResponse = await fetch('https://admin.qubeyond.com/api/session', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
       body: JSON.stringify({
         authType: 'classic',
         username: credentials.username,
-        password: credentials.password
+        password: credentials.password,
       }),
     });
 
-    if (!authResponse.ok) return [];
+    if (!authResponse.ok) {
+      const text = await authResponse.text().catch(() => '');
+      console.error('[productMix] auth failed:', authResponse.status, text.slice(0, 300));
+      return [];
+    }
 
     const authData = await authResponse.json();
     const tokenGw = authData.tokenGw;
     const qbLocationId = credentials.location_id;
 
-    if (!tokenGw || !qbLocationId) return [];
+    if (!tokenGw || !qbLocationId) {
+      console.warn('[productMix] Missing tokenGw or qbLocationId');
+      return [];
+    }
 
-    // Fetch product mix sorted by sales
-    const productResponse = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': tokenGw,
-        'Origin': 'https://admin.qubeyond.com',
-      },
-      body: JSON.stringify({
-        fields: [
-          { fieldName: "itemGroup" },
-          { fieldName: "itemName" },
-          { fieldName: "quantity" },
-          { fieldName: "netSales" }
-        ],
-        filters: {
-          date: { from: null, to: null, values: [dateStr], type: "custom" },
-          singleLocation: parseInt(qbLocationId)
+    const productResponse = await fetch(
+      'https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': tokenGw,
+          'Origin': 'https://admin.qubeyond.com',
         },
-        params: { sectionId: "main", pageNumber: 1, pageSize: 200, sort: [{ field: "netSales", dir: "desc" }], showTotals: true }
-      }),
-    });
+        body: JSON.stringify({
+          fields: [
+            { fieldName: 'itemGroup' },
+            { fieldName: 'itemName' },
+            { fieldName: 'quantity' },
+            { fieldName: 'netSales' },
+          ],
+          filters: {
+            date: { from: null, to: null, values: [dateStr], type: 'custom' },
+            singleLocation: parseInt(String(qbLocationId)),
+          },
+          params: {
+            sectionId: 'main',
+            pageNumber: 1,
+            pageSize: 200,
+            sort: [{ field: 'netSales', dir: 'desc' }],
+            showTotals: true,
+          },
+        }),
+      }
+    );
 
-    const topItems: { name: string; quantity: number; sales: number }[] = [];
-    if (productResponse.ok) {
-      const productData = await productResponse.json();
-      if (productData.items) {
-        const allItems: { name: string; quantity: number; sales: number }[] = [];
-        
-        for (const item of productData.items) {
-          if (item.items && Array.isArray(item.items)) {
-            for (const child of item.items) {
-              const name = child.itemName || '';
-              if (name && name !== 'Totals') {
-                const quantity = parseFloat(String(child.quantity || '0').replace(/,/g, '')) || 0;
-                const sales = parseFloat(String(child.netSales || '0').replace(/[$,]/g, '')) || 0;
-                if (sales > 0) allItems.push({ name, quantity, sales });
-              }
-            }
-          } else {
-            const name = item.itemName || '';
-            if (name && name !== 'Totals') {
-              const quantity = parseFloat(String(item.quantity || '0').replace(/,/g, '')) || 0;
-              const sales = parseFloat(String(item.netSales || '0').replace(/[$,]/g, '')) || 0;
-              if (sales > 0) allItems.push({ name, quantity, sales });
-            }
-          }
+    if (!productResponse.ok) {
+      const text = await productResponse.text().catch(() => '');
+      console.error('[productMix] report failed:', productResponse.status, text.slice(0, 300));
+      return [];
+    }
+
+    const productData = await productResponse.json();
+
+    const allItems: { name: string; quantity: number; sales: number }[] = [];
+    const addRow = (row: any) => {
+      const name = row?.itemName || '';
+      if (!name || name === 'Totals') return;
+      const quantity = parseFloat(String(row?.quantity || '0').replace(/,/g, '')) || 0;
+      const sales = parseFloat(String(row?.netSales || '0').replace(/[$,]/g, '')) || 0;
+      if (sales > 0) allItems.push({ name, quantity, sales });
+    };
+
+    if (Array.isArray(productData?.items)) {
+      for (const item of productData.items) {
+        if (Array.isArray(item?.items)) {
+          for (const child of item.items) addRow(child);
+        } else {
+          addRow(item);
         }
-        
-        allItems.sort((a, b) => b.sales - a.sales);
-        topItems.push(...allItems.slice(0, 20));
       }
     }
 
-    return topItems;
+    allItems.sort((a, b) => b.sales - a.sales);
+    return allItems.slice(0, 20);
   } catch (error) {
     console.error('Error fetching product mix:', error);
     return [];
   }
 }
 
-// Fetch checklist completion data
+// Fetch checklist completion data (percent-based, not just submitted/not-submitted)
 async function fetchChecklistData(supabase: any, locationId: string, dateStr: string) {
   try {
-    // Get all active checklists for this location
-    const { data: checklists } = await supabase
+    const { data: locationSettings } = await supabase
+      .from('location_settings')
+      .select('timezone')
+      .eq('location_id', locationId)
+      .maybeSingle();
+
+    const timeZone = locationSettings?.timezone || 'America/Los_Angeles';
+
+    const { data: checklists, error: checklistsError } = await supabase
       .from('checklists')
-      .select('id, title, frequency')
+      .select('id, title, frequency, assigned_day_of_week, template_type')
       .eq('location_id', locationId)
       .eq('is_active', true);
-    
+
+    if (checklistsError) {
+      console.error('[checklists] checklists query error:', checklistsError);
+    }
+
     if (!checklists || checklists.length === 0) {
       return { completed: 0, total: 0, items: [] };
     }
-    
+
     // Determine which checklists are due today based on frequency
     const targetDate = new Date(dateStr + 'T12:00:00');
     const dayOfWeek = targetDate.getDay();
-    
+
     const dueChecklists = checklists.filter((c: any) => {
       if (c.frequency === 'daily') return true;
       if (c.frequency === 'weekly' && c.assigned_day_of_week === dayOfWeek) return true;
       if (c.frequency === 'monthly') return targetDate.getDate() === 1;
-      return c.frequency === 'daily'; // default to daily
+      return c.frequency === 'daily';
     });
-    
-    // Get submissions for today
+
+    if (dueChecklists.length === 0) {
+      return { completed: 0, total: 0, items: [] };
+    }
+
     const checklistIds = dueChecklists.map((c: any) => c.id);
-    const { data: submissions } = await supabase
+
+    const { startIso, endIso } = getWideIsoRangeForDate(dateStr);
+
+    const { data: submissions, error: submissionsError } = await supabase
       .from('checklist_submissions')
-      .select('checklist_id, submitted_by, submitted_at')
+      .select('id, checklist_id, submitted_at')
       .in('checklist_id', checklistIds)
-      .gte('submitted_at', `${dateStr}T00:00:00`)
-      .lte('submitted_at', `${dateStr}T23:59:59`);
-    
-    const submittedIds = new Set((submissions || []).map((s: any) => s.checklist_id));
-    
-    const items = dueChecklists.map((c: any) => ({
-      title: c.title,
-      completed: submittedIds.has(c.id)
-    }));
-    
+      .eq('location_id', locationId)
+      .gte('submitted_at', startIso)
+      .lte('submitted_at', endIso);
+
+    if (submissionsError) {
+      console.error('[checklists] submissions query error:', submissionsError);
+    }
+
+    const submissionsForDay = (submissions || []).filter((s: any) =>
+      s?.submitted_at && getLocalDateString(s.submitted_at, timeZone) === dateStr
+    );
+
+    // Pick the latest submission per checklist (there can be multiple)
+    const latestSubmissionByChecklist = new Map<string, { id: string; submitted_at: string }>();
+    for (const s of submissionsForDay) {
+      const existing = latestSubmissionByChecklist.get(s.checklist_id);
+      if (!existing || new Date(s.submitted_at).getTime() > new Date(existing.submitted_at).getTime()) {
+        latestSubmissionByChecklist.set(s.checklist_id, { id: s.id, submitted_at: s.submitted_at });
+      }
+    }
+
+    // Preload item counts per checklist
+    const { data: checklistItems, error: itemsError } = await supabase
+      .from('checklist_items')
+      .select('checklist_id, id')
+      .in('checklist_id', checklistIds);
+
+    if (itemsError) {
+      console.error('[checklists] checklist_items query error:', itemsError);
+    }
+
+    const totalItemsByChecklist = new Map<string, number>();
+    for (const ci of checklistItems || []) {
+      totalItemsByChecklist.set(ci.checklist_id, (totalItemsByChecklist.get(ci.checklist_id) || 0) + 1);
+    }
+
+    const submissionIds = [...latestSubmissionByChecklist.values()].map((v) => v.id);
+
+    const { data: responses, error: responsesError } = submissionIds.length
+      ? await supabase
+          .from('checklist_responses')
+          .select('submission_id, item_id, response_text, response_image_url, response_image_urls, extracted_temperature, temperature_valid')
+          .in('submission_id', submissionIds)
+      : { data: [], error: null };
+
+    if (responsesError) {
+      console.error('[checklists] checklist_responses query error:', responsesError);
+    }
+
+    // Count distinct answered items per submission
+    const answeredItemIdsBySubmission = new Map<string, Set<string>>();
+    for (const r of responses || []) {
+      const hasAnswer =
+        (r.response_text && String(r.response_text).trim().length > 0) ||
+        !!r.response_image_url ||
+        (Array.isArray(r.response_image_urls) && r.response_image_urls.length > 0) ||
+        (typeof r.extracted_temperature === 'number' && !isNaN(r.extracted_temperature));
+
+      if (!hasAnswer) continue;
+
+      const set = answeredItemIdsBySubmission.get(r.submission_id) || new Set<string>();
+      set.add(r.item_id);
+      answeredItemIdsBySubmission.set(r.submission_id, set);
+    }
+
+    const items = dueChecklists.map((c: any) => {
+      const totalItems = totalItemsByChecklist.get(c.id) || 0;
+      const submission = latestSubmissionByChecklist.get(c.id);
+      const answered = submission ? (answeredItemIdsBySubmission.get(submission.id)?.size || 0) : 0;
+      const percent = totalItems > 0 ? (answered / totalItems) * 100 : 0;
+      const completed = totalItems > 0 && answered >= totalItems;
+
+      return {
+        title: c.title,
+        completed,
+        percent,
+      };
+    });
+
     return {
       completed: items.filter((i: any) => i.completed).length,
       total: items.length,
-      items
+      items,
     };
   } catch (error) {
     console.error('Error fetching checklist data:', error);
@@ -344,7 +520,7 @@ function generateEmailHtml(data: {
   refunds: { guestName: string; details: string }[];
   safeCountData: { shift: string; totalCash: number; variance: number; completedBy?: string }[];
   drawerCountData: { expected: number; actual: number; variance: number; totalDeposit: number; completedBy?: string } | null;
-  checklistData: { completed: number; total: number; items: { title: string; completed: boolean }[] };
+  checklistData: { completed: number; total: number; items: { title: string; completed: boolean; percent?: number }[] };
   eventsData: { 
     scheduleEvents: { title: string; startTime: string; endTime: string; color: string; completion: { completedBy: string; completedAt: string } | null }[];
     cateringOrders: { customerName: string; pickupTime: string; status: string; completedBy: string | null }[];
@@ -391,12 +567,18 @@ function generateEmailHtml(data: {
 
   // Checklist items list
   const checklistItemsHtml = data.checklistData.items.length > 0 
-    ? data.checklistData.items.map(item => `
-        <div style="display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 12px;">
-          <span style="color: ${item.completed ? '#10b981' : '#ef4444'};">${item.completed ? '✓' : '✗'}</span>
-          <span style="color: ${item.completed ? '#374151' : '#9ca3af'};">${item.title}</span>
-        </div>
-      `).join('')
+    ? data.checklistData.items.map(item => {
+        const pct = typeof item.percent === 'number' ? Math.round(item.percent) : null;
+        return `
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 12px;">
+            <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
+              <span style="color: ${item.completed ? '#10b981' : '#ef4444'};">${item.completed ? '✓' : '✗'}</span>
+              <span style="color: ${item.completed ? '#374151' : '#9ca3af'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.title}</span>
+            </div>
+            ${pct !== null ? `<span style="color: #6b7280; font-size: 12px;">${pct}%</span>` : ''}
+          </div>
+        `;
+      }).join('')
     : '<p style="color: #9ca3af; font-size: 12px; margin: 0;">No checklists due today</p>';
 
   // Events summary
