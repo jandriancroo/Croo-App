@@ -1,13 +1,20 @@
 import { Gamepad2, Grid3X3, Trophy, Target, Castle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { SMACK_TALK_IMAGES } from "./SmackTalkPicker";
+
+interface SmackTalkOverlay {
+  text: string;
+  senderName: string;
+}
 
 interface GameScoreMessageProps {
   gameType: string;
   score: number;
   playerName: string;
+  smackTalks?: SmackTalkOverlay[];
 }
 
-export function GameScoreMessage({ gameType, score, playerName }: GameScoreMessageProps) {
+export function GameScoreMessage({ gameType, score, playerName, smackTalks = [] }: GameScoreMessageProps) {
   const isSnake = gameType === 'snake';
   const isMinesweeper = gameType === 'minesweeper';
   const isBasketball = gameType === 'basketball';
@@ -24,9 +31,13 @@ export function GameScoreMessage({ gameType, score, playerName }: GameScoreMessa
 
   const config = getGameConfig();
   const Icon = config.icon;
+
+  // Get the most recent smack talk to display
+  const latestSmackTalk = smackTalks.length > 0 ? smackTalks[smackTalks.length - 1] : null;
+  const smackTalkImage = latestSmackTalk ? SMACK_TALK_IMAGES[latestSmackTalk.text] : null;
   
   return (
-    <Card className="overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 max-w-[280px]">
+    <Card className="relative overflow-visible bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20 max-w-[280px]">
       <CardContent className="p-3">
         <div className="flex items-center gap-3">
           <div className={`p-2 rounded-lg ${config.color}`}>
@@ -48,6 +59,28 @@ export function GameScoreMessage({ gameType, score, playerName }: GameScoreMessa
           {playerName} just scored!
         </p>
       </CardContent>
+
+      {/* Smack Talk Overlay */}
+      {smackTalkImage && (
+        <div 
+          className="absolute -top-6 -right-6 w-20 h-20 animate-scale-in z-10"
+          style={{
+            filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.3))',
+            transform: 'rotate(12deg)',
+          }}
+        >
+          <img 
+            src={smackTalkImage} 
+            alt={latestSmackTalk?.text}
+            className="w-full h-full object-contain"
+          />
+          {smackTalks.length > 1 && (
+            <span className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              {smackTalks.length}
+            </span>
+          )}
+        </div>
+      )}
     </Card>
   );
 }

@@ -613,117 +613,146 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
-        {messages.map((message) => {
-          const isOwnMessage = currentUserId && message.sender_id === currentUserId;
-          
-          return (
-            <div
-              key={message.id}
-              className={`flex gap-2 sm:gap-3 ${isOwnMessage ? 'flex-row-reverse' : ''}`}
-            >
-              <Avatar className="h-8 w-8 flex-shrink-0">
-                <AvatarImage src={message.profiles?.profile_photo_url || undefined} />
-                <AvatarFallback>
-                  {message.profiles?.full_name?.charAt(0) || 'U'}
-                </AvatarFallback>
-              </Avatar>
-              <div className={`flex flex-col min-w-0 max-w-[75%] ${isOwnMessage ? 'items-end' : ''}`}>
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="text-sm font-medium truncate">
-                    {message.profiles?.full_name || 'Unknown'}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {format(new Date(message.created_at), 'h:mm a')}
-                  </span>
-                  <ReadReceipts
-                    messageId={message.id}
-                    senderId={message.sender_id}
-                    currentUserId={currentUserId}
-                    chatId={chatId}
-                  />
-                </div>
-                <div>
-                  <div
-                    className={`rounded-lg p-3 ${
-                      isOwnMessage
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
-                    }`}
-                  >
-                    {/* Reply reference */}
-                    {message.parent_message && (() => {
-                      const parent = Array.isArray(message.parent_message) 
-                        ? message.parent_message[0] 
-                        : message.parent_message;
-                      if (!parent) return null;
-                      return (
-                        <div className={`mb-2 p-2 rounded text-sm border-l-2 ${
-                          isOwnMessage 
-                            ? 'bg-primary-foreground/10 border-primary-foreground/50' 
-                            : 'bg-background/50 border-primary/50'
-                        }`}>
-                          <p className={`text-xs font-medium ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                            Replying to {parent.profiles?.full_name || 'Unknown'}
-                          </p>
-                          <p className={`truncate ${isOwnMessage ? 'text-primary-foreground/80' : 'text-foreground/70'}`}>
-                            {parent.content || 'Attachment'}
-                          </p>
+        {(() => {
+          // Build a map of game score messages to their smack talk overlays
+          const smackTalkMap = new Map<number, { text: string; senderName: string }[]>();
+          let lastGameScoreIndex = -1;
+
+          messages.forEach((msg, idx) => {
+            if (msg.content?.startsWith('GAME_SCORE:')) {
+              lastGameScoreIndex = idx;
+              smackTalkMap.set(idx, []);
+            } else if (msg.content?.startsWith('SMACK_TALK:') && lastGameScoreIndex >= 0) {
+              const smacks = smackTalkMap.get(lastGameScoreIndex) || [];
+              smacks.push({
+                text: msg.content.replace('SMACK_TALK:', ''),
+                senderName: msg.profiles?.full_name || 'Someone'
+              });
+              smackTalkMap.set(lastGameScoreIndex, smacks);
+            }
+          });
+
+          return messages.map((message, messageIndex) => {
+            const isOwnMessage = currentUserId && message.sender_id === currentUserId;
+            
+            // Skip standalone smack talk messages - they're shown as overlays
+            if (message.content?.startsWith('SMACK_TALK:')) {
+              return null;
+            }
+
+            // Get smack talks for this game score
+            const smackTalks = smackTalkMap.get(messageIndex) || [];
+            
+            return (
+              <div
+                key={message.id}
+                className={`flex gap-2 sm:gap-3 ${isOwnMessage ? 'flex-row-reverse' : ''}`}
+              >
+                <Avatar className="h-8 w-8 flex-shrink-0">
+                  <AvatarImage src={message.profiles?.profile_photo_url || undefined} />
+                  <AvatarFallback>
+                    {message.profiles?.full_name?.charAt(0) || 'U'}
+                  </AvatarFallback>
+                </Avatar>
+                <div className={`flex flex-col min-w-0 max-w-[75%] ${isOwnMessage ? 'items-end' : ''}`}>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-sm font-medium truncate">
+                      {message.profiles?.full_name || 'Unknown'}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(message.created_at), 'h:mm a')}
+                    </span>
+                    <ReadReceipts
+                      messageId={message.id}
+                      senderId={message.sender_id}
+                      currentUserId={currentUserId}
+                      chatId={chatId}
+                    />
+                  </div>
+                  <div>
+                    <div
+                      className={`rounded-lg p-3 ${
+                        isOwnMessage
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
+                      } ${message.content?.startsWith('GAME_SCORE:') ? 'overflow-visible' : ''}`}
+                    >
+                      {/* Reply reference */}
+                      {message.parent_message && (() => {
+                        const parent = Array.isArray(message.parent_message) 
+                          ? message.parent_message[0] 
+                          : message.parent_message;
+                        if (!parent) return null;
+                        return (
+                          <div className={`mb-2 p-2 rounded text-sm border-l-2 ${
+                            isOwnMessage 
+                              ? 'bg-primary-foreground/10 border-primary-foreground/50' 
+                              : 'bg-background/50 border-primary/50'
+                          }`}>
+                            <p className={`text-xs font-medium ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                              Replying to {parent.profiles?.full_name || 'Unknown'}
+                            </p>
+                            <p className={`truncate ${isOwnMessage ? 'text-primary-foreground/80' : 'text-foreground/70'}`}>
+                              {parent.content || 'Attachment'}
+                            </p>
+                          </div>
+                        );
+                      })()}
+                      {message.attachment_url && (
+                        <div className="mb-2">
+                          {message.attachment_type?.startsWith('image/') ? (
+                            <img
+                              src={message.attachment_url}
+                              alt="Attachment"
+                              className="rounded max-w-xs"
+                            />
+                          ) : (
+                            <a
+                              href={message.attachment_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 hover:underline"
+                            >
+                              <File className="h-4 w-4" />
+                              {message.content}
+                            </a>
+                          )}
                         </div>
-                      );
-                    })()}
-                    {message.attachment_url && (
-                      <div className="mb-2">
-                        {message.attachment_type?.startsWith('image/') ? (
-                          <img
-                            src={message.attachment_url}
-                            alt="Attachment"
-                            className="rounded max-w-xs"
-                          />
-                        ) : (
-                          <a
-                            href={message.attachment_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-2 hover:underline"
+                      )}
+                      {message.content && !message.attachment_url && (
+                        <MessageContent 
+                          content={message.content} 
+                          chatId={chatId} 
+                          senderName={message.profiles?.full_name}
+                          smackTalks={smackTalks}
+                        />
+                      )}
+                    </div>
+                    {!chatDetails?.is_announcement && (
+                      <>
+                        <div className="flex items-center gap-2 mt-1">
+                          <ReactionPicker onSelect={(reaction) => handleReaction(message.id, reaction)} />
+                          {isArcadeChat && message.content?.startsWith('GAME_SCORE:') && (
+                            <SmackTalkPicker onSelect={handleSmackTalk} disabled={sending} />
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2"
+                            onClick={() => setReplyToMessage(message)}
                           >
-                            <File className="h-4 w-4" />
-                            {message.content}
-                          </a>
-                        )}
-                      </div>
-                    )}
-                    {message.content && !message.attachment_url && (
-                      <MessageContent 
-                        content={message.content} 
-                        chatId={chatId} 
-                        senderName={message.profiles?.full_name}
-                      />
+                            <MessageSquare className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <MessageReactions messageId={message.id} currentUserId={currentUserId} />
+                      </>
                     )}
                   </div>
-                  {!chatDetails?.is_announcement && (
-                    <>
-                      <div className="flex items-center gap-2 mt-1">
-                        <ReactionPicker onSelect={(reaction) => handleReaction(message.id, reaction)} />
-                        {isArcadeChat && (
-                          <SmackTalkPicker onSelect={handleSmackTalk} disabled={sending} />
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 px-2"
-                          onClick={() => setReplyToMessage(message)}
-                        >
-                          <MessageSquare className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <MessageReactions messageId={message.id} currentUserId={currentUserId} />
-                    </>
-                  )}
                 </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          });
+        })()}
         <div ref={messagesEndRef} />
       </div>
 
