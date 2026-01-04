@@ -12,39 +12,28 @@ const corsHeaders = {
 interface DailyLogbookSummaryRequest {
   location_id: string;
   entry_date: string;
+  test_mode?: boolean;
+  test_email?: string;
+  preview_only?: boolean; // New: return data preview without sending email
 }
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 }
 
-function formatPercent(value: number): string {
-  return `${value.toFixed(1)}%`;
-}
-
 function formatDateForDisplay(dateStr: string): string {
-  // Handle various date formats
   if (!dateStr) return 'Unknown Date';
-  
-  // If dateStr is already a date string like "2026-01-04", parse it properly
   const parts = dateStr.split('-');
   if (parts.length === 3) {
     const year = parseInt(parts[0]);
-    const month = parseInt(parts[1]) - 1; // Months are 0-indexed
+    const month = parseInt(parts[1]) - 1;
     const day = parseInt(parts[2]);
     const date = new Date(year, month, day, 12, 0, 0);
     if (!isNaN(date.getTime())) {
       return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     }
   }
-  
-  // Fallback: try parsing as-is
-  const date = new Date(dateStr);
-  if (!isNaN(date.getTime())) {
-    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  }
-  
-  return dateStr; // Return original if parsing fails
+  return dateStr;
 }
 
 // Helpers for timezone-safe date handling
@@ -57,35 +46,21 @@ function getLocalDateString(iso: string, timeZone: string): string {
       day: '2-digit',
     }).format(new Date(iso));
   } catch {
-    // Fallback: assume ISO date already in local date
     return iso.slice(0, 10);
   }
 }
 
-function getWideIsoRangeForDate(dateStr: string): { startIso: string; endIso: string } {
-  // Wide window around the day to safely capture punches/submissions across timezones.
-  const base = new Date(dateStr + 'T00:00:00Z');
-  const start = new Date(base);
-  start.setHours(start.getHours() - 14);
-  const end = new Date(base);
-  end.setHours(end.getHours() + 38);
-  return { startIso: start.toISOString(), endIso: end.toISOString() };
-}
-
-// Fetch labor data from time_punches
+// Fetch labor data from time_punches - CORRECTLY using punch_time/punch_type columns
 async function fetchLaborData(supabase: any, locationId: string, dateStr: string) {
   try {
-    const { data: locationSettings, error: settingsError } = await supabase
+    const { data: locationSettings } = await supabase
       .from('location_settings')
       .select('timezone')
       .eq('location_id', locationId)
       .maybeSingle();
 
-    if (settingsError) {
-      console.warn('[labor] location_settings lookup error:', settingsError);
-    }
-
     const timeZone = locationSettings?.timezone || 'America/Los_Angeles';
+    console.log(`[labor] Using timezone: ${timeZone} for date: ${dateStr}`);
 
     // Get users at this location
     const { data: locationUsers, error: usersError } = await supabase
@@ -98,75 +73,106 @@ async function fetchLaborData(supabase: any, locationId: string, dateStr: string
     }
 
     if (!locationUsers || locationUsers.length === 0) {
+      console.log('[labor] No users found for location');
       return { hoursWorked: 0, laborCost: 0, hasData: false };
     }
 
     const userIds = locationUsers.map((u: any) => u.user_id);
+    console.log(`[labor] Found ${userIds.length} users at location`);
 
-    const { startIso, endIso } = getWideIsoRangeForDate(dateStr);
+    // Fetch ALL punches for users in a wide window around the date
+    // Use a 48-hour window to ensure we capture all punches
+    const startDate = new Date(dateStr + 'T00:00:00');
+    startDate.setDate(startDate.getDate() - 1);
+    const endDate = new Date(dateStr + 'T23:59:59');
+    endDate.setDate(endDate.getDate() + 1);
 
     const { data: punches, error: punchesError } = await supabase
       .from('time_punches')
-      .select('user_id, punch_in, punch_out, meal_break_hours, meal_break_duration')
+      .select('id, user_id, punch_time, punch_type')
       .in('user_id', userIds)
-      .gte('punch_in', startIso)
-      .lte('punch_in', endIso);
+      .gte('punch_time', startDate.toISOString())
+      .lte('punch_time', endDate.toISOString())
+      .order('punch_time', { ascending: true });
 
     if (punchesError) {
       console.error('[labor] time_punches error:', punchesError);
+      return { hoursWorked: 0, laborCost: 0, hasData: false };
     }
+
+    console.log(`[labor] Found ${punches?.length || 0} total punches in window`);
 
     if (!punches || punches.length === 0) {
       return { hoursWorked: 0, laborCost: 0, hasData: false };
     }
 
-    // Filter punches to the requested local date
-    const punchesForDay = punches.filter((p: any) =>
-      p?.punch_in && getLocalDateString(p.punch_in, timeZone) === dateStr
-    );
-
-    if (punchesForDay.length === 0) {
-      console.log('[labor] punches found, but none matched local date', { dateStr, timeZone, total: punches.length });
-      return { hoursWorked: 0, laborCost: 0, hasData: false };
-    }
-
     // Get user wages
-    const { data: profiles, error: profilesError } = await supabase
+    const { data: profiles } = await supabase
       .from('profiles')
       .select('id, hourly_wage')
       .in('id', userIds);
 
-    if (profilesError) {
-      console.error('[labor] profiles wage lookup error:', profilesError);
-    }
-
     const wageMap = new Map((profiles || []).map((p: any) => [p.id, p.hourly_wage || 15]));
+
+    // Group punches by user and calculate hours for the target date
+    const punchesByUser = new Map<string, any[]>();
+    for (const punch of punches) {
+      const list = punchesByUser.get(punch.user_id) || [];
+      list.push(punch);
+      punchesByUser.set(punch.user_id, list);
+    }
 
     let totalHours = 0;
     let totalCost = 0;
 
-    for (const punch of punchesForDay) {
-      // If someone is still clocked in, count them through now (test emails often happen before close).
-      const punchOutValue = punch.punch_out || new Date().toISOString();
+    for (const [userId, userPunches] of punchesByUser) {
+      // Process punches in order - pair clock_in with clock_out
+      let clockInTime: Date | null = null;
+      let breakStartTime: Date | null = null;
+      let userHours = 0;
 
-      const punchIn = new Date(punch.punch_in);
-      const punchOut = new Date(punchOutValue);
-      let hoursWorked = (punchOut.getTime() - punchIn.getTime()) / (1000 * 60 * 60);
+      for (const punch of userPunches) {
+        const punchTime = new Date(punch.punch_time);
+        const punchLocalDate = getLocalDateString(punch.punch_time, timeZone);
 
-      if (hoursWorked < 0) continue;
-
-      // Subtract unpaid break if applicable
-      if (punch.meal_break_hours && punch.meal_break_duration) {
-        hoursWorked -= punch.meal_break_duration / 60;
+        if (punch.punch_type === 'clock_in') {
+          clockInTime = punchTime;
+        } else if (punch.punch_type === 'clock_out' && clockInTime) {
+          // Calculate hours for this shift
+          // Only count if either punch_in OR punch_out is on the target date
+          const clockInLocalDate = getLocalDateString(clockInTime.toISOString(), timeZone);
+          
+          if (clockInLocalDate === dateStr || punchLocalDate === dateStr) {
+            let shiftHours = (punchTime.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
+            if (shiftHours > 0 && shiftHours < 24) { // Sanity check
+              userHours += shiftHours;
+            }
+          }
+          clockInTime = null;
+        }
       }
 
-      if (hoursWorked > 0) {
-        totalHours += hoursWorked;
-        const wage = Number(wageMap.get(punch.user_id)) || 15;
-        totalCost += hoursWorked * wage;
+      // Handle still-clocked-in users (count up to current time for today's shifts)
+      if (clockInTime) {
+        const clockInLocalDate = getLocalDateString(clockInTime.toISOString(), timeZone);
+        if (clockInLocalDate === dateStr) {
+          const now = new Date();
+          let shiftHours = (now.getTime() - clockInTime.getTime()) / (1000 * 60 * 60);
+          if (shiftHours > 0 && shiftHours < 24) {
+            userHours += shiftHours;
+            console.log(`[labor] User ${userId} still clocked in, adding ${shiftHours.toFixed(2)}h`);
+          }
+        }
+      }
+
+      if (userHours > 0) {
+        totalHours += userHours;
+        const wage = Number(wageMap.get(userId)) || 15;
+        totalCost += userHours * wage;
       }
     }
 
+    console.log(`[labor] Total: ${totalHours.toFixed(2)} hours, $${totalCost.toFixed(2)} cost`);
     return { hoursWorked: totalHours, laborCost: totalCost, hasData: totalHours > 0 };
   } catch (error) {
     console.error('Error fetching labor data:', error);
@@ -174,131 +180,55 @@ async function fetchLaborData(supabase: any, locationId: string, dateStr: string
   }
 }
 
-// Fetch QuBeyond product mix (top items sorted by sales)
-async function fetchProductMix(supabase: any, locationId: string, dateStr: string) {
+// Fetch product mix from fetch-qubeyond-sales edge function (same data as Dashboard)
+async function fetchProductMix(supabaseUrl: string, supabaseAnonKey: string, locationId: string, dateStr: string) {
   try {
-    // Reuse the same login + report mechanics as our existing sales backend.
-    // (We keep this function self-contained rather than importing.)
-
-    const { data: integration, error: integrationError } = await supabase
-      .from('location_integrations')
-      .select('credentials')
-      .eq('location_id', locationId)
-      .eq('integration_type', 'qubeyond')
-      .eq('is_active', true)
-      .maybeSingle();
-
-    if (integrationError) {
-      console.error('[productMix] location_integrations error:', integrationError);
-    }
-
-    if (!integration?.credentials) {
-      console.log('[productMix] No qubeyond credentials found');
-      return [];
-    }
-
-    const credentials = integration.credentials as { username?: string; password?: string; location_id?: string };
-    if (!credentials?.username || !credentials?.password) {
-      console.warn('[productMix] Missing username/password in credentials');
-      return [];
-    }
-
-    const authResponse = await fetch('https://admin.qubeyond.com/api/session', {
+    console.log(`[productMix] Fetching from fetch-qubeyond-sales for ${dateStr}`);
+    
+    const response = await fetch(`${supabaseUrl}/functions/v1/fetch-qubeyond-sales`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
+        'Authorization': `Bearer ${supabaseAnonKey}`,
       },
       body: JSON.stringify({
-        authType: 'classic',
-        username: credentials.username,
-        password: credentials.password,
+        locationId,
+        targetDate: dateStr,
+        skipProjections: true, // We only need product mix
       }),
     });
 
-    if (!authResponse.ok) {
-      const text = await authResponse.text().catch(() => '');
-      console.error('[productMix] auth failed:', authResponse.status, text.slice(0, 300));
+    if (!response.ok) {
+      console.error('[productMix] fetch-qubeyond-sales failed:', response.status);
       return [];
     }
 
-    const authData = await authResponse.json();
-    const tokenGw = authData.tokenGw;
-    const qbLocationId = credentials.location_id;
-
-    if (!tokenGw || !qbLocationId) {
-      console.warn('[productMix] Missing tokenGw or qbLocationId');
+    const data = await response.json();
+    
+    if (!data?.productMix || !Array.isArray(data.productMix)) {
+      console.log('[productMix] No productMix in response');
       return [];
     }
 
-    const productResponse = await fetch(
-      'https://gateway-api.qubeyond.com/api/v4/data/reports/product-mix/sections/main',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': tokenGw,
-          'Origin': 'https://admin.qubeyond.com',
-        },
-        body: JSON.stringify({
-          fields: [
-            { fieldName: 'itemGroup' },
-            { fieldName: 'itemName' },
-            { fieldName: 'quantity' },
-            { fieldName: 'netSales' },
-          ],
-          filters: {
-            date: { from: null, to: null, values: [dateStr], type: 'custom' },
-            singleLocation: parseInt(String(qbLocationId)),
-          },
-          params: {
-            sectionId: 'main',
-            pageNumber: 1,
-            pageSize: 200,
-            sort: [{ field: 'netSales', dir: 'desc' }],
-            showTotals: true,
-          },
-        }),
-      }
-    );
+    // Return top 5 items sorted by sales
+    const topItems = data.productMix
+      .sort((a: any, b: any) => (b.sales || 0) - (a.sales || 0))
+      .slice(0, 5)
+      .map((item: any) => ({
+        name: item.name || 'Unknown',
+        quantity: item.quantity || 0,
+        sales: item.sales || 0,
+      }));
 
-    if (!productResponse.ok) {
-      const text = await productResponse.text().catch(() => '');
-      console.error('[productMix] report failed:', productResponse.status, text.slice(0, 300));
-      return [];
-    }
-
-    const productData = await productResponse.json();
-
-    const allItems: { name: string; quantity: number; sales: number }[] = [];
-    const addRow = (row: any) => {
-      const name = row?.itemName || '';
-      if (!name || name === 'Totals') return;
-      const quantity = parseFloat(String(row?.quantity || '0').replace(/,/g, '')) || 0;
-      const sales = parseFloat(String(row?.netSales || '0').replace(/[$,]/g, '')) || 0;
-      if (sales > 0) allItems.push({ name, quantity, sales });
-    };
-
-    if (Array.isArray(productData?.items)) {
-      for (const item of productData.items) {
-        if (Array.isArray(item?.items)) {
-          for (const child of item.items) addRow(child);
-        } else {
-          addRow(item);
-        }
-      }
-    }
-
-    allItems.sort((a, b) => b.sales - a.sales);
-    return allItems.slice(0, 20);
+    console.log(`[productMix] Got ${topItems.length} top items`);
+    return topItems;
   } catch (error) {
     console.error('Error fetching product mix:', error);
     return [];
   }
 }
 
-// Fetch checklist completion data (percent-based, not just submitted/not-submitted)
+// Fetch checklist completion data - MATCHING Dashboard logic exactly
 async function fetchChecklistData(supabase: any, locationId: string, dateStr: string) {
   try {
     const { data: locationSettings } = await supabase
@@ -308,125 +238,128 @@ async function fetchChecklistData(supabase: any, locationId: string, dateStr: st
       .maybeSingle();
 
     const timeZone = locationSettings?.timezone || 'America/Los_Angeles';
+    
+    // Get target date info for day-of-week filtering
+    const targetDate = new Date(dateStr + 'T12:00:00');
+    const dayOfWeek = targetDate.getDay(); // 0=Sun, 1=Mon, etc
+    // Convert to our system: Mon=0, Tue=1, ... Sun=6
+    const currentDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
 
+    console.log(`[checklists] Fetching for date ${dateStr}, dayOfWeek=${currentDay}`);
+
+    // Get all active checklists for this location (matching Dashboard query)
     const { data: checklists, error: checklistsError } = await supabase
       .from('checklists')
-      .select('id, title, frequency, assigned_day_of_week, template_type')
+      .select(`
+        id,
+        title,
+        frequency,
+        template_type,
+        due_by_time,
+        checklist_items(id, days_of_week)
+      `)
       .eq('location_id', locationId)
       .eq('is_active', true);
 
     if (checklistsError) {
       console.error('[checklists] checklists query error:', checklistsError);
+      return { completed: 0, total: 0, items: [] };
     }
 
     if (!checklists || checklists.length === 0) {
+      console.log('[checklists] No active checklists found');
       return { completed: 0, total: 0, items: [] };
     }
 
-    // Determine which checklists are due today based on frequency
-    const targetDate = new Date(dateStr + 'T12:00:00');
-    const dayOfWeek = targetDate.getDay();
+    console.log(`[checklists] Found ${checklists.length} active checklists`);
 
-    const dueChecklists = checklists.filter((c: any) => {
-      if (c.frequency === 'daily') return true;
-      if (c.frequency === 'weekly' && c.assigned_day_of_week === dayOfWeek) return true;
-      if (c.frequency === 'monthly') return targetDate.getDate() === 1;
-      return c.frequency === 'daily';
+    // Filter to only checklists relevant for today (matching Dashboard logic)
+    const relevantChecklists = checklists.filter((checklist: any) => {
+      if (checklist.template_type === 'dynamic') {
+        // For dynamic, check if any items are assigned to today
+        const todayItems = checklist.checklist_items?.filter((item: any) => 
+          item.days_of_week && item.days_of_week.includes(currentDay)
+        );
+        return todayItems && todayItems.length > 0;
+      }
+      // For standard checklists, only include daily frequency
+      return checklist.frequency === 'daily';
     });
 
-    if (dueChecklists.length === 0) {
+    console.log(`[checklists] ${relevantChecklists.length} checklists are relevant for today`);
+
+    if (relevantChecklists.length === 0) {
       return { completed: 0, total: 0, items: [] };
     }
 
-    const checklistIds = dueChecklists.map((c: any) => c.id);
-
-    const { startIso, endIso } = getWideIsoRangeForDate(dateStr);
+    // Get submissions for today (use wide window for timezone safety)
+    const startOfDay = new Date(dateStr + 'T00:00:00Z');
+    startOfDay.setHours(startOfDay.getHours() - 12);
+    const endOfDay = new Date(dateStr + 'T23:59:59Z');
+    endOfDay.setHours(endOfDay.getHours() + 12);
 
     const { data: submissions, error: submissionsError } = await supabase
       .from('checklist_submissions')
-      .select('id, checklist_id, submitted_at')
-      .in('checklist_id', checklistIds)
+      .select(`
+        id,
+        checklist_id,
+        submitted_at,
+        checklist_responses(id, item_id)
+      `)
       .eq('location_id', locationId)
-      .gte('submitted_at', startIso)
-      .lte('submitted_at', endIso);
+      .gte('submitted_at', startOfDay.toISOString())
+      .lte('submitted_at', endOfDay.toISOString());
 
     if (submissionsError) {
       console.error('[checklists] submissions query error:', submissionsError);
     }
 
+    // Filter submissions to the exact target date
     const submissionsForDay = (submissions || []).filter((s: any) =>
       s?.submitted_at && getLocalDateString(s.submitted_at, timeZone) === dateStr
     );
 
-    // Pick the latest submission per checklist (there can be multiple)
-    const latestSubmissionByChecklist = new Map<string, { id: string; submitted_at: string }>();
-    for (const s of submissionsForDay) {
-      const existing = latestSubmissionByChecklist.get(s.checklist_id);
-      if (!existing || new Date(s.submitted_at).getTime() > new Date(existing.submitted_at).getTime()) {
-        latestSubmissionByChecklist.set(s.checklist_id, { id: s.id, submitted_at: s.submitted_at });
+    console.log(`[checklists] Found ${submissionsForDay.length} submissions for ${dateStr}`);
+
+    // Calculate completion for each relevant checklist
+    const items = relevantChecklists.map((checklist: any) => {
+      const checklistSubmissions = submissionsForDay.filter((s: any) => s.checklist_id === checklist.id);
+      
+      let totalItems = checklist.checklist_items?.length || 0;
+      if (checklist.template_type === 'dynamic') {
+        // Only count items assigned to today
+        totalItems = checklist.checklist_items?.filter((item: any) => 
+          item.days_of_week && item.days_of_week.includes(currentDay)
+        ).length || 0;
       }
-    }
 
-    // Preload item counts per checklist
-    const { data: checklistItems, error: itemsError } = await supabase
-      .from('checklist_items')
-      .select('checklist_id, id')
-      .in('checklist_id', checklistIds);
+      // Count unique completed items across all submissions
+      const uniqueItemIds = new Set<string>();
+      checklistSubmissions.forEach((sub: any) => {
+        sub.checklist_responses?.forEach((response: any) => {
+          if (response.item_id) {
+            uniqueItemIds.add(response.item_id);
+          }
+        });
+      });
+      const answeredItems = uniqueItemIds.size;
 
-    if (itemsError) {
-      console.error('[checklists] checklist_items query error:', itemsError);
-    }
+      const percent = totalItems > 0 ? Math.round((answeredItems / totalItems) * 100) : 0;
+      const completed = percent >= 100;
 
-    const totalItemsByChecklist = new Map<string, number>();
-    for (const ci of checklistItems || []) {
-      totalItemsByChecklist.set(ci.checklist_id, (totalItemsByChecklist.get(ci.checklist_id) || 0) + 1);
-    }
-
-    const submissionIds = [...latestSubmissionByChecklist.values()].map((v) => v.id);
-
-    const { data: responses, error: responsesError } = submissionIds.length
-      ? await supabase
-          .from('checklist_responses')
-          .select('submission_id, item_id, response_text, response_image_url, response_image_urls, extracted_temperature, temperature_valid')
-          .in('submission_id', submissionIds)
-      : { data: [], error: null };
-
-    if (responsesError) {
-      console.error('[checklists] checklist_responses query error:', responsesError);
-    }
-
-    // Count distinct answered items per submission
-    const answeredItemIdsBySubmission = new Map<string, Set<string>>();
-    for (const r of responses || []) {
-      const hasAnswer =
-        (r.response_text && String(r.response_text).trim().length > 0) ||
-        !!r.response_image_url ||
-        (Array.isArray(r.response_image_urls) && r.response_image_urls.length > 0) ||
-        (typeof r.extracted_temperature === 'number' && !isNaN(r.extracted_temperature));
-
-      if (!hasAnswer) continue;
-
-      const set = answeredItemIdsBySubmission.get(r.submission_id) || new Set<string>();
-      set.add(r.item_id);
-      answeredItemIdsBySubmission.set(r.submission_id, set);
-    }
-
-    const items = dueChecklists.map((c: any) => {
-      const totalItems = totalItemsByChecklist.get(c.id) || 0;
-      const submission = latestSubmissionByChecklist.get(c.id);
-      const answered = submission ? (answeredItemIdsBySubmission.get(submission.id)?.size || 0) : 0;
-      const percent = totalItems > 0 ? (answered / totalItems) * 100 : 0;
-      const completed = totalItems > 0 && answered >= totalItems;
+      console.log(`[checklists] "${checklist.title}": ${answeredItems}/${totalItems} = ${percent}%`);
 
       return {
-        title: c.title,
+        title: checklist.title,
         completed,
         percent,
       };
     });
 
+    const completedCount = items.filter((i: any) => i.completed).length;
+    
     return {
-      completed: items.filter((i: any) => i.completed).length,
+      completed: completedCount,
       total: items.length,
       items,
     };
@@ -439,7 +372,6 @@ async function fetchChecklistData(supabase: any, locationId: string, dateStr: st
 // Fetch events and completions
 async function fetchEventsData(supabase: any, locationId: string, dateStr: string) {
   try {
-    // Get schedule events for the day
     const { data: events } = await supabase
       .from('schedule_events')
       .select('id, title, start_time, end_time, color')
@@ -447,7 +379,6 @@ async function fetchEventsData(supabase: any, locationId: string, dateStr: strin
       .eq('date', dateStr)
       .order('start_time');
     
-    // Get event task completions
     const eventIds = (events || []).map((e: any) => e.id);
     const { data: completions } = eventIds.length > 0 ? await supabase
       .from('event_task_completions')
@@ -455,27 +386,26 @@ async function fetchEventsData(supabase: any, locationId: string, dateStr: strin
       .in('event_id', eventIds)
       .eq('completed_date', dateStr) : { data: [] };
     
-    // Get user names for completions
     const completedByIds = [...new Set((completions || []).map((c: any) => c.completed_by))];
     const { data: profiles } = completedByIds.length > 0 ? await supabase
       .from('profiles')
       .select('id, full_name')
       .in('id', completedByIds) : { data: [] };
     
-    const profileMap = new Map((profiles || []).map((p: any) => [p.id, p.full_name]));
-    const completionMap = new Map((completions || []).map((c: any) => [c.event_id, {
-      completedBy: profileMap.get(c.completed_by) || 'Unknown',
-      completedAt: c.completed_at
-    }]));
+    const profileMap = new Map<string, string>((profiles || []).map((p: any) => [p.id, p.full_name]));
+    const completionMap = new Map<string, { completedBy: string; completedAt: string }>();
+    for (const c of (completions || []) as any[]) {
+      completionMap.set(c.event_id, {
+        completedBy: (profileMap.get(c.completed_by) || 'Unknown') as string,
+        completedAt: c.completed_at
+      });
+    }
     
-    // Get catering order completions
     const { data: cateringOrders } = await supabase
       .from('catering_orders')
       .select('id, customer_name, pickup_time, status, completed_by, completed_at')
       .eq('location_id', locationId)
       .eq('pickup_date', dateStr);
-    
-    // Get completer names for catering
     const cateringCompleterIds = (cateringOrders || []).filter((c: any) => c.completed_by).map((c: any) => c.completed_by);
     const { data: cateringProfiles } = cateringCompleterIds.length > 0 ? await supabase
       .from('profiles')
@@ -490,13 +420,14 @@ async function fetchEventsData(supabase: any, locationId: string, dateStr: strin
         startTime: e.start_time,
         endTime: e.end_time,
         color: e.color,
-        completion: completionMap.get(e.id) || null
+        completed: completionMap.has(e.id),
+        completedBy: completionMap.get(e.id)?.completedBy
       })),
-      cateringOrders: (cateringOrders || []).map((c: any) => ({
-        customerName: c.customer_name,
-        pickupTime: c.pickup_time,
-        status: c.status,
-        completedBy: c.completed_by ? cateringProfileMap.get(c.completed_by) || 'Unknown' : null
+      cateringOrders: (cateringOrders || []).map((o: any) => ({
+        customerName: o.customer_name,
+        pickupTime: o.pickup_time,
+        status: o.status,
+        completedBy: o.completed_by ? cateringProfileMap.get(o.completed_by) : undefined
       }))
     };
   } catch (error) {
@@ -505,7 +436,7 @@ async function fetchEventsData(supabase: any, locationId: string, dateStr: strin
   }
 }
 
-// Generate the HTML email
+// Generate email HTML
 function generateEmailHtml(data: {
   locationName: string;
   dateStr: string;
@@ -521,236 +452,165 @@ function generateEmailHtml(data: {
   safeCountData: { shift: string; totalCash: number; variance: number; completedBy?: string }[];
   drawerCountData: { expected: number; actual: number; variance: number; totalDeposit: number; completedBy?: string } | null;
   checklistData: { completed: number; total: number; items: { title: string; completed: boolean; percent?: number }[] };
-  eventsData: { 
-    scheduleEvents: { title: string; startTime: string; endTime: string; color: string; completion: { completedBy: string; completedAt: string } | null }[];
-    cateringOrders: { customerName: string; pickupTime: string; status: string; completedBy: string | null }[];
-  };
-}): string {
+  eventsData: { scheduleEvents: any[]; cateringOrders: any[] };
+}) {
+  const bgColor = '#f8f7f5';
+  const cardBg = '#ffffff';
+  const headerBg = '#5d6d5e';
+  const textColor = '#333333';
+  const mutedColor = '#666666';
+  const accentColor = '#4CAF50';
+  const warningColor = '#FF9800';
+  const dangerColor = '#f44336';
+
   const salesVariance = data.actualSales - data.projectedSales;
-  const salesVariancePercent = data.projectedSales > 0 ? ((salesVariance / data.projectedSales) * 100) : 0;
-  const salesColor = salesVariance >= 0 ? '#10b981' : '#ef4444';
+  const salesVarianceColor = salesVariance >= 0 ? accentColor : dangerColor;
+  const salesVarianceSign = salesVariance >= 0 ? '+' : '';
 
-  // Croo brand colors
-  const primaryColor = "#0a7a8a";
-  const accentColor = "#f58220";
-  const backgroundColor = "#f0ebe1";
-  const textColor = "#0f1215";
-  
-  // Generate pie chart SVG for checklist completion
-  const completionRate = data.checklistData.total > 0 ? (data.checklistData.completed / data.checklistData.total) * 100 : 0;
-  const completedAngle = (completionRate / 100) * 360;
-  const largeArcFlag = completedAngle > 180 ? 1 : 0;
-  const radians = (completedAngle - 90) * (Math.PI / 180);
-  const endX = 50 + 40 * Math.cos(radians);
-  const endY = 50 + 40 * Math.sin(radians);
-  
-  const pieChartSvg = data.checklistData.total > 0 ? `
-    <svg width="80" height="80" viewBox="0 0 100 100" style="display: block;">
-      <circle cx="50" cy="50" r="40" fill="#e5e7eb"/>
-      ${completionRate > 0 ? `<path d="M 50 50 L 50 10 A 40 40 0 ${largeArcFlag} 1 ${endX} ${endY} Z" fill="${completionRate === 100 ? '#10b981' : primaryColor}"/>` : ''}
-      <circle cx="50" cy="50" r="25" fill="white"/>
-      <text x="50" y="55" text-anchor="middle" font-size="16" font-weight="bold" fill="${textColor}">${Math.round(completionRate)}%</text>
-    </svg>
-  ` : '';
-
-  // Top items table (show top 5 in email, sorted by sales)
-  const topItemsHtml = data.topItems.length > 0 
-    ? data.topItems.slice(0, 5).map((item, i) => `
-        <tr style="border-bottom: 1px solid #e5e7eb;">
-          <td style="padding: 6px 8px; color: #6b7280; font-size: 12px;">${i + 1}</td>
-          <td style="padding: 6px 8px; color: #374151; font-size: 12px;">${item.name}</td>
-          <td style="padding: 6px 8px; color: #374151; text-align: right; font-size: 12px;">${item.quantity}</td>
-          <td style="padding: 6px 8px; color: #374151; text-align: right; font-size: 12px;">${formatCurrency(item.sales)}</td>
-        </tr>
-      `).join('')
-    : '<tr><td colspan="4" style="padding: 12px; text-align: center; color: #9ca3af; font-size: 12px;">No product data available</td></tr>';
-
-  // Checklist items list
+  // Checklist items HTML with percentages
   const checklistItemsHtml = data.checklistData.items.length > 0 
     ? data.checklistData.items.map(item => {
-        const pct = typeof item.percent === 'number' ? Math.round(item.percent) : null;
-        return `
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 0; font-size: 12px;">
-            <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
-              <span style="color: ${item.completed ? '#10b981' : '#ef4444'};">${item.completed ? '✓' : '✗'}</span>
-              <span style="color: ${item.completed ? '#374151' : '#9ca3af'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.title}</span>
-            </div>
-            ${pct !== null ? `<span style="color: #6b7280; font-size: 12px;">${pct}%</span>` : ''}
-          </div>
-        `;
+        const icon = item.completed ? '✓' : '○';
+        const color = item.completed ? accentColor : warningColor;
+        const percent = item.percent !== undefined ? ` ${item.percent}%` : '';
+        return `<p style="margin: 4px 0; font-size: 13px;"><span style="color: ${color};">${icon}</span> ${item.title}<span style="color: ${mutedColor};">${percent}</span></p>`;
       }).join('')
-    : '<p style="color: #9ca3af; font-size: 12px; margin: 0;">No checklists due today</p>';
+    : '<p style="margin: 4px 0; font-size: 13px; color: #666;">No checklists due today</p>';
 
-  // Events summary
-  const hasEvents = data.eventsData.scheduleEvents.length > 0 || data.eventsData.cateringOrders.length > 0 || data.safeCountData.length > 0 || data.drawerCountData;
-  
-  const eventsHtml = hasEvents ? `
-    ${data.eventsData.cateringOrders.length > 0 ? `
-      <div style="margin-bottom: 12px;">
-        <p style="margin: 0 0 6px; font-weight: 600; color: ${textColor}; font-size: 12px;">🥡 Catering Orders</p>
-        ${data.eventsData.cateringOrders.map(order => `
-          <div style="padding: 4px 0; font-size: 12px; color: #374151;">
-            ${order.pickupTime} - ${order.customerName} 
-            <span style="color: ${order.status === 'completed' ? '#10b981' : '#f59e0b'};">
-              (${order.status}${order.completedBy ? ` by ${order.completedBy}` : ''})
-            </span>
-          </div>
-        `).join('')}
-      </div>
-    ` : ''}
-    ${data.safeCountData.length > 0 ? `
-      <div style="margin-bottom: 12px;">
-        <p style="margin: 0 0 6px; font-weight: 600; color: ${textColor}; font-size: 12px;">🔐 Safe Counts</p>
-        ${data.safeCountData.map(sc => `
-          <div style="padding: 4px 0; font-size: 12px; color: #374151;">
-            ${sc.shift}: ${formatCurrency(sc.totalCash)} 
-            <span style="color: ${sc.variance >= 0 ? '#10b981' : '#ef4444'};">(${sc.variance >= 0 ? '+' : ''}${formatCurrency(sc.variance)})</span>
-            ${sc.completedBy ? ` - ${sc.completedBy}` : ''}
-          </div>
-        `).join('')}
-      </div>
-    ` : ''}
-    ${data.drawerCountData ? `
-      <div style="margin-bottom: 12px;">
-        <p style="margin: 0 0 6px; font-weight: 600; color: ${textColor}; font-size: 12px;">💰 Deposit</p>
-        <div style="padding: 4px 0; font-size: 12px; color: #374151;">
-          ${formatCurrency(data.drawerCountData.totalDeposit)} 
-          <span style="color: ${data.drawerCountData.variance >= 0 ? '#10b981' : '#ef4444'};">(${data.drawerCountData.variance >= 0 ? '+' : ''}${formatCurrency(data.drawerCountData.variance)})</span>
-          ${data.drawerCountData.completedBy ? ` - ${data.drawerCountData.completedBy}` : ''}
-        </div>
-      </div>
-    ` : ''}
-    ${data.eventsData.scheduleEvents.length > 0 ? `
-      <div>
-        <p style="margin: 0 0 6px; font-weight: 600; color: ${textColor}; font-size: 12px;">📅 Other Events</p>
-        ${data.eventsData.scheduleEvents.map(event => `
-          <div style="padding: 4px 0; font-size: 12px; color: #374151;">
-            ${event.startTime}${event.endTime ? `-${event.endTime}` : ''}: ${event.title}
-            ${event.completion ? ` <span style="color: #10b981;">(✓ ${event.completion.completedBy})</span>` : ''}
-          </div>
-        `).join('')}
-      </div>
-    ` : ''}
-  ` : '<p style="color: #9ca3af; font-size: 12px; margin: 0;">No events today</p>';
+  // Calculate overall checklist completion
+  const overallPercent = data.checklistData.items.length > 0
+    ? Math.round(data.checklistData.items.reduce((sum, i) => sum + (i.percent || 0), 0) / data.checklistData.items.length)
+    : 0;
 
+  // Safe counts HTML
+  const safeCountsHtml = data.safeCountData.length > 0 
+    ? data.safeCountData.map(sc => {
+        const varianceColor = sc.variance >= 0 ? accentColor : dangerColor;
+        const varianceSign = sc.variance >= 0 ? '+' : '';
+        return `<p style="margin: 4px 0; font-size: 13px;">${sc.shift}: ${formatCurrency(sc.totalCash)} (<span style="color: ${varianceColor};">${varianceSign}${formatCurrency(sc.variance)}</span>)${sc.completedBy ? ` - ${sc.completedBy}` : ''}</p>`;
+      }).join('')
+    : '<p style="margin: 4px 0; font-size: 13px; color: #666;">No safe counts</p>';
+
+  // Deposit HTML
+  const depositHtml = data.drawerCountData 
+    ? `<p style="margin: 4px 0; font-size: 13px;">${formatCurrency(data.drawerCountData.totalDeposit)} (<span style="color: ${data.drawerCountData.variance >= 0 ? accentColor : dangerColor};">${data.drawerCountData.variance >= 0 ? '+' : ''}${formatCurrency(data.drawerCountData.variance)}</span>)${data.drawerCountData.completedBy ? ` - ${data.drawerCountData.completedBy}` : ''}</p>`
+    : '<p style="margin: 4px 0; font-size: 13px; color: #666;">No deposit</p>';
+
+  // Top items HTML
+  const topItemsHtml = data.topItems.length > 0
+    ? `<table style="width: 100%; font-size: 12px; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid #e8e5df;">
+          <th style="text-align: left; padding: 4px 0; color: ${mutedColor};">#</th>
+          <th style="text-align: left; padding: 4px 0; color: ${mutedColor};">Item</th>
+          <th style="text-align: center; padding: 4px 0; color: ${mutedColor};">Qty</th>
+          <th style="text-align: right; padding: 4px 0; color: ${mutedColor};">Sales</th>
+        </tr>
+        ${data.topItems.map((item, idx) => `
+          <tr>
+            <td style="padding: 4px 0; color: ${mutedColor};">${idx + 1}</td>
+            <td style="padding: 4px 0;">${item.name}</td>
+            <td style="text-align: center; padding: 4px 0; color: ${mutedColor};">${item.quantity}</td>
+            <td style="text-align: right; padding: 4px 0; font-weight: 500;">${formatCurrency(item.sales)}</td>
+          </tr>
+        `).join('')}
+      </table>`
+    : '<p style="font-size: 13px; color: #666;">No sales data available</p>';
+
+  // Remakes HTML
   const remakesHtml = data.remakes.length > 0
-    ? data.remakes.map(r => `
-        <div style="background: #fef2f2; border-left: 3px solid #ef4444; padding: 8px 10px; margin-bottom: 6px; border-radius: 0 6px 6px 0;">
-          <p style="margin: 0 0 2px 0; font-weight: 600; color: #991b1b; font-size: 12px;">${r.guestName}</p>
-          <p style="margin: 0; color: #7f1d1d; font-size: 11px;">${r.details}</p>
-        </div>
-      `).join('')
-    : '<p style="color: #10b981; text-align: center; padding: 10px; background: #f0fdf4; border-radius: 6px; font-size: 12px; margin: 0;">No remakes 🎉</p>';
+    ? data.remakes.map(r => `<p style="margin: 4px 0; font-size: 12px;"><strong>${r.guestName}</strong>: ${r.details}</p>`).join('')
+    : '<p style="margin: 4px 0; font-size: 12px; color: #666;">None</p>';
 
+  // Refunds HTML  
   const refundsHtml = data.refunds.length > 0
-    ? data.refunds.map(r => `
-        <div style="background: #fef3c7; border-left: 3px solid #f59e0b; padding: 8px 10px; margin-bottom: 6px; border-radius: 0 6px 6px 0;">
-          <p style="margin: 0 0 2px 0; font-weight: 600; color: #92400e; font-size: 12px;">${r.guestName}</p>
-          <p style="margin: 0; color: #78350f; font-size: 11px;">${r.details}</p>
-        </div>
-      `).join('')
-    : '<p style="color: #10b981; text-align: center; padding: 10px; background: #f0fdf4; border-radius: 6px; font-size: 12px; margin: 0;">No refunds 🎉</p>';
+    ? data.refunds.map(r => `<p style="margin: 4px 0; font-size: 12px;"><strong>${r.guestName}</strong>: ${r.details}</p>`).join('')
+    : '<p style="margin: 4px 0; font-size: 12px; color: #666;">None</p>';
+
+  // Labor section
+  const laborHtml = data.hasLaborData
+    ? `<p style="margin: 0; font-size: 24px; font-weight: 700; color: ${textColor};">${data.laborPercent.toFixed(1)}%</p>
+       <p style="margin: 4px 0 0; font-size: 12px; color: ${mutedColor};">${formatCurrency(data.laborCost)} • ${data.hoursWorked.toFixed(1)}h</p>`
+    : `<p style="margin: 0; font-size: 16px; color: ${mutedColor};">No data</p>`;
 
   return `
     <!DOCTYPE html>
-    <html lang="en">
+    <html>
     <head>
-      <meta charset="UTF-8">
+      <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Daily Summary</title>
     </head>
-    <body style="margin: 0; padding: 0; background-color: ${backgroundColor}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-      <table role="presentation" style="width: 100%; border-collapse: collapse;">
+    <body style="margin: 0; padding: 0; background-color: ${bgColor}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+      <table width="100%" cellpadding="0" cellspacing="0" style="background-color: ${bgColor};">
         <tr>
-          <td style="padding: 20px 12px;">
-            <table role="presentation" style="max-width: 520px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08);">
+          <td align="center" style="padding: 20px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 480px; background-color: ${cardBg}; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
               
               <!-- Header -->
               <tr>
-                <td style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d5a65 100%); padding: 20px 24px; text-align: center;">
-                  <h1 style="color: #ffffff; font-size: 20px; font-weight: 700; margin: 0;">
-                    📋 Daily Summary
-                  </h1>
-                  <p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 6px 0 0; font-weight: 500;">
-                    ${data.locationName} • ${formatDateForDisplay(data.dateStr)}
-                  </p>
+                <td style="background-color: ${headerBg}; padding: 20px; text-align: center;">
+                  <p style="margin: 0; font-size: 20px; font-weight: 700; color: white;">📋 Daily Summary</p>
+                  <p style="margin: 4px 0 0; font-size: 14px; color: rgba(255,255,255,0.85);">${data.locationName} • ${formatDateForDisplay(data.dateStr)}</p>
                 </td>
               </tr>
-              
-              <!-- Sales & Labor Row -->
+
+              <!-- Sales & Labor -->
               <tr>
-                <td style="padding: 16px 20px; border-bottom: 1px solid #e8e5df;">
+                <td style="padding: 16px 20px;">
                   <table style="width: 100%;">
                     <tr>
-                      <td style="width: 50%; vertical-align: top; padding-right: 10px;">
-                        <p style="margin: 0 0 4px; color: #6b7280; font-size: 11px; text-transform: uppercase;">Sales</p>
-                        <p style="margin: 0; color: ${textColor}; font-size: 22px; font-weight: 700;">${formatCurrency(data.actualSales)}</p>
-                        <p style="margin: 4px 0 0; font-size: 11px; color: #6b7280;">
-                          Target: ${formatCurrency(data.projectedSales)}
-                          <span style="color: ${salesColor}; font-weight: 600;"> (${salesVariance >= 0 ? '+' : ''}${formatCurrency(salesVariance)})</span>
-                        </p>
+                      <td style="width: 50%; vertical-align: top;">
+                        <p style="margin: 0 0 4px; font-size: 11px; text-transform: uppercase; color: ${mutedColor}; font-weight: 600;">Sales</p>
+                        <p style="margin: 0; font-size: 28px; font-weight: 700; color: ${textColor};">${formatCurrency(data.actualSales)}</p>
+                        <p style="margin: 4px 0 0; font-size: 12px;">Target: ${formatCurrency(data.projectedSales)} (<span style="color: ${salesVarianceColor};">${salesVarianceSign}${formatCurrency(salesVariance)}</span>)</p>
                       </td>
-                      <td style="width: 50%; vertical-align: top; padding-left: 10px; border-left: 1px solid #e8e5df;">
-                        <p style="margin: 0 0 4px; color: #6b7280; font-size: 11px; text-transform: uppercase;">Labor</p>
-                        ${data.hasLaborData ? `
-                          <p style="margin: 0; color: ${textColor}; font-size: 18px; font-weight: 700;">${formatCurrency(data.laborCost)}</p>
-                          <p style="margin: 4px 0 0; font-size: 11px; color: #6b7280;">
-                            ${data.hoursWorked.toFixed(1)} hrs
-                            ${data.laborPercent > 0 ? ` • <span style="color: ${data.laborPercent > 30 ? '#ef4444' : '#10b981'};">${formatPercent(data.laborPercent)}</span>` : ''}
-                          </p>
-                        ` : `
-                          <p style="margin: 0; color: #9ca3af; font-size: 13px;">No data</p>
-                        `}
+                      <td style="width: 50%; vertical-align: top; text-align: right;">
+                        <p style="margin: 0 0 4px; font-size: 11px; text-transform: uppercase; color: ${mutedColor}; font-weight: 600;">Labor</p>
+                        ${laborHtml}
                       </td>
                     </tr>
                   </table>
                 </td>
               </tr>
 
-              <!-- Tasks & Events Row -->
+              <!-- Divider -->
+              <tr><td style="padding: 0 20px;"><hr style="border: none; border-top: 1px solid #e8e5df; margin: 0;"></td></tr>
+
+              <!-- Checklists & Events -->
               <tr>
-                <td style="padding: 16px 20px; border-bottom: 1px solid #e8e5df;">
+                <td style="padding: 16px 20px;">
                   <table style="width: 100%;">
                     <tr>
                       <td style="width: 50%; vertical-align: top; padding-right: 10px;">
-                        <p style="margin: 0 0 8px; color: ${textColor}; font-size: 12px; font-weight: 600; text-transform: uppercase;">✅ Checklists</p>
-                        <div style="display: flex; align-items: flex-start; gap: 12px;">
-                          ${pieChartSvg}
-                          <div style="flex: 1;">
-                            ${checklistItemsHtml}
-                          </div>
-                        </div>
+                        <p style="margin: 0 0 8px; font-size: 12px; font-weight: 600; text-transform: uppercase; color: ${textColor};">✅ Checklists <span style="color: ${overallPercent >= 100 ? accentColor : warningColor};">${overallPercent}%</span></p>
+                        ${checklistItemsHtml}
                       </td>
                       <td style="width: 50%; vertical-align: top; padding-left: 10px; border-left: 1px solid #e8e5df;">
-                        <p style="margin: 0 0 8px; color: ${textColor}; font-size: 12px; font-weight: 600; text-transform: uppercase;">📌 Events & Tasks</p>
-                        ${eventsHtml}
+                        <p style="margin: 0 0 8px; font-size: 12px; font-weight: 600; text-transform: uppercase; color: ${textColor};">🎯 Events & Tasks</p>
+                        <p style="margin: 0 0 6px; font-size: 11px; font-weight: 600; color: ${mutedColor};">💰 Safe Counts</p>
+                        ${safeCountsHtml}
+                        <p style="margin: 10px 0 6px; font-size: 11px; font-weight: 600; color: ${mutedColor};">💵 Deposit</p>
+                        ${depositHtml}
                       </td>
                     </tr>
                   </table>
                 </td>
               </tr>
+
+              <!-- Divider -->
+              <tr><td style="padding: 0 20px;"><hr style="border: none; border-top: 1px solid #e8e5df; margin: 0;"></td></tr>
 
               <!-- Top Items -->
               <tr>
-                <td style="padding: 16px 20px; border-bottom: 1px solid #e8e5df;">
-                  <p style="margin: 0 0 10px; color: ${textColor}; font-size: 12px; font-weight: 600; text-transform: uppercase;">🏆 Top Items by Sales</p>
-                  <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                    <thead>
-                      <tr style="background: ${backgroundColor};">
-                        <th style="padding: 6px 8px; text-align: left; color: #6b7280; font-size: 10px; font-weight: 600;">#</th>
-                        <th style="padding: 6px 8px; text-align: left; color: #6b7280; font-size: 10px; font-weight: 600;">Item</th>
-                        <th style="padding: 6px 8px; text-align: right; color: #6b7280; font-size: 10px; font-weight: 600;">Qty</th>
-                        <th style="padding: 6px 8px; text-align: right; color: #6b7280; font-size: 10px; font-weight: 600;">Sales</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${topItemsHtml}
-                    </tbody>
-                  </table>
+                <td style="padding: 16px 20px;">
+                  <p style="margin: 0 0 12px; font-size: 12px; font-weight: 600; text-transform: uppercase; color: ${textColor};">🏆 Top Items by Sales</p>
+                  ${topItemsHtml}
                 </td>
               </tr>
 
-              <!-- Remakes & Refunds Row -->
+              <!-- Divider -->
+              <tr><td style="padding: 0 20px;"><hr style="border: none; border-top: 1px solid #e8e5df; margin: 0;"></td></tr>
+
+              <!-- Remakes & Refunds -->
               <tr>
                 <td style="padding: 16px 20px;">
                   <table style="width: 100%;">
@@ -791,14 +651,15 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { location_id, entry_date, test_mode, test_email }: DailyLogbookSummaryRequest & { test_mode?: boolean; test_email?: string } = await req.json();
+    const { location_id, entry_date, test_mode, test_email, preview_only }: DailyLogbookSummaryRequest = await req.json();
     
-    console.log(`Processing daily summary for location ${location_id}, date ${entry_date}, test_mode: ${test_mode}`);
+    console.log(`Processing daily summary for location ${location_id}, date ${entry_date}, test_mode: ${test_mode}, preview_only: ${preview_only}`);
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get location info
     const { data: location } = await supabase
@@ -821,13 +682,12 @@ const handler = async (req: Request): Promise<Response> => {
     const safeCountCategoryId = categories?.find(c => c.name?.toLowerCase() === 'safe count')?.id;
     const drawerCountCategoryId = categories?.find(c => c.name?.toLowerCase() === 'drawer count')?.id;
     
-    // Get user profiles for completers
     const getUserName = async (userId: string) => {
       const { data } = await supabase.from('profiles').select('full_name').eq('id', userId).single();
       return data?.full_name || 'Unknown';
     };
 
-    // Check for Safe Counts with completer info
+    // Check for Safe Counts
     const { data: safeCountEntries } = await supabase
       .from('logbook_entries')
       .select('*, logbook_entry_values(*), created_by')
@@ -857,7 +717,7 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Check for Drawer Count with completer info
+    // Check for Drawer Count
     const { data: drawerCountEntries } = await supabase
       .from('logbook_entries')
       .select('*, logbook_entry_values(*), created_by')
@@ -888,8 +748,8 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
-    // Only send if both PM Safe Count AND Deposit completed (unless test_mode)
-    if (!test_mode && (!hasPmSafeCount || !hasDeposit)) {
+    // Only send if both PM Safe Count AND Deposit completed (unless test_mode or preview_only)
+    if (!test_mode && !preview_only && (!hasPmSafeCount || !hasDeposit)) {
       console.log(`Email not sent - PM Safe Count: ${hasPmSafeCount}, Deposit: ${hasDeposit}`);
       return new Response(JSON.stringify({ 
         success: false, 
@@ -905,7 +765,7 @@ const handler = async (req: Request): Promise<Response> => {
     // Fetch all data in parallel
     const [laborData, topItems, checklistData, eventsData, salesCache] = await Promise.all([
       fetchLaborData(supabase, location_id, entry_date),
-      fetchProductMix(supabase, location_id, entry_date),
+      fetchProductMix(supabaseUrl, supabaseAnonKey, location_id, entry_date),
       fetchChecklistData(supabase, location_id, entry_date),
       fetchEventsData(supabase, location_id, entry_date),
       supabase.from('sales_cache').select('net_sales, projected_sales').eq('location_id', location_id).eq('sale_date', entry_date).maybeSingle()
@@ -914,7 +774,6 @@ const handler = async (req: Request): Promise<Response> => {
     const actualSales = salesCache.data?.net_sales || 0;
     const projectedSales = salesCache.data?.projected_sales || 0;
     
-    // Calculate labor percent if we have sales data
     const laborPercent = actualSales > 0 && laborData.laborCost > 0 
       ? (laborData.laborCost / actualSales) * 100 
       : 0;
@@ -965,6 +824,53 @@ const handler = async (req: Request): Promise<Response> => {
         }
         if (guestName || details) refunds.push({ guestName: guestName || 'Guest', details: details || 'No details' });
       }
+    }
+
+    // If preview_only, return the data without sending email
+    if (preview_only) {
+      const previewData = {
+        location: location.name,
+        date: entry_date,
+        sales: {
+          actual: actualSales,
+          projected: projectedSales,
+          variance: actualSales - projectedSales,
+          source: 'sales_cache table'
+        },
+        labor: {
+          hoursWorked: laborData.hoursWorked,
+          laborCost: laborData.laborCost,
+          laborPercent,
+          hasData: laborData.hasData,
+          source: 'time_punches table (punch_time/punch_type columns)'
+        },
+        checklists: {
+          completed: checklistData.completed,
+          total: checklistData.total,
+          items: checklistData.items,
+          source: 'checklists + checklist_submissions + checklist_responses (matching Dashboard logic)'
+        },
+        topItems: {
+          items: topItems,
+          source: 'fetch-qubeyond-sales edge function productMix (same as Dashboard "Top 20 Products by Sales")'
+        },
+        safeCounts: safeCountData,
+        drawerCount: drawerCountData,
+        remakes,
+        refunds,
+        events: eventsData
+      };
+
+      console.log('Preview data:', JSON.stringify(previewData, null, 2));
+
+      return new Response(JSON.stringify({ 
+        success: true,
+        preview: true,
+        data: previewData
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Get managers for email recipients
