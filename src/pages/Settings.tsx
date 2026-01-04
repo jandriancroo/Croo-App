@@ -10,8 +10,9 @@ import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, Building2, Tag, FlaskConical } from 'lucide-react';
+import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, Building2, Tag, FlaskConical, ChevronDown } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 import { UnifiedNotificationSettings } from '@/components/settings/UnifiedNotificationSettings';
 
@@ -28,6 +29,14 @@ const themes = [
 
 const SECTION_ORDER = ['theme', 'notifications', 'brands', 'organizations', 'maintenance'];
 
+const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> = {
+  theme: { title: 'Theme', icon: null },
+  notifications: { title: 'Notifications', icon: null },
+  brands: { title: 'Brands', icon: <Tag className="h-4 w-4" /> },
+  organizations: { title: 'Organizations', icon: <Building2 className="h-4 w-4" /> },
+  maintenance: { title: 'System Maintenance', icon: <Wrench className="h-4 w-4" /> },
+};
+
 export default function Settings() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -36,6 +45,17 @@ export default function Settings() {
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [locations, setLocations] = useState<any[]>([]);
   const [organizations, setOrganizations] = useState<any[]>([]);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    theme: true,
+    notifications: false,
+    brands: false,
+    organizations: false,
+    maintenance: false,
+  });
+
+  const toggleSection = (sectionId: string) => {
+    setOpenSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
+  };
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -88,28 +108,21 @@ export default function Settings() {
     switch (sectionId) {
       case 'theme':
         return (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Theme</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <Label htmlFor="theme">Color Theme</Label>
-                <Select value={theme} onValueChange={handleThemeChange}>
-                  <SelectTrigger id="theme">
-                    <SelectValue placeholder="Select a theme" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {themes.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="space-y-2">
+            <Label htmlFor="theme">Color Theme</Label>
+            <Select value={theme} onValueChange={handleThemeChange}>
+              <SelectTrigger id="theme">
+                <SelectValue placeholder="Select a theme" />
+              </SelectTrigger>
+              <SelectContent>
+                {themes.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         );
 
       case 'notifications':
@@ -118,165 +131,139 @@ export default function Settings() {
       case 'brands':
         if (!isSuperAdmin) return null;
         return (
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Tag className="h-4 w-4" />
-                  <CardTitle className="text-base">Brands</CardTitle>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/brands')}
-                >
-                  <Tag className="h-3 w-3 mr-1" />
-                  Manage
-                </Button>
-              </div>
-              <CardDescription className="text-xs">
-                Create and manage franchise brands
-              </CardDescription>
-            </CardHeader>
-          </Card>
+          <div className="space-y-3">
+            <CardDescription className="text-xs">
+              Create and manage franchise brands
+            </CardDescription>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/brands')}
+            >
+              <Tag className="h-3 w-3 mr-1" />
+              Manage Brands
+            </Button>
+          </div>
         );
 
       case 'organizations':
         if (!isAdmin) return null;
         return (
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Building2 className="h-4 w-4" />
-                  <CardTitle className="text-base">Organizations</CardTitle>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/organization/new')}
-                >
-                  <Building2 className="h-3 w-3 mr-1" />
-                  Add Org
-                </Button>
-              </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
               <CardDescription className="text-xs">
                 Manage organizations and their locations
               </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {organizations.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-2">
-                  No organizations yet
-                </p>
-              ) : (
-                organizations.map((org) => {
-                  const orgLocations = locations.filter(l => l.organization_id === org.id);
-                  return (
-                    <div key={org.id} className="space-y-2 p-3 border rounded-lg">
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-between h-auto py-1 px-2 -mx-2"
-                        onClick={() => navigate(`/organization/${org.id}`)}
-                      >
-                        <div className="flex items-center gap-2 font-medium">
-                          <Building2 className="h-4 w-4" />
-                          {org.name}
-                        </div>
-                        <ExternalLinkIcon className="h-3 w-3" />
-                      </Button>
-                      <div className="space-y-1">
-                        {orgLocations.map((location) => (
-                          <Button
-                            key={location.id}
-                            variant="outline"
-                            size="sm"
-                            className="w-full justify-between h-auto py-2"
-                            onClick={() => navigate(`/location/${location.id}`)}
-                          >
-                            <div className="flex items-center gap-2">
-                              <MapPin className="h-3 w-3" />
-                              <span className="text-xs">{location.name}</span>
-                            </div>
-                            <ExternalLinkIcon className="h-3 w-3" />
-                          </Button>
-                        ))}
-                        {orgLocations.length === 0 && (
-                          <p className="text-xs text-muted-foreground pl-2">No locations</p>
-                        )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/organization/new')}
+              >
+                <Building2 className="h-3 w-3 mr-1" />
+                Add Org
+              </Button>
+            </div>
+            {organizations.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-2">
+                No organizations yet
+              </p>
+            ) : (
+              organizations.map((org) => {
+                const orgLocations = locations.filter(l => l.organization_id === org.id);
+                return (
+                  <div key={org.id} className="space-y-2 p-3 border rounded-lg">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-between h-auto py-1 px-2 -mx-2"
+                      onClick={() => navigate(`/organization/${org.id}`)}
+                    >
+                      <div className="flex items-center gap-2 font-medium">
+                        <Building2 className="h-4 w-4" />
+                        {org.name}
                       </div>
+                      <ExternalLinkIcon className="h-3 w-3" />
+                    </Button>
+                    <div className="space-y-1">
+                      {orgLocations.map((location) => (
+                        <Button
+                          key={location.id}
+                          variant="outline"
+                          size="sm"
+                          className="w-full justify-between h-auto py-2"
+                          onClick={() => navigate(`/location/${location.id}`)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-3 w-3" />
+                            <span className="text-xs">{location.name}</span>
+                          </div>
+                          <ExternalLinkIcon className="h-3 w-3" />
+                        </Button>
+                      ))}
+                      {orgLocations.length === 0 && (
+                        <p className="text-xs text-muted-foreground pl-2">No locations</p>
+                      )}
                     </div>
-                  );
-                })
-              )}
-            </CardContent>
-          </Card>
+                  </div>
+                );
+              })
+            )}
+          </div>
         );
-
-      // Roles section removed - now on Organization Profile page
 
       case 'maintenance':
         if (!isAdmin) return null;
         return (
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Wrench className="h-4 w-4" />
-                <CardTitle className="text-base">System Maintenance</CardTitle>
-              </div>
-              <CardDescription className="text-xs">
-                Admin tools and data management
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full justify-start"
-                onClick={() => navigate('/temperature-validation')}
-              >
-                <Thermometer className="w-4 h-4 mr-2" />
-                Temperature Validation
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full justify-start"
-                onClick={async () => {
-                  try {
-                    toast.info('Rescanning temperatures...');
-                    const { data, error } = await supabase.functions.invoke('rescan-temperatures');
-                    
-                    if (error) throw error;
-                    
-                    if (data.success) {
-                      toast.success(`Rescan complete: ${data.updated} temperatures extracted`);
-                    } else {
-                      toast.error(data.error || 'Rescan failed');
-                    }
-                  } catch (error: any) {
-                    console.error('Rescan error:', error);
-                    toast.error('Failed to rescan');
+          <div className="space-y-3">
+            <CardDescription className="text-xs">
+              Admin tools and data management
+            </CardDescription>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start"
+              onClick={() => navigate('/temperature-validation')}
+            >
+              <Thermometer className="w-4 h-4 mr-2" />
+              Temperature Validation
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-start"
+              onClick={async () => {
+                try {
+                  toast.info('Rescanning temperatures...');
+                  const { data, error } = await supabase.functions.invoke('rescan-temperatures');
+                  
+                  if (error) throw error;
+                  
+                  if (data.success) {
+                    toast.success(`Rescan complete: ${data.updated} temperatures extracted`);
+                  } else {
+                    toast.error(data.error || 'Rescan failed');
                   }
-                }}
-              >
-                Rescan Temperatures
-              </Button>
+                } catch (error: any) {
+                  console.error('Rescan error:', error);
+                  toast.error('Failed to rescan');
+                }
+              }}
+            >
+              Rescan Temperatures
+            </Button>
 
-              {isSuperAdmin && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start"
-                  onClick={() => openDiagnosticMode()}
-                >
-                  <FlaskConical className="w-4 h-4 mr-2" />
-                  Diagnostics
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+            {isSuperAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full justify-start"
+                onClick={() => openDiagnosticMode()}
+              >
+                <FlaskConical className="w-4 h-4 mr-2" />
+                Diagnostics
+              </Button>
+            )}
+          </div>
         );
 
       default:
@@ -311,11 +298,42 @@ export default function Settings() {
           <p className="text-muted-foreground">Manage your preferences</p>
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {visibleSections.map((sectionId) => {
             const content = renderSectionContent(sectionId);
             if (!content) return null;
-            return <div key={sectionId}>{content}</div>;
+            const sectionInfo = SECTION_TITLES[sectionId];
+            
+            return (
+              <Collapsible
+                key={sectionId}
+                open={openSections[sectionId]}
+                onOpenChange={() => toggleSection(sectionId)}
+              >
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors rounded-t-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {sectionInfo.icon}
+                          <CardTitle className="text-base">{sectionInfo.title}</CardTitle>
+                        </div>
+                        <ChevronDown 
+                          className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${
+                            openSections[sectionId] ? 'rotate-180' : ''
+                          }`} 
+                        />
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0">
+                      {content}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
+            );
           })}
         </div>
       </div>
