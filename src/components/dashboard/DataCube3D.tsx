@@ -365,31 +365,26 @@ function CubeFaceComponent({
   return (
     <div
       className={cn(
-        "absolute inset-0 rounded-xl overflow-hidden flex flex-col shadow-xl",
+        "absolute inset-0 rounded-xl overflow-hidden flex flex-col",
         bgClass
       )}
       style={{
         transform: `rotateY(${rotateY}deg) translateZ(${cubeDepth}px)`,
         backfaceVisibility: 'hidden',
+        boxShadow: `
+          0 4px 12px rgba(0,0,0,0.15),
+          inset 0 1px 0 rgba(255,255,255,0.25),
+          inset 0 -1px 0 rgba(0,0,0,0.15),
+          inset 1px 0 0 rgba(255,255,255,0.1),
+          inset -1px 0 0 rgba(0,0,0,0.1)
+        `,
       }}
     >
-      {/* Sharp curved gloss - iOS app icon style */}
-      <div className="absolute inset-0 pointer-events-none rounded-xl overflow-hidden">
-        <div 
-          className="absolute inset-x-0 top-0 pointer-events-none"
-          style={{
-            height: '50%',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.1) 100%)',
-            borderRadius: '0 0 50% 50% / 0 0 25% 25%',
-          }}
-        />
-      </div>
-      
       {/* Title */}
       {title && (
         <div 
           className={cn(
-            "text-[10px] md:text-xs font-bold px-2 md:px-3 pt-1.5 md:pt-2 truncate uppercase tracking-wide relative z-10",
+            "text-[10px] md:text-xs font-bold px-2 md:px-3 pt-1 truncate uppercase tracking-wide relative z-10",
             isLightBg ? "text-foreground" : "text-white"
           )}
         >
