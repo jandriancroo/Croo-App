@@ -50,7 +50,7 @@ export function TemporaryTaskCard({
       <CardContent className="py-2 px-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {iconStyle === "minimal" ? (
-            <Icon className="h-6 w-6 shrink-0" style={{ color: accentColor }} />
+            <Icon className="h-5 w-5 shrink-0" style={{ color: accentColor }} />
           ) : (
             <div
               className="p-1.5 rounded-md shrink-0 relative"
