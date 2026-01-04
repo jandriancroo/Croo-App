@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RefreshCw, MapPin, Package, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
+import InventoryScheduleSettings from "./InventoryScheduleSettings";
 
 interface InventoryItemsManagerProps {
   locationId: string;
@@ -368,6 +369,9 @@ const InventoryItemsManager = ({ locationId }: InventoryItemsManagerProps) => {
   return (
     <>
     <div className="space-y-6">
+      {/* Schedule Settings */}
+      <InventoryScheduleSettings locationId={locationId} />
+
       {/* PFG Sync Button */}
       {pfgIntegration && (
         <Card>
