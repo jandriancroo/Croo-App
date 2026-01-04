@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, CheckCircle2, ArrowDown, DollarSign, Coins, Calculator, Loader2 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { AlertCircle, CheckCircle2, ArrowDown, DollarSign, Coins, Calculator, Loader2, ChevronDown, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 
@@ -59,6 +60,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
   );
   const [isLoadingQuDeposit, setIsLoadingQuDeposit] = useState(false);
   const [quDepositLoaded, setQuDepositLoaded] = useState(false);
+  const [showEnvelopeFormat, setShowEnvelopeFormat] = useState(false);
 
   // Auto-fetch expected deposit from Qu tills on load
   useEffect(() => {
@@ -300,6 +302,33 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
                   {formatCurrency(calculations.actualDeposit)}
                 </span>
               </div>
+
+              {/* Envelope Format Reference */}
+              <Collapsible open={showEnvelopeFormat} onOpenChange={setShowEnvelopeFormat}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-between text-muted-foreground hover:text-foreground">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      <span>Envelope Format</span>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${showEnvelopeFormat ? "rotate-180" : ""}`} />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="pt-2">
+                  <div className="border-2 border-foreground/20 rounded-lg p-4 bg-background shadow-sm">
+                    <div className="flex justify-between items-start mb-6">
+                      <span className="font-medium text-sm">{new Date().toLocaleDateString()}</span>
+                      <span className="font-medium text-sm">Your Name</span>
+                    </div>
+                    <div className="text-center">
+                      <span className="text-3xl font-bold">{formatCurrency(calculations.actualDeposit)}</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    Write this information on your deposit envelope
+                  </p>
+                </CollapsibleContent>
+              </Collapsible>
             </CardContent>
           </Card>
 
