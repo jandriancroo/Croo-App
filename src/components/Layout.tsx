@@ -772,8 +772,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 onTouchCancel={handleTouchEnd}
                 className={`flex-1 flex flex-col items-center gap-1.5 py-1.5 rounded-xl transition-colors relative select-none ${
                   isActive 
-                    ? 'bg-foreground/15 text-foreground' 
-                    : 'text-foreground/60 hover:text-foreground'
+                    ? 'bg-white/20 text-accent-foreground' 
+                    : 'text-accent-foreground/70 hover:text-accent-foreground'
                 }`}
               >
                 <Icon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
