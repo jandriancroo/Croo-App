@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/components/ui/sonner';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
@@ -14,7 +14,7 @@ import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, 
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 
 import { UnifiedNotificationSettings } from '@/components/settings/UnifiedNotificationSettings';
-import { toast as sonnerToast } from 'sonner';
+
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -65,7 +65,6 @@ function SortableSection({ id, isEditMode, children }: SortableSectionProps) {
 }
 
 export default function Settings() {
-  const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { isAdmin, isSuperAdmin } = useUserRole();
@@ -136,10 +135,7 @@ export default function Settings() {
     setTheme(value);
     localStorage.setItem('app-theme', value);
     document.documentElement.setAttribute('data-theme', value);
-    toast({
-      title: 'Theme Updated',
-      description: 'Your theme preference has been saved.',
-    });
+    toast('Theme updated');
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -316,19 +312,19 @@ export default function Settings() {
                 className="w-full justify-start"
                 onClick={async () => {
                   try {
-                    sonnerToast.info('Rescanning temperatures...');
+                    toast.info('Rescanning temperatures...');
                     const { data, error } = await supabase.functions.invoke('rescan-temperatures');
                     
                     if (error) throw error;
                     
                     if (data.success) {
-                      sonnerToast.success(`Rescan complete: ${data.updated} temperatures extracted`);
+                      toast.success(`Rescan complete: ${data.updated} temperatures extracted`);
                     } else {
-                      sonnerToast.error(data.error || 'Rescan failed');
+                      toast.error(data.error || 'Rescan failed');
                     }
                   } catch (error: any) {
                     console.error('Rescan error:', error);
-                    sonnerToast.error('Failed to rescan');
+                    toast.error('Failed to rescan');
                   }
                 }}
               >
