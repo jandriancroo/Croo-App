@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.generate-product-image]
 verify_jwt = true
+
+[functions.auto-punch-out]
+verify_jwt = false
