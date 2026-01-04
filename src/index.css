@@ -511,23 +511,7 @@ All colors MUST be HSL.
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.12);
   }
   
-  .nav-bar-unified::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 50%;
-    background: linear-gradient(
-      180deg,
-      hsl(0 0% 100% / 0.12) 0%,
-      transparent 100%
-    );
-    pointer-events: none;
-    border-radius: inherit;
-  }
-  
-  /* Logo drop - extends down only, continuous with bar, no separate shadow */
+  /* Logo drop - extends down only, seamless with bar */
   .nav-logo-drop {
     position: relative;
     height: 60px;
@@ -563,28 +547,12 @@ All colors MUST be HSL.
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.25);
   }
   
-  .dark .nav-bar-unified::before {
-    background: linear-gradient(
-      180deg,
-      hsl(0 0% 100% / 0.08) 0%,
-      transparent 100%
-    );
-  }
-  
   .dark .nav-logo-container {
     box-shadow: 0 2px 8px hsl(0 0% 0% / 0.3);
   }
   
   [data-theme="oled"] .nav-bar-unified {
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.4);
-  }
-  
-  [data-theme="oled"] .nav-bar-unified::before {
-    background: linear-gradient(
-      180deg,
-      hsl(0 0% 100% / 0.06) 0%,
-      transparent 100%
-    );
   }
   
   [data-theme="oled"] .nav-logo-container {
