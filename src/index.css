@@ -503,7 +503,7 @@ All colors MUST be HSL.
     );
   }
   
-  /* Unified nav bar with logo drop for desktop/tablet */
+  /* Unified nav bar for desktop/tablet */
   .nav-bar-unified {
     position: relative;
     background: hsl(var(--primary));
@@ -511,35 +511,22 @@ All colors MUST be HSL.
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.12);
   }
   
-  /* Logo drop - extends down only, seamless with bar */
-  .nav-logo-drop {
-    position: relative;
-    height: 60px;
-    margin-bottom: -16px;
-    padding: 0 8px;
-    background: hsl(var(--primary));
-    border-radius: 0 0 0.75rem 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  /* Round logo container */
-  .nav-logo-container {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
+  /* Inline logo container - rounded square */
+  .nav-logo-inline {
+    width: 36px;
+    height: 36px;
+    border-radius: 0.5rem;
     background: hsl(var(--background));
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
-    box-shadow: 0 2px 8px hsl(0 0% 0% / 0.1);
+    flex-shrink: 0;
   }
   
-  .nav-logo-container img {
-    width: 36px;
-    height: 36px;
+  .nav-logo-inline img {
+    width: 28px;
+    height: 28px;
     object-fit: contain;
   }
   
@@ -547,16 +534,8 @@ All colors MUST be HSL.
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.25);
   }
   
-  .dark .nav-logo-container {
-    box-shadow: 0 2px 8px hsl(0 0% 0% / 0.3);
-  }
-  
   [data-theme="oled"] .nav-bar-unified {
     box-shadow: 0 4px 16px hsl(0 0% 0% / 0.4);
-  }
-  
-  [data-theme="oled"] .nav-logo-container {
-    box-shadow: 0 2px 8px hsl(0 0% 0% / 0.5);
   }
   
   [data-theme="oled"] .nav-logo-bulge::before {
