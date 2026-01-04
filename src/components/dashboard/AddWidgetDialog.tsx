@@ -11,27 +11,7 @@ import {
   METRIC_CONFIGS, 
   METRIC_GROUPS,
 } from "./DashboardWidget";
-
-const ACCENT_COLORS = [
-  // Classic post-it colors
-  { value: "#F59E0B", label: "Yellow" },
-  { value: "#EC4899", label: "Pink" },
-  { value: "#22C55E", label: "Green" },
-  { value: "#3B82F6", label: "Blue" },
-  { value: "#8B5CF6", label: "Purple" },
-  { value: "#14B8A6", label: "Teal" },
-  { value: "#EF4444", label: "Red" },
-  { value: "#F97316", label: "Orange" },
-  // Theme-inspired colors
-  { value: "#0891B2", label: "Croo Teal" },
-  { value: "#EA580C", label: "Croo Orange" },
-  { value: "#0F766E", label: "Ocean" },
-  { value: "#166534", label: "Sage" },
-  { value: "#7C3AED", label: "Lavender" },
-  { value: "#6366F1", label: "Indigo" },
-  { value: "#84CC16", label: "Lime" },
-  { value: "#06B6D4", label: "Cyan" },
-];
+import { THEME_COLORS, ThemeColorKey, getThemeColorClass } from "@/utils/themeColors";
 
 export type CubeType = 'data' | 'sales-chart';
 
@@ -69,7 +49,7 @@ export function AddWidgetDialog({
     title: '',
     size: 'small',
     metrics: [],
-    accentColor: ACCENT_COLORS[defaultColorIndex % ACCENT_COLORS.length].value,
+    accentColor: THEME_COLORS[defaultColorIndex % THEME_COLORS.length].key,
     cubeType: 'data',
   });
 
@@ -81,7 +61,7 @@ export function AddWidgetDialog({
       title: '',
       size: 'small',
       metrics: [],
-      accentColor: ACCENT_COLORS[defaultColorIndex % ACCENT_COLORS.length].value,
+      accentColor: THEME_COLORS[defaultColorIndex % THEME_COLORS.length].key,
       cubeType: 'data',
     });
   };
@@ -110,7 +90,7 @@ export function AddWidgetDialog({
         title: 'Sales Overview',
         size: 'large',
         metrics: [],
-        accentColor: ACCENT_COLORS[defaultColorIndex % ACCENT_COLORS.length].value,
+        accentColor: THEME_COLORS[defaultColorIndex % THEME_COLORS.length].key,
         cubeType: 'sales-chart',
       });
       handleClose(false);
@@ -314,16 +294,15 @@ export function AddWidgetDialog({
             <div className="space-y-2">
               <Label>Accent Color</Label>
               <div className="flex flex-wrap gap-2">
-                {ACCENT_COLORS.map(color => (
+                {THEME_COLORS.map(color => (
                   <button
-                    key={color.value}
-                    className={`w-8 h-8 rounded-full border-2 transition-all ${
-                      config.accentColor === color.value 
-                        ? 'border-foreground scale-110' 
+                    key={color.key}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${getThemeColorClass(color.key)} ${
+                      config.accentColor === color.key 
+                        ? 'border-foreground scale-110 ring-2 ring-offset-2 ring-primary' 
                         : 'border-transparent hover:scale-105'
                     }`}
-                    style={{ backgroundColor: color.value }}
-                    onClick={() => setConfig(prev => ({ ...prev, accentColor: color.value }))}
+                    onClick={() => setConfig(prev => ({ ...prev, accentColor: color.key }))}
                     title={color.label}
                   />
                 ))}

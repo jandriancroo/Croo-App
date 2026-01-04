@@ -11,27 +11,7 @@ import {
   METRIC_CONFIGS, 
   METRIC_GROUPS,
 } from "./DashboardWidget";
-
-const ACCENT_COLORS = [
-  // Classic post-it colors
-  { value: "#F59E0B", label: "Yellow" },
-  { value: "#EC4899", label: "Pink" },
-  { value: "#22C55E", label: "Green" },
-  { value: "#3B82F6", label: "Blue" },
-  { value: "#8B5CF6", label: "Purple" },
-  { value: "#14B8A6", label: "Teal" },
-  { value: "#EF4444", label: "Red" },
-  { value: "#F97316", label: "Orange" },
-  // Theme-inspired colors
-  { value: "#0891B2", label: "Croo Teal" },
-  { value: "#EA580C", label: "Croo Orange" },
-  { value: "#0F766E", label: "Ocean" },
-  { value: "#166534", label: "Sage" },
-  { value: "#7C3AED", label: "Lavender" },
-  { value: "#6366F1", label: "Indigo" },
-  { value: "#84CC16", label: "Lime" },
-  { value: "#06B6D4", label: "Cyan" },
-];
+import { THEME_COLORS, ThemeColorKey, getThemeColorClass } from "@/utils/themeColors";
 
 export interface New3DCubeConfig {
   title: string;
@@ -56,7 +36,7 @@ export function Add3DCubeDialog({
   const [numFaces, setNumFaces] = useState(2);
   const [activeFace, setActiveFace] = useState(0);
   const [title, setTitle] = useState('');
-  const [accentColor, setAccentColor] = useState(ACCENT_COLORS[defaultColorIndex % ACCENT_COLORS.length].value);
+  const [accentColor, setAccentColor] = useState<ThemeColorKey>(THEME_COLORS[defaultColorIndex % THEME_COLORS.length].key);
   const [faceMetrics, setFaceMetrics] = useState<MetricType[][]>([[], [], [], []]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -64,7 +44,7 @@ export function Add3DCubeDialog({
     setNumFaces(2);
     setActiveFace(0);
     setTitle('');
-    setAccentColor(ACCENT_COLORS[defaultColorIndex % ACCENT_COLORS.length].value);
+    setAccentColor(THEME_COLORS[defaultColorIndex % THEME_COLORS.length].key);
     setFaceMetrics([[], [], [], []]);
     setIsSubmitting(false);
   };
@@ -258,16 +238,15 @@ export function Add3DCubeDialog({
           <div className="space-y-2">
             <Label>Accent Color</Label>
             <div className="flex flex-wrap gap-2">
-              {ACCENT_COLORS.map(color => (
+              {THEME_COLORS.map(color => (
                 <button
-                  key={color.value}
-                  className={`w-7 h-7 rounded-full border-2 transition-all ${
-                    accentColor === color.value 
-                      ? 'border-foreground scale-110' 
+                  key={color.key}
+                  className={`w-7 h-7 rounded-full border-2 transition-all ${getThemeColorClass(color.key)} ${
+                    accentColor === color.key 
+                      ? 'border-foreground scale-110 ring-2 ring-offset-2 ring-primary' 
                       : 'border-transparent hover:scale-105'
                   }`}
-                  style={{ backgroundColor: color.value }}
-                  onClick={() => setAccentColor(color.value)}
+                  onClick={() => setAccentColor(color.key)}
                   title={color.label}
                 />
               ))}
@@ -277,8 +256,7 @@ export function Add3DCubeDialog({
           {/* Preview indicator */}
           <div className="flex items-center justify-center gap-2 py-2">
             <div 
-              className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg"
-              style={{ backgroundColor: accentColor }}
+              className={`w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg ${getThemeColorClass(accentColor)}`}
             >
               {totalMetrics}
             </div>
