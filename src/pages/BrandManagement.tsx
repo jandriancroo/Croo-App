@@ -356,6 +356,7 @@ export default function BrandManagement() {
             onOpenChange={setCropDialogOpen}
             imageSrc={imageToCrop}
             onCropComplete={handleCropComplete}
+            cropShape="rect"
           />
         </div>
 
