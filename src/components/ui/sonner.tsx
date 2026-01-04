@@ -1,5 +1,6 @@
 import { useTheme } from "next-themes";
-import { Toaster as Sonner, toast } from "sonner";
+import { Toaster as Sonner, toast as sonnerToast } from "sonner";
+import { dockToast } from "@/contexts/DockToastContext";
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
@@ -24,6 +25,55 @@ const Toaster = ({ ...props }: ToasterProps) => {
       {...props}
     />
   );
+};
+
+// Smart toast that uses dock on mobile, sonner on desktop
+const isMobileDevice = () => {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth < 768;
+};
+
+const toast = (message: string | { title?: string; description?: string }) => {
+  const text = typeof message === 'string' ? message : (message.title || message.description || '');
+  
+  if (isMobileDevice()) {
+    dockToast(text);
+  } else {
+    sonnerToast(text);
+  }
+};
+
+// Also provide typed versions for common toast types
+toast.success = (message: string) => {
+  if (isMobileDevice()) {
+    dockToast(message);
+  } else {
+    sonnerToast.success(message);
+  }
+};
+
+toast.error = (message: string) => {
+  if (isMobileDevice()) {
+    dockToast(message);
+  } else {
+    sonnerToast.error(message);
+  }
+};
+
+toast.info = (message: string) => {
+  if (isMobileDevice()) {
+    dockToast(message);
+  } else {
+    sonnerToast.info(message);
+  }
+};
+
+toast.warning = (message: string) => {
+  if (isMobileDevice()) {
+    dockToast(message);
+  } else {
+    sonnerToast.warning(message);
+  }
 };
 
 export { Toaster, toast };
