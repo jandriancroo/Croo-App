@@ -211,6 +211,26 @@ export default function LogBook() {
     enabled: !!currentLocation,
   });
 
+  // Fetch bank deposits for recent logs display
+  const { data: bankDeposits = [] } = useQuery({
+    queryKey: ['bank-deposits-list', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation) return [];
+      const { data, error } = await supabase
+        .from('bank_deposits')
+        .select(`
+          *,
+          profiles:created_by(full_name, profile_photo_url)
+        `)
+        .eq('location_id', currentLocation.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!currentLocation,
+  });
+
   // Find safe count category ID
   const safeCountCategoryId = categories.find((c: any) => c.name?.toLowerCase() === 'safe count')?.id;
   const drawerCountCategoryId = categories.find((c: any) => c.name?.toLowerCase() === 'drawer count')?.id;
@@ -443,9 +463,30 @@ export default function LogBook() {
     },
   });
 
-  const filteredEntries = allEntries.filter((entry: any) => {
+  // Convert bank deposits to virtual entries for display
+  const bankDepositEntries = bankDeposits.map((deposit: any) => ({
+    id: `bank-deposit-${deposit.id}`,
+    _isBankDeposit: true,
+    _depositData: deposit,
+    entry_date: deposit.end_date, // Use end date for grouping
+    created_at: deposit.created_at,
+    profiles: deposit.profiles,
+    logbook_categories: { name: 'Bank Deposit' },
+    logbook_entry_values: [],
+  }));
+
+  const filteredEntries = [...allEntries, ...bankDepositEntries].filter((entry: any) => {
     if (!searchQuery) return true;
     const searchLower = searchQuery.toLowerCase();
+    
+    // Handle bank deposit entries
+    if (entry._isBankDeposit) {
+      return (
+        'bank deposit'.includes(searchLower) ||
+        entry.profiles?.full_name?.toLowerCase().includes(searchLower)
+      );
+    }
+    
     return (
       entry.profiles?.full_name?.toLowerCase().includes(searchLower) ||
       entry.logbook_categories?.name?.toLowerCase().includes(searchLower) ||
@@ -1170,8 +1211,9 @@ export default function LogBook() {
                   <div className="space-y-2">
                     {entriesByDay[dateKey].map((entry: any) => {
                       const isWeeklySummary = entry.logbook_categories?.name === 'Weekly Summary';
+                      const isBankDeposit = entry._isBankDeposit;
                       return (
-                      <Card key={entry._virtualId || entry.id} className={isWeeklySummary ? "border-primary/30 bg-gradient-to-br from-primary/5 to-transparent" : ""}>
+                      <Card key={entry._virtualId || entry.id} className={isWeeklySummary ? "border-primary/30 bg-gradient-to-br from-primary/5 to-transparent" : isBankDeposit ? "border-teal-500/30 bg-gradient-to-br from-teal-500/5 to-transparent" : ""}>
                         <CardContent className="p-4">
                           <div className="flex items-start gap-3">
                             {isWeeklySummary ? (
@@ -1201,7 +1243,7 @@ export default function LogBook() {
                                 <div className="text-xs text-muted-foreground whitespace-nowrap">
                                   {format(new Date(entry.created_at), 'h:mm a')}
                                 </div>
-                                {(isAdmin || isManager || entry.created_by === user?.id) && (
+                                {!isBankDeposit && (isAdmin || isManager || entry.created_by === user?.id) && (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -1243,7 +1285,33 @@ export default function LogBook() {
                               </div>
                               </div>
                               <div className="mt-2 space-y-1">
-                                {entry.logbook_entry_values?.map((val: any) => {
+                                {/* Bank Deposit entry display */}
+                                {isBankDeposit && entry._depositData && (
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <Building2 className="h-4 w-4 text-teal-500" />
+                                      <span className="font-medium text-teal-600">
+                                        ${entry._depositData.total_amount?.toFixed(2)}
+                                      </span>
+                                      <span className="text-muted-foreground">
+                                        ({entry._depositData.days_included} days)
+                                      </span>
+                                    </div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {format(new Date(entry._depositData.start_date + 'T12:00:00'), 'MMM d')} - {format(new Date(entry._depositData.end_date + 'T12:00:00'), 'MMM d, yyyy')}
+                                    </div>
+                                    <div className="flex gap-4 text-xs">
+                                      <span>Bills: ${entry._depositData.total_dollars?.toFixed(2)}</span>
+                                      <span>Coins: ${entry._depositData.total_change?.toFixed(2)}</span>
+                                    </div>
+                                    {entry._depositData.notes && (
+                                      <p className="text-xs text-muted-foreground italic">{entry._depositData.notes}</p>
+                                    )}
+                                  </div>
+                                )}
+                                
+                                {/* Regular entry values */}
+                                {!isBankDeposit && entry.logbook_entry_values?.map((val: any) => {
                                   // Check if this is drawer count data
                                   const drawerData = val.value_text ? parseDrawerCountData(val.value_text) : null;
                                   if (drawerData && drawerData.actualDeposit !== undefined) {
