@@ -1,6 +1,9 @@
+import { useState } from "react";
 import { format } from "date-fns";
-import { Building2 } from "lucide-react";
+import { Building2, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export interface BankDepositData {
   startDate: string;
@@ -30,33 +33,111 @@ export function parseBankDepositData(valueText: string): BankDepositData | null 
   }
 }
 
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(value);
+};
+
 interface BankDepositEntryProps {
   data: BankDepositData;
   createdAt: string;
 }
 
 export function BankDepositEntry({ data, createdAt }: BankDepositEntryProps) {
+  const [open, setOpen] = useState(false);
+
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 text-sm">
-        <Building2 className="h-4 w-4 text-teal-500" />
-        <span className="font-medium text-teal-600 dark:text-teal-400">
-          ${data.totalAmount?.toFixed(2)}
-        </span>
-        <Badge variant="secondary" className="text-xs">
-          {data.daysIncluded} day{data.daysIncluded !== 1 ? 's' : ''}
-        </Badge>
+    <div className="space-y-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 text-sm">
+            <Building2 className="h-4 w-4 text-teal-500" />
+            <span className="font-medium text-teal-600 dark:text-teal-400">
+              {formatCurrency(data.totalAmount)}
+            </span>
+          </div>
+          <Badge variant="secondary" className="text-xs">
+            {data.daysIncluded} day{data.daysIncluded !== 1 ? 's' : ''}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            {format(new Date(data.startDate + 'T12:00:00'), 'MMM d')} - {format(new Date(data.endDate + 'T12:00:00'), 'MMM d')}
+          </span>
+        </div>
+        
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" size="sm" className="w-full sm:w-auto">
+              <Eye className="h-4 w-4 mr-1" />
+              Details
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-teal-500" />
+                Bank Deposit Details
+              </DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="text-sm text-muted-foreground">
+                Entered at {format(new Date(createdAt), 'h:mm a')} on {format(new Date(createdAt), 'MMM d, yyyy')}
+              </div>
+              
+              {/* Date range */}
+              <div className="bg-muted/50 rounded-lg p-3">
+                <div className="text-sm font-medium mb-1">Deposit Period</div>
+                <div className="text-sm text-muted-foreground">
+                  {format(new Date(data.startDate + 'T12:00:00'), 'EEEE, MMM d')} – {format(new Date(data.endDate + 'T12:00:00'), 'EEEE, MMM d, yyyy')}
+                </div>
+              </div>
+              
+              {/* Individual days breakdown */}
+              <div className="space-y-2">
+                <div className="font-medium text-sm">Daily Breakdown</div>
+                <div className="space-y-1">
+                  {data.entries.map((entry, idx) => (
+                    <div key={entry.entryId || idx} className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        {format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d')}
+                      </span>
+                      <span className="font-medium">{formatCurrency(entry.depositAmount)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Totals */}
+              <div className="border-t pt-3 space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Bills:</span>
+                  <span className="font-medium">{formatCurrency(data.totalDollars)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Coins:</span>
+                  <span className="font-medium">{formatCurrency(data.totalChange)}</span>
+                </div>
+                <div className="flex justify-between items-center pt-2 border-t">
+                  <span className="font-medium">Total Deposit:</span>
+                  <span className="font-bold text-teal-600 dark:text-teal-400 text-lg">
+                    {formatCurrency(data.totalAmount)}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Notes */}
+              {data.notes && (
+                <div className="border-t pt-3">
+                  <div className="font-medium text-sm mb-1">Notes</div>
+                  <p className="text-sm text-muted-foreground italic">{data.notes}</p>
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
-      <div className="text-xs text-muted-foreground">
-        {format(new Date(data.startDate + 'T12:00:00'), 'MMM d')} - {format(new Date(data.endDate + 'T12:00:00'), 'MMM d, yyyy')}
-      </div>
-      <div className="flex gap-4 text-xs text-muted-foreground">
-        <span>Bills: ${data.totalDollars?.toFixed(2)}</span>
-        <span>Coins: ${data.totalChange?.toFixed(2)}</span>
-      </div>
-      {data.notes && (
-        <p className="text-xs text-muted-foreground italic">{data.notes}</p>
-      )}
     </div>
   );
 }
