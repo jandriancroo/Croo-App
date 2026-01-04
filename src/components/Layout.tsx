@@ -726,7 +726,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           </div>
         )}
         <div className="mx-3 mb-2 glass-dock rounded-2xl">
-          <div className="relative z-10 flex items-center justify-evenly px-2 py-2">
+          <div className="relative z-10 flex items-center justify-evenly px-2 py-1.5">
             {mobileMainNavItems.map(item => {
             const isDashItem = item.path === '/dashboard';
             const isOnOrgDash = location.pathname === '/multi-location';
