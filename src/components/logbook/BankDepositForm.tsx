@@ -41,39 +41,74 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   const [notes, setNotes] = useState("");
   const [step, setStep] = useState<'start' | 'end' | 'review'>('start');
   
-  // Fetch already deposited drawer count entries (linked to bank deposits)
-  const { data: depositedEntryIds = [], isLoading: loadingDeposited } = useQuery({
-    queryKey: ["deposited-drawer-entries", currentLocation?.id],
+  // Fetch bank deposit category to find existing deposits
+  const { data: bankDepositCategory } = useQuery({
+    queryKey: ["bank-deposit-category", currentLocation?.id],
     queryFn: async () => {
-      if (!currentLocation) return [];
+      if (!currentLocation) return null;
       const { data, error } = await supabase
-        .from("bank_deposit_entries")
-        .select(`
-          logbook_entry_id,
-          bank_deposits!inner(location_id)
-        `)
-        .eq("bank_deposits.location_id", currentLocation.id);
+        .from("logbook_categories")
+        .select("id")
+        .eq("location_id", currentLocation.id)
+        .ilike("name", "%bank deposit%")
+        .eq("is_active", true)
+        .maybeSingle();
       if (error) throw error;
-      return data?.map(d => d.logbook_entry_id) || [];
+      return data;
     },
     enabled: !!currentLocation,
   });
   
-  // Fetch all past bank deposits to highlight dates
-  const { data: pastDeposits = [], isLoading: loadingPastDeposits } = useQuery({
-    queryKey: ["past-bank-deposits", currentLocation?.id],
+  // Fetch all bank deposit logbook entries to find deposited drawer entries
+  const { data: bankDepositEntries = [], isLoading: loadingDeposited } = useQuery({
+    queryKey: ["deposited-drawer-entries", currentLocation?.id, bankDepositCategory?.id],
     queryFn: async () => {
-      if (!currentLocation) return [];
+      if (!currentLocation || !bankDepositCategory) return [];
       const { data, error } = await supabase
-        .from("bank_deposits")
-        .select("start_date, end_date")
+        .from("logbook_entries")
+        .select(`
+          id,
+          entry_date,
+          logbook_entry_values(value_text)
+        `)
         .eq("location_id", currentLocation.id)
+        .eq("category_id", bankDepositCategory.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
-    enabled: !!currentLocation,
+    enabled: !!currentLocation && !!bankDepositCategory,
   });
+  
+  // Extract deposited entry IDs and date ranges from bank deposit entries
+  const { depositedEntryIds, depositedDateRanges } = useMemo(() => {
+    const entryIds: string[] = [];
+    const dateRanges = new Set<string>();
+    
+    bankDepositEntries.forEach((entry: any) => {
+      try {
+        const valueText = entry.logbook_entry_values?.[0]?.value_text;
+        if (valueText) {
+          const data = JSON.parse(valueText);
+          // Add all entry IDs from this deposit
+          if (data.entries) {
+            data.entries.forEach((e: any) => entryIds.push(e.entryId));
+          }
+          // Add all dates in range
+          if (data.startDate && data.endDate) {
+            const start = new Date(data.startDate);
+            const end = new Date(data.endDate);
+            const days = eachDayOfInterval({ start, end });
+            days.forEach(d => dateRanges.add(format(d, "yyyy-MM-dd")));
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse bank deposit entry:", e);
+      }
+    });
+    
+    return { depositedEntryIds: entryIds, depositedDateRanges: dateRanges };
+  }, [bankDepositEntries]);
   
   // Fetch drawer count category
   const { data: drawerCountCategory } = useQuery({
@@ -119,17 +154,6 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
     enabled: !!currentLocation && !!drawerCountCategory && !!startDate && !!endDate && step === 'review',
   });
   
-  // Calculate all deposited date ranges for calendar highlighting
-  const depositedDateRanges = useMemo(() => {
-    const dates = new Set<string>();
-    pastDeposits.forEach(deposit => {
-      const start = new Date(deposit.start_date);
-      const end = new Date(deposit.end_date);
-      const days = eachDayOfInterval({ start, end });
-      days.forEach(d => dates.add(format(d, "yyyy-MM-dd")));
-    });
-    return dates;
-  }, [pastDeposits]);
   
   // Calculate summary from drawer entries
   const summary = useMemo(() => {
@@ -265,7 +289,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
     }
   };
   
-  if (loadingDeposited || loadingPastDeposits) {
+  if (loadingDeposited) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
