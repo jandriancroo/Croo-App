@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ClipboardList, Settings, TrendingDown, Package, CalendarDays, Calendar, CalendarRange } from "lucide-react";
+import { Plus, ClipboardList, Settings, TrendingDown, Package, CalendarDays, Calendar, CalendarRange, MapPin } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -24,6 +24,22 @@ const Inventory = () => {
   const [activeTab, setActiveTab] = useState("count");
   const [activeCountId, setActiveCountId] = useState<string | null>(null);
   const [showStartDialog, setShowStartDialog] = useState(false);
+
+  // Fetch location details
+  const { data: location } = useQuery({
+    queryKey: ["location-details", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("locations")
+        .select("id, name, store_number")
+        .eq("id", locationId)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!locationId
+  });
 
   // Check for in-progress count
   const { data: inProgressCount } = useQuery({
@@ -148,6 +164,19 @@ const Inventory = () => {
   return (
     <Layout>
       <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto">
+        {/* Location Header */}
+        <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+          <MapPin className="h-4 w-4" />
+          <span className="font-medium text-foreground">
+            {location?.name || "Loading..."}
+          </span>
+          {location?.store_number && (
+            <Badge variant="outline" className="text-xs">
+              #{location.store_number}
+            </Badge>
+          )}
+        </div>
+
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Inventory</h1>
