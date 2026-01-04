@@ -59,6 +59,11 @@ const formatMessagePreview = (content: string): string => {
       return `🎮 ${playerName} scored ${score} in ${gameName}!`;
     }
   }
+  // Parse smack talk messages
+  if (content?.startsWith("SMACK_TALK:")) {
+    const smackText = content.replace("SMACK_TALK:", "");
+    return `⚡ ${smackText}`;
+  }
   return content;
 };
 
