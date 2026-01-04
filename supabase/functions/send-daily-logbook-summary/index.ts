@@ -23,8 +23,28 @@ function formatPercent(value: number): string {
 }
 
 function formatDateForDisplay(dateStr: string): string {
-  const date = new Date(dateStr + 'T12:00:00');
-  return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  // Handle various date formats
+  if (!dateStr) return 'Unknown Date';
+  
+  // If dateStr is already a date string like "2026-01-04", parse it properly
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]) - 1; // Months are 0-indexed
+    const day = parseInt(parts[2]);
+    const date = new Date(year, month, day, 12, 0, 0);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+  }
+  
+  // Fallback: try parsing as-is
+  const date = new Date(dateStr);
+  if (!isNaN(date.getTime())) {
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+  
+  return dateStr; // Return original if parsing fails
 }
 
 // Fetch labor data from time_punches
