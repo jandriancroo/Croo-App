@@ -124,7 +124,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           onSelectChat(chat.id);
         }
       }}
-      className={`group w-full flex items-center gap-4 p-4 rounded-lg transition-colors text-left cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background ${
+      className={`group w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ring-offset-background ${
         selectedChatId === chat.id
           ? 'bg-accent text-accent-foreground'
           : chat.isPinned
@@ -134,7 +134,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           : 'hover:bg-muted'
       }`}
     >
-      <Avatar className="h-14 w-14 flex-shrink-0">
+      <Avatar className="h-10 w-10 flex-shrink-0">
         {chat.is_announcement ? (
           <AvatarFallback className="bg-primary/10">
             <Megaphone className="h-6 w-6 text-primary" />
