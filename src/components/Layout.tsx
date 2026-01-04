@@ -41,7 +41,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
   const { message, isVisible } = useDockToast();
 
   return (
-    <div className="glass-dock overflow-hidden">
+    <div className="glass-dock overflow-hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
       <div className="relative z-10 flex items-center justify-evenly px-2 py-1.5">
         {/* Toast overlay that slides in */}
         <div 
@@ -839,7 +839,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
       {!roleLoading && (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
           {/* Dash/Org Bubble Popup - swaps based on current route */}
           {showOrgBubble && hasMultiLocationAccess && (
             <div className="absolute bottom-full left-3 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
