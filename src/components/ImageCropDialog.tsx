@@ -101,7 +101,7 @@ export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete, 
           <DialogTitle>Crop & Zoom Photo</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
-          <div className="relative h-[400px] bg-muted rounded-lg overflow-hidden">
+          <div className={`relative h-[400px] bg-muted rounded-lg overflow-hidden ${cropShape === 'rect' ? 'crop-rounded-square' : ''}`}>
             <Cropper
               image={imageSrc}
               crop={crop}
