@@ -446,6 +446,161 @@ All colors MUST be HSL.
     background: hsl(220 25% 16% / 0.8);
   }
   
+  /* Strong Liquid Glass Dock - premium glass effect with depth and texture */
+  .glass-dock {
+    position: relative;
+    background: linear-gradient(
+      135deg,
+      hsl(0 0% 100% / 0.45) 0%,
+      hsl(0 0% 100% / 0.25) 50%,
+      hsl(0 0% 100% / 0.35) 100%
+    );
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    border: 1px solid hsl(0 0% 100% / 0.5);
+    box-shadow: 
+      0 8px 32px hsl(0 0% 0% / 0.12),
+      0 2px 8px hsl(0 0% 0% / 0.08),
+      inset 0 2px 4px hsl(0 0% 100% / 0.6),
+      inset 0 -1px 2px hsl(0 0% 0% / 0.05);
+    overflow: hidden;
+  }
+  
+  .glass-dock::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(
+      180deg,
+      hsl(0 0% 100% / 0.7) 0%,
+      hsl(0 0% 100% / 0.2) 60%,
+      transparent 100%
+    );
+    border-radius: 1rem 1rem 50% 50% / 1rem 1rem 100% 100%;
+    pointer-events: none;
+  }
+  
+  .glass-dock::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(0 0% 100% / 0.4) 50%,
+      transparent 100%
+    );
+    pointer-events: none;
+  }
+  
+  .dark .glass-dock {
+    background: linear-gradient(
+      135deg,
+      hsl(220 25% 20% / 0.6) 0%,
+      hsl(220 25% 15% / 0.4) 50%,
+      hsl(220 25% 18% / 0.5) 100%
+    );
+    border: 1px solid hsl(0 0% 100% / 0.15);
+    box-shadow: 
+      0 8px 32px hsl(0 0% 0% / 0.35),
+      0 2px 8px hsl(0 0% 0% / 0.2),
+      inset 0 2px 4px hsl(0 0% 100% / 0.1),
+      inset 0 -1px 2px hsl(0 0% 0% / 0.2);
+  }
+  
+  .dark .glass-dock::before {
+    background: linear-gradient(
+      180deg,
+      hsl(0 0% 100% / 0.15) 0%,
+      hsl(0 0% 100% / 0.05) 60%,
+      transparent 100%
+    );
+  }
+  
+  [data-theme="oled"] .glass-dock {
+    background: linear-gradient(
+      135deg,
+      hsl(0 0% 8% / 0.85) 0%,
+      hsl(0 0% 5% / 0.75) 50%,
+      hsl(0 0% 7% / 0.8) 100%
+    );
+    border: 1px solid hsl(0 0% 100% / 0.08);
+    box-shadow: 
+      0 8px 32px hsl(0 0% 0% / 0.5),
+      inset 0 1px 2px hsl(0 0% 100% / 0.08);
+  }
+  
+  [data-theme="oled"] .glass-dock::before {
+    background: linear-gradient(
+      180deg,
+      hsl(0 0% 100% / 0.08) 0%,
+      transparent 60%
+    );
+  }
+  
+  /* Glass Nav for desktop/tablet - unified colorized rounded style */
+  .glass-nav {
+    position: relative;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.85) 0%,
+      hsl(var(--primary) / 0.7) 100%
+    );
+    backdrop-filter: blur(16px) saturate(1.5);
+    -webkit-backdrop-filter: blur(16px) saturate(1.5);
+    border: 1px solid hsl(0 0% 100% / 0.25);
+    box-shadow: 
+      0 4px 16px hsl(0 0% 0% / 0.1),
+      inset 0 1px 2px hsl(0 0% 100% / 0.3),
+      inset 0 -1px 2px hsl(0 0% 0% / 0.1);
+    overflow: hidden;
+  }
+  
+  .glass-nav::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 45%;
+    background: linear-gradient(
+      180deg,
+      hsl(0 0% 100% / 0.35) 0%,
+      hsl(0 0% 100% / 0.1) 60%,
+      transparent 100%
+    );
+    border-radius: 0.5rem 0.5rem 50% 50% / 0.5rem 0.5rem 100% 100%;
+    pointer-events: none;
+  }
+  
+  .dark .glass-nav {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.75) 0%,
+      hsl(var(--primary) / 0.55) 100%
+    );
+    border: 1px solid hsl(0 0% 100% / 0.15);
+    box-shadow: 
+      0 4px 16px hsl(0 0% 0% / 0.25),
+      inset 0 1px 2px hsl(0 0% 100% / 0.15),
+      inset 0 -1px 2px hsl(0 0% 0% / 0.15);
+  }
+  
+  .dark .glass-nav::before {
+    background: linear-gradient(
+      180deg,
+      hsl(0 0% 100% / 0.2) 0%,
+      hsl(0 0% 100% / 0.05) 60%,
+      transparent 100%
+    );
+  }
+  
   /* Glossy 3D button style - curved shiny look like iOS/app buttons */
   .glossy-button {
     position: relative;
