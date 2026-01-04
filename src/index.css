@@ -446,10 +446,10 @@ All colors MUST be HSL.
     background: hsl(220 25% 16% / 0.8);
   }
   
-  /* Mobile dock - solid teal */
+  /* Mobile dock - uses accent color, orange for default theme */
   .glass-dock {
     position: relative;
-    background: hsl(var(--primary));
+    background: hsl(var(--accent));
     border: none;
     box-shadow: 
       0 -4px 20px hsl(0 0% 0% / 0.15),
@@ -474,7 +474,7 @@ All colors MUST be HSL.
   }
   
   .dark .glass-dock {
-    background: hsl(var(--primary));
+    background: hsl(var(--accent));
     box-shadow: 
       0 -4px 20px hsl(0 0% 0% / 0.3),
       0 4px 16px hsl(0 0% 0% / 0.2);
@@ -489,7 +489,7 @@ All colors MUST be HSL.
   }
   
   [data-theme="oled"] .glass-dock {
-    background: hsl(var(--primary));
+    background: hsl(var(--accent));
     box-shadow: 
       0 -4px 20px hsl(0 0% 0% / 0.5),
       0 4px 16px hsl(0 0% 0% / 0.4);
