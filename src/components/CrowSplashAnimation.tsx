@@ -1,61 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import crooLogo from '@/assets/croo-logo.png';
 
 interface CrowSplashAnimationProps {
   onComplete: () => void;
-  logoUrl?: string; // Optional override
 }
 
-const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete, logoUrl }) => {
+const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete }) => {
   const [fadeOut, setFadeOut] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
-  const { currentLocation } = useAppLocation();
-
-  // Fetch brand logo if not provided
-  const { data: brandLogo } = useQuery({
-    queryKey: ['splash-brand-logo', currentLocation?.id],
-    queryFn: async () => {
-      if (!currentLocation?.id) return null;
-      
-      // Get location's organization
-      const { data: locationData } = await supabase
-        .from('locations')
-        .select('organization_id')
-        .eq('id', currentLocation.id)
-        .single();
-      
-      if (!locationData?.organization_id) return null;
-      
-      // Get org with brand
-      const { data: orgData } = await supabase
-        .from('organizations')
-        .select('logo_url, brand_id')
-        .eq('id', locationData.organization_id)
-        .single();
-      
-      if (!orgData) return null;
-      
-      // If org has a brand_id, fetch the brand logo
-      if (orgData.brand_id) {
-        const { data: brandData } = await supabase
-          .from('brands')
-          .select('logo_url')
-          .eq('id', orgData.brand_id)
-          .single();
-        
-        if (brandData?.logo_url) return brandData.logo_url;
-      }
-      
-      return orgData.logo_url || null;
-    },
-    enabled: !logoUrl && !!currentLocation?.id,
-    staleTime: Infinity, // Cache indefinitely for this session
-  });
-
-  const displayLogo = logoUrl || brandLogo || crooLogo;
 
   useEffect(() => {
     const welcomeTimer = setTimeout(() => setShowWelcome(true), 100);
@@ -81,7 +33,7 @@ const CrowSplashAnimation: React.FC<CrowSplashAnimationProps> = ({ onComplete, l
       {/* Logo */}
       <div className="animate-fade-in">
         <img 
-          src={displayLogo} 
+          src={crooLogo} 
           alt="Logo" 
           className="h-28 w-auto drop-shadow-lg"
         />
