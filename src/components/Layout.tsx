@@ -437,7 +437,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     }`}
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
-                    <span className="hidden lg:inline text-sm">{item.label}</span>
+                    <span className="text-sm">{item.label}</span>
                     {showBadge && (
                       <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
                         {unreadCount > 99 ? '99+' : unreadCount}
@@ -459,7 +459,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                       }`}
                     >
                       <Clock className="h-4 w-4 flex-shrink-0" />
-                      <span className="hidden lg:inline text-sm">Time</span>
+                      <span className="text-sm">Time</span>
                       <ChevronDown className="h-3 w-3 flex-shrink-0" />
                     </button>
                   </DropdownMenuTrigger>
