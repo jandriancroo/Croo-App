@@ -604,6 +604,7 @@ export default function LogBook() {
                 queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
                 queryClient.invalidateQueries({ queryKey: ['deposited-drawer-entries'] });
                 queryClient.invalidateQueries({ queryKey: ['past-bank-deposits'] });
+                queryClient.invalidateQueries({ queryKey: ['bank-deposits-list'] });
                 setShowNewEntrySheet(false);
                 setActiveTab('search');
               } catch (error: any) {
