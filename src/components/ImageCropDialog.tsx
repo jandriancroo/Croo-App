@@ -11,6 +11,7 @@ interface ImageCropDialogProps {
   onOpenChange: (open: boolean) => void;
   imageSrc: string;
   onCropComplete: (croppedImage: Blob) => void;
+  cropShape?: 'rect' | 'round';
 }
 
 interface Area {
@@ -64,7 +65,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<Blob> {
   });
 }
 
-export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete }: ImageCropDialogProps) {
+export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete, cropShape = 'round' }: ImageCropDialogProps) {
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
@@ -106,7 +107,7 @@ export function ImageCropDialog({ open, onOpenChange, imageSrc, onCropComplete }
               crop={crop}
               zoom={zoom}
               aspect={1}
-              cropShape="round"
+              cropShape={cropShape}
               showGrid={false}
               onCropChange={onCropChange}
               onZoomChange={onZoomChange}
