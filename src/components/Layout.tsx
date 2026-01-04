@@ -409,7 +409,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
   return <div className="flex min-h-screen flex-col bg-background overflow-x-hidden">
       {/* Desktop/Tablet Header with unified teal nav bar */}
-      <header className="sticky top-0 z-50 hidden md:block bg-background" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+      <header className="sticky top-0 z-50 hidden md:block bg-background pt-2" style={{ paddingTop: 'max(env(safe-area-inset-top), 0.5rem)' }}>
         <div className="container max-w-7xl mx-auto px-3 md:px-4">
           <div className="nav-bar-unified rounded-md flex items-center px-2">
             {/* Logo */}
