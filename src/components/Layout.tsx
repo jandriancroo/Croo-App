@@ -41,7 +41,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
   const { message, isVisible } = useDockToast();
 
   return (
-    <div className="mx-3 glass-dock rounded-2xl overflow-hidden">
+    <div className="glass-dock rounded-t-2xl overflow-hidden">
       <div className="relative z-10 flex items-center justify-evenly px-2 py-1.5">
         {/* Toast overlay that slides in */}
         <div 
