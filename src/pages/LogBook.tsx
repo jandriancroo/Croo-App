@@ -31,9 +31,11 @@ import { SafeCountForm, SafeCountData } from "@/components/logbook/SafeCountForm
 import { SafeCountEntry, parseSafeCountData, checkBankRunCompleted, checkNeedsBankRun } from "@/components/logbook/SafeCountEntry";
 import { WeeklySummaryEntry, parseWeeklySummaryData } from "@/components/logbook/WeeklySummaryEntry";
 import { CateringOrdersSection } from "@/components/logbook/CateringOrdersSection";
+import { BankDepositForm, BankDepositData } from "@/components/logbook/BankDepositForm";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { startOfWeek, endOfWeek, getDay, subDays } from "date-fns";
 import crooLogo from "@/assets/croo-logo.png";
+import { Building2 } from "lucide-react";
 
 export default function LogBook() {
   const { user } = useAuth();
@@ -90,7 +92,7 @@ export default function LogBook() {
       if (!currentLocation) return null;
       const { data, error } = await supabase
         .from('location_settings')
-        .select('safe_target, drawer_bank, drawer_count_notifications_enabled, safe_count_notifications_enabled')
+        .select('safe_target, drawer_bank, drawer_count_notifications_enabled, safe_count_notifications_enabled, timezone')
         .eq('location_id', currentLocation.id)
         .maybeSingle();
       if (error) throw error;
@@ -136,6 +138,18 @@ export default function LogBook() {
       setSearchParams({});
     }
   }, [searchParams, setSearchParams]);
+
+  // Handle bank deposit event from dashboard
+  useEffect(() => {
+    const handleBankDeposit = () => {
+      setSelectedCategory('bank-deposit');
+      setShowNewEntrySheet(true);
+      setWizardStep('form');
+    };
+    
+    window.addEventListener('open-bank-deposit', handleBankDeposit);
+    return () => window.removeEventListener('open-bank-deposit', handleBankDeposit);
+  }, []);
 
   // Fetch fields for selected category
   const { data: fields = [] } = useQuery({
@@ -500,6 +514,69 @@ export default function LogBook() {
     const currentCategoryName = categories.find((c: any) => c.id === selectedCategory)?.name?.toLowerCase();
     const isDrawerCount = currentCategoryName === 'drawer count';
     const isSafeCount = currentCategoryName === 'safe count';
+    const isBankDeposit = selectedCategory === 'bank-deposit'; // Virtual category
+    
+    // Bank Deposit form
+    if (isBankDeposit) {
+      return (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Bank Deposit</h2>
+          <BankDepositForm
+            onSave={async (data: BankDepositData) => {
+              if (isSavingSpecialForm) return;
+              setIsSavingSpecialForm(true);
+              try {
+                // Create the bank deposit record
+                const { data: depositData, error: depositError } = await supabase
+                  .from('bank_deposits')
+                  .insert({
+                    location_id: currentLocation?.id,
+                    start_date: data.startDate,
+                    end_date: data.endDate,
+                    total_dollars: data.totalDollars,
+                    total_change: data.totalChange,
+                    total_amount: data.totalAmount,
+                    days_included: data.daysIncluded,
+                    notes: data.notes,
+                    created_by: user?.id,
+                  })
+                  .select()
+                  .single();
+
+                if (depositError) throw depositError;
+
+                // Link all the drawer count entries to this deposit
+                const entryLinks = data.entries.map(entry => ({
+                  bank_deposit_id: depositData.id,
+                  logbook_entry_id: entry.entryId,
+                  entry_date: entry.entryDate,
+                  deposit_amount: entry.depositAmount,
+                }));
+
+                const { error: linksError } = await supabase
+                  .from('bank_deposit_entries')
+                  .insert(entryLinks);
+
+                if (linksError) throw linksError;
+
+                toast({ title: "Bank deposit recorded successfully" });
+                queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                queryClient.invalidateQueries({ queryKey: ['deposited-drawer-entries'] });
+                queryClient.invalidateQueries({ queryKey: ['past-bank-deposits'] });
+                setShowNewEntrySheet(false);
+                setActiveTab('search');
+              } catch (error: any) {
+                toast({ title: "Error saving bank deposit", description: error.message, variant: "destructive" });
+              } finally {
+                setIsSavingSpecialForm(false);
+              }
+            }}
+            isSaving={isSavingSpecialForm}
+            timezone={locationSettings?.timezone || "America/Los_Angeles"}
+          />
+        </div>
+      );
+    }
     
     if (isDrawerCount) {
       return (
@@ -993,6 +1070,20 @@ export default function LogBook() {
                         <SheetTitle>Select Entry Type</SheetTitle>
                       </SheetHeader>
                       <div className="mt-6 grid grid-cols-2 gap-3">
+                        {/* Bank Deposit - preset virtual category */}
+                        <button
+                          onClick={() => {
+                            setSelectedCategory('bank-deposit');
+                            setWizardStep('form');
+                          }}
+                          className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 border-teal-500/50 bg-teal-500/10 hover:border-teal-500 hover:bg-teal-500/20 transition-all text-center min-h-[100px]"
+                        >
+                          <div className="text-teal-500">
+                            <Building2 className="h-6 w-6" />
+                          </div>
+                          <span className="font-medium text-sm">Bank Deposit</span>
+                        </button>
+                        
                         {categories.map((category: any) => {
                           // Map category names to icons
                           const getCategoryIcon = (name: string) => {
@@ -1037,7 +1128,9 @@ export default function LogBook() {
                           <ChevronLeft className="h-4 w-4" />
                         </Button>
                         <SheetTitle className="!mt-0">
-                          {categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
+                          {selectedCategory === 'bank-deposit' 
+                            ? 'Bank Deposit' 
+                            : categories.find((c: any) => c.id === selectedCategory)?.name || 'New Entry'}
                         </SheetTitle>
                       </SheetHeader>
                       <div className="mt-4 space-y-4">

@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Vault, CircleDollarSign } from "lucide-react";
+import { Vault, CircleDollarSign, Building2 } from "lucide-react";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useUserRole } from "@/hooks/useUserRole";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import { formatInTimeZone } from "date-fns-tz";
 import { TemporaryTaskCard } from "./TemporaryTaskCard";
 
@@ -61,6 +61,50 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
     },
     enabled: !!currentLocation && canAccessCashHandling,
     refetchInterval: 30000, // Refresh every 30 seconds
+  });
+  
+  // Fetch count of undeposited drawer counts (for bank deposit task)
+  const { data: undepositedCount = 0 } = useQuery({
+    queryKey: ["undeposited-drawer-counts", currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation) return 0;
+      
+      // Get drawer count category
+      const drawerCategory = categories?.find(c => c.name.toLowerCase().includes("drawer count"));
+      if (!drawerCategory) return 0;
+      
+      // Get all drawer count entries from last 30 days
+      const thirtyDaysAgo = format(subDays(new Date(), 30), "yyyy-MM-dd");
+      
+      const { data: drawerEntries, error: entriesError } = await supabase
+        .from("logbook_entries")
+        .select("id")
+        .eq("location_id", currentLocation.id)
+        .eq("category_id", drawerCategory.id)
+        .gte("entry_date", thirtyDaysAgo);
+      
+      if (entriesError) throw entriesError;
+      
+      if (!drawerEntries || drawerEntries.length === 0) return 0;
+      
+      // Get already deposited entries
+      const { data: depositedEntries, error: depositedError } = await supabase
+        .from("bank_deposit_entries")
+        .select(`
+          logbook_entry_id,
+          bank_deposits!inner(location_id)
+        `)
+        .eq("bank_deposits.location_id", currentLocation.id);
+      
+      if (depositedError) throw depositedError;
+      
+      const depositedIds = new Set(depositedEntries?.map(d => d.logbook_entry_id) || []);
+      const undeposited = drawerEntries.filter(e => !depositedIds.has(e.id));
+      
+      return undeposited.length;
+    },
+    enabled: !!currentLocation && canAccessCashHandling && !!categories?.length,
+    refetchInterval: 60000, // Refresh every minute
   });
   
   if (!canAccessCashHandling || !locationHours) return null;
@@ -129,11 +173,22 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
     currentMinutes >= pmWindowStart && 
     currentMinutes <= pmWindowEnd;
   
+  // Bank Deposit: Show if there are 3+ undeposited drawer counts
+  const showBankDeposit = undepositedCount >= 3;
+  
   const handleNavigate = (categoryName: string, shift?: string) => {
     const params = new URLSearchParams();
     if (categoryName === "safe") {
       params.set("category", "Safe Count");
       if (shift) params.set("shift", shift);
+    } else if (categoryName === "bank-deposit") {
+      // Navigate to logbook and trigger bank deposit form
+      navigate("/logbook");
+      // Use a small delay to let the page load, then trigger the sheet
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('open-bank-deposit'));
+      }, 100);
+      return;
     } else {
       params.set("category", "Drawer Count");
     }
@@ -161,6 +216,13 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       title: "Deposit",
       icon: CircleDollarSign,
       onClick: () => handleNavigate("drawer"),
+    },
+    {
+      id: "bank-deposit",
+      show: showBankDeposit,
+      title: `Bank Run (${undepositedCount} days)`,
+      icon: Building2,
+      onClick: () => handleNavigate("bank-deposit"),
     },
   ].filter(t => t.show);
   
