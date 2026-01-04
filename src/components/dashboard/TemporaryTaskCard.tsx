@@ -26,6 +26,8 @@ export interface TemporaryTaskCardProps {
   };
   /** Task style - standard or alarm */
   taskStyle?: "standard" | "alarm";
+  /** Icon style - default has colored background, minimal is just the icon */
+  iconStyle?: "default" | "minimal";
 }
 
 export function TemporaryTaskCard({
@@ -38,6 +40,7 @@ export function TemporaryTaskCard({
   onAction,
   badge,
   taskStyle = "standard",
+  iconStyle = "default",
 }: TemporaryTaskCardProps) {
   return (
     <Card
@@ -46,20 +49,24 @@ export function TemporaryTaskCard({
     >
       <CardContent className="py-2 px-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <div
-            className="p-1.5 rounded-md shrink-0 relative"
-            style={{ backgroundColor: `${accentColor}20` }}
-          >
-            <Icon className="h-4 w-4" style={{ color: accentColor }} />
-            {taskStyle === "alarm" && (
-              <div 
-                className="absolute -top-1 -right-1 p-0.5 rounded-full"
-                style={{ backgroundColor: accentColor }}
-              >
-                <AlarmClock className="h-2 w-2 text-white" />
-              </div>
-            )}
-          </div>
+          {iconStyle === "minimal" ? (
+            <Icon className="h-6 w-6 shrink-0" style={{ color: accentColor }} />
+          ) : (
+            <div
+              className="p-1.5 rounded-md shrink-0 relative"
+              style={{ backgroundColor: `${accentColor}20` }}
+            >
+              <Icon className="h-4 w-4" style={{ color: accentColor }} />
+              {taskStyle === "alarm" && (
+                <div 
+                  className="absolute -top-1 -right-1 p-0.5 rounded-full"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  <AlarmClock className="h-2 w-2 text-white" />
+                </div>
+              )}
+            </div>
+          )}
           <div className="min-w-0 flex items-center gap-1.5 flex-1">
             <p className="font-medium text-sm truncate">{title}</p>
             {taskStyle === "alarm" && (
