@@ -73,12 +73,15 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       const drawerCategory = categories?.find(c => c.name.toLowerCase().includes("drawer count"));
       if (!drawerCategory) return 0;
       
+      // Get bank deposit category
+      const bankDepositCategory = categories?.find(c => c.name.toLowerCase().includes("bank deposit"));
+      
       // Get all drawer count entries from last 30 days
       const thirtyDaysAgo = format(subDays(new Date(), 30), "yyyy-MM-dd");
       
       const { data: drawerEntries, error: entriesError } = await supabase
         .from("logbook_entries")
-        .select("id")
+        .select("id, entry_date")
         .eq("location_id", currentLocation.id)
         .eq("category_id", drawerCategory.id)
         .gte("entry_date", thirtyDaysAgo);
@@ -87,18 +90,37 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       
       if (!drawerEntries || drawerEntries.length === 0) return 0;
       
-      // Get already deposited entries
-      const { data: depositedEntries, error: depositedError } = await supabase
-        .from("bank_deposit_entries")
-        .select(`
-          logbook_entry_id,
-          bank_deposits!inner(location_id)
-        `)
-        .eq("bank_deposits.location_id", currentLocation.id);
+      // Get bank deposit entries to find which drawer entries have been deposited
+      if (!bankDepositCategory) {
+        // No bank deposit category exists yet, all drawer entries are undeposited
+        return drawerEntries.length;
+      }
       
-      if (depositedError) throw depositedError;
+      const { data: bankDepositEntries, error: depositError } = await supabase
+        .from("logbook_entries")
+        .select("id, logbook_entry_values(value_text)")
+        .eq("location_id", currentLocation.id)
+        .eq("category_id", bankDepositCategory.id);
       
-      const depositedIds = new Set(depositedEntries?.map(d => d.logbook_entry_id) || []);
+      if (depositError) throw depositError;
+      
+      // Parse bank deposit entries to find deposited entry IDs
+      const depositedIds = new Set<string>();
+      bankDepositEntries?.forEach(entry => {
+        entry.logbook_entry_values?.forEach((val: any) => {
+          try {
+            const data = JSON.parse(val.value_text || "{}");
+            if (data.entries && Array.isArray(data.entries)) {
+              data.entries.forEach((e: any) => {
+                if (e.entryId) depositedIds.add(e.entryId);
+              });
+            }
+          } catch {
+            // Not JSON, skip
+          }
+        });
+      });
+      
       const undeposited = drawerEntries.filter(e => !depositedIds.has(e.id));
       
       return undeposited.length;
