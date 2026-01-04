@@ -457,6 +457,11 @@ All colors MUST be HSL.
       inset 0 2px 4px hsl(0 0% 100% / 0.4),
       inset 0 -2px 4px hsl(0 0% 0% / 0.08);
     overflow: hidden;
+    /* Prevent dock from moving during scroll/address bar changes */
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
   }
   
   /* Strong gradient from top-left corner for 3D pillowy look */
@@ -558,6 +563,22 @@ All colors MUST be HSL.
     border-bottom-color: hsl(0 0% 100% / 0.03);
   }
   
+  /* Fixed mobile dock container - prevents jumping during scroll */
+  .mobile-dock-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    /* Use GPU acceleration for stable positioning */
+    -webkit-transform: translate3d(0, 0, 0);
+    transform: translate3d(0, 0, 0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    /* Prevent any layout shifts */
+    will-change: transform;
+  }
+
   /* Unified nav bar for desktop/tablet */
   .nav-bar-unified {
     position: relative;

@@ -839,7 +839,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
       {!roleLoading && (
-        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
+        <nav className="mobile-dock-container md:hidden">
           {/* Dash/Org Bubble Popup - swaps based on current route */}
           {showOrgBubble && hasMultiLocationAccess && (
             <div className="absolute bottom-full left-3 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
