@@ -371,22 +371,36 @@ function CubeFaceComponent({
       style={{
         transform: `rotateY(${rotateY}deg) translateZ(${cubeDepth}px)`,
         backfaceVisibility: 'hidden',
+        backdropFilter: 'blur(20px) saturate(1.8)',
+        WebkitBackdropFilter: 'blur(20px) saturate(1.8)',
         boxShadow: `
-          inset 0 2px 4px rgba(0,0,0,0.15),
-          inset 0 4px 8px rgba(0,0,0,0.1),
-          inset 2px 0 4px rgba(0,0,0,0.08),
-          inset -2px 0 4px rgba(0,0,0,0.08),
-          inset 0 -1px 2px rgba(255,255,255,0.08)
+          inset 0 1px 1px rgba(255,255,255,0.3),
+          inset 0 -1px 1px rgba(0,0,0,0.1),
+          0 8px 32px rgba(0,0,0,0.12),
+          0 2px 8px rgba(0,0,0,0.08)
         `,
+        border: '1px solid rgba(255,255,255,0.2)',
       }}
     >
-      {/* Subtle inner bevel line */}
+      {/* Liquid glass specular highlight */}
       <div 
-        className="absolute inset-[2px] pointer-events-none rounded-[10px]"
+        className="absolute inset-0 pointer-events-none rounded-xl"
         style={{
-          border: '1px solid rgba(255,255,255,0.12)',
-          borderBottomColor: 'rgba(0,0,0,0.1)',
-          borderRightColor: 'rgba(0,0,0,0.05)',
+          background: `
+            linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 40%),
+            linear-gradient(315deg, rgba(255,255,255,0.05) 0%, transparent 30%)
+          `,
+        }}
+      />
+      
+      {/* Subtle inner glow for depth */}
+      <div 
+        className="absolute inset-0 pointer-events-none rounded-xl"
+        style={{
+          boxShadow: `
+            inset 0 0 20px rgba(255,255,255,0.05),
+            inset 0 0 40px rgba(255,255,255,0.03)
+          `,
         }}
       />
       
@@ -394,10 +408,10 @@ function CubeFaceComponent({
       <div 
         className="absolute top-0 right-0 pointer-events-none"
         style={{
-          width: '40%',
-          height: '40%',
+          width: '35%',
+          height: '35%',
           background: `
-            linear-gradient(225deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.1) 30%, transparent 50%)
+            linear-gradient(225deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.15) 25%, transparent 50%)
           `,
           clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
         }}
