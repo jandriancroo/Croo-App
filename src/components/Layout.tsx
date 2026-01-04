@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw, BarChart3, Building2, User, Gamepad2 } from 'lucide-react';
+import { Home, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw, BarChart3, Building2, User, Gamepad2, LayoutDashboard } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -678,18 +678,28 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
       <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        {/* Org Dash Bubble Popup */}
+        {/* Dash/Org Bubble Popup - swaps based on current route */}
         {showOrgBubble && hasMultiLocationAccess && (
           <div className="absolute bottom-full left-3 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
             <button
               onClick={() => {
-                navigate('/multi-location');
+                // Navigate to opposite view
+                navigate(location.pathname === '/multi-location' ? '/dashboard' : '/multi-location');
                 setShowOrgBubble(false);
               }}
               className="flex items-center gap-2 px-4 py-2.5 bg-background rounded-xl shadow-lg border border-border text-foreground font-medium"
             >
-              <Building2 className="h-5 w-5" />
-              <span>Org Dash</span>
+              {location.pathname === '/multi-location' ? (
+                <>
+                  <LayoutDashboard className="h-5 w-5" />
+                  <span>Dash</span>
+                </>
+              ) : (
+                <>
+                  <Building2 className="h-5 w-5" />
+                  <span>Org Dash</span>
+                </>
+              )}
             </button>
             {/* Triangle pointer */}
             <div className="absolute -bottom-2 left-6 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-background" />
@@ -698,9 +708,15 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <div className="mx-3 mb-2 bg-accent rounded-2xl shadow-lg shadow-black/20 border border-accent-foreground/10">
           <div className="flex items-center justify-evenly px-2 py-2">
             {mobileMainNavItems.map(item => {
-            const Icon = item.icon;
             const isDashItem = item.path === '/dashboard';
-            const isActive = location.pathname === item.path;
+            const isOnOrgDash = location.pathname === '/multi-location';
+            
+            // For Dash item, swap icon/label when on Org Dash
+            const Icon = isDashItem && isOnOrgDash && hasMultiLocationAccess ? Building2 : item.icon;
+            const label = isDashItem && isOnOrgDash && hasMultiLocationAccess ? 'Org' : item.label;
+            const itemPath = isDashItem && isOnOrgDash && hasMultiLocationAccess ? '/multi-location' : item.path;
+            
+            const isActive = location.pathname === itemPath;
             const showBadge = item.path === '/messages' && unreadCount > 0;
             
             // Long-press handler for Dash button to show bubble
@@ -729,7 +745,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 onClick={() => {
                   // Close bubble if open and navigating
                   if (showOrgBubble) setShowOrgBubble(false);
-                  navigate(item.path);
+                  navigate(itemPath);
                 }}
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
@@ -741,13 +757,9 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 }`}
               >
                 <Icon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
-                <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
+                <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
                 {showBadge && (
                   <span className="absolute top-1 right-1/4 h-2.5 w-2.5 bg-destructive rounded-full" />
-                )}
-                {/* Small indicator for long-press capability */}
-                {isDashItem && hasMultiLocationAccess && (
-                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-primary rounded-full opacity-60" />
                 )}
               </button>
             );
