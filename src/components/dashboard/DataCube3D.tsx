@@ -3,6 +3,7 @@ import { cn } from '@/lib/utils';
 import { DollarSign, Users, TrendingUp, Clock, Percent, Target, Wallet, Calendar, Pizza } from 'lucide-react';
 import { MetricType, METRIC_CONFIGS, SalesDataForWidgets } from './DashboardWidget';
 import { format, subYears, getWeek } from 'date-fns';
+import { ThemeColorKey, migrateAccentColor, getThemeColorClass, getThemeTextClass, isThemeColorKey } from '@/utils/themeColors';
 
 interface CubeFace {
   metrics: MetricType[];
@@ -16,30 +17,6 @@ interface DataCube3DProps {
   className?: string;
   salesData?: SalesDataForWidgets | null;
   isLoading?: boolean;
-}
-
-// Determine if text should be light or dark based on background color
-function getContrastColor(hexColor: string): 'light' | 'dark' {
-  const hex = hexColor.replace('#', '');
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? 'dark' : 'light';
-}
-
-// Lighten a hex color
-function lightenColor(hexColor: string, amount: number = 0.4): string {
-  const hex = hexColor.replace('#', '');
-  const r = parseInt(hex.substr(0, 2), 16);
-  const g = parseInt(hex.substr(2, 2), 16);
-  const b = parseInt(hex.substr(4, 2), 16);
-  
-  const newR = Math.min(255, Math.round(r + (255 - r) * amount));
-  const newG = Math.min(255, Math.round(g + (255 - g) * amount));
-  const newB = Math.min(255, Math.round(b + (255 - b) * amount));
-  
-  return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`;
 }
 
 function formatValue(value: number | undefined, format: 'currency' | 'percent' | 'number' | 'hours'): string {
@@ -218,7 +195,7 @@ function getMetricValue(metricType: MetricType, salesData?: SalesDataForWidgets 
 export function DataCube3D({
   title,
   faces,
-  accentColor = '#14B8A6',
+  accentColor = 'primary',
   autoRotateInterval = 8000,
   className,
   salesData,
@@ -230,6 +207,11 @@ export function DataCube3D({
   const [cubeDepth, setCubeDepth] = useState(60);
   
   const totalFaces = Math.min(faces.length, 4);
+  
+  // Migrate legacy hex colors to theme color keys
+  const themeColorKey: ThemeColorKey = isThemeColorKey(accentColor) 
+    ? accentColor 
+    : migrateAccentColor(accentColor);
   
   // Calculate cube depth based on container width
   useEffect(() => {
@@ -308,7 +290,7 @@ export function DataCube3D({
               <CubeFaceComponent
                 key={faceIndex}
                 face={face}
-                accentColor={accentColor}
+                themeColorKey={themeColorKey}
                 salesData={salesData}
                 isLoading={isLoading}
                 totalFaces={totalFaces}
@@ -329,7 +311,7 @@ export function DataCube3D({
 
 interface CubeFaceComponentProps {
   face?: CubeFace;
-  accentColor: string;
+  themeColorKey: ThemeColorKey;
   salesData?: SalesDataForWidgets | null;
   isLoading?: boolean;
   totalFaces: number;
@@ -343,7 +325,7 @@ interface CubeFaceComponentProps {
 
 function CubeFaceComponent({ 
   face, 
-  accentColor, 
+  themeColorKey, 
   salesData, 
   isLoading, 
   totalFaces,
@@ -354,12 +336,11 @@ function CubeFaceComponent({
   rotateY,
   cubeDepth,
 }: CubeFaceComponentProps) {
-  const bgColor = lightenColor(accentColor, 0.55);
-  const contrastMode = getContrastColor(bgColor);
-  const textColor = contrastMode === 'light' ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.85)';
-  const titleColor = contrastMode === 'light' ? 'rgba(255,255,255,0.9)' : accentColor;
-  const labelColor = contrastMode === 'light' ? 'rgba(255,255,255,0.75)' : accentColor;
-
+  // Use theme color classes for solid background with white text
+  const bgClass = getThemeColorClass(themeColorKey);
+  const textClass = getThemeTextClass(themeColorKey);
+  const isLightBg = themeColorKey === 'secondary' || themeColorKey === 'muted';
+  
   // Allow up to 4 metrics per face
   const displayMetrics = face?.metrics?.slice(0, 4) || [];
   const metricCount = displayMetrics.length;
@@ -367,23 +348,27 @@ function CubeFaceComponent({
   if (!face || displayMetrics.length === 0) {
     return (
       <div
-        className="absolute inset-0 rounded-xl shadow-lg flex items-center justify-center backface-hidden"
+        className={cn(
+          "absolute inset-0 rounded-xl shadow-lg flex items-center justify-center backface-hidden",
+          bgClass
+        )}
         style={{
-          backgroundColor: bgColor,
           transform: `rotateY(${rotateY}deg) translateZ(${cubeDepth}px)`,
           backfaceVisibility: 'hidden',
         }}
       >
-        <span style={{ color: labelColor }} className="text-xs">No metrics</span>
+        <span className={cn("text-xs", isLightBg ? "text-muted-foreground" : "text-white/75")}>No metrics</span>
       </div>
     );
   }
   
   return (
     <div
-      className="absolute inset-0 rounded-xl overflow-hidden flex flex-col shadow-xl"
+      className={cn(
+        "absolute inset-0 rounded-xl overflow-hidden flex flex-col shadow-xl",
+        bgClass
+      )}
       style={{
-        backgroundColor: bgColor,
         transform: `rotateY(${rotateY}deg) translateZ(${cubeDepth}px)`,
         backfaceVisibility: 'hidden',
       }}
@@ -394,7 +379,7 @@ function CubeFaceComponent({
           className="absolute inset-x-0 top-0 pointer-events-none"
           style={{
             height: '50%',
-            background: 'linear-gradient(180deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0.15) 100%)',
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.1) 100%)',
             borderRadius: '0 0 50% 50% / 0 0 25% 25%',
           }}
         />
@@ -403,8 +388,10 @@ function CubeFaceComponent({
       {/* Title */}
       {title && (
         <div 
-          className="text-[10px] md:text-xs font-bold px-2 md:px-3 pt-1.5 md:pt-2 truncate uppercase tracking-wide relative z-10"
-          style={{ color: titleColor }}
+          className={cn(
+            "text-[10px] md:text-xs font-bold px-2 md:px-3 pt-1.5 md:pt-2 truncate uppercase tracking-wide relative z-10",
+            isLightBg ? "text-foreground" : "text-white"
+          )}
         >
           {title}
         </div>
@@ -433,15 +420,17 @@ function CubeFaceComponent({
                     <div 
                       className={cn(
                         "font-bold leading-tight truncate text-base md:text-lg",
-                        isLoading && "animate-pulse bg-white/30 rounded w-12 h-5"
+                        isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
+                        isLightBg ? "text-foreground" : "text-white"
                       )}
-                      style={{ color: textColor }}
                     >
                       {!isLoading && formattedValue}
                     </div>
                     <div 
-                      className="text-[8px] md:text-[10px] font-semibold truncate"
-                      style={{ color: labelColor }}
+                      className={cn(
+                        "text-[8px] md:text-[10px] font-semibold truncate",
+                        isLightBg ? "text-muted-foreground" : "text-white/75"
+                      )}
                     >
                       {getDynamicLabel(metricType)}
                     </div>
@@ -470,15 +459,17 @@ function CubeFaceComponent({
                     className={cn(
                       "font-bold leading-tight truncate",
                       isLoading && "animate-pulse bg-white/30 rounded w-12 h-4",
-                      metricCount <= 2 ? "text-lg md:text-xl" : "text-base md:text-lg"
+                      metricCount <= 2 ? "text-lg md:text-xl" : "text-base md:text-lg",
+                      isLightBg ? "text-foreground" : "text-white"
                     )}
-                    style={{ color: textColor }}
                   >
                     {!isLoading && formattedValue}
                   </div>
                   <div 
-                    className="text-[9px] md:text-[10px] font-semibold truncate"
-                    style={{ color: labelColor }}
+                    className={cn(
+                      "text-[9px] md:text-[10px] font-semibold truncate",
+                      isLightBg ? "text-muted-foreground" : "text-white/75"
+                    )}
                   >
                     {getDynamicLabel(metricType)}
                   </div>
@@ -499,10 +490,12 @@ function CubeFaceComponent({
                 e.stopPropagation();
                 onIndicatorClick(index);
               }}
-              className="w-1 h-1 md:w-1.5 md:h-1.5 rounded-full transition-all duration-300"
-              style={{
-                backgroundColor: index === currentFace ? accentColor : `${accentColor}40`,
-              }}
+              className={cn(
+                "w-1 h-1 md:w-1.5 md:h-1.5 rounded-full transition-all duration-300",
+                index === currentFace 
+                  ? (isLightBg ? "bg-foreground" : "bg-white") 
+                  : (isLightBg ? "bg-foreground/30" : "bg-white/40")
+              )}
             />
           ))}
         </div>
@@ -549,7 +542,7 @@ export function DataCube3DDemo() {
           <DataCube3D
             title="Performance Overview"
             faces={demoFaces}
-            accentColor="#14B8A6"
+            accentColor="primary"
             salesData={demoSalesData}
           />
         </div>
@@ -560,7 +553,7 @@ export function DataCube3DDemo() {
           <DataCube3D
             title="Sales Metrics"
             faces={demoFaces.slice(0, 3)}
-            accentColor="#8B5CF6"
+            accentColor="accent"
             salesData={demoSalesData}
           />
         </div>
@@ -571,7 +564,7 @@ export function DataCube3DDemo() {
           <DataCube3D
             title="Quick Stats"
             faces={demoFaces.slice(0, 2)}
-            accentColor="#F59E0B"
+            accentColor="destructive"
             salesData={demoSalesData}
           />
         </div>
@@ -582,7 +575,7 @@ export function DataCube3DDemo() {
           <DataCube3D
             title="Daily Summary"
             faces={demoFaces.slice(0, 1)}
-            accentColor="#EC4899"
+            accentColor="secondary"
             salesData={demoSalesData}
           />
         </div>
