@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { BarChart3, ClipboardCheck, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, BookOpen, Briefcase, Download, RefreshCw, Building2, User, Gamepad2, LayoutDashboard } from 'lucide-react';
+import { BarChart3, CheckSquare, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, NotebookPen, Briefcase, Download, RefreshCw, Building2, User, Gamepad2, LayoutDashboard } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -295,11 +295,11 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   }, {
     path: '/tasks',
     label: 'Tasks',
-    icon: ClipboardCheck
+    icon: CheckSquare
   }, ...(canAccessLogs ? [{
     path: '/logbook',
     label: 'Logs',
-    icon: BookOpen
+    icon: NotebookPen
   }] : []), {
     path: '/messages',
     label: 'Chat',
@@ -313,11 +313,11 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   }, {
     path: '/tasks',
     label: 'Tasks',
-    icon: ClipboardCheck
+    icon: CheckSquare
   }, ...(canAccessLogs ? [{
     path: '/logbook',
     label: 'Logs',
-    icon: Scroll
+    icon: NotebookPen
   }] : []), {
     path: '/schedule',
     label: 'Schedule',
@@ -359,11 +359,11 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   }, {
     path: '/tasks',
     label: 'Tasks',
-    icon: ClipboardCheck
+    icon: CheckSquare
   }, ...(canAccessLogs ? [{
     path: '/logbook',
     label: 'Logs',
-    icon: Scroll
+    icon: NotebookPen
   }] : []), {
     path: '/schedule',
     label: 'Schedule',
