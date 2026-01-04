@@ -525,9 +525,9 @@ All colors MUST be HSL.
   }
   
   .nav-logo-inline img {
-    width: 28px;
-    height: 28px;
-    object-fit: contain;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
   
   .dark .nav-bar-unified {
@@ -645,5 +645,10 @@ All colors MUST be HSL.
 
   .animate-fly-across {
     animation: fly-across 2s ease-in-out forwards;
+  }
+
+  /* Rounded square crop area for app icons */
+  .crop-rounded-square .reactEasyCrop_CropArea {
+    border-radius: 1rem !important;
   }
 }
