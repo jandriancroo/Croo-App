@@ -424,7 +424,7 @@ export const Layout = ({
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
             const showBadge = item.path === '/messages' && unreadCount > 0;
-            return <Button key={item.path} variant={isActive ? 'secondary' : 'glass'} onClick={() => navigate(item.path)} className="gap-2 relative">
+            return <Button key={item.path} variant={isActive ? 'secondary' : 'glossy'} onClick={() => navigate(item.path)} className="gap-2 relative">
                   <Icon className="h-4 w-4 flex-shrink-0" />
                   <span className="hidden lg:inline">{item.label}</span>
                   {showBadge && (
@@ -439,7 +439,7 @@ export const Layout = ({
             {!isChecklistOnlyLocation && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant={['/my-wallet', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname) ? 'secondary' : 'glass'} className="gap-2">
+                  <Button variant={['/my-wallet', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname) ? 'secondary' : 'glossy'} className="gap-2">
                     <Clock className="h-4 w-4 flex-shrink-0" />
                     <span className="hidden lg:inline">Time</span>
                     <ChevronDown className="h-3 w-3 flex-shrink-0" />
