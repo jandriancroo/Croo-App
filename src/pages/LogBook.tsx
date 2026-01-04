@@ -1115,26 +1115,23 @@ export default function LogBook() {
                         <SheetTitle>Select Entry Type</SheetTitle>
                       </SheetHeader>
                       <div className="mt-6 grid grid-cols-2 gap-3">
-                        {/* Bank Deposit - preset virtual category */}
-                        <button
-                          onClick={() => {
-                            setSelectedCategory('bank-deposit');
-                            setWizardStep('form');
-                          }}
-                          className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 border-teal-500/50 bg-teal-500/10 hover:border-teal-500 hover:bg-teal-500/20 transition-all text-center min-h-[100px]"
-                        >
-                          <div className="text-teal-500">
-                            <Building2 className="h-6 w-6" />
-                          </div>
-                          <span className="font-medium text-sm">Bank Deposit</span>
-                        </button>
-                        
-                        {categories.map((category: any) => {
+                        {/* Sort categories: cash handling items at bottom */}
+                        {[...categories]
+                          .sort((a: any, b: any) => {
+                            const cashHandlingNames = ['drawer count', 'safe count', 'bank deposit'];
+                            const aIsCash = cashHandlingNames.some(name => a.name.toLowerCase().includes(name));
+                            const bIsCash = cashHandlingNames.some(name => b.name.toLowerCase().includes(name));
+                            if (aIsCash && !bIsCash) return 1;
+                            if (!aIsCash && bIsCash) return -1;
+                            return (a.display_order || 0) - (b.display_order || 0);
+                          })
+                          .map((category: any) => {
                           // Map category names to icons
                           const getCategoryIcon = (name: string) => {
                             const lower = name.toLowerCase();
                             if (lower.includes('drawer')) return <DollarSign className="h-6 w-6" />;
                             if (lower.includes('safe')) return <ShieldCheck className="h-6 w-6" />;
+                            if (lower.includes('bank') || lower.includes('deposit')) return <Building2 className="h-6 w-6" />;
                             if (lower.includes('refund')) return <FileText className="h-6 w-6" />;
                             if (lower.includes('incident') || lower.includes('accident')) return <AlertTriangle className="h-6 w-6" />;
                             if (lower.includes('inventory') || lower.includes('waste')) return <Package className="h-6 w-6" />;
@@ -1143,6 +1140,11 @@ export default function LogBook() {
                             return <ClipboardList className="h-6 w-6" />;
                           };
                           
+                          // Check if this is a cash handling category for special styling
+                          const isCashHandling = ['drawer', 'safe', 'bank', 'deposit'].some(term => 
+                            category.name.toLowerCase().includes(term)
+                          );
+                          
                           return (
                             <button
                               key={category.id}
@@ -1150,9 +1152,13 @@ export default function LogBook() {
                                 setSelectedCategory(category.id);
                                 setWizardStep('form');
                               }}
-                              className="flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 border-border bg-card hover:border-primary hover:bg-accent transition-all text-center min-h-[100px]"
+                              className={`flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all text-center min-h-[100px] ${
+                                isCashHandling 
+                                  ? "border-teal-500/50 bg-teal-500/10 hover:border-teal-500 hover:bg-teal-500/20" 
+                                  : "border-border bg-card hover:border-primary hover:bg-accent"
+                              }`}
                             >
-                              <div className="text-primary">
+                              <div className={isCashHandling ? "text-teal-500" : "text-primary"}>
                                 {getCategoryIcon(category.name)}
                               </div>
                               <span className="font-medium text-sm">{category.name}</span>
