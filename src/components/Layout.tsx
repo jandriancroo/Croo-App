@@ -398,7 +398,7 @@ export const Layout = ({
       icon: Briefcase
     }] : []), {
       path: '/games',
-      label: 'Games',
+      label: 'Arcade',
       icon: Gamepad2
     }, {
       path: '/settings',
@@ -659,7 +659,7 @@ export const Layout = ({
                 )}
                 <DropdownMenuItem onClick={() => navigate('/games')} className="gap-2 cursor-pointer">
                   <Gamepad2 className="h-4 w-4" />
-                  Games
+                  Arcade
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate('/settings')} className="gap-2 cursor-pointer">
                   <SettingsIcon className="h-4 w-4" />
