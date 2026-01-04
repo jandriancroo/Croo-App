@@ -815,12 +815,53 @@ export default function CompleteChecklist() {
               <div className="border-t border-border" />
               
               {/* Card with content - this gets blurred when completed */}
-              <Card className={`overflow-hidden relative ${isImageItem && !hasResponse ? '' : ''} ${isImageItem && hasResponse && (item.options?.minPhotos || 1) <= 1 ? 'sm:w-fit' : ''}`}>
+              <Card className="overflow-hidden relative">
               {hasResponse && <div 
-                  className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 gap-3" 
+                  className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-3 sm:p-4 gap-2 sm:gap-3" 
                   style={{ pointerEvents: 'auto' }}
                 >
-                    <div className="flex items-center gap-3">
+                    {/* Desktop/Tablet: Photo + User Info side by side, centered */}
+                    {isImageItem && currentPhotos.length > 0 && (item.options?.minPhotos || 1) <= 1 ? (
+                      <div className="hidden sm:flex items-center gap-4 justify-center">
+                        {/* Photo thumbnail */}
+                        <img 
+                          src={currentPhotos[0]} 
+                          alt="Completed" 
+                          className="w-[180px] h-[180px] object-cover rounded-lg shadow-lg"
+                        />
+                        {/* Checkmark + User info */}
+                        <div className="flex flex-col items-center gap-2">
+                          <div 
+                            className={`bg-green-600/80 rounded-full p-3 shadow-lg ${canUndoItems ? 'cursor-pointer hover:bg-green-600/90 transition-colors' : ''}`}
+                            onClick={() => canUndoItems && handleUndoClick(item.id)}
+                            title={canUndoItems ? 'Click to undo' : undefined}
+                          >
+                            <CheckCircle2 className="h-8 w-8 text-white" />
+                          </div>
+                          {completerInfo && (
+                            <div className="gap-2 bg-background/80 backdrop-blur-sm rounded-lg shadow-md py-[4px] px-[6px] flex-row flex items-center justify-center">
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={completerInfo.profilePhoto || undefined} />
+                                <AvatarFallback className="text-xs">
+                                  {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="text-left">
+                                <div className="text-sm font-medium">
+                                  {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Mobile layout OR non-single-photo items: original stacked layout */}
+                    <div className={`flex items-center gap-3 ${isImageItem && currentPhotos.length > 0 && (item.options?.minPhotos || 1) <= 1 ? 'sm:hidden' : ''}`}>
                       <div 
                         className={`bg-green-600/80 rounded-full p-4 shadow-lg ${canUndoItems ? 'cursor-pointer hover:bg-green-600/90 transition-colors' : ''}`}
                         onClick={() => canUndoItems && handleUndoClick(item.id)}
@@ -890,7 +931,7 @@ export default function CompleteChecklist() {
                       </button>}
                   </div>}
                 
-                <CardHeader className={`${hasResponse && isImageItem && (item.options?.minPhotos || 1) <= 1 ? 'sm:p-3' : 'pb-3'} ${hasResponse ? 'pointer-events-none' : ''}`}>
+                <CardHeader className={`pb-3 ${hasResponse ? 'pointer-events-none' : ''}`}>
                   {/* Reference Material Display */}
                   {(item.reference_image_url || item.reference_link || item.reference_video_url) && <div className="space-y-2 bg-muted/30 p-2 rounded text-xs">
                       <div className="font-medium text-muted-foreground">Reference:</div>
@@ -915,7 +956,7 @@ export default function CompleteChecklist() {
                         </div>}
                     </div>}
                 </CardHeader>
-                <CardContent className={`${hasResponse && isImageItem && (item.options?.minPhotos || 1) <= 1 ? 'sm:p-3 sm:pt-0' : 'pt-0'} ${hasResponse ? 'pointer-events-none' : ''}`}>
+                <CardContent className={`pt-0 ${hasResponse ? 'pointer-events-none' : ''}`}>
                   {item.item_type === 'text' && <Textarea value={responses[item.id] || ''} onChange={e => handleResponseChange(item.id, e.target.value)} placeholder="Enter your response" required={item.is_required} className="min-h-[60px] text-sm" />}
                   {item.item_type === 'multiple_choice' && item.options && <RadioGroup value={responses[item.id] || ''} onValueChange={value => handleResponseChange(item.id, value)} required={item.is_required} className="space-y-1.5">
                       {item.options.map(option => <div key={option} className="flex items-center space-x-2">
