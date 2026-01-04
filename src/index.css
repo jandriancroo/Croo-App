@@ -570,6 +570,8 @@ All colors MUST be HSL.
     left: 0;
     right: 0;
     z-index: 50;
+    /* Account for iOS safe area (home indicator) */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     /* Use GPU acceleration for stable positioning */
     -webkit-transform: translate3d(0, 0, 0);
     transform: translate3d(0, 0, 0);
