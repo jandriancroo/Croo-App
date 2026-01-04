@@ -105,59 +105,77 @@ export const usePushNotifications = () => {
         const registration = await navigator.serviceWorker.ready;
         console.log('[Push Web] ✅ Service worker ready');
 
-        // FORCE unsubscribe any existing subscription to get fresh keys
-        const existingSub = await registration.pushManager.getSubscription();
-        if (existingSub) {
-          console.log('[Push Web] Found existing subscription, unsubscribing to get fresh one...');
-          await existingSub.unsubscribe();
-          console.log('[Push Web] ✅ Unsubscribed from old subscription');
+        // Check for existing subscription first - reuse if valid
+        let subscription = await registration.pushManager.getSubscription();
+        
+        if (subscription) {
+          console.log('[Push Web] ✅ Reusing existing subscription:', subscription.endpoint);
+        } else {
+          // Only create new subscription if none exists
+          console.log('[Push Web] Creating new push subscription...');
+          subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+          });
+          console.log('[Push Web] ✅ New push subscription created:', subscription.endpoint);
         }
 
-        // Subscribe to push notifications with new keys
-        console.log('[Push Web] Creating FRESH push subscription...');
-        
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
-        });
-
-        console.log('[Push Web] ✅ Push subscription created:', subscription.endpoint);
-
-        // Save subscription to database - use token as unique key to support multiple devices
+        // Save subscription to database - deduplicate by endpoint
         const subscriptionData = JSON.stringify(subscription);
+        const endpoint = subscription.endpoint;
         console.log('[Push Web] Saving subscription to database...');
         
-        // First try to find existing token for this exact subscription
-        const { data: existingToken } = await supabase
+        // Delete any old tokens for this user with the same endpoint (different keys)
+        // This prevents duplicate tokens for the same browser
+        await supabase
           .from('push_notification_tokens')
-          .select('id')
+          .delete()
           .eq('user_id', userId)
-          .eq('token', subscriptionData)
-          .maybeSingle();
+          .like('token', `%${endpoint.substring(0, 80)}%`);
         
-        let error;
-        if (existingToken) {
-          // Update existing token (updates updated_at)
-          const result = await supabase
-            .from('push_notification_tokens')
-            .update({ updated_at: new Date().toISOString() })
-            .eq('id', existingToken.id);
-          error = result.error;
-        } else {
-          // Insert new token for this device
-          const result = await supabase
+        // Limit tokens per user to prevent accumulation (keep latest 10 per user)
+        const { data: userTokens } = await supabase
+          .from('push_notification_tokens')
+          .select('id, created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+        
+        if (userTokens && userTokens.length >= 10) {
+          const tokensToDelete = userTokens.slice(9).map(t => t.id);
+          if (tokensToDelete.length > 0) {
+            await supabase
+              .from('push_notification_tokens')
+              .delete()
+              .in('id', tokensToDelete);
+            console.log(`[Push Web] Cleaned up ${tokensToDelete.length} old tokens`);
+          }
+        }
+        
+        // Upsert the current token
+        const { error } = await supabase
+          .from('push_notification_tokens')
+          .upsert({
+            user_id: userId,
+            token: subscriptionData,
+            platform: 'web',
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'user_id,token'
+          });
+
+        if (error) {
+          // If upsert fails (no unique constraint), try insert
+          const { error: insertError } = await supabase
             .from('push_notification_tokens')
             .insert({
               user_id: userId,
               token: subscriptionData,
               platform: 'web',
             });
-          error = result.error;
-        }
-
-        if (error) {
-          console.error('[Push Web] ❌ Failed to save subscription:', error);
-          throw error;
+          if (insertError) {
+            console.error('[Push Web] ❌ Failed to save subscription:', insertError);
+            throw insertError;
+          }
         }
 
         console.log('[Push Web] ✅ Subscription saved to database');
