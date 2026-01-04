@@ -838,42 +838,44 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <span className="text-base">Powered by</span>
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
-      <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
-        {/* Dash/Org Bubble Popup - swaps based on current route */}
-        {showOrgBubble && hasMultiLocationAccess && (
-          <div className="absolute bottom-full left-3 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
-            <button
-              onClick={() => {
-                // Navigate to opposite view
-                navigate(location.pathname === '/multi-location' ? '/dashboard' : '/multi-location');
-                setShowOrgBubble(false);
-              }}
-              className="flex items-center gap-2 px-4 py-2.5 bg-background rounded-xl shadow-lg border border-border text-foreground font-medium"
-            >
-              {location.pathname === '/multi-location' ? (
-                <>
-                  <LayoutDashboard className="h-5 w-5" />
-                  <span>Dash</span>
-                </>
-              ) : (
-                <>
-                  <Building2 className="h-5 w-5" />
-                  <span>Org Dash</span>
-                </>
-              )}
-            </button>
-            {/* Triangle pointer */}
-            <div className="absolute -bottom-2 left-6 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-background" />
-          </div>
-        )}
-        <DockContent 
-          mobileMainNavItems={mobileMainNavItems}
-          hasMultiLocationAccess={hasMultiLocationAccess}
-          showOrgBubble={showOrgBubble}
-          setShowOrgBubble={setShowOrgBubble}
-          unreadCount={unreadCount}
-        />
-      </nav>
+      {!roleLoading && (
+        <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+          {/* Dash/Org Bubble Popup - swaps based on current route */}
+          {showOrgBubble && hasMultiLocationAccess && (
+            <div className="absolute bottom-full left-3 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+              <button
+                onClick={() => {
+                  // Navigate to opposite view
+                  navigate(location.pathname === '/multi-location' ? '/dashboard' : '/multi-location');
+                  setShowOrgBubble(false);
+                }}
+                className="flex items-center gap-2 px-4 py-2.5 bg-background rounded-xl shadow-lg border border-border text-foreground font-medium"
+              >
+                {location.pathname === '/multi-location' ? (
+                  <>
+                    <LayoutDashboard className="h-5 w-5" />
+                    <span>Dash</span>
+                  </>
+                ) : (
+                  <>
+                    <Building2 className="h-5 w-5" />
+                    <span>Org Dash</span>
+                  </>
+                )}
+              </button>
+              {/* Triangle pointer */}
+              <div className="absolute -bottom-2 left-6 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-background" />
+            </div>
+          )}
+          <DockContent 
+            mobileMainNavItems={mobileMainNavItems}
+            hasMultiLocationAccess={hasMultiLocationAccess}
+            showOrgBubble={showOrgBubble}
+            setShowOrgBubble={setShowOrgBubble}
+            unreadCount={unreadCount}
+          />
+        </nav>
+      )}
 
       {/* Location Picker Dialog */}
       <LocationPickerDialog
