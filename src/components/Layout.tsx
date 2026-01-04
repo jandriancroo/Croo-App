@@ -56,7 +56,7 @@ export const Layout = ({
   const [hasMultiLocationAccess, setHasMultiLocationAccess] = useState(false);
 const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
-  const [showOrgDash, setShowOrgDash] = useState(false); // Toggle for mobile long-press
+  const [showOrgBubble, setShowOrgBubble] = useState(false); // Popup bubble for long-press
 
   // Auto-show update toast when new version detected
   useEffect(() => {
@@ -537,15 +537,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     </Button>
                   )}
 
-          {hasMultiLocationAccess && (
-                    <Button variant="outline" onClick={() => {
-                      navigate('/multi-location');
-                      setMenuOpen(false);
-                    }} className="justify-start gap-3 h-11">
-                      <Building2 className="h-5 w-5" />
-                      <span className="text-base">Org Dash</span>
-                    </Button>
-                  )}
 
                   {/* Time collapsible section */}
                   {mobileTimeItems.length > 0 && (
@@ -640,12 +631,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   <User className="h-4 w-4" />
                   My Profile
                 </DropdownMenuItem>
-                {hasMultiLocationAccess && (
-                  <DropdownMenuItem onClick={() => navigate('/multi-location')} className="gap-2 cursor-pointer">
-                    <Building2 className="h-4 w-4 flex-shrink-0" />
-                    <span className="whitespace-nowrap">Org Dash</span>
-                  </DropdownMenuItem>
-                )}
                 {isAdmin && (
                   <>
                     <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
@@ -693,23 +678,39 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         <img src={crooLogo} alt="Croo" className="h-14 w-auto" />
       </footer>
       <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        {/* Org Dash Bubble Popup */}
+        {showOrgBubble && hasMultiLocationAccess && (
+          <div className="absolute bottom-full left-3 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-200">
+            <button
+              onClick={() => {
+                navigate('/multi-location');
+                setShowOrgBubble(false);
+              }}
+              className="flex items-center gap-2 px-4 py-2.5 bg-background rounded-xl shadow-lg border border-border text-foreground font-medium"
+            >
+              <Building2 className="h-5 w-5" />
+              <span>Org Dash</span>
+            </button>
+            {/* Triangle pointer */}
+            <div className="absolute -bottom-2 left-6 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-background" />
+          </div>
+        )}
         <div className="mx-3 mb-2 bg-accent rounded-2xl shadow-lg shadow-black/20 border border-accent-foreground/10">
           <div className="flex items-center justify-evenly px-2 py-2">
             {mobileMainNavItems.map(item => {
             const Icon = item.icon;
             const isDashItem = item.path === '/dashboard';
-            const effectivePath = isDashItem && showOrgDash && hasMultiLocationAccess ? '/multi-location' : item.path;
-            const effectiveLabel = isDashItem && showOrgDash && hasMultiLocationAccess ? 'Org' : item.label;
-            const EffectiveIcon = isDashItem && showOrgDash && hasMultiLocationAccess ? Building2 : Icon;
-            const isActive = location.pathname === effectivePath;
+            const isActive = location.pathname === item.path;
             const showBadge = item.path === '/messages' && unreadCount > 0;
             
-            // Long-press handler for Dash button
+            // Long-press handler for Dash button to show bubble
             let longPressTimer: ReturnType<typeof setTimeout> | null = null;
-            const handleTouchStart = () => {
+            const handleTouchStart = (e: React.TouchEvent) => {
               if (isDashItem && hasMultiLocationAccess) {
+                // Prevent text selection
+                e.preventDefault();
                 longPressTimer = setTimeout(() => {
-                  setShowOrgDash(prev => !prev);
+                  setShowOrgBubble(prev => !prev);
                   // Haptic feedback if available
                   if (navigator.vibrate) navigator.vibrate(50);
                 }, 500);
@@ -725,20 +726,28 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             return (
               <button
                 key={item.path}
-                onClick={() => navigate(effectivePath)}
+                onClick={() => {
+                  // Close bubble if open and navigating
+                  if (showOrgBubble) setShowOrgBubble(false);
+                  navigate(item.path);
+                }}
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
                 onTouchCancel={handleTouchEnd}
-                className={`flex-1 flex flex-col items-center gap-1.5 py-1.5 rounded-xl transition-colors relative ${
+                className={`flex-1 flex flex-col items-center gap-1.5 py-1.5 rounded-xl transition-colors relative select-none ${
                   isActive 
                     ? 'bg-white/20 text-white' 
                     : 'text-white/70 hover:text-white'
                 }`}
               >
-                <EffectiveIcon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
-                <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{effectiveLabel}</span>
+                <Icon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
+                <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
                 {showBadge && (
                   <span className="absolute top-1 right-1/4 h-2.5 w-2.5 bg-destructive rounded-full" />
+                )}
+                {/* Small indicator for long-press capability */}
+                {isDashItem && hasMultiLocationAccess && (
+                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 bg-primary rounded-full opacity-60" />
                 )}
               </button>
             );
