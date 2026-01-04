@@ -42,7 +42,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
 
   return (
     <div className="glass-dock overflow-hidden">
-      <div className="relative z-10 flex items-center justify-evenly px-2 pt-3 pb-1">
+      <div className="relative z-10 flex items-center justify-evenly px-2 pt-3 pb-0">
         {/* Toast overlay that slides in */}
         <div 
           className={`absolute inset-0 flex items-center justify-center gap-2 bg-primary text-primary-foreground transition-transform duration-300 ease-out ${
