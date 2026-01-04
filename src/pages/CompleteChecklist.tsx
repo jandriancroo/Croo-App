@@ -941,13 +941,13 @@ export default function CompleteChecklist() {
 
                         {/* Display existing photos */}
                         {currentPhotos.length > 0 && (
-                          <div className={`grid gap-2 ${isMultiPhoto ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1'}`}>
+                          <div className={`grid gap-2 ${isMultiPhoto ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1 sm:max-w-[200px]'}`}>
                             {currentPhotos.map((photoUrl, idx) => (
                               <div key={idx} className="relative">
                                 <img
                                   src={photoUrl}
                                   alt={`Checklist photo ${idx + 1}`}
-                                  className="rounded border w-full aspect-square object-cover"
+                                  className={`rounded border object-cover ${isMultiPhoto ? 'w-full aspect-square' : 'w-full aspect-square sm:w-[200px] sm:h-[200px]'}`}
                                   loading="lazy"
                                 />
                                 <div className="absolute top-1 left-1 bg-background/80 text-xs px-1.5 py-0.5 rounded">
