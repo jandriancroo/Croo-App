@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
-import { Building2, MapPin, ChevronRight, Star } from 'lucide-react';
+import { Building2, MapPin, ChevronRight, Star, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/lib/auth';
@@ -40,9 +41,13 @@ export function LocationPickerDialog({
   onSelectLocation,
   currentLocationId,
 }: LocationPickerDialogProps) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { role } = useUserRole();
   const isMobile = useIsMobile();
+  
+  // Check if user has multi-location access
+  const hasMultiLocationAccess = role === 'super_admin' || role === 'brand_admin' || role === 'org_admin';
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -201,21 +206,37 @@ export function LocationPickerDialog({
           {organizations.length > 0 ? (
             organizations.map((org) => (
               <div key={org.id} className="space-y-1">
-                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground px-1">
+                <button
+                  className={`flex items-center gap-2 text-xs font-medium px-1 w-full text-left group ${
+                    hasMultiLocationAccess 
+                      ? 'hover:bg-muted/50 rounded-md py-1 -my-1 cursor-pointer transition-colors' 
+                      : 'text-muted-foreground cursor-default'
+                  }`}
+                  onClick={() => {
+                    if (hasMultiLocationAccess) {
+                      onOpenChange(false);
+                      navigate('/multi-location');
+                    }
+                  }}
+                  disabled={!hasMultiLocationAccess}
+                >
                   {org.logo_url ? (
                     <img src={org.logo_url} alt="" className="h-4 w-4 object-contain rounded" />
                   ) : (
                     <Building2 className="h-3 w-3" />
                   )}
                   {org.brand_name ? (
-                    <span>
+                    <span className="flex-1">
                       <span className="text-foreground font-semibold">{org.brand_name}</span>
                       <span className="text-muted-foreground"> — {org.name}</span>
                     </span>
                   ) : (
-                    org.name
+                    <span className="flex-1 text-muted-foreground">{org.name}</span>
                   )}
-                </div>
+                  {hasMultiLocationAccess && (
+                    <ExternalLink className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  )}
+                </button>
                 <div className="space-y-0.5 pl-5">
                   {locationsByOrg[org.id]?.map((location) => (
                     <Button
