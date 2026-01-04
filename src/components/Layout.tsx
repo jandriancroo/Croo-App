@@ -483,15 +483,6 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
             {/* Right side items */}
             <div className="flex items-center gap-1 px-2">
-              {/* Alerts button */}
-              {!isChecklistOnlyLocation && (
-                <button onClick={() => navigate('/alerts')} title="Live Alerts" className="relative p-2 hover:opacity-80 transition-opacity">
-                  <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-destructive"></span>
-                  </span>
-                </button>
-              )}
 
               {/* Location Selector */}
               {currentLocation && (
@@ -523,6 +514,15 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                   </DropdownMenuItem>
                   {isAdmin && (
                     <>
+                      {!isChecklistOnlyLocation && (
+                        <DropdownMenuItem onClick={() => navigate('/alerts')} className="gap-2 cursor-pointer">
+                          <span className="relative flex h-4 w-4 items-center justify-center">
+                            <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-destructive opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-destructive"></span>
+                          </span>
+                          Live Alerts
+                        </DropdownMenuItem>
+                      )}
                       <DropdownMenuItem onClick={() => navigate('/users')} className="gap-2 cursor-pointer">
                         <Users className="h-4 w-4" />
                         User Management
