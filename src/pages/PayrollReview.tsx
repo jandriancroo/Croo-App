@@ -454,19 +454,38 @@ export default function PayrollReview() {
   const fetchTimeCards = async () => {
     if (!selectedPeriod || !currentLocation) return;
 
-    // Get users at current location
+    // Get users assigned to current location
     const { data: userLocations } = await supabase
       .from('user_locations')
       .select('user_id')
       .eq('location_id', currentLocation.id);
 
-    const userIds = userLocations?.map(ul => ul.user_id) || [];
+    const assignedUserIds = new Set(userLocations?.map(ul => ul.user_id) || []);
+
+    // Also get users who have punches at this location in the selected period
+    // (they may have punched in without being assigned to the location)
+    const { data: punchUsers } = await supabase
+      .from('time_punches')
+      .select('user_id')
+      .eq('location_id', currentLocation.id)
+      .gte('punch_time', selectedPeriod.start.toISOString())
+      .lte('punch_time', selectedPeriod.end.toISOString());
+
+    const punchUserIds = new Set(punchUsers?.map(p => p.user_id) || []);
+    
+    // Combine both sets of user IDs
+    const allUserIds = [...new Set([...assignedUserIds, ...punchUserIds])];
+
+    if (allUserIds.length === 0) {
+      setTimeCards([]);
+      return;
+    }
 
     const { data: profiles } = await supabase
       .from('profiles')
       .select('*')
       .eq('is_active', true)
-      .in('id', userIds)
+      .in('id', allUserIds)
       .order('full_name');
 
     if (!profiles) return;
