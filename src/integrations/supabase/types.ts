@@ -468,6 +468,7 @@ export type Database = {
           group_image_url: string | null
           id: string
           is_announcement: boolean
+          is_arcade: boolean
           is_group: boolean
           location_id: string | null
           title: string | null
@@ -479,6 +480,7 @@ export type Database = {
           group_image_url?: string | null
           id?: string
           is_announcement?: boolean
+          is_arcade?: boolean
           is_group?: boolean
           location_id?: string | null
           title?: string | null
@@ -490,6 +492,7 @@ export type Database = {
           group_image_url?: string | null
           id?: string
           is_announcement?: boolean
+          is_arcade?: boolean
           is_group?: boolean
           location_id?: string | null
           title?: string | null

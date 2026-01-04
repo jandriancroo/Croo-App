@@ -3,17 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Users, Megaphone } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
-
-interface Chat {
-  id: string;
-  title: string | null;
-  is_group: boolean;
-  is_announcement: boolean;
-  group_image_url: string | null;
-}
+import { Gamepad2, Send, Loader2 } from 'lucide-react';
 
 interface ShareScoreDialogProps {
   open: boolean;
@@ -24,70 +14,117 @@ interface ShareScoreDialogProps {
 }
 
 export function ShareScoreDialog({ open, onOpenChange, gameType, score, gameName }: ShareScoreDialogProps) {
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
 
-  useEffect(() => {
-    if (open) {
-      fetchChats();
+  const getOrCreateArcadeChat = async (userId: string, locationId: string): Promise<string | null> => {
+    // Check if an arcade chat already exists for this location
+    const { data: existingChat, error: findError } = await supabase
+      .from('chats')
+      .select('id')
+      .eq('location_id', locationId)
+      .eq('is_arcade', true)
+      .maybeSingle();
+
+    if (findError) {
+      console.error('Error finding arcade chat:', findError);
+      return null;
     }
-  }, [open]);
 
-  const fetchChats = async () => {
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Get chats the user is a member of
-      const { data: memberChats, error } = await supabase
+    if (existingChat) {
+      // Make sure current user is a member
+      const { data: membership } = await supabase
         .from('chat_members')
-        .select(`
-          chat_id,
-          chats!inner(id, title, is_group, is_announcement, group_image_url)
-        `)
-        .eq('user_id', user.id);
+        .select('id')
+        .eq('chat_id', existingChat.id)
+        .eq('user_id', userId)
+        .maybeSingle();
 
-      if (error) throw error;
-
-      // Filter out announcements and format the data
-      const formattedChats = (memberChats || [])
-        .map((mc: any) => mc.chats)
-        .filter((chat: Chat) => !chat.is_announcement);
-
-      setChats(formattedChats);
-    } catch (error) {
-      console.error('Error fetching chats:', error);
-      toast.error('Failed to load chats');
-    } finally {
-      setLoading(false);
+      if (!membership) {
+        await supabase.from('chat_members').insert({
+          chat_id: existingChat.id,
+          user_id: userId,
+        });
+      }
+      return existingChat.id;
     }
+
+    // Create new arcade chat for this location
+    const { data: newChat, error: createError } = await supabase
+      .from('chats')
+      .insert({
+        title: 'Arcade 🕹️',
+        is_group: true,
+        is_arcade: true,
+        is_announcement: false,
+        location_id: locationId,
+        created_by: userId,
+      })
+      .select('id')
+      .single();
+
+    if (createError || !newChat) {
+      console.error('Error creating arcade chat:', createError);
+      return null;
+    }
+
+    // Add all users at this location to the arcade chat
+    const { data: locationUsers } = await supabase
+      .from('user_locations')
+      .select('user_id')
+      .eq('location_id', locationId);
+
+    if (locationUsers && locationUsers.length > 0) {
+      const memberInserts = locationUsers.map((lu) => ({
+        chat_id: newChat.id,
+        user_id: lu.user_id,
+      }));
+      await supabase.from('chat_members').insert(memberInserts);
+    }
+
+    return newChat.id;
   };
 
-  const handleShare = async (chatId: string) => {
-    setSending(chatId);
+  const handleShare = async () => {
+    setSending(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Get user's name for the message
+      // Get user's profile and location
       const { data: profile } = await supabase
         .from('profiles')
         .select('full_name')
         .eq('id', user.id)
         .single();
 
+      const { data: userLocation } = await supabase
+        .from('user_locations')
+        .select('location_id')
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle();
+
+      if (!userLocation?.location_id) {
+        toast.error('No location found for your account');
+        return;
+      }
+
       const playerName = profile?.full_name || 'Someone';
 
+      // Get or create the arcade chat
+      const arcadeChatId = await getOrCreateArcadeChat(user.id, userLocation.location_id);
+      if (!arcadeChatId) {
+        toast.error('Could not find or create arcade chat');
+        return;
+      }
+
       // Send message with special game score format
-      // Format: GAME_SCORE:gameType:score:playerName
       const content = `GAME_SCORE:${gameType}:${score}:${playerName}`;
 
       const { error } = await supabase
         .from('messages')
         .insert({
-          chat_id: chatId,
+          chat_id: arcadeChatId,
           sender_id: user.id,
           content,
         });
@@ -99,7 +136,7 @@ export function ShareScoreDialog({ open, onOpenChange, gameType, score, gameName
         const { data: members } = await supabase
           .from('chat_members')
           .select('user_id')
-          .eq('chat_id', chatId)
+          .eq('chat_id', arcadeChatId)
           .neq('user_id', user.id);
 
         if (members && members.length > 0) {
@@ -116,7 +153,7 @@ export function ShareScoreDialog({ open, onOpenChange, gameType, score, gameName
               title: `${playerName} scored!`,
               body: `${score.toLocaleString()} pts in ${displayName}`,
               notification_type: 'chat_messages',
-              data: { chat_id: chatId, type: 'message' }
+              data: { chat_id: arcadeChatId, type: 'message' }
             }
           });
         }
@@ -124,77 +161,66 @@ export function ShareScoreDialog({ open, onOpenChange, gameType, score, gameName
         console.error('Error sending push notification:', notifError);
       }
 
-      toast.success('Score shared!');
+      toast.success('Score shared to Arcade!');
       onOpenChange(false);
     } catch (error) {
       console.error('Error sharing score:', error);
       toast.error('Failed to share score');
     } finally {
-      setSending(null);
+      setSending(false);
     }
   };
+
+  const displayGameName = gameName || (
+    gameType === 'snake' ? 'Snake' : 
+    gameType === 'minesweeper' ? 'Minesweeper' : 
+    gameType === 'basketball' ? 'Hoops' : 
+    gameType === 'marcman' ? 'MarcMAN' :
+    gameType === 'karen-dungeon' ? 'Karen Dungeon 3D' : 'Super Karen Destroy 3'
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Share Your Score</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Gamepad2 className="h-5 w-5 text-primary" />
+            Share Your Score
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="py-2">
-          <p className="text-sm text-muted-foreground mb-4">
-            Brag about your <span className="font-semibold text-primary">{score.toLocaleString()} pts</span> in {
-              gameName || (
-                gameType === 'snake' ? 'Snake' : 
-                gameType === 'minesweeper' ? 'Minesweeper' : 
-                gameType === 'basketball' ? 'Hoops' : 
-                gameType === 'marcman' ? 'MarcMAN' :
-                gameType === 'karen-dungeon' ? 'Karen Dungeon 3D' : 'Super Karen Destroy 3'
-              )
-            }!
+        <div className="py-4 space-y-4">
+          <div className="text-center p-4 rounded-lg bg-primary/10 border border-primary/20">
+            <p className="text-3xl font-bold text-primary mb-1">
+              {score.toLocaleString()} pts
+            </p>
+            <p className="text-sm text-muted-foreground">
+              in {displayGameName}
+            </p>
+          </div>
+
+          <p className="text-sm text-muted-foreground text-center">
+            Share your score to the <span className="font-semibold">Arcade 🕹️</span> chat where your team competes!
           </p>
 
-          {loading ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Loading chats...
-            </div>
-          ) : chats.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No chats available
-            </div>
-          ) : (
-            <ScrollArea className="h-[300px] pr-4">
-              <div className="space-y-2">
-                {chats.map((chat) => (
-                  <button
-                    key={chat.id}
-                    onClick={() => handleShare(chat.id)}
-                    disabled={sending !== null}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
-                  >
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={chat.group_image_url || undefined} />
-                      <AvatarFallback>
-                        {chat.is_group ? (
-                          <Users className="h-5 w-5" />
-                        ) : (
-                          chat.title?.charAt(0) || 'C'
-                        )}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="flex-1 text-left truncate font-medium">
-                      {chat.title || 'Chat'}
-                    </span>
-                    {sending === chat.id ? (
-                      <span className="text-xs text-muted-foreground">Sending...</span>
-                    ) : (
-                      <Send className="h-4 w-4 text-muted-foreground" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
+          <Button 
+            onClick={handleShare} 
+            disabled={sending}
+            className="w-full"
+            size="lg"
+          >
+            {sending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Sharing...
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4 mr-2" />
+                Share to Arcade
+              </>
+            )}
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
