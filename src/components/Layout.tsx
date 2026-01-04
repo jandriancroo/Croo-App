@@ -184,7 +184,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     enabled: !!user?.id,
   });
 
-  // Fetch organization logo based on current location
+  // Fetch organization logo based on current location (with brand fallback)
   const { data: orgLogo } = useQuery({
     queryKey: ['org-logo', currentLocation?.id],
     queryFn: async () => {
@@ -200,9 +200,29 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       
       const { data: orgData } = await supabase
         .from('organizations')
-        .select('logo_url, name, brand_name')
+        .select('logo_url, name, brand_name, brand_id')
         .eq('id', locationData.organization_id)
         .single();
+      
+      if (!orgData) return null;
+      
+      // If org has a brand_id, fetch the brand logo
+      if (orgData.brand_id) {
+        const { data: brandData } = await supabase
+          .from('brands')
+          .select('logo_url, name')
+          .eq('id', orgData.brand_id)
+          .single();
+        
+        // Use brand logo if available, otherwise fall back to org logo
+        if (brandData?.logo_url) {
+          return {
+            logo_url: brandData.logo_url,
+            name: orgData.name,
+            brand_name: brandData.name
+          };
+        }
+      }
       
       return orgData;
     },
