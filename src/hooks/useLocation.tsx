@@ -37,16 +37,57 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
-      const { data, error } = await supabase
-        .from('user_locations')
-        .select('location_id, locations(id, name, location_type, store_number)')
-        .eq('user_id', user.id);
+      // First check if user has all_locations_enabled
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('all_locations_enabled, default_location_id')
+        .eq('id', user.id)
+        .single();
 
-      if (error) throw error;
+      let locs: Location[] = [];
 
-      const locs = data
-        ?.map((ul: any) => ul.locations)
-        .filter(Boolean) as Location[];
+      if (profile?.all_locations_enabled) {
+        // User has access to all locations - get all locations in the org
+        // First get user's organization(s) via their assigned locations
+        const { data: userLocs } = await supabase
+          .from('user_locations')
+          .select('locations(organization_id)')
+          .eq('user_id', user.id)
+          .limit(1);
+
+        const orgId = userLocs?.[0]?.locations?.organization_id;
+        
+        if (orgId) {
+          // Get all locations in this organization
+          const { data: orgLocations, error: orgError } = await supabase
+            .from('locations')
+            .select('id, name, location_type, store_number')
+            .eq('organization_id', orgId);
+
+          if (orgError) throw orgError;
+          locs = (orgLocations || []) as Location[];
+        } else {
+          // Fallback: get all locations if no org found
+          const { data: allLocs, error: allError } = await supabase
+            .from('locations')
+            .select('id, name, location_type, store_number');
+          
+          if (allError) throw allError;
+          locs = (allLocs || []) as Location[];
+        }
+      } else {
+        // Standard behavior: only assigned locations
+        const { data, error } = await supabase
+          .from('user_locations')
+          .select('location_id, locations(id, name, location_type, store_number)')
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+
+        locs = data
+          ?.map((ul: any) => ul.locations)
+          .filter(Boolean) as Location[];
+      }
 
       setLocations(locs || []);
 
@@ -55,13 +96,6 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
       if (savedLocationId && locs?.find(l => l.id === savedLocationId)) {
         setCurrentLocationState(locs.find(l => l.id === savedLocationId)!);
       } else {
-        // Check for user's default location
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('default_location_id')
-          .eq('id', user.id)
-          .single();
-        
         const defaultLoc = profile?.default_location_id 
           ? locs?.find(l => l.id === profile.default_location_id)
           : null;

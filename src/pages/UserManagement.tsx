@@ -23,6 +23,7 @@ import { Copy } from 'lucide-react';
 import { BulkActionsBar } from '@/components/users/BulkActionsBar';
 import { BulkWageUpdateDialog } from '@/components/users/BulkWageUpdateDialog';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -128,6 +129,7 @@ export default function UserManagement() {
   const [editEmployeePin, setEditEmployeePin] = useState<string>('');
   const [availableLocations, setAvailableLocations] = useState<any[]>([]);
   const [editUserLocations, setEditUserLocations] = useState<string[]>([]);
+  const [editAllLocationsEnabled, setEditAllLocationsEnabled] = useState(false);
   const [creatingTestUser, setCreatingTestUser] = useState(false);
   const [testUserCounter, setTestUserCounter] = useState(1);
   const { toast } = useToast();
@@ -586,18 +588,27 @@ export default function UserManagement() {
     setEditBirthday(user.birthday ? new Date(user.birthday) : undefined);
     setEditEmployeePin(user.employee_pin || '');
     
-    // Fetch user's assigned locations
+    // Fetch user's assigned locations and all_locations_enabled flag
     try {
-      const { data, error } = await supabase
-        .from('user_locations')
-        .select('location_id')
-        .eq('user_id', user.id);
+      const [locResult, profileResult] = await Promise.all([
+        supabase
+          .from('user_locations')
+          .select('location_id')
+          .eq('user_id', user.id),
+        supabase
+          .from('profiles')
+          .select('all_locations_enabled')
+          .eq('id', user.id)
+          .single()
+      ]);
       
-      if (error) throw error;
-      setEditUserLocations(data?.map(ul => ul.location_id) || []);
+      if (locResult.error) throw locResult.error;
+      setEditUserLocations(locResult.data?.map(ul => ul.location_id) || []);
+      setEditAllLocationsEnabled(profileResult.data?.all_locations_enabled || false);
     } catch (error: any) {
       console.error('Error fetching user locations:', error);
       setEditUserLocations([]);
+      setEditAllLocationsEnabled(false);
     }
     
     setEditDialogOpen(true);
@@ -637,6 +648,7 @@ export default function UserManagement() {
           phone_number: editPhoneNumber.trim() || null,
           birthday: editBirthday ? getDateInPST(editBirthday) : null,
           employee_pin: editEmployeePin.trim() || null,
+          all_locations_enabled: editAllLocationsEnabled,
         })
         .eq('id', editingUser.id);
 
@@ -677,6 +689,7 @@ export default function UserManagement() {
       setEditPhoneNumber('');
       setEditBirthday(undefined);
       setEditUserLocations([]);
+      setEditAllLocationsEnabled(false);
       fetchUsers();
     } catch (error: any) {
       console.error('Error updating user:', error);
@@ -1953,34 +1966,57 @@ export default function UserManagement() {
                 </p>
               </div>
               {availableLocations.length > 0 && (
-                <div className="space-y-2">
-                  <Label>Assigned Locations</Label>
-                  <div className="border rounded-lg p-3 space-y-2">
-                    {availableLocations.map((location) => (
-                      <div key={location.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`location-${location.id}`}
-                          checked={editUserLocations.includes(location.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setEditUserLocations([...editUserLocations, location.id]);
-                            } else {
-                              setEditUserLocations(editUserLocations.filter(id => id !== location.id));
-                            }
-                          }}
-                        />
-                        <label
-                          htmlFor={`location-${location.id}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                        >
-                          {location.name}
-                        </label>
-                      </div>
-                    ))}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Location Access</Label>
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="all-locations" className="text-sm font-normal text-muted-foreground">
+                        All Locations
+                      </Label>
+                      <Switch
+                        id="all-locations"
+                        checked={editAllLocationsEnabled}
+                        onCheckedChange={setEditAllLocationsEnabled}
+                      />
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Select which locations this employee can work at
-                  </p>
+                  
+                  {editAllLocationsEnabled ? (
+                    <div className="border rounded-lg p-3 bg-muted/50">
+                      <p className="text-sm text-muted-foreground text-center">
+                        This employee can access all locations in the organization
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="border rounded-lg p-3 space-y-2">
+                        {availableLocations.map((location) => (
+                          <div key={location.id} className="flex items-center space-x-2">
+                            <Checkbox
+                              id={`location-${location.id}`}
+                              checked={editUserLocations.includes(location.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setEditUserLocations([...editUserLocations, location.id]);
+                                } else {
+                                  setEditUserLocations(editUserLocations.filter(id => id !== location.id));
+                                }
+                              }}
+                            />
+                            <label
+                              htmlFor={`location-${location.id}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                            >
+                              {location.name}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Select which locations this employee can work at
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
               <div className="space-y-2">

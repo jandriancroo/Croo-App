@@ -2633,6 +2633,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          all_locations_enabled: boolean
           appears_on_schedule: boolean
           birthday: string | null
           created_at: string | null
@@ -2655,6 +2656,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          all_locations_enabled?: boolean
           appears_on_schedule?: boolean
           birthday?: string | null
           created_at?: string | null
@@ -2677,6 +2679,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          all_locations_enabled?: boolean
           appears_on_schedule?: boolean
           birthday?: string | null
           created_at?: string | null
