@@ -372,23 +372,24 @@ function CubeFaceComponent({
         transform: `rotateY(${rotateY}deg) translateZ(${cubeDepth}px)`,
         backfaceVisibility: 'hidden',
         boxShadow: `
-          inset 0 4px 8px rgba(0,0,0,0.3),
-          inset 0 8px 16px rgba(0,0,0,0.2),
-          inset 0 -2px 4px rgba(255,255,255,0.1),
-          inset 4px 0 8px rgba(0,0,0,0.15),
-          inset -4px 0 8px rgba(0,0,0,0.15),
-          0 1px 2px rgba(255,255,255,0.1)
+          inset 0 2px 4px rgba(0,0,0,0.15),
+          inset 0 4px 8px rgba(0,0,0,0.1),
+          inset 2px 0 4px rgba(0,0,0,0.08),
+          inset -2px 0 4px rgba(0,0,0,0.08),
+          inset 0 -1px 2px rgba(255,255,255,0.08)
         `,
       }}
     >
-      {/* Soft inner bevel highlight at edges */}
+      {/* Right angle gloss effect in top right corner */}
       <div 
-        className="absolute inset-0 pointer-events-none rounded-xl"
+        className="absolute top-0 right-0 pointer-events-none"
         style={{
-          boxShadow: `
-            inset 0 1px 1px rgba(255,255,255,0.15),
-            inset 0 -1px 1px rgba(0,0,0,0.2)
+          width: '40%',
+          height: '40%',
+          background: `
+            linear-gradient(225deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.1) 30%, transparent 50%)
           `,
+          clipPath: 'polygon(100% 0, 0 0, 100% 100%)',
         }}
       />
       
