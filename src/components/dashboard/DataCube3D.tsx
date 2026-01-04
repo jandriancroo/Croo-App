@@ -372,14 +372,35 @@ function CubeFaceComponent({
         transform: `rotateY(${rotateY}deg) translateZ(${cubeDepth}px)`,
         backfaceVisibility: 'hidden',
         boxShadow: `
-          0 4px 12px rgba(0,0,0,0.15),
-          inset 0 1px 0 rgba(255,255,255,0.25),
-          inset 0 -1px 0 rgba(0,0,0,0.15),
-          inset 1px 0 0 rgba(255,255,255,0.1),
-          inset -1px 0 0 rgba(0,0,0,0.1)
+          inset 0 4px 8px rgba(0,0,0,0.3),
+          inset 0 8px 16px rgba(0,0,0,0.2),
+          inset 0 -2px 4px rgba(255,255,255,0.1),
+          inset 4px 0 8px rgba(0,0,0,0.15),
+          inset -4px 0 8px rgba(0,0,0,0.15),
+          0 1px 2px rgba(255,255,255,0.1)
         `,
       }}
     >
+      {/* Frosted glass overlay for recessed effect */}
+      <div 
+        className="absolute inset-0 pointer-events-none rounded-xl"
+        style={{
+          background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.1) 100%)',
+          backdropFilter: 'blur(1px)',
+        }}
+      />
+      
+      {/* Soft inner bevel highlight at edges */}
+      <div 
+        className="absolute inset-0 pointer-events-none rounded-xl"
+        style={{
+          boxShadow: `
+            inset 0 1px 1px rgba(255,255,255,0.15),
+            inset 0 -1px 1px rgba(0,0,0,0.2)
+          `,
+        }}
+      />
+      
       {/* Title */}
       {title && (
         <div 
