@@ -61,6 +61,33 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
   const [isLoadingQuDeposit, setIsLoadingQuDeposit] = useState(false);
   const [quDepositLoaded, setQuDepositLoaded] = useState(false);
   const [showEnvelopeFormat, setShowEnvelopeFormat] = useState(false);
+  const [userName, setUserName] = useState<string>("");
+
+  // Fetch current user's name
+  useEffect(() => {
+    const fetchUserName = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile?.full_name) {
+          const parts = profile.full_name.trim().split(' ');
+          if (parts.length >= 2) {
+            const firstName = parts[0];
+            const lastInitial = parts[parts.length - 1].charAt(0).toUpperCase();
+            setUserName(`${firstName} ${lastInitial}`);
+          } else {
+            setUserName(parts[0]);
+          }
+        }
+      }
+    };
+    fetchUserName();
+  }, []);
 
   // Auto-fetch expected deposit from Qu tills on load
   useEffect(() => {
@@ -318,7 +345,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
                   <div className="border-2 border-foreground/20 rounded-lg p-4 bg-background shadow-sm">
                     <div className="flex justify-between items-start mb-6">
                       <span className="font-medium text-sm">{new Date().toLocaleDateString()}</span>
-                      <span className="font-medium text-sm">Your Name</span>
+                      <span className="font-medium text-sm">{userName || "Your Name"}</span>
                     </div>
                     <div className="text-center">
                       <span className="text-3xl font-bold">{formatCurrency(calculations.actualDeposit)}</span>
