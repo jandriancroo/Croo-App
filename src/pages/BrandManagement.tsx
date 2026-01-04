@@ -210,22 +210,24 @@ export default function BrandManagement() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold">Brand Management</h1>
-            <p className="text-muted-foreground">
-              Create and manage brands for your organizations
-            </p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/settings')} className="shrink-0">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold">Brand Management</h1>
+              <p className="text-muted-foreground text-sm">
+                Create and manage brands for your organizations
+              </p>
+            </div>
           </div>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) resetForm();
           }}>
             <DialogTrigger asChild>
-              <Button onClick={openCreateDialog}>
+              <Button onClick={openCreateDialog} className="shrink-0 w-full sm:w-auto">
                 <Plus className="h-4 w-4 mr-2" />
                 New Brand
               </Button>
