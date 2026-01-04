@@ -420,43 +420,63 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
               />
             </button>
           </div>
-          <nav className="hidden items-center gap-1 md:flex flex-1 min-w-0">
-            {mainNavItems.map(item => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.path;
-            const showBadge = item.path === '/messages' && unreadCount > 0;
-            return <Button key={item.path} variant={isActive ? 'secondary' : 'ghost'} onClick={() => navigate(item.path)} className="gap-2 relative">
-                  <Icon className="h-4 w-4 flex-shrink-0" />
-                  <span className="hidden lg:inline">{item.label}</span>
-                  {showBadge && (
-                    <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
-                      {unreadCount > 99 ? '99+' : unreadCount}
-                    </Badge>
-                  )}
-                </Button>;
-          })}
+          <nav className="hidden items-center gap-2 md:flex flex-1 min-w-0">
+            <div className="glass-nav rounded-xl px-1.5 py-1 flex items-center gap-0.5">
+              {mainNavItems.map(item => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                const showBadge = item.path === '/messages' && unreadCount > 0;
+                return (
+                  <button 
+                    key={item.path} 
+                    onClick={() => navigate(item.path)} 
+                    className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
+                      isActive 
+                        ? 'bg-white/25 text-primary-foreground font-medium' 
+                        : 'text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 flex-shrink-0" />
+                    <span className="hidden lg:inline text-sm">{item.label}</span>
+                    {showBadge && (
+                      <Badge variant="destructive" className="absolute -top-1 -right-1 h-5 min-w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </Badge>
+                    )}
+                  </button>
+                );
+              })}
             
-            {/* Time dropdown - hidden for checklist-only locations */}
-            {!isChecklistOnlyLocation && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant={['/my-wallet', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname) ? 'secondary' : 'ghost'} className="gap-2">
-                    <Clock className="h-4 w-4 flex-shrink-0" />
-                    <span className="hidden lg:inline">Time</span>
-                    <ChevronDown className="h-3 w-3 flex-shrink-0" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="center">
-                  {timeMenuItems.map(item => {
-                  const Icon = item.icon;
-                  return <DropdownMenuItem key={item.path} onClick={() => navigate(item.path)} className="gap-2 cursor-pointer">
-                        <Icon className="h-4 w-4" />
-                        {item.label}
-                      </DropdownMenuItem>;
-                })}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+              {/* Time dropdown - hidden for checklist-only locations */}
+              {!isChecklistOnlyLocation && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button 
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
+                        ['/my-wallet', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname)
+                          ? 'bg-white/25 text-primary-foreground font-medium' 
+                          : 'text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground'
+                      }`}
+                    >
+                      <Clock className="h-4 w-4 flex-shrink-0" />
+                      <span className="hidden lg:inline text-sm">Time</span>
+                      <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="center">
+                    {timeMenuItems.map(item => {
+                      const Icon = item.icon;
+                      return (
+                        <DropdownMenuItem key={item.path} onClick={() => navigate(item.path)} className="gap-2 cursor-pointer">
+                          <Icon className="h-4 w-4" />
+                          {item.label}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
             
             {/* Alerts button - hidden for checklist-only locations */}
             {!isChecklistOnlyLocation && (
@@ -705,8 +725,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
             <div className="absolute -bottom-2 left-6 w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-background" />
           </div>
         )}
-        <div className="mx-3 mb-2 bg-accent rounded-2xl shadow-lg shadow-black/20 border border-accent-foreground/10">
-          <div className="flex items-center justify-evenly px-2 py-2">
+        <div className="mx-3 mb-2 glass-dock rounded-2xl">
+          <div className="relative z-10 flex items-center justify-evenly px-2 py-2">
             {mobileMainNavItems.map(item => {
             const isDashItem = item.path === '/dashboard';
             const isOnOrgDash = location.pathname === '/multi-location';
@@ -752,8 +772,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                 onTouchCancel={handleTouchEnd}
                 className={`flex-1 flex flex-col items-center gap-1.5 py-1.5 rounded-xl transition-colors relative select-none ${
                   isActive 
-                    ? 'bg-white/20 text-white' 
-                    : 'text-white/70 hover:text-white'
+                    ? 'bg-foreground/15 text-foreground' 
+                    : 'text-foreground/60 hover:text-foreground'
                 }`}
               >
                 <Icon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
