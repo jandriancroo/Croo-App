@@ -10,14 +10,10 @@ import { useAuth } from '@/lib/auth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, GripVertical, ArrowUpDown, Building2, Tag, FlaskConical } from 'lucide-react';
+import { MapPin, ExternalLink as ExternalLinkIcon, Thermometer, Shield, Wrench, Building2, Tag, FlaskConical } from 'lucide-react';
 import { openDiagnosticMode } from '@/components/DiagnosticMode';
 
 import { UnifiedNotificationSettings } from '@/components/settings/UnifiedNotificationSettings';
-
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 const themes = [
   { value: 'default', label: 'Default' },
@@ -30,39 +26,7 @@ const themes = [
   { value: 'blaze', label: 'Blaze Pizza' },
 ];
 
-const DEFAULT_SECTION_ORDER = ['theme', 'notifications', 'brands', 'organizations', 'maintenance'];
-const STORAGE_KEY = 'settings-section-order';
-
-interface SortableSectionProps {
-  id: string;
-  isEditMode: boolean;
-  children: React.ReactNode;
-}
-
-function SortableSection({ id, isEditMode, children }: SortableSectionProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} className="relative">
-      {isEditMode && (
-        <div
-          {...attributes}
-          {...listeners}
-          className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 cursor-grab active:cursor-grabbing"
-        >
-          <GripVertical className="h-5 w-5 text-muted-foreground" />
-        </div>
-      )}
-      <div className={isEditMode ? 'pl-10' : ''}>{children}</div>
-    </div>
-  );
-}
+const SECTION_ORDER = ['theme', 'notifications', 'brands', 'organizations', 'maintenance'];
 
 export default function Settings() {
   const navigate = useNavigate();
@@ -72,24 +36,6 @@ export default function Settings() {
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [locations, setLocations] = useState<any[]>([]);
   const [organizations, setOrganizations] = useState<any[]>([]);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [sectionOrder, setSectionOrder] = useState<string[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      const validSections = parsed.filter((id: string) => DEFAULT_SECTION_ORDER.includes(id));
-      DEFAULT_SECTION_ORDER.forEach(id => {
-        if (!validSections.includes(id)) validSections.push(id);
-      });
-      return validSections;
-    }
-    return DEFAULT_SECTION_ORDER;
-  });
-
-  const sensors = useSensors(
-    useSensor(PointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -136,19 +82,6 @@ export default function Settings() {
     localStorage.setItem('app-theme', value);
     document.documentElement.setAttribute('data-theme', value);
     toast('Theme updated');
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      setSectionOrder((items) => {
-        const oldIndex = items.indexOf(active.id as string);
-        const newIndex = items.indexOf(over.id as string);
-        const newOrder = arrayMove(items, oldIndex, newIndex);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(newOrder));
-        return newOrder;
-      });
-    }
   };
 
   const renderSectionContent = (sectionId: string) => {
@@ -352,7 +285,7 @@ export default function Settings() {
   };
 
   // Filter visible sections based on role and location type
-  const visibleSections = sectionOrder.filter(id => {
+  const visibleSections = SECTION_ORDER.filter(id => {
     // For checklist-only locations, show limited settings
     if (isChecklistOnlyLocation) {
       if (id === 'theme') return true;
@@ -373,39 +306,18 @@ export default function Settings() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">Settings</h1>
-            <p className="text-muted-foreground">Manage your preferences</p>
-          </div>
-          {isAdmin && (
-            <Button
-              variant={isEditMode ? "default" : "outline"}
-              size="sm"
-              onClick={() => setIsEditMode(!isEditMode)}
-            >
-              <ArrowUpDown className="h-4 w-4 mr-2" />
-              {isEditMode ? 'Done' : 'Reorder'}
-            </Button>
-          )}
+        <div>
+          <h1 className="text-3xl font-bold">Settings</h1>
+          <p className="text-muted-foreground">Manage your preferences</p>
         </div>
 
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={visibleSections} strategy={verticalListSortingStrategy}>
-            <div className="grid gap-4">
-              {visibleSections.map((sectionId) => {
-                const content = renderSectionContent(sectionId);
-                if (!content) return null;
-                return (
-                  <SortableSection key={sectionId} id={sectionId} isEditMode={isEditMode}>
-                    {content}
-                  </SortableSection>
-                );
-              })}
-            </div>
-          </SortableContext>
-        </DndContext>
-
+        <div className="grid gap-4">
+          {visibleSections.map((sectionId) => {
+            const content = renderSectionContent(sectionId);
+            if (!content) return null;
+            return <div key={sectionId}>{content}</div>;
+          })}
+        </div>
       </div>
     </Layout>
   );
