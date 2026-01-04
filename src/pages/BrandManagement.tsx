@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ArrowLeft, Plus, Tag, Upload, X, Wand2, Loader2, Save, Pencil, Building2 } from 'lucide-react';
+import { ArrowLeft, Plus, Tag, Upload, X, Wand2, Loader2, Save, Pencil, Building2, Crop } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { compressImage } from '@/utils/imageCompression';
 import { removeBackground, loadImageFromUrl } from '@/utils/backgroundRemoval';
 import { useUserRole } from '@/hooks/useUserRole';
+import { ImageCropDialog } from '@/components/ImageCropDialog';
 
 export default function BrandManagement() {
   const navigate = useNavigate();
@@ -28,6 +29,8 @@ export default function BrandManagement() {
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isRemovingBg, setIsRemovingBg] = useState(false);
+  const [cropDialogOpen, setCropDialogOpen] = useState(false);
+  const [imageToCrop, setImageToCrop] = useState('');
 
   const { data: brands = [], isLoading } = useQuery({
     queryKey: ['brands-management'],
@@ -65,11 +68,19 @@ export default function BrandManagement() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Create preview URL and open crop dialog
+    const previewUrl = URL.createObjectURL(file);
+    setImageToCrop(previewUrl);
+    setCropDialogOpen(true);
+    
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
     setIsUploading(true);
     try {
-      const compressed = await compressImage(file, 800, 800);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `brand-${Date.now()}.${fileExt}`;
+      const compressed = await compressImage(new File([croppedBlob], 'logo.jpg', { type: 'image/jpeg' }), 800, 800);
+      const fileName = `brand-${Date.now()}.jpg`;
       const filePath = `brands/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
@@ -88,7 +99,10 @@ export default function BrandManagement() {
       toast.error(error.message || 'Failed to upload logo');
     } finally {
       setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+      if (imageToCrop) {
+        URL.revokeObjectURL(imageToCrop);
+        setImageToCrop('');
+      }
     }
   };
 
@@ -275,7 +289,7 @@ export default function BrandManagement() {
                           <X className="h-3 w-3" />
                         </Button>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           variant="outline"
                           size="sm"
@@ -284,6 +298,17 @@ export default function BrandManagement() {
                         >
                           <Upload className="h-4 w-4 mr-2" />
                           Replace
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setImageToCrop(logoUrl);
+                            setCropDialogOpen(true);
+                          }}
+                        >
+                          <Crop className="h-4 w-4 mr-2" />
+                          Crop
                         </Button>
                         <Button
                           variant="secondary"
@@ -324,6 +349,14 @@ export default function BrandManagement() {
               </div>
             </DialogContent>
           </Dialog>
+
+          {/* Image Crop Dialog */}
+          <ImageCropDialog
+            open={cropDialogOpen}
+            onOpenChange={setCropDialogOpen}
+            imageSrc={imageToCrop}
+            onCropComplete={handleCropComplete}
+          />
         </div>
 
         {isLoading ? (
