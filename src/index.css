@@ -446,20 +446,16 @@ All colors MUST be HSL.
     background: hsl(220 25% 16% / 0.8);
   }
   
-  /* Glossy 3D button style - curved shiny look */
+  /* Glossy 3D button style - curved shiny look like iOS/app buttons */
   .glossy-button {
     position: relative;
-    background: linear-gradient(
-      180deg,
-      hsl(var(--muted) / 0.6) 0%,
-      hsl(var(--muted) / 0.9) 100%
-    );
-    border: 1px solid hsl(var(--border) / 0.5);
-    border-radius: var(--radius);
+    background: hsl(220 15% 92%);
+    border: none;
+    border-radius: 12px;
     box-shadow: 
-      0 2px 4px hsl(0 0% 0% / 0.1),
-      0 4px 8px hsl(0 0% 0% / 0.05),
-      inset 0 1px 0 hsl(0 0% 100% / 0.4);
+      0 3px 6px hsl(0 0% 0% / 0.12),
+      0 6px 12px hsl(0 0% 0% / 0.08),
+      inset 0 -2px 4px hsl(0 0% 0% / 0.06);
     overflow: hidden;
     transition: all 0.2s ease;
   }
@@ -467,48 +463,47 @@ All colors MUST be HSL.
   .glossy-button::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 50%;
+    top: 2px;
+    left: 4px;
+    right: 4px;
+    height: 45%;
     background: linear-gradient(
       180deg,
-      hsl(0 0% 100% / 0.35) 0%,
-      hsl(0 0% 100% / 0.05) 100%
+      hsl(0 0% 100% / 0.9) 0%,
+      hsl(0 0% 100% / 0.3) 100%
     );
-    border-radius: var(--radius) var(--radius) 50% 50% / var(--radius) var(--radius) 20% 20%;
+    border-radius: 10px 10px 50% 50% / 10px 10px 100% 100%;
     pointer-events: none;
   }
   
   .glossy-button:hover {
     box-shadow: 
       0 4px 8px hsl(0 0% 0% / 0.15),
-      0 6px 12px hsl(0 0% 0% / 0.1),
-      inset 0 1px 0 hsl(0 0% 100% / 0.5);
+      0 8px 16px hsl(0 0% 0% / 0.1),
+      inset 0 -2px 4px hsl(0 0% 0% / 0.08);
     transform: translateY(-1px);
   }
   
   .glossy-button:active {
     transform: translateY(0);
     box-shadow: 
-      0 1px 2px hsl(0 0% 0% / 0.1),
-      inset 0 1px 0 hsl(0 0% 100% / 0.3);
+      0 2px 4px hsl(0 0% 0% / 0.1),
+      inset 0 -1px 2px hsl(0 0% 0% / 0.04);
   }
   
   .dark .glossy-button {
-    background: linear-gradient(
-      180deg,
-      hsl(var(--muted) / 0.7) 0%,
-      hsl(var(--muted) / 1) 100%
-    );
-    border-color: hsl(var(--border) / 0.3);
+    background: hsl(220 15% 22%);
+    box-shadow: 
+      0 3px 6px hsl(0 0% 0% / 0.3),
+      0 6px 12px hsl(0 0% 0% / 0.2),
+      inset 0 -2px 4px hsl(0 0% 0% / 0.2);
   }
   
   .dark .glossy-button::before {
     background: linear-gradient(
       180deg,
-      hsl(0 0% 100% / 0.15) 0%,
-      hsl(0 0% 100% / 0.02) 100%
+      hsl(0 0% 100% / 0.25) 0%,
+      hsl(0 0% 100% / 0.05) 100%
     );
   }
 
