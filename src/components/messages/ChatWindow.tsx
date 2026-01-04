@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { MentionInput } from './MentionInput';
@@ -13,6 +13,8 @@ import { GroupSettingsDialog } from './GroupSettingsDialog';
 import { MessageContent } from './MessageContent';
 import { ReadReceipts } from './ReadReceipts';
 import { AnnouncementStats } from './AnnouncementStats';
+import { SmackTalkPicker } from './SmackTalkPicker';
+import { SmackTalkPopup } from './SmackTalkPopup';
 import { useUserRole } from '@/hooks/useUserRole';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import {
@@ -53,6 +55,7 @@ interface ChatDetails {
   title: string | null;
   is_group: boolean;
   is_announcement: boolean;
+  is_arcade?: boolean;
   group_image_url: string | null;
   created_by: string;
 }
@@ -74,6 +77,9 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [smackTalkPopup, setSmackTalkPopup] = useState<{ text: string; senderName: string } | null>(null);
+  const [processedSmackTalks, setProcessedSmackTalks] = useState<Set<string>>(new Set());
+  const [isArcadeChat, setIsArcadeChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -86,6 +92,41 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       if (user) setCurrentUserId(user.id);
     });
   }, []);
+
+  // Check if this is an arcade chat
+  useEffect(() => {
+    const checkArcadeChat = async () => {
+      if (!chatId) return;
+      const { data } = await supabase
+        .from('chats')
+        .select('is_arcade')
+        .eq('id', chatId)
+        .single();
+      setIsArcadeChat(data?.is_arcade || false);
+    };
+    checkArcadeChat();
+  }, [chatId]);
+
+  // Show smack talk popup for new messages
+  const handleNewSmackTalk = useCallback((message: Message) => {
+    if (!message.content?.startsWith('SMACK_TALK:')) return;
+    if (message.sender_id === currentUserId) return;
+    if (processedSmackTalks.has(message.id)) return;
+    
+    const smackText = message.content.replace('SMACK_TALK:', '');
+    const senderName = message.profiles?.full_name || 'Someone';
+    
+    setProcessedSmackTalks(prev => new Set([...prev, message.id]));
+    setSmackTalkPopup({ text: smackText, senderName });
+  }, [currentUserId, processedSmackTalks]);
+
+  useEffect(() => {
+    // Check for new smack talks in latest message
+    if (messages.length > 0) {
+      const latestMessage = messages[messages.length - 1];
+      handleNewSmackTalk(latestMessage);
+    }
+  }, [messages, handleNewSmackTalk]);
 
   useEffect(() => {
     // Mark announcement as opened
@@ -360,6 +401,62 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     }
   };
 
+  const handleSmackTalk = async (smackText: string) => {
+    setSending(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const content = `SMACK_TALK:${smackText}`;
+
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          chat_id: chatId,
+          sender_id: user.id,
+          content,
+        });
+
+      if (error) throw error;
+
+      // Send push notifications
+      try {
+        const { data: members } = await supabase
+          .from('chat_members')
+          .select('user_id')
+          .eq('chat_id', chatId)
+          .neq('user_id', user.id);
+
+        if (members && members.length > 0) {
+          const { data: senderProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .single();
+
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              user_ids: members.map(m => m.user_id),
+              title: `⚡ ${senderProfile?.full_name || 'Someone'} says:`,
+              body: smackText,
+              notification_type: 'chat_messages',
+              data: { chat_id: chatId, type: 'smack_talk' }
+            }
+          });
+        }
+      } catch (notifError) {
+        console.error('Error sending push notification:', notifError);
+      }
+
+      scrollToBottom();
+    } catch (error: any) {
+      console.error('Error sending smack talk:', error);
+      toast.error('Failed to send smack talk');
+    } finally {
+      setSending(false);
+    }
+  };
+
   const handleDeleteChat = async () => {
     try {
       const { error } = await supabase
@@ -596,7 +693,11 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                       </div>
                     )}
                     {message.content && !message.attachment_url && (
-                      <MessageContent content={message.content} chatId={chatId} />
+                      <MessageContent 
+                        content={message.content} 
+                        chatId={chatId} 
+                        senderName={message.profiles?.full_name}
+                      />
                     )}
                   </div>
                   {!chatDetails?.is_announcement && (
@@ -668,6 +769,9 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             <Paperclip className="h-4 w-4" />
           </Button>
           <GifPicker onSelect={handleGifSelect} />
+          {isArcadeChat && (
+            <SmackTalkPicker onSelect={handleSmackTalk} disabled={sending} />
+          )}
           <MentionInput
             value={newMessage}
             onChange={setNewMessage}
@@ -715,6 +819,15 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           chatTitle={chatDetails.title || ''}
           groupImageUrl={chatDetails.group_image_url}
           onUpdate={onChatUpdated}
+        />
+      )}
+
+      {/* Smack Talk Popup */}
+      {smackTalkPopup && (
+        <SmackTalkPopup
+          text={smackTalkPopup.text}
+          senderName={smackTalkPopup.senderName}
+          onComplete={() => setSmackTalkPopup(null)}
         />
       )}
     </div>

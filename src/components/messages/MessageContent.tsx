@@ -3,10 +3,12 @@ import { supabase } from '@/integrations/supabase/client';
 
 import { ShiftOfferMessage } from "./ShiftOfferMessage";
 import { GameScoreMessage } from "./GameScoreMessage";
+import { SmackTalkMessage } from "./SmackTalkMessage";
 
 interface MessageContentProps {
   content: string;
   chatId: string;
+  senderName?: string;
 }
 
 interface Profile {
@@ -14,7 +16,7 @@ interface Profile {
   full_name: string;
 }
 
-export function MessageContent({ content, chatId }: MessageContentProps) {
+export function MessageContent({ content, chatId, senderName }: MessageContentProps) {
   // Check if this is a shift offer message
   if (content?.startsWith("SHIFT_OFFER:")) {
     const offerId = content.replace("SHIFT_OFFER:", "");
@@ -31,6 +33,13 @@ export function MessageContent({ content, chatId }: MessageContentProps) {
       const playerName = parts.slice(2).join(":"); // Handle names with colons
       return <GameScoreMessage gameType={gameType} score={score} playerName={playerName} />;
     }
+  }
+
+  // Check if this is a smack talk message
+  // Format: SMACK_TALK:text
+  if (content?.startsWith("SMACK_TALK:")) {
+    const smackText = content.replace("SMACK_TALK:", "");
+    return <SmackTalkMessage text={smackText} senderName={senderName || 'Someone'} />;
   }
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
