@@ -380,6 +380,16 @@ function CubeFaceComponent({
         `,
       }}
     >
+      {/* Subtle inner bevel line */}
+      <div 
+        className="absolute inset-[2px] pointer-events-none rounded-[10px]"
+        style={{
+          border: '1px solid rgba(255,255,255,0.12)',
+          borderBottomColor: 'rgba(0,0,0,0.1)',
+          borderRightColor: 'rgba(0,0,0,0.05)',
+        }}
+      />
+      
       {/* Right angle gloss effect in top right corner */}
       <div 
         className="absolute top-0 right-0 pointer-events-none"
