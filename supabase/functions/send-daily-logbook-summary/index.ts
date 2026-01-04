@@ -357,9 +357,9 @@ function generateEmailHtml(data: {
     </svg>
   ` : '';
 
-  // Top items table (show top 10 in email, sorted by sales)
+  // Top items table (show top 5 in email, sorted by sales)
   const topItemsHtml = data.topItems.length > 0 
-    ? data.topItems.slice(0, 10).map((item, i) => `
+    ? data.topItems.slice(0, 5).map((item, i) => `
         <tr style="border-bottom: 1px solid #e5e7eb;">
           <td style="padding: 6px 8px; color: #6b7280; font-size: 12px;">${i + 1}</td>
           <td style="padding: 6px 8px; color: #374151; font-size: 12px;">${item.name}</td>

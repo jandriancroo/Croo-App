@@ -671,6 +671,29 @@ export default function CompleteChecklist() {
         if (!tempError && tempData) {
           extractedTemp = tempData.temperature;
           tempValid = tempData.isValid;
+          
+          // Create a quick task if temperature is out of safe zone
+          if (tempValid === false && extractedTemp !== null && checklist?.location_id && user?.id) {
+            const taskTitle = `Check Temp: ${item.question} (${extractedTemp}°F)`;
+            const { error: taskError } = await supabase
+              .from('temporary_tasks')
+              .insert({
+                location_id: checklist.location_id,
+                title: taskTitle,
+                description: `Temperature reading of ${extractedTemp}°F was out of safe zone. Please verify and take corrective action.`,
+                icon_name: 'Thermometer',
+                accent_color: '#ef4444',
+                created_by: user.id,
+                is_active: true,
+                task_style: 'minimal'
+              });
+            
+            if (!taskError) {
+              toast.warning(`Temperature out of range - task created`, {
+                description: taskTitle
+              });
+            }
+          }
         }
       }
 
