@@ -152,7 +152,7 @@ export function ShareScoreDialog({ open, onOpenChange, gameType, score, gameName
               user_ids: members.map(m => m.user_id),
               title: `${playerName} scored!`,
               body: `${score.toLocaleString()} pts in ${displayName}`,
-              notification_type: 'chat_messages',
+              notification_type: 'arcade_scores',
               data: { chat_id: arcadeChatId, type: 'message' }
             }
           });
