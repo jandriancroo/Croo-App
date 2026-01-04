@@ -570,8 +570,6 @@ All colors MUST be HSL.
     left: 0;
     right: 0;
     z-index: 50;
-    /* Account for iOS safe area (home indicator) */
-    padding-bottom: env(safe-area-inset-bottom, 0px);
     /* Use GPU acceleration for stable positioning */
     -webkit-transform: translate3d(0, 0, 0);
     transform: translate3d(0, 0, 0);
@@ -579,6 +577,10 @@ All colors MUST be HSL.
     backface-visibility: hidden;
     /* Prevent any layout shifts */
     will-change: transform;
+    /* Background extends to true bottom of screen */
+    background: hsl(var(--accent));
+    /* Padding inside to push content above safe area */
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* Unified nav bar for desktop/tablet */
