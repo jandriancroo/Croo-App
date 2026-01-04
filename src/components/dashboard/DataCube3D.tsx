@@ -471,7 +471,7 @@ function CubeFaceComponent({
                       </div>
                       <div 
                         className={cn(
-                          "text-[8px] md:text-[9px] font-semibold truncate mt-0.5",
+                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
@@ -510,7 +510,7 @@ function CubeFaceComponent({
                   </div>
                   <div 
                     className={cn(
-                      "text-[8px] md:text-[9px] font-semibold truncate mt-0.5",
+                      "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
                       isLightBg ? "text-muted-foreground" : "text-white/70"
                     )}
                   >
