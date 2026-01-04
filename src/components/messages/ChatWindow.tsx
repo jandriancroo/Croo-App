@@ -704,6 +704,9 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                     <>
                       <div className="flex items-center gap-2 mt-1">
                         <ReactionPicker onSelect={(reaction) => handleReaction(message.id, reaction)} />
+                        {isArcadeChat && (
+                          <SmackTalkPicker onSelect={handleSmackTalk} disabled={sending} />
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -769,9 +772,6 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             <Paperclip className="h-4 w-4" />
           </Button>
           <GifPicker onSelect={handleGifSelect} />
-          {isArcadeChat && (
-            <SmackTalkPicker onSelect={handleSmackTalk} disabled={sending} />
-          )}
           <MentionInput
             value={newMessage}
             onChange={setNewMessage}
