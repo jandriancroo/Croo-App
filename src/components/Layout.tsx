@@ -42,7 +42,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
 
   return (
     <div className="glass-dock overflow-hidden">
-      <div className="relative z-10 flex items-center justify-evenly px-2 py-1.5">
+      <div className="relative z-10 flex items-center justify-evenly px-2 py-1">
         {/* Toast overlay that slides in */}
         <div 
           className={`absolute inset-0 flex items-center justify-center gap-2 bg-primary text-primary-foreground transition-transform duration-300 ease-out ${
@@ -99,7 +99,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
                 onTouchStart={handleTouchStart}
                 onTouchEnd={handleTouchEnd}
                 onTouchCancel={handleTouchEnd}
-                className={`flex-1 flex flex-col items-center gap-1.5 py-1.5 rounded-xl transition-colors relative select-none ${
+                className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded-xl transition-colors relative select-none ${
                   isActive 
                     ? 'bg-white/20 text-accent-foreground' 
                     : 'text-accent-foreground/70 hover:text-accent-foreground'
