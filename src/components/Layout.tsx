@@ -410,8 +410,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
   return <div className="flex min-h-screen flex-col bg-background overflow-x-hidden">
       {/* Desktop/Tablet Header with unified teal nav bar */}
       <header className="sticky top-0 z-50 hidden md:block bg-background" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="container max-w-7xl mx-auto py-2">
-          <div className="nav-bar-unified rounded-2xl flex items-center">
+        <div className="px-4">
+          <div className="nav-bar-unified rounded-lg flex items-center">
             {/* Logo drop area */}
             <div className="nav-logo-drop">
               <button onClick={() => navigate('/dashboard')} className="nav-logo-container hover:opacity-80 transition-opacity">

@@ -79,13 +79,13 @@ export default function BrandManagement() {
   const handleCropComplete = async (croppedBlob: Blob) => {
     setIsUploading(true);
     try {
-      const compressed = await compressImage(new File([croppedBlob], 'logo.jpg', { type: 'image/jpeg' }), 800, 800);
-      const fileName = `brand-${Date.now()}.jpg`;
+      // Upload PNG directly to preserve transparency
+      const fileName = `brand-${Date.now()}.png`;
       const filePath = `brands/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('brand-assets')
-        .upload(filePath, compressed, { upsert: true });
+        .upload(filePath, croppedBlob, { upsert: true });
 
       if (uploadError) throw uploadError;
 

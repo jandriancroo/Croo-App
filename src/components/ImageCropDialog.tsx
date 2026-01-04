@@ -60,7 +60,7 @@ async function getCroppedImg(imageSrc: string, pixelCrop: Area): Promise<Blob> {
         return;
       }
       resolve(blob);
-    }, 'image/jpeg', 0.95);
+    }, 'image/png');
   });
 }
 
