@@ -432,8 +432,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     onClick={() => navigate(item.path)} 
                     className={`relative flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
                       isActive 
-                        ? 'bg-white/25 text-primary-foreground font-medium' 
-                        : 'text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground'
+                        ? 'bg-white/25 text-accent-foreground font-medium' 
+                        : 'text-accent-foreground/80 hover:bg-white/15 hover:text-accent-foreground'
                     }`}
                   >
                     <Icon className="h-4 w-4 flex-shrink-0" />
@@ -454,8 +454,8 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     <button 
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all ${
                         ['/my-wallet', '/availability', '/punch-clock', '/payroll-review'].includes(location.pathname)
-                          ? 'bg-white/25 text-primary-foreground font-medium' 
-                          : 'text-primary-foreground/80 hover:bg-white/15 hover:text-primary-foreground'
+                          ? 'bg-white/25 text-accent-foreground font-medium' 
+                          : 'text-accent-foreground/80 hover:bg-white/15 hover:text-accent-foreground'
                       }`}
                     >
                       <Clock className="h-4 w-4 flex-shrink-0" />
