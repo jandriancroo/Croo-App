@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ClipboardList, Settings, TrendingDown, Package } from "lucide-react";
+import { Plus, ClipboardList, Settings, TrendingDown, Package, CalendarDays, Calendar, CalendarRange } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import InventoryCountSession from "@/components/inventory/InventoryCountSession";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
 import InventoryVarianceReport from "@/components/inventory/InventoryVarianceReport";
+import StartCountDialog from "@/components/inventory/StartCountDialog";
 
 const Inventory = () => {
   const { locationId } = useParams();
@@ -22,6 +23,7 @@ const Inventory = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("count");
   const [activeCountId, setActiveCountId] = useState<string | null>(null);
+  const [showStartDialog, setShowStartDialog] = useState(false);
 
   // Check for in-progress count
   const { data: inProgressCount } = useQuery({
@@ -64,13 +66,15 @@ const Inventory = () => {
 
   // Start new count mutation
   const startCountMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ periodType, periodEndDate }: { periodType: string | null; periodEndDate: string | null }) => {
       const { data, error } = await supabase
         .from("inventory_counts")
         .insert({
           location_id: locationId,
           counted_by: user?.id,
-          count_date: new Date().toISOString().split("T")[0]
+          count_date: new Date().toISOString().split("T")[0],
+          period_type: periodType,
+          period_end_date: periodEndDate,
         })
         .select()
         .single();
@@ -80,8 +84,10 @@ const Inventory = () => {
     },
     onSuccess: (data) => {
       setActiveCountId(data.id);
+      setShowStartDialog(false);
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-existing-periods", locationId] });
       toast.success("Count session started");
     },
     onError: () => {
@@ -98,7 +104,44 @@ const Inventory = () => {
     if (inProgressCount) {
       setActiveCountId(inProgressCount.id);
     } else {
-      startCountMutation.mutate();
+      setShowStartDialog(true);
+    }
+  };
+
+  const handleConfirmStart = (periodType: string | null, periodEndDate: string | null) => {
+    startCountMutation.mutate({ periodType, periodEndDate });
+  };
+
+  // Helper to get period icon
+  const getPeriodIcon = (periodType: string | null) => {
+    switch (periodType) {
+      case "weekly":
+        return <CalendarDays className="h-4 w-4" />;
+      case "monthly":
+        return <Calendar className="h-4 w-4" />;
+      case "yearly":
+        return <CalendarRange className="h-4 w-4" />;
+      default:
+        return null;
+    }
+  };
+
+  // Helper to format period label
+  const formatPeriodLabel = (count: any) => {
+    if (!count.period_type || !count.period_end_date) {
+      return format(new Date(count.count_date), "MMM d, yyyy");
+    }
+    
+    const endDate = new Date(count.period_end_date);
+    switch (count.period_type) {
+      case "weekly":
+        return `Week Ending ${format(endDate, "MMM d, yyyy")}`;
+      case "monthly":
+        return `${format(endDate, "MMMM yyyy")} Month End`;
+      case "yearly":
+        return `${format(endDate, "yyyy")} Year End`;
+      default:
+        return format(new Date(count.count_date), "MMM d, yyyy");
     }
   };
 
@@ -152,7 +195,7 @@ const Inventory = () => {
                         <p className="text-muted-foreground text-sm">
                           {inProgressCount 
                             ? "Resume your in-progress count" 
-                            : "Begin a new counting session"}
+                            : "Select a period and begin counting"}
                         </p>
                       </div>
                       <Button 
@@ -186,17 +229,31 @@ const Inventory = () => {
                               }
                             }}
                           >
-                            <div>
-                              <p className="font-medium">
-                                {format(new Date(count.count_date), "MMM d, yyyy")}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {count.counted_by_profile?.full_name || "Unknown"}
-                              </p>
+                            <div className="flex items-center gap-3">
+                              {count.period_type && (
+                                <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
+                                  {getPeriodIcon(count.period_type)}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-medium">
+                                  {formatPeriodLabel(count)}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {count.counted_by_profile?.full_name || "Unknown"}
+                                </p>
+                              </div>
                             </div>
-                            <Badge variant={count.status === "completed" ? "default" : "secondary"}>
-                              {count.status === "completed" ? "Complete" : "In Progress"}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              {count.period_type && (
+                                <Badge variant="outline" className="text-xs capitalize">
+                                  {count.period_type}
+                                </Badge>
+                              )}
+                              <Badge variant={count.status === "completed" ? "default" : "secondary"}>
+                                {count.status === "completed" ? "Complete" : "In Progress"}
+                              </Badge>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -216,6 +273,14 @@ const Inventory = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <StartCountDialog
+        open={showStartDialog}
+        onOpenChange={setShowStartDialog}
+        locationId={locationId!}
+        onStartCount={handleConfirmStart}
+        isPending={startCountMutation.isPending}
+      />
     </Layout>
   );
 };
