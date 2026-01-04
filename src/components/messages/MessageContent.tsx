@@ -5,10 +5,16 @@ import { ShiftOfferMessage } from "./ShiftOfferMessage";
 import { GameScoreMessage } from "./GameScoreMessage";
 import { SmackTalkMessage } from "./SmackTalkMessage";
 
+interface SmackTalkOverlay {
+  text: string;
+  senderName: string;
+}
+
 interface MessageContentProps {
   content: string;
   chatId: string;
   senderName?: string;
+  smackTalks?: SmackTalkOverlay[];
 }
 
 interface Profile {
@@ -16,7 +22,7 @@ interface Profile {
   full_name: string;
 }
 
-export function MessageContent({ content, chatId, senderName }: MessageContentProps) {
+export function MessageContent({ content, chatId, senderName, smackTalks = [] }: MessageContentProps) {
   // Check if this is a shift offer message
   if (content?.startsWith("SHIFT_OFFER:")) {
     const offerId = content.replace("SHIFT_OFFER:", "");
@@ -31,7 +37,7 @@ export function MessageContent({ content, chatId, senderName }: MessageContentPr
       const gameType = parts[0];
       const score = parseInt(parts[1], 10);
       const playerName = parts.slice(2).join(":"); // Handle names with colons
-      return <GameScoreMessage gameType={gameType} score={score} playerName={playerName} />;
+      return <GameScoreMessage gameType={gameType} score={score} playerName={playerName} smackTalks={smackTalks} />;
     }
   }
 
