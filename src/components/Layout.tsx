@@ -411,7 +411,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
       {/* Desktop/Tablet Header with unified teal nav bar */}
       <header className="sticky top-0 z-50 hidden md:block bg-background" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
         <div className="container max-w-7xl mx-auto px-3 md:px-4">
-          <div className="nav-bar-unified rounded-lg flex items-center px-2">
+          <div className="nav-bar-unified rounded-md flex items-center px-2">
             {/* Logo */}
             <button onClick={() => navigate('/dashboard')} className="nav-logo-inline hover:opacity-80 transition-opacity mr-2">
               <img 
