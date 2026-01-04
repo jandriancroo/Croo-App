@@ -47,7 +47,7 @@ export function TemporaryTaskCard({
       className="overflow-hidden"
       style={{ borderLeft: `4px solid ${accentColor}` }}
     >
-      <CardContent className="py-2 px-3 flex items-center justify-between gap-3">
+      <CardContent className="py-2 px-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {iconStyle === "minimal" ? (
             <Icon className="h-5 w-5 shrink-0" style={{ color: accentColor }} />
@@ -67,8 +67,8 @@ export function TemporaryTaskCard({
               )}
             </div>
           )}
-          <div className="min-w-0 flex items-center gap-1.5 flex-1">
-            <p className="font-medium text-sm truncate">{title}</p>
+          <div className="min-w-0 flex flex-wrap items-center gap-1.5 flex-1">
+            <p className="font-medium text-sm leading-tight">{title}</p>
             {taskStyle === "alarm" && (
               <span 
                 className="px-1 py-0.5 rounded text-[9px] font-medium shrink-0"
