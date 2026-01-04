@@ -980,9 +980,9 @@ export default function CompleteChecklist() {
                           </div>
                         )}
 
-                        {/* Display existing photos */}
+                        {/* Display existing photos - hide on desktop for single-photo completed items since overlay shows the photo */}
                         {currentPhotos.length > 0 && (
-                          <div className={`grid gap-2 ${isMultiPhoto ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1 sm:max-w-[200px]'}`}>
+                          <div className={`grid gap-2 ${isMultiPhoto ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1 sm:max-w-[200px]'} ${!isMultiPhoto && isComplete ? 'sm:hidden' : ''}`}>
                             {currentPhotos.map((photoUrl, idx) => (
                               <div key={idx} className="relative">
                                 <img
