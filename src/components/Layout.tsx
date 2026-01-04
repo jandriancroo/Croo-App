@@ -42,7 +42,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
 
   return (
     <div className="glass-dock overflow-hidden">
-      <div className="relative z-10 flex items-center justify-evenly px-2 py-1">
+      <div className="relative z-10 flex items-center justify-evenly px-2 pt-3 pb-1">
         {/* Toast overlay that slides in */}
         <div 
           className={`absolute inset-0 flex items-center justify-center gap-2 bg-primary text-primary-foreground transition-transform duration-300 ease-out ${
@@ -115,8 +115,8 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
           })}
         </div>
       </div>
-      {/* Safe area spacer - extends background to bottom edge */}
-      <div style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
+      {/* Safe area spacer - minimal height, just extends background slightly */}
+      <div style={{ height: 'max(8px, calc(env(safe-area-inset-bottom, 0px) * 0.5))' }} />
     </div>
   );
 };
