@@ -32,6 +32,7 @@ import { SafeCountEntry, parseSafeCountData, checkBankRunCompleted, checkNeedsBa
 import { WeeklySummaryEntry, parseWeeklySummaryData } from "@/components/logbook/WeeklySummaryEntry";
 import { CateringOrdersSection } from "@/components/logbook/CateringOrdersSection";
 import { BankDepositForm, BankDepositData } from "@/components/logbook/BankDepositForm";
+import { BankDepositEntry, parseBankDepositData } from "@/components/logbook/BankDepositEntry";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { startOfWeek, endOfWeek, getDay, subDays } from "date-fns";
 import crooLogo from "@/assets/croo-logo.png";
@@ -211,25 +212,8 @@ export default function LogBook() {
     enabled: !!currentLocation,
   });
 
-  // Fetch bank deposits for recent logs display
-  const { data: bankDeposits = [] } = useQuery({
-    queryKey: ['bank-deposits-list', currentLocation?.id],
-    queryFn: async () => {
-      if (!currentLocation) return [];
-      const { data, error } = await supabase
-        .from('bank_deposits')
-        .select(`
-          *,
-          profiles:created_by(full_name, profile_photo_url)
-        `)
-        .eq('location_id', currentLocation.id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!currentLocation,
-  });
+  // Find bank deposit category ID (create if doesn't exist)
+  const bankDepositCategoryId = categories.find((c: any) => c.name?.toLowerCase() === 'bank deposit')?.id;
 
   // Find safe count category ID
   const safeCountCategoryId = categories.find((c: any) => c.name?.toLowerCase() === 'safe count')?.id;
@@ -463,29 +447,9 @@ export default function LogBook() {
     },
   });
 
-  // Convert bank deposits to virtual entries for display
-  const bankDepositEntries = bankDeposits.map((deposit: any) => ({
-    id: `bank-deposit-${deposit.id}`,
-    _isBankDeposit: true,
-    _depositData: deposit,
-    entry_date: deposit.end_date, // Use end date for grouping
-    created_at: deposit.created_at,
-    profiles: deposit.profiles,
-    logbook_categories: { name: 'Bank Deposit' },
-    logbook_entry_values: [],
-  }));
-
-  const filteredEntries = [...allEntries, ...bankDepositEntries].filter((entry: any) => {
+  const filteredEntries = allEntries.filter((entry: any) => {
     if (!searchQuery) return true;
     const searchLower = searchQuery.toLowerCase();
-    
-    // Handle bank deposit entries
-    if (entry._isBankDeposit) {
-      return (
-        'bank deposit'.includes(searchLower) ||
-        entry.profiles?.full_name?.toLowerCase().includes(searchLower)
-      );
-    }
     
     return (
       entry.profiles?.full_name?.toLowerCase().includes(searchLower) ||
@@ -567,44 +531,83 @@ export default function LogBook() {
               if (isSavingSpecialForm) return;
               setIsSavingSpecialForm(true);
               try {
-                // Create the bank deposit record
-                const { data: depositData, error: depositError } = await supabase
-                  .from('bank_deposits')
+                // First, ensure we have a Bank Deposit category
+                let categoryId = bankDepositCategoryId;
+                
+                if (!categoryId) {
+                  // Create the Bank Deposit category
+                  const { data: newCategory, error: categoryError } = await supabase
+                    .from('logbook_categories')
+                    .insert({
+                      name: 'Bank Deposit',
+                      location_id: currentLocation?.id,
+                      display_order: 999, // Put it at the end
+                      is_active: true,
+                      alert_enabled: false,
+                      push_notification_enabled: false,
+                    })
+                    .select()
+                    .single();
+                  
+                  if (categoryError) throw categoryError;
+                  categoryId = newCategory.id;
+                  queryClient.invalidateQueries({ queryKey: ['logbook-categories'] });
+                }
+
+                // Create a field for the category if it doesn't exist
+                const { data: existingFields } = await supabase
+                  .from('logbook_fields')
+                  .select('id')
+                  .eq('category_id', categoryId)
+                  .limit(1);
+                
+                let fieldId = existingFields?.[0]?.id;
+                
+                if (!fieldId) {
+                  const { data: newField, error: fieldError } = await supabase
+                    .from('logbook_fields')
+                    .insert({
+                      category_id: categoryId,
+                      field_name: 'bank_deposit_data',
+                      field_type: 'text',
+                      display_order: 0,
+                      is_required: false,
+                    })
+                    .select()
+                    .single();
+                  
+                  if (fieldError) throw fieldError;
+                  fieldId = newField.id;
+                }
+
+                // Create the logbook entry using the end date
+                const { data: entryData, error: entryError } = await supabase
+                  .from('logbook_entries')
                   .insert({
+                    category_id: categoryId,
+                    entry_date: data.endDate,
+                    created_by: user!.id,
                     location_id: currentLocation?.id,
-                    start_date: data.startDate,
-                    end_date: data.endDate,
-                    total_dollars: data.totalDollars,
-                    total_change: data.totalChange,
-                    total_amount: data.totalAmount,
-                    days_included: data.daysIncluded,
-                    notes: data.notes,
-                    created_by: user?.id,
                   })
                   .select()
                   .single();
 
-                if (depositError) throw depositError;
+                if (entryError) throw entryError;
 
-                // Link all the drawer count entries to this deposit
-                const entryLinks = data.entries.map(entry => ({
-                  bank_deposit_id: depositData.id,
-                  logbook_entry_id: entry.entryId,
-                  entry_date: entry.entryDate,
-                  deposit_amount: entry.depositAmount,
-                }));
+                // Save the bank deposit data as JSON in the entry value
+                const { error: valuesError } = await supabase
+                  .from('logbook_entry_values')
+                  .insert({
+                    entry_id: entryData.id,
+                    field_id: fieldId,
+                    value_text: JSON.stringify(data),
+                  });
 
-                const { error: linksError } = await supabase
-                  .from('bank_deposit_entries')
-                  .insert(entryLinks);
-
-                if (linksError) throw linksError;
+                if (valuesError) throw valuesError;
 
                 toast({ title: "Bank deposit recorded successfully" });
                 queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
                 queryClient.invalidateQueries({ queryKey: ['deposited-drawer-entries'] });
-                queryClient.invalidateQueries({ queryKey: ['past-bank-deposits'] });
-                queryClient.invalidateQueries({ queryKey: ['bank-deposits-list'] });
                 setShowNewEntrySheet(false);
                 setActiveTab('search');
               } catch (error: any) {
@@ -1212,7 +1215,7 @@ export default function LogBook() {
                   <div className="space-y-2">
                     {entriesByDay[dateKey].map((entry: any) => {
                       const isWeeklySummary = entry.logbook_categories?.name === 'Weekly Summary';
-                      const isBankDeposit = entry._isBankDeposit;
+                      const isBankDeposit = entry.logbook_categories?.name?.toLowerCase() === 'bank deposit';
                       return (
                       <Card key={entry._virtualId || entry.id} className={isWeeklySummary ? "border-primary/30 bg-gradient-to-br from-primary/5 to-transparent" : isBankDeposit ? "border-teal-500/30 bg-gradient-to-br from-teal-500/5 to-transparent" : ""}>
                         <CardContent className="p-4">
@@ -1244,7 +1247,7 @@ export default function LogBook() {
                                 <div className="text-xs text-muted-foreground whitespace-nowrap">
                                   {format(new Date(entry.created_at), 'h:mm a')}
                                 </div>
-                                {!isBankDeposit && (isAdmin || isManager || entry.created_by === user?.id) && (
+                                {(isAdmin || isManager || entry.created_by === user?.id) && (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -1286,33 +1289,20 @@ export default function LogBook() {
                               </div>
                               </div>
                               <div className="mt-2 space-y-1">
-                                {/* Bank Deposit entry display */}
-                                {isBankDeposit && entry._depositData && (
-                                  <div className="space-y-2">
-                                    <div className="flex items-center gap-2 text-sm">
-                                      <Building2 className="h-4 w-4 text-teal-500" />
-                                      <span className="font-medium text-teal-600">
-                                        ${entry._depositData.total_amount?.toFixed(2)}
-                                      </span>
-                                      <span className="text-muted-foreground">
-                                        ({entry._depositData.days_included} days)
-                                      </span>
-                                    </div>
-                                    <div className="text-xs text-muted-foreground">
-                                      {format(new Date(entry._depositData.start_date + 'T12:00:00'), 'MMM d')} - {format(new Date(entry._depositData.end_date + 'T12:00:00'), 'MMM d, yyyy')}
-                                    </div>
-                                    <div className="flex gap-4 text-xs">
-                                      <span>Bills: ${entry._depositData.total_dollars?.toFixed(2)}</span>
-                                      <span>Coins: ${entry._depositData.total_change?.toFixed(2)}</span>
-                                    </div>
-                                    {entry._depositData.notes && (
-                                      <p className="text-xs text-muted-foreground italic">{entry._depositData.notes}</p>
-                                    )}
-                                  </div>
-                                )}
-                                
-                                {/* Regular entry values */}
-                                {!isBankDeposit && entry.logbook_entry_values?.map((val: any) => {
+                                {/* Entry values - parse based on data type */}
+                                {entry.logbook_entry_values?.map((val: any) => {
+                                  // Check if this is bank deposit data
+                                  const bankDepositData = val.value_text ? parseBankDepositData(val.value_text) : null;
+                                  if (bankDepositData) {
+                                    return (
+                                      <BankDepositEntry 
+                                        key={val.id} 
+                                        data={bankDepositData} 
+                                        createdAt={entry.created_at} 
+                                      />
+                                    );
+                                  }
+                                  
                                   // Check if this is drawer count data
                                   const drawerData = val.value_text ? parseDrawerCountData(val.value_text) : null;
                                   if (drawerData && drawerData.actualDeposit !== undefined) {
