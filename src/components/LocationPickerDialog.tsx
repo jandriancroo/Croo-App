@@ -52,17 +52,19 @@ export function LocationPickerDialog({
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
   const [defaultLocationId, setDefaultLocationId] = useState<string | null>(null);
+  const [allLocationsEnabled, setAllLocationsEnabled] = useState(false);
 
-  // Fetch user's default location
+  // Fetch user's default location and all_locations_enabled flag
   useEffect(() => {
     if (user) {
       supabase
         .from('profiles')
-        .select('default_location_id')
+        .select('default_location_id, all_locations_enabled')
         .eq('id', user.id)
         .single()
         .then(({ data }) => {
           setDefaultLocationId(data?.default_location_id || null);
+          setAllLocationsEnabled(data?.all_locations_enabled || false);
         });
     }
   }, [user]);
@@ -116,6 +118,33 @@ export function LocationPickerDialog({
 
           setLocations(
             (locs || []).map((loc: any) => ({
+              ...loc,
+              org_name: loc.organizations?.brand_name || loc.organizations?.name,
+            }))
+          );
+        }
+      } else if (allLocationsEnabled) {
+        // User has all_locations_enabled - get all locations in their org
+        const { data: userLocs } = await supabase
+          .from('user_locations')
+          .select('locations(organization_id, organizations(id, name, brand_name, logo_url))')
+          .eq('user_id', user!.id)
+          .limit(1);
+
+        const orgData = userLocs?.[0]?.locations?.organizations;
+        const orgId = userLocs?.[0]?.locations?.organization_id;
+
+        if (orgId && orgData) {
+          setOrganizations([orgData as Organization]);
+          
+          const { data: orgLocs } = await supabase
+            .from('locations')
+            .select('*, organizations(name, brand_name)')
+            .eq('organization_id', orgId)
+            .order('name');
+
+          setLocations(
+            (orgLocs || []).map((loc: any) => ({
               ...loc,
               org_name: loc.organizations?.brand_name || loc.organizations?.name,
             }))
