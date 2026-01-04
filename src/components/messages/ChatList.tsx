@@ -158,7 +158,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
       </Avatar>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1 min-w-0">
+          <div className="flex items-center gap-1 min-w-0 flex-1">
             <p
               className={`truncate text-base ${
                 chat.unreadCount && chat.unreadCount > 0 ? 'font-bold' : 'font-medium'
@@ -167,26 +167,26 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
               {chat.title || (chat.is_group ? 'Group Chat' : 'Direct Message')}
             </p>
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0 ml-2">
             {onTogglePin && (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => {
                   e.stopPropagation();
                   onTogglePin(chat.id, chat.isPinned || false);
                 }}
               >
                 {chat.isPinned ? (
-                  <PinOff className="h-4 w-4" />
+                  <PinOff className="h-3 w-3" />
                 ) : (
-                  <Pin className="h-4 w-4" />
+                  <Pin className="h-3 w-3" />
                 )}
               </Button>
             )}
-            <span className="text-sm text-muted-foreground">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">
               {formatLastMessageTime(chat.updated_at)}
             </span>
           </div>
