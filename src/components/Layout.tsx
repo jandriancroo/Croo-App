@@ -41,7 +41,7 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
   const { message, isVisible } = useDockToast();
 
   return (
-    <div className="glass-dock overflow-hidden" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+    <div className="glass-dock overflow-hidden">
       <div className="relative z-10 flex items-center justify-evenly px-2 py-1.5">
         {/* Toast overlay that slides in */}
         <div 
@@ -115,6 +115,8 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
           })}
         </div>
       </div>
+      {/* Safe area spacer - extends background to bottom edge */}
+      <div style={{ height: 'env(safe-area-inset-bottom, 0px)' }} />
     </div>
   );
 };
