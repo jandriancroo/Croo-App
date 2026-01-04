@@ -381,15 +381,6 @@ function CubeFaceComponent({
         `,
       }}
     >
-      {/* Frosted glass overlay for recessed effect */}
-      <div 
-        className="absolute inset-0 pointer-events-none rounded-xl"
-        style={{
-          background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, transparent 30%, transparent 70%, rgba(0,0,0,0.1) 100%)',
-          backdropFilter: 'blur(1px)',
-        }}
-      />
-      
       {/* Soft inner bevel highlight at edges */}
       <div 
         className="absolute inset-0 pointer-events-none rounded-xl"
