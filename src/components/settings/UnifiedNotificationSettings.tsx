@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useLocation } from '@/hooks/useLocation';
+import { useUserRole } from '@/hooks/useUserRole';
 import { toast } from '@/hooks/use-toast';
 import { Bell, BellOff, Smartphone, MapPin, AlertCircle, BellRing, Mail } from 'lucide-react';
 import {
@@ -16,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Separator } from '@/components/ui/separator';
 
 interface UserLocation {
   location_id: string;
@@ -32,13 +34,16 @@ interface NotificationSetting {
 
 // All notification types - now all location-based
 const NOTIFICATION_TYPES = [
-  { key: 'chat_messages', label: 'Chat Messages', description: 'New messages in location chats' },
-  { key: 'announcements', label: 'Announcements', description: 'Team announcements' },
-  { key: 'schedule_updates', label: 'Schedule Updates', description: 'Changes to your schedule' },
-  { key: 'shift_approvals', label: 'Shift Approvals', description: 'When your shifts are approved' },
-  { key: 'overdue_checklists', label: 'Overdue Checklists', description: 'When checklists are past due' },
-  { key: 'late_arrivals', label: 'Late Arrivals', description: 'When team members are late' },
-  { key: 'certification_expiring', label: 'Cert Expiring', description: 'Expiring certifications' },
+  { key: 'chat_messages', label: 'Chat Messages', description: 'New messages in location chats', category: 'general' },
+  { key: 'announcements', label: 'Announcements', description: 'Team announcements', category: 'general' },
+  { key: 'schedule_updates', label: 'Schedule Updates', description: 'Changes to your schedule', category: 'general' },
+  { key: 'shift_approvals', label: 'Shift Approvals', description: 'When your shifts are approved', category: 'general' },
+  { key: 'overdue_checklists', label: 'Overdue Checklists', description: 'When checklists are past due', category: 'general' },
+  { key: 'late_arrivals', label: 'Late Arrivals', description: 'When team members are late', category: 'general' },
+  { key: 'certification_expiring', label: 'Cert Expiring', description: 'Expiring certifications', category: 'general' },
+  { key: 'cash_drawer_count', label: 'Drawer Counts', description: 'Drawer count submissions', category: 'cash', managerOnly: true },
+  { key: 'cash_safe_count', label: 'Safe Counts', description: 'Safe count submissions', category: 'cash', managerOnly: true },
+  { key: 'cash_bank_deposit', label: 'Bank Deposits', description: 'Bank deposit submissions', category: 'cash', managerOnly: true },
 ] as const;
 
 // Helper to detect if running as installed PWA
@@ -50,6 +55,7 @@ const isInstalledPWA = () => {
 export const UnifiedNotificationSettings = () => {
   const { user } = useAuth();
   const { currentLocation } = useLocation();
+  const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
   const [settings, setSettings] = useState<NotificationSetting[]>([]);
   const [userLocations, setUserLocations] = useState<UserLocation[]>([]);
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
@@ -57,6 +63,7 @@ export const UnifiedNotificationSettings = () => {
   const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | null>(null);
   const [isEnabling, setIsEnabling] = useState(false);
 
+  const isManagerOrAbove = isShiftManager || isManager || isGeneralManager || isAdmin;
   const isNative = Capacitor.isNativePlatform();
   const needsPermission = !isNative && notificationPermission !== 'granted';
 
@@ -112,12 +119,17 @@ export const UnifiedNotificationSettings = () => {
           const existing = existingSettings?.find(
             s => s.notification_type === nt.key && s.location_id === loc.location_id
           );
+          
+          // For cash handling notifications, default email to true for managers/admins
+          const isCashNotification = nt.category === 'cash';
+          const defaultEmailEnabled = isCashNotification && isManagerOrAbove;
+          
           allSettings.push({
             notification_type: nt.key,
             location_id: loc.location_id,
             alert_enabled: existing?.alert_enabled ?? true,
             push_enabled: existing?.push_enabled ?? true,
-            email_enabled: existing?.email_enabled ?? false,
+            email_enabled: existing?.email_enabled ?? defaultEmailEnabled,
           });
         });
       });
@@ -417,9 +429,9 @@ export const UnifiedNotificationSettings = () => {
                   </div>
                 </div>
 
-                {/* Notification type rows */}
+                {/* General notification type rows */}
                 <div className="space-y-1">
-                  {NOTIFICATION_TYPES.map(nt => {
+                  {NOTIFICATION_TYPES.filter(nt => nt.category === 'general').map(nt => {
                     const setting = getSetting(nt.key, selectedLocationId);
                     return (
                       <div 
@@ -458,6 +470,54 @@ export const UnifiedNotificationSettings = () => {
                     );
                   })}
                 </div>
+
+                {/* Cash Handling section - only for managers and above */}
+                {isManagerOrAbove && (
+                  <>
+                    <Separator className="my-4" />
+                    <div className="text-sm font-medium text-muted-foreground mb-2">Cash Handling</div>
+                    <div className="space-y-1">
+                      {NOTIFICATION_TYPES.filter(nt => nt.category === 'cash').map(nt => {
+                        const setting = getSetting(nt.key, selectedLocationId);
+                        return (
+                          <div 
+                            key={nt.key} 
+                            className="grid grid-cols-[1fr_auto_auto_auto] gap-2 items-center py-2 px-1 rounded hover:bg-muted/50"
+                          >
+                            <div>
+                              <span className="text-sm">{nt.label}</span>
+                            </div>
+                            <div className="w-10 flex justify-center">
+                              <Checkbox
+                                checked={setting?.alert_enabled ?? true}
+                                onCheckedChange={(checked) => 
+                                  updateSetting(nt.key, selectedLocationId, 'alert_enabled', !!checked)
+                                }
+                              />
+                            </div>
+                            <div className="w-10 flex justify-center">
+                              <Checkbox
+                                checked={setting?.push_enabled ?? true}
+                                onCheckedChange={(checked) => 
+                                  updateSetting(nt.key, selectedLocationId, 'push_enabled', !!checked)
+                                }
+                                disabled={needsPermission}
+                              />
+                            </div>
+                            <div className="w-10 flex justify-center">
+                              <Checkbox
+                                checked={setting?.email_enabled ?? true}
+                                onCheckedChange={(checked) => 
+                                  updateSetting(nt.key, selectedLocationId, 'email_enabled', !!checked)
+                                }
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </>
             )}
           </>
