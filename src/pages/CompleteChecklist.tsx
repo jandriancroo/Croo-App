@@ -817,51 +817,10 @@ export default function CompleteChecklist() {
               {/* Card with content - this gets blurred when completed */}
               <Card className="overflow-hidden relative">
               {hasResponse && <div 
-                  className="absolute inset-0 bg-background/50 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-3 sm:p-4 gap-2 sm:gap-3" 
+                  className="absolute inset-0 bg-background/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center p-4 gap-3" 
                   style={{ pointerEvents: 'auto' }}
                 >
-                    {/* Desktop/Tablet: Photo + User Info side by side, centered */}
-                    {isImageItem && currentPhotos.length > 0 && (item.options?.minPhotos || 1) <= 1 ? (
-                      <div className="hidden sm:flex items-center gap-4 justify-center">
-                        {/* Photo thumbnail */}
-                        <img 
-                          src={currentPhotos[0]} 
-                          alt="Completed" 
-                          className="w-[180px] h-[180px] object-cover rounded-lg shadow-lg"
-                        />
-                        {/* Checkmark + User info */}
-                        <div className="flex flex-col items-center gap-2">
-                          <div 
-                            className={`bg-green-600/80 rounded-full p-3 shadow-lg ${canUndoItems ? 'cursor-pointer hover:bg-green-600/90 transition-colors' : ''}`}
-                            onClick={() => canUndoItems && handleUndoClick(item.id)}
-                            title={canUndoItems ? 'Click to undo' : undefined}
-                          >
-                            <CheckCircle2 className="h-8 w-8 text-white" />
-                          </div>
-                          {completerInfo && (
-                            <div className="gap-2 bg-background/80 backdrop-blur-sm rounded-lg shadow-md py-[4px] px-[6px] flex-row flex items-center justify-center">
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={completerInfo.profilePhoto || undefined} />
-                                <AvatarFallback className="text-xs">
-                                  {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="text-left">
-                                <div className="text-sm font-medium">
-                                  {completerInfo.fullName.split(' ')[0]} {completerInfo.fullName.split(' ')[1]?.[0]}.
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {formatTime12Hour(new Date(completerInfo.completedAt).toTimeString().slice(0, 5))}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {/* Mobile layout OR non-single-photo items: original stacked layout */}
-                    <div className={`flex items-center gap-3 ${isImageItem && currentPhotos.length > 0 && (item.options?.minPhotos || 1) <= 1 ? 'sm:hidden' : ''}`}>
+                    <div className="flex items-center gap-3">
                       <div 
                         className={`bg-green-600/80 rounded-full p-4 shadow-lg ${canUndoItems ? 'cursor-pointer hover:bg-green-600/90 transition-colors' : ''}`}
                         onClick={() => canUndoItems && handleUndoClick(item.id)}
@@ -980,9 +939,9 @@ export default function CompleteChecklist() {
                           </div>
                         )}
 
-                        {/* Display existing photos - hide on desktop for single-photo completed items since overlay shows the photo */}
+                        {/* Display existing photos */}
                         {currentPhotos.length > 0 && (
-                          <div className={`grid gap-2 ${isMultiPhoto ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1 sm:max-w-[200px]'} ${!isMultiPhoto && isComplete ? 'sm:hidden' : ''}`}>
+                          <div className={`grid gap-2 ${isMultiPhoto ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-1 sm:max-w-[200px]'}`}>
                             {currentPhotos.map((photoUrl, idx) => (
                               <div key={idx} className="relative">
                                 <img
