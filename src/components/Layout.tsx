@@ -54,8 +54,9 @@ export const Layout = ({
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [hasFBCAccess, setHasFBCAccess] = useState(false);
   const [hasMultiLocationAccess, setHasMultiLocationAccess] = useState(false);
-  const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
+const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [showOrgDash, setShowOrgDash] = useState(false); // Toggle for mobile long-press
 
   // Auto-show update toast when new version detected
   useEffect(() => {
@@ -536,13 +537,13 @@ export const Layout = ({
                     </Button>
                   )}
 
-                  {hasMultiLocationAccess && (
+          {hasMultiLocationAccess && (
                     <Button variant="outline" onClick={() => {
                       navigate('/multi-location');
                       setMenuOpen(false);
                     }} className="justify-start gap-3 h-11">
                       <Building2 className="h-5 w-5" />
-                      <span className="text-base">Multi-Location</span>
+                      <span className="text-base">Org Dash</span>
                     </Button>
                   )}
 
@@ -642,7 +643,7 @@ export const Layout = ({
                 {hasMultiLocationAccess && (
                   <DropdownMenuItem onClick={() => navigate('/multi-location')} className="gap-2 cursor-pointer">
                     <Building2 className="h-4 w-4 flex-shrink-0" />
-                    <span className="whitespace-nowrap">Multi-Location</span>
+                    <span className="whitespace-nowrap">Org Dash</span>
                   </DropdownMenuItem>
                 )}
                 {isAdmin && (
@@ -696,20 +697,46 @@ export const Layout = ({
           <div className="flex items-center justify-evenly px-2 py-2">
             {mobileMainNavItems.map(item => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path;
+            const isDashItem = item.path === '/dashboard';
+            const effectivePath = isDashItem && showOrgDash && hasMultiLocationAccess ? '/multi-location' : item.path;
+            const effectiveLabel = isDashItem && showOrgDash && hasMultiLocationAccess ? 'Org' : item.label;
+            const EffectiveIcon = isDashItem && showOrgDash && hasMultiLocationAccess ? Building2 : Icon;
+            const isActive = location.pathname === effectivePath;
             const showBadge = item.path === '/messages' && unreadCount > 0;
+            
+            // Long-press handler for Dash button
+            let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+            const handleTouchStart = () => {
+              if (isDashItem && hasMultiLocationAccess) {
+                longPressTimer = setTimeout(() => {
+                  setShowOrgDash(prev => !prev);
+                  // Haptic feedback if available
+                  if (navigator.vibrate) navigator.vibrate(50);
+                }, 500);
+              }
+            };
+            const handleTouchEnd = () => {
+              if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+              }
+            };
+            
             return (
               <button
                 key={item.path}
-                onClick={() => navigate(item.path)}
+                onClick={() => navigate(effectivePath)}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={handleTouchEnd}
                 className={`flex-1 flex flex-col items-center gap-1.5 py-1.5 rounded-xl transition-colors relative ${
                   isActive 
                     ? 'bg-white/20 text-white' 
                     : 'text-white/70 hover:text-white'
                 }`}
               >
-                <Icon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
-                <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{item.label}</span>
+                <EffectiveIcon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
+                <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{effectiveLabel}</span>
                 {showBadge && (
                   <span className="absolute top-1 right-1/4 h-2.5 w-2.5 bg-destructive rounded-full" />
                 )}
