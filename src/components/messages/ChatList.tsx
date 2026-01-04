@@ -40,6 +40,28 @@ interface ChatListProps {
   currentUserId?: string | null;
 }
 
+const formatMessagePreview = (content: string): string => {
+  // Parse game score messages into friendly format
+  if (content?.startsWith("GAME_SCORE:")) {
+    const parts = content.replace("GAME_SCORE:", "").split(":");
+    if (parts.length >= 3) {
+      const gameType = parts[0];
+      const score = parts[1];
+      const playerName = parts[2];
+      const gameNames: Record<string, string> = {
+        snake: "Snake",
+        marcman: "MarcMan",
+        minesweeper: "Minesweeper",
+        basketball: "Basketball",
+        pizza: "Pizza Paddle"
+      };
+      const gameName = gameNames[gameType] || gameType;
+      return `🎮 ${playerName} scored ${score} in ${gameName}!`;
+    }
+  }
+  return content;
+};
+
 const highlightSearchTerm = (text: string, searchQuery: string) => {
   if (!searchQuery) return text;
   
@@ -171,7 +193,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
         </div>
         {chat.messagePreview && (
           <p className="text-sm text-muted-foreground truncate mt-1">
-            {searchQuery ? highlightSearchTerm(chat.messagePreview, searchQuery) : chat.messagePreview}
+            {searchQuery ? highlightSearchTerm(formatMessagePreview(chat.messagePreview), searchQuery) : formatMessagePreview(chat.messagePreview)}
           </p>
         )}
       </div>
