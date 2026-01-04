@@ -372,8 +372,8 @@ function CubeFaceComponent({
         transform: `rotateY(${rotateY}deg) translateZ(${cubeDepth}px)`,
         backfaceVisibility: 'hidden',
         boxShadow: `
-          0 10px 30px rgba(0,0,0,0.15),
-          0 5px 15px rgba(0,0,0,0.1),
+          0 5px 15px rgba(0,0,0,0.075),
+          0 2px 8px rgba(0,0,0,0.05),
           inset 0 2px 4px rgba(255,255,255,0.4),
           inset 0 -2px 4px rgba(0,0,0,0.08)
         `,
