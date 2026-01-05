@@ -9,13 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Trash2, GripVertical, Edit2, X, Copy } from "lucide-react";
+import { Plus, Trash2, GripVertical, Edit2, X, Copy, MoreVertical } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { DndContext, DragEndEvent, closestCenter, useSensor, useSensors, PointerSensor, TouchSensor } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { CopyLogbookCategoryDialog } from "./CopyLogbookCategoryDialog";
 import { useAuth } from "@/lib/auth";
 
 interface ManageCategoriesDialogProps {
@@ -30,9 +32,10 @@ interface SortableCategoryItemProps {
   onTogglePushNotification: (id: string, currentValue: boolean) => void;
   onToggleActive: (id: string, currentValue: boolean) => void;
   onEditFields: (categoryId: string, fields: any[]) => void;
+  onCopyTo: (category: any) => void;
 }
 
-function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushNotification, onToggleActive, onEditFields }: SortableCategoryItemProps) {
+function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushNotification, onToggleActive, onEditFields, onCopyTo }: SortableCategoryItemProps) {
   const {
     attributes,
     listeners,
@@ -83,18 +86,34 @@ function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushN
           </div>
         </AccordionTrigger>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (confirm(`Delete "${category.name}"? This will also delete all associated entries.`)) {
-              onDelete(category.id);
-            }
-          }}
-        >
-          <Trash2 className="h-4 w-4 text-destructive" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onEditFields(category.id, category.logbook_fields || [])}>
+              <Edit2 className="h-4 w-4 mr-2" />
+              Configure Fields
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onCopyTo(category)}>
+              <Copy className="h-4 w-4 mr-2" />
+              Copy to Location...
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => {
+                if (confirm(`Delete "${category.name}"? This will also delete all associated entries.`)) {
+                  onDelete(category.id);
+                }
+              }}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <AccordionContent className="pb-3">
@@ -169,6 +188,8 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
   const [copyTargetLocationId, setCopyTargetLocationId] = useState<string>("");
   const [isCopying, setIsCopying] = useState(false);
   const [targetExistingCategories, setTargetExistingCategories] = useState<string[]>([]);
+  const [copyCategoryDialogOpen, setCopyCategoryDialogOpen] = useState(false);
+  const [categoryToCopy, setCategoryToCopy] = useState<any>(null);
   const [safeTarget, setSafeTarget] = useState<number>(300);
   const [drawerBank, setDrawerBank] = useState<number>(200);
   const [amSafeCountWindow, setAmSafeCountWindow] = useState<number>(120);
@@ -930,6 +951,10 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
                       onTogglePushNotification={handleTogglePushNotification}
                       onToggleActive={handleToggleActive}
                       onEditFields={handleEditFields}
+                      onCopyTo={(cat) => {
+                        setCategoryToCopy(cat);
+                        setCopyCategoryDialogOpen(true);
+                      }}
                     />
                   ))}
                 </Accordion>
@@ -937,6 +962,15 @@ export function ManageCategoriesDialog({ open, onOpenChange }: ManageCategoriesD
             </DndContext>
           </div>
         )}
+        
+        <CopyLogbookCategoryDialog
+          open={copyCategoryDialogOpen}
+          onOpenChange={setCopyCategoryDialogOpen}
+          category={categoryToCopy}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['logbook-categories-manage'] });
+          }}
+        />
       </DialogContent>
     </Dialog>
   );
