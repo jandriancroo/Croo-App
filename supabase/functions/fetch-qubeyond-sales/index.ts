@@ -2261,56 +2261,84 @@ serve(async (req) => {
       tipsData = todayTips;
       weeklyTipsData = weekTips;
     } else {
-      // pull_labor is disabled - use in-app punch clock data for today + Qu labor for historical
-      // This blends historical Qu labor with current punch-based labor for a clean month
-      console.log('Pull labor disabled - blending Qu historical labor with punch clock data');
+      // pull_labor is disabled - use in-app punch clock data
+      // For Palm Springs: blend Qu historical labor (Jan 1-4) with punch-based labor (Jan 5+)
+      // For other locations (like Hemet): use punch-based labor for all dates
+      console.log('Pull labor disabled - calculating labor from punch clock data');
       
-      // Determine the cutover date: Jan 1, 2026 for Palm Springs 
-      // Fetch Qu labor for dates from start of month up to yesterday (or Jan 1 whichever is later)
-      const cutoverDate = '2026-01-01';
-      const historicalQuDates = monthDates.filter(d => d >= cutoverDate && d < todayStr);
-      const punchDates = monthDates.filter(d => d >= todayStr); // Today and forward use punches
-      
-      console.log(`[LABOR-BLEND] Historical Qu dates (${historicalQuDates.length}): ${historicalQuDates.join(', ')}`);
-      console.log(`[LABOR-BLEND] Punch dates (${punchDates.length}): ${punchDates.join(', ')}`);
+      // Palm Springs cutover date - they switched from Qu labor to punches on Jan 5, 2026
+      // For other locations, we use punches for ALL dates
+      const palmSpringsCutoverDate = '2026-01-05';
+      const isPalmSprings = qbLocationId === '3900'; // Palm Springs Qu location ID
       
       if (locationId) {
-        // Fetch both Qu historical labor and punch-based labor in parallel
-        const [todayPunchLabor, weekPunchLabor, quHistoricalLabor, punchMonthLabor, todayTips, weekTips] = await Promise.all([
-          calculateLaborFromPunches(cacheSupabase, locationId, todayStr, timezone),
-          calculateLaborFromPunchesForDates(cacheSupabase, locationId, weekDates, timezone),
-          historicalQuDates.length > 0 
-            ? fetchLaborDataForDates(tokenGw, historicalQuDates, qbLocationId) 
-            : Promise.resolve({ laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] }),
-          punchDates.length > 0
-            ? calculateLaborFromPunchesForDates(cacheSupabase, locationId, punchDates, timezone)
-            : Promise.resolve({ laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] }),
-          fetchTipsData(tokenGw, todayStr, qbLocationId),
-          fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
-        ]);
+        let monthlyLaborResult: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] };
         
-        laborData = todayPunchLabor;
-        weeklyLaborData = weekPunchLabor;
+        if (isPalmSprings) {
+          // Palm Springs: blend Qu historical (Jan 1-4) with punch data (Jan 5+)
+          const historicalQuDates = monthDates.filter(d => d >= '2026-01-01' && d < palmSpringsCutoverDate);
+          const punchDates = monthDates.filter(d => d >= palmSpringsCutoverDate);
+          
+          console.log(`[LABOR-BLEND] Palm Springs - Qu dates (${historicalQuDates.length}): ${historicalQuDates.join(', ')}`);
+          console.log(`[LABOR-BLEND] Palm Springs - Punch dates (${punchDates.length}): ${punchDates.join(', ')}`);
+          
+          const [todayPunchLabor, weekPunchLabor, quHistoricalLabor, punchMonthLabor, todayTips, weekTips] = await Promise.all([
+            calculateLaborFromPunches(cacheSupabase, locationId, todayStr, timezone),
+            calculateLaborFromPunchesForDates(cacheSupabase, locationId, weekDates, timezone),
+            historicalQuDates.length > 0 
+              ? fetchLaborDataForDates(tokenGw, historicalQuDates, qbLocationId) 
+              : Promise.resolve({ laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] }),
+            punchDates.length > 0
+              ? calculateLaborFromPunchesForDates(cacheSupabase, locationId, punchDates, timezone)
+              : Promise.resolve({ laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] }),
+            fetchTipsData(tokenGw, todayStr, qbLocationId),
+            fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
+          ]);
+          
+          laborData = todayPunchLabor;
+          weeklyLaborData = weekPunchLabor;
+          tipsData = todayTips;
+          weeklyTipsData = weekTips;
+          
+          const quLabor = quHistoricalLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] };
+          const punchLabor = punchMonthLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] };
+          
+          monthlyLaborResult = {
+            laborCost: quLabor.laborCost + punchLabor.laborCost,
+            hoursWorked: quLabor.hoursWorked + punchLabor.hoursWorked,
+            regularHours: quLabor.regularHours + punchLabor.regularHours,
+            overtimeHours: quLabor.overtimeHours + punchLabor.overtimeHours,
+            dailyLabor: [...quLabor.dailyLabor, ...punchLabor.dailyLabor]
+          };
+          
+          console.log(`[LABOR-BLEND] Qu historical: $${quLabor.laborCost.toFixed(2)} / ${quLabor.hoursWorked.toFixed(1)}h`);
+          console.log(`[LABOR-BLEND] Punch current: $${punchLabor.laborCost.toFixed(2)} / ${punchLabor.hoursWorked.toFixed(1)}h`);
+        } else {
+          // Other locations (Hemet, etc.): use punch clock for ALL dates
+          console.log(`[LABOR-PUNCH] Using punch clock data for all ${monthDates.length} dates`);
+          
+          const [todayPunchLabor, weekPunchLabor, punchMonthLabor, todayTips, weekTips] = await Promise.all([
+            calculateLaborFromPunches(cacheSupabase, locationId, todayStr, timezone),
+            calculateLaborFromPunchesForDates(cacheSupabase, locationId, weekDates, timezone),
+            calculateLaborFromPunchesForDates(cacheSupabase, locationId, monthDates, timezone),
+            fetchTipsData(tokenGw, todayStr, qbLocationId),
+            fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
+          ]);
+          
+          laborData = todayPunchLabor;
+          weeklyLaborData = weekPunchLabor;
+          tipsData = todayTips;
+          weeklyTipsData = weekTips;
+          
+          monthlyLaborResult = punchMonthLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] };
+          
+          console.log(`[LABOR-PUNCH] MTD from punches: $${monthlyLaborResult.laborCost.toFixed(2)} / ${monthlyLaborResult.hoursWorked.toFixed(1)}h`);
+        }
         
-        // Blend historical Qu labor with punch-based labor for the full month
-        const quLabor = quHistoricalLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] };
-        const punchLabor = punchMonthLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] };
-        
-        monthlyLaborData = {
-          laborCost: quLabor.laborCost + punchLabor.laborCost,
-          hoursWorked: quLabor.hoursWorked + punchLabor.hoursWorked,
-          regularHours: quLabor.regularHours + punchLabor.regularHours,
-          overtimeHours: quLabor.overtimeHours + punchLabor.overtimeHours,
-          dailyLabor: [...quLabor.dailyLabor, ...punchLabor.dailyLabor]
-        };
-        
-        console.log(`[LABOR-BLEND] Qu historical: $${quLabor.laborCost.toFixed(2)} / ${quLabor.hoursWorked.toFixed(1)}h`);
-        console.log(`[LABOR-BLEND] Punch current: $${punchLabor.laborCost.toFixed(2)} / ${punchLabor.hoursWorked.toFixed(1)}h`);
-        console.log(`[LABOR-BLEND] Combined MTD: $${monthlyLaborData.laborCost.toFixed(2)} / ${monthlyLaborData.hoursWorked.toFixed(1)}h`);
+        monthlyLaborData = monthlyLaborResult;
+        console.log(`[LABOR] Combined MTD: $${monthlyLaborData.laborCost.toFixed(2)} / ${monthlyLaborData.hoursWorked.toFixed(1)}h`);
         
         laborSource = 'punches';
-        tipsData = todayTips;
-        weeklyTipsData = weekTips;
       } else {
         // No location ID, still fetch tips
         const [todayTips, weekTips] = await Promise.all([
