@@ -47,6 +47,7 @@ import { RequestAvailabilityDialog } from "@/components/availability/RequestAvai
 import { ShiftPoolSection } from "@/components/availability/ShiftPoolSection";
 import { WeeklyHoursSection } from "@/components/availability/WeeklyHoursSection";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useLocationSettings } from "@/hooks/useLocationSettings";
 
 interface AvailabilityRequest {
   id: string;
@@ -85,6 +86,7 @@ export default function Availability() {
   const { user } = useAuth();
   const { isAdmin, canApproveRequests, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
+  const { showSickTimeBalance } = useLocationSettings();
   const [requests, setRequests] = useState<AvailabilityRequest[]>([]);
   const [employeeHours, setEmployeeHours] = useState<EmployeeHours[]>([]);
   const [myPtoBalance, setMyPtoBalance] = useState(0);
@@ -400,8 +402,8 @@ export default function Availability() {
           </Button>
         </div>
 
-        {/* PTO Balance - Non-Manager Only */}
-        {!canApproveRequests && (
+        {/* PTO Balance - Non-Manager Only, controlled by location setting */}
+        {!canApproveRequests && showSickTimeBalance && (
           <Card className="p-6 bg-primary/5 border-primary/20">
             <div className="flex items-center gap-4">
               <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
