@@ -520,9 +520,9 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   return (
     <>
-    <div className={cn("space-y-3", isMobile ? "pb-32" : "pb-6")}>
+    <div className={cn("space-y-3", isMobile && !isViewOnly ? "pb-32" : "pb-6")}>
       {/* Desktop: Stats bar at top */}
-      {!isMobile && !isViewOnly && !isEditing && (
+      {!isMobile && !isViewOnly && (
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border -mx-4 px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-6">
@@ -535,7 +535,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                 <DollarSign className="h-4 w-4 text-primary" />
                 <span className="font-semibold text-primary">{formatCurrency(totalCost)}</span>
               </div>
-              {isSupported && (
+              {isSupported && !isEditing && (
                 <>
                   <div className="h-6 w-px bg-border" />
                   <Button
@@ -549,15 +549,31 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                   </Button>
                 </>
               )}
+              {isEditing && (
+                <>
+                  <div className="h-6 w-px bg-border" />
+                  <div className="flex items-center gap-2 text-amber-600 text-sm font-medium">
+                    <History className="h-4 w-4" />
+                    <span>Editing - changes tracked</span>
+                  </div>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={handleExit}>
+              <Button variant="outline" onClick={isEditing ? onClose : handleExit}>
                 <X className="h-4 w-4 mr-2" />
-                Exit
+                {isEditing ? "Cancel" : "Exit"}
               </Button>
-              <Button onClick={handleSave} disabled={isSaving}>
+              <Button 
+                onClick={isEditing ? handleSaveEdits : handleSave} 
+                disabled={isEditing ? saveEditMutation.isPending : isSaving}
+                className={isEditing ? "bg-amber-600 hover:bg-amber-700" : ""}
+              >
                 <Save className="h-4 w-4 mr-2" />
-                {isSaving ? "Saving..." : "Save"}
+                {isEditing 
+                  ? (saveEditMutation.isPending ? "Saving..." : "Save Changes")
+                  : (isSaving ? "Saving..." : "Save")
+                }
               </Button>
             </div>
           </div>
@@ -800,16 +816,16 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       )}
     </div>
 
-    {/* Mobile Dock with stats and actions */}
-    {isMobile && !isViewOnly && !isEditing && (
+    {/* Mobile Dock with stats and actions - for all counting modes */}
+    {isMobile && !isViewOnly && (
       <div className="fixed bottom-0 left-0 right-0 z-50">
         <div className="glass-dock">
           <div className="relative z-10 flex items-center justify-between px-3 pt-3 pb-0 gap-2">
-            {/* Exit button */}
+            {/* Exit/Cancel button */}
             <Button
               variant="ghost"
               size="icon"
-              onClick={handleExit}
+              onClick={isEditing ? onClose : handleExit}
               className="h-12 w-12 flex-shrink-0 text-muted-foreground hover:text-destructive"
             >
               <X className="h-6 w-6" />
@@ -838,8 +854,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               </div>
             </div>
 
-            {/* Voice button (optional) */}
-            {isSupported && (
+            {/* Voice button (only for non-edit mode) */}
+            {isSupported && !isEditing && (
               <Button
                 variant={isListening ? "destructive" : "ghost"}
                 size="icon"
@@ -860,42 +876,23 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
               </Button>
             )}
 
-            {/* Save button */}
+            {/* Save button - different styles for edit vs regular */}
             <Button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="h-12 px-5 flex-shrink-0 bg-primary hover:bg-primary/90"
+              onClick={isEditing ? handleSaveEdits : handleSave}
+              disabled={isEditing ? saveEditMutation.isPending : isSaving}
+              className={cn(
+                "h-12 px-5 flex-shrink-0",
+                isEditing ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary/90"
+              )}
             >
               <Save className="h-5 w-5 mr-2" />
-              {isSaving ? "Saving..." : "Save"}
+              {isEditing 
+                ? (saveEditMutation.isPending ? "Saving..." : "Save")
+                : (isSaving ? "Saving..." : "Save")
+              }
             </Button>
           </div>
           {/* Safe area spacer */}
-          <div style={{ height: 'max(8px, calc(env(safe-area-inset-bottom, 0px) * 0.5))' }} />
-        </div>
-      </div>
-    )}
-
-    {/* For edit mode, show a simpler save bar */}
-    {isEditing && (
-      <div className="fixed bottom-0 left-0 right-0 z-50">
-        <div className="glass-dock">
-          <div className="flex items-center justify-between px-3 pt-3 pb-0 gap-2">
-            <Button
-              variant="ghost"
-              onClick={onClose}
-              className="h-12"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveEdits}
-              disabled={saveEditMutation.isPending}
-              className="h-12 flex-1 max-w-xs bg-amber-600 hover:bg-amber-700"
-            >
-              Save Changes
-            </Button>
-          </div>
           <div style={{ height: 'max(8px, calc(env(safe-area-inset-bottom, 0px) * 0.5))' }} />
         </div>
       </div>
