@@ -172,27 +172,42 @@ const StartCountDialog = ({
       );
     };
 
-    // Weekly periods
+    // Weekly periods - week ends on the configured day
     const weeklySetting = scheduleSettings?.find((s) => s.frequency === "weekly");
     if (weeklySetting) {
-      const dayOfWeek = weeklySetting.day_of_week ?? 0;
+      // day_of_week is the day the week ENDS on (0 = Sunday, 1 = Monday, etc.)
+      const weekEndDay = weeklySetting.day_of_week ?? 0;
       
-      const weekEnd = endOfWeek(today, { weekStartsOn: dayOfWeek as 0 | 1 | 2 | 3 | 4 | 5 | 6 });
+      // Calculate the week start day (the day after the week end day)
+      const weekStartDay = ((weekEndDay + 1) % 7) as 0 | 1 | 2 | 3 | 4 | 5 | 6;
+      
+      // Find the current/upcoming week end date
+      const todayDay = today.getDay();
+      let daysUntilEnd = weekEndDay - todayDay;
+      if (daysUntilEnd < 0) daysUntilEnd += 7;
+      
+      const weekEnd = new Date(today);
+      weekEnd.setDate(today.getDate() + daysUntilEnd);
       const weekEndStr = format(weekEnd, "yyyy-MM-dd");
+      
+      // Week start is 6 days before week end
+      const weekStart = subDays(weekEnd, 6);
       
       if (!isPeriodCounted("weekly", weekEndStr)) {
         options.push({
           id: `weekly-current`,
           type: "weekly",
           label: `Week Ending ${format(weekEnd, "MMM d")}`,
-          description: `${format(startOfWeek(today, { weekStartsOn: dayOfWeek as 0 | 1 | 2 | 3 | 4 | 5 | 6 }), "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`,
+          description: `${format(weekStart, "MMM d")} - ${format(weekEnd, "MMM d, yyyy")}`,
           periodEndDate: weekEndStr,
           icon: <CalendarDays className="h-5 w-5" />,
           isConfigured: true,
         });
       }
 
+      // Previous week
       const prevWeekEnd = subDays(weekEnd, 7);
+      const prevWeekStart = subDays(prevWeekEnd, 6);
       const prevWeekEndStr = format(prevWeekEnd, "yyyy-MM-dd");
       
       if (!isPeriodCounted("weekly", prevWeekEndStr)) {
@@ -200,7 +215,7 @@ const StartCountDialog = ({
           id: `weekly-prev`,
           type: "weekly",
           label: `Week Ending ${format(prevWeekEnd, "MMM d")}`,
-          description: `${format(subDays(prevWeekEnd, 6), "MMM d")} - ${format(prevWeekEnd, "MMM d, yyyy")}`,
+          description: `${format(prevWeekStart, "MMM d")} - ${format(prevWeekEnd, "MMM d, yyyy")}`,
           periodEndDate: prevWeekEndStr,
           icon: <CalendarDays className="h-5 w-5" />,
           isConfigured: true,
