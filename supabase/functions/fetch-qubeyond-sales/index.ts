@@ -2264,14 +2264,17 @@ serve(async (req) => {
       console.log('Pull labor disabled - calculating labor from time_punches');
       
       if (locationId) {
-        const [todayPunchLabor, weekPunchLabor, todayTips, weekTips] = await Promise.all([
+        const [todayPunchLabor, weekPunchLabor, monthPunchLabor, todayTips, weekTips] = await Promise.all([
           calculateLaborFromPunches(cacheSupabase, locationId, todayStr, timezone),
           calculateLaborFromPunchesForDates(cacheSupabase, locationId, weekDates, timezone),
+          calculateLaborFromPunchesForDates(cacheSupabase, locationId, monthDates, timezone),
           fetchTipsData(tokenGw, todayStr, qbLocationId),
           fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
         ]);
         laborData = todayPunchLabor;
         weeklyLaborData = weekPunchLabor;
+        // Store monthly labor data for later (will calculate percent after we have sales)
+        (weeklyLaborData as any)._monthlyLaborData = monthPunchLabor;
         laborSource = 'punches';
         tipsData = todayTips;
         weeklyTipsData = weekTips;
@@ -2540,6 +2543,22 @@ serve(async (req) => {
       regularHours: weeklyLaborData.regularHours,
       overtimeHours: weeklyLaborData.overtimeHours
     } : null;
+    
+    // Calculate monthly labor totals (for punch-based labor)
+    const monthlyLaborRaw = (weeklyLaborData as any)?._monthlyLaborData;
+    const monthlyLaborTotals = monthlyLaborRaw && monthlySales > 0 ? {
+      laborPercent: (monthlyLaborRaw.laborCost / monthlySales) * 100,
+      laborCost: monthlyLaborRaw.laborCost,
+      hoursWorked: monthlyLaborRaw.hoursWorked,
+      regularHours: monthlyLaborRaw.regularHours,
+      overtimeHours: monthlyLaborRaw.overtimeHours
+    } : null;
+    
+    // Calculate daily labor percent now that we have sales (for punch-based labor)
+    if (laborSource === 'punches' && laborData && dailySales > 0) {
+      laborData.laborPercent = (laborData.laborCost / dailySales) * 100;
+      console.log(`[PUNCH-LABOR] Daily labor percent: ${laborData.laborPercent.toFixed(1)}% ($${laborData.laborCost.toFixed(2)} / $${dailySales.toFixed(2)})`);
+    }
 
     // pizzaCount for today already calculated above as todayPizzaCount
     const pizzaCount = todayPizzaCount;
@@ -2711,6 +2730,7 @@ serve(async (req) => {
       labor: laborData, // Labor data (from Qu or punches)
       laborSource: laborSource, // 'qu' or 'punches' - indicates data source
       weeklyLabor: weeklyLaborTotals, // Weekly labor totals
+      monthlyLabor: monthlyLaborTotals, // Monthly labor totals (MTD)
       tips: tipsData, // Today's tips data (CC + cash)
       weeklyTips: weeklyTipsData, // Weekly tips breakdown by day
       payments: {
