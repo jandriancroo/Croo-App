@@ -137,11 +137,13 @@ export function CateringOrdersAlert() {
           key={order.id}
           id={order.id}
           title={`${order.customer_name} • Due @ ${formatTime(order.pickup_time)}`}
+          subtitle={`${order.items.length} items${order.headcount ? ` • ${order.headcount} guests` : ""}`}
           icon={ChefHat}
           accentColor={ORANGE_COLOR}
           buttonLabel="Done"
           onAction={() => handleOrderClick(order, false)}
-          badge={{ label: `${order.items.length} items` }}
+          badge={{ label: "CATERING", color: ORANGE_COLOR }}
+          shareDetails={`Catering: ${order.customer_name} • ${formatTime(order.pickup_time)} • ${order.items.length} items`}
         />
       ))}
       
@@ -151,11 +153,13 @@ export function CateringOrdersAlert() {
           key={order.id}
           id={order.id}
           title={`${order.customer_name} • Due Tomorrow @ ${formatTime(order.pickup_time)}`}
+          subtitle={`${order.items.length} items${order.headcount ? ` • ${order.headcount} guests` : ""}`}
           icon={ChefHat}
           accentColor={AMBER_COLOR}
           buttonLabel="View"
           onAction={() => handleOrderClick(order, true)}
-          badge={{ label: `${order.items.length} items` }}
+          badge={{ label: "CATERING", color: AMBER_COLOR }}
+          shareDetails={`Catering: ${order.customer_name} • Tomorrow ${formatTime(order.pickup_time)} • ${order.items.length} items`}
         />
       ))}
 
