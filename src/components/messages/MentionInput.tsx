@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, KeyboardEvent } from 'react';
+import { useState, useEffect, useRef, KeyboardEvent, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 interface Profile {
   id: string;
@@ -11,7 +11,7 @@ interface Profile {
 interface MentionInputProps {
   value: string;
   onChange: (value: string) => void;
-  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
+  onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void;
   placeholder?: string;
   disabled?: boolean;
   chatId: string;
@@ -30,8 +30,22 @@ export function MentionInput({
   const [mentionQuery, setMentionQuery] = useState('');
   const [mentionStartIndex, setMentionStartIndex] = useState(-1);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Auto-resize textarea
+  const adjustHeight = useCallback(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(textarea.scrollHeight, 120); // Max 120px (~5 lines)
+      textarea.style.height = `${newHeight}px`;
+    }
+  }, []);
+
+  useEffect(() => {
+    adjustHeight();
+  }, [value, adjustHeight]);
 
   useEffect(() => {
     fetchChatMembers();
@@ -58,7 +72,7 @@ export function MentionInput({
     member.full_name.toLowerCase().includes(mentionQuery.toLowerCase())
   );
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     const cursorPos = e.target.selectionStart || 0;
     
@@ -89,7 +103,7 @@ export function MentionInput({
   const insertMention = (member: Profile) => {
     const beforeMention = value.substring(0, mentionStartIndex);
     // Get cursor position to find where the mention query ends
-    const cursorPos = inputRef.current?.selectionStart || (mentionStartIndex + mentionQuery.length + 1);
+    const cursorPos = textareaRef.current?.selectionStart || (mentionStartIndex + mentionQuery.length + 1);
     const afterMention = value.substring(cursorPos);
     // Build new value, trimming any extra whitespace at start if mention is at beginning
     const newValue = beforeMention + `@${member.full_name} ` + afterMention.replace(/^\s+/, '');
@@ -101,15 +115,15 @@ export function MentionInput({
     
     // Focus input and set cursor position
     setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
+      if (textareaRef.current) {
+        textareaRef.current.focus();
         const newCursorPos = beforeMention.length + member.full_name.length + 2;
-        inputRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        textareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
       }
     }, 0);
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (showSuggestions && filteredMembers.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -133,19 +147,30 @@ export function MentionInput({
       }
     }
     
-    // Call parent onKeyDown if not handled
-    onKeyDown?.(e);
+    // Allow Shift+Enter for new lines, regular Enter triggers send (parent handles)
+    if (e.key === 'Enter' && !e.shiftKey && !showSuggestions) {
+      // Let parent handle sending
+      onKeyDown?.(e);
+      return;
+    }
+    
+    // Call parent onKeyDown for other keys if not handled
+    if (e.key !== 'Enter') {
+      onKeyDown?.(e);
+    }
   };
 
   return (
     <div className="relative flex-1">
-      <Input
-        ref={inputRef}
+      <Textarea
+        ref={textareaRef}
         value={value}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         disabled={disabled}
+        rows={1}
+        className="min-h-[40px] max-h-[120px] resize-none py-2 overflow-y-auto"
         onBlur={() => {
           // Delay hiding to allow click on suggestion
           setTimeout(() => setShowSuggestions(false), 150);
