@@ -88,14 +88,11 @@ function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushN
 
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
+            <Button
+              variant="ghost"
+              size="icon"
+              onPointerDownCapture={(e) => e.stopPropagation()}
+              onClickCapture={(e) => e.stopPropagation()}
             >
               <MoreVertical className="h-4 w-4" />
             </Button>
@@ -109,7 +106,7 @@ function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushN
               <Copy className="h-4 w-4 mr-2" />
               Copy to Location...
             </DropdownMenuItem>
-            <DropdownMenuItem 
+            <DropdownMenuItem
               onSelect={() => {
                 if (confirm(`Delete "${category.name}"? This will also delete all associated entries.`)) {
                   onDelete(category.id);
