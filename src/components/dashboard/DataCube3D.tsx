@@ -485,14 +485,142 @@ function CubeFaceComponent({
               })}
             </div>
           </div>
+        ) : metricCount === 3 ? (
+          // 3 metrics: top-left, top-right, bottom row layout with dividers
+          <div className="relative h-full">
+            {/* Vertical divider for top row */}
+            <div 
+              className="absolute left-1/2 top-2 h-[45%] w-px pointer-events-none"
+              style={{
+                background: 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 80%, transparent 100%)',
+                boxShadow: '0 0 8px rgba(255,255,255,0.15)',
+              }}
+            />
+            {/* Horizontal divider between top and bottom */}
+            <div 
+              className="absolute top-1/2 left-2 right-2 h-px pointer-events-none"
+              style={{
+                background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 80%, transparent 100%)',
+                boxShadow: '0 0 8px rgba(255,255,255,0.15)',
+              }}
+            />
+            
+            <div className="h-full flex flex-col">
+              {/* Top row: 2 items */}
+              <div className="flex-1 grid grid-cols-2 gap-1">
+                {displayMetrics.slice(0, 2).map((metricType, index) => {
+                  const config = METRIC_CONFIGS[metricType];
+                  if (!config) return null;
+                  
+                  const value = getMetricValue(metricType, salesData);
+                  const formattedValue = formatValue(value, config.format);
+                  const isRight = index === 1;
+                  
+                  return (
+                    <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
+                      <div 
+                        className={cn(
+                          "font-bold leading-none truncate text-lg md:text-xl",
+                          isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
+                          isLightBg ? "text-foreground" : "text-white"
+                        )}
+                      >
+                        {!isLoading && formattedValue}
+                      </div>
+                      <div 
+                        className={cn(
+                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                          isLightBg ? "text-muted-foreground" : "text-white/70"
+                        )}
+                      >
+                        {getDynamicLabel(metricType)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Bottom row: 1 item centered */}
+              <div className="flex-1 flex items-center justify-center">
+                {displayMetrics.slice(2, 3).map((metricType, index) => {
+                  const config = METRIC_CONFIGS[metricType];
+                  if (!config) return null;
+                  
+                  const value = getMetricValue(metricType, salesData);
+                  const formattedValue = formatValue(value, config.format);
+                  
+                  return (
+                    <div key={index} className="flex flex-col items-center text-center min-w-0">
+                      <div 
+                        className={cn(
+                          "font-bold leading-none truncate text-lg md:text-xl",
+                          isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
+                          isLightBg ? "text-foreground" : "text-white"
+                        )}
+                      >
+                        {!isLoading && formattedValue}
+                      </div>
+                      <div 
+                        className={cn(
+                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                          isLightBg ? "text-muted-foreground" : "text-white/70"
+                        )}
+                      >
+                        {getDynamicLabel(metricType)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : metricCount === 2 ? (
+          // 2 metrics: left/right split with vertical divider
+          <div className="relative h-full">
+            {/* Vertical divider */}
+            <div 
+              className="absolute left-1/2 top-2 bottom-2 w-px pointer-events-none"
+              style={{
+                background: 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 80%, transparent 100%)',
+                boxShadow: '0 0 8px rgba(255,255,255,0.15)',
+              }}
+            />
+            
+            <div className="grid grid-cols-2 h-full gap-1">
+              {displayMetrics.map((metricType, index) => {
+                const config = METRIC_CONFIGS[metricType];
+                if (!config) return null;
+                
+                const value = getMetricValue(metricType, salesData);
+                const formattedValue = formatValue(value, config.format);
+                const isRight = index === 1;
+                
+                return (
+                  <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
+                    <div 
+                      className={cn(
+                        "font-bold leading-none truncate text-lg md:text-xl",
+                        isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
+                        isLightBg ? "text-foreground" : "text-white"
+                      )}
+                    >
+                      {!isLoading && formattedValue}
+                    </div>
+                    <div 
+                      className={cn(
+                        "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                        isLightBg ? "text-muted-foreground" : "text-white/70"
+                      )}
+                    >
+                      {getDynamicLabel(metricType)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         ) : (
-          // 1-3 metrics: vertical stack or grid
-          <div className={cn(
-            "h-full",
-            metricCount <= 2 
-              ? "flex flex-col justify-center space-y-0" 
-              : "grid grid-cols-1 md:grid-cols-3 gap-x-2 gap-y-0 md:gap-x-3 items-center"
-          )}>
+          // 1 metric: centered
+          <div className="h-full flex items-center justify-center">
             {displayMetrics.map((metricType, index) => {
               const config = METRIC_CONFIGS[metricType];
               if (!config) return null;
@@ -501,11 +629,11 @@ function CubeFaceComponent({
               const formattedValue = formatValue(value, config.format);
               
               return (
-                <div key={index} className="flex flex-col min-w-0">
+                <div key={index} className="flex flex-col items-center text-center min-w-0">
                   <div 
                     className={cn(
-                      "font-bold leading-none truncate text-lg md:text-xl",
-                      isLoading && "animate-pulse bg-white/30 rounded w-12 h-4",
+                      "font-bold leading-none truncate text-2xl md:text-3xl",
+                      isLoading && "animate-pulse bg-white/30 rounded w-16 h-6",
                       isLightBg ? "text-foreground" : "text-white"
                     )}
                   >
@@ -513,7 +641,7 @@ function CubeFaceComponent({
                   </div>
                   <div 
                     className={cn(
-                      "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                      "text-xs md:text-sm font-semibold truncate",
                       isLightBg ? "text-muted-foreground" : "text-white/70"
                     )}
                   >
