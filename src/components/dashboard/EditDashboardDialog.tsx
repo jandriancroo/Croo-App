@@ -113,7 +113,6 @@ export function EditDashboardDialog({
       setNumFaces(cube.numFaces || 1);
       setActiveFace(0);
       setEditForm({
-        title: cube.title,
         accentColor: themeColor,
       });
     } else {
@@ -264,7 +263,11 @@ export function EditDashboardDialog({
                         {/* Info */}
                         <div className="flex-1 min-w-0">
                           <p className="font-medium truncate">
-                            {cube.title || (cube.cubeType === 'sales-chart' ? 'Sales Overview' : 'Data Cube')}
+                            {cube.cubeType === 'sales-chart'
+                              ? 'Sales Overview'
+                              : cube.cubeType === 'data-3d'
+                                ? '3D Data Cube'
+                                : (cube.title || 'Data Cube')}
                           </p>
                           <p className="text-xs text-muted-foreground">
                             {cube.cubeType === 'sales-chart' 
@@ -307,8 +310,8 @@ export function EditDashboardDialog({
           {/* Edit View */}
           {view === 'edit' && editingCube && (
             <div className="space-y-4">
-              {/* Title - only for non-sales-chart types */}
-              {editingCube.cubeType !== 'sales-chart' && (
+              {/* Title - only for flat data cubes (3D cubes use per-face titles) */}
+              {editingCube.cubeType === 'data' && (
                 <div className="space-y-2">
                   <Label htmlFor="edit-title">Title</Label>
                   <Input

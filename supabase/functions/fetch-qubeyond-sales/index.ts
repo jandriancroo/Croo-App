@@ -2574,6 +2574,43 @@ serve(async (req) => {
       projections.weekProjected = paceAdjusted.weekProjected;
       projections.monthProjected = paceAdjusted.monthProjected;
     }
+    // Calculate daily labor percent now that we have sales (for punch-based labor)
+    // IMPORTANT: do this BEFORE we decorate hourly data, since the UI uses hourly.laborPercent.
+    if (laborSource === 'punches' && laborData && dailySales > 0) {
+      laborData.laborPercent = (laborData.laborCost / dailySales) * 100;
+      console.log(`[PUNCH-LABOR] Daily labor percent: ${laborData.laborPercent.toFixed(1)}% ($${laborData.laborCost.toFixed(2)} / $${dailySales.toFixed(2)})`);
+    }
+
+    // For punch-based weekly/monthly labor, compute per-day laborPercent now that we have sales.
+    // (The punch labor calculators return laborPercent=0 and expect the caller to compute % from sales.)
+    if (laborSource === 'punches') {
+      const salesByDate = new Map<string, number>();
+      // Weekly breakdown contains all 7 days with actual sales (cached for past days).
+      for (const d of weeklyBreakdown) salesByDate.set(d.date, d.sales);
+      // Monthly breakdown contains all days in month with actual sales.
+      for (const d of monthlyBreakdown) salesByDate.set(d.date, d.sales);
+
+      if (weeklyLaborData?.dailyLabor?.length) {
+        weeklyLaborData.dailyLabor = weeklyLaborData.dailyLabor.map((d) => {
+          const sales = salesByDate.get(d.date) ?? 0;
+          return {
+            ...d,
+            laborPercent: sales > 0 ? (d.laborCost / sales) * 100 : 0,
+          };
+        });
+      }
+
+      if (monthlyLaborData?.dailyLabor?.length) {
+        monthlyLaborData.dailyLabor = monthlyLaborData.dailyLabor.map((d) => {
+          const sales = salesByDate.get(d.date) ?? 0;
+          return {
+            ...d,
+            laborPercent: sales > 0 ? (d.laborCost / sales) * 100 : 0,
+          };
+        });
+      }
+    }
+
     // Add labor % to hourly data if we have labor data (use daily labor % for all hours as approximation)
     let hourlyWithLabor = hourlyWithProjections;
     if (laborData && laborData.laborPercent > 0) {
@@ -2582,7 +2619,7 @@ serve(async (req) => {
         laborPercent: laborData.laborPercent
       }));
     }
-    
+
     // Add labor % to weekly breakdown if we have weekly labor data
     let weeklyWithLabor = weeklyWithProjections;
     if (weeklyLaborData && weeklyLaborData.dailyLabor.length > 0) {
@@ -2595,7 +2632,7 @@ serve(async (req) => {
         };
       });
     }
-    
+
     // Calculate weekly labor totals
     const weeklyLaborTotals = weeklyLaborData && weeklySales > 0 ? {
       laborPercent: (weeklyLaborData.laborCost / weeklySales) * 100,
@@ -2604,8 +2641,8 @@ serve(async (req) => {
       regularHours: weeklyLaborData.regularHours,
       overtimeHours: weeklyLaborData.overtimeHours
     } : null;
-    
-    // Calculate monthly labor totals (for punch-based labor)
+
+    // Calculate monthly labor totals
     const monthlyLaborTotals = monthlyLaborData && monthlySales > 0 ? {
       laborPercent: (monthlyLaborData.laborCost / monthlySales) * 100,
       laborCost: monthlyLaborData.laborCost,
@@ -2614,12 +2651,6 @@ serve(async (req) => {
       overtimeHours: monthlyLaborData.overtimeHours
     } : null;
     console.log(`[PUNCH-LABOR] MTD labor: ${monthlyLaborTotals ? `${monthlyLaborTotals.laborPercent.toFixed(1)}% ($${monthlyLaborTotals.laborCost.toFixed(2)} / $${monthlySales.toFixed(2)})` : 'null'}`);
-    
-    // Calculate daily labor percent now that we have sales (for punch-based labor)
-    if (laborSource === 'punches' && laborData && dailySales > 0) {
-      laborData.laborPercent = (laborData.laborCost / dailySales) * 100;
-      console.log(`[PUNCH-LABOR] Daily labor percent: ${laborData.laborPercent.toFixed(1)}% ($${laborData.laborCost.toFixed(2)} / $${dailySales.toFixed(2)})`);
-    }
 
     // pizzaCount for today already calculated above as todayPizzaCount
     const pizzaCount = todayPizzaCount;

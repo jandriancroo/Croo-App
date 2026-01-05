@@ -286,8 +286,8 @@ export function DataCube3D({
           {[0, 1, 2, 3].map((faceIndex) => {
             const face = faces[faceIndex % faces.length];
             const rotateY = faceIndex * 90;
-            // Use per-face title if available, otherwise fall back to the legacy single title
-            const faceTitle = face?.title || title;
+            // Only use per-face titles (no cube-level title fallback)
+            const faceTitle = face?.title;
             
             return (
               <CubeFaceComponent
