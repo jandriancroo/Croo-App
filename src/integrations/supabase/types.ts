@@ -2684,6 +2684,59 @@ export type Database = {
           },
         ]
       }
+      pfg_orders: {
+        Row: {
+          created_at: string
+          delivery_date: string | null
+          id: string
+          items: Json | null
+          location_id: string
+          order_date: string
+          order_number: string | null
+          pfg_order_id: string
+          raw_data: Json | null
+          status: string | null
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_date?: string | null
+          id?: string
+          items?: Json | null
+          location_id: string
+          order_date: string
+          order_number?: string | null
+          pfg_order_id: string
+          raw_data?: Json | null
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          delivery_date?: string | null
+          id?: string
+          items?: Json | null
+          location_id?: string
+          order_date?: string
+          order_number?: string | null
+          pfg_order_id?: string
+          raw_data?: Json | null
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pfg_orders_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           all_locations_enabled: boolean

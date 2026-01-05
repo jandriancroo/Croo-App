@@ -71,3 +71,6 @@ verify_jwt = true
 
 [functions.auto-punch-out]
 verify_jwt = false
+
+[functions.sync-pfg-orders]
+verify_jwt = false
