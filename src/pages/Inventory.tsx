@@ -83,6 +83,17 @@ const Inventory = () => {
   // Start new count mutation
   const startCountMutation = useMutation({
     mutationFn: async ({ periodType, periodEndDate }: { periodType: string | null; periodEndDate: string | null }) => {
+      // Sync PFG orders in background (don't block count start)
+      supabase.functions.invoke("sync-pfg-orders", {
+        body: { locationId }
+      }).then((result) => {
+        if (result.data?.totalImported > 0) {
+          console.log(`[Inventory] Synced ${result.data.totalImported} PFG orders`);
+        }
+      }).catch((err) => {
+        console.warn("[Inventory] PFG order sync failed:", err);
+      });
+
       const { data, error } = await supabase
         .from("inventory_counts")
         .insert({
@@ -104,6 +115,7 @@ const Inventory = () => {
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
       queryClient.invalidateQueries({ queryKey: ["inventory-existing-periods", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["pfg-orders", locationId] });
       toast.success("Count session started");
     },
     onError: () => {
