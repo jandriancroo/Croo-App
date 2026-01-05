@@ -25,7 +25,8 @@ interface InventoryCountSessionProps {
   countId: string;
   locationId: string;
   onClose: () => void;
-  isEditing?: boolean; // True if reopening a completed count
+  isEditing?: boolean; // True if reopening a completed count for editing
+  isViewOnly?: boolean; // True if just viewing a completed count (no editing)
 }
 
 interface CountItem {
@@ -56,7 +57,7 @@ interface PendingEdit {
   newQuantity: number;
 }
 
-const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false }: InventoryCountSessionProps) => {
+const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false, isViewOnly = false }: InventoryCountSessionProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
@@ -552,6 +553,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         isEditing ? "bg-amber-500/10" : "bg-primary/5"
       )}>
         <CardContent className="p-4 space-y-3">
+          {/* View-only mode indicator */}
+          {isViewOnly && (
+            <div className="flex items-center gap-2 text-blue-600 text-sm font-medium">
+              <History className="h-4 w-4" />
+              <span>Viewing completed count</span>
+            </div>
+          )}
+          
           {/* Edit mode indicator */}
           {isEditing && (
             <div className="flex items-center gap-2 text-amber-600 text-sm font-medium">
@@ -583,48 +592,50 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
           <Progress value={progress} className="h-2" />
           
-          {/* Bottom row: Complete/Save button + Microphone */}
-          <div className="flex items-center gap-2">
-            {isEditing ? (
-              <Button 
-                onClick={handleSaveEdits}
-                disabled={saveEditMutation.isPending}
-                className="flex-1 h-12 text-base bg-amber-600 hover:bg-amber-700"
-              >
-                <Check className="h-5 w-5 mr-2" />
-                Save Changes
-              </Button>
-            ) : (
-              <Button 
-                onClick={() => completeCountMutation.mutate()}
-                disabled={completeCountMutation.isPending}
-                className="flex-1 h-12 text-base"
-              >
-                <Check className="h-5 w-5 mr-2" />
-                Complete Count
-              </Button>
-            )}
-            {isSupported && (
-              <Button
-                variant={isListening ? "destructive" : "secondary"}
-                size="icon"
-                onClick={toggleListening}
-                className={cn(
-                  "h-12 w-12 relative",
-                  !isListening && "bg-orange-500 hover:bg-orange-600 text-white border-0"
-                )}
-              >
-                {isListening ? (
-                  <MicOff className="h-6 w-6" />
-                ) : (
-                  <Mic className="h-6 w-6" />
-                )}
-                {isListening && (
-                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-ping" />
-                )}
-              </Button>
-            )}
-          </div>
+          {/* Bottom row: Complete/Save button + Microphone (hidden in view-only mode) */}
+          {!isViewOnly && (
+            <div className="flex items-center gap-2">
+              {isEditing ? (
+                <Button 
+                  onClick={handleSaveEdits}
+                  disabled={saveEditMutation.isPending}
+                  className="flex-1 h-12 text-base bg-amber-600 hover:bg-amber-700"
+                >
+                  <Check className="h-5 w-5 mr-2" />
+                  Save Changes
+                </Button>
+              ) : (
+                <Button 
+                  onClick={() => completeCountMutation.mutate()}
+                  disabled={completeCountMutation.isPending}
+                  className="flex-1 h-12 text-base"
+                >
+                  <Check className="h-5 w-5 mr-2" />
+                  Complete Count
+                </Button>
+              )}
+              {isSupported && (
+                <Button
+                  variant={isListening ? "destructive" : "secondary"}
+                  size="icon"
+                  onClick={toggleListening}
+                  className={cn(
+                    "h-12 w-12 relative",
+                    !isListening && "bg-orange-500 hover:bg-orange-600 text-white border-0"
+                  )}
+                >
+                  {isListening ? (
+                    <MicOff className="h-6 w-6" />
+                  ) : (
+                    <Mic className="h-6 w-6" />
+                  )}
+                  {isListening && (
+                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-ping" />
+                  )}
+                </Button>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -717,28 +728,36 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       )}
                     </p>
                     <div className="flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all"
-                        onClick={() => updateCases(item.item_id, -1)}
-                      >
-                        <Minus className="h-6 w-6" strokeWidth={3} />
-                      </button>
+                      {!isViewOnly && (
+                        <button
+                          type="button"
+                          className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all"
+                          onClick={() => updateCases(item.item_id, -1)}
+                        >
+                          <Minus className="h-6 w-6" strokeWidth={3} />
+                        </button>
+                      )}
                       <input
                         type="text"
                         inputMode="decimal"
                         value={rawInputs[item.item_id]?.cases ?? count.cases}
                         onChange={(e) => handleCasesInput(item.item_id, e.target.value)}
                         onBlur={() => handleCasesBlur(item.item_id)}
-                        className="w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        disabled={isViewOnly}
+                        className={cn(
+                          "w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20",
+                          isViewOnly && "w-20 cursor-default"
+                        )}
                       />
-                      <button
-                        type="button"
-                        className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all"
-                        onClick={() => updateCases(item.item_id, 1)}
-                      >
-                        <Plus className="h-6 w-6" strokeWidth={3} />
-                      </button>
+                      {!isViewOnly && (
+                        <button
+                          type="button"
+                          className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all"
+                          onClick={() => updateCases(item.item_id, 1)}
+                        >
+                          <Plus className="h-6 w-6" strokeWidth={3} />
+                        </button>
+                      )}
                     </div>
                   </div>
                   
@@ -751,28 +770,36 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
                       )}
                     </p>
                     <div className="flex items-center justify-center gap-2">
-                      <button
-                        type="button"
-                        className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all"
-                        onClick={() => updateUnits(item.item_id, -1)}
-                      >
-                        <Minus className="h-6 w-6" strokeWidth={3} />
-                      </button>
+                      {!isViewOnly && (
+                        <button
+                          type="button"
+                          className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-destructive/50 bg-destructive/10 text-destructive hover:bg-destructive/20 active:scale-95 transition-all"
+                          onClick={() => updateUnits(item.item_id, -1)}
+                        >
+                          <Minus className="h-6 w-6" strokeWidth={3} />
+                        </button>
+                      )}
                       <input
                         type="text"
                         inputMode="decimal"
                         value={rawInputs[item.item_id]?.units ?? count.units}
                         onChange={(e) => handleUnitsInput(item.item_id, e.target.value)}
                         onBlur={() => handleUnitsBlur(item.item_id)}
-                        className="w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                        disabled={isViewOnly}
+                        className={cn(
+                          "w-16 h-14 text-center text-2xl font-bold bg-background border-2 border-border rounded-lg focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20",
+                          isViewOnly && "w-20 cursor-default"
+                        )}
                       />
-                      <button
-                        type="button"
-                        className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all"
-                        onClick={() => updateUnits(item.item_id, 1)}
-                      >
-                        <Plus className="h-6 w-6" strokeWidth={3} />
-                      </button>
+                      {!isViewOnly && (
+                        <button
+                          type="button"
+                          className="h-14 w-14 flex items-center justify-center rounded-lg border-2 border-primary/50 bg-primary/10 text-primary hover:bg-primary/20 active:scale-95 transition-all"
+                          onClick={() => updateUnits(item.item_id, 1)}
+                        >
+                          <Plus className="h-6 w-6" strokeWidth={3} />
+                        </button>
+                      )}
                     </div>
                     {packQty > 1 && (
                       <p className="text-[10px] text-center text-muted-foreground mt-1">
