@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, LucideIcon, AlarmClock, Share2 } from "lucide-react";
+import { Check, LucideIcon, AlarmClock, Send } from "lucide-react";
 import { ShareTaskDialog } from "./ShareTaskDialog";
 
 export interface TemporaryTaskCardProps {
@@ -102,19 +102,6 @@ export function TemporaryTaskCard({
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {showShare && (
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShareOpen(true);
-                }}
-              >
-                <Share2 className="h-4 w-4" />
-              </Button>
-            )}
             <Button
               size="sm"
               className="h-8 px-4 rounded-lg text-xs font-medium bg-primary hover:bg-primary/90 text-primary-foreground border-0 shadow-sm gap-1.5"
@@ -124,6 +111,19 @@ export function TemporaryTaskCard({
               <Check className="h-3.5 w-3.5" />
               {buttonLabel}
             </Button>
+            {showShare && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-muted-foreground hover:text-primary"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShareOpen(true);
+                }}
+              >
+                <Send className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
