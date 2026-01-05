@@ -86,7 +86,7 @@ function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushN
           </div>
         </AccordionTrigger>
 
-        <div className="relative z-20">
+        <div>
           <DropdownMenu
             modal={false}
             onOpenChange={(open) => {
@@ -115,7 +115,7 @@ function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushN
             <DropdownMenuContent
               align="end"
               sideOffset={8}
-              className="z-[70] bg-popover text-popover-foreground border border-border shadow-xl"
+              className="bg-popover text-popover-foreground border border-border shadow-xl"
             >
               <DropdownMenuItem onSelect={() => onEditFields(category.id, category.logbook_fields || [])}>
                 <Edit2 className="h-4 w-4 mr-2" />
