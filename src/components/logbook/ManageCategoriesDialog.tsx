@@ -86,56 +86,63 @@ function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushN
           </div>
         </AccordionTrigger>
 
-        <DropdownMenu
-          modal={false}
-          onOpenChange={(open) => {
-            console.log("[Logbook Categories] dropdown open:", open, "category:", category?.id);
-          }}
-        >
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              onPointerDownCapture={(e) => e.stopPropagation()}
-              onClickCapture={(e) => {
-                e.stopPropagation();
-                console.log("[Logbook Categories] dots clicked", category?.id);
-              }}
-              aria-label={`Category actions for ${category.name}`}
-            >
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            sideOffset={8}
-            className="z-[70] bg-popover text-popover-foreground border border-border shadow-xl"
+        <div className="relative z-20">
+          <DropdownMenu
+            modal={false}
+            onOpenChange={(open) => {
+              console.log("[Logbook Categories] dropdown open:", open, "category:", category?.id);
+            }}
           >
-            <DropdownMenuItem onSelect={() => onEditFields(category.id, category.logbook_fields || [])}>
-              <Edit2 className="h-4 w-4 mr-2" />
-              Configure Fields
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onCopyTo(category)}>
-              <Copy className="h-4 w-4 mr-2" />
-              Copy to Location...
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onSelect={() => {
-                if (confirm(`Delete "${category.name}"? This will also delete all associated entries.`)) {
-                  onDelete(category.id);
-                }
-              }}
-              className="text-destructive focus:text-destructive"
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="relative z-20"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  console.log("[Logbook Categories] dots pointerdown", category?.id);
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  console.log("[Logbook Categories] dots clicked", category?.id);
+                }}
+                aria-label={`Category actions for ${category.name}`}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="end"
+              sideOffset={8}
+              className="z-[70] bg-popover text-popover-foreground border border-border shadow-xl"
             >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuItem onSelect={() => onEditFields(category.id, category.logbook_fields || [])}>
+                <Edit2 className="h-4 w-4 mr-2" />
+                Configure Fields
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onCopyTo(category)}>
+                <Copy className="h-4 w-4 mr-2" />
+                Copy to Location...
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  if (confirm(`Delete "${category.name}"? This will also delete all associated entries.`)) {
+                    onDelete(category.id);
+                  }
+                }}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       <AccordionContent className="pb-3">
-        <div className="space-y-3 pt-2">
+          <div className="space-y-3 pt-2">
           {/* Category Settings */}
           <div className="flex flex-col gap-2 p-2 bg-muted rounded">
             <div className="flex items-center justify-between">
