@@ -7,10 +7,11 @@ import { ThemeColorKey, migrateAccentColor, getThemeColorClass, getThemeTextClas
 
 interface CubeFace {
   metrics: MetricType[];
+  title?: string;
 }
 
 interface DataCube3DProps {
-  title: string;
+  title?: string; // Legacy single title for all faces
   faces: CubeFace[];
   accentColor?: string;
   autoRotateInterval?: number;
@@ -285,6 +286,8 @@ export function DataCube3D({
           {[0, 1, 2, 3].map((faceIndex) => {
             const face = faces[faceIndex % faces.length];
             const rotateY = faceIndex * 90;
+            // Use per-face title if available, otherwise fall back to the legacy single title
+            const faceTitle = face?.title || title;
             
             return (
               <CubeFaceComponent
@@ -297,7 +300,7 @@ export function DataCube3D({
                 currentFace={currentFace}
                 faceIndex={faceIndex}
                 onIndicatorClick={rotateTo}
-                title={title}
+                title={faceTitle}
                 rotateY={rotateY}
                 cubeDepth={cubeDepth}
               />

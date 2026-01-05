@@ -14,8 +14,9 @@ import {
 import { THEME_COLORS, ThemeColorKey, getThemeColorClass } from "@/utils/themeColors";
 
 export interface New3DCubeConfig {
-  title: string;
+  title?: string; // Legacy single title (optional now)
   faceMetrics: MetricType[][]; // Array of faces, each face has up to 4 metrics
+  faceTitles: string[]; // Title for each face
   numFaces: number;
   accentColor: string;
 }
@@ -35,7 +36,7 @@ export function Add3DCubeDialog({
 }: Add3DCubeDialogProps) {
   const [numFaces, setNumFaces] = useState(2);
   const [activeFace, setActiveFace] = useState(0);
-  const [title, setTitle] = useState('');
+  const [faceTitles, setFaceTitles] = useState<string[]>(['', '', '', '']);
   const [accentColor, setAccentColor] = useState<ThemeColorKey>(THEME_COLORS[defaultColorIndex % THEME_COLORS.length].key);
   const [faceMetrics, setFaceMetrics] = useState<MetricType[][]>([[], [], [], []]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,7 +44,7 @@ export function Add3DCubeDialog({
   const resetDialog = () => {
     setNumFaces(2);
     setActiveFace(0);
-    setTitle('');
+    setFaceTitles(['', '', '', '']);
     setAccentColor(THEME_COLORS[defaultColorIndex % THEME_COLORS.length].key);
     setFaceMetrics([[], [], [], []]);
     setIsSubmitting(false);
@@ -78,6 +79,7 @@ export function Add3DCubeDialog({
     
     // Get only the faces we're using
     const usedFaces = faceMetrics.slice(0, numFaces);
+    const usedTitles = faceTitles.slice(0, numFaces);
     
     // Check that at least one face has metrics
     const hasAnyMetrics = usedFaces.some(face => face.length > 0);
@@ -87,8 +89,8 @@ export function Add3DCubeDialog({
     
     try {
       await onAdd({
-        title,
         faceMetrics: usedFaces,
+        faceTitles: usedTitles,
         numFaces,
         accentColor,
       });
@@ -120,17 +122,6 @@ export function Add3DCubeDialog({
         </DialogHeader>
 
         <div className="space-y-5 py-2">
-          {/* Title */}
-          <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
-            <Input
-              id="title"
-              placeholder="e.g., Performance Overview"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-          </div>
-
           {/* Number of Faces */}
           <div className="space-y-2">
             <Label>Number of Faces</Label>
@@ -190,6 +181,21 @@ export function Add3DCubeDialog({
               {Array.from({ length: numFaces }).map((_, idx) => (
                 <TabsContent key={idx} value={String(idx)} className="mt-3">
                   <div className="space-y-3">
+                    {/* Per-face title */}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Face {idx + 1} Title</Label>
+                      <Input
+                        placeholder={`e.g., ${idx === 0 ? 'Daily' : idx === 1 ? 'Weekly' : idx === 2 ? 'Monthly' : 'Overview'}`}
+                        value={faceTitles[idx]}
+                        onChange={(e) => {
+                          const updated = [...faceTitles];
+                          updated[idx] = e.target.value;
+                          setFaceTitles(updated);
+                        }}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
                         Select up to 4 metrics for this face

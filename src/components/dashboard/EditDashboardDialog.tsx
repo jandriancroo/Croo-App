@@ -35,6 +35,7 @@ export interface CubeConfig {
   cubeType: CubeType | 'data-3d';
   // 3D cube specific
   faceMetrics?: MetricType[][];
+  faceTitles?: string[];
   numFaces?: number;
 }
 
@@ -66,6 +67,7 @@ export function EditDashboardDialog({
   // 3D cube specific state
   const [activeFace, setActiveFace] = useState(0);
   const [faceMetrics, setFaceMetrics] = useState<MetricType[][]>([[], [], [], []]);
+  const [faceTitles, setFaceTitles] = useState<string[]>(['', '', '', '']);
   const [numFaces, setNumFaces] = useState(2);
 
   // Reset when dialog closes
@@ -76,6 +78,7 @@ export function EditDashboardDialog({
       setEditForm({});
       setActiveFace(0);
       setFaceMetrics([[], [], [], []]);
+      setFaceTitles(['', '', '', '']);
       setNumFaces(2);
     }
   }, [open]);
@@ -94,11 +97,18 @@ export function EditDashboardDialog({
     if (cube.cubeType === 'data-3d') {
       // Initialize 3D cube editing state
       const faces = cube.faceMetrics || [[], [], [], []];
+      const titles = cube.faceTitles || ['', '', '', ''];
       setFaceMetrics([
         faces[0] || [],
         faces[1] || [],
         faces[2] || [],
         faces[3] || [],
+      ]);
+      setFaceTitles([
+        titles[0] || '',
+        titles[1] || '',
+        titles[2] || '',
+        titles[3] || '',
       ]);
       setNumFaces(cube.numFaces || 1);
       setActiveFace(0);
@@ -124,6 +134,7 @@ export function EditDashboardDialog({
     setEditForm({});
     setActiveFace(0);
     setFaceMetrics([[], [], [], []]);
+    setFaceTitles(['', '', '', '']);
     setNumFaces(2);
   };
 
@@ -168,10 +179,11 @@ export function EditDashboardDialog({
     setIsSaving(true);
     try {
       if (editingCube.cubeType === 'data-3d') {
-        // Save 3D cube with face metrics
+        // Save 3D cube with face metrics and titles
         await onUpdateCube(editingCube.id, {
           ...editForm,
           faceMetrics: faceMetrics.slice(0, numFaces),
+          faceTitles: faceTitles.slice(0, numFaces),
           numFaces,
         });
       } else {
@@ -409,8 +421,23 @@ export function EditDashboardDialog({
                       
                       {Array.from({ length: numFaces }).map((_, idx) => (
                         <TabsContent key={idx} value={String(idx)} className="mt-3">
-                          <ScrollArea className="h-[180px] -mx-2 px-2">
-                            <div className="space-y-2">
+                          <ScrollArea className="h-[200px] -mx-2 px-2">
+                            <div className="space-y-3">
+                              {/* Per-face title */}
+                              <div className="space-y-1.5">
+                                <Label className="text-xs">Face {idx + 1} Title</Label>
+                                <Input
+                                  placeholder={`e.g., ${idx === 0 ? 'Daily' : idx === 1 ? 'Weekly' : idx === 2 ? 'Monthly' : 'Overview'}`}
+                                  value={faceTitles[idx]}
+                                  onChange={(e) => {
+                                    const updated = [...faceTitles];
+                                    updated[idx] = e.target.value;
+                                    setFaceTitles(updated);
+                                  }}
+                                  className="h-8 text-sm"
+                                />
+                              </div>
+                              
                               <div className="flex items-center justify-between">
                                 <span className="text-xs text-muted-foreground">
                                   Select up to 4 metrics for this face

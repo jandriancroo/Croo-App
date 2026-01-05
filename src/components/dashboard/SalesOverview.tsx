@@ -1262,14 +1262,14 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                             const weekPacing = calculatedWeekProjected + accumulatedWeekDelta;
                             const isPositive = accumulatedWeekDelta >= 0;
                             return (
-                              <>
+                              <div className="flex items-center gap-1.5">
                                 <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
                                   {formatCurrency(weekPacing)}
                                 </span>
-                                <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                                <span className={`text-xs font-medium ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
                                   ({isPositive ? '+' : ''}{formatCurrency(accumulatedWeekDelta)})
                                 </span>
-                              </>
+                              </div>
                             );
                           })()}
                         </div>
@@ -1429,14 +1429,14 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                             const monthPacing = (salesData?.projections?.monthProjected || 0) + accumulatedMonthDelta;
                             const isPositive = accumulatedMonthDelta >= 0;
                             return (
-                              <>
+                              <div className="flex items-center gap-1.5">
                                 <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
                                   {formatCurrency(monthPacing)}
                                 </span>
-                                <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                                <span className={`text-xs font-medium ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
                                   ({isPositive ? '+' : ''}{formatCurrency(accumulatedMonthDelta)})
                                 </span>
-                              </>
+                              </div>
                             );
                           })()}
                         </div>
