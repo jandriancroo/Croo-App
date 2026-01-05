@@ -364,15 +364,26 @@ serve(async (req) => {
       generated_at: new Date().toISOString(),
     };
 
-    const { error: valueError } = await supabase
+    const summaryDataString = JSON.stringify(summaryData);
+    console.log('Inserting summary data with length:', summaryDataString.length);
+    console.log('Entry ID:', entryData.id, 'Field ID:', summaryField.id);
+    
+    const { data: insertedValue, error: valueError } = await supabase
       .from('logbook_entry_values')
       .insert({
         entry_id: entryData.id,
         field_id: summaryField.id,
-        value_text: JSON.stringify(summaryData),
-      });
+        value_text: summaryDataString,
+      })
+      .select()
+      .single();
 
-    if (valueError) throw valueError;
+    if (valueError) {
+      console.error('Error inserting value:', valueError);
+      throw valueError;
+    }
+    
+    console.log('Inserted value_text length:', insertedValue?.value_text?.length || 0);
 
     console.log('Weekly summary generated successfully');
 
