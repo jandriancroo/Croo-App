@@ -58,6 +58,7 @@ import FBCDashboard from "./pages/FBCDashboard";
 import MyProfile from "./pages/MyProfile";
 import MultiLocationDashboard from "./pages/MultiLocationDashboard";
 import Inventory from "./pages/Inventory";
+import InventoryCount from "./pages/InventoryCount";
 import Games from "./pages/Games";
 import SnakeGame from "./pages/SnakeGame";
 import MinesweeperGame from "./pages/MinesweeperGame";
@@ -123,6 +124,7 @@ const AppContent = () => {
       {/* FBC Dashboard hidden - <Route path="/fbc-dashboard" element={<ProtectedRoute><FBCDashboard /></ProtectedRoute>} /> */}
       <Route path="/multi-location" element={<ProtectedRoute><MultiLocationDashboard /></ProtectedRoute>} />
       <Route path="/inventory/:locationId" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
+      <Route path="/inventory/:locationId/count/:countId" element={<ProtectedRoute><InventoryCount /></ProtectedRoute>} />
       <Route path="/games" element={<ProtectedRoute><Games /></ProtectedRoute>} />
       <Route path="/games/snake" element={<ProtectedRoute><SnakeGame /></ProtectedRoute>} />
       <Route path="/games/minesweeper" element={<ProtectedRoute><MinesweeperGame /></ProtectedRoute>} />
