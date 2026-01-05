@@ -515,11 +515,98 @@ export default function LogBook() {
   const sortedDays = Object.keys(entriesByDay).sort((a, b) => b.localeCompare(a));
 
   // Render new entry content - extracted for reuse in sheet
+  const [generatingWeeklySummary, setGeneratingWeeklySummary] = useState(false);
+  
   const renderNewEntryContent = () => {
     const currentCategoryName = categories.find((c: any) => c.id === selectedCategory)?.name?.toLowerCase();
     const isDrawerCount = currentCategoryName === 'drawer count';
     const isSafeCount = currentCategoryName === 'safe count';
+    const isWeeklySummary = currentCategoryName === 'weekly summary';
     const isBankDeposit = selectedCategory === 'bank-deposit'; // Virtual category
+    
+    // Weekly Summary - special generate UI
+    if (isWeeklySummary) {
+      const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 }); // End on Sunday
+      const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 }); // Start on Monday
+      
+      return (
+        <div className="space-y-4">
+          <div className="flex flex-col justify-between items-start gap-3">
+            <h2 className="text-lg font-semibold">Generate Weekly Summary</h2>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full">
+                  <CalendarIcon className="h-4 w-4 mr-2" />
+                  <span className="text-xs sm:text-sm">Week of {format(weekStart, 'MMM d')} - {format(weekEnd, 'MMM d, yyyy')}</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={(date) => date && setSelectedDate(date)}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="pt-4">
+              <p className="text-sm text-muted-foreground">
+                This will generate an AI-powered summary for the week of <strong>{format(weekStart, 'MMM d')}</strong> to <strong>{format(weekEnd, 'MMM d, yyyy')}</strong>, including:
+              </p>
+              <ul className="mt-2 text-sm text-muted-foreground list-disc list-inside space-y-1">
+                <li>Total sales & daily breakdown</li>
+                <li>Cash over/short from drawer counts</li>
+                <li>Task completion rate</li>
+                <li>AI-generated insights</li>
+              </ul>
+            </CardContent>
+          </Card>
+          
+          <Button 
+            className="w-full" 
+            disabled={generatingWeeklySummary}
+            onClick={async () => {
+              setGeneratingWeeklySummary(true);
+              try {
+                const weekStartStr = format(weekStart, 'yyyy-MM-dd');
+                const weekEndStr = format(weekEnd, 'yyyy-MM-dd');
+                
+                toast({ title: "Generating weekly summary...", description: "Please wait" });
+                
+                const { error } = await supabase.functions.invoke('generate-weekly-summary', {
+                  body: {
+                    location_id: currentLocation?.id,
+                    week_start: weekStartStr,
+                    week_end: weekEndStr,
+                    user_id: user!.id,
+                  }
+                });
+                
+                if (error) throw error;
+                
+                toast({ title: "Weekly summary generated!" });
+                queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                setShowNewEntrySheet(false);
+                setActiveTab('search');
+              } catch (error: any) {
+                console.error('Error generating weekly summary:', error);
+                toast({ 
+                  title: "Error generating summary", 
+                  description: error.message || "Please try again", 
+                  variant: "destructive" 
+                });
+              } finally {
+                setGeneratingWeeklySummary(false);
+              }
+            }}
+          >
+            {generatingWeeklySummary ? "Generating..." : "Generate Weekly Summary"}
+          </Button>
+        </div>
+      );
+    }
     
     // Bank Deposit form
     if (isBankDeposit) {
