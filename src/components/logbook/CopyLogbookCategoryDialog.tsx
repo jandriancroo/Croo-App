@@ -10,6 +10,7 @@ import { Loader2, Plus, RefreshCw } from 'lucide-react';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useAuth } from '@/lib/auth';
 import { useQueryClient } from '@tanstack/react-query';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface CopyLogbookCategoryDialogProps {
   open: boolean;
@@ -30,6 +31,7 @@ interface TargetLocation {
   id: string;
   name: string;
   hasExisting: boolean;
+  organizationName?: string;
 }
 
 export function CopyLogbookCategoryDialog({ 
@@ -40,11 +42,14 @@ export function CopyLogbookCategoryDialog({
 }: CopyLogbookCategoryDialogProps) {
   const { currentLocation } = useAppLocation();
   const { user } = useAuth();
+  const { role } = useUserRole();
   const queryClient = useQueryClient();
   const [targetLocations, setTargetLocations] = useState<TargetLocation[]>([]);
   const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [copying, setCopying] = useState(false);
+
+  const isSuperAdmin = role === 'super_admin';
 
   useEffect(() => {
     if (open && currentLocation?.id && category) {
@@ -58,34 +63,48 @@ export function CopyLogbookCategoryDialog({
     
     setLoading(true);
     try {
-      // Get the organization_id for the current location
-      const { data: locationData, error: locationError } = await supabase
-        .from('locations')
-        .select('organization_id')
-        .eq('id', currentLocation?.id)
-        .single();
+      let locations: { id: string; name: string; organization_id: string | null; organizations?: { name: string } | null }[] = [];
 
-      if (locationError) throw locationError;
+      if (isSuperAdmin) {
+        // Super admin can see ALL locations across all organizations
+        const { data, error } = await supabase
+          .from('locations')
+          .select('id, name, organization_id, organizations(name)')
+          .neq('id', currentLocation?.id)
+          .order('name');
 
-      if (!locationData?.organization_id) {
-        toast.error('Could not determine organization');
-        setTargetLocations([]);
-        return;
+        if (error) throw error;
+        locations = data || [];
+      } else {
+        // Regular users only see locations in their organization
+        const { data: locationData, error: locationError } = await supabase
+          .from('locations')
+          .select('organization_id')
+          .eq('id', currentLocation?.id)
+          .single();
+
+        if (locationError) throw locationError;
+
+        if (!locationData?.organization_id) {
+          toast.error('Could not determine organization');
+          setTargetLocations([]);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('locations')
+          .select('id, name, organization_id')
+          .eq('organization_id', locationData.organization_id)
+          .neq('id', currentLocation?.id)
+          .order('name');
+
+        if (error) throw error;
+        locations = data || [];
       }
-
-      // Get all locations in this organization (except current)
-      const { data: locations, error: locError } = await supabase
-        .from('locations')
-        .select('id, name')
-        .eq('organization_id', locationData.organization_id)
-        .neq('id', currentLocation?.id)
-        .order('name');
-
-      if (locError) throw locError;
 
       // For each location, check if the category already exists (by name)
       const locationsWithExisting: TargetLocation[] = await Promise.all(
-        (locations || []).map(async (loc) => {
+        locations.map(async (loc) => {
           const { data: existing } = await supabase
             .from('logbook_categories')
             .select('id')
@@ -96,7 +115,8 @@ export function CopyLogbookCategoryDialog({
           return {
             id: loc.id,
             name: loc.name,
-            hasExisting: !!existing
+            hasExisting: !!existing,
+            organizationName: isSuperAdmin ? (loc.organizations as any)?.name : undefined
           };
         })
       );
@@ -220,7 +240,8 @@ export function CopyLogbookCategoryDialog({
         <DialogHeader>
           <DialogTitle>Copy Category to Other Locations</DialogTitle>
           <DialogDescription>
-            Copy "{category?.name}" and its fields to other locations in your organization
+            Copy "{category?.name}" and its fields to other locations
+            {!isSuperAdmin && ' in your organization'}
           </DialogDescription>
         </DialogHeader>
 
@@ -258,6 +279,11 @@ export function CopyLogbookCategoryDialog({
                       />
                       <div className="flex-1">
                         <div className="font-medium">{loc.name}</div>
+                        {isSuperAdmin && loc.organizationName && (
+                          <div className="text-xs text-muted-foreground">
+                            {loc.organizationName}
+                          </div>
+                        )}
                         {loc.hasExisting && (
                           <div className="text-xs text-amber-600">
                             Existing category will be replaced
