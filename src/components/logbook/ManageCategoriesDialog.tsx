@@ -86,23 +86,31 @@ function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushN
           </div>
         </AccordionTrigger>
 
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEditFields(category.id, category.logbook_fields || [])}>
+          <DropdownMenuContent align="end" className="z-50">
+            <DropdownMenuItem onSelect={() => onEditFields(category.id, category.logbook_fields || [])}>
               <Edit2 className="h-4 w-4 mr-2" />
               Configure Fields
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onCopyTo(category)}>
+            <DropdownMenuItem onSelect={() => onCopyTo(category)}>
               <Copy className="h-4 w-4 mr-2" />
               Copy to Location...
             </DropdownMenuItem>
             <DropdownMenuItem 
-              onClick={() => {
+              onSelect={() => {
                 if (confirm(`Delete "${category.name}"? This will also delete all associated entries.`)) {
                   onDelete(category.id);
                 }
