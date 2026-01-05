@@ -38,6 +38,7 @@ export default function ShiftTemplates() {
   const [customPosition, setCustomPosition] = useState("");
   const [showCustomPosition, setShowCustomPosition] = useState(false);
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [copyModeActive, setCopyModeActive] = useState(false);
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     start_time: "09:00",
@@ -277,19 +278,41 @@ export default function ShiftTemplates() {
             <h1 className="text-3xl font-bold">Shift Templates</h1>
           </div>
           <div className="flex items-center gap-2">
-            {selectedTemplateIds.length > 0 && (
+            {templates.length > 0 && !copyModeActive && (
               <Button 
                 variant="outline" 
-                onClick={() => setCopyDialogOpen(true)}
+                onClick={() => setCopyModeActive(true)}
               >
                 <Copy className="h-4 w-4 mr-2" />
-                Copy to Location ({selectedTemplateIds.length})
+                Copy to Location
               </Button>
             )}
-            <Button onClick={openCreateDialog}>
-              <Plus className="h-4 w-4 mr-2" />
-              New Template
-            </Button>
+            {copyModeActive && (
+              <>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => {
+                    setCopyModeActive(false);
+                    setSelectedTemplateIds([]);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => setCopyDialogOpen(true)}
+                  disabled={selectedTemplateIds.length === 0}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy Selected ({selectedTemplateIds.length})
+                </Button>
+              </>
+            )}
+            {!copyModeActive && (
+              <Button onClick={openCreateDialog}>
+                <Plus className="h-4 w-4 mr-2" />
+                New Template
+              </Button>
+            )}
           </div>
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
             <DialogContent>
@@ -461,17 +484,19 @@ export default function ShiftTemplates() {
             <Card key={template.id} className="p-4">
               <div className="flex justify-between items-start">
                 <div className="flex items-start gap-3 flex-1">
-                  <Checkbox
-                    checked={selectedTemplateIds.includes(template.id)}
-                    onCheckedChange={(checked) => {
-                      setSelectedTemplateIds(prev =>
-                        checked
-                          ? [...prev, template.id]
-                          : prev.filter(id => id !== template.id)
-                      );
-                    }}
-                    className="mt-1"
-                  />
+                  {copyModeActive && (
+                    <Checkbox
+                      checked={selectedTemplateIds.includes(template.id)}
+                      onCheckedChange={(checked) => {
+                        setSelectedTemplateIds(prev =>
+                          checked
+                            ? [...prev, template.id]
+                            : prev.filter(id => id !== template.id)
+                        );
+                      }}
+                      className="mt-1"
+                    />
+                  )}
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <div
@@ -542,7 +567,10 @@ export default function ShiftTemplates() {
             .filter(t => selectedTemplateIds.includes(t.id))
             .map(t => t.template_name)
           }
-          onSuccess={() => setSelectedTemplateIds([])}
+          onSuccess={() => {
+            setSelectedTemplateIds([]);
+            setCopyModeActive(false);
+          }}
         />
       </div>
     </Layout>
