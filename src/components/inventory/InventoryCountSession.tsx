@@ -258,7 +258,10 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     onSuccess: () => {
       toast.success("Changes saved with audit trail");
       queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
-      onClose();
+      queryClient.invalidateQueries({ queryKey: ["inventory-count-edits"] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-count-items-view"] });
+      // Navigate to view mode (remove edit param)
+      window.location.href = `/inventory/${locationId}/count/${countId}`;
     },
     onError: () => {
       toast.error("Failed to save changes");
