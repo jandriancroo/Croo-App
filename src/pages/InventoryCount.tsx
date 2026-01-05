@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, MapPin, CalendarDays, Calendar, CalendarRange } from "lucide-react";
+import { ArrowLeft, MapPin, CalendarDays, Calendar, CalendarRange, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import InventoryCountSession from "@/components/inventory/InventoryCountSession";
+import InventoryCountView from "@/components/inventory/InventoryCountView";
 
 const InventoryCount = () => {
   const { locationId, countId } = useParams();
@@ -163,14 +164,34 @@ const InventoryCount = () => {
           <h1 className="text-xl font-bold">{formatPeriodLabel(countData)}</h1>
         </div>
 
-        {/* Count Session */}
-        <InventoryCountSession 
-          countId={countId!} 
-          locationId={locationId!}
-          isEditing={isEditing}
-          isViewOnly={isViewOnly}
-          onClose={handleClose}
-        />
+        {/* Count Session or View */}
+        {isViewOnly ? (
+          <>
+            {/* Edit button for view mode */}
+            <div className="flex justify-end">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate(`/inventory/${locationId}/count/${countId}?edit=true`)}
+              >
+                <Pencil className="h-4 w-4 mr-2" />
+                Edit Count
+              </Button>
+            </div>
+            <InventoryCountView 
+              countId={countId!} 
+              locationId={locationId!}
+            />
+          </>
+        ) : (
+          <InventoryCountSession 
+            countId={countId!} 
+            locationId={locationId!}
+            isEditing={isEditing}
+            isViewOnly={false}
+            onClose={handleClose}
+          />
+        )}
       </div>
     </Layout>
   );
