@@ -40,7 +40,22 @@ interface EditRecord {
 }
 
 const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) => {
-  // Fetch count items with item details
+  // Fetch storage locations in order
+  const { data: storageLocations } = useQuery({
+    queryKey: ["inventory-storage-locations-view", locationId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("inventory_locations")
+        .select("id, name, display_order")
+        .eq("location_id", locationId)
+        .order("display_order");
+      
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  // Fetch count items with item details including display_order
   const { data: countItems, isLoading } = useQuery({
     queryKey: ["inventory-count-items-view", countId],
     queryFn: async () => {
@@ -57,13 +72,15 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
             pack_quantity,
             pack_size,
             item_number,
-            storage_location:inventory_locations(name)
+            display_order,
+            storage_location_id,
+            storage_location:inventory_locations(name, display_order)
           )
         `)
         .eq("count_id", countId);
       
       if (error) throw error;
-      return data as unknown as CountItem[];
+      return data as unknown as (CountItem & { item: CountItem['item'] & { display_order: number; storage_location_id: string; storage_location: { name: string; display_order: number } | null } })[];
     }
   });
 
@@ -108,15 +125,24 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
     }
   });
 
-  // Group items by storage location
+  // Group items by storage location, maintaining display_order
   const itemsByLocation = countItems?.reduce((acc, item) => {
     const locationName = item.item?.storage_location?.name || "Uncategorized";
+    const locationOrder = (item.item as any)?.storage_location?.display_order ?? 999;
     if (!acc[locationName]) {
-      acc[locationName] = [];
+      acc[locationName] = { items: [], order: locationOrder };
     }
-    acc[locationName].push(item);
+    acc[locationName].items.push(item);
     return acc;
-  }, {} as Record<string, CountItem[]>) || {};
+  }, {} as Record<string, { items: CountItem[]; order: number }>) || {};
+
+  // Sort locations by display_order and items within each location by display_order
+  const sortedLocations = Object.entries(itemsByLocation)
+    .sort(([, a], [, b]) => a.order - b.order)
+    .map(([name, data]) => ({
+      name,
+      items: data.items.sort((a, b) => ((a.item as any)?.display_order ?? 0) - ((b.item as any)?.display_order ?? 0))
+    }));
 
   // Calculate totals
   const totalValue = countItems?.reduce((sum, item) => {
@@ -177,8 +203,8 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
           <CardTitle className="text-base">Counted Items</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <Accordion type="multiple" defaultValue={Object.keys(itemsByLocation)} className="w-full">
-            {Object.entries(itemsByLocation).map(([locationName, items]) => {
+          <Accordion type="multiple" defaultValue={sortedLocations.map(l => l.name)} className="w-full">
+            {sortedLocations.map(({ name: locationName, items }) => {
               const locationTotal = items.reduce((sum, item) => {
                 return sum + (item.quantity * ((item.item?.cost_per_unit || 0) / (item.item?.pack_quantity || 1)));
               }, 0);
