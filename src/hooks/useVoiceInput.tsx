@@ -1,4 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { useScribe, CommitStrategy } from "@elevenlabs/react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface UseVoiceInputOptions {
   onTranscript: (transcript: string) => void;
@@ -40,19 +42,26 @@ interface SpeechRecognitionInstance extends EventTarget {
   onend: (() => void) | null;
 }
 
-export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInputOptions) => {
+// Check if native Web Speech API is available
+const hasNativeSpeechAPI = () => {
+  return !!(
+    (window as any).SpeechRecognition || 
+    (window as any).webkitSpeechRecognition
+  );
+};
+
+// Hook that uses native Web Speech API
+const useNativeSpeechRecognition = ({ onTranscript, continuous = true }: UseVoiceInputOptions) => {
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const isListeningRef = useRef(false);
   const onTranscriptRef = useRef(onTranscript);
 
-  // Keep refs in sync with latest values
   isListeningRef.current = isListening;
   onTranscriptRef.current = onTranscript;
 
   useEffect(() => {
-    // Check for browser support
     const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     setIsSupported(!!SpeechRecognitionClass);
 
@@ -63,11 +72,11 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
       recognition.lang = 'en-US';
 
       recognition.onresult = (event: SpeechRecognitionEventType) => {
-        console.log('[Voice] Got result event');
+        console.log('[Voice Native] Got result event');
         const lastResult = event.results[event.results.length - 1];
         if (lastResult.isFinal) {
           const transcript = lastResult[0].transcript.trim();
-          console.log('[Voice] Final transcript:', transcript);
+          console.log('[Voice Native] Final transcript:', transcript);
           if (transcript) {
             onTranscriptRef.current(transcript);
           }
@@ -75,22 +84,22 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEventType) => {
-        console.error('[Voice] Error:', event.error);
+        console.error('[Voice Native] Error:', event.error);
         if (event.error === 'not-allowed' || event.error === 'aborted') {
           setIsListening(false);
         }
       };
 
       recognition.onend = () => {
-        console.log('[Voice] Recognition ended, shouldContinue:', isListeningRef.current);
+        console.log('[Voice Native] Recognition ended, shouldContinue:', isListeningRef.current);
         if (isListeningRef.current && continuous) {
           setTimeout(() => {
             if (isListeningRef.current && recognitionRef.current) {
               try {
-                console.log('[Voice] Restarting...');
+                console.log('[Voice Native] Restarting...');
                 recognitionRef.current.start();
               } catch (e) {
-                console.error('[Voice] Restart failed:', e);
+                console.error('[Voice Native] Restart failed:', e);
                 setIsListening(false);
               }
             }
@@ -116,7 +125,7 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
 
   const startListening = useCallback(async () => {
     if (!recognitionRef.current) {
-      console.error('[Voice] Recognition not available');
+      console.error('[Voice Native] Recognition not available');
       return;
     }
 
@@ -124,9 +133,9 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
       await navigator.mediaDevices.getUserMedia({ audio: true });
       recognitionRef.current.start();
       setIsListening(true);
-      console.log('[Voice] Started listening');
+      console.log('[Voice Native] Started listening');
     } catch (error) {
-      console.error('[Voice] Failed to start:', error);
+      console.error('[Voice Native] Failed to start:', error);
       setIsListening(false);
     }
   }, []);
@@ -137,9 +146,9 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
     try {
       setIsListening(false);
       recognitionRef.current.stop();
-      console.log('[Voice] Stopped listening');
+      console.log('[Voice Native] Stopped listening');
     } catch (error) {
-      console.error('[Voice] Failed to stop:', error);
+      console.error('[Voice Native] Failed to stop:', error);
     }
   }, []);
 
@@ -158,4 +167,101 @@ export const useVoiceInput = ({ onTranscript, continuous = true }: UseVoiceInput
     stopListening,
     toggleListening,
   };
+};
+
+// Hook that uses ElevenLabs Scribe API (works on iOS)
+const useElevenLabsScribe = ({ onTranscript }: UseVoiceInputOptions) => {
+  const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const onTranscriptRef = useRef(onTranscript);
+
+  onTranscriptRef.current = onTranscript;
+
+  const scribe = useScribe({
+    modelId: "scribe_v2_realtime",
+    commitStrategy: CommitStrategy.VAD,
+    onCommittedTranscript: (data) => {
+      console.log('[Voice ElevenLabs] Committed transcript:', data.text);
+      if (data.text?.trim()) {
+        onTranscriptRef.current(data.text.trim());
+      }
+    },
+    onPartialTranscript: (data) => {
+      console.log('[Voice ElevenLabs] Partial:', data.text);
+    },
+  });
+
+  const startListening = useCallback(async () => {
+    if (isConnecting || scribe.isConnected) return;
+
+    setIsConnecting(true);
+    console.log('[Voice ElevenLabs] Getting scribe token...');
+
+    try {
+      const { data, error } = await supabase.functions.invoke("elevenlabs-scribe-token");
+
+      if (error) throw error;
+      if (!data?.token) throw new Error("No token received");
+
+      console.log('[Voice ElevenLabs] Connecting with token...');
+      await scribe.connect({
+        token: data.token,
+        microphone: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
+
+      setIsConnected(true);
+      console.log('[Voice ElevenLabs] Connected and listening');
+    } catch (error) {
+      console.error('[Voice ElevenLabs] Failed to start:', error);
+      setIsConnected(false);
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [isConnecting, scribe]);
+
+  const stopListening = useCallback(() => {
+    console.log('[Voice ElevenLabs] Stopping...');
+    scribe.disconnect();
+    setIsConnected(false);
+  }, [scribe]);
+
+  const toggleListening = useCallback(() => {
+    if (isConnected || scribe.isConnected) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  }, [isConnected, scribe.isConnected, startListening, stopListening]);
+
+  // Sync state with scribe.isConnected
+  useEffect(() => {
+    setIsConnected(scribe.isConnected);
+  }, [scribe.isConnected]);
+
+  return {
+    isListening: isConnected || scribe.isConnected,
+    isSupported: true, // ElevenLabs works everywhere with microphone access
+    startListening,
+    stopListening,
+    toggleListening,
+  };
+};
+
+// Main hook that chooses the best available speech recognition
+export const useVoiceInput = (options: UseVoiceInputOptions) => {
+  const nativeHook = useNativeSpeechRecognition(options);
+  const elevenLabsHook = useElevenLabsScribe(options);
+
+  // Prefer native Web Speech API when available (faster, no API costs)
+  // Fall back to ElevenLabs for iOS and unsupported browsers
+  if (hasNativeSpeechAPI()) {
+    console.log('[Voice] Using native Web Speech API');
+    return nativeHook;
+  } else {
+    console.log('[Voice] Using ElevenLabs Scribe (fallback for iOS)');
+    return elevenLabsHook;
+  }
 };
