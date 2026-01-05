@@ -1330,16 +1330,32 @@ export default function PayrollReview() {
                   <CollapsibleContent>
                     <div className="border-t border-green-200 dark:border-green-900 px-3 py-2">
                       <div className="grid gap-1">
-                        {dailyTips.sort((a, b) => a.date.localeCompare(b.date)).map(day => (
-                          <div key={day.date} className="flex items-center justify-between text-sm py-1">
-                            <span className="text-muted-foreground">
-                              {format(new Date(day.date + 'T12:00:00'), 'EEE, MMM d')}
-                            </span>
-                            <span className={day.totalTips > 0 ? 'font-medium text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
-                              {day.totalTips > 0 ? `$${day.totalTips.toFixed(2)}` : '-'}
-                            </span>
-                          </div>
-                        ))}
+                        {(() => {
+                          // Generate all dates in the pay period
+                          const allDates: string[] = [];
+                          if (selectedPeriod) {
+                            const current = new Date(selectedPeriod.start);
+                            const end = new Date(selectedPeriod.end);
+                            while (current <= end) {
+                              allDates.push(format(current, 'yyyy-MM-dd'));
+                              current.setDate(current.getDate() + 1);
+                            }
+                          }
+                          return allDates.map(dateStr => {
+                            const tipDay = dailyTips.find(d => d.date === dateStr);
+                            const totalTips = tipDay?.totalTips || 0;
+                            return (
+                              <div key={dateStr} className="flex items-center justify-between text-sm py-1">
+                                <span className="text-muted-foreground">
+                                  {format(new Date(dateStr + 'T12:00:00'), 'EEE, MMM d')}
+                                </span>
+                                <span className={totalTips > 0 ? 'font-medium text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
+                                  {totalTips > 0 ? `$${totalTips.toFixed(2)}` : '-'}
+                                </span>
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                       {totalHoursWithTips > 0 && (
                         <div className="border-t border-green-200 dark:border-green-900 mt-2 pt-2 text-xs text-muted-foreground">
