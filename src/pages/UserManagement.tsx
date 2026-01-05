@@ -133,7 +133,7 @@ export default function UserManagement() {
   const [creatingTestUser, setCreatingTestUser] = useState(false);
   const [testUserCounter, setTestUserCounter] = useState(1);
   const { toast } = useToast();
-  const { isAdmin, isManager, loading: roleLoading } = useUserRole();
+  const { isAdmin, isManager, isSuperAdmin, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -340,13 +340,57 @@ export default function UserManagement() {
 
   const fetchLocations = async () => {
     try {
-      const { data, error } = await supabase
-        .from('locations')
-        .select('*')
-        .order('name', { ascending: true });
+      // Super admins see all locations
+      if (isSuperAdmin) {
+        const { data, error } = await supabase
+          .from('locations')
+          .select('*')
+          .order('name', { ascending: true });
 
-      if (error) throw error;
-      setAvailableLocations(data || []);
+        if (error) throw error;
+        setAvailableLocations(data || []);
+        return;
+      }
+
+      // Check if user is an org admin (has organization membership)
+      const { data: orgMembership } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (orgMembership?.organization_id) {
+        // Org admins see all locations in their organization
+        const { data, error } = await supabase
+          .from('locations')
+          .select('*')
+          .eq('organization_id', orgMembership.organization_id)
+          .order('name', { ascending: true });
+
+        if (error) throw error;
+        setAvailableLocations(data || []);
+        return;
+      }
+
+      // Other admins/managers see only their assigned locations
+      const { data: userLocationIds } = await supabase
+        .from('user_locations')
+        .select('location_id')
+        .eq('user_id', user?.id);
+
+      if (userLocationIds && userLocationIds.length > 0) {
+        const locationIds = userLocationIds.map(ul => ul.location_id);
+        const { data, error } = await supabase
+          .from('locations')
+          .select('*')
+          .in('id', locationIds)
+          .order('name', { ascending: true });
+
+        if (error) throw error;
+        setAvailableLocations(data || []);
+      } else {
+        setAvailableLocations([]);
+      }
     } catch (error: any) {
       console.error('Error fetching locations:', error);
     }
