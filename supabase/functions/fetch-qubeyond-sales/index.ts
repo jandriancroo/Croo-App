@@ -2238,6 +2238,7 @@ serve(async (req) => {
     // Fetch labor data - from Qu if pull_labor enabled, otherwise from punches
     let laborData = null;
     let weeklyLaborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] } | null = null;
+    let monthlyLaborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] } | null = null;
     let laborSource: 'qu' | 'punches' | null = null;
     
     // Always fetch tips data
@@ -2262,6 +2263,7 @@ serve(async (req) => {
     } else {
       // pull_labor is disabled - use in-app punch clock data instead
       console.log('Pull labor disabled - calculating labor from time_punches');
+      console.log(`[PUNCH-LABOR] Month dates for labor calc: ${monthDates.length} days (${monthDates[0]} to ${monthDates[monthDates.length - 1]})`);
       
       if (locationId) {
         const [todayPunchLabor, weekPunchLabor, monthPunchLabor, todayTips, weekTips] = await Promise.all([
@@ -2273,8 +2275,8 @@ serve(async (req) => {
         ]);
         laborData = todayPunchLabor;
         weeklyLaborData = weekPunchLabor;
-        // Store monthly labor data for later (will calculate percent after we have sales)
-        (weeklyLaborData as any)._monthlyLaborData = monthPunchLabor;
+        monthlyLaborData = monthPunchLabor;
+        console.log(`[PUNCH-LABOR] Monthly labor: $${monthlyLaborData?.laborCost?.toFixed(2)} / ${monthlyLaborData?.hoursWorked?.toFixed(1)}h`);
         laborSource = 'punches';
         tipsData = todayTips;
         weeklyTipsData = weekTips;
@@ -2545,14 +2547,14 @@ serve(async (req) => {
     } : null;
     
     // Calculate monthly labor totals (for punch-based labor)
-    const monthlyLaborRaw = (weeklyLaborData as any)?._monthlyLaborData;
-    const monthlyLaborTotals = monthlyLaborRaw && monthlySales > 0 ? {
-      laborPercent: (monthlyLaborRaw.laborCost / monthlySales) * 100,
-      laborCost: monthlyLaborRaw.laborCost,
-      hoursWorked: monthlyLaborRaw.hoursWorked,
-      regularHours: monthlyLaborRaw.regularHours,
-      overtimeHours: monthlyLaborRaw.overtimeHours
+    const monthlyLaborTotals = monthlyLaborData && monthlySales > 0 ? {
+      laborPercent: (monthlyLaborData.laborCost / monthlySales) * 100,
+      laborCost: monthlyLaborData.laborCost,
+      hoursWorked: monthlyLaborData.hoursWorked,
+      regularHours: monthlyLaborData.regularHours,
+      overtimeHours: monthlyLaborData.overtimeHours
     } : null;
+    console.log(`[PUNCH-LABOR] MTD labor: ${monthlyLaborTotals ? `${monthlyLaborTotals.laborPercent.toFixed(1)}% ($${monthlyLaborTotals.laborCost.toFixed(2)} / $${monthlySales.toFixed(2)})` : 'null'}`);
     
     // Calculate daily labor percent now that we have sales (for punch-based labor)
     if (laborSource === 'punches' && laborData && dailySales > 0) {
@@ -2757,7 +2759,11 @@ serve(async (req) => {
       projections: result.projections,
       productMixCount: result.productMix.length,
       tips: result.tips,
-      weeklyTips: result.weeklyTips
+      weeklyTips: result.weeklyTips,
+      labor: result.labor,
+      laborSource: result.laborSource,
+      weeklyLabor: result.weeklyLabor,
+      monthlyLabor: result.monthlyLabor
     }));
 
     return new Response(JSON.stringify(result), {
