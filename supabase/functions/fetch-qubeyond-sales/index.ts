@@ -2269,7 +2269,7 @@ serve(async (req) => {
       // Palm Springs cutover date - they switched from Qu labor to punches on Jan 5, 2026
       // For other locations, we use punches for ALL dates
       const palmSpringsCutoverDate = '2026-01-05';
-      const isPalmSprings = qbLocationId === '3900'; // Palm Springs Qu location ID
+      const isPalmSprings = qbLocationId === '5280'; // Palm Springs Qu location ID
       
       if (locationId) {
         let monthlyLaborResult: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] };
