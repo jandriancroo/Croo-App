@@ -150,6 +150,9 @@ export default function Dashboard() {
       if (updates.faceMetrics !== undefined) {
         updateData.face_metrics = updates.faceMetrics;
       }
+      if (updates.faceTitles !== undefined) {
+        updateData.face_titles = updates.faceTitles;
+      }
       if (updates.numFaces !== undefined) {
         updateData.num_faces = updates.numFaces;
       }

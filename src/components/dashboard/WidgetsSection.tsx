@@ -139,7 +139,11 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
 
   // For 3D data cubes
   if (cube.cubeType === 'data-3d' && cube.faceMetrics && cube.numFaces) {
-    const faces = cube.faceMetrics.slice(0, cube.numFaces).map(metrics => ({ metrics }));
+    const faceTitles = (cube as any).faceTitles || [];
+    const faces = cube.faceMetrics.slice(0, cube.numFaces).map((metrics, idx) => ({ 
+      metrics, 
+      title: faceTitles[idx] || undefined 
+    }));
     
     return (
       <div 
@@ -327,6 +331,7 @@ export function WidgetsSection({
         displayOrder: cube.display_order,
         cubeType: cube.cube_type as CubeType | 'data-3d',
         faceMetrics: (cube.face_metrics as MetricType[][]) || [],
+        faceTitles: ((cube as any).face_titles as string[]) || [],
         numFaces: cube.num_faces || 1,
       })) as DataCubeConfig[];
     },
@@ -554,11 +559,12 @@ export function WidgetsSection({
         .insert({
           user_id: user.id,
           location_id: currentLocation.id,
-          title: config.title || null,
+          title: null,
           cube_type: 'data-3d',
           widget_size: 'small',
           metrics: [],
           face_metrics: config.faceMetrics,
+          face_titles: config.faceTitles,
           num_faces: config.numFaces,
           accent_color: config.accentColor,
           display_order: nextOrder,

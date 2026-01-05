@@ -2261,22 +2261,53 @@ serve(async (req) => {
       tipsData = todayTips;
       weeklyTipsData = weekTips;
     } else {
-      // pull_labor is disabled - use in-app punch clock data instead
-      console.log('Pull labor disabled - calculating labor from time_punches');
-      console.log(`[PUNCH-LABOR] Month dates for labor calc: ${monthDates.length} days (${monthDates[0]} to ${monthDates[monthDates.length - 1]})`);
+      // pull_labor is disabled - use in-app punch clock data for today + Qu labor for historical
+      // This blends historical Qu labor with current punch-based labor for a clean month
+      console.log('Pull labor disabled - blending Qu historical labor with punch clock data');
+      
+      // Determine the cutover date: Jan 1, 2026 for Palm Springs 
+      // Fetch Qu labor for dates from start of month up to yesterday (or Jan 1 whichever is later)
+      const cutoverDate = '2026-01-01';
+      const historicalQuDates = monthDates.filter(d => d >= cutoverDate && d < todayStr);
+      const punchDates = monthDates.filter(d => d >= todayStr); // Today and forward use punches
+      
+      console.log(`[LABOR-BLEND] Historical Qu dates (${historicalQuDates.length}): ${historicalQuDates.join(', ')}`);
+      console.log(`[LABOR-BLEND] Punch dates (${punchDates.length}): ${punchDates.join(', ')}`);
       
       if (locationId) {
-        const [todayPunchLabor, weekPunchLabor, monthPunchLabor, todayTips, weekTips] = await Promise.all([
+        // Fetch both Qu historical labor and punch-based labor in parallel
+        const [todayPunchLabor, weekPunchLabor, quHistoricalLabor, punchMonthLabor, todayTips, weekTips] = await Promise.all([
           calculateLaborFromPunches(cacheSupabase, locationId, todayStr, timezone),
           calculateLaborFromPunchesForDates(cacheSupabase, locationId, weekDates, timezone),
-          calculateLaborFromPunchesForDates(cacheSupabase, locationId, monthDates, timezone),
+          historicalQuDates.length > 0 
+            ? fetchLaborDataForDates(tokenGw, historicalQuDates, qbLocationId) 
+            : Promise.resolve({ laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] }),
+          punchDates.length > 0
+            ? calculateLaborFromPunchesForDates(cacheSupabase, locationId, punchDates, timezone)
+            : Promise.resolve({ laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] }),
           fetchTipsData(tokenGw, todayStr, qbLocationId),
           fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
         ]);
+        
         laborData = todayPunchLabor;
         weeklyLaborData = weekPunchLabor;
-        monthlyLaborData = monthPunchLabor;
-        console.log(`[PUNCH-LABOR] Monthly labor: $${monthlyLaborData?.laborCost?.toFixed(2)} / ${monthlyLaborData?.hoursWorked?.toFixed(1)}h`);
+        
+        // Blend historical Qu labor with punch-based labor for the full month
+        const quLabor = quHistoricalLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] };
+        const punchLabor = punchMonthLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] };
+        
+        monthlyLaborData = {
+          laborCost: quLabor.laborCost + punchLabor.laborCost,
+          hoursWorked: quLabor.hoursWorked + punchLabor.hoursWorked,
+          regularHours: quLabor.regularHours + punchLabor.regularHours,
+          overtimeHours: quLabor.overtimeHours + punchLabor.overtimeHours,
+          dailyLabor: [...quLabor.dailyLabor, ...punchLabor.dailyLabor]
+        };
+        
+        console.log(`[LABOR-BLEND] Qu historical: $${quLabor.laborCost.toFixed(2)} / ${quLabor.hoursWorked.toFixed(1)}h`);
+        console.log(`[LABOR-BLEND] Punch current: $${punchLabor.laborCost.toFixed(2)} / ${punchLabor.hoursWorked.toFixed(1)}h`);
+        console.log(`[LABOR-BLEND] Combined MTD: $${monthlyLaborData.laborCost.toFixed(2)} / ${monthlyLaborData.hoursWorked.toFixed(1)}h`);
+        
         laborSource = 'punches';
         tipsData = todayTips;
         weeklyTipsData = weekTips;

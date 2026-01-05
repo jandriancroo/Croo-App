@@ -3885,6 +3885,7 @@ export type Database = {
           cube_type: string
           display_order: number
           face_metrics: Json | null
+          face_titles: Json | null
           id: string
           location_id: string
           metrics: Json
@@ -3901,6 +3902,7 @@ export type Database = {
           cube_type?: string
           display_order?: number
           face_metrics?: Json | null
+          face_titles?: Json | null
           id?: string
           location_id: string
           metrics?: Json
@@ -3917,6 +3919,7 @@ export type Database = {
           cube_type?: string
           display_order?: number
           face_metrics?: Json | null
+          face_titles?: Json | null
           id?: string
           location_id?: string
           metrics?: Json
