@@ -7,6 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface Profile {
   id: string;
@@ -23,6 +24,7 @@ interface NewChatDialogProps {
 }
 
 export function NewChatDialog({ open, onOpenChange, onChatCreated, canCreateGroup, locationId }: NewChatDialogProps) {
+  const { isSuperAdmin, isOrgAdmin } = useUserRole();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [chatTitle, setChatTitle] = useState('');
@@ -33,14 +35,84 @@ export function NewChatDialog({ open, onOpenChange, onChatCreated, canCreateGrou
     if (open) {
       fetchProfiles();
     }
-  }, [open]);
+  }, [open, isSuperAdmin, isOrgAdmin]);
 
   const fetchProfiles = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // If locationId provided, filter to users at that location
+      // Super admins see all users
+      if (isSuperAdmin) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, profile_photo_url')
+          .eq('is_active', true)
+          .neq('id', user.id)
+          .order('full_name');
+
+        if (error) throw error;
+        setProfiles(data || []);
+        return;
+      }
+
+      // Get user's organization(s) via their location assignments
+      const { data: userLocations } = await supabase
+        .from('user_locations')
+        .select('location_id, locations(organization_id)')
+        .eq('user_id', user.id);
+
+      const orgIds = [...new Set(
+        userLocations?.map((ul: any) => ul.locations?.organization_id).filter(Boolean) || []
+      )];
+
+      if (orgIds.length === 0) {
+        setProfiles([]);
+        return;
+      }
+
+      // Org admins and above see all users in their organization(s)
+      if (isOrgAdmin) {
+        // Get all locations in the user's org(s)
+        const { data: orgLocations } = await supabase
+          .from('locations')
+          .select('id')
+          .in('organization_id', orgIds);
+
+        const orgLocationIds = orgLocations?.map(l => l.id) || [];
+
+        if (orgLocationIds.length === 0) {
+          setProfiles([]);
+          return;
+        }
+
+        // Get all users at those locations
+        const { data: orgUsers } = await supabase
+          .from('user_locations')
+          .select('user_id')
+          .in('location_id', orgLocationIds);
+
+        const userIds = [...new Set(orgUsers?.map(u => u.user_id) || [])];
+
+        if (userIds.length === 0) {
+          setProfiles([]);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, full_name, profile_photo_url')
+          .eq('is_active', true)
+          .neq('id', user.id)
+          .in('id', userIds)
+          .order('full_name');
+
+        if (error) throw error;
+        setProfiles(data || []);
+        return;
+      }
+
+      // For regular users/managers, filter to users at the current location
       if (locationId) {
         const { data: locationUsers, error: locationError } = await supabase
           .from('user_locations')
@@ -61,17 +133,34 @@ export function NewChatDialog({ open, onOpenChange, onChatCreated, canCreateGrou
           .select('id, full_name, profile_photo_url')
           .eq('is_active', true)
           .neq('id', user.id)
-          .in('id', userIds);
+          .in('id', userIds)
+          .order('full_name');
 
         if (error) throw error;
         setProfiles(data || []);
       } else {
-        // Fallback to all users if no location
+        // Fallback: show users in same org locations
+        const { data: sameOrgLocations } = await supabase
+          .from('locations')
+          .select('id')
+          .in('organization_id', orgIds);
+
+        const sameOrgLocationIds = sameOrgLocations?.map(l => l.id) || [];
+
+        const { data: sameOrgUsers } = await supabase
+          .from('user_locations')
+          .select('user_id')
+          .in('location_id', sameOrgLocationIds);
+
+        const userIds = [...new Set(sameOrgUsers?.map(u => u.user_id) || [])];
+
         const { data, error } = await supabase
           .from('profiles')
           .select('id, full_name, profile_photo_url')
           .eq('is_active', true)
-          .neq('id', user.id);
+          .neq('id', user.id)
+          .in('id', userIds)
+          .order('full_name');
 
         if (error) throw error;
         setProfiles(data || []);
