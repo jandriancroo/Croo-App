@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ShiftOfferMessage } from "./ShiftOfferMessage";
 import { GameScoreMessage } from "./GameScoreMessage";
 import { SmackTalkMessage } from "./SmackTalkMessage";
+import { SharedTaskMessage } from "./SharedTaskMessage";
 
 interface SmackTalkOverlay {
   text: string;
@@ -46,6 +47,17 @@ export function MessageContent({ content, chatId, senderName, smackTalks = [] }:
   if (content?.startsWith("SMACK_TALK:")) {
     const smackText = content.replace("SMACK_TALK:", "");
     return <SmackTalkMessage text={smackText} senderName={senderName || 'Someone'} />;
+  }
+
+  // Check if this is a shared task message
+  // Format: SHARED_TASK:title|||details|||accentColor
+  if (content?.startsWith("SHARED_TASK:")) {
+    const taskData = content.replace("SHARED_TASK:", "");
+    const parts = taskData.split("|||");
+    const title = parts[0] || "Task";
+    const details = parts[1] || undefined;
+    const accentColor = parts[2] || "#8B5CF6";
+    return <SharedTaskMessage title={title} details={details} accentColor={accentColor} senderName={senderName || 'Someone'} />;
   }
 
   const [profiles, setProfiles] = useState<Profile[]>([]);

@@ -118,11 +118,9 @@ export function ShareTaskDialog({
     setSending(true);
 
     try {
-      // Build the message content
-      let messageContent = `📋 **Task Alert**\n\n**${taskTitle}**`;
-      if (taskDetails) {
-        messageContent += `\n${taskDetails}`;
-      }
+      // Build the message content in special format for card rendering
+      // Format: SHARED_TASK:title|||details|||accentColor
+      const messageContent = `SHARED_TASK:${taskTitle}|||${taskDetails || ""}|||${accentColor || "#8B5CF6"}`;
 
       // Send the message
       const { error } = await supabase.from("messages").insert({
