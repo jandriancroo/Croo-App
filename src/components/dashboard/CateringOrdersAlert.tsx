@@ -136,8 +136,7 @@ export function CateringOrdersAlert() {
         <TemporaryTaskCard
           key={order.id}
           id={order.id}
-          title={order.customer_name}
-          subtitle={`Due @ ${formatTime(order.pickup_time)}`}
+          title={`${order.customer_name} • Due @ ${formatTime(order.pickup_time)}`}
           icon={ChefHat}
           accentColor={ORANGE_COLOR}
           buttonLabel="Done"
@@ -151,8 +150,7 @@ export function CateringOrdersAlert() {
         <TemporaryTaskCard
           key={order.id}
           id={order.id}
-          title={order.customer_name}
-          subtitle={`Due Tomorrow @ ${formatTime(order.pickup_time)}`}
+          title={`${order.customer_name} • Due Tomorrow @ ${formatTime(order.pickup_time)}`}
           icon={ChefHat}
           accentColor={AMBER_COLOR}
           buttonLabel="View"
