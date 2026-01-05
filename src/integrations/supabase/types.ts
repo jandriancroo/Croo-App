@@ -1264,6 +1264,51 @@ export type Database = {
           },
         ]
       }
+      inventory_count_edits: {
+        Row: {
+          count_item_id: string
+          edited_at: string
+          edited_by: string | null
+          id: string
+          new_quantity: number
+          previous_quantity: number
+          reason: string | null
+        }
+        Insert: {
+          count_item_id: string
+          edited_at?: string
+          edited_by?: string | null
+          id?: string
+          new_quantity: number
+          previous_quantity: number
+          reason?: string | null
+        }
+        Update: {
+          count_item_id?: string
+          edited_at?: string
+          edited_by?: string | null
+          id?: string
+          new_quantity?: number
+          previous_quantity?: number
+          reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_count_edits_count_item_id_fkey"
+            columns: ["count_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_count_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_count_edits_edited_by_fkey"
+            columns: ["edited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory_count_items: {
         Row: {
           count_id: string | null

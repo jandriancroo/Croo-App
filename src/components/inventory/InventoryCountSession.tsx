@@ -1,19 +1,31 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Check, ChevronLeft, ChevronRight, X, Minus, Plus, DollarSign, Mic, MicOff } from "lucide-react";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription,
+  DialogFooter
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Check, ChevronLeft, ChevronRight, X, Minus, Plus, DollarSign, Mic, MicOff, History, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { useAuth } from "@/lib/auth";
+import { format, formatDistanceToNow } from "date-fns";
 
 interface InventoryCountSessionProps {
   countId: string;
   locationId: string;
   onClose: () => void;
+  isEditing?: boolean; // True if reopening a completed count
 }
 
 interface CountItem {
@@ -33,17 +45,31 @@ interface CountItem {
 
 // Count state: cases + individual units (supports decimals for partial cases)
 interface ItemCount {
-  cases: number; // Can be decimal (e.g., 0.5 for half case)
+  cases: number;
   units: number;
 }
 
-const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountSessionProps) => {
+interface PendingEdit {
+  countItemId: string;
+  itemName: string;
+  previousQuantity: number;
+  newQuantity: number;
+}
+
+const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false }: InventoryCountSessionProps) => {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
   const [counts, setCounts] = useState<Record<string, ItemCount>>({});
   const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string }>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [highlightedItemId, setHighlightedItemId] = useState<string | null>(null);
+  
+  // Edit tracking
+  const [showEditConfirm, setShowEditConfirm] = useState(false);
+  const [editReason, setEditReason] = useState("");
+  const [pendingEdits, setPendingEdits] = useState<PendingEdit[]>([]);
+  const originalCounts = useRef<Record<string, number>>({});
 
   // Fetch storage locations
   const { data: storageLocations } = useQuery({
@@ -88,34 +114,36 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
       
       if (itemsError) throw itemsError;
 
-      // Get existing count items
+      // Get existing count items (include id for edit tracking)
       const { data: countItems, error: countError } = await supabase
         .from("inventory_count_items")
-        .select("item_id, quantity")
+        .select("id, item_id, quantity")
         .eq("count_id", countId);
       
       if (countError) throw countError;
 
-      // Map items with their counts
-      const countMap = new Map(countItems?.map(ci => [ci.item_id, ci.quantity]) || []);
+      // Map items with their counts and count_item_id
+      const countMap = new Map(countItems?.map(ci => [ci.item_id, { quantity: ci.quantity, countItemId: ci.id }]) || []);
       
-      return itemsData?.map(item => ({
-        item_id: item.id,
-        item_name: item.name,
-        unit: item.unit,
-        storage_location: (item.storage_location as any)?.name || "Uncategorized",
-        storage_location_id: item.storage_location_id || "uncategorized",
-        par_level: item.par_level,
-        cost_per_unit: item.cost_per_unit,
-        pack_size: item.pack_size,
-        // Use override if set, otherwise fall back to PFG pack_quantity
-        pack_quantity: item.pack_quantity_override ?? item.pack_quantity,
-        item_number: item.item_number,
-        brand: item.brand,
-        image_url: item.image_url,
-        // Store existing quantity to convert back
-        _existingQuantity: countMap.get(item.id) ?? 0
-      })) as (CountItem & { _existingQuantity: number })[];
+      return itemsData?.map(item => {
+        const countData = countMap.get(item.id);
+        return {
+          item_id: item.id,
+          item_name: item.name,
+          unit: item.unit,
+          storage_location: (item.storage_location as any)?.name || "Uncategorized",
+          storage_location_id: item.storage_location_id || "uncategorized",
+          par_level: item.par_level,
+          cost_per_unit: item.cost_per_unit,
+          pack_size: item.pack_size,
+          pack_quantity: item.pack_quantity_override ?? item.pack_quantity,
+          item_number: item.item_number,
+          brand: item.brand,
+          image_url: item.image_url,
+          _existingQuantity: countData?.quantity ?? 0,
+          _countItemId: countData?.countItemId || null
+        };
+      }) as (CountItem & { _existingQuantity: number; _countItemId: string | null })[];
     }
   });
 
@@ -123,6 +151,8 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
   useEffect(() => {
     if (items) {
       const initialCounts: Record<string, ItemCount> = {};
+      const originals: Record<string, number> = {};
+      
       items.forEach(item => {
         const totalUnits = (item as any)._existingQuantity || 0;
         const packQty = item.pack_quantity || 1;
@@ -130,10 +160,18 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
           cases: Math.floor(totalUnits / packQty),
           units: totalUnits % packQty
         };
+        // Store original quantities for edit tracking
+        if (isEditing) {
+          originals[item.item_id] = totalUnits;
+        }
       });
+      
       setCounts(initialCounts);
+      if (isEditing) {
+        originalCounts.current = originals;
+      }
     }
-  }, [items]);
+  }, [items, isEditing]);
 
   // Group items by storage location
   const itemsByLocation = items?.reduce((acc, item) => {
@@ -193,10 +231,42 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
     }
   });
 
-  // Complete count mutation
+  // Save edit with tracking mutation
+  const saveEditMutation = useMutation({
+    mutationFn: async ({ edits, reason }: { edits: PendingEdit[]; reason: string }) => {
+      // First update the count items
+      for (const edit of edits) {
+        // Update the count item
+        await supabase
+          .from("inventory_count_items")
+          .update({ quantity: edit.newQuantity })
+          .eq("id", edit.countItemId);
+        
+        // Log the edit
+        await supabase
+          .from("inventory_count_edits")
+          .insert({
+            count_item_id: edit.countItemId,
+            edited_by: user?.id,
+            previous_quantity: edit.previousQuantity,
+            new_quantity: edit.newQuantity,
+            reason: reason || null
+          });
+      }
+    },
+    onSuccess: () => {
+      toast.success("Changes saved with audit trail");
+      queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
+      onClose();
+    },
+    onError: () => {
+      toast.error("Failed to save changes");
+    }
+  });
+
+  // Complete count mutation (for new counts)
   const completeCountMutation = useMutation({
     mutationFn: async () => {
-      // Convert counts to flat quantities
       const itemCounts = items?.map(item => ({
         item_id: item.item_id,
         quantity: getTotalQuantity(item.item_id, item.pack_quantity)
@@ -223,6 +293,47 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
       toast.error("Failed to complete count");
     }
   });
+
+  // Calculate pending edits when in edit mode
+  const calculatePendingEdits = useCallback((): PendingEdit[] => {
+    if (!isEditing || !items) return [];
+    
+    const edits: PendingEdit[] = [];
+    
+    for (const item of items) {
+      const extendedItem = item as CountItem & { _existingQuantity: number; _countItemId: string | null };
+      const newQuantity = getTotalQuantity(item.item_id, item.pack_quantity);
+      const originalQuantity = originalCounts.current[item.item_id] ?? 0;
+      
+      if (newQuantity !== originalQuantity && extendedItem._countItemId) {
+        edits.push({
+          countItemId: extendedItem._countItemId,
+          itemName: item.item_name,
+          previousQuantity: originalQuantity,
+          newQuantity
+        });
+      }
+    }
+    
+    return edits;
+  }, [isEditing, items, getTotalQuantity]);
+
+  // Handle save for edit mode
+  const handleSaveEdits = () => {
+    const edits = calculatePendingEdits();
+    if (edits.length === 0) {
+      toast.info("No changes to save");
+      onClose();
+      return;
+    }
+    setPendingEdits(edits);
+    setShowEditConfirm(true);
+  };
+
+  const confirmSaveEdits = () => {
+    saveEditMutation.mutate({ edits: pendingEdits, reason: editReason });
+    setShowEditConfirm(false);
+  };
 
   // Auto-save counts periodically
   const saveCurrentCounts = useCallback(async () => {
@@ -433,10 +544,22 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
   }
 
   return (
+    <>
     <div className="space-y-4">
       {/* Header with progress and actions */}
-      <Card className="bg-primary/5 border-primary/20">
+      <Card className={cn(
+        "border-primary/20",
+        isEditing ? "bg-amber-500/10" : "bg-primary/5"
+      )}>
         <CardContent className="p-4 space-y-3">
+          {/* Edit mode indicator */}
+          {isEditing && (
+            <div className="flex items-center gap-2 text-amber-600 text-sm font-medium">
+              <History className="h-4 w-4" />
+              <span>Editing completed count - changes will be tracked</span>
+            </div>
+          )}
+          
           {/* Top row: items count + total value */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -460,16 +583,27 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
 
           <Progress value={progress} className="h-2" />
           
-          {/* Bottom row: Complete button + Microphone */}
+          {/* Bottom row: Complete/Save button + Microphone */}
           <div className="flex items-center gap-2">
-            <Button 
-              onClick={() => completeCountMutation.mutate()}
-              disabled={completeCountMutation.isPending}
-              className="flex-1 h-12 text-base"
-            >
-              <Check className="h-5 w-5 mr-2" />
-              Complete Count
-            </Button>
+            {isEditing ? (
+              <Button 
+                onClick={handleSaveEdits}
+                disabled={saveEditMutation.isPending}
+                className="flex-1 h-12 text-base bg-amber-600 hover:bg-amber-700"
+              >
+                <Check className="h-5 w-5 mr-2" />
+                Save Changes
+              </Button>
+            ) : (
+              <Button 
+                onClick={() => completeCountMutation.mutate()}
+                disabled={completeCountMutation.isPending}
+                className="flex-1 h-12 text-base"
+              >
+                <Check className="h-5 w-5 mr-2" />
+                Complete Count
+              </Button>
+            )}
             {isSupported && (
               <Button
                 variant={isListening ? "destructive" : "secondary"}
@@ -705,6 +839,64 @@ const InventoryCountSession = ({ countId, locationId, onClose }: InventoryCountS
         </div>
       )}
     </div>
+
+    {/* Edit Confirmation Dialog */}
+    <Dialog open={showEditConfirm} onOpenChange={setShowEditConfirm}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            Confirm Changes
+          </DialogTitle>
+          <DialogDescription>
+            You're editing a completed inventory count. All changes will be tracked for audit purposes.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4">
+          {/* List of changes */}
+          <div className="bg-muted rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
+            <p className="text-sm font-medium text-muted-foreground mb-2">
+              {pendingEdits.length} item{pendingEdits.length !== 1 ? 's' : ''} changed:
+            </p>
+            {pendingEdits.map((edit, idx) => (
+              <div key={idx} className="flex items-center justify-between text-sm">
+                <span className="truncate flex-1">{edit.itemName}</span>
+                <span className="text-muted-foreground ml-2">
+                  {edit.previousQuantity} → <span className="font-medium text-foreground">{edit.newQuantity}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+          
+          {/* Reason input */}
+          <div>
+            <label className="text-sm font-medium">Reason for changes (optional)</label>
+            <Textarea
+              value={editReason}
+              onChange={(e) => setEditReason(e.target.value)}
+              placeholder="e.g., Recount found 2 extra cases in back room"
+              className="mt-1.5"
+              rows={2}
+            />
+          </div>
+        </div>
+        
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowEditConfirm(false)}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={confirmSaveEdits}
+            disabled={saveEditMutation.isPending}
+            className="bg-amber-600 hover:bg-amber-700"
+          >
+            Save with Audit Trail
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 };
 
