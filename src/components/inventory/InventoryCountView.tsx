@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { DollarSign, Package, History, User, Clock, FileText } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { DollarSign, Package, History, User, Clock, FileText, ChevronDown } from "lucide-react";
 import { format } from "date-fns";
 
 interface InventoryCountViewProps {
@@ -84,10 +85,10 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
     }
   });
 
-  // Fetch edit history
+  // Fetch edit history grouped by item
   const { data: editHistory } = useQuery({
     queryKey: ["inventory-count-edits", countId],
-    queryFn: async () => {
+    queryFn: async (): Promise<Map<string, EditRecord[]>> => {
       // First get the count item IDs for this count
       const { data: countItemIds, error: itemError } = await supabase
         .from("inventory_count_items")
@@ -97,7 +98,7 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
       if (itemError) throw itemError;
       
       const ids = countItemIds?.map(ci => ci.id) || [];
-      if (ids.length === 0) return [];
+      if (ids.length === 0) return new Map();
       
       const { data, error } = await supabase
         .from("inventory_count_edits")
@@ -118,10 +119,18 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
       // Map item names to edits
       const itemNameMap = new Map(countItemIds?.map(ci => [ci.id, (ci.item as any)?.name || "Unknown"]) || []);
       
-      return (data || []).map(edit => ({
-        ...edit,
-        item_name: itemNameMap.get(edit.count_item_id) || "Unknown"
-      })) as EditRecord[];
+      // Group edits by count_item_id for inline display
+      const editsByItem = new Map<string, EditRecord[]>();
+      (data || []).forEach(edit => {
+        const edits = editsByItem.get(edit.count_item_id) || [];
+        edits.push({
+          ...edit,
+          item_name: itemNameMap.get(edit.count_item_id) || "Unknown"
+        } as EditRecord);
+        editsByItem.set(edit.count_item_id, edits);
+      });
+      
+      return editsByItem;
     }
   });
 
@@ -191,59 +200,12 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                 <History className="h-4 w-4" />
                 Edits
               </div>
-              <p className="text-2xl font-bold">{editHistory?.length || 0}</p>
+              <p className="text-2xl font-bold">{editHistory ? Array.from(editHistory.values()).reduce((sum, edits) => sum + edits.length, 0) : 0}</p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Edit History (shown near top so it's easy to notice) */}
-      {editHistory && editHistory.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <History className="h-4 w-4" />
-              Change History
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="max-h-64">
-              <div className="divide-y divide-border">
-                {editHistory.map((edit) => (
-                  <div key={edit.id} className="p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-medium">{edit.item_name}</p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                          <User className="h-3 w-3" />
-                          <span>{edit.edited_by_profile?.full_name || "Unknown"}</span>
-                          <span>•</span>
-                          <Clock className="h-3 w-3" />
-                          <span>{format(new Date(edit.edited_at), "MMM d, yyyy 'at' h:mm a")}</span>
-                        </div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <Badge variant="outline" className="font-mono">
-                          {edit.previous_quantity} → {edit.new_quantity}
-                        </Badge>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {edit.new_quantity > edit.previous_quantity ? '+' : ''}{edit.new_quantity - edit.previous_quantity} units
-                        </p>
-                      </div>
-                    </div>
-                    {edit.reason && (
-                      <div className="flex items-start gap-2 text-sm bg-muted/50 rounded-md p-2">
-                        <FileText className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                        <span>{edit.reason}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Items Table by Location */}
       <Card>
@@ -286,25 +248,81 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
                             const cases = Math.floor(item.quantity / packQty);
                             const units = item.quantity % packQty;
                             const value = item.quantity * ((item.item?.cost_per_unit || 0) / packQty);
+                            const itemEdits = editHistory?.get(item.id) || [];
+                            const hasEdits = itemEdits.length > 0;
                             
                             return (
-                              <TableRow key={item.id}>
-                                <TableCell className="pl-4">
-                                  <div>
-                                    <p className="font-medium">{item.item?.name}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {item.item?.item_number && `#${item.item.item_number} · `}
-                                      {item.item?.pack_size}
-                                    </p>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right font-mono">{cases}</TableCell>
-                                <TableCell className="text-right font-mono">{units}</TableCell>
-                                <TableCell className="text-right font-mono">{item.quantity}</TableCell>
-                                <TableCell className="text-right pr-4 font-medium text-primary">
-                                  {formatCurrency(value)}
-                                </TableCell>
-                              </TableRow>
+                              <Collapsible key={item.id} asChild>
+                                <>
+                                  <TableRow className={hasEdits ? "cursor-pointer hover:bg-muted/50" : ""}>
+                                    <TableCell className="pl-4">
+                                      <div className="flex items-center gap-2">
+                                        {hasEdits && (
+                                          <CollapsibleTrigger asChild>
+                                            <button className="p-0.5 hover:bg-muted rounded">
+                                              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform duration-200 [&[data-state=open]]:rotate-180" />
+                                            </button>
+                                          </CollapsibleTrigger>
+                                        )}
+                                        <div>
+                                          <div className="flex items-center gap-2">
+                                            <p className="font-medium">{item.item?.name}</p>
+                                            {hasEdits && (
+                                              <Badge variant="outline" className="text-xs py-0 px-1.5">
+                                                <History className="h-3 w-3 mr-1" />
+                                                {itemEdits.length}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                          <p className="text-xs text-muted-foreground">
+                                            {item.item?.item_number && `#${item.item.item_number} · `}
+                                            {item.item?.pack_size}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-right font-mono">{cases}</TableCell>
+                                    <TableCell className="text-right font-mono">{units}</TableCell>
+                                    <TableCell className="text-right font-mono">{item.quantity}</TableCell>
+                                    <TableCell className="text-right pr-4 font-medium text-primary">
+                                      {formatCurrency(value)}
+                                    </TableCell>
+                                  </TableRow>
+                                  {hasEdits && (
+                                    <CollapsibleContent asChild>
+                                      <TableRow className="bg-muted/30">
+                                        <TableCell colSpan={5} className="p-0">
+                                          <div className="py-2 px-4 space-y-2">
+                                            {itemEdits.map((edit) => (
+                                              <div key={edit.id} className="flex items-center justify-between text-sm border-l-2 border-primary/50 pl-3 py-1">
+                                                <div className="flex items-center gap-3 text-muted-foreground">
+                                                  <span className="flex items-center gap-1">
+                                                    <User className="h-3 w-3" />
+                                                    {edit.edited_by_profile?.full_name || "Unknown"}
+                                                  </span>
+                                                  <span className="flex items-center gap-1">
+                                                    <Clock className="h-3 w-3" />
+                                                    {format(new Date(edit.edited_at), "MMM d 'at' h:mm a")}
+                                                  </span>
+                                                  {edit.reason && (
+                                                    <span className="flex items-center gap-1 italic">
+                                                      <FileText className="h-3 w-3" />
+                                                      {edit.reason}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <Badge variant="outline" className="font-mono text-xs">
+                                                  {edit.previous_quantity} → {edit.new_quantity}
+                                                </Badge>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    </CollapsibleContent>
+                                  )}
+                                </>
+                              </Collapsible>
                             );
                           })}
                         </TableBody>
