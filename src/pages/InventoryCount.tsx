@@ -1,12 +1,13 @@
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, MapPin, CalendarDays, Calendar, CalendarRange, Pencil } from "lucide-react";
+import { ArrowLeft, MapPin, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth";
+import { toast } from "sonner";
 import InventoryCountSession from "@/components/inventory/InventoryCountSession";
 import InventoryCountView from "@/components/inventory/InventoryCountView";
 
@@ -17,8 +18,9 @@ const InventoryCount = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   
-  // Check if edit mode from query param
+  // Check if edit or continue mode from query param
   const editMode = searchParams.get("edit") === "true";
+  const continueMode = searchParams.get("continue") === "true";
 
   // Check if we're editing (completed count) or actively counting
   const { data: countData, isLoading } = useQuery({
@@ -55,9 +57,37 @@ const InventoryCount = () => {
     enabled: !!locationId
   });
 
-  // In edit mode if completed and ?edit=true, otherwise just viewing
-  const isEditing = countData?.status === "completed" && editMode;
-  const isViewOnly = countData?.status === "completed" && !editMode;
+  // Submit/complete count mutation
+  const submitCountMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from("inventory_counts")
+        .update({ 
+          status: "completed",
+          completed_at: new Date().toISOString()
+        })
+        .eq("id", countId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Inventory count submitted!");
+      queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-count-details", countId] });
+      navigate(`/inventory/${locationId}`);
+    },
+    onError: () => {
+      toast.error("Failed to submit count");
+    }
+  });
+
+  // Determine the current state
+  const isCompleted = countData?.status === "completed";
+  const isInProgress = countData?.status === "in_progress";
+  const isEditing = isCompleted && editMode;
+  const isViewOnly = isCompleted && !editMode;
+  const isReviewMode = isInProgress && !editMode && !continueMode; // Saved but not submitted - review mode
+  const isCounting = !isCompleted && (!isInProgress || continueMode); // Active counting mode
 
   const handleClose = () => {
     queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
@@ -141,8 +171,8 @@ const InventoryCount = () => {
                 <span className="capitalize">{countData.period_type}</span>
               </div>
             )}
-            <Badge variant={isEditing ? "outline" : isViewOnly ? "default" : "secondary"}>
-              {isEditing ? "Editing" : isViewOnly ? "Viewing" : "Counting"}
+            <Badge variant={isEditing ? "outline" : isViewOnly ? "default" : isReviewMode ? "secondary" : "secondary"}>
+              {isEditing ? "Editing" : isViewOnly ? "Completed" : isReviewMode ? "Review" : "Counting"}
             </Badge>
           </div>
         </div>
@@ -164,10 +194,10 @@ const InventoryCount = () => {
           <h1 className="text-xl font-bold">{formatPeriodLabel(countData)}</h1>
         </div>
 
-        {/* Count Session or View */}
+        {/* Count Session, View, or Review */}
         {isViewOnly ? (
           <>
-            {/* Edit button for view mode */}
+            {/* Edit button for completed counts */}
             <div className="flex justify-end">
               <Button 
                 variant="outline" 
@@ -183,7 +213,31 @@ const InventoryCount = () => {
               locationId={locationId!}
             />
           </>
-        ) : (
+        ) : isReviewMode ? (
+          <>
+            {/* Review mode: show items + Continue and Submit buttons */}
+            <div className="flex gap-2 justify-end">
+              <Button 
+                variant="outline" 
+                onClick={() => navigate(`/inventory/${locationId}/count/${countId}?continue=true`)}
+              >
+                <Play className="h-4 w-4 mr-2" />
+                Continue Counting
+              </Button>
+              <Button 
+                onClick={() => submitCountMutation.mutate()}
+                disabled={submitCountMutation.isPending}
+              >
+                <Check className="h-4 w-4 mr-2" />
+                {submitCountMutation.isPending ? "Submitting..." : "Submit Count"}
+              </Button>
+            </div>
+            <InventoryCountView 
+              countId={countId!} 
+              locationId={locationId!}
+            />
+          </>
+        ) : isCounting || isEditing ? (
           <InventoryCountSession 
             countId={countId!} 
             locationId={locationId!}
@@ -191,7 +245,7 @@ const InventoryCount = () => {
             isViewOnly={false}
             onClose={handleClose}
           />
-        )}
+        ) : null}
       </div>
     </Layout>
   );
