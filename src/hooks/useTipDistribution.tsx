@@ -92,9 +92,11 @@ export function useTipDistribution(
       
       const results = await Promise.all(
         weekStartsArray.map(async (weekStart) => {
-          // Use Wednesday of the week as target date (middle of week)
-          const targetDate = format(new Date(new Date(weekStart + 'T12:00:00').getTime() + 3 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd');
-          
+          // Use the last day of the week (Sunday) as target date so QuBeyond returns the full week's tips
+          const weekStartDate = new Date(weekStart + 'T12:00:00');
+          const weekEndDate = new Date(weekStartDate.getTime() + 6 * 24 * 60 * 60 * 1000);
+          const targetDate = format(weekEndDate, 'yyyy-MM-dd');
+
           try {
             const { data, error: fetchError } = await supabase.functions.invoke('fetch-qubeyond-sales', {
               body: { 
