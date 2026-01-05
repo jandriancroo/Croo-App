@@ -40,6 +40,7 @@ interface SalesData {
   dateRange?: { today: string; weekStart: string; monthStart: string };
   labor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number } | null;
   weeklyLabor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number } | null;
+  monthlyLabor?: { laborPercent: number; laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number } | null;
 }
 
 interface LocationSettings {
@@ -1400,51 +1401,78 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
               </div>
 
               {/* Croo AI Projection & Pacing for Month */}
-              {salesData?.projections?.monthProjected && salesData.projections.monthProjected > 0 && (
-                <div className="flex items-stretch gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 via-purple-500/10 to-amber-500/10 border border-primary/20 mb-2">
-                  {/* Target EOM - Left */}
-                  <div className="flex items-center gap-2 flex-1">
-                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
-                      <Sparkles className="h-3.5 w-3.5 text-white" />
+              <div className="flex flex-col gap-2 mb-2">
+                {salesData?.projections?.monthProjected && salesData.projections.monthProjected > 0 && (
+                  <div className="flex items-stretch gap-2 p-2 rounded-lg bg-gradient-to-r from-primary/10 via-purple-500/10 to-amber-500/10 border border-primary/20">
+                    {/* Target EOM - Left */}
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-primary to-purple-500 flex-shrink-0">
+                        <Sparkles className="h-3.5 w-3.5 text-white" />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-muted-foreground">Target EOM</span>
+                        <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
+                          {formatCurrency(salesData.projections.monthProjected)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-xs text-muted-foreground">Target EOM</span>
-                      <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
-                        {formatCurrency(salesData.projections.monthProjected)}
-                      </span>
+                    
+                    {/* Divider */}
+                    <div className="w-px bg-border/50 self-stretch" />
+                    
+                    {/* Pacing To - Right (show accumulated pace delta) */}
+                    {isToday && (salesData?.monthlyBreakdown?.length || 0) > 0 && (
+                      <div className="flex items-center gap-2 flex-1 justify-end">
+                        <div className="flex flex-col items-end">
+                          <span className="text-xs text-muted-foreground">Pace</span>
+                          {(() => {
+                            const monthPacing = (salesData?.projections?.monthProjected || 0) + accumulatedMonthDelta;
+                            const isPositive = accumulatedMonthDelta >= 0;
+                            return (
+                              <>
+                                <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
+                                  {formatCurrency(monthPacing)}
+                                </span>
+                                <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
+                                  ({isPositive ? '+' : ''}{formatCurrency(accumulatedMonthDelta)})
+                                </span>
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
+                          <TrendingUp className="h-3.5 w-3.5 text-white" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* MTD Live Labor */}
+                {salesData?.monthlyLabor && salesData.monthlyLabor.laborPercent > 0 && (
+                  <div className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex-shrink-0">
+                        <span className="text-xs font-bold text-white">%</span>
+                      </div>
+                      <span className="text-xs sm:text-sm text-muted-foreground">MTD Labor</span>
+                    </div>
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <div className="text-right">
+                        <p className="text-lg sm:text-xl font-bold text-orange-500 transition-all duration-300 ease-out">{salesData.monthlyLabor.laborPercent.toFixed(1)}%</p>
+                      </div>
+                      <div className="text-right hidden sm:block">
+                        <p className="text-xs text-muted-foreground">Cost</p>
+                        <p className="text-sm font-medium transition-all duration-300 ease-out">{formatCurrency(salesData.monthlyLabor.laborCost)}</p>
+                      </div>
+                      <div className="text-right hidden sm:block">
+                        <p className="text-xs text-muted-foreground">Hours</p>
+                        <p className="text-sm font-medium transition-all duration-300 ease-out">{salesData.monthlyLabor.hoursWorked.toFixed(1)}h</p>
+                      </div>
                     </div>
                   </div>
-                  
-                  {/* Divider */}
-                  <div className="w-px bg-border/50 self-stretch" />
-                  
-                  {/* Pacing To - Right (show accumulated pace delta) */}
-                  {isToday && (salesData?.monthlyBreakdown?.length || 0) > 0 && (
-                    <div className="flex items-center gap-2 flex-1 justify-end">
-                      <div className="flex flex-col items-end">
-                        <span className="text-xs text-muted-foreground">Pace</span>
-                        {(() => {
-                          const monthPacing = (salesData?.projections?.monthProjected || 0) + accumulatedMonthDelta;
-                          const isPositive = accumulatedMonthDelta >= 0;
-                          return (
-                            <>
-                              <span className="text-sm sm:text-base font-semibold text-amber-500 transition-all duration-300 ease-out">
-                                {formatCurrency(monthPacing)}
-                              </span>
-                              <span className={`text-xs ${isPositive ? 'text-green-500' : 'text-red-500'}`}>
-                                ({isPositive ? '+' : ''}{formatCurrency(accumulatedMonthDelta)})
-                              </span>
-                            </>
-                          );
-                        })()}
-                      </div>
-                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex-shrink-0">
-                        <TrendingUp className="h-3.5 w-3.5 text-white" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
               
               {/* Mobile: Show weekly aggregated view, Desktop: Show daily view */}
               {isMobile ? (
