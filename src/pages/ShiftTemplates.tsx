@@ -5,13 +5,13 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil, Copy } from "lucide-react";
+import { Plus, Trash2, Pencil, Copy, MoreVertical } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatTime12Hour } from "@/lib/utils";
 import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
@@ -38,8 +38,7 @@ export default function ShiftTemplates() {
   const [customPosition, setCustomPosition] = useState("");
   const [showCustomPosition, setShowCustomPosition] = useState(false);
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
-  const [copyModeActive, setCopyModeActive] = useState(false);
-  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
+  const [copyTemplateId, setCopyTemplateId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     start_time: "09:00",
     end_time: "17:00",
@@ -277,43 +276,10 @@ export default function ShiftTemplates() {
             </Button>
             <h1 className="text-3xl font-bold">Shift Templates</h1>
           </div>
-          <div className="flex items-center gap-2">
-            {templates.length > 0 && !copyModeActive && (
-              <Button 
-                variant="outline" 
-                onClick={() => setCopyModeActive(true)}
-              >
-                <Copy className="h-4 w-4 mr-2" />
-                Copy to Location
-              </Button>
-            )}
-            {copyModeActive && (
-              <>
-                <Button 
-                  variant="ghost" 
-                  onClick={() => {
-                    setCopyModeActive(false);
-                    setSelectedTemplateIds([]);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={() => setCopyDialogOpen(true)}
-                  disabled={selectedTemplateIds.length === 0}
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy Selected ({selectedTemplateIds.length})
-                </Button>
-              </>
-            )}
-            {!copyModeActive && (
-              <Button onClick={openCreateDialog}>
-                <Plus className="h-4 w-4 mr-2" />
-                New Template
-              </Button>
-            )}
-          </div>
+          <Button onClick={openCreateDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Template
+          </Button>
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
             <DialogContent>
               <DialogHeader>
@@ -483,64 +449,60 @@ export default function ShiftTemplates() {
           {templates.map((template) => (
             <Card key={template.id} className="p-4">
               <div className="flex justify-between items-start">
-                <div className="flex items-start gap-3 flex-1">
-                  {copyModeActive && (
-                    <Checkbox
-                      checked={selectedTemplateIds.includes(template.id)}
-                      onCheckedChange={(checked) => {
-                        setSelectedTemplateIds(prev =>
-                          checked
-                            ? [...prev, template.id]
-                            : prev.filter(id => id !== template.id)
-                        );
-                      }}
-                      className="mt-1"
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div
+                      className="w-4 h-4 rounded"
+                      style={{ backgroundColor: template.color }}
                     />
-                  )}
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div
-                        className="w-4 h-4 rounded"
-                        style={{ backgroundColor: template.color }}
-                      />
-                      <h3 className="font-semibold text-lg">{template.position}</h3>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {formatTime12Hour(template.start_time)} - {formatTime12Hour(template.end_time)}
-                    </p>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {(template.allowed_roles || [template.role]).map((r) => (
-                        <span key={r} className="text-xs bg-muted px-1.5 py-0.5 rounded capitalize">
-                          {r.replace("_", " ")}
-                        </span>
-                      ))}
-                    </div>
-                    {template.days_of_week && template.days_of_week.length < 7 && (
-                      <div className="mt-2">
-                        <p className="text-xs text-muted-foreground">
-                          {template.days_of_week.map(d => dayNames[d].slice(0, 3)).join(", ")}
-                        </p>
-                      </div>
-                    )}
+                    <h3 className="font-semibold text-lg">{template.position}</h3>
                   </div>
+                  <p className="text-sm text-muted-foreground">
+                    {formatTime12Hour(template.start_time)} - {formatTime12Hour(template.end_time)}
+                  </p>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {(template.allowed_roles || [template.role]).map((r) => (
+                      <span key={r} className="text-xs bg-muted px-1.5 py-0.5 rounded capitalize">
+                        {r.replace("_", " ")}
+                      </span>
+                    ))}
+                  </div>
+                  {template.days_of_week && template.days_of_week.length < 7 && (
+                    <div className="mt-2">
+                      <p className="text-xs text-muted-foreground">
+                        {template.days_of_week.map(d => dayNames[d].slice(0, 3)).join(", ")}
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => openEditDialog(template)}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(template.id)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => openEditDialog(template)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      setCopyTemplateId(template.id);
+                      setCopyDialogOpen(true);
+                    }}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy To...
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem 
+                      onClick={() => handleDelete(template.id)}
+                      className="text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </Card>
           ))}
@@ -561,15 +523,17 @@ export default function ShiftTemplates() {
 
         <CopyShiftTemplatesDialog
           open={copyDialogOpen}
-          onOpenChange={setCopyDialogOpen}
-          templateIds={selectedTemplateIds}
+          onOpenChange={(open) => {
+            setCopyDialogOpen(open);
+            if (!open) setCopyTemplateId(null);
+          }}
+          templateIds={copyTemplateId ? [copyTemplateId] : []}
           templateNames={templates
-            .filter(t => selectedTemplateIds.includes(t.id))
+            .filter(t => t.id === copyTemplateId)
             .map(t => t.template_name)
           }
           onSuccess={() => {
-            setSelectedTemplateIds([]);
-            setCopyModeActive(false);
+            setCopyTemplateId(null);
           }}
         />
       </div>
