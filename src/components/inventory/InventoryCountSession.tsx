@@ -13,13 +13,13 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle, X, Save, Mic, MicOff } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useAuth } from "@/lib/auth";
 import { format } from "date-fns";
-import InventoryCountDock from "./InventoryCountDock";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface InventoryCountSessionProps {
   countId: string;
@@ -60,6 +60,7 @@ interface PendingEdit {
 const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false, isViewOnly = false }: InventoryCountSessionProps) => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0);
   const [counts, setCounts] = useState<Record<string, ItemCount>>({});
   const [rawInputs, setRawInputs] = useState<Record<string, { cases: string; units: string }>>({});
@@ -519,7 +520,50 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   return (
     <>
-    <div className="space-y-3 pb-24">
+    <div className={cn("space-y-3", isMobile ? "pb-32" : "pb-6")}>
+      {/* Desktop: Stats bar at top */}
+      {!isMobile && !isViewOnly && !isEditing && (
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b border-border -mx-4 px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Items:</span>
+                <span className="font-semibold">{countedItems}<span className="text-muted-foreground font-normal">/{totalItems}</span></span>
+              </div>
+              <div className="h-6 w-px bg-border" />
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-primary">{formatCurrency(totalCost)}</span>
+              </div>
+              {isSupported && (
+                <>
+                  <div className="h-6 w-px bg-border" />
+                  <Button
+                    variant={isListening ? "destructive" : "outline"}
+                    size="sm"
+                    onClick={toggleListening}
+                    className="gap-2"
+                  >
+                    {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    {isListening ? "Stop Voice" : "Voice Input"}
+                  </Button>
+                </>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleExit}>
+                <X className="h-4 w-4 mr-2" />
+                Exit
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving}>
+                <Save className="h-4 w-4 mr-2" />
+                {isSaving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit mode indicator */}
       {isEditing && (
         <div className="flex items-center gap-2 text-amber-600 text-sm font-medium bg-amber-500/10 rounded-lg px-3 py-2">
@@ -756,19 +800,80 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
       )}
     </div>
 
-    {/* Dock with stats and actions */}
-    {!isViewOnly && !isEditing && (
-      <InventoryCountDock
-        totalValue={totalCost}
-        countedItems={countedItems}
-        totalItems={totalItems}
-        isSaving={isSaving}
-        isListening={isListening}
-        isVoiceSupported={isSupported}
-        onSave={handleSave}
-        onExit={handleExit}
-        onToggleVoice={toggleListening}
-      />
+    {/* Mobile Dock with stats and actions */}
+    {isMobile && !isViewOnly && !isEditing && (
+      <div className="fixed bottom-0 left-0 right-0 z-50">
+        <div className="glass-dock">
+          <div className="relative z-10 flex items-center justify-between px-3 pt-3 pb-0 gap-2">
+            {/* Exit button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleExit}
+              className="h-12 w-12 flex-shrink-0 text-muted-foreground hover:text-destructive"
+            >
+              <X className="h-6 w-6" />
+            </Button>
+
+            {/* Stats in center */}
+            <div className="flex-1 flex items-center justify-center gap-4">
+              {/* Items counted */}
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Items</p>
+                <p className="text-lg font-bold">
+                  {countedItems}<span className="text-muted-foreground font-normal">/{totalItems}</span>
+                </p>
+              </div>
+              
+              {/* Divider */}
+              <div className="h-8 w-px bg-border" />
+              
+              {/* Total value */}
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Value</p>
+                <p className="text-lg font-bold text-primary flex items-center justify-center gap-1">
+                  <DollarSign className="h-4 w-4" />
+                  {formatCurrency(totalCost).replace('$', '')}
+                </p>
+              </div>
+            </div>
+
+            {/* Voice button (optional) */}
+            {isSupported && (
+              <Button
+                variant={isListening ? "destructive" : "ghost"}
+                size="icon"
+                onClick={toggleListening}
+                className={cn(
+                  "h-12 w-12 flex-shrink-0 relative",
+                  !isListening && "text-orange-500 hover:text-orange-600 hover:bg-orange-500/10"
+                )}
+              >
+                {isListening ? (
+                  <MicOff className="h-6 w-6" />
+                ) : (
+                  <Mic className="h-6 w-6" />
+                )}
+                {isListening && (
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-ping" />
+                )}
+              </Button>
+            )}
+
+            {/* Save button */}
+            <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="h-12 px-5 flex-shrink-0 bg-primary hover:bg-primary/90"
+            >
+              <Save className="h-5 w-5 mr-2" />
+              {isSaving ? "Saving..." : "Save"}
+            </Button>
+          </div>
+          {/* Safe area spacer */}
+          <div style={{ height: 'max(8px, calc(env(safe-area-inset-bottom, 0px) * 0.5))' }} />
+        </div>
+      </div>
     )}
 
     {/* For edit mode, show a simpler save bar */}
