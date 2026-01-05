@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { BarChart3, CheckSquare, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, NotebookPen, Briefcase, Download, RefreshCw, Building2, User, Gamepad2, LayoutDashboard, Check } from 'lucide-react';
+import { BarChart3, CheckSquare, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, NotebookPen, Briefcase, Download, RefreshCw, Building2, User, Gamepad2, LayoutDashboard, Check, X, Save, Mic, MicOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -38,7 +38,17 @@ interface DockContentProps {
 const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble, setShowOrgBubble, unreadCount }: DockContentProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { message, isVisible } = useDockToast();
+  const { message, isVisible, dockContent } = useDockToast();
+
+  // Format currency for smart dock
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('en-US', { 
+      style: 'currency', 
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(value);
+  };
 
   return (
     <div className="glass-dock overflow-hidden">
@@ -52,68 +62,141 @@ const DockContent = ({ mobileMainNavItems, hasMultiLocationAccess, showOrgBubble
           <Check className="h-5 w-5" />
           <span className="font-medium text-sm">{message}</span>
         </div>
-        
-        {/* Nav icons that slide out */}
-        <div 
-          className={`flex items-center justify-evenly w-full transition-transform duration-300 ease-out ${
-            isVisible ? '-translate-x-full' : 'translate-x-0'
-          }`}
-        >
-          {mobileMainNavItems.map(item => {
-            const isDashItem = item.path === '/dashboard';
-            const isOnOrgDash = location.pathname === '/multi-location';
-            
-            // For Dash item, swap icon/label when on Org Dash
-            const Icon = isDashItem && isOnOrgDash && hasMultiLocationAccess ? Building2 : item.icon;
-            const label = isDashItem && isOnOrgDash && hasMultiLocationAccess ? 'Org' : item.label;
-            const itemPath = isDashItem && isOnOrgDash && hasMultiLocationAccess ? '/multi-location' : item.path;
-            
-            const isActive = location.pathname === itemPath;
-            const showBadge = item.path === '/messages' && unreadCount > 0;
-            
-            // Long-press handler for Dash button to show bubble
-            let longPressTimer: ReturnType<typeof setTimeout> | null = null;
-            const handleTouchStart = (e: React.TouchEvent) => {
-              if (isDashItem && hasMultiLocationAccess) {
-                e.preventDefault();
-                longPressTimer = setTimeout(() => {
-                  setShowOrgBubble(prev => !prev);
-                  if (navigator.vibrate) navigator.vibrate(50);
-                }, 500);
-              }
-            };
-            const handleTouchEnd = () => {
-              if (longPressTimer) {
-                clearTimeout(longPressTimer);
-                longPressTimer = null;
-              }
-            };
-            
-            return (
+
+        {/* Smart dock content (e.g., inventory counting) */}
+        {dockContent && (
+          <div className="flex items-center justify-between w-full gap-2">
+            {/* Exit/Cancel button */}
+            <button
+              onClick={dockContent.onExit}
+              className="h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-xl text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              <X className="h-6 w-6" />
+            </button>
+
+            {/* Stats in center */}
+            <div className="flex-1 flex items-center justify-center gap-3">
+              {/* Items counted */}
+              <div className="text-center">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Items</p>
+                <p className="text-base font-bold leading-tight">
+                  {dockContent.countedItems}<span className="text-muted-foreground font-normal">/{dockContent.totalItems}</span>
+                </p>
+              </div>
+              
+              {/* Divider */}
+              <div className="h-8 w-px bg-border/50" />
+              
+              {/* Total value */}
+              <div className="text-center">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Value</p>
+                <p className="text-base font-bold text-primary leading-tight flex items-center justify-center gap-0.5">
+                  <DollarSign className="h-3.5 w-3.5" />
+                  {formatCurrency(dockContent.totalValue).replace('$', '')}
+                </p>
+              </div>
+            </div>
+
+            {/* Voice button (only for non-edit mode) */}
+            {dockContent.isVoiceSupported && !dockContent.isEditing && dockContent.onToggleVoice && (
               <button
-                key={item.path}
-                onClick={() => {
-                  if (showOrgBubble) setShowOrgBubble(false);
-                  navigate(itemPath);
-                }}
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-                onTouchCancel={handleTouchEnd}
-                className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded-xl transition-colors relative select-none ${
-                  isActive 
-                    ? 'bg-white/20 text-accent-foreground' 
-                    : 'text-accent-foreground/70 hover:text-accent-foreground'
+                onClick={dockContent.onToggleVoice}
+                className={`h-12 w-12 flex-shrink-0 flex items-center justify-center rounded-xl transition-colors relative ${
+                  dockContent.isListening 
+                    ? 'bg-destructive text-destructive-foreground' 
+                    : 'text-orange-500 hover:text-orange-600 hover:bg-orange-500/10'
                 }`}
               >
-                <Icon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
-                <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
-                {showBadge && (
-                  <span className="absolute top-1 right-1/4 h-2.5 w-2.5 bg-destructive rounded-full" />
+                {dockContent.isListening ? (
+                  <MicOff className="h-6 w-6" />
+                ) : (
+                  <Mic className="h-6 w-6" />
+                )}
+                {dockContent.isListening && (
+                  <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-ping" />
                 )}
               </button>
-            );
-          })}
-        </div>
+            )}
+
+            {/* Save button */}
+            <button
+              onClick={dockContent.onSave}
+              disabled={dockContent.isSaving}
+              className={`h-12 px-4 flex-shrink-0 flex items-center justify-center gap-2 rounded-xl font-medium transition-colors ${
+                dockContent.isEditing 
+                  ? 'bg-amber-600 text-white hover:bg-amber-700' 
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90'
+              } disabled:opacity-50`}
+            >
+              <Save className="h-5 w-5" />
+              <span>{dockContent.isSaving ? "Saving..." : "Save"}</span>
+            </button>
+          </div>
+        )}
+        
+        {/* Nav icons that slide out when toast is visible OR when smart dock content is active */}
+        {!dockContent && (
+          <div 
+            className={`flex items-center justify-evenly w-full transition-transform duration-300 ease-out ${
+              isVisible ? '-translate-x-full' : 'translate-x-0'
+            }`}
+          >
+            {mobileMainNavItems.map(item => {
+              const isDashItem = item.path === '/dashboard';
+              const isOnOrgDash = location.pathname === '/multi-location';
+              
+              // For Dash item, swap icon/label when on Org Dash
+              const Icon = isDashItem && isOnOrgDash && hasMultiLocationAccess ? Building2 : item.icon;
+              const label = isDashItem && isOnOrgDash && hasMultiLocationAccess ? 'Org' : item.label;
+              const itemPath = isDashItem && isOnOrgDash && hasMultiLocationAccess ? '/multi-location' : item.path;
+              
+              const isActive = location.pathname === itemPath;
+              const showBadge = item.path === '/messages' && unreadCount > 0;
+              
+              // Long-press handler for Dash button to show bubble
+              let longPressTimer: ReturnType<typeof setTimeout> | null = null;
+              const handleTouchStart = (e: React.TouchEvent) => {
+                if (isDashItem && hasMultiLocationAccess) {
+                  e.preventDefault();
+                  longPressTimer = setTimeout(() => {
+                    setShowOrgBubble(prev => !prev);
+                    if (navigator.vibrate) navigator.vibrate(50);
+                  }, 500);
+                }
+              };
+              const handleTouchEnd = () => {
+                if (longPressTimer) {
+                  clearTimeout(longPressTimer);
+                  longPressTimer = null;
+                }
+              };
+              
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => {
+                    if (showOrgBubble) setShowOrgBubble(false);
+                    navigate(itemPath);
+                  }}
+                  onTouchStart={handleTouchStart}
+                  onTouchEnd={handleTouchEnd}
+                  onTouchCancel={handleTouchEnd}
+                  className={`flex-1 flex flex-col items-center gap-0.5 py-1 rounded-xl transition-colors relative select-none ${
+                    isActive 
+                      ? 'bg-white/20 text-accent-foreground' 
+                      : 'text-accent-foreground/70 hover:text-accent-foreground'
+                  }`}
+                >
+                  <Icon className="h-7 w-7" strokeWidth={isActive ? 2.5 : 2} />
+                  <span className={`text-xs ${isActive ? 'font-semibold' : 'font-medium'}`}>{label}</span>
+                  {showBadge && (
+                    <span className="absolute top-1 right-1/4 h-2.5 w-2.5 bg-destructive rounded-full" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
       {/* Safe area spacer - minimal height, just extends background slightly */}
       <div style={{ height: 'max(8px, calc(env(safe-area-inset-bottom, 0px) * 0.5))' }} />

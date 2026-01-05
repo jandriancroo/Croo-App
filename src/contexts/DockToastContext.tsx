@@ -1,9 +1,26 @@
 import React, { createContext, useContext, useState, useCallback, useRef } from 'react';
 
+interface DockContentState {
+  type: 'inventory-count';
+  totalValue: number;
+  countedItems: number;
+  totalItems: number;
+  isSaving: boolean;
+  isListening: boolean;
+  isVoiceSupported: boolean;
+  isEditing: boolean;
+  onSave: () => void;
+  onExit: () => void;
+  onToggleVoice?: () => void;
+}
+
 interface DockToastContextType {
   message: string | null;
   isVisible: boolean;
   showDockToast: (message: string, duration?: number) => void;
+  // Smart dock content
+  dockContent: DockContentState | null;
+  setDockContent: (content: DockContentState | null) => void;
 }
 
 const DockToastContext = createContext<DockToastContextType | undefined>(undefined);
@@ -14,6 +31,7 @@ let globalShowDockToast: ((message: string, duration?: number) => void) | null =
 export function DockToastProvider({ children }: { children: React.ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
   const [isVisible, setIsVisible] = useState(false);
+  const [dockContent, setDockContent] = useState<DockContentState | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showDockToast = useCallback((msg: string, duration = 2000) => {
@@ -41,7 +59,7 @@ export function DockToastProvider({ children }: { children: React.ReactNode }) {
   }, [showDockToast]);
 
   return (
-    <DockToastContext.Provider value={{ message, isVisible, showDockToast }}>
+    <DockToastContext.Provider value={{ message, isVisible, showDockToast, dockContent, setDockContent }}>
       {children}
     </DockToastContext.Provider>
   );
