@@ -11,9 +11,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, Copy } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { formatTime12Hour } from "@/lib/utils";
+import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
 interface ShiftTemplate {
   id: string;
   template_name: string;
@@ -36,6 +37,8 @@ export default function ShiftTemplates() {
   const [editingTemplate, setEditingTemplate] = useState<ShiftTemplate | null>(null);
   const [customPosition, setCustomPosition] = useState("");
   const [showCustomPosition, setShowCustomPosition] = useState(false);
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     start_time: "09:00",
     end_time: "17:00",
@@ -273,10 +276,21 @@ export default function ShiftTemplates() {
             </Button>
             <h1 className="text-3xl font-bold">Shift Templates</h1>
           </div>
-          <Button onClick={openCreateDialog}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Template
-          </Button>
+          <div className="flex items-center gap-2">
+            {selectedTemplateIds.length > 0 && (
+              <Button 
+                variant="outline" 
+                onClick={() => setCopyDialogOpen(true)}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copy to Location ({selectedTemplateIds.length})
+              </Button>
+            )}
+            <Button onClick={openCreateDialog}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Template
+            </Button>
+          </div>
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
             <DialogContent>
               <DialogHeader>
@@ -446,6 +460,18 @@ export default function ShiftTemplates() {
           {templates.map((template) => (
             <Card key={template.id} className="p-4">
               <div className="flex justify-between items-start">
+                <div className="flex items-start gap-3 flex-1">
+                  <Checkbox
+                    checked={selectedTemplateIds.includes(template.id)}
+                    onCheckedChange={(checked) => {
+                      setSelectedTemplateIds(prev =>
+                        checked
+                          ? [...prev, template.id]
+                          : prev.filter(id => id !== template.id)
+                      );
+                    }}
+                    className="mt-1"
+                  />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <div
@@ -472,6 +498,7 @@ export default function ShiftTemplates() {
                       </div>
                     )}
                   </div>
+                </div>
                 <div className="flex gap-1">
                   <Button
                     variant="ghost"
@@ -506,6 +533,17 @@ export default function ShiftTemplates() {
             </Button>
           </Card>
         )}
+
+        <CopyShiftTemplatesDialog
+          open={copyDialogOpen}
+          onOpenChange={setCopyDialogOpen}
+          templateIds={selectedTemplateIds}
+          templateNames={templates
+            .filter(t => selectedTemplateIds.includes(t.id))
+            .map(t => t.template_name)
+          }
+          onSuccess={() => setSelectedTemplateIds([])}
+        />
       </div>
     </Layout>
   );
