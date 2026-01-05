@@ -12,7 +12,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
 import { Plus, Trash2, Pencil, Copy, MoreVertical } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { formatTime12Hour } from "@/lib/utils";
 import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
 interface ShiftTemplate {
@@ -29,6 +29,7 @@ interface ShiftTemplate {
 
 export default function ShiftTemplates() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { canManageTemplates, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
   const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
@@ -100,6 +101,19 @@ export default function ShiftTemplates() {
       fetchPositions();
     }
   }, [canManageTemplates, roleLoading, navigate, currentLocation?.id]);
+
+  // Handle ?edit= query param to auto-open edit dialog
+  useEffect(() => {
+    const editId = searchParams.get("edit");
+    if (editId && templates.length > 0) {
+      const templateToEdit = templates.find(t => t.id === editId);
+      if (templateToEdit) {
+        openEditDialog(templateToEdit);
+        // Clear the query param after opening
+        setSearchParams({}, { replace: true });
+      }
+    }
+  }, [searchParams, templates]);
 
   const fetchPositions = async () => {
     if (!currentLocation?.id) return;

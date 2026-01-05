@@ -8,14 +8,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
-import { Plus, Calendar, Clock, MoreVertical } from "lucide-react";
+import { Plus, Calendar, Clock, MoreVertical, Pencil, Copy, Trash2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatTime12Hour } from "@/lib/utils";
+import { CopyShiftTemplatesDialog } from "@/components/schedule/CopyShiftTemplatesDialog";
 
 interface ShiftTemplate {
   id: string;
@@ -44,6 +46,8 @@ export default function ScheduleTemplates() {
   const [shiftTemplates, setShiftTemplates] = useState<ShiftTemplate[]>([]);
   const [weekTemplates, setWeekTemplates] = useState<WeekTemplate[]>([]);
   const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "shifts");
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [copyTemplateId, setCopyTemplateId] = useState<string | null>(null);
 
   const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -194,12 +198,22 @@ export default function ScheduleTemplates() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => navigate(`/shift-templates?edit=${template.id}`)}>
+                            <Pencil className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            setCopyTemplateId(template.id);
+                            setCopyDialogOpen(true);
+                          }}>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy To...
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onClick={() => handleDeleteShiftTemplate(template.id)}
                             className="text-destructive focus:text-destructive"
                           >
+                            <Trash2 className="h-4 w-4 mr-2" />
                             Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -298,6 +312,22 @@ export default function ScheduleTemplates() {
             )}
           </TabsContent>
         </Tabs>
+
+        <CopyShiftTemplatesDialog
+          open={copyDialogOpen}
+          onOpenChange={(open) => {
+            setCopyDialogOpen(open);
+            if (!open) setCopyTemplateId(null);
+          }}
+          templateIds={copyTemplateId ? [copyTemplateId] : []}
+          templateNames={shiftTemplates
+            .filter(t => t.id === copyTemplateId)
+            .map(t => t.template_name)
+          }
+          onSuccess={() => {
+            setCopyTemplateId(null);
+          }}
+        />
       </div>
     </Layout>
   );
