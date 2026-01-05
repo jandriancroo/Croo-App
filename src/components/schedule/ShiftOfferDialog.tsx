@@ -79,12 +79,16 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
 
       if (offerError) throw offerError;
 
-      // Get or create shift marketplace chat
+      // Get the location_id from the shift
+      const locationId = shift.location_id;
+
+      // Get or create shift marketplace chat for this location
       let { data: marketplaceChat } = await supabase
         .from("chats")
         .select("id")
-        .eq("title", "🔄 Shift Marketplace")
-        .single();
+        .eq("title", "Shift Marketplace")
+        .eq("location_id", locationId)
+        .maybeSingle();
 
       if (!marketplaceChat) {
         const { data: newChat, error: chatError } = await supabase
@@ -92,7 +96,8 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
           .insert({
             created_by: user.id,
             is_group: true,
-            title: "🔄 Shift Marketplace"
+            title: "Shift Marketplace",
+            location_id: locationId
           })
           .select()
           .single();
@@ -100,17 +105,18 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
         if (chatError) throw chatError;
         marketplaceChat = newChat;
 
-        // Add all users to marketplace chat
-        const { data: allUsers } = await supabase
-          .from("profiles")
-          .select("id");
+        // Add users at this location to the marketplace chat
+        const { data: locationUsers } = await supabase
+          .from("user_locations")
+          .select("user_id")
+          .eq("location_id", locationId);
 
-        if (allUsers) {
+        if (locationUsers) {
           await supabase
             .from("chat_members")
-            .insert(allUsers.map(u => ({
+            .insert(locationUsers.map(u => ({
               chat_id: marketplaceChat.id,
-              user_id: u.id
+              user_id: u.user_id
             })));
         }
       }
