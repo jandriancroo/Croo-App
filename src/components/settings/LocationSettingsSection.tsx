@@ -50,8 +50,6 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
   const { toast } = useToast();
   const [timezone, setTimezone] = useState("America/Los_Angeles");
   const [blackoutDates, setBlackoutDates] = useState<Date[]>([]);
-  const [showWallet, setShowWallet] = useState(true);
-  const [showSickTimeBalance, setShowSickTimeBalance] = useState(true);
   
   const [settingsId, setSettingsId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -87,14 +85,10 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
         setBlackoutDates(
           data.blackout_dates ? data.blackout_dates.map((d: string) => new Date(d)) : []
         );
-        setShowWallet(data.show_wallet ?? true);
-        setShowSickTimeBalance(data.show_sick_time_balance ?? true);
       } else {
         setSettingsId(null);
         setTimezone("America/Los_Angeles");
         setBlackoutDates([]);
-        setShowWallet(true);
-        setShowSickTimeBalance(true);
       }
     } catch (error) {
       console.error("Error fetching location settings:", error);
@@ -163,8 +157,6 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
       const settingsData = {
         timezone: timezone,
         blackout_dates: blackoutDates.map(d => format(d, "yyyy-MM-dd")),
-        show_wallet: showWallet,
-        show_sick_time_balance: showSickTimeBalance,
       };
 
       if (settingsId) {
@@ -361,37 +353,6 @@ export const LocationSettingsSection = ({ locationId }: LocationSettingsSectionP
           )}
         </div>
 
-        {/* Feature Visibility Settings */}
-        <div className="space-y-4 pt-4 border-t">
-          <Label className="text-base font-semibold">Feature Visibility</Label>
-          <p className="text-sm text-muted-foreground">
-            Control which features are visible to employees at this location
-          </p>
-          
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-              <div>
-                <p className="font-medium text-sm">Show Wallet</p>
-                <p className="text-xs text-muted-foreground">Display "My Wallet" page in navigation</p>
-              </div>
-              <Switch
-                checked={showWallet}
-                onCheckedChange={setShowWallet}
-              />
-            </div>
-            
-            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-              <div>
-                <p className="font-medium text-sm">Show Sick Time Balance</p>
-                <p className="text-xs text-muted-foreground">Display PTO/Sick time balance on Availability page</p>
-              </div>
-              <Switch
-                checked={showSickTimeBalance}
-                onCheckedChange={setShowSickTimeBalance}
-              />
-            </div>
-          </div>
-        </div>
 
         <Button onClick={handleSave} disabled={loading}>
           {loading ? "Saving..." : "Save Settings"}

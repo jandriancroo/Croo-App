@@ -22,7 +22,7 @@ import { openDiagnosticMode } from '@/components/DiagnosticMode';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { PullToRefresh } from './PullToRefresh';
 import { useDockToast } from '@/contexts/DockToastContext';
-import { useLocationSettings } from '@/hooks/useLocationSettings';
+import { useRolePermissions } from '@/hooks/useRolePermissions';
 
 interface LayoutProps {
   children: ReactNode;
@@ -228,7 +228,7 @@ export const Layout = ({
   const [locationDialogOpen, setLocationDialogOpen] = useState(false);
   const { unreadCount } = useUnreadMessages();
   const { isChecklistOnlyLocation, currentLocation, setCurrentLocation } = useAppLocation();
-  const { showWallet } = useLocationSettings();
+  const { canViewWallet } = useRolePermissions();
   // Wait for role to load before checking - prevents flash of missing nav items
   const canAccessLogs = !roleLoading && isShiftManager; // Shift managers and above can access logbook
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
@@ -508,7 +508,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
     icon: MessageSquare
   }];
   const timeMenuItems = [
-    ...(FEATURE_FLAGS.CROO_CASH_ENABLED && showWallet ? [{
+    ...(FEATURE_FLAGS.CROO_CASH_ENABLED && canViewWallet ? [{
       path: '/my-wallet',
       label: 'My Wallet',
       icon: Wallet
@@ -566,7 +566,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
   // Time-related items for mobile collapsible section
   const mobileTimeItems = isChecklistOnlyLocation ? [] : [
-    ...(FEATURE_FLAGS.CROO_CASH_ENABLED && showWallet ? [{
+    ...(FEATURE_FLAGS.CROO_CASH_ENABLED && canViewWallet ? [{
       path: '/my-wallet',
       label: 'My Wallet',
       icon: Wallet
