@@ -769,6 +769,238 @@ async function fetchPaymentTypesForDates(
   return result;
 }
 
+// Type for punch records
+interface PunchRecord {
+  id: string;
+  user_id: string;
+  punch_type: string;
+  punch_time: string;
+}
+
+// Type for wage history
+interface WageHistoryRecord {
+  user_id: string;
+  hourly_wage: number | null;
+  effective_date: string;
+}
+
+// Type for profile with wage
+interface ProfileWithWage {
+  id: string;
+  hourly_wage: number | null;
+}
+
+// Calculate labor from time_punches table (for locations using in-app punch clock)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function calculateLaborFromPunches(
+  supabaseClient: any,
+  locationId: string,
+  dateStr: string,
+  timezone: string
+): Promise<{ laborPercent: number; laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number } | null> {
+  console.log(`[PUNCH-LABOR] Calculating labor from punches for ${dateStr} location ${locationId}`);
+  
+  try {
+    // Get all punches for this location and date
+    // We need to handle timezone - punches are stored in UTC but we want the local date
+    const startOfDay = new Date(`${dateStr}T00:00:00`);
+    const endOfDay = new Date(`${dateStr}T23:59:59`);
+    
+    // Convert to UTC for query (approximate - we fetch a wider range to be safe)
+    const startUtc = new Date(startOfDay.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const endUtc = new Date(endOfDay.getTime() + 24 * 60 * 60 * 1000).toISOString();
+    
+    const { data: punches, error: punchError } = await supabaseClient
+      .from('time_punches')
+      .select('id, user_id, punch_type, punch_time')
+      .eq('location_id', locationId)
+      .gte('punch_time', startUtc)
+      .lte('punch_time', endUtc)
+      .order('punch_time', { ascending: true });
+    
+    if (punchError) {
+      console.error('[PUNCH-LABOR] Error fetching punches:', punchError);
+      return null;
+    }
+    
+    const punchRecords = (punches || []) as PunchRecord[];
+    
+    if (punchRecords.length === 0) {
+      console.log('[PUNCH-LABOR] No punches found for this date');
+      return { laborPercent: 0, laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
+    }
+    
+    // Filter punches to only those that fall on the target date in the location timezone
+    const punchesOnDate = punchRecords.filter(p => {
+      const punchDate = new Date(p.punch_time);
+      const localDateStr = getDateStringForTimezone(punchDate, timezone);
+      return localDateStr === dateStr;
+    });
+    
+    console.log(`[PUNCH-LABOR] Found ${punchesOnDate.length} punches on ${dateStr}`);
+    
+    // Get unique user IDs
+    const userIds = [...new Set(punchesOnDate.map(p => p.user_id))];
+    
+    if (userIds.length === 0) {
+      return { laborPercent: 0, laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
+    }
+    
+    // Fetch wages for all users (using RPC or fallback to profiles)
+    const wageMap = new Map<string, number>();
+    
+    // First try wage_history
+    const { data: wageHistoryData } = await supabaseClient
+      .from('wage_history')
+      .select('user_id, hourly_wage, effective_date')
+      .in('user_id', userIds)
+      .lte('effective_date', dateStr)
+      .order('effective_date', { ascending: false });
+    
+    const wageHistory = (wageHistoryData || []) as WageHistoryRecord[];
+    
+    // Build wage map from wage_history (most recent effective_date first)
+    for (const wh of wageHistory) {
+      if (!wageMap.has(wh.user_id)) {
+        wageMap.set(wh.user_id, wh.hourly_wage || 15);
+      }
+    }
+    
+    // Fallback to profiles.hourly_wage for users not in wage_history
+    const usersWithoutWage = userIds.filter(id => !wageMap.has(id));
+    if (usersWithoutWage.length > 0) {
+      const { data: profilesData } = await supabaseClient
+        .from('profiles')
+        .select('id, hourly_wage')
+        .in('id', usersWithoutWage);
+      
+      const profilesWithWage = (profilesData || []) as ProfileWithWage[];
+      
+      for (const p of profilesWithWage) {
+        wageMap.set(p.id, p.hourly_wage || 15);
+      }
+    }
+    
+    // Group punches by user
+    const punchesByUser = new Map<string, typeof punchesOnDate>();
+    for (const punch of punchesOnDate) {
+      if (!punchesByUser.has(punch.user_id)) {
+        punchesByUser.set(punch.user_id, []);
+      }
+      punchesByUser.get(punch.user_id)!.push(punch);
+    }
+    
+    let totalHoursWorked = 0;
+    let totalLaborCost = 0;
+    const now = new Date();
+    
+    // Calculate hours for each user
+    for (const [userId, userPunches] of punchesByUser) {
+      const wage = wageMap.get(userId) || 15;
+      let clockInTime: Date | null = null;
+      let breakStartTime: Date | null = null;
+      let hoursWorked = 0;
+      let breakMinutes = 0;
+      
+      for (const punch of userPunches) {
+        const punchTime = new Date(punch.punch_time);
+        
+        switch (punch.punch_type) {
+          case 'clock_in':
+            clockInTime = punchTime;
+            break;
+          case 'clock_out':
+            if (clockInTime) {
+              const shiftMs = punchTime.getTime() - clockInTime.getTime();
+              hoursWorked += shiftMs / (1000 * 60 * 60);
+              clockInTime = null;
+            }
+            break;
+          case 'break_start':
+            breakStartTime = punchTime;
+            break;
+          case 'break_end':
+            if (breakStartTime) {
+              const breakMs = punchTime.getTime() - breakStartTime.getTime();
+              breakMinutes += breakMs / (1000 * 60);
+              breakStartTime = null;
+            }
+            break;
+        }
+      }
+      
+      // Handle open punch (clocked in but not out yet) - LIVE calculation
+      if (clockInTime) {
+        const liveMs = now.getTime() - clockInTime.getTime();
+        hoursWorked += liveMs / (1000 * 60 * 60);
+        console.log(`[PUNCH-LABOR] User ${userId} still clocked in - adding ${(liveMs / (1000 * 60 * 60)).toFixed(2)} live hours`);
+      }
+      
+      // Handle open break
+      if (breakStartTime) {
+        const liveBreakMs = now.getTime() - breakStartTime.getTime();
+        breakMinutes += liveBreakMs / (1000 * 60);
+      }
+      
+      // Subtract breaks (assuming unpaid - could be configurable)
+      const breakHours = breakMinutes / 60;
+      const netHours = Math.max(0, hoursWorked - breakHours);
+      
+      totalHoursWorked += netHours;
+      totalLaborCost += netHours * wage;
+      
+      console.log(`[PUNCH-LABOR] User ${userId}: ${netHours.toFixed(2)} hours @ $${wage}/hr = $${(netHours * wage).toFixed(2)}`);
+    }
+    
+    console.log(`[PUNCH-LABOR] Total: ${totalHoursWorked.toFixed(2)} hours, $${totalLaborCost.toFixed(2)} cost`);
+    
+    return {
+      laborPercent: 0, // Will be calculated by caller with sales data
+      laborCost: totalLaborCost,
+      hoursWorked: totalHoursWorked,
+      regularHours: totalHoursWorked, // TODO: implement OT calculation
+      overtimeHours: 0
+    };
+  } catch (error) {
+    console.error('[PUNCH-LABOR] Error calculating labor:', error);
+    return null;
+  }
+}
+
+// Calculate labor from punches for multiple dates
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function calculateLaborFromPunchesForDates(
+  supabaseClient: any,
+  locationId: string,
+  dates: string[],
+  timezone: string
+): Promise<{ laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] }> {
+  console.log(`[PUNCH-LABOR] Calculating labor for ${dates.length} days`);
+  
+  let totalLaborCost = 0;
+  let totalHoursWorked = 0;
+  let totalRegularHours = 0;
+  let totalOvertimeHours = 0;
+  const dailyLabor: { date: string; laborPercent: number; laborCost: number }[] = [];
+  
+  for (const dateStr of dates) {
+    const labor = await calculateLaborFromPunches(supabaseClient, locationId, dateStr, timezone);
+    if (labor) {
+      totalLaborCost += labor.laborCost;
+      totalHoursWorked += labor.hoursWorked;
+      totalRegularHours += labor.regularHours;
+      totalOvertimeHours += labor.overtimeHours;
+      dailyLabor.push({
+        date: dateStr,
+        laborPercent: labor.laborPercent,
+        laborCost: labor.laborCost
+      });
+    }
+  }
+  
+  return { laborCost: totalLaborCost, hoursWorked: totalHoursWorked, regularHours: totalRegularHours, overtimeHours: totalOvertimeHours, dailyLabor };
+}
+
 // Fetch labor data from Real Time Summary
 async function fetchLaborData(
   tokenGw: string,
@@ -2003,16 +2235,17 @@ serve(async (req) => {
       fetchPaymentTypes(tokenGw, todayStr, qbLocationId)
     ]);
 
-    // Fetch labor data if pull_labor is enabled
+    // Fetch labor data - from Qu if pull_labor enabled, otherwise from punches
     let laborData = null;
     let weeklyLaborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] } | null = null;
+    let laborSource: 'qu' | 'punches' | null = null;
     
     // Always fetch tips data
     let tipsData = null;
     let weeklyTipsData: { ccTips: number; cashTips: number; dailyTips: { date: string; ccTips: number; cashTips: number }[] } | null = null;
     
     if (credentials.pull_labor) {
-      console.log('Pull labor enabled - fetching labor data from Real Time Summary');
+      console.log('Pull labor enabled - fetching labor data from Real Time Summary (Qu)');
       // For labor, we still need to fetch all week days to get labor breakdown
       // Labor data isn't cached in sales_cache, so we fetch it live
       const [todayLabor, weekLabor, todayTips, weekTips] = await Promise.all([
@@ -2023,16 +2256,34 @@ serve(async (req) => {
       ]);
       laborData = todayLabor;
       weeklyLaborData = weekLabor;
+      laborSource = 'qu';
       tipsData = todayTips;
       weeklyTipsData = weekTips;
     } else {
-      // Still fetch tips even without labor
-      const [todayTips, weekTips] = await Promise.all([
-        fetchTipsData(tokenGw, todayStr, qbLocationId),
-        fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
-      ]);
-      tipsData = todayTips;
-      weeklyTipsData = weekTips;
+      // pull_labor is disabled - use in-app punch clock data instead
+      console.log('Pull labor disabled - calculating labor from time_punches');
+      
+      if (locationId) {
+        const [todayPunchLabor, weekPunchLabor, todayTips, weekTips] = await Promise.all([
+          calculateLaborFromPunches(cacheSupabase, locationId, todayStr, timezone),
+          calculateLaborFromPunchesForDates(cacheSupabase, locationId, weekDates, timezone),
+          fetchTipsData(tokenGw, todayStr, qbLocationId),
+          fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
+        ]);
+        laborData = todayPunchLabor;
+        weeklyLaborData = weekPunchLabor;
+        laborSource = 'punches';
+        tipsData = todayTips;
+        weeklyTipsData = weekTips;
+      } else {
+        // No location ID, still fetch tips
+        const [todayTips, weekTips] = await Promise.all([
+          fetchTipsData(tokenGw, todayStr, qbLocationId),
+          fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
+        ]);
+        tipsData = todayTips;
+        weeklyTipsData = weekTips;
+      }
     }
 
     // Fetch payment types for week and month periods
@@ -2457,8 +2708,9 @@ serve(async (req) => {
       projections, // AI-powered projections
       productMix,
       tills: tillsData, // Tills data for drawer count expected cash
-      labor: laborData, // Labor data from Real Time Summary (if pull_labor enabled)
-      weeklyLabor: weeklyLaborTotals, // Weekly labor totals (if pull_labor enabled)
+      labor: laborData, // Labor data (from Qu or punches)
+      laborSource: laborSource, // 'qu' or 'punches' - indicates data source
+      weeklyLabor: weeklyLaborTotals, // Weekly labor totals
       tips: tipsData, // Today's tips data (CC + cash)
       weeklyTips: weeklyTipsData, // Weekly tips breakdown by day
       payments: {
