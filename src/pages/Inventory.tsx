@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ClipboardList, Settings, TrendingDown, Package, CalendarDays, Calendar, CalendarRange, MapPin } from "lucide-react";
+import { Plus, ClipboardList, Settings, TrendingDown, Package, CalendarDays, Calendar, CalendarRange, MapPin, Pencil } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -23,6 +23,7 @@ const Inventory = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("count");
   const [activeCountId, setActiveCountId] = useState<string | null>(null);
+  const [isEditingCount, setIsEditingCount] = useState(false);
   const [showStartDialog, setShowStartDialog] = useState(false);
 
   // Fetch location details
@@ -205,8 +206,10 @@ const Inventory = () => {
               <InventoryCountSession 
                 countId={activeCountId} 
                 locationId={locationId!}
+                isEditing={isEditingCount}
                 onClose={() => {
                   setActiveCountId(null);
+                  setIsEditingCount(false);
                   queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
                   queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
                 }}
@@ -249,16 +252,19 @@ const Inventory = () => {
                         {recentCounts.map((count) => (
                           <div 
                             key={count.id} 
-                            className="p-4 flex items-center justify-between hover:bg-muted/50 cursor-pointer"
-                            onClick={() => {
-                              if (count.status === "in_progress") {
-                                setActiveCountId(count.id);
-                              } else {
-                                navigate(`/inventory/${locationId}/count/${count.id}`);
-                              }
-                            }}
+                            className="p-4 flex items-center justify-between hover:bg-muted/50"
                           >
-                            <div className="flex items-center gap-3">
+                            <div 
+                              className="flex items-center gap-3 flex-1 cursor-pointer"
+                              onClick={() => {
+                                if (count.status === "in_progress") {
+                                  setActiveCountId(count.id);
+                                  setIsEditingCount(false);
+                                } else {
+                                  navigate(`/inventory/${locationId}/count/${count.id}`);
+                                }
+                              }}
+                            >
                               {count.period_type && (
                                 <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
                                   {getPeriodIcon(count.period_type)}
@@ -274,6 +280,20 @@ const Inventory = () => {
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
+                              {count.status === "completed" && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveCountId(count.id);
+                                    setIsEditingCount(true);
+                                  }}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
                               {count.period_type && (
                                 <Badge variant="outline" className="text-xs capitalize">
                                   {count.period_type}
