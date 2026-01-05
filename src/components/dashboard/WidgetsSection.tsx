@@ -274,11 +274,8 @@ export function WidgetsSection({
   const [show3DCubeDialog, setShow3DCubeDialog] = useState(false);
   const [localCubes, setLocalCubes] = useState<DataCubeConfig[]>([]);
   
-  // Create location-specific storage key for checklists position - memoized to prevent recreation
-  const checklistsPositionKey = useMemo(
-    () => `dashboard-checklists-position-${currentLocation?.id || 'default'}`,
-    [currentLocation?.id]
-  );
+  // Create location-specific storage key for checklists position
+  const checklistsPositionKey = `dashboard-checklists-position-${currentLocation?.id || 'default'}`;
   
   // Track checklists block position (stored as index in the order)
   const [checklistsPosition, setChecklistsPosition] = useState<number>(-1); // -1 means at the end
