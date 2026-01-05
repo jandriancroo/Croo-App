@@ -231,8 +231,13 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
   };
 
   // Use location timezone for accurate date comparisons
+  const { getDateInTimezoneOffset } = useLocationTimezone();
   const todayStr = getTodayInTimezone();
-  const upcomingOrders = orders.filter(o => o.status === "pending" && o.pickup_date >= todayStr);
+  const tomorrowStr = getDateInTimezoneOffset(1);
+  
+  const todaysOrders = orders.filter(o => o.status === "pending" && o.pickup_date === todayStr);
+  const tomorrowsOrders = orders.filter(o => o.status === "pending" && o.pickup_date === tomorrowStr);
+  const upcomingOrders = orders.filter(o => o.status === "pending" && o.pickup_date > tomorrowStr);
   const pastDueOrders = orders.filter(o => o.status === "pending" && o.pickup_date < todayStr);
   const completedOrders = orders.filter(o => o.status === "completed");
 
@@ -262,7 +267,7 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
           </div>
         )}
 
-        {upcomingOrders.length === 0 && pastDueOrders.length === 0 && completedOrders.length === 0 ? (
+        {todaysOrders.length === 0 && tomorrowsOrders.length === 0 && upcomingOrders.length === 0 && pastDueOrders.length === 0 && completedOrders.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-8">
             No catering orders. Upload a PDF or screenshot to get started.
           </p>
@@ -283,6 +288,92 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
                       <span className="text-destructive">{format(parseISO(order.pickup_date), "MMM d")}</span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatTime(order.pickup_time)}
+                      </span>
+                      {order.headcount && (
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {order.headcount}
+                        </span>
+                      )}
+                      {order.total_price && (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <DollarSign className="h-3 w-3" />
+                          {order.total_price.toFixed(2)}
+                        </span>
+                      )}
+                      {order.contact_phone && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {order.contact_phone}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {todaysOrders.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-primary">Due Today</h4>
+                {todaysOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="p-3 border border-primary/50 rounded-lg cursor-pointer hover:bg-primary/10 transition-colors bg-primary/5"
+                    onClick={() => setSelectedOrder(order)}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-medium">{order.customer_name}</p>
+                      <Badge>{order.items.length} items</Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                      <span className="text-primary font-medium">Today</span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {formatTime(order.pickup_time)}
+                      </span>
+                      {order.headcount && (
+                        <span className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          {order.headcount}
+                        </span>
+                      )}
+                      {order.total_price && (
+                        <span className="flex items-center gap-1 text-green-600">
+                          <DollarSign className="h-3 w-3" />
+                          {order.total_price.toFixed(2)}
+                        </span>
+                      )}
+                      {order.contact_phone && (
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-3 w-3" />
+                          {order.contact_phone}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {tomorrowsOrders.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium text-amber-600">Due Tomorrow</h4>
+                {tomorrowsOrders.map((order) => (
+                  <div
+                    key={order.id}
+                    className="p-3 border border-amber-500/50 rounded-lg cursor-pointer hover:bg-amber-500/10 transition-colors bg-amber-500/5"
+                    onClick={() => setSelectedOrder(order)}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-medium">{order.customer_name}</p>
+                      <Badge variant="outline" className="border-amber-500 text-amber-600">{order.items.length} items</Badge>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                      <span className="text-amber-600 font-medium">Tomorrow</span>
                       <span className="flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {formatTime(order.pickup_time)}

@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { toast } from "sonner";
 import { ChefHat, Clock, Users, Check, Eye } from "lucide-react";
-import { format } from "date-fns";
 import { useUserRole } from "@/hooks/useUserRole";
 import { TemporaryTaskCard } from "./TemporaryTaskCard";
 
@@ -24,30 +24,33 @@ interface CateringOrder {
 }
 
 const ORANGE_COLOR = "#f97316";
+const AMBER_COLOR = "#f59e0b";
 
 export function CateringOrdersAlert() {
   const { currentLocation } = useLocation();
-  const { getTodayInTimezone } = useLocationTimezone();
+  const { getTodayInTimezone, getDateInTimezoneOffset } = useLocationTimezone();
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
   const [todaysOrders, setTodaysOrders] = useState<CateringOrder[]>([]);
+  const [tomorrowsOrders, setTomorrowsOrders] = useState<CateringOrder[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<CateringOrder | null>(null);
+  const [isTomorrowOrder, setIsTomorrowOrder] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const canComplete = isShiftManager || isGeneralManager || isManager || isAdmin;
 
   useEffect(() => {
     if (currentLocation?.id) {
-      fetchTodaysOrders();
+      fetchOrders();
     }
   }, [currentLocation?.id]);
 
-  const fetchTodaysOrders = async () => {
+  const fetchOrders = async () => {
     try {
-      // Get today's date in location's timezone
       const today = getTodayInTimezone();
+      const tomorrow = getDateInTimezoneOffset(1);
       
-      
-      const { data, error } = await supabase
+      // Fetch today's orders
+      const { data: todayData, error: todayError } = await supabase
         .from("catering_orders")
         .select("*")
         .eq("location_id", currentLocation?.id)
@@ -55,13 +58,30 @@ export function CateringOrdersAlert() {
         .eq("status", "pending")
         .order("pickup_time", { ascending: true });
 
-      if (error) throw error;
-      setTodaysOrders((data || []).map(order => ({
+      if (todayError) throw todayError;
+      
+      // Fetch tomorrow's orders
+      const { data: tomorrowData, error: tomorrowError } = await supabase
+        .from("catering_orders")
+        .select("*")
+        .eq("location_id", currentLocation?.id)
+        .eq("pickup_date", tomorrow)
+        .eq("status", "pending")
+        .order("pickup_time", { ascending: true });
+
+      if (tomorrowError) throw tomorrowError;
+
+      setTodaysOrders((todayData || []).map(order => ({
+        ...order,
+        items: order.items as unknown as { quantity: number; item: string; notes?: string }[]
+      })) as CateringOrder[]);
+      
+      setTomorrowsOrders((tomorrowData || []).map(order => ({
         ...order,
         items: order.items as unknown as { quantity: number; item: string; notes?: string }[]
       })) as CateringOrder[]);
     } catch (error) {
-      console.error("Error fetching today's catering orders:", error);
+      console.error("Error fetching catering orders:", error);
     } finally {
       setLoading(false);
     }
@@ -85,7 +105,7 @@ export function CateringOrdersAlert() {
 
       toast.success("Catering order completed!");
       setSelectedOrder(null);
-      fetchTodaysOrders();
+      fetchOrders();
     } catch (error) {
       console.error("Error completing order:", error);
       toast.error("Failed to complete order");
@@ -100,12 +120,18 @@ export function CateringOrdersAlert() {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  if (loading || todaysOrders.length === 0) {
+  const handleOrderClick = (order: CateringOrder, isTomorrow: boolean) => {
+    setSelectedOrder(order);
+    setIsTomorrowOrder(isTomorrow);
+  };
+
+  if (loading || (todaysOrders.length === 0 && tomorrowsOrders.length === 0)) {
     return null;
   }
 
   return (
     <>
+      {/* Today's orders */}
       {todaysOrders.map((order) => (
         <TemporaryTaskCard
           key={order.id}
@@ -115,7 +141,22 @@ export function CateringOrdersAlert() {
           icon={ChefHat}
           accentColor={ORANGE_COLOR}
           buttonLabel="Done"
-          onAction={() => setSelectedOrder(order)}
+          onAction={() => handleOrderClick(order, false)}
+          badge={{ label: `${order.items.length} items` }}
+        />
+      ))}
+      
+      {/* Tomorrow's orders */}
+      {tomorrowsOrders.map((order) => (
+        <TemporaryTaskCard
+          key={order.id}
+          id={order.id}
+          title={order.customer_name}
+          subtitle={`Due Tomorrow @ ${formatTime(order.pickup_time)}`}
+          icon={ChefHat}
+          accentColor={AMBER_COLOR}
+          buttonLabel="View"
+          onAction={() => handleOrderClick(order, true)}
           badge={{ label: `${order.items.length} items` }}
         />
       ))}
@@ -127,6 +168,11 @@ export function CateringOrdersAlert() {
             <DialogTitle className="flex items-center gap-2">
               <ChefHat className="h-5 w-5" />
               Catering Order
+              {isTomorrowOrder && (
+                <Badge variant="outline" className="ml-2 border-amber-500 text-amber-600">
+                  Due Tomorrow
+                </Badge>
+              )}
             </DialogTitle>
           </DialogHeader>
           {selectedOrder && (
@@ -144,8 +190,8 @@ export function CateringOrdersAlert() {
                 )}
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">Pickup</span>
-                  <span className="text-primary font-medium">
-                    Today at {formatTime(selectedOrder.pickup_time)}
+                  <span className={isTomorrowOrder ? "text-amber-600 font-medium" : "text-primary font-medium"}>
+                    {isTomorrowOrder ? "Tomorrow" : "Today"} at {formatTime(selectedOrder.pickup_time)}
                   </span>
                 </div>
                 {selectedOrder.headcount && (
@@ -192,7 +238,8 @@ export function CateringOrdersAlert() {
                 </Button>
               )}
 
-              {canComplete && (
+              {/* Only show complete button for today's orders */}
+              {canComplete && !isTomorrowOrder && (
                 <Button
                   className="w-full"
                   size="lg"
@@ -201,6 +248,12 @@ export function CateringOrdersAlert() {
                   <Check className="h-5 w-5 mr-2" />
                   Mark Completed
                 </Button>
+              )}
+              
+              {isTomorrowOrder && (
+                <p className="text-sm text-center text-muted-foreground">
+                  This order can be completed tomorrow.
+                </p>
               )}
             </div>
           )}
