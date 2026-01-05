@@ -196,9 +196,6 @@ export default function ScheduleTemplates() {
                           <DropdownMenuItem onClick={() => navigate(`/shift-templates?edit=${template.id}`)}>
                             Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => toast.info("Copy To feature coming soon")}>
-                            Copy To
-                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => handleDeleteShiftTemplate(template.id)}
                             className="text-destructive focus:text-destructive"
