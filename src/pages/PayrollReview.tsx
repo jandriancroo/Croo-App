@@ -8,7 +8,8 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { useTipDistribution } from '@/hooks/useTipDistribution';
 import { toast } from 'sonner';
-import { ChevronLeft, AlertTriangle, Trash2, Clock, CheckCircle2, Lock, AlertCircle, Coffee, Download, FileSpreadsheet, Calendar, DollarSign } from 'lucide-react';
+import { ChevronLeft, AlertTriangle, Trash2, Clock, CheckCircle2, Lock, AlertCircle, Coffee, Download, FileSpreadsheet, Calendar, DollarSign, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -1300,33 +1301,55 @@ export default function PayrollReview() {
               </Select>
             </div>
 
-            {/* Tips Summary Card */}
+            {/* Tips Summary Card - Collapsible */}
             {totalTipPool > 0 && (
-              <Card className="border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-green-500 text-white flex items-center justify-center">
-                        <DollarSign className="h-5 w-5" />
+              <Collapsible>
+                <Card className="border-green-200 bg-green-50/50 dark:border-green-900 dark:bg-green-950/20">
+                  <CollapsibleTrigger asChild>
+                    <CardContent className="p-3 cursor-pointer hover:bg-green-100/50 dark:hover:bg-green-900/20 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-green-500 text-white flex items-center justify-center">
+                            <DollarSign className="h-4 w-4" />
+                          </div>
+                          <div>
+                            <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                              ${totalTipPool.toFixed(2)} <span className="text-sm font-normal text-muted-foreground">tips</span>
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {dailyTips.filter(d => d.totalTips > 0).length} day{dailyTips.filter(d => d.totalTips > 0).length !== 1 ? 's' : ''}
+                          </span>
+                          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Total Tips This Period</p>
-                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                          ${totalTipPool.toFixed(2)}
-                        </p>
+                    </CardContent>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="border-t border-green-200 dark:border-green-900 px-3 py-2">
+                      <div className="grid gap-1">
+                        {dailyTips.sort((a, b) => a.date.localeCompare(b.date)).map(day => (
+                          <div key={day.date} className="flex items-center justify-between text-sm py-1">
+                            <span className="text-muted-foreground">
+                              {format(new Date(day.date + 'T12:00:00'), 'EEE, MMM d')}
+                            </span>
+                            <span className={day.totalTips > 0 ? 'font-medium text-green-600 dark:text-green-400' : 'text-muted-foreground'}>
+                              {day.totalTips > 0 ? `$${day.totalTips.toFixed(2)}` : '-'}
+                            </span>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                    <div className="text-right text-sm text-muted-foreground">
-                      <p>{dailyTips.filter(d => d.totalTips > 0).length} day{dailyTips.filter(d => d.totalTips > 0).length !== 1 ? 's' : ''} with tips</p>
                       {totalHoursWithTips > 0 && (
-                        <p className="text-xs">
-                          ${(totalDistributedTips / totalHoursWithTips).toFixed(2)}/hr avg
-                        </p>
+                        <div className="border-t border-green-200 dark:border-green-900 mt-2 pt-2 text-xs text-muted-foreground">
+                          Avg: ${(totalDistributedTips / totalHoursWithTips).toFixed(2)}/hr worked
+                        </div>
                       )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
             )}
 
             {tipsLoading && (
