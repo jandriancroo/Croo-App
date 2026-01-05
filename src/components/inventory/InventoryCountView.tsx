@@ -197,6 +197,54 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
         </CardContent>
       </Card>
 
+      {/* Edit History (shown near top so it's easy to notice) */}
+      {editHistory && editHistory.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              <History className="h-4 w-4" />
+              Change History
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="max-h-64">
+              <div className="divide-y divide-border">
+                {editHistory.map((edit) => (
+                  <div key={edit.id} className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-medium">{edit.item_name}</p>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
+                          <User className="h-3 w-3" />
+                          <span>{edit.edited_by_profile?.full_name || "Unknown"}</span>
+                          <span>•</span>
+                          <Clock className="h-3 w-3" />
+                          <span>{format(new Date(edit.edited_at), "MMM d, yyyy 'at' h:mm a")}</span>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <Badge variant="outline" className="font-mono">
+                          {edit.previous_quantity} → {edit.new_quantity}
+                        </Badge>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {edit.new_quantity > edit.previous_quantity ? '+' : ''}{edit.new_quantity - edit.previous_quantity} units
+                        </p>
+                      </div>
+                    </div>
+                    {edit.reason && (
+                      <div className="flex items-start gap-2 text-sm bg-muted/50 rounded-md p-2">
+                        <FileText className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                        <span>{edit.reason}</span>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Items Table by Location */}
       <Card>
         <CardHeader className="pb-2">
@@ -270,53 +318,6 @@ const InventoryCountView = ({ countId, locationId }: InventoryCountViewProps) =>
         </CardContent>
       </Card>
 
-      {/* Edit History */}
-      {editHistory && editHistory.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <History className="h-4 w-4" />
-              Change History
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="max-h-64">
-              <div className="divide-y divide-border">
-                {editHistory.map((edit) => (
-                  <div key={edit.id} className="p-4 space-y-2">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-medium">{edit.item_name}</p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                          <User className="h-3 w-3" />
-                          <span>{edit.edited_by_profile?.full_name || "Unknown"}</span>
-                          <span>•</span>
-                          <Clock className="h-3 w-3" />
-                          <span>{format(new Date(edit.edited_at), "MMM d, yyyy 'at' h:mm a")}</span>
-                        </div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <Badge variant="outline" className="font-mono">
-                          {edit.previous_quantity} → {edit.new_quantity}
-                        </Badge>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {edit.new_quantity > edit.previous_quantity ? '+' : ''}{edit.new_quantity - edit.previous_quantity} units
-                        </p>
-                      </div>
-                    </div>
-                    {edit.reason && (
-                      <div className="flex items-start gap-2 text-sm bg-muted/50 rounded-md p-2">
-                        <FileText className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                        <span>{edit.reason}</span>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 };
