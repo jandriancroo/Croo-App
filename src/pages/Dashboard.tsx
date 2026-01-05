@@ -13,6 +13,7 @@ import { CubeType } from '@/components/dashboard/AddWidgetDialog';
 import { CashHandlingTasks } from '@/components/dashboard/CashHandlingTasks';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { EventDailyTasks } from '@/components/dashboard/EventDailyTasks';
+import { CateringOrdersAlert } from '@/components/dashboard/CateringOrdersAlert';
 import { WidgetsSection } from '@/components/dashboard/WidgetsSection';
 import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { toast } from 'sonner';
@@ -571,6 +572,9 @@ export default function Dashboard() {
     <div className="flex flex-col gap-3 max-h-[320px] overflow-y-auto pb-1">
       {/* Assigned Temporary Tasks */}
       <AssignedTemporaryTasks />
+      
+      {/* Catering Orders (Today + Tomorrow) */}
+      <CateringOrdersAlert />
       
       {/* Event Daily Task Cards */}
       {currentLocation?.id && <EventDailyTasks locationId={currentLocation.id} />}
