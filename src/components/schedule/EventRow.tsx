@@ -84,6 +84,7 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryColor, setNewCategoryColor] = useState(PRESET_COLORS[0]);
   const [showNewCategory, setShowNewCategory] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
   
   const [formData, setFormData] = useState({
     event_name: "",
@@ -564,10 +565,14 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
         </div>
         {weekDays.map((day, dayIndex) => {
           const dayEvents = getEventsForDay(dayIndex);
+          const hasMultiple = dayEvents.length > 1;
+          const visibleEvents = isExpanded ? dayEvents : dayEvents.slice(0, 1);
+          const hiddenCount = dayEvents.length - 1;
+          
           return (
             <div key={dayIndex} className="min-h-[40px] p-1.5 border-r last:border-r-0 border-border/20 bg-[hsl(30,25%,45%)] overflow-hidden">
               <div className="space-y-1">
-                {dayEvents.map((event) => {
+                {visibleEvents.map((event) => {
                   const categoryColor = getCategoryColor(event) || '#6366f1';
                   return (
                     <div
@@ -586,6 +591,17 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
                           <ClipboardCheck className="h-3 w-3 flex-shrink-0" />
                         )}
                         <span className="truncate">{event.event_name}</span>
+                        {!isExpanded && hasMultiple && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setIsExpanded(true);
+                            }}
+                            className="ml-auto px-1 py-0.5 bg-white/20 hover:bg-white/30 rounded text-[9px] font-semibold flex-shrink-0 transition-colors"
+                          >
+                            +{hiddenCount}
+                          </button>
+                        )}
                       </div>
                       <div className="text-white/70 text-[10px]">
                         {formatTime12Hour(event.event_time)}
@@ -593,6 +609,14 @@ export function EventRow({ events, scheduleId, isEditable, onUpdate, locationId 
                     </div>
                   );
                 })}
+                {isExpanded && dayEvents.length > 1 && (
+                  <button
+                    onClick={() => setIsExpanded(false)}
+                    className="w-full text-[9px] text-white/60 hover:text-white/80 py-0.5 transition-colors"
+                  >
+                    collapse
+                  </button>
+                )}
               </div>
             </div>
           );

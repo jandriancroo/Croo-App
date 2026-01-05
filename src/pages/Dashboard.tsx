@@ -911,10 +911,14 @@ export default function Dashboard() {
               <Button onClick={() => navigate('/tasks')}>Go to Tasks</Button>
             </CardContent>
           </Card> : (
-            <>
-              {quickTasksContent}
+            <div className="space-y-6">
+              <div className="grid gap-3 grid-cols-1 md:grid-cols-3 items-start">
+                <div className="md:col-span-3">
+                  {quickTasksContent}
+                </div>
+              </div>
               {dashboardContent}
-            </>
+            </div>
           )}
       </div>
       

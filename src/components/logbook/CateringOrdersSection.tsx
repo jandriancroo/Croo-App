@@ -8,7 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
 import { Upload, ChefHat, Clock, Users, Check, Loader2, Trash2, Eye, Phone, DollarSign } from "lucide-react";
-import { format, parseISO, isBefore, startOfDay } from "date-fns";
+import { format, parseISO, isBefore } from "date-fns";
+import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { compressImage } from "@/utils/imageCompression";
 import { useUserRole } from "@/hooks/useUserRole";
 interface CateringOrder {
@@ -37,6 +38,7 @@ interface CateringOrdersSectionProps {
 
 export function CateringOrdersSection({ showHeader = true, externalUploadOpen, onExternalUploadChange }: CateringOrdersSectionProps) {
   const { currentLocation } = useLocation();
+  const { getTodayInTimezone } = useLocationTimezone();
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
   const [orders, setOrders] = useState<CateringOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -228,9 +230,10 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  const today = startOfDay(new Date());
-  const upcomingOrders = orders.filter(o => o.status === "pending" && !isBefore(parseISO(o.pickup_date), today));
-  const pastDueOrders = orders.filter(o => o.status === "pending" && isBefore(parseISO(o.pickup_date), today));
+  // Use location timezone for accurate date comparisons
+  const todayStr = getTodayInTimezone();
+  const upcomingOrders = orders.filter(o => o.status === "pending" && o.pickup_date >= todayStr);
+  const pastDueOrders = orders.filter(o => o.status === "pending" && o.pickup_date < todayStr);
   const completedOrders = orders.filter(o => o.status === "completed");
 
   if (loading) {

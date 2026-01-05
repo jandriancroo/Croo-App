@@ -22,7 +22,6 @@ import { format, addDays, subDays } from "date-fns";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableChecklistItem } from '@/components/tasks/SortableChecklistItem';
-import { ChecklistLeaderboard } from '@/components/tasks/ChecklistLeaderboard';
 import { CopyChecklistDialog } from '@/components/tasks/CopyChecklistDialog';
 import { TemporaryTasksSection } from '@/components/tasks/TemporaryTasksSection';
 import { CompletedTaskDetailsDialog } from '@/components/tasks/CompletedTaskDetailsDialog';
@@ -442,9 +441,6 @@ export default function Tasks() {
               <h1 className="text-3xl font-bold">Tasks</h1>
               <TabsList>
                 <TabsTrigger value="history">History</TabsTrigger>
-                {currentLocation?.location_type !== 'checklist_only' && (
-                  <TabsTrigger value="leaderboard">Leaderboard</TabsTrigger>
-                )}
                 {(isAdmin || isManager) && (
                   <TabsTrigger value="edit">Edit</TabsTrigger>
                 )}
@@ -628,13 +624,6 @@ export default function Tasks() {
               </CardContent>
             </Card>
           </TabsContent>
-
-          {/* Leaderboard Tab */}
-          {currentLocation?.location_type !== 'checklist_only' && (
-            <TabsContent value="leaderboard" className="space-y-6">
-              <ChecklistLeaderboard />
-            </TabsContent>
-          )}
 
           <TabsContent value="edit" className="space-y-6">
             {/* Quick Tasks Section */}
