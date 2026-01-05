@@ -137,7 +137,7 @@ export function CateringOrdersAlert() {
           key={order.id}
           id={order.id}
           title={order.customer_name}
-          subtitle={`Pickup: ${formatTime(order.pickup_time)}`}
+          subtitle={`Due @ ${formatTime(order.pickup_time)}`}
           icon={ChefHat}
           accentColor={ORANGE_COLOR}
           buttonLabel="Done"
