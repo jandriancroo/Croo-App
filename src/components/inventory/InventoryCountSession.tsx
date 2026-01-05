@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { 
   Dialog, 
   DialogContent, 
@@ -14,12 +13,13 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, ChevronLeft, ChevronRight, X, Minus, Plus, DollarSign, Mic, MicOff, History, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, DollarSign, History, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useAuth } from "@/lib/auth";
-import { format, formatDistanceToNow } from "date-fns";
+import { format } from "date-fns";
+import InventoryCountDock from "./InventoryCountDock";
 
 interface InventoryCountSessionProps {
   countId: string;
@@ -214,7 +214,11 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     return items.reduce((sum, item) => sum + getItemCost(item), 0);
   }, [items, getItemCost]);
 
-  // Save count mutation
+  // Count stats
+  const totalItems = items?.length || 0;
+  const countedItems = Object.values(counts).filter(c => c.cases > 0 || c.units > 0).length;
+
+  // Save count mutation (saves progress without completing)
   const saveCountMutation = useMutation({
     mutationFn: async (itemCounts: { item_id: string; quantity: number }[]) => {
       const { error } = await supabase
@@ -268,36 +272,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     }
   });
 
-  // Complete count mutation (for new counts)
-  const completeCountMutation = useMutation({
-    mutationFn: async () => {
-      const itemCounts = items?.map(item => ({
-        item_id: item.item_id,
-        quantity: getTotalQuantity(item.item_id, item.pack_quantity)
-      })) || [];
-      
-      await saveCountMutation.mutateAsync(itemCounts);
-
-      const { error } = await supabase
-        .from("inventory_counts")
-        .update({ 
-          status: "completed",
-          completed_at: new Date().toISOString()
-        })
-        .eq("id", countId);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Inventory count completed!");
-      queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
-      onClose();
-    },
-    onError: () => {
-      toast.error("Failed to complete count");
-    }
-  });
-
   // Calculate pending edits when in edit mode
   const calculatePendingEdits = useCallback((): PendingEdit[] => {
     if (!isEditing || !items) return [];
@@ -339,8 +313,8 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     setShowEditConfirm(false);
   };
 
-  // Auto-save counts periodically
-  const saveCurrentCounts = useCallback(async () => {
+  // Save current progress (doesn't complete, just saves)
+  const handleSave = async () => {
     if (!items || Object.keys(counts).length === 0) return;
     
     setIsSaving(true);
@@ -351,21 +325,22 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     
     try {
       await saveCountMutation.mutateAsync(itemCounts);
+      toast.success("Progress saved");
+      queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
+      onClose();
     } catch (error) {
-      console.error("Auto-save failed:", error);
+      console.error("Save failed:", error);
+      toast.error("Failed to save");
     } finally {
       setIsSaving(false);
     }
-  }, [counts, items, getTotalQuantity]);
+  };
 
-  // Auto-save when changing locations
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      saveCurrentCounts();
-    }, 2000);
-    
-    return () => clearTimeout(timer);
-  }, [currentLocationIndex]);
+  // Handle exit without saving
+  const handleExit = () => {
+    onClose();
+  };
 
   const updateCases = (itemId: string, delta: number) => {
     setCounts(prev => {
@@ -521,11 +496,6 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
     continuous: true
   });
 
-  // Calculate progress
-  const totalItems = items?.length || 0;
-  const countedItems = Object.values(counts).filter(c => c.cases > 0 || c.units > 0).length;
-  const progress = totalItems > 0 ? (countedItems / totalItems) * 100 : 0;
-
   // Format currency
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
@@ -549,98 +519,14 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
   return (
     <>
-    <div className="space-y-4">
-      {/* Header with progress and actions */}
-      <Card className={cn(
-        "border-primary/20",
-        isEditing ? "bg-amber-500/10" : "bg-primary/5"
-      )}>
-        <CardContent className="p-4 space-y-3">
-          {/* View-only mode indicator */}
-          {isViewOnly && (
-            <div className="flex items-center gap-2 text-blue-600 text-sm font-medium">
-              <History className="h-4 w-4" />
-              <span>Viewing completed count</span>
-            </div>
-          )}
-          
-          {/* Edit mode indicator */}
-          {isEditing && (
-            <div className="flex items-center gap-2 text-amber-600 text-sm font-medium">
-              <History className="h-4 w-4" />
-              <span>Editing completed count - changes will be tracked</span>
-            </div>
-          )}
-          
-          {/* Top row: items count + total value */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8">
-                <X className="h-4 w-4" />
-              </Button>
-              <span className="font-semibold text-lg">
-                {countedItems}/{totalItems} items
-              </span>
-              {isSaving && (
-                <Badge variant="secondary" className="text-xs">Saving...</Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <DollarSign className="h-4 w-4 text-primary" />
-              <span className="text-lg font-bold text-primary">
-                {formatCurrency(totalCost)}
-              </span>
-            </div>
-          </div>
-
-          <Progress value={progress} className="h-2" />
-          
-          {/* Bottom row: Complete/Save button + Microphone (hidden in view-only mode) */}
-          {!isViewOnly && (
-            <div className="flex items-center gap-2">
-              {isEditing ? (
-                <Button 
-                  onClick={handleSaveEdits}
-                  disabled={saveEditMutation.isPending}
-                  className="flex-1 h-12 text-base bg-amber-600 hover:bg-amber-700"
-                >
-                  <Check className="h-5 w-5 mr-2" />
-                  Save Changes
-                </Button>
-              ) : (
-                <Button 
-                  onClick={() => completeCountMutation.mutate()}
-                  disabled={completeCountMutation.isPending}
-                  className="flex-1 h-12 text-base"
-                >
-                  <Check className="h-5 w-5 mr-2" />
-                  Complete Count
-                </Button>
-              )}
-              {isSupported && (
-                <Button
-                  variant={isListening ? "destructive" : "secondary"}
-                  size="icon"
-                  onClick={toggleListening}
-                  className={cn(
-                    "h-12 w-12 relative",
-                    !isListening && "bg-orange-500 hover:bg-orange-600 text-white border-0"
-                  )}
-                >
-                  {isListening ? (
-                    <MicOff className="h-6 w-6" />
-                  ) : (
-                    <Mic className="h-6 w-6" />
-                  )}
-                  {isListening && (
-                    <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full animate-ping" />
-                  )}
-                </Button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+    <div className="space-y-3 pb-24">
+      {/* Edit mode indicator */}
+      {isEditing && (
+        <div className="flex items-center gap-2 text-amber-600 text-sm font-medium bg-amber-500/10 rounded-lg px-3 py-2">
+          <History className="h-4 w-4" />
+          <span>Editing completed count - changes will be tracked</span>
+        </div>
+      )}
 
       {/* Location navigation */}
       {locationKeys.length > 1 && (
@@ -819,7 +705,7 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
 
       {/* Navigation bar with back/forward and location name */}
       {locationKeys.length > 1 && (
-        <div className="border-t border-border bg-card">
+        <div className="border-t border-border bg-card rounded-lg">
           <div className="flex items-center justify-between px-2 py-3">
             <Button
               variant="ghost"
@@ -869,6 +755,46 @@ const InventoryCountSession = ({ countId, locationId, onClose, isEditing = false
         </div>
       )}
     </div>
+
+    {/* Dock with stats and actions */}
+    {!isViewOnly && !isEditing && (
+      <InventoryCountDock
+        totalValue={totalCost}
+        countedItems={countedItems}
+        totalItems={totalItems}
+        isSaving={isSaving}
+        isListening={isListening}
+        isVoiceSupported={isSupported}
+        onSave={handleSave}
+        onExit={handleExit}
+        onToggleVoice={toggleListening}
+      />
+    )}
+
+    {/* For edit mode, show a simpler save bar */}
+    {isEditing && (
+      <div className="fixed bottom-0 left-0 right-0 z-50">
+        <div className="glass-dock">
+          <div className="flex items-center justify-between px-3 pt-3 pb-0 gap-2">
+            <Button
+              variant="ghost"
+              onClick={onClose}
+              className="h-12"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEdits}
+              disabled={saveEditMutation.isPending}
+              className="h-12 flex-1 max-w-xs bg-amber-600 hover:bg-amber-700"
+            >
+              Save Changes
+            </Button>
+          </div>
+          <div style={{ height: 'max(8px, calc(env(safe-area-inset-bottom, 0px) * 0.5))' }} />
+        </div>
+      </div>
+    )}
 
     {/* Edit Confirmation Dialog */}
     <Dialog open={showEditConfirm} onOpenChange={setShowEditConfirm}>
