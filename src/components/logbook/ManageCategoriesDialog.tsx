@@ -86,18 +86,31 @@ function SortableCategoryItem({ category, onDelete, onToggleAlert, onTogglePushN
           </div>
         </AccordionTrigger>
 
-        <DropdownMenu modal={false}>
+        <DropdownMenu
+          modal={false}
+          onOpenChange={(open) => {
+            console.log("[Logbook Categories] dropdown open:", open, "category:", category?.id);
+          }}
+        >
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
               onPointerDownCapture={(e) => e.stopPropagation()}
-              onClickCapture={(e) => e.stopPropagation()}
+              onClickCapture={(e) => {
+                e.stopPropagation();
+                console.log("[Logbook Categories] dots clicked", category?.id);
+              }}
+              aria-label={`Category actions for ${category.name}`}
             >
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="z-50">
+          <DropdownMenuContent
+            align="end"
+            sideOffset={8}
+            className="z-[70] bg-popover text-popover-foreground border border-border shadow-xl"
+          >
             <DropdownMenuItem onSelect={() => onEditFields(category.id, category.logbook_fields || [])}>
               <Edit2 className="h-4 w-4 mr-2" />
               Configure Fields
