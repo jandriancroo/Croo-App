@@ -2036,17 +2036,17 @@ export default function UserManagement() {
                       {editBirthday ? format(editBirthday, "PPP") : <span>Pick a date</span>}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
+                  <PopoverContent className="w-auto p-0 z-[200]" align="start">
                     <Calendar
                       mode="single"
                       selected={editBirthday}
                       onSelect={setEditBirthday}
                       disabled={(date) => date > new Date()}
                       initialFocus
-                      captionLayout="dropdown"
+                      captionLayout="dropdown-buttons"
                       fromYear={1940}
                       toYear={new Date().getFullYear()}
-                      className={cn("p-3 pointer-events-auto")}
+                      className="p-3 pointer-events-auto"
                     />
                   </PopoverContent>
                 </Popover>
