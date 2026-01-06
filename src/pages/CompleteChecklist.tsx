@@ -1063,7 +1063,14 @@ export default function CompleteChecklist() {
                   })()}
                   {(item.item_type === 'confirmation' || item.item_type === 'CHECKMARK') && <div className="flex items-center space-x-2 py-2">
                       <Checkbox id={`confirm-${item.id}`} checked={responses[item.id] || false} onCheckedChange={checked => handleResponseChange(item.id, checked)} required={item.is_required} />
-                      <Label htmlFor={`confirm-${item.id}`} className="text-sm font-normal cursor-pointer leading-relaxed">
+                      <Label 
+                        htmlFor={`confirm-${item.id}`} 
+                        className="text-sm font-normal cursor-pointer leading-relaxed"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleResponseChange(item.id, !responses[item.id]);
+                        }}
+                      >
                         {item.question}
                       </Label>
                     </div>}
