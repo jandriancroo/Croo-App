@@ -276,6 +276,12 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       : [];
     
     // Build daily labor from cache
+    console.log('[SalesOverview] Cache labor data:', { 
+      labor_cost: cached?.labor_cost, 
+      labor_hours: cached?.labor_hours,
+      net_sales: cached?.net_sales,
+      hasLabor: cached && (Number(cached.labor_cost) > 0 || Number(cached.labor_hours) > 0)
+    });
     const dailyLabor = cached && (Number(cached.labor_cost) > 0 || Number(cached.labor_hours) > 0) ? {
       laborPercent: cached.net_sales && Number(cached.net_sales) > 0 
         ? (Number(cached.labor_cost) / Number(cached.net_sales)) * 100 
@@ -285,6 +291,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       regularHours: Number(cached.regular_hours) || Number(cached.labor_hours) || 0,
       overtimeHours: Number(cached.overtime_hours) || 0
     } : null;
+    console.log('[SalesOverview] Built dailyLabor:', dailyLabor);
     
     return {
       daily: cached ? (Number(cached.net_sales) || 0) : 0,
