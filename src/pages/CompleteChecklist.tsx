@@ -990,7 +990,14 @@ export default function CompleteChecklist() {
 
                               return (
                                 <div key={idx} className="space-y-2">
-                                  <Label htmlFor={cameraId} className="cursor-pointer">
+                                  <Label 
+                                    htmlFor={cameraId} 
+                                    className="cursor-pointer"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      document.getElementById(cameraId)?.click();
+                                    }}
+                                  >
                                     <div className="flex items-center justify-center gap-2 p-4 border-2 border-dashed border-border rounded hover:border-primary transition-colors">
                                       <Upload className="h-4 w-4" />
                                       <span className="text-sm">
