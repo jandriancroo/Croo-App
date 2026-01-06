@@ -42,7 +42,7 @@ interface Chat {
 }
 
 export default function Messages() {
-  const { isAdmin, isManager, isSuperAdmin } = useUserRole();
+  const { isAdmin, isManager } = useUserRole();
   const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
   const showHiringTab = isAdmin || isManager;
@@ -137,8 +137,7 @@ export default function Messages() {
         `)
         .order('updated_at', { ascending: false });
 
-      // Only filter by location for non-super admins
-      if (currentLocation && !isSuperAdmin) {
+      if (currentLocation) {
         query = query.eq('location_id', currentLocation.id);
       }
 
