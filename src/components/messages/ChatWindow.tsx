@@ -27,6 +27,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Dialog,
+  DialogContent,
+} from '@/components/ui/dialog';
 
 interface ParentMessageData {
   content: string | null;
@@ -82,6 +86,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   const [smackTalkPopup, setSmackTalkPopup] = useState<{ text: string; senderName: string } | null>(null);
   const [processedSmackTalks, setProcessedSmackTalks] = useState<Set<string>>(new Set());
   const [isArcadeChat, setIsArcadeChat] = useState(false);
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -756,7 +761,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                             <img
                               src={message.attachment_url}
                               alt="Attachment"
-                              className="rounded max-w-xs"
+                              className="rounded max-w-xs cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => setViewingImage(message.attachment_url)}
                             />
                           ) : (
                             <a
@@ -911,6 +917,19 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           onComplete={() => setSmackTalkPopup(null)}
         />
       )}
+
+      {/* Image Viewer Dialog */}
+      <Dialog open={!!viewingImage} onOpenChange={() => setViewingImage(null)}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-2 bg-black/90 border-none">
+          {viewingImage && (
+            <img
+              src={viewingImage}
+              alt="Full size attachment"
+              className="w-full h-full object-contain max-h-[90vh]"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
