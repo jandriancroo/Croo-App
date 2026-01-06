@@ -73,14 +73,17 @@ import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
 
+// Component to handle force reload - separated to avoid hook ordering issues
+const ForceReloadHandler = () => {
+  useForceReload();
+  return null;
+};
+
 // Wrapper to show splash screen during initial auth loading
 const AppWithSplash = () => {
   const { loading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
   const [splashComplete, setSplashComplete] = useState(false);
-
-  // Set up force reload listener and report app version
-  useForceReload();
 
   // Only show splash on initial cold start (not on every route change)
   useEffect(() => {
@@ -97,6 +100,7 @@ const AppWithSplash = () => {
 
   return (
     <>
+      <ForceReloadHandler />
       {showSplash && <AppSplashScreen onComplete={handleSplashComplete} />}
       <AppContent />
     </>
