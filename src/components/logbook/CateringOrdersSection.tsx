@@ -573,15 +573,22 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
               )}
 
               {selectedOrder.source_url && (
-                <Button
-                  variant="outline"
-                  size="sm"
+                <a
+                  href={selectedOrder.source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-full"
-                  onClick={() => window.open(selectedOrder.source_url!, "_blank")}
                 >
-                  <Eye className="h-4 w-4 mr-2" />
-                  View Original
-                </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    type="button"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    View Original
+                  </Button>
+                </a>
               )}
 
               <div className="flex gap-2 pt-2 border-t">
