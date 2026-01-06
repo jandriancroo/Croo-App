@@ -8,7 +8,7 @@ export function LoginSplashScreen({ onComplete }: { onComplete: () => void }) {
     const timer = setTimeout(() => {
       setPhase('done');
       onComplete();
-    }, 1500);
+    }, 800);
 
     return () => clearTimeout(timer);
   }, [onComplete]);
@@ -19,7 +19,7 @@ export function LoginSplashScreen({ onComplete }: { onComplete: () => void }) {
       <div 
         className="absolute animate-fly-across"
         style={{
-          animation: 'flyAcross 1.5s ease-in-out forwards',
+          animation: 'flyAcross 0.8s ease-in-out forwards',
         }}
       >
         <svg
@@ -97,13 +97,13 @@ export function LoginSplashScreen({ onComplete }: { onComplete: () => void }) {
             transform: translateX(-150px) translateY(20px) rotate(-5deg);
             opacity: 0;
           }
-          10% {
+          15% {
             opacity: 1;
           }
           50% {
             transform: translateX(0px) translateY(-30px) rotate(0deg);
           }
-          90% {
+          85% {
             opacity: 1;
           }
           100% {
