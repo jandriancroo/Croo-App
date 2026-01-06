@@ -16,6 +16,7 @@ interface DrawerCountData {
 interface DrawerCountEntryProps {
   data: DrawerCountData;
   createdAt: string;
+  drawerBank?: number;
 }
 
 const formatCurrency = (value: number) => {
@@ -25,7 +26,7 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-export function DrawerCountEntry({ data, createdAt }: DrawerCountEntryProps) {
+export function DrawerCountEntry({ data, createdAt, drawerBank = 200 }: DrawerCountEntryProps) {
   const [open, setOpen] = useState(false);
   
   const varianceColor = data.variance > 0 
@@ -98,7 +99,7 @@ export function DrawerCountEntry({ data, createdAt }: DrawerCountEntryProps) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Drawer Bank:</span>
-                  <span className="font-medium">{formatCurrency(200)}</span>
+                  <span className="font-medium">{formatCurrency(drawerBank)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Actual Deposit:</span>
