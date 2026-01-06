@@ -6,9 +6,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Send, CheckCircle, Image, Loader2, Clock, User } from 'lucide-react';
+import { Send, CheckCircle, Image, Loader2, Clock, User, ArrowLeft } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SupportTicket {
   id: string;
@@ -60,6 +61,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export function SupportChatPanel() {
   const { isSuperAdmin } = useUserRole();
+  const isMobile = useIsMobile();
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
@@ -230,6 +232,196 @@ export function SupportChatPanel() {
     );
   }
 
+  // Mobile: show either list OR chat, not both
+  if (isMobile) {
+    if (selectedTicket) {
+      // Show chat view with back button
+      return (
+        <div className="flex flex-col h-full">
+          {/* Ticket Header with Back Button */}
+          <div className="p-4 border-b space-y-2">
+            <div className="flex items-center gap-2 mb-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedTicket(null)}
+                className="gap-1 -ml-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={selectedTicket.profiles?.profile_photo_url || ''} />
+                  <AvatarFallback>
+                    <User className="h-5 w-5" />
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold">{selectedTicket.profiles?.full_name}</span>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {formatTicketId(selectedTicket.ticket_number)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{selectedTicket.profiles?.email}</p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Ticket Details */}
+            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <Badge variant="outline">{CATEGORY_LABELS[selectedTicket.category]}</Badge>
+                {selectedTicket.status !== 'resolved' && (
+                  <Button
+                    onClick={handleResolve}
+                    disabled={resolving}
+                    size="sm"
+                    className="gap-1"
+                  >
+                    {resolving ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-3 w-3" />
+                    )}
+                    Resolve
+                  </Button>
+                )}
+              </div>
+              {selectedTicket.occurrence_time && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  {format(new Date(selectedTicket.occurrence_time), 'MMM d, h:mm a')}
+                </span>
+              )}
+              <p className="text-sm">{selectedTicket.description}</p>
+              {selectedTicket.screenshot_url && (
+                <a
+                  href={selectedTicket.screenshot_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <Image className="h-3 w-3" />
+                  View Screenshot
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Messages */}
+          <ScrollArea className="flex-1 p-4">
+            <div className="space-y-4">
+              {messages.map((msg) => {
+                const isOwnMessage = msg.sender_id === currentUserId;
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-[80%] rounded-lg p-3 ${
+                        isOwnMessage
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
+                      }`}
+                    >
+                      {!isOwnMessage && (
+                        <p className="text-xs font-medium mb-1">{msg.profiles?.full_name}</p>
+                      )}
+                      {msg.content && <p className="text-sm">{msg.content}</p>}
+                      {msg.image_url && (
+                        <img
+                          src={msg.image_url}
+                          alt="Attachment"
+                          className="mt-2 rounded max-w-full"
+                        />
+                      )}
+                      <p className={`text-xs mt-1 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                        {format(new Date(msg.created_at), 'h:mm a')}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+
+          {/* Message Input */}
+          {selectedTicket.status !== 'resolved' && (
+            <div className="p-4 border-t">
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSendMessage();
+                }}
+                className="flex gap-2"
+              >
+                <Input
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type your response..."
+                  disabled={sending}
+                />
+                <Button type="submit" disabled={sending || !newMessage.trim()}>
+                  {sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </form>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Show ticket list (full width on mobile)
+    return (
+      <div className="flex flex-col h-full">
+        <div className="p-4 border-b">
+          <h2 className="font-semibold">Support Tickets</h2>
+          <p className="text-xs text-muted-foreground">
+            {tickets.filter(t => t.status !== 'resolved').length} open
+          </p>
+        </div>
+        <ScrollArea className="flex-1">
+          <div className="p-2 space-y-1">
+            {tickets.map((ticket) => (
+              <button
+                key={ticket.id}
+                onClick={() => setSelectedTicket(ticket)}
+                className="w-full p-3 rounded-lg text-left transition-colors hover:bg-muted"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-mono text-xs font-medium">
+                    {formatTicketId(ticket.ticket_number)}
+                  </span>
+                  <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[ticket.status]}`}>
+                    {ticket.status.replace('_', ' ')}
+                  </Badge>
+                </div>
+                <p className="text-sm font-medium truncate">{ticket.profiles?.full_name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {CATEGORY_LABELS[ticket.category] || ticket.category}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}
+                </p>
+              </button>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+    );
+  }
+
+  // Desktop: side-by-side layout
   return (
     <div className="flex h-full">
       {/* Ticket List */}
