@@ -903,21 +903,32 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     </div>
                   )}
                   <div>
-                    <h3 className="text-xl font-semibold mb-4 text-center">Enter Your PIN</h3>
+                    <h3 className="text-lg font-medium mb-4 text-center text-muted-foreground">Enter Your PIN</h3>
                     <div className="text-center mb-6">
-                      <div className="text-3xl font-mono tracking-widest h-16 flex items-center justify-center border-2 border-primary/20 rounded-lg bg-muted/50">
-                        {pin.padEnd(4, '•')}
+                      <div className="flex items-center justify-center gap-3 h-16">
+                        {[0, 1, 2, 3].map((i) => (
+                          <div
+                            key={i}
+                            className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center text-2xl font-bold transition-all duration-200 ${
+                              pin.length > i 
+                                ? 'bg-primary border-primary text-primary-foreground scale-105 shadow-lg' 
+                                : 'bg-muted/50 border-border'
+                            }`}
+                          >
+                            {pin.length > i ? '•' : ''}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                       <Button
                         key={num}
                         variant="outline"
                         size="lg"
-                        className="h-16 text-2xl font-semibold hover:bg-primary hover:text-primary-foreground transition-colors"
+                        className="h-16 text-2xl font-bold rounded-xl border-2 bg-card hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md"
                         onClick={() => handleNumberClick(num.toString())}
                       >
                         {num}
@@ -926,7 +937,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     <Button
                       variant="ghost"
                       size="lg"
-                      className="h-16 text-base"
+                      className="h-16 text-sm font-medium rounded-xl hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all duration-150"
                       onClick={handleClear}
                     >
                       Clear
@@ -934,7 +945,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     <Button
                       variant="outline"
                       size="lg"
-                      className="h-16 text-2xl font-semibold hover:bg-primary hover:text-primary-foreground transition-colors"
+                      className="h-16 text-2xl font-bold rounded-xl border-2 bg-card hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md"
                       onClick={() => handleNumberClick('0')}
                     >
                       0
@@ -942,15 +953,15 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     <Button
                       variant="ghost"
                       size="lg"
-                      className="h-16 text-base"
+                      className="h-16 text-xl font-medium rounded-xl hover:bg-muted active:scale-95 transition-all duration-150"
                       onClick={handleBackspace}
                     >
-                      ←
+                      ⌫
                     </Button>
                   </div>
 
                   <Button
-                    className="w-full h-14 text-lg"
+                    className="w-full h-14 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all duration-150"
                     onClick={verifyPin}
                     disabled={pin.length !== 4}
                   >

@@ -25,7 +25,7 @@ interface Task {
 export function PostClockInTasks({ userId, locationId, timezone, onDismiss }: PostClockInTasksProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeRemaining, setTimeRemaining] = useState(15);
+  const [timeRemaining, setTimeRemaining] = useState(8);
   const [dismissed, setDismissed] = useState(false);
 
   // Auto-dismiss after 15 seconds
@@ -285,7 +285,7 @@ export function PostClockInTasks({ userId, locationId, timezone, onDismiss }: Po
         </span>
       </div>
       
-      <Progress value={(timeRemaining / 15) * 100} className="h-1" />
+      <Progress value={(timeRemaining / 8) * 100} className="h-1" />
       
       <div className="space-y-2 max-h-[300px] overflow-y-auto">
         {tasks.map(task => (
