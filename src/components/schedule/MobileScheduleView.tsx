@@ -182,6 +182,20 @@ export function MobileScheduleView({
       .lte('punch_time', endOfDay)
       .order('punch_time', { ascending: true });
     
+    // Get unique user IDs from punches to fetch their profiles
+    const punchUserIds = [...new Set((allPunches || []).map(p => p.user_id))];
+    
+    // Fetch profiles for ALL users who punched in (regardless of appears_on_schedule)
+    const { data: punchProfiles } = punchUserIds.length > 0 
+      ? await supabase
+          .from('profiles')
+          .select('id, full_name, profile_photo_url')
+          .in('id', punchUserIds)
+      : { data: [] };
+    
+    // Create a map for quick lookup
+    const profileMap = new Map((punchProfiles || []).map(p => [p.id, p]));
+    
     // Get today's scheduled shifts
     const { data: todayScheduledShifts } = await supabase
       .from('scheduled_shifts')
@@ -260,7 +274,7 @@ export function MobileScheduleView({
       });
 
       if (firstClockIn) {
-        const profile = profiles.find(p => p.id === userId);
+        const profile = profileMap.get(userId) || profiles.find(p => p.id === userId);
         const clockOutTime = lastClockOut?.punch_time || null;
         const endTime = clockOutTime ? new Date(clockOutTime).getTime() : new Date().getTime();
         const hoursWorked = (endTime - new Date(firstClockIn.punch_time).getTime()) / 3600000;
