@@ -2497,6 +2497,24 @@ serve(async (req) => {
         monthlyLaborData = monthlyLaborResult;
         console.log(`[LABOR] Combined MTD: $${monthlyLaborData.laborCost.toFixed(2)} / ${monthlyLaborData.hoursWorked.toFixed(1)}h`);
         
+        // Cache today's punch labor data so historical views work
+        if (todayLaborData && todayLaborData.laborCost > 0) {
+          await cacheLaborData(cacheSupabase, locationId, todayStr, todayLaborData);
+          console.log(`[PUNCH-CACHE] Cached today's punch labor: $${todayLaborData.laborCost.toFixed(2)} / ${todayLaborData.hoursWorked.toFixed(1)}h`);
+        }
+        
+        // Also cache punch labor for past dates that weren't in QU cache
+        if (punchMonthLabor && punchMonthLabor.dailyLabor.length > 0) {
+          for (const dateStr of punchDates) {
+            // Get punch labor for this specific date
+            const datePunchLabor = await calculateLaborFromPunches(cacheSupabase, locationId, dateStr, timezone);
+            if (datePunchLabor && datePunchLabor.laborCost > 0) {
+              await cacheLaborData(cacheSupabase, locationId, dateStr, datePunchLabor);
+              console.log(`[PUNCH-CACHE] Cached punch labor for ${dateStr}: $${datePunchLabor.laborCost.toFixed(2)}`);
+            }
+          }
+        }
+        
         laborSource = 'punches';
       } else {
         // No location ID, still fetch tips
