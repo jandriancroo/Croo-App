@@ -65,6 +65,11 @@ interface UserProfile {
   has_certification?: boolean;
 }
 
+const parseDateOnlyToLocalDate = (dateStr: string): Date => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+
 // Helper to get user status display
 const getUserStatusDisplay = (user: UserProfile): { label: string; variant: 'default' | 'secondary' | 'outline' } => {
   if (!user.is_active) {
@@ -648,7 +653,7 @@ export default function UserManagement() {
     setEditFullName(user.full_name || '');
     setEditProfilePhoto(user.profile_photo_url);
     setEditPhoneNumber(user.phone_number || '');
-    setEditBirthday(user.birthday ? new Date(user.birthday) : undefined);
+    setEditBirthday(user.birthday ? parseDateOnlyToLocalDate(user.birthday) : undefined);
     setEditEmployeePin(user.employee_pin || '');
     
     // Fetch user's assigned locations and all_locations_enabled flag
@@ -709,7 +714,7 @@ export default function UserManagement() {
           full_name: editFullName.trim(),
           profile_photo_url: editProfilePhoto,
           phone_number: editPhoneNumber.trim() || null,
-          birthday: editBirthday ? getDateInPST(editBirthday) : null,
+          birthday: editBirthday ? format(editBirthday, 'yyyy-MM-dd') : null,
           employee_pin: editEmployeePin.trim() || null,
           all_locations_enabled: editAllLocationsEnabled,
         })

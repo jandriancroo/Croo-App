@@ -20,6 +20,11 @@ import { CalendarIcon } from 'lucide-react';
 import { FEATURE_FLAGS } from '@/config/featureFlags';
 import crooCashIcon from '@/assets/croo-cash-icon.png';
 
+const parseDateOnlyToLocalDate = (dateStr: string): Date => {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+
 const MyProfile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -69,7 +74,7 @@ const MyProfile = () => {
       setProfile(data);
       setFullName(data.full_name || '');
       setPhoneNumber(data.phone_number || '');
-      setBirthday(data.birthday ? new Date(data.birthday) : undefined);
+      setBirthday(data.birthday ? parseDateOnlyToLocalDate(data.birthday) : undefined);
       setProfilePhotoUrl(data.profile_photo_url);
     } catch (error: any) {
       console.error('Error fetching profile:', error);
