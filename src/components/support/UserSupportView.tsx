@@ -5,9 +5,15 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Send, Plus, Loader2, ArrowLeft, Clock, Image } from 'lucide-react';
+import { Send, Plus, Loader2, ArrowLeft, Clock, Image, ChevronDown } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { CreateTicketDialog } from './CreateTicketDialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface SupportTicket {
   id: string;
@@ -241,19 +247,38 @@ export function UserSupportView() {
   // Show ticket conversation
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
+      {/* Header with Ticket Dropdown */}
       <div className="p-4 border-b space-y-2">
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={() => setSelectedTicket(null)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-sm">{formatTicketId(selectedTicket.ticket_number)}</span>
-              <Badge variant="outline" className={STATUS_COLORS[selectedTicket.status]}>
-                {selectedTicket.status.replace('_', ' ')}
-              </Badge>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-auto p-1 gap-1 font-normal">
+                  <span className="font-mono text-sm">{formatTicketId(selectedTicket.ticket_number)}</span>
+                  <Badge variant="outline" className={STATUS_COLORS[selectedTicket.status]}>
+                    {selectedTicket.status.replace('_', ' ')}
+                  </Badge>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-64">
+                {tickets.map((ticket) => (
+                  <DropdownMenuItem
+                    key={ticket.id}
+                    onClick={() => setSelectedTicket(ticket)}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="font-mono text-xs">{formatTicketId(ticket.ticket_number)}</span>
+                    <Badge variant="outline" className={`text-xs ${STATUS_COLORS[ticket.status]}`}>
+                      {ticket.status.replace('_', ' ')}
+                    </Badge>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
         
