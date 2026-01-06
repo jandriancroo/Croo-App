@@ -48,6 +48,7 @@ interface Message {
     profile_photo_url: string | null;
   };
   parent_message?: ParentMessageData[] | ParentMessageData | null;
+  isPending?: boolean; // For optimistic updates
 }
 
 interface ChatDetails {
@@ -73,6 +74,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -83,8 +85,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToBottom = (instant = false) => {
+    messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'auto' : 'smooth' });
   };
 
   useEffect(() => {
@@ -177,7 +179,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       }));
       
       setMessages(messagesWithParent);
-      setTimeout(scrollToBottom, 100);
+      // Instant scroll on initial load
+      setTimeout(() => scrollToBottom(true), 50);
 
       // Mark ALL unread messages as read
       if (currentUserId && data && data.length > 0) {
@@ -235,8 +238,36 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
 
   const handleSend = async () => {
     if (!newMessage.trim() && !uploading) return;
+    if (!currentUserId) return;
 
-    setSending(true);
+    const messageContent = newMessage.trim();
+    const replyTo = replyToMessage;
+    
+    // Clear input immediately for snappy UX
+    setNewMessage('');
+    setReplyToMessage(null);
+    
+    // Create optimistic message
+    const optimisticId = `pending-${Date.now()}`;
+    const optimisticMessage: Message = {
+      id: optimisticId,
+      content: messageContent || null,
+      sender_id: currentUserId,
+      attachment_url: null,
+      attachment_type: null,
+      created_at: new Date().toISOString(),
+      parent_message_id: replyTo?.id || null,
+      parent_message: replyTo ? { 
+        content: replyTo.content, 
+        profiles: replyTo.profiles ? { full_name: replyTo.profiles.full_name } : null 
+      } : null,
+      isPending: true,
+    };
+    
+    // Add to pending messages immediately
+    setPendingMessages(prev => [...prev, optimisticMessage]);
+    scrollToBottom();
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
@@ -246,11 +277,14 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         .insert({
           chat_id: chatId,
           sender_id: user.id,
-          content: newMessage.trim() || null,
-          parent_message_id: replyToMessage?.id || null,
+          content: messageContent || null,
+          parent_message_id: replyTo?.id || null,
         });
 
       if (error) throw error;
+
+      // Remove from pending (realtime will add the real message)
+      setPendingMessages(prev => prev.filter(m => m.id !== optimisticId));
 
       // Send push notifications to chat members
       try {
@@ -279,7 +313,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             body: {
               user_ids: members.map(m => m.user_id),
               title: senderProfile?.full_name || 'New Message',
-              body: newMessage.trim().substring(0, 100),
+              body: messageContent.substring(0, 100),
               notification_type: 'chat_messages',
               data: {
                 chat_id: chatId,
@@ -297,14 +331,13 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         // Don't fail the message send if notifications fail
       }
 
-      setNewMessage('');
-      setReplyToMessage(null);
-      scrollToBottom();
     } catch (error: any) {
       console.error('Error sending message:', error);
+      // Remove failed pending message and show error
+      setPendingMessages(prev => prev.filter(m => m.id !== optimisticId));
       toast.error('Failed to send message');
-    } finally {
-      setSending(false);
+      // Restore the message to input
+      setNewMessage(messageContent);
     }
   };
 
@@ -615,18 +648,21 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
         {(() => {
+          // Combine actual messages with pending messages
+          const allMessages = [...messages, ...pendingMessages];
+          
           // Build a map of game score message IDs to their smack talk overlays
           const smackTalkMap = new Map<string, { text: string; senderName: string }[]>();
 
           // First pass: identify all game score messages
-          messages.forEach((msg) => {
+          allMessages.forEach((msg) => {
             if (msg.content?.startsWith('GAME_SCORE:')) {
               smackTalkMap.set(msg.id, []);
             }
           });
 
           // Second pass: associate smack talks with their target game scores via parent_message_id
-          messages.forEach((msg) => {
+          allMessages.forEach((msg) => {
             if (msg.content?.startsWith('SMACK_TALK:') && msg.parent_message_id) {
               const smacks = smackTalkMap.get(msg.parent_message_id) || [];
               smacks.push({
@@ -637,8 +673,9 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             }
           });
 
-          return messages.map((message) => {
+          return allMessages.map((message) => {
             const isOwnMessage = currentUserId && message.sender_id === currentUserId;
+            const isPending = message.isPending;
             
             // Skip smack talk messages that are linked to a game score - they're shown as overlays
             if (message.content?.startsWith('SMACK_TALK:') && message.parent_message_id) {
@@ -662,26 +699,36 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                 <div className={`flex flex-col min-w-0 max-w-[75%] ${isOwnMessage ? 'items-end' : ''}`}>
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="text-sm font-medium truncate">
-                      {message.profiles?.full_name || 'Unknown'}
+                      {isPending ? 'You' : (message.profiles?.full_name || 'Unknown')}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {format(new Date(message.created_at), 'h:mm a')}
+                      {isPending ? 'Sending...' : format(new Date(message.created_at), 'h:mm a')}
                     </span>
-                    <ReadReceipts
-                      messageId={message.id}
-                      senderId={message.sender_id}
-                      currentUserId={currentUserId}
-                      chatId={chatId}
-                    />
+                    {!isPending && (
+                      <ReadReceipts
+                        messageId={message.id}
+                        senderId={message.sender_id}
+                        currentUserId={currentUserId}
+                        chatId={chatId}
+                      />
+                    )}
                   </div>
                   <div>
                     <div
-                      className={`rounded-lg p-3 ${
+                      className={`rounded-lg p-3 relative ${
                         isOwnMessage
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-muted'
-                      } ${message.content?.startsWith('GAME_SCORE:') ? 'overflow-visible' : ''}`}
+                      } ${message.content?.startsWith('GAME_SCORE:') ? 'overflow-visible' : ''} ${
+                        isPending ? 'opacity-70' : ''
+                      }`}
                     >
+                      {/* Sending progress indicator */}
+                      {isPending && (
+                        <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-foreground/20 rounded-b-lg overflow-hidden">
+                          <div className="h-full bg-primary-foreground/60 animate-pulse" style={{ width: '60%' }} />
+                        </div>
+                      )}
                       {/* Reply reference */}
                       {message.parent_message && (() => {
                         const parent = Array.isArray(message.parent_message) 
@@ -689,15 +736,15 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                           : message.parent_message;
                         if (!parent) return null;
                         return (
-                          <div className={`mb-2 p-2 rounded text-sm border-l-2 ${
+                          <div className={`mb-2 p-2 rounded text-sm border-l-2 overflow-hidden ${
                             isOwnMessage 
                               ? 'bg-primary-foreground/10 border-primary-foreground/50' 
                               : 'bg-background/50 border-primary/50'
                           }`}>
-                            <p className={`text-xs font-medium ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                            <p className={`text-xs font-medium mb-0.5 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                               Replying to {parent.profiles?.full_name || 'Unknown'}
                             </p>
-                            <p className={`truncate ${isOwnMessage ? 'text-primary-foreground/80' : 'text-foreground/70'}`}>
+                            <p className={`text-sm line-clamp-2 ${isOwnMessage ? 'text-primary-foreground/80' : 'text-foreground/70'}`}>
                               {parent.content || 'Attachment'}
                             </p>
                           </div>
@@ -733,7 +780,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                         />
                       )}
                     </div>
-                    {!chatDetails?.is_announcement && (
+                    {!chatDetails?.is_announcement && !isPending && (
                       <>
                         <div className="flex items-center gap-2 mt-1">
                           <ReactionPicker onSelect={(reaction) => handleReaction(message.id, reaction)} />
