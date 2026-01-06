@@ -777,7 +777,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                           )}
                         </div>
                       )}
-                      {message.content && !message.attachment_url && (
+                      {message.content && (
                         <MessageContent 
                           content={message.content} 
                           chatId={chatId} 
