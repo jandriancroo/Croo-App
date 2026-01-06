@@ -149,7 +149,8 @@ export default function Settings() {
 
       case 'organizations':
         // org_admin should not see the organizations section (they only manage their own org)
-        if (!isAdmin || isOrgAdmin) return null;
+        // BUT super_admins always have full access even if they also have org_admin role
+        if (!isAdmin || (isOrgAdmin && !isSuperAdmin)) return null;
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
