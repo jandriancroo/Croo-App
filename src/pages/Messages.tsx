@@ -647,6 +647,7 @@ export default function Messages() {
         }}
         canCreateGroup={isAdmin || isManager}
         locationId={currentLocation?.id}
+        locationName={currentLocation?.name}
       />
 
       <AnnouncementDialog
@@ -658,6 +659,7 @@ export default function Messages() {
           setIsAnnouncementOpen(false);
         }}
         locationId={currentLocation?.id}
+        locationName={currentLocation?.name}
       />
 
       {marketplaceChatId && (

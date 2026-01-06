@@ -12,6 +12,7 @@ import { CrooCashAnimationProvider } from "@/contexts/CrooCashAnimationContext";
 import { DockToastProvider } from "@/contexts/DockToastContext";
 import { DiagnosticMode } from "@/components/DiagnosticMode";
 import BreakOverlay from "@/components/BreakOverlay";
+import { useForceReload } from "@/hooks/useForceReload";
 import { AppSplashScreen } from "@/components/AppSplashScreen";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
@@ -77,6 +78,9 @@ const AppWithSplash = () => {
   const { loading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
   const [splashComplete, setSplashComplete] = useState(false);
+
+  // Set up force reload listener and report app version
+  useForceReload();
 
   // Only show splash on initial cold start (not on every route change)
   useEffect(() => {

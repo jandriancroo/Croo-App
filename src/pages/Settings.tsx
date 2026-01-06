@@ -40,7 +40,7 @@ const SECTION_TITLES: Record<string, { title: string; icon: React.ReactNode }> =
 export default function Settings() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isAdmin, isSuperAdmin } = useUserRole();
+  const { isAdmin, isSuperAdmin, isOrgAdmin } = useUserRole();
   const { isChecklistOnlyLocation } = useAppLocation();
   const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
   const [locations, setLocations] = useState<any[]>([]);
@@ -129,6 +129,7 @@ export default function Settings() {
         return <UnifiedNotificationSettings />;
 
       case 'brands':
+        // Only super admins can see brands
         if (!isSuperAdmin) return null;
         return (
           <div className="space-y-3">
@@ -147,7 +148,8 @@ export default function Settings() {
         );
 
       case 'organizations':
-        if (!isAdmin) return null;
+        // org_admin should not see the organizations section (they only manage their own org)
+        if (!isAdmin || isOrgAdmin) return null;
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
