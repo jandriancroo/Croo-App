@@ -1483,7 +1483,7 @@ export default function UserManagement() {
                     {isSuperAdmin && (
                       <TableHead className="hidden md:table-cell">Version</TableHead>
                     )}
-                    <TableHead className="hidden md:table-cell">Croo Cash</TableHead>
+                    
                     <TableHead className="hidden md:table-cell">Cert</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -1530,8 +1530,6 @@ export default function UserManagement() {
                                 </Badge>
                                 <span className="text-muted-foreground">•</span>
                                 <span className="text-muted-foreground">{getRoleDisplayName(user.role!)}</span>
-                                <span className="text-muted-foreground">•</span>
-                                <span className="text-muted-foreground">${(user.croo_cash_balance || 0) / 100}</span>
                               </div>
                             </div>
                           </div>
@@ -1582,11 +1580,6 @@ export default function UserManagement() {
                           })()}
                         </TableCell>
                       )}
-                      <TableCell className="hidden md:table-cell">
-                        <div className="font-medium">
-                          ${(user.croo_cash_balance || 0) / 100}
-                        </div>
-                      </TableCell>
                       <TableCell className="hidden md:table-cell">
                         <div className="flex items-center justify-center">
                           {user.has_certification ? (
