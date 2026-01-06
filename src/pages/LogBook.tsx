@@ -1403,7 +1403,8 @@ export default function LogBook() {
                                       <DrawerCountEntry 
                                         key={val.id} 
                                         data={drawerData} 
-                                        createdAt={entry.created_at} 
+                                        createdAt={entry.created_at}
+                                        drawerBank={locationSettings?.drawer_bank || 200}
                                       />
                                     );
                                   }
