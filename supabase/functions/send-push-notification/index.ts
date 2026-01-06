@@ -351,7 +351,7 @@ interface PushNotificationRequest {
   title: string;
   body: string;
   data?: Record<string, any>;
-  notification_type?: 'overdue_checklists' | 'late_arrivals' | 'announcements' | 'chat_messages' | 'schedule_updates' | 'shift_approvals' | 'certification_expiring' | 'logbook_entry' | 'catering_order' | 'drawer_count' | 'safe_count' | 'arcade_scores';
+  notification_type?: 'overdue_checklists' | 'late_arrivals' | 'announcements' | 'chat_messages' | 'schedule_updates' | 'shift_approvals' | 'certification_expiring' | 'logbook_entry' | 'catering_order' | 'drawer_count' | 'safe_count' | 'arcade_scores' | 'cash_drawer_count' | 'cash_safe_count' | 'cash_bank_deposit';
   badge_count?: number;
 }
 
@@ -507,28 +507,70 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`Filtered to ${enabledUserIds.length} users based on role permissions`);
 
-    // Also filter by user notification preferences (for personal notifications like arcade_scores)
+    // Map edge function notification types to user_notification_settings keys
+    const notificationTypeToSettingsKey: Record<string, string> = {
+      'safe_count': 'cash_safe_count',
+      'drawer_count': 'cash_drawer_count',
+      'cash_safe_count': 'cash_safe_count',
+      'cash_drawer_count': 'cash_drawer_count',
+      'cash_bank_deposit': 'cash_bank_deposit',
+    };
+
+    // Also filter by user notification preferences
     let finalUserIds = enabledUserIds;
     if (notification_type) {
-      const { data: userPrefs, error: prefsError } = await supabaseClient
-        .from('notification_preferences')
-        .select('*')
-        .in('user_id', enabledUserIds);
+      // First check the new location-based user_notification_settings table
+      const settingsKey = notificationTypeToSettingsKey[notification_type] || notification_type;
       
-      if (!prefsError && userPrefs) {
-        finalUserIds = enabledUserIds.filter(userId => {
-          const userPref = userPrefs.find((p: any) => p.user_id === userId);
-          // If no preference record, default to enabled
-          if (!userPref) return true;
-          // Check if this specific notification type is enabled
-          const prefValue = (userPref as any)[notification_type];
-          if (prefValue === false) {
-            console.log(`Filtering out user ${userId} - ${notification_type} disabled in user preferences`);
-            return false;
-          }
-          return true;
-        });
-        console.log(`Filtered to ${finalUserIds.length} users based on user preferences`);
+      if (location_id) {
+        // For location-specific notifications, check user_notification_settings
+        const { data: locationPrefs, error: locationPrefsError } = await supabaseClient
+          .from('user_notification_settings')
+          .select('user_id, push_enabled')
+          .eq('notification_type', settingsKey)
+          .eq('location_id', location_id)
+          .in('user_id', enabledUserIds);
+        
+        if (!locationPrefsError && locationPrefs && locationPrefs.length > 0) {
+          console.log(`Found ${locationPrefs.length} location-based preferences for ${settingsKey} at location ${location_id}`);
+          
+          finalUserIds = enabledUserIds.filter(userId => {
+            const userPref = locationPrefs.find((p: any) => p.user_id === userId);
+            // If no preference record for this location/type, default to enabled
+            if (!userPref) return true;
+            // Check if push_enabled is explicitly false
+            if (userPref.push_enabled === false) {
+              console.log(`Filtering out user ${userId} - ${settingsKey} push disabled for location ${location_id}`);
+              return false;
+            }
+            return true;
+          });
+          console.log(`Filtered to ${finalUserIds.length} users based on location notification settings`);
+        }
+      }
+      
+      // Also check the legacy notification_preferences table for non-cash notifications
+      if (!notificationTypeToSettingsKey[notification_type]) {
+        const { data: userPrefs, error: prefsError } = await supabaseClient
+          .from('notification_preferences')
+          .select('*')
+          .in('user_id', finalUserIds);
+        
+        if (!prefsError && userPrefs) {
+          finalUserIds = finalUserIds.filter(userId => {
+            const userPref = userPrefs.find((p: any) => p.user_id === userId);
+            // If no preference record, default to enabled
+            if (!userPref) return true;
+            // Check if this specific notification type is enabled
+            const prefValue = (userPref as any)[notification_type];
+            if (prefValue === false) {
+              console.log(`Filtering out user ${userId} - ${notification_type} disabled in legacy preferences`);
+              return false;
+            }
+            return true;
+          });
+          console.log(`Filtered to ${finalUserIds.length} users based on legacy preferences`);
+        }
       }
     }
 
