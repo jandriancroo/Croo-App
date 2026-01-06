@@ -191,7 +191,9 @@ function DayCell({
             snapshotShift.user_id !== shift.user_id ||
             snapshotShift.start_time !== shift.start_time ||
             snapshotShift.end_time !== shift.end_time ||
-            snapshotShift.template_id !== shift.template_id
+            snapshotShift.template_id !== shift.template_id ||
+            snapshotShift.shift_date !== shift.shift_date ||
+            snapshotShift.day_of_week !== shift.day_of_week
           );
           // Shift is a draft if schedule never published, or if it's new/modified after publish
           const isShiftDraft = !isPublished || isNewShiftAfterPublish || isShiftModified;
