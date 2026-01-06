@@ -1,17 +1,20 @@
+import { useState } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, MapPin, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play } from "lucide-react";
+import { ArrowLeft, MapPin, CalendarDays, Calendar, CalendarRange, Pencil, Check, Play, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import InventoryCountSession from "@/components/inventory/InventoryCountSession";
 import InventoryCountView from "@/components/inventory/InventoryCountView";
+import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 
 const InventoryCount = () => {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const { locationId, countId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -78,6 +81,36 @@ const InventoryCount = () => {
     },
     onError: () => {
       toast.error("Failed to submit count");
+    }
+  });
+
+  // Delete count mutation
+  const deleteCountMutation = useMutation({
+    mutationFn: async () => {
+      // First delete count items
+      const { error: itemsError } = await supabase
+        .from("inventory_count_items")
+        .delete()
+        .eq("count_id", countId);
+      
+      if (itemsError) throw itemsError;
+
+      // Then delete the count itself
+      const { error } = await supabase
+        .from("inventory_counts")
+        .delete()
+        .eq("id", countId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Inventory count deleted");
+      queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
+      navigate(`/inventory/${locationId}`);
+    },
+    onError: () => {
+      toast.error("Failed to delete count");
     }
   });
 
@@ -198,7 +231,16 @@ const InventoryCount = () => {
         {isViewOnly ? (
           <>
             {/* Edit button for completed counts */}
-            <div className="flex justify-end">
+            <div className="flex justify-between">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
+              </Button>
               <Button 
                 variant="outline" 
                 size="sm"
@@ -215,22 +257,33 @@ const InventoryCount = () => {
           </>
         ) : isReviewMode ? (
           <>
-            {/* Review mode: show items + Continue and Submit buttons */}
-            <div className="flex gap-2 justify-end">
+            {/* Review mode: show items + Continue, Delete, and Submit buttons */}
+            <div className="flex gap-2 justify-between">
               <Button 
-                variant="outline" 
-                onClick={() => navigate(`/inventory/${locationId}/count/${countId}?continue=true`)}
+                variant="ghost" 
+                size="sm"
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setShowDeleteDialog(true)}
               >
-                <Play className="h-4 w-4 mr-2" />
-                Continue Counting
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete
               </Button>
-              <Button 
-                onClick={() => submitCountMutation.mutate()}
-                disabled={submitCountMutation.isPending}
-              >
-                <Check className="h-4 w-4 mr-2" />
-                {submitCountMutation.isPending ? "Submitting..." : "Submit Count"}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => navigate(`/inventory/${locationId}/count/${countId}?continue=true`)}
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Continue Counting
+                </Button>
+                <Button 
+                  onClick={() => submitCountMutation.mutate()}
+                  disabled={submitCountMutation.isPending}
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  {submitCountMutation.isPending ? "Submitting..." : "Submit Count"}
+                </Button>
+              </div>
             </div>
             <InventoryCountView 
               countId={countId!} 
@@ -246,6 +299,14 @@ const InventoryCount = () => {
             onClose={handleClose}
           />
         ) : null}
+
+        <DeleteCountDialog
+          open={showDeleteDialog}
+          onOpenChange={setShowDeleteDialog}
+          onConfirm={() => deleteCountMutation.mutate()}
+          isDeleting={deleteCountMutation.isPending}
+          countPeriod={formatPeriodLabel(countData)}
+        />
       </div>
     </Layout>
   );
