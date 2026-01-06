@@ -280,19 +280,27 @@ const Inventory = () => {
                         className={`p-4 flex items-center justify-between hover:bg-muted/50 ${getIndentLevel(count.period_type)}`}
                       >
                         <div 
-                          className="flex items-center gap-3 flex-1 cursor-pointer"
+                          className="flex items-center gap-3 flex-1 cursor-pointer min-w-0"
                           onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
                         >
-                          <div>
-                            <p className="font-medium">
-                              {formatPeriodLabel(count)}
-                            </p>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium">
+                                {formatPeriodLabel(count)}
+                              </p>
+                              <Badge variant="outline" className="text-xs capitalize">
+                                {count.period_type || "Quick"}
+                              </Badge>
+                              <Badge variant={count.status === "completed" ? "default" : "secondary"}>
+                                {count.status === "completed" ? "Complete" : "In Progress"}
+                              </Badge>
+                            </div>
                             <p className="text-sm text-muted-foreground">
                               {count.counted_by_profile?.full_name || "Unknown"}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 flex-shrink-0">
                           {count.status === "completed" && (
                             <>
                               <Button
@@ -330,14 +338,6 @@ const Inventory = () => {
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
-                          {count.period_type && (
-                            <Badge variant="outline" className="text-xs capitalize">
-                              {count.period_type}
-                            </Badge>
-                          )}
-                          <Badge variant={count.status === "completed" ? "default" : "secondary"}>
-                            {count.status === "completed" ? "Complete" : "In Progress"}
-                          </Badge>
                         </div>
                       </div>
                     ))}
