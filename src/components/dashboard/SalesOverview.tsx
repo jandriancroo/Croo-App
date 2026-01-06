@@ -1015,30 +1015,34 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                   </div>
                 )}
 
-                {/* Live Labor from Qu */}
-                {hasLaborData && salesData?.labor && (
-                  <div className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex-shrink-0">
-                        <span className="text-xs font-bold text-white">%</span>
-                      </div>
-                      <span className="text-xs sm:text-sm text-muted-foreground">Live Labor</span>
+                {/* Live Labor - Always show, even if no data */}
+                <div className="flex items-center justify-between p-2 rounded-lg bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20">
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-gradient-to-br from-orange-500 to-amber-500 flex-shrink-0">
+                      <span className="text-xs font-bold text-white">%</span>
                     </div>
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="text-right">
-                        <p className="text-lg sm:text-xl font-bold text-orange-500 transition-all duration-300 ease-out">{salesData.labor.laborPercent.toFixed(1)}%</p>
-                      </div>
-                      <div className="text-right hidden sm:block">
-                        <p className="text-xs text-muted-foreground">Cost</p>
-                        <p className="text-sm font-medium transition-all duration-300 ease-out">{formatCurrency(salesData.labor.laborCost)}</p>
-                      </div>
-                      <div className="text-right hidden sm:block">
-                        <p className="text-xs text-muted-foreground">Hours</p>
-                        <p className="text-sm font-medium transition-all duration-300 ease-out">{salesData.labor.hoursWorked.toFixed(1)}h</p>
-                      </div>
+                    <span className="text-xs sm:text-sm text-muted-foreground">Live Labor</span>
+                  </div>
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <div className="text-right">
+                      <p className="text-lg sm:text-xl font-bold text-orange-500 transition-all duration-300 ease-out">
+                        {salesData?.labor ? `${salesData.labor.laborPercent.toFixed(1)}%` : '--'}
+                      </p>
+                    </div>
+                    <div className="text-right hidden sm:block">
+                      <p className="text-xs text-muted-foreground">Cost</p>
+                      <p className="text-sm font-medium transition-all duration-300 ease-out">
+                        {salesData?.labor ? formatCurrency(salesData.labor.laborCost) : '--'}
+                      </p>
+                    </div>
+                    <div className="text-right hidden sm:block">
+                      <p className="text-xs text-muted-foreground">Hours</p>
+                      <p className="text-sm font-medium transition-all duration-300 ease-out">
+                        {salesData?.labor ? `${salesData.labor.hoursWorked.toFixed(1)}h` : '--'}
+                      </p>
                     </div>
                   </div>
-                )}
+                </div>
               </div>
               
 {(() => {

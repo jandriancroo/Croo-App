@@ -907,7 +907,17 @@ async function calculateLaborFromPunches(
         
         switch (punch.punch_type) {
           case 'clock_in':
-            clockInTime = punchTime;
+            // If we're on a break, this clock_in is actually returning from break
+            if (breakStartTime) {
+              const breakMs = punchTime.getTime() - breakStartTime.getTime();
+              breakMinutes += breakMs / (1000 * 60);
+              breakStartTime = null;
+              console.log(`[PUNCH-LABOR] User ${userId} returned from break (${(breakMs / (1000 * 60)).toFixed(0)} min break)`);
+            } else if (!clockInTime) {
+              // Only set clockInTime if we don't already have one (first clock in of the day)
+              clockInTime = punchTime;
+            }
+            // If we already have a clockInTime and no break, this might be a duplicate or error - ignore
             break;
           case 'clock_out':
             if (clockInTime) {
