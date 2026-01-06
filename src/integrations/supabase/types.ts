@@ -3087,11 +3087,15 @@ export type Database = {
           guest_count: number
           hourly_data: Json | null
           id: string
+          labor_cost: number | null
+          labor_hours: number | null
           location_id: string
           net_sales: number
+          overtime_hours: number | null
           payments_data: Json | null
           pizza_count: number
           projected_sales: number | null
+          regular_hours: number | null
           sale_date: string
           validation_attempts: number | null
           validation_status: string | null
@@ -3107,11 +3111,15 @@ export type Database = {
           guest_count?: number
           hourly_data?: Json | null
           id?: string
+          labor_cost?: number | null
+          labor_hours?: number | null
           location_id: string
           net_sales?: number
+          overtime_hours?: number | null
           payments_data?: Json | null
           pizza_count?: number
           projected_sales?: number | null
+          regular_hours?: number | null
           sale_date: string
           validation_attempts?: number | null
           validation_status?: string | null
@@ -3127,11 +3135,15 @@ export type Database = {
           guest_count?: number
           hourly_data?: Json | null
           id?: string
+          labor_cost?: number | null
+          labor_hours?: number | null
           location_id?: string
           net_sales?: number
+          overtime_hours?: number | null
           payments_data?: Json | null
           pizza_count?: number
           projected_sales?: number | null
+          regular_hours?: number | null
           sale_date?: string
           validation_attempts?: number | null
           validation_status?: string | null
