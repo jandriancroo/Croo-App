@@ -29,6 +29,14 @@ interface DaySalesData {
   validationAttempts: number;
 }
 
+interface LaborData {
+  laborPercent: number;
+  laborCost: number;
+  hoursWorked: number;
+  regularHours: number;
+  overtimeHours: number;
+}
+
 // Major US holidays where stores are typically closed
 function isKnownClosedHoliday(dateStr: string): boolean {
   const date = new Date(dateStr + 'T12:00:00');
@@ -275,7 +283,80 @@ async function fetchProductMixCrustCount(
           }
         } else {
           processRow(item);
+}
+
+// Fetch labor data from QuBeyond Real Time Summary
+async function fetchLaborData(
+  tokenGw: string,
+  dateStr: string,
+  qbLocationId: string
+): Promise<LaborData | null> {
+  try {
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/real-time-summary', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': tokenGw,
+        'Origin': 'https://admin.qubeyond.com',
+        'Referer': 'https://admin.qubeyond.com/',
+      },
+      body: JSON.stringify({
+        fields: [{ fieldName: "metric" }, { fieldName: "total" }],
+        filters: {
+          date: { from: null, to: null, values: [dateStr], type: "custom" },
+          location: { operationalUnits: [parseInt(qbLocationId)] }
+        },
+        params: { 
+          sectionId: "real-time-summary", 
+          pageNumber: 1, 
+          pageSize: 25, 
+          totalRecords: null, 
+          sort: null, 
+          showTotals: true 
         }
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(`[LABOR-BACKFILL] Fetch failed for ${dateStr}:`, response.status);
+      return null;
+    }
+
+    const data = await response.json();
+    
+    let laborPercent = 0;
+    let laborCost = 0;
+    let hoursWorked = 0;
+    let regularHours = 0;
+    let overtimeHours = 0;
+    
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        const metric = (item.metric || '').toLowerCase();
+        const total = parseFloat(String(item.total || '0').replace(/[$,%]/g, '')) || 0;
+        
+        if (metric.includes('total labor %') || metric === 'total labor %') {
+          laborPercent = total;
+        } else if (metric.includes('labor cost') || metric === 'labor cost') {
+          laborCost = total;
+        } else if (metric === 'hours worked') {
+          hoursWorked = total;
+        } else if (metric === 'regular hours') {
+          regularHours = total;
+        } else if (metric === 'overtime hours') {
+          overtimeHours = total;
+        }
+      }
+    }
+    
+    console.log(`[LABOR-BACKFILL] ${dateStr}: $${laborCost.toFixed(2)} / ${hoursWorked.toFixed(1)}h (${laborPercent.toFixed(1)}%)`);
+    return { laborPercent, laborCost, hoursWorked, regularHours, overtimeHours };
+  } catch (error) {
+    console.error(`[LABOR-BACKFILL] Error fetching labor for ${dateStr}:`, error);
+    return null;
+  }
+}
       }
     }
 
@@ -437,7 +518,7 @@ serve(async (req) => {
   }
 
   try {
-    const { locationId, integrationId, days } = await req.json();
+    const { locationId, integrationId, days, laborOnly, laborDates } = await req.json();
     
     if (!locationId || !integrationId) {
       return new Response(
@@ -446,12 +527,67 @@ serve(async (req) => {
       );
     }
 
-    const daysToBackfill = days || 365;
-    console.log(`[BACKFILL] Starting ${daysToBackfill}-day backfill for location ${locationId} with actual crust counts`);
-
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get integration credentials
+    const { data: integration, error: intError } = await supabase
+      .from('location_integrations')
+      .select('credentials')
+      .eq('id', integrationId)
+      .single();
+
+    if (intError || !integration) {
+      return new Response(
+        JSON.stringify({ error: 'Integration not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const credentials = integration.credentials as QuBeyondCredentials;
+    const qbLocationId = credentials.location_id || '';
+    
+    // LABOR-ONLY BACKFILL MODE
+    if (laborOnly && laborDates && Array.isArray(laborDates)) {
+      console.log(`[LABOR-BACKFILL] Starting labor-only backfill for ${laborDates.length} dates`);
+      
+      const auth = await authenticateQuBeyond(credentials.username, credentials.password);
+      if (!auth) {
+        return new Response(
+          JSON.stringify({ error: 'QuBeyond authentication failed' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      let successCount = 0;
+      for (const dateStr of laborDates) {
+        const laborData = await fetchLaborData(auth.tokenGw, dateStr, qbLocationId);
+        if (laborData && laborData.laborCost > 0) {
+          await supabase
+            .from('sales_cache')
+            .upsert({
+              location_id: locationId,
+              sale_date: dateStr,
+              labor_cost: laborData.laborCost,
+              labor_hours: laborData.hoursWorked,
+              regular_hours: laborData.regularHours,
+              overtime_hours: laborData.overtimeHours,
+              fetched_at: new Date().toISOString()
+            }, { onConflict: 'location_id,sale_date' });
+          successCount++;
+        }
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, laborDatesProcessed: successCount }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const daysToBackfill = days || 365;
+    console.log(`[BACKFILL] Starting ${daysToBackfill}-day backfill for location ${locationId} with actual crust counts`);
 
     // Get integration credentials
     const { data: integration, error: intError } = await supabase
