@@ -588,6 +588,12 @@ export default function Schedule() {
     const userId = overId.substring(5, lastHyphenIndex);
     const shiftDate = format(weekDays[dayIndex], "yyyy-MM-dd");
 
+    // Prevent dropping on unassigned - shifts must always have an employee
+    if (userId === "unassigned") {
+      toast.error("Shifts must be assigned to an employee");
+      return;
+    }
+
     // Check for conflicts
     const detectedConflicts = checkForConflicts(userId, dayIndex, shiftDate);
 
@@ -615,13 +621,19 @@ export default function Schedule() {
       // The schedule stays "published" but changes are tracked as pending
       // until the admin clicks "Update" to notify affected employees
 
+      // Prevent creating unassigned shifts
+      if (userId === "unassigned") {
+        toast.error("Shifts must be assigned to an employee");
+        return;
+      }
+
       if (active.data?.current?.isTemplate || active.isTemplate) {
         // Dragging from template
         const template = active.data?.current?.template || active.template;
         const { error } = await supabase.from("scheduled_shifts").insert({
           schedule_id: scheduleId,
           template_id: template.id,
-          user_id: userId === "unassigned" ? null : userId,
+          user_id: userId,
           day_of_week: dayIndex,
           shift_date: shiftDate,
           start_time: template.start_time,
@@ -632,13 +644,17 @@ export default function Schedule() {
         if (error) throw error;
         toast.success("Shift added");
         fetchScheduleData(false);
+
+        if (error) throw error;
+        toast.success("Shift added");
+        fetchScheduleData(false);
       } else {
         // Moving existing shift
         const shift = active.data?.current || active;
         const { error } = await supabase
           .from("scheduled_shifts")
           .update({
-            user_id: userId === "unassigned" ? null : userId,
+            user_id: userId,
             day_of_week: dayIndex,
             shift_date: shiftDate,
           })
@@ -1342,25 +1358,7 @@ export default function Schedule() {
                     );
                   })}
 
-                  {/* Unassigned Shifts - only show if there are unassigned shifts */}
-                  {shifts.filter((s) => s.user_id === null).length > 0 && (
-                    <div className="bg-muted/20 border-t border-dashed border-border">
-                      <EmployeeRow
-                        profile={{ id: "unassigned", full_name: "Unassigned", profile_photo_url: null }}
-                        shifts={shifts.filter((s) => s.user_id === null)}
-                        templates={templates}
-                        availabilityRequests={[]}
-                        currentWeekStart={currentWeekStart}
-                        isEditable={isAdmin || isManager}
-                        onUpdate={fetchScheduleData}
-                        canTakeShifts={isAdmin || isManager}
-                        currentUserId={currentUserId || undefined}
-                        onEditShift={setEditingShift}
-                        isPublished={isPublished}
-                        publishedSnapshot={publishedSnapshot}
-                      />
-                    </div>
-                  )}
+                  {/* Unassigned shifts are no longer displayed - shifts must always have an employee */}
                 </>
               )}
             </div>
