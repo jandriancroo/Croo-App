@@ -491,7 +491,8 @@ async function fetchTillsData(
     }
 
     const data = await response.json();
-    console.log('Tills response:', JSON.stringify(data).substring(0, 500));
+    console.log(`[TILLS] Requested location: ${qbLocationId}, date: ${dateStr}`);
+    console.log('[TILLS] Full response:', JSON.stringify(data).substring(0, 1000));
     
     // Look for the totals or first item with endingCash
     let expectedCash = 0;
@@ -499,19 +500,25 @@ async function fetchTillsData(
     let overUnder = 0;
     
     if (data.totals) {
+      console.log('[TILLS] Using totals from response');
       expectedCash = parseFloat(String(data.totals.endingCash || '0').replace(/[$,]/g, '')) || 0;
       actualCash = parseFloat(String(data.totals.actualCash || '0').replace(/[$,]/g, '')) || 0;
       overUnder = parseFloat(String(data.totals.overOrUnderAmount || '0').replace(/[$,]/g, '')) || 0;
     } else if (data.items && Array.isArray(data.items) && data.items.length > 0) {
-      // Sum up all items
+      // Log each item for debugging
+      console.log(`[TILLS] Found ${data.items.length} individual till items:`);
       for (const item of data.items) {
-        expectedCash += parseFloat(String(item.endingCash || '0').replace(/[$,]/g, '')) || 0;
+        const itemLoc = item.location || item.locationName || 'unknown';
+        const itemEmployee = item.employee || item.employeeName || 'unknown';
+        const itemExpected = parseFloat(String(item.endingCash || '0').replace(/[$,]/g, '')) || 0;
+        console.log(`[TILLS]   - ${itemEmployee} @ ${itemLoc}: expected=$${itemExpected}`);
+        expectedCash += itemExpected;
         actualCash += parseFloat(String(item.actualCash || '0').replace(/[$,]/g, '')) || 0;
         overUnder += parseFloat(String(item.overOrUnderAmount || '0').replace(/[$,]/g, '')) || 0;
       }
     }
     
-    console.log(`Tills result: expectedCash=${expectedCash}, actualCash=${actualCash}, overUnder=${overUnder}`);
+    console.log(`[TILLS] Final result: expectedCash=${expectedCash}, actualCash=${actualCash}, overUnder=${overUnder}`);
     return { expectedCash, actualCash, overUnder };
   } catch (error) {
     console.error('Tills fetch error:', error);
