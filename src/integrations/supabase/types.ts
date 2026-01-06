@@ -2785,6 +2785,7 @@ export type Database = {
       profiles: {
         Row: {
           all_locations_enabled: boolean
+          app_version: string | null
           appears_on_schedule: boolean
           birthday: string | null
           created_at: string | null
@@ -2808,6 +2809,7 @@ export type Database = {
         }
         Insert: {
           all_locations_enabled?: boolean
+          app_version?: string | null
           appears_on_schedule?: boolean
           birthday?: string | null
           created_at?: string | null
@@ -2831,6 +2833,7 @@ export type Database = {
         }
         Update: {
           all_locations_enabled?: boolean
+          app_version?: string | null
           appears_on_schedule?: boolean
           birthday?: string | null
           created_at?: string | null

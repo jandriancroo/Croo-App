@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key, Trash2, FileText, Check, CalendarIcon, Pencil, FlaskConical } from 'lucide-react';
+import { Loader2, Users, Shield, UserCog, User, UserPlus, Camera, Key, Trash2, FileText, Check, CalendarIcon, Pencil, FlaskConical, RefreshCw } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUserRole, type AppRole } from '@/hooks/useUserRole';
@@ -42,6 +42,7 @@ import { CrooCashCard } from '@/components/users/CrooCashCard';
 import { getTodayInPST, getDateInPST } from '@/utils/dateUtils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { triggerForceReload, getCurrentAppVersion } from '@/hooks/useForceReload';
 
 interface UserProfile {
   id: string;
@@ -55,6 +56,7 @@ interface UserProfile {
   is_active: boolean;
   appears_on_schedule: boolean;
   first_login_at: string | null;
+  app_version?: string | null;
   role?: AppRole;
   paid_hours?: number;
   unpaid_hours?: number;
@@ -72,6 +74,23 @@ const getUserStatusDisplay = (user: UserProfile): { label: string; variant: 'def
     return { label: 'Invite Sent', variant: 'outline' };
   }
   return { label: 'Active', variant: 'default' };
+};
+
+// Helper to get version display with color coding
+const getVersionDisplay = (userVersion: string | null | undefined, currentVersion: string): { 
+  text: string; 
+  isCurrent: boolean;
+  className: string;
+} => {
+  if (!userVersion) {
+    return { text: 'Unknown', isCurrent: false, className: 'text-muted-foreground' };
+  }
+  const isCurrent = userVersion === currentVersion;
+  return {
+    text: userVersion,
+    isCurrent,
+    className: isCurrent ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'
+  };
 };
 
 export default function UserManagement() {
@@ -1461,6 +1480,9 @@ export default function UserManagement() {
                     <TableHead>User</TableHead>
                     <TableHead className="hidden md:table-cell">Status</TableHead>
                     <TableHead className="hidden md:table-cell">Role</TableHead>
+                    {isSuperAdmin && (
+                      <TableHead className="hidden md:table-cell">Version</TableHead>
+                    )}
                     <TableHead className="hidden md:table-cell">Croo Cash</TableHead>
                     <TableHead className="hidden md:table-cell">Cert</TableHead>
                   </TableRow>
@@ -1526,6 +1548,40 @@ export default function UserManagement() {
                           {getRoleDisplayName(user.role!)}
                         </Badge>
                       </TableCell>
+                      {isSuperAdmin && (
+                        <TableCell className="hidden md:table-cell">
+                          {(() => {
+                            const currentVersion = getCurrentAppVersion();
+                            const versionInfo = getVersionDisplay(user.app_version, currentVersion);
+                            const isOutdated = !versionInfo.isCurrent && user.app_version;
+                            return (
+                              <div className="flex items-center gap-2">
+                                <span className={`text-xs font-mono ${versionInfo.className}`}>
+                                  {versionInfo.text}
+                                </span>
+                                {isOutdated && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-6 w-6 p-0"
+                                    title="Force reload for this user"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      await triggerForceReload(user.id);
+                                      toast({
+                                        title: 'Update signal sent',
+                                        description: `${user.full_name || 'User'} will reload on next active session.`,
+                                      });
+                                    }}
+                                  >
+                                    <RefreshCw className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </TableCell>
+                      )}
                       <TableCell className="hidden md:table-cell">
                         <div className="font-medium">
                           ${(user.croo_cash_balance || 0) / 100}

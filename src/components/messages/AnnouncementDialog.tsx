@@ -8,14 +8,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
-import { Paperclip, X, Clock, Calendar } from 'lucide-react';
+import { Paperclip, X, Clock, Calendar, Users, ChevronDown, ChevronUp } from 'lucide-react';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import { format, addDays, setHours, setMinutes, isAfter } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface Profile {
   id: string;
   full_name: string;
   profile_photo_url: string | null;
+  role?: string;
 }
 
 interface AnnouncementDialogProps {
@@ -23,11 +26,21 @@ interface AnnouncementDialogProps {
   onOpenChange: (open: boolean) => void;
   onAnnouncementCreated: (chatId: string) => void;
   locationId?: string;
+  locationName?: string;
 }
 
-export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, locationId }: AnnouncementDialogProps) {
+const ROLE_OPTIONS = [
+  { value: 'team_member', label: 'Team Member' },
+  { value: 'shift_manager', label: 'Shift Manager' },
+  { value: 'manager', label: 'Manager' },
+  { value: 'general_manager', label: 'General Manager' },
+  { value: 'admin', label: 'Admin' },
+];
+
+export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, locationId, locationName }: AnnouncementDialogProps) {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [creating, setCreating] = useState(false);
@@ -36,6 +49,7 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
   const [isScheduled, setIsScheduled] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
   const [scheduledTime, setScheduledTime] = useState('');
+  const [showIndividualSelection, setShowIndividualSelection] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -45,22 +59,53 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
       setIsScheduled(false);
       setScheduledDate('');
       setScheduledTime('');
+      setSelectedRoles([]);
+      setSelectedUsers([]);
+      setShowIndividualSelection(false);
     }
-  }, [open]);
+  }, [open, locationId]);
 
   const fetchProfiles = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      // Get users at current location with their roles
+      let userIds: string[] = [];
+      if (locationId) {
+        const { data: locationUsers } = await supabase
+          .from('user_locations')
+          .select('user_id')
+          .eq('location_id', locationId);
+        userIds = locationUsers?.map(u => u.user_id) || [];
+      }
+
+      // Get profiles
+      let query = supabase
         .from('profiles')
         .select('id, full_name, profile_photo_url')
         .eq('is_active', true)
         .neq('id', user.id);
 
+      if (userIds.length > 0) {
+        query = query.in('id', userIds);
+      }
+
+      const { data: profileData, error } = await query;
       if (error) throw error;
-      setProfiles(data || []);
+
+      // Get roles for these users
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      // Merge profiles with their highest role
+      const profilesWithRoles = (profileData || []).map(p => ({
+        ...p,
+        role: roles?.find(r => r.user_id === p.id)?.role || 'team_member'
+      }));
+
+      setProfiles(profilesWithRoles);
     } catch (error: any) {
       console.error('Error fetching profiles:', error);
       toast.error('Failed to load users');
@@ -110,14 +155,11 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
     let targetDate: Date;
     
     if (option === 'tonight') {
-      // Tonight at 6pm
       targetDate = setMinutes(setHours(now, 18), 0);
-      // If it's already past 6pm, schedule for next day
       if (!isAfter(targetDate, now)) {
         targetDate = setMinutes(setHours(addDays(now, 1), 18), 0);
       }
     } else {
-      // Tomorrow at 9am
       targetDate = setMinutes(setHours(addDays(now, 1), 9), 0);
     }
     
@@ -126,8 +168,40 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
     setIsScheduled(true);
   };
 
+  // Get final recipient list based on role selection + individual selection
+  const getFinalRecipients = (): string[] => {
+    const recipients = new Set<string>();
+    
+    // Add users matching selected roles
+    if (selectedRoles.length > 0) {
+      profiles
+        .filter(p => selectedRoles.includes(p.role || 'team_member'))
+        .forEach(p => recipients.add(p.id));
+    }
+    
+    // Add individually selected users
+    selectedUsers.forEach(id => recipients.add(id));
+    
+    return Array.from(recipients);
+  };
+
+  const handleSelectAllAtLocation = () => {
+    setSelectedUsers(profiles.map(p => p.id));
+    setSelectedRoles([]);
+  };
+
+  const toggleRole = (role: string) => {
+    setSelectedRoles(prev =>
+      prev.includes(role)
+        ? prev.filter(r => r !== role)
+        : [...prev, role]
+    );
+  };
+
   const handleCreate = async () => {
-    if (selectedUsers.length === 0) {
+    const recipients = getFinalRecipients();
+    
+    if (recipients.length === 0) {
       toast.error('Please select at least one recipient');
       return;
     }
@@ -177,7 +251,7 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
       if (chatError) throw chatError;
 
       // Add members (recipients + creator)
-      const members = [...selectedUsers, user.id].map(userId => ({
+      const members = [...recipients, user.id].map(userId => ({
         chat_id: chat.id,
         user_id: userId,
       }));
@@ -188,7 +262,7 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
 
       if (membersError) throw membersError;
 
-      // Send the announcement message (with optional scheduled_at)
+      // Send the announcement message
       const { error: messageError } = await supabase
         .from('messages')
         .insert({
@@ -205,15 +279,9 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
       // Send push notifications only if not scheduled
       if (!isScheduled) {
         try {
-          const { data: senderProfile } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', user.id)
-            .single();
-
           await supabase.functions.invoke('send-push-notification', {
             body: {
-              user_ids: selectedUsers,
+              user_ids: recipients,
               title: `📢 ${title.trim()}`,
               body: message.trim().substring(0, 100),
               notification_type: 'announcements',
@@ -237,6 +305,7 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
       
       // Reset form
       setSelectedUsers([]);
+      setSelectedRoles([]);
       setTitle('');
       setMessage('');
       setIsScheduled(false);
@@ -259,13 +328,13 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
     );
   };
 
-  const selectAll = () => {
-    setSelectedUsers(profiles.map(p => p.id));
-  };
-
   const deselectAll = () => {
     setSelectedUsers([]);
+    setSelectedRoles([]);
   };
+
+  const totalUserCount = profiles.length;
+  const selectedCount = getFinalRecipients().length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -404,49 +473,89 @@ export function AnnouncementDialog({ open, onOpenChange, onAnnouncementCreated, 
             )}
           </div>
 
-          <div className="space-y-2">
+          {/* Recipients Section */}
+          <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Select Recipients</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={selectAll}
-                >
-                  Select All
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={deselectAll}
-                >
-                  Clear
-                </Button>
+              <Label>Recipients ({selectedCount} selected)</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={deselectAll}
+              >
+                Clear
+              </Button>
+            </div>
+
+            {/* Quick Select: All at Location */}
+            <Button
+              type="button"
+              variant={selectedCount === totalUserCount ? 'default' : 'outline'}
+              className="w-full justify-start gap-2"
+              onClick={handleSelectAllAtLocation}
+            >
+              <Users className="h-4 w-4" />
+              All at {locationName || 'Location'} ({totalUserCount})
+            </Button>
+
+            {/* Role Selection */}
+            <div className="space-y-2">
+              <Label className="text-sm">Or select by role:</Label>
+              <div className="flex flex-wrap gap-2">
+                {ROLE_OPTIONS.map(role => {
+                  const count = profiles.filter(p => p.role === role.value).length;
+                  if (count === 0) return null;
+                  return (
+                    <Badge
+                      key={role.value}
+                      variant={selectedRoles.includes(role.value) ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      onClick={() => toggleRole(role.value)}
+                    >
+                      {role.label} ({count})
+                    </Badge>
+                  );
+                })}
               </div>
             </div>
 
-            <div className="border rounded-lg max-h-60 overflow-y-auto">
-              {profiles.map((profile) => (
-                <label
-                  key={profile.id}
-                  className="flex items-center gap-3 p-3 hover:bg-muted cursor-pointer transition-colors"
+            {/* Individual Selection (Collapsible) */}
+            <Collapsible open={showIndividualSelection} onOpenChange={setShowIndividualSelection}>
+              <CollapsibleTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-between"
                 >
-                  <Checkbox
-                    checked={selectedUsers.includes(profile.id)}
-                    onCheckedChange={() => toggleUser(profile.id)}
-                  />
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={profile.profile_photo_url || undefined} />
-                    <AvatarFallback>
-                      {profile.full_name.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="flex-1">{profile.full_name}</span>
-                </label>
-              ))}
-            </div>
+                  Select individual users
+                  {showIndividualSelection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="border rounded-lg max-h-40 overflow-y-auto mt-2">
+                  {profiles.map((profile) => (
+                    <label
+                      key={profile.id}
+                      className="flex items-center gap-3 p-2 hover:bg-muted cursor-pointer transition-colors"
+                    >
+                      <Checkbox
+                        checked={selectedUsers.includes(profile.id) || selectedRoles.includes(profile.role || 'team_member')}
+                        onCheckedChange={() => toggleUser(profile.id)}
+                      />
+                      <Avatar className="h-6 w-6">
+                        <AvatarImage src={profile.profile_photo_url || undefined} />
+                        <AvatarFallback className="text-xs">
+                          {profile.full_name?.charAt(0) || '?'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="flex-1 text-sm">{profile.full_name}</span>
+                      <span className="text-xs text-muted-foreground capitalize">{profile.role?.replace('_', ' ')}</span>
+                    </label>
+                  ))}
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
 
           <div className="flex justify-end gap-2">
