@@ -181,15 +181,20 @@ function DayCell({
   }} className={`min-h-[80px] p-1.5 border-r last:border-r-0 border-border transition-colors ${isOver ? "bg-accent/50" : "hover:bg-muted/30"}`}>
       <div className="space-y-1">
         {shifts.map(shift => {
-          // A shift is a draft if schedule is unpublished AND (shift is new OR shift has been modified)
+          // A shift is a draft (unpublished) if:
+          // 1. Schedule was never published (!isPublished), OR
+          // 2. Schedule is published but this shift is NEW (not in snapshot), OR
+          // 3. Schedule is published but this shift was MODIFIED since last publish
           const snapshotShift = publishedSnapshot?.find((s: any) => s.id === shift.id);
+          const isNewShiftAfterPublish = isPublished && publishedSnapshot && publishedSnapshot.length > 0 && !snapshotShift;
           const isShiftModified = snapshotShift && (
             snapshotShift.user_id !== shift.user_id ||
             snapshotShift.start_time !== shift.start_time ||
             snapshotShift.end_time !== shift.end_time ||
             snapshotShift.template_id !== shift.template_id
           );
-          const isShiftDraft = !isPublished && (!snapshotShift || isShiftModified);
+          // Shift is a draft if schedule never published, or if it's new/modified after publish
+          const isShiftDraft = !isPublished || isNewShiftAfterPublish || isShiftModified;
           return <ShiftCard key={shift.id} shift={shift} onDelete={onUpdate} canTakeShift={canTakeShifts} currentUserId={currentUserId} onTakeShift={onUpdate} onEdit={() => onEditShift?.(shift)} isPublished={!isShiftDraft} />;
         })}
         {availabilityRequests.map(request => {
