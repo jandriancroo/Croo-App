@@ -1419,6 +1419,7 @@ export default function LogBook() {
                                         data={safeData} 
                                         createdAt={entry.created_at}
                                         bankRunCompleted={bankRunCompleted}
+                                        safeTarget={locationSettings?.safe_target ?? 300}
                                       />
                                     );
                                   }
