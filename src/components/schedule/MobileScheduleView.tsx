@@ -122,7 +122,7 @@ export function MobileScheduleView({
 }: MobileScheduleViewProps) {
   const [activeTab, setActiveTab] = useState<'today' | 'schedule'>(() => {
     const saved = sessionStorage.getItem('mobileScheduleTab');
-    return saved === 'today' || saved === 'schedule' ? (saved as 'today' | 'schedule') : 'schedule';
+    return saved === 'today' || saved === 'schedule' ? (saved as 'today' | 'schedule') : 'today';
   });
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [offerDialogOpen, setOfferDialogOpen] = useState(false);
