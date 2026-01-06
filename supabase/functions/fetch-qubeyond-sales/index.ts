@@ -471,6 +471,7 @@ async function fetchTillsData(
         filters: {
           date: { from: null, to: null, values: [dateStr], type: "custom" },
           singleLocation: parseInt(qbLocationId),
+          location: { operationalUnits: [parseInt(qbLocationId)] },
           noSales: null
         },
         params: { 
