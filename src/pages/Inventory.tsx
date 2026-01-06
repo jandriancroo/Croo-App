@@ -7,13 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, ClipboardList, Settings, TrendingDown, Package, CalendarDays, Calendar, CalendarRange, MapPin, Pencil, Eye } from "lucide-react";
+import { Plus, ClipboardList, Settings, TrendingDown, Package, MapPin, Pencil, Eye, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import InventoryItemsManager from "@/components/inventory/InventoryItemsManager";
 import InventoryVarianceReport from "@/components/inventory/InventoryVarianceReport";
 import StartCountDialog from "@/components/inventory/StartCountDialog";
+import DeleteCountDialog from "@/components/inventory/DeleteCountDialog";
 
 const Inventory = () => {
   const { locationId } = useParams();
@@ -22,6 +23,8 @@ const Inventory = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("count");
   const [showStartDialog, setShowStartDialog] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [countToDelete, setCountToDelete] = useState<{ id: string; period: string } | null>(null);
 
   // Fetch location details
   const { data: location } = useQuery({
@@ -110,6 +113,38 @@ const Inventory = () => {
     }
   });
 
+  // Delete count mutation
+  const deleteCountMutation = useMutation({
+    mutationFn: async (countId: string) => {
+      // First delete related count items
+      const { error: itemsError } = await supabase
+        .from("inventory_count_items")
+        .delete()
+        .eq("count_id", countId);
+      
+      if (itemsError) throw itemsError;
+      
+      // Then delete the count itself
+      const { error: countError } = await supabase
+        .from("inventory_counts")
+        .delete()
+        .eq("id", countId);
+      
+      if (countError) throw countError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["inventory-counts", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-in-progress", locationId] });
+      queryClient.invalidateQueries({ queryKey: ["inventory-existing-periods", locationId] });
+      toast.success("Inventory count deleted");
+      setDeleteDialogOpen(false);
+      setCountToDelete(null);
+    },
+    onError: () => {
+      toast.error("Failed to delete count");
+    }
+  });
+
   const handleStartCount = () => {
     if (inProgressCount) {
       // Resume existing count
@@ -123,17 +158,27 @@ const Inventory = () => {
     startCountMutation.mutate({ periodType, periodEndDate });
   };
 
-  // Helper to get period icon
-  const getPeriodIcon = (periodType: string | null) => {
+  const handleDeleteClick = (count: any) => {
+    const periodLabel = formatPeriodLabel(count);
+    setCountToDelete({ id: count.id, period: periodLabel });
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (countToDelete) {
+      deleteCountMutation.mutate(countToDelete.id);
+    }
+  };
+
+  // Helper to get indentation level based on period type
+  const getIndentLevel = (periodType: string | null) => {
     switch (periodType) {
       case "weekly":
-        return <CalendarDays className="h-4 w-4" />;
-      case "monthly":
-        return <Calendar className="h-4 w-4" />;
+        return "ml-6";
       case "yearly":
-        return <CalendarRange className="h-4 w-4" />;
+        return "ml-6";
       default:
-        return null;
+        return ""; // No indent for monthly/daily
     }
   };
 
@@ -232,17 +277,12 @@ const Inventory = () => {
                     {recentCounts.map((count) => (
                       <div 
                         key={count.id} 
-                        className="p-4 flex items-center justify-between hover:bg-muted/50"
+                        className={`p-4 flex items-center justify-between hover:bg-muted/50 ${getIndentLevel(count.period_type)}`}
                       >
                         <div 
                           className="flex items-center gap-3 flex-1 cursor-pointer"
                           onClick={() => navigate(`/inventory/${locationId}/count/${count.id}`)}
                         >
-                          {count.period_type && (
-                            <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center">
-                              {getPeriodIcon(count.period_type)}
-                            </div>
-                          )}
                           <div>
                             <p className="font-medium">
                               {formatPeriodLabel(count)}
@@ -279,6 +319,17 @@ const Inventory = () => {
                               </Button>
                             </>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteClick(count);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                           {count.period_type && (
                             <Badge variant="outline" className="text-xs capitalize">
                               {count.period_type}
@@ -312,6 +363,14 @@ const Inventory = () => {
         locationId={locationId!}
         onStartCount={handleConfirmStart}
         isPending={startCountMutation.isPending}
+      />
+
+      <DeleteCountDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleConfirmDelete}
+        isDeleting={deleteCountMutation.isPending}
+        countPeriod={countToDelete?.period || ""}
       />
     </Layout>
   );
