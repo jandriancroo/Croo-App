@@ -13,7 +13,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { toast } from 'sonner';
-import { Upload, CheckCircle2, Eye } from 'lucide-react';
+import { Upload, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
@@ -85,6 +86,33 @@ export default function CompleteChecklist() {
   } = useAuth();
   const { isAdmin, isManager, isShiftManager } = useUserRole();
   const [undoConfirmItemId, setUndoConfirmItemId] = useState<string | null>(null);
+  
+  // Hide completed items toggle - persists per checklist in localStorage
+  const hideCompletedKey = `hideCompleted_${id}`;
+  const [hideCompleted, setHideCompleted] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(hideCompletedKey) === 'true';
+    }
+    return false;
+  });
+
+  // Toggle hide completed and persist to localStorage
+  const toggleHideCompleted = () => {
+    const newValue = !hideCompleted;
+    setHideCompleted(newValue);
+    if (newValue) {
+      localStorage.setItem(hideCompletedKey, 'true');
+    } else {
+      localStorage.removeItem(hideCompletedKey);
+    }
+  };
+
+  // Clear localStorage when checklist reaches 100% completion
+  useEffect(() => {
+    if (completionPercentage === 100) {
+      localStorage.removeItem(hideCompletedKey);
+    }
+  }, [completionPercentage, hideCompletedKey]);
   
   // Permission check: shift managers and above can undo
   const canUndoItems = isShiftManager;
@@ -813,10 +841,31 @@ export default function CompleteChecklist() {
             </Badge>
           </div>
           {checklist.description && <p className="text-muted-foreground">{checklist.description}</p>}
+          
+          {/* Hide Completed Toggle */}
+          <div className="flex items-center gap-2 pt-2">
+            <Switch
+              id="hide-completed"
+              checked={hideCompleted}
+              onCheckedChange={toggleHideCompleted}
+            />
+            <Label htmlFor="hide-completed" className="text-sm text-muted-foreground cursor-pointer">
+              Hide completed items
+            </Label>
+          </div>
         </div>
 
         <div className="space-y-3">
-          {items.map(item => {
+          {items
+            .filter(item => {
+              if (!hideCompleted) return true;
+              const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
+              const hasResponse = isImageItem 
+                ? isMultiPhotoComplete(item, responses[item.id])
+                : responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
+              return !hasResponse;
+            })
+            .map(item => {
           const isCompleted = responsesWithCompleters[item.id]?.completedBy;
           const completerInfo = responsesWithCompleters[item.id]?.completedBy;
           const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
