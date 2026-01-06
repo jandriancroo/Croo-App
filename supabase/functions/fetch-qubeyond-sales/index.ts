@@ -1088,11 +1088,85 @@ async function fetchLaborData(
   }
 }
 
-// Fetch labor data for multiple dates (for weekly/period totals)
+// Cache labor data to sales_cache table
+async function cacheLaborData(
+  supabase: any,
+  locationId: string,
+  dateStr: string,
+  laborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number }
+): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('sales_cache')
+      .upsert({
+        location_id: locationId,
+        sale_date: dateStr,
+        labor_cost: laborData.laborCost,
+        labor_hours: laborData.hoursWorked,
+        regular_hours: laborData.regularHours,
+        overtime_hours: laborData.overtimeHours,
+        fetched_at: new Date().toISOString()
+      }, {
+        onConflict: 'location_id,sale_date',
+        ignoreDuplicates: false
+      });
+    
+    if (error) {
+      console.error(`[LABOR-CACHE] Error caching labor for ${dateStr}:`, error.message);
+    } else {
+      console.log(`[LABOR-CACHE] Cached labor for ${dateStr}: $${laborData.laborCost.toFixed(2)} / ${laborData.hoursWorked.toFixed(1)}h`);
+    }
+  } catch (e) {
+    console.error(`[LABOR-CACHE] Exception caching labor:`, e);
+  }
+}
+
+// Get cached labor data from sales_cache table
+async function getCachedLaborData(
+  supabase: any,
+  locationId: string,
+  dates: string[]
+): Promise<Map<string, { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number }>> {
+  const cachedLabor = new Map<string, { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number }>();
+  
+  try {
+    const { data, error } = await supabase
+      .from('sales_cache')
+      .select('sale_date, labor_cost, labor_hours, regular_hours, overtime_hours')
+      .eq('location_id', locationId)
+      .in('sale_date', dates)
+      .not('labor_cost', 'is', null);
+    
+    if (error) {
+      console.error('[LABOR-CACHE] Error fetching cached labor:', error.message);
+      return cachedLabor;
+    }
+    
+    if (data) {
+      for (const row of data) {
+        cachedLabor.set(row.sale_date, {
+          laborCost: parseFloat(row.labor_cost) || 0,
+          hoursWorked: parseFloat(row.labor_hours) || 0,
+          regularHours: parseFloat(row.regular_hours) || 0,
+          overtimeHours: parseFloat(row.overtime_hours) || 0
+        });
+      }
+      console.log(`[LABOR-CACHE] Found ${cachedLabor.size} cached labor entries for ${dates.length} dates`);
+    }
+  } catch (e) {
+    console.error('[LABOR-CACHE] Exception fetching cached labor:', e);
+  }
+  
+  return cachedLabor;
+}
+
+// Fetch labor data for multiple dates (for weekly/period totals) - with caching
 async function fetchLaborDataForDates(
   tokenGw: string,
   dates: string[],
-  qbLocationId: string
+  qbLocationId: string,
+  supabase?: any,
+  locationId?: string
 ): Promise<{ laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] }> {
   console.log(`Fetching labor data for ${dates.length} days`);
   
@@ -1115,7 +1189,63 @@ async function fetchLaborDataForDates(
         laborPercent: labor.laborPercent,
         laborCost: labor.laborCost
       });
+      
+      // Cache the labor data if supabase and locationId are provided
+      if (supabase && locationId && labor.laborCost > 0) {
+        await cacheLaborData(supabase, locationId, dateStr, labor);
+      }
     }
+  }
+  
+  return { laborCost: totalLaborCost, hoursWorked: totalHoursWorked, regularHours: totalRegularHours, overtimeHours: totalOvertimeHours, dailyLabor };
+}
+
+// Get labor data from cache OR fetch from QU - returns blended result
+async function getLaborDataWithCache(
+  supabase: any,
+  locationId: string,
+  dates: string[],
+  tokenGw?: string,
+  qbLocationId?: string
+): Promise<{ laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] }> {
+  // First check cache for all dates
+  const cachedLabor = await getCachedLaborData(supabase, locationId, dates);
+  
+  let totalLaborCost = 0;
+  let totalHoursWorked = 0;
+  let totalRegularHours = 0;
+  let totalOvertimeHours = 0;
+  const dailyLabor: { date: string; laborPercent: number; laborCost: number }[] = [];
+  const uncachedDates: string[] = [];
+  
+  // Use cached data where available
+  for (const dateStr of dates) {
+    const cached = cachedLabor.get(dateStr);
+    if (cached && cached.laborCost > 0) {
+      totalLaborCost += cached.laborCost;
+      totalHoursWorked += cached.hoursWorked;
+      totalRegularHours += cached.regularHours;
+      totalOvertimeHours += cached.overtimeHours;
+      dailyLabor.push({
+        date: dateStr,
+        laborPercent: 0, // We don't cache percent since it depends on sales
+        laborCost: cached.laborCost
+      });
+    } else {
+      uncachedDates.push(dateStr);
+    }
+  }
+  
+  console.log(`[LABOR-CACHE] ${dates.length - uncachedDates.length} from cache, ${uncachedDates.length} need fetching`);
+  
+  // Fetch uncached dates from QU if we have credentials
+  if (uncachedDates.length > 0 && tokenGw && qbLocationId) {
+    const freshLabor = await fetchLaborDataForDates(tokenGw, uncachedDates, qbLocationId, supabase, locationId);
+    totalLaborCost += freshLabor.laborCost;
+    totalHoursWorked += freshLabor.hoursWorked;
+    totalRegularHours += freshLabor.regularHours;
+    totalOvertimeHours += freshLabor.overtimeHours;
+    dailyLabor.push(...freshLabor.dailyLabor);
   }
   
   return { laborCost: totalLaborCost, hoursWorked: totalHoursWorked, regularHours: totalRegularHours, overtimeHours: totalOvertimeHours, dailyLabor };
@@ -2256,12 +2386,11 @@ serve(async (req) => {
     let weeklyTipsData: { ccTips: number; cashTips: number; dailyTips: { date: string; ccTips: number; cashTips: number }[] } | null = null;
     
     if (credentials.pull_labor) {
-      console.log('Pull labor enabled - fetching labor data from Real Time Summary (Qu)');
-      // For labor, we still need to fetch all week days to get labor breakdown
-      // Labor data isn't cached in sales_cache, so we fetch it live
+      console.log('Pull labor enabled - fetching labor data from Real Time Summary (Qu) AND caching it');
+      // Fetch today's labor live, and use cache-aware fetching for week dates
       const [todayLabor, weekLabor, todayTips, weekTips] = await Promise.all([
         fetchLaborData(tokenGw, todayStr, qbLocationId),
-        fetchLaborDataForDates(tokenGw, weekDates, qbLocationId),
+        fetchLaborDataForDates(tokenGw, weekDates, qbLocationId, cacheSupabase, locationId),
         fetchTipsData(tokenGw, todayStr, qbLocationId),
         fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
       ]);
@@ -2270,80 +2399,92 @@ serve(async (req) => {
       laborSource = 'qu';
       tipsData = todayTips;
       weeklyTipsData = weekTips;
+      
+      // Cache today's labor data
+      if (todayLabor && locationId && todayLabor.laborCost > 0) {
+        await cacheLaborData(cacheSupabase, locationId, todayStr, todayLabor);
+      }
     } else {
       // pull_labor is disabled - use in-app punch clock data
-      // For Palm Springs: blend Qu historical labor (Jan 1-4) with punch-based labor (Jan 5+)
-      // For other locations (like Hemet): use punch-based labor for all dates
-      console.log('Pull labor disabled - calculating labor from punch clock data');
-      
-      // Palm Springs cutover date - they switched from Qu labor to punches on Jan 5, 2026
-      // For other locations, we use punches for ALL dates
-      const palmSpringsCutoverDate = '2026-01-05';
-      const isPalmSprings = qbLocationId === '5280'; // Palm Springs Qu location ID
+      // Check cache for historical QU labor data first, then use punches for dates without cached data
+      console.log('Pull labor disabled - using punch clock + cached QU labor');
       
       if (locationId) {
         let monthlyLaborResult: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number; dailyLabor: { date: string; laborPercent: number; laborCost: number }[] };
         
-        if (isPalmSprings) {
-          // Palm Springs: blend Qu historical (Jan 1-4) with punch data (Jan 5+)
-          const historicalQuDates = monthDates.filter(d => d >= '2026-01-01' && d < palmSpringsCutoverDate);
-          const punchDates = monthDates.filter(d => d >= palmSpringsCutoverDate);
-          
-          console.log(`[LABOR-BLEND] Palm Springs - Qu dates (${historicalQuDates.length}): ${historicalQuDates.join(', ')}`);
-          console.log(`[LABOR-BLEND] Palm Springs - Punch dates (${punchDates.length}): ${punchDates.join(', ')}`);
-          
-          const [todayPunchLabor, weekPunchLabor, quHistoricalLabor, punchMonthLabor, todayTips, weekTips] = await Promise.all([
-            calculateLaborFromPunches(cacheSupabase, locationId, todayStr, timezone),
-            calculateLaborFromPunchesForDates(cacheSupabase, locationId, weekDates, timezone),
-            historicalQuDates.length > 0 
-              ? fetchLaborDataForDates(tokenGw, historicalQuDates, qbLocationId) 
-              : Promise.resolve({ laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] }),
-            punchDates.length > 0
-              ? calculateLaborFromPunchesForDates(cacheSupabase, locationId, punchDates, timezone)
-              : Promise.resolve({ laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] }),
-            fetchTipsData(tokenGw, todayStr, qbLocationId),
-            fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
-          ]);
-          
-          laborData = todayPunchLabor;
-          weeklyLaborData = weekPunchLabor;
-          tipsData = todayTips;
-          weeklyTipsData = weekTips;
-          
-          const quLabor = quHistoricalLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] };
-          const punchLabor = punchMonthLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] };
-          
-          monthlyLaborResult = {
-            laborCost: quLabor.laborCost + punchLabor.laborCost,
-            hoursWorked: quLabor.hoursWorked + punchLabor.hoursWorked,
-            regularHours: quLabor.regularHours + punchLabor.regularHours,
-            overtimeHours: quLabor.overtimeHours + punchLabor.overtimeHours,
-            dailyLabor: [...quLabor.dailyLabor, ...punchLabor.dailyLabor]
-          };
-          
-          console.log(`[LABOR-BLEND] Qu historical: $${quLabor.laborCost.toFixed(2)} / ${quLabor.hoursWorked.toFixed(1)}h`);
-          console.log(`[LABOR-BLEND] Punch current: $${punchLabor.laborCost.toFixed(2)} / ${punchLabor.hoursWorked.toFixed(1)}h`);
-        } else {
-          // Other locations (Hemet, etc.): use punch clock for ALL dates
-          console.log(`[LABOR-PUNCH] Using punch clock data for all ${monthDates.length} dates`);
-          
-          const [todayPunchLabor, weekPunchLabor, punchMonthLabor, todayTips, weekTips] = await Promise.all([
-            calculateLaborFromPunches(cacheSupabase, locationId, todayStr, timezone),
-            calculateLaborFromPunchesForDates(cacheSupabase, locationId, weekDates, timezone),
-            calculateLaborFromPunchesForDates(cacheSupabase, locationId, monthDates, timezone),
-            fetchTipsData(tokenGw, todayStr, qbLocationId),
-            fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
-          ]);
-          
-          laborData = todayPunchLabor;
-          weeklyLaborData = weekPunchLabor;
-          tipsData = todayTips;
-          weeklyTipsData = weekTips;
-          
-          monthlyLaborResult = punchMonthLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] };
-          
-          console.log(`[LABOR-PUNCH] MTD from punches: $${monthlyLaborResult.laborCost.toFixed(2)} / ${monthlyLaborResult.hoursWorked.toFixed(1)}h`);
+        // Check which past dates have cached QU labor data
+        const pastMonthDates = monthDates.filter(d => d < todayStr);
+        const cachedLabor = await getCachedLaborData(cacheSupabase, locationId, pastMonthDates);
+        
+        // Split dates into cached (use QU cache) and uncached (use punches)
+        const cachedDates: string[] = [];
+        const punchDates: string[] = [];
+        
+        for (const dateStr of pastMonthDates) {
+          const cached = cachedLabor.get(dateStr);
+          if (cached && cached.laborCost > 0) {
+            cachedDates.push(dateStr);
+          } else {
+            punchDates.push(dateStr);
+          }
         }
+        
+        console.log(`[LABOR-BLEND] Cached QU dates (${cachedDates.length}): ${cachedDates.join(', ')}`);
+        console.log(`[LABOR-BLEND] Punch dates (${punchDates.length + 1}): ${[...punchDates, todayStr].join(', ')}`);
+        
+        const [todayPunchLabor, weekPunchLabor, punchMonthLabor, todayTips, weekTips] = await Promise.all([
+          calculateLaborFromPunches(cacheSupabase, locationId, todayStr, timezone),
+          calculateLaborFromPunchesForDates(cacheSupabase, locationId, weekDates, timezone),
+          punchDates.length > 0
+            ? calculateLaborFromPunchesForDates(cacheSupabase, locationId, punchDates, timezone)
+            : Promise.resolve({ laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] }),
+          fetchTipsData(tokenGw, todayStr, qbLocationId),
+          fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
+        ]);
+        
+        laborData = todayPunchLabor;
+        weeklyLaborData = weekPunchLabor;
+        tipsData = todayTips;
+        weeklyTipsData = weekTips;
+        
+        // Calculate cached QU labor totals
+        let cachedLaborCost = 0;
+        let cachedHoursWorked = 0;
+        let cachedRegularHours = 0;
+        let cachedOvertimeHours = 0;
+        const cachedDailyLabor: { date: string; laborPercent: number; laborCost: number }[] = [];
+        
+        for (const dateStr of cachedDates) {
+          const cached = cachedLabor.get(dateStr);
+          if (cached) {
+            cachedLaborCost += cached.laborCost;
+            cachedHoursWorked += cached.hoursWorked;
+            cachedRegularHours += cached.regularHours;
+            cachedOvertimeHours += cached.overtimeHours;
+            cachedDailyLabor.push({
+              date: dateStr,
+              laborPercent: 0,
+              laborCost: cached.laborCost
+            });
+          }
+        }
+        
+        const punchLabor = punchMonthLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0, dailyLabor: [] };
+        
+        // Add today's punch labor
+        const todayLaborData = todayPunchLabor || { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
+        
+        monthlyLaborResult = {
+          laborCost: cachedLaborCost + punchLabor.laborCost + todayLaborData.laborCost,
+          hoursWorked: cachedHoursWorked + punchLabor.hoursWorked + todayLaborData.hoursWorked,
+          regularHours: cachedRegularHours + punchLabor.regularHours + todayLaborData.regularHours,
+          overtimeHours: cachedOvertimeHours + punchLabor.overtimeHours + todayLaborData.overtimeHours,
+          dailyLabor: [...cachedDailyLabor, ...punchLabor.dailyLabor]
+        };
+        
+        console.log(`[LABOR-BLEND] Cached QU: $${cachedLaborCost.toFixed(2)} / ${cachedHoursWorked.toFixed(1)}h`);
+        console.log(`[LABOR-BLEND] Punch past: $${punchLabor.laborCost.toFixed(2)} / ${punchLabor.hoursWorked.toFixed(1)}h`);
+        console.log(`[LABOR-BLEND] Punch today: $${todayLaborData.laborCost.toFixed(2)} / ${todayLaborData.hoursWorked.toFixed(1)}h`);
         
         monthlyLaborData = monthlyLaborResult;
         console.log(`[LABOR] Combined MTD: $${monthlyLaborData.laborCost.toFixed(2)} / ${monthlyLaborData.hoursWorked.toFixed(1)}h`);
