@@ -148,6 +148,11 @@ export default function PunchClock() {
   // Master exit code - reserved, cannot be used as employee PIN
   const [expiringCerts, setExpiringCerts] = useState<any[]>([]);
   const [currentFactIndex, setCurrentFactIndex] = useState(0);
+  const [pinShake, setPinShake] = useState(false);
+  
+  // Debounce ref to prevent rapid key presses
+  const lastKeyPressRef = useRef<number>(0);
+  const DEBOUNCE_MS = 150;
   const [birthdayEmployees, setBirthdayEmployees] = useState<any[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
@@ -436,7 +441,27 @@ export default function PunchClock() {
     }
   };
 
+  // Play feedback sounds
+  const playSuccessSound = useCallback(() => {
+    const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleQwINJLU8LR8MBgVWpDE9Ll8FQsAQ4LC+sKAHQQ1aLfi+bZ+Ig0nSJW/8MaBOhkqPHjC49emXToeLlNsmMnWvHVJODB8fJauxbZqNRYcV3+XrLioVBoNJV2Inbm3ilAJAhxNeZ64t5dRBwAdQmuNpq+RVRALA0FSeY6bqIxQCQBBQF56h5GOXRQGEkFYbHyJin4wCQYsPE1ldH2LVBYIFA0kOk1aXX5uOR4OFQ4gMz5PWHV0RikVGhceKzZBV2dsVzYmIBsYJC00R1liZVg/LCkqJy0yOUJSXGJdUkQyLzA0NTo+RE1WWF1bVU0+NTMwMTI0ODtBRktPUlVTUU5LRUE9Ojg4OTw/Q0lNUVNTUU9MR0I+Ozo5Ojw/REhNT1BQUE1KRkJAPDo5ODk8QERITFBSUlFPTEhEQD07Ojk6PD9CRkpOUFFQTkxIRUA9Ozk5Ojs+QURHS0xNTk1MS0dDPzw5ODY2');
+    audio.volume = 0.3;
+    audio.play().catch(() => {});
+  }, []);
+
+  const playErrorSound = useCallback(() => {
+    const audio = new Audio('data:audio/wav;base64,UklGRl9vT19teleQwINJLU8LR8MBgVWpDE9Ll8FQsAQ4LC+sKAHQQ1aLfi+bZ+Ig0nSJW/8MaBOhkqPHjC49emXToeLlNsmMnWvHVJODB8fJauxbZqNRYcV3+XrLioVBoNJV2Inbm3ilAJAhxNeZ64t5dRBwAdQmuNpq+RVRALA0FSeY6bqIxQCQBBQF56h5GOXRQGEkFYbHyJin4wCQYsPE1ldH2LVBYIFA0kOk1aXX5uOR4OFQ4gMz5PWHV0RikVGhceKzZBV2dsVzYmIBsYJC00R1liZVg/LCkqJy0yOUJSXGJdUkQyLzA0NTo+RE1WWF1bVU0+NTMwMTI0ODtBRktPUlVTUU5LRUE9Ojg4OTw/Q0lNUVNTUU9MR0I+Ozo5Ojw/REhNT1BQUE1KRkJAPDo5ODk8QERITFBSUlFPTEhEQD07Ojk6PD9CRkpOUFFQTkxIRUA9Ozk5Ojs+QURHS0xNTk1MS0dDPzw5ODY2');
+    audio.volume = 0.2;
+    audio.play().catch(() => {});
+  }, []);
+
   const handleNumberClick = (num: string) => {
+    // Debounce protection - prevent rapid taps
+    const now = Date.now();
+    if (now - lastKeyPressRef.current < DEBOUNCE_MS) {
+      return;
+    }
+    lastKeyPressRef.current = now;
+
     if (pin.length < 4) {
       const newPin = pin + num;
       setPin(newPin);
@@ -533,15 +558,23 @@ export default function PunchClock() {
         timestamp: new Date().toISOString(),
         error: error?.message || 'No matching profile found'
       });
+      
+      // Visual and audio feedback for wrong PIN
       setPinError(true);
+      setPinShake(true);
+      playErrorSound();
       setPin('');
-      // Clear error after 3 seconds
+      
+      // Clear shake after animation completes
+      setTimeout(() => setPinShake(false), 500);
+      // Clear error message after 3 seconds
       setTimeout(() => setPinError(false), 3000);
       return;
     }
 
-    // Log successful attempt
+    // Log successful attempt and play success sound
     logPunchAttempt(pinValue, true, data.id);
+    playSuccessSound();
     
     setCurrentUser(data);
   };
@@ -981,14 +1014,19 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                       {pinError ? 'Wrong PIN - Try Again' : 'Enter Your PIN'}
                     </h3>
                     <div className="text-center mb-6">
-                      <div className="flex items-center justify-center gap-3 h-16">
+                      <div 
+                        className={`flex items-center justify-center gap-3 h-16 ${pinShake ? 'animate-shake' : ''}`}
+                        style={pinShake ? { animation: 'shake 0.5s ease-in-out' } : undefined}
+                      >
                         {[0, 1, 2, 3].map((i) => (
                           <div
                             key={i}
                             className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center text-2xl font-bold transition-all duration-200 ${
-                              pin.length > i 
-                                ? 'bg-primary border-primary text-primary-foreground scale-105 shadow-lg' 
-                                : 'bg-muted/50 border-border'
+                              pinError
+                                ? 'bg-destructive/20 border-destructive'
+                                : pin.length > i 
+                                  ? 'bg-primary border-primary text-primary-foreground scale-105 shadow-lg' 
+                                  : 'bg-muted/50 border-border'
                             }`}
                           >
                             {pin.length > i ? '•' : ''}
