@@ -3613,6 +3613,111 @@ export type Database = {
           },
         ]
       }
+      support_messages: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          image_url: string | null
+          sender_id: string
+          ticket_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          sender_id: string
+          ticket_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          sender_id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          category: Database["public"]["Enums"]["support_ticket_category"]
+          created_at: string
+          description: string
+          id: string
+          occurrence_time: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          screenshot_url: string | null
+          status: Database["public"]["Enums"]["support_ticket_status"]
+          ticket_number: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["support_ticket_category"]
+          created_at?: string
+          description: string
+          id?: string
+          occurrence_time?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          screenshot_url?: string | null
+          status?: Database["public"]["Enums"]["support_ticket_status"]
+          ticket_number?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["support_ticket_category"]
+          created_at?: string
+          description?: string
+          id?: string
+          occurrence_time?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          screenshot_url?: string | null
+          status?: Database["public"]["Enums"]["support_ticket_status"]
+          ticket_number?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       temporary_task_assignments: {
         Row: {
           created_at: string
@@ -4523,6 +4628,15 @@ export type Database = {
         | "interviewing"
         | "hired"
         | "rejected"
+      support_ticket_category:
+        | "ui_glitch"
+        | "broken_feature"
+        | "login_issues"
+        | "data_sync_issues"
+        | "notification_issues"
+        | "scheduling_issues"
+        | "other"
+      support_ticket_status: "open" | "in_progress" | "resolved"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4668,6 +4782,16 @@ export const Constants = {
         "hired",
         "rejected",
       ],
+      support_ticket_category: [
+        "ui_glitch",
+        "broken_feature",
+        "login_issues",
+        "data_sync_issues",
+        "notification_issues",
+        "scheduling_issues",
+        "other",
+      ],
+      support_ticket_status: ["open", "in_progress", "resolved"],
     },
   },
 } as const
