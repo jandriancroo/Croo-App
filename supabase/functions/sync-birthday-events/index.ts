@@ -41,13 +41,8 @@ Deno.serve(async (req) => {
       userLocationMap.get(ul.user_id)!.push(ul.location_id);
     }
 
-    // Delete existing birthday holidays
-    await supabaseClient
-      .from('holidays')
-      .delete()
-      .eq('holiday_type', 'birthday');
-
-    // Create birthday holidays for each user at EACH of their locations
+    // Build a set of expected (user_id, location_id) combos for active birthday holidays
+    const expectedCombos = new Set<string>();
     const birthdayHolidays = [];
     const today = new Date();
     
@@ -65,12 +60,14 @@ Deno.serve(async (req) => {
       const locationIds = userLocationMap.get(profile.id) || [];
 
       if (locationIds.length === 0) {
-        // User has no location assignments - skip (or could create global one)
         continue;
       }
 
       // Create a birthday holiday for EACH location the user is assigned to
       for (const locationId of locationIds) {
+        const comboKey = `${profile.id}:${locationId}`;
+        expectedCombos.add(comboKey);
+        
         birthdayHolidays.push({
           holiday_name: `🎂 ${profile.full_name}'s Birthday`,
           holiday_date: holidayDate,
@@ -82,19 +79,85 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Get existing birthday holidays
+    const { data: existingHolidays, error: existingError } = await supabaseClient
+      .from('holidays')
+      .select('id, user_id, location_id')
+      .eq('holiday_type', 'birthday');
+
+    if (existingError) throw existingError;
+
+    // Find holidays to delete (no longer valid - user removed, location removed, etc.)
+    // Also find duplicates to delete (keep only first one per user/location combo)
+    const seenCombos = new Map<string, string>(); // combo -> first holiday id
+    const toDelete: string[] = [];
+    
+    for (const h of existingHolidays || []) {
+      const comboKey = `${h.user_id}:${h.location_id}`;
+      
+      if (!expectedCombos.has(comboKey)) {
+        // This holiday is no longer valid (user/location combo not expected)
+        toDelete.push(h.id);
+      } else if (seenCombos.has(comboKey)) {
+        // Duplicate! Delete this one
+        toDelete.push(h.id);
+      } else {
+        // First occurrence of this combo
+        seenCombos.set(comboKey, h.id);
+      }
+    }
+
+    // Delete invalid/duplicate holidays
+    if (toDelete.length > 0) {
+      const { error: deleteError } = await supabaseClient
+        .from('holidays')
+        .delete()
+        .in('id', toDelete);
+
+      if (deleteError) throw deleteError;
+    }
+
+    // Find new holidays to insert (not already in DB)
+    const toInsert = birthdayHolidays.filter(h => {
+      const comboKey = `${h.user_id}:${h.location_id}`;
+      return !seenCombos.has(comboKey);
+    });
+
     // Insert new birthday holidays
-    if (birthdayHolidays.length > 0) {
+    if (toInsert.length > 0) {
       const { error: insertError } = await supabaseClient
         .from('holidays')
-        .insert(birthdayHolidays);
+        .insert(toInsert);
 
       if (insertError) throw insertError;
     }
 
+    // Update existing holidays with correct date/name (in case birthday changed)
+    for (const h of birthdayHolidays) {
+      const comboKey = `${h.user_id}:${h.location_id}`;
+      const existingId = seenCombos.get(comboKey);
+      
+      if (existingId) {
+        const { error: updateError } = await supabaseClient
+          .from('holidays')
+          .update({
+            holiday_name: h.holiday_name,
+            holiday_date: h.holiday_date,
+          })
+          .eq('id', existingId);
+
+        if (updateError) {
+          console.error('Error updating holiday:', updateError);
+        }
+      }
+    }
+
     return new Response(
       JSON.stringify({ 
-        message: `Synced ${birthdayHolidays.length} birthday holidays across locations`,
-        count: birthdayHolidays.length
+        message: `Synced birthday holidays: ${toInsert.length} added, ${toDelete.length} removed`,
+        added: toInsert.length,
+        removed: toDelete.length,
+        total: birthdayHolidays.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
