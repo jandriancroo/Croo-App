@@ -82,27 +82,28 @@ export function useForceReload() {
 
     reportVersion();
 
-    // Check for updates when page becomes visible (user returns to tab)
+  // Check for updates when page becomes visible (user returns to tab)
+    // Only check after a significant absence (> 30 seconds)
+    let lastActiveTime = Date.now();
+    
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('[ForceReload] Tab became visible, checking for updates...');
-        checkForUpdates();
+      if (document.visibilityState === 'hidden') {
+        lastActiveTime = Date.now();
+      } else if (document.visibilityState === 'visible') {
+        const timeSinceActive = Date.now() - lastActiveTime;
+        // Only check for updates if user was away for more than 30 seconds
+        if (timeSinceActive > 30000) {
+          console.log('[ForceReload] Tab became visible after extended absence, checking for updates...');
+          checkForUpdates();
+        }
       }
     };
 
-    // Check for updates when window gains focus
-    const handleFocus = () => {
-      console.log('[ForceReload] Window focused, checking for updates...');
-      checkForUpdates();
-    };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('focus', handleFocus);
 
     return () => {
       supabase.removeChannel(channel);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
     };
   }, [user, checkForUpdates]);
 }
