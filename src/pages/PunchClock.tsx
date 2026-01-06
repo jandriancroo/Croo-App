@@ -140,6 +140,7 @@ export default function PunchClock() {
   const { currentLocation } = useAppLocation();
   const { timezone } = useLocationTimezone();
   const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [todayShift, setTodayShift] = useState<any>(null);
   const [lastPunch, setLastPunch] = useState<any>(null);
@@ -476,8 +477,10 @@ export default function PunchClock() {
         timestamp: new Date().toISOString(),
         error: error?.message || 'No matching profile found'
       });
-      toast.error('Invalid PIN');
+      setPinError(true);
       setPin('');
+      // Clear error after 3 seconds
+      setTimeout(() => setPinError(false), 3000);
       return;
     }
 
@@ -915,7 +918,9 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     </div>
                   )}
                   <div>
-                    <h3 className="text-lg font-medium mb-4 text-center text-muted-foreground">Enter Your PIN</h3>
+                    <h3 className={`text-lg font-medium mb-4 text-center transition-colors duration-200 ${pinError ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                      {pinError ? 'Wrong PIN - Try Again' : 'Enter Your PIN'}
+                    </h3>
                     <div className="text-center mb-6">
                       <div className="flex items-center justify-center gap-3 h-16">
                         {[0, 1, 2, 3].map((i) => (
