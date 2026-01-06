@@ -13,6 +13,7 @@ interface SafeCountEntryProps {
   data: SafeCountData;
   createdAt: string;
   bankRunCompleted?: boolean;
+  safeTarget?: number;
 }
 
 const formatCurrency = (value: number) => {
@@ -40,7 +41,7 @@ export function checkBankRunCompleted(data: SafeCountData): boolean {
   return onesCount > 100;
 }
 
-export function SafeCountEntry({ data, createdAt, bankRunCompleted }: SafeCountEntryProps) {
+export function SafeCountEntry({ data, createdAt, bankRunCompleted, safeTarget = 300 }: SafeCountEntryProps) {
   const [open, setOpen] = useState(false);
   
   // Check if safe count needs bank run (< $30 in $1 bills)
@@ -152,7 +153,7 @@ export function SafeCountEntry({ data, createdAt, bankRunCompleted }: SafeCountE
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Target:</span>
-                  <span className="font-medium">{formatCurrency(300)}</span>
+                  <span className="font-medium">{formatCurrency(safeTarget)}</span>
                 </div>
               </div>
             </div>
