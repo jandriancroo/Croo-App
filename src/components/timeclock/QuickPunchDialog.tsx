@@ -138,6 +138,10 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
 
     setSaving(true);
     try {
+      // Get current user (the manager doing the punch)
+      const { data: { user } } = await supabase.auth.getUser();
+      const createdBy = user?.id;
+
       // Mode: Punch out an already clocked-in employee
       if (mode === 'punchout') {
         if (!clockOut) {
@@ -152,7 +156,9 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
             user_id: selectedEmployee,
             punch_type: 'clock_out',
             punch_time: new Date(`${date}T${clockOut}`).toISOString(),
-            location_id: currentLocation?.id
+            location_id: currentLocation?.id,
+            created_by: createdBy, // Manager who entered this
+            notes: 'Manual entry by manager'
           });
 
         if (error) throw error;
@@ -175,7 +181,9 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
           user_id: selectedEmployee,
           punch_type: 'clock_in',
           punch_time: new Date(`${date}T${clockIn}`).toISOString(),
-          location_id: currentLocation?.id
+          location_id: currentLocation?.id,
+          created_by: createdBy,
+          notes: 'Manual entry by manager'
         }
       ];
 
@@ -188,14 +196,16 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
             punch_type: 'break_start',
             punch_time: new Date(`${date}T${mealBreakStart}`).toISOString(),
             location_id: currentLocation?.id,
-            notes: '30 minute meal break'
+            created_by: createdBy,
+            notes: '30 minute meal break (manual entry)'
           });
           punches.push({
             user_id: selectedEmployee,
             punch_type: 'break_end',
             punch_time: new Date(`${date}T${mealBreakEnd}`).toISOString(),
             location_id: currentLocation?.id,
-            notes: '30 minute meal break'
+            created_by: createdBy,
+            notes: '30 minute meal break (manual entry)'
           });
         }
         
@@ -203,7 +213,9 @@ export function QuickPunchDialog({ open, onOpenChange, onSuccess }: QuickPunchDi
           user_id: selectedEmployee,
           punch_type: 'clock_out',
           punch_time: new Date(`${date}T${clockOut}`).toISOString(),
-          location_id: currentLocation?.id
+          location_id: currentLocation?.id,
+          created_by: createdBy,
+          notes: 'Manual entry by manager'
         });
       }
 
