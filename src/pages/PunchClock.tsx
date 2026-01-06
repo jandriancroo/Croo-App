@@ -438,7 +438,13 @@ export default function PunchClock() {
 
   const handleNumberClick = (num: string) => {
     if (pin.length < 4) {
-      setPin(pin + num);
+      const newPin = pin + num;
+      setPin(newPin);
+      
+      // Auto-submit when 4 digits entered
+      if (newPin.length === 4) {
+        verifyPin(newPin);
+      }
     }
   };
 
@@ -450,14 +456,61 @@ export default function PunchClock() {
     setPin(pin.slice(0, -1));
   };
 
-  const verifyPin = async () => {
-    if (pin.length !== 4) {
+  // Log attempt to database with shift-based guessing
+  const logPunchAttempt = async (pinEntered: string, success: boolean, matchedUserId: string | null) => {
+    if (!currentLocation?.id) return;
+    
+    try {
+      // Get employees scheduled around this time (±2 hours)
+      const now = new Date();
+      const today = format(now, 'yyyy-MM-dd');
+      const currentHour = now.getHours();
+      const twoHoursBefore = `${String(Math.max(0, currentHour - 2)).padStart(2, '0')}:00:00`;
+      const twoHoursAfter = `${String(Math.min(23, currentHour + 2)).padStart(2, '0')}:59:59`;
+      
+      const { data: scheduledShifts } = await supabase
+        .from('scheduled_shifts')
+        .select('user_id, profiles!inner(id, full_name, employee_pin)')
+        .eq('shift_date', today)
+        .gte('start_time', twoHoursBefore)
+        .lte('start_time', twoHoursAfter);
+      
+      const guessedUserIds: string[] = [];
+      const guessedUserNames: string[] = [];
+      
+      if (scheduledShifts) {
+        scheduledShifts.forEach((shift: any) => {
+          if (shift.profiles && shift.profiles.id) {
+            guessedUserIds.push(shift.profiles.id);
+            guessedUserNames.push(shift.profiles.full_name || 'Unknown');
+          }
+        });
+      }
+      
+      await supabase.from('punch_clock_attempts').insert({
+        location_id: currentLocation.id,
+        pin_entered: pinEntered,
+        success,
+        matched_user_id: matchedUserId,
+        guessed_user_ids: guessedUserIds,
+        guessed_user_names: guessedUserNames,
+        attempt_time: now.toISOString()
+      });
+    } catch (err) {
+      console.error('Failed to log punch attempt:', err);
+    }
+  };
+
+  const verifyPin = async (pinToVerify?: string) => {
+    const pinValue = pinToVerify || pin;
+    
+    if (pinValue.length !== 4) {
       toast.error('Please enter a 4-digit PIN');
       return;
     }
 
     // Check for master exit code
-    if (pin === MASTER_EXIT_CODE) {
+    if (pinValue === MASTER_EXIT_CODE) {
       handleMasterExit();
       return;
     }
@@ -465,13 +518,16 @@ export default function PunchClock() {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('employee_pin', pin)
+      .eq('employee_pin', pinValue)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
     if (error || !data) {
+      // Log failed attempt with shift-based guessing
+      logPunchAttempt(pinValue, false, null);
+      
       console.error('[PunchClock] PIN verification failed:', {
-        pin_entered: pin,
+        pin_entered: pinValue,
         location: currentLocation?.name,
         location_id: currentLocation?.id,
         timestamp: new Date().toISOString(),
@@ -484,6 +540,9 @@ export default function PunchClock() {
       return;
     }
 
+    // Log successful attempt
+    logPunchAttempt(pinValue, true, data.id);
+    
     setCurrentUser(data);
   };
 
@@ -977,13 +1036,6 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     </Button>
                   </div>
 
-                  <Button
-                    className="w-full h-14 text-lg font-semibold rounded-xl shadow-lg hover:shadow-xl active:scale-[0.98] transition-all duration-150"
-                    onClick={verifyPin}
-                    disabled={pin.length !== 4}
-                  >
-                    Enter
-                  </Button>
                 </div>
               </CardContent>
             </div>

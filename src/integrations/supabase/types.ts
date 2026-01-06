@@ -2869,6 +2869,57 @@ export type Database = {
           },
         ]
       }
+      punch_clock_attempts: {
+        Row: {
+          attempt_time: string
+          created_at: string
+          guessed_user_ids: string[] | null
+          guessed_user_names: string[] | null
+          id: string
+          location_id: string | null
+          matched_user_id: string | null
+          pin_entered: string
+          success: boolean
+        }
+        Insert: {
+          attempt_time?: string
+          created_at?: string
+          guessed_user_ids?: string[] | null
+          guessed_user_names?: string[] | null
+          id?: string
+          location_id?: string | null
+          matched_user_id?: string | null
+          pin_entered: string
+          success?: boolean
+        }
+        Update: {
+          attempt_time?: string
+          created_at?: string
+          guessed_user_ids?: string[] | null
+          guessed_user_names?: string[] | null
+          id?: string
+          location_id?: string | null
+          matched_user_id?: string | null
+          pin_entered?: string
+          success?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "punch_clock_attempts_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "punch_clock_attempts_matched_user_id_fkey"
+            columns: ["matched_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       punch_clock_templates: {
         Row: {
           background_url: string | null
