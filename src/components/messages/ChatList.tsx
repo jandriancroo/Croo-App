@@ -170,7 +170,7 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
           >
             {chat.title || (chat.is_group ? 'Group Chat' : 'Direct Message')}
           </p>
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1.5 shrink-0">
             {onTogglePin && (
               <Button
                 type="button"
@@ -189,13 +189,23 @@ export function ChatList({ chats, selectedChatId, onSelectChat, onTogglePin, loa
                 )}
               </Button>
             )}
-            <span className="text-xs text-muted-foreground whitespace-nowrap">
-              {formatLastMessageTime(chat.updated_at)}
-            </span>
+            {chat.unreadCount && chat.unreadCount > 0 ? (
+              <span className="flex items-center justify-center min-w-5 h-5 px-1.5 text-xs font-bold bg-primary text-primary-foreground rounded-full">
+                {chat.unreadCount > 99 ? '99+' : chat.unreadCount}
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {formatLastMessageTime(chat.updated_at)}
+              </span>
+            )}
           </div>
         </div>
         {chat.messagePreview && (
-          <p className="text-sm text-muted-foreground truncate mt-1">
+          <p className={`text-sm truncate mt-1 ${
+            chat.unreadCount && chat.unreadCount > 0 
+              ? 'text-foreground font-medium' 
+              : 'text-muted-foreground'
+          }`}>
             {searchQuery ? highlightSearchTerm(formatMessagePreview(chat.messagePreview), searchQuery) : formatMessagePreview(chat.messagePreview)}
           </p>
         )}
