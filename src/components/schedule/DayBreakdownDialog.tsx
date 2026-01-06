@@ -322,7 +322,7 @@ export function DayBreakdownDialog({
                         return (
                           <div key={shift.id} className="flex items-center">
                             <div className="w-32 flex-shrink-0 text-sm font-medium truncate pr-2">
-                              {profile?.full_name || "Unassigned"}
+                              {profile?.full_name ?? (shift.user_id ? "Hidden" : "Unassigned")}
                             </div>
                             <div className="flex-1 relative h-8 bg-muted/30 rounded">
                               <div
