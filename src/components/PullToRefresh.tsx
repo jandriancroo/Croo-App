@@ -1,6 +1,5 @@
 import { useState, useRef, ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { RefreshCw } from 'lucide-react';
 
 interface PullToRefreshProps {
   children: ReactNode;
@@ -78,12 +77,53 @@ export const PullToRefresh = ({ children }: PullToRefreshProps) => {
           opacity: progress
         }}
       >
-        <RefreshCw 
-          className={`h-6 w-6 text-muted-foreground transition-transform ${isRefreshing ? 'animate-spin' : ''}`}
-          style={{ 
-            transform: `rotate(${progress * 360}deg)`,
-          }}
-        />
+        {/* Custom spinner - fast and satisfying */}
+        <div className="relative w-8 h-8">
+          {/* Outer spinning ring */}
+          <svg
+            className={`w-full h-full ${isRefreshing ? 'animate-spin' : ''}`}
+            style={{ 
+              transform: isRefreshing ? undefined : `rotate(${progress * 720}deg)`,
+              animationDuration: '0.6s'
+            }}
+            viewBox="0 0 32 32"
+          >
+            {/* Background circle */}
+            <circle
+              cx="16"
+              cy="16"
+              r="12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              className="text-muted-foreground/20"
+            />
+            {/* Animated arc - grows as you pull */}
+            <circle
+              cx="16"
+              cy="16"
+              r="12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              className="text-primary"
+              style={{
+                strokeDasharray: `${progress * 60} 75`,
+                strokeDashoffset: 0,
+                transform: 'rotate(-90deg)',
+                transformOrigin: 'center',
+              }}
+            />
+          </svg>
+          
+          {/* Center dot that pulses when refreshing */}
+          {isRefreshing && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+            </div>
+          )}
+        </div>
       </div>
       {children}
     </div>
