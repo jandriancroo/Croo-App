@@ -1743,6 +1743,17 @@ export default function UserManagement() {
                     onClick={async () => {
                       try {
                         const newValue = !viewingUser.appears_on_schedule;
+                        
+                        // If hiding user from schedule, delete their future shifts first
+                        if (!newValue) {
+                          const today = new Date().toISOString().split('T')[0];
+                          await supabase
+                            .from('scheduled_shifts')
+                            .delete()
+                            .eq('user_id', viewingUser.id)
+                            .gte('shift_date', today);
+                        }
+                        
                         const { error } = await supabase
                           .from('profiles')
                           .update({ appears_on_schedule: newValue })
@@ -1752,7 +1763,7 @@ export default function UserManagement() {
                         
                         toast({
                           title: 'Updated',
-                          description: newValue ? 'User will appear on schedule' : 'User hidden from schedule',
+                          description: newValue ? 'User will appear on schedule' : 'User hidden from schedule (future shifts removed)',
                         });
                         setViewingUser({ ...viewingUser, appears_on_schedule: newValue });
                         fetchUsers();
