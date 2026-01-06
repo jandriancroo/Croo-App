@@ -300,7 +300,7 @@ async function fetchLaborData(
   qbLocationId: string
 ): Promise<LaborData | null> {
   try {
-    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/summary/sections/real-time-summary', {
+    const response = await fetch('https://gateway-api.qubeyond.com/api/v4/data/reports/real-time-summary/sections/overview', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -312,16 +312,18 @@ async function fetchLaborData(
       body: JSON.stringify({
         fields: [{ fieldName: "metric" }, { fieldName: "total" }],
         filters: {
+          // Match the working payload shape from fetch-qubeyond-sales
           date: { from: null, to: null, values: [dateStr], type: "custom" },
-          location: { operationalUnits: [parseInt(qbLocationId)] }
+          singleLocation: parseInt(qbLocationId),
+          clockInRequired: true
         },
-        params: { 
-          sectionId: "real-time-summary", 
-          pageNumber: 1, 
-          pageSize: 25, 
-          totalRecords: null, 
-          sort: null, 
-          showTotals: true 
+        params: {
+          sectionId: "overview",
+          pageNumber: 1,
+          pageSize: 25,
+          totalRecords: null,
+          sort: null,
+          showTotals: true
         }
       }),
     });
