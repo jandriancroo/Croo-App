@@ -283,6 +283,14 @@ async function fetchProductMixCrustCount(
           }
         } else {
           processRow(item);
+        }
+      }
+    }
+
+    return crustCount;
+  } catch (error) {
+    return 0;
+  }
 }
 
 // Fetch labor data from QuBeyond Real Time Summary
@@ -355,14 +363,6 @@ async function fetchLaborData(
   } catch (error) {
     console.error(`[LABOR-BACKFILL] Error fetching labor for ${dateStr}:`, error);
     return null;
-  }
-}
-      }
-    }
-
-    return crustCount;
-  } catch (error) {
-    return 0;
   }
 }
 
@@ -589,23 +589,6 @@ serve(async (req) => {
     const daysToBackfill = days || 365;
     console.log(`[BACKFILL] Starting ${daysToBackfill}-day backfill for location ${locationId} with actual crust counts`);
 
-    // Get integration credentials
-    const { data: integration, error: intError } = await supabase
-      .from('location_integrations')
-      .select('credentials')
-      .eq('id', integrationId)
-      .single();
-
-    if (intError || !integration) {
-      console.error('[BACKFILL] Failed to get integration:', intError);
-      return new Response(
-        JSON.stringify({ error: 'Integration not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const credentials = integration.credentials as QuBeyondCredentials;
-
     // Update status to in_progress
     await supabase
       .from('location_integrations')
@@ -615,11 +598,11 @@ serve(async (req) => {
         backfill_error: null,
         backfill_days_completed: 0
       })
-      .eq('id', integrationId);
+        .eq('id', integrationId);
 
-    // Authenticate with QuBeyond
-    const auth = await authenticateQuBeyond(credentials.username, credentials.password);
-    if (!auth) {
+    // Authenticate with QuBeyond (reuse credentials from above)
+    const authForBackfill = await authenticateQuBeyond(credentials.username, credentials.password);
+    if (!authForBackfill) {
       await supabase
         .from('location_integrations')
         .update({ backfill_status: 'failed', backfill_error: 'Authentication failed' })
@@ -632,7 +615,6 @@ serve(async (req) => {
     }
 
     // Use the QuBeyond location_id from our database credentials (not from JWT)
-    const qbLocationId = credentials.location_id || '';
     if (!qbLocationId) {
       await supabase
         .from('location_integrations')
@@ -660,7 +642,7 @@ serve(async (req) => {
       const batch = dates.slice(i, i + BATCH_SIZE);
       
       const batchResults = await Promise.all(
-        batch.map(dateStr => fetchDayData(auth.tokenGw, qbLocationId, dateStr, 3))
+        batch.map(dateStr => fetchDayData(authForBackfill.tokenGw, qbLocationId, dateStr, 3))
       );
 
       for (const result of batchResults) {
