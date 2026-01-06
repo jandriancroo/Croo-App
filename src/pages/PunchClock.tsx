@@ -465,9 +465,17 @@ export default function PunchClock() {
       .from('profiles')
       .select('*')
       .eq('employee_pin', pin)
+      .eq('is_active', true)
       .single();
 
     if (error || !data) {
+      console.error('[PunchClock] PIN verification failed:', {
+        pin_entered: pin,
+        location: currentLocation?.name,
+        location_id: currentLocation?.id,
+        timestamp: new Date().toISOString(),
+        error: error?.message || 'No matching profile found'
+      });
       toast.error('Invalid PIN');
       setPin('');
       return;
@@ -567,7 +575,8 @@ export default function PunchClock() {
         shift_id: todayShift?.id || null,
         punch_type: 'clock_in',
         punch_time: new Date().toISOString(),
-        location_id: currentLocation?.id
+        location_id: currentLocation?.id,
+        created_by: currentUser.id // Self-punch
       });
 
     if (error) {
@@ -598,7 +607,8 @@ export default function PunchClock() {
         punch_type: type,
         punch_time: new Date().toISOString(),
         notes: `${duration} minute ${duration === 30 ? 'unpaid' : 'paid'} break`,
-        location_id: currentLocation?.id
+        location_id: currentLocation?.id,
+        created_by: currentUser.id // Self-punch
       });
 
     if (error) {
@@ -665,7 +675,8 @@ export default function PunchClock() {
         shift_id: todayShift?.id,
         punch_type: 'break_end',
         punch_time: new Date().toISOString(),
-        location_id: currentLocation?.id
+        location_id: currentLocation?.id,
+        created_by: currentUser.id // Self-punch
       });
 
     if (error) {
@@ -692,7 +703,8 @@ export default function PunchClock() {
         shift_id: todayShift?.id,
         punch_type: 'clock_out',
         punch_time: new Date().toISOString(),
-        location_id: currentLocation?.id
+        location_id: currentLocation?.id,
+        created_by: currentUser.id // Self-punch
       });
 
     if (error) {
