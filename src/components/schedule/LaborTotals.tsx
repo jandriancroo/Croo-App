@@ -139,7 +139,14 @@ export function LaborTotals({
     fetchProjectedSales();
   }, [scheduleId]);
 
+  // Memoize the week dates string to prevent unnecessary re-fetches
+  const weekDatesKey = useMemo(() => 
+    weekDays.map(d => format(d, 'yyyy-MM-dd')).join(','), 
+    [currentWeekStart]
+  );
+
   // Auto-fill from Qu data - use cache for past days, only fetch fresh for today/future
+  // This effect only runs when scheduleId, location, or week changes - NOT on collapse/expand
   useEffect(() => {
     const fetchQuSalesData = async () => {
       if (!currentLocation?.id || isLoadingSales) return;
@@ -216,7 +223,7 @@ export function LaborTotals({
     };
     
     fetchQuSalesData();
-  }, [currentLocation?.id, isLoadingSales, weekDays.map(d => format(d, 'yyyy-MM-dd')).join(',')]);
+  }, [currentLocation?.id, isLoadingSales, weekDatesKey]);
 
   const handleSalesChange = async (dayIndex: number, value: string) => {
     if (!scheduleId) return;
