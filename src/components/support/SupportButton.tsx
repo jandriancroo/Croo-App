@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Headphones } from 'lucide-react';
-import { CreateTicketDialog } from './CreateTicketDialog';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { UserSupportView } from './UserSupportView';
 import { useUserRole } from '@/hooks/useUserRole';
 
 export function SupportButton() {
   const [isOpen, setIsOpen] = useState(false);
   const { isShiftManager, isSuperAdmin } = useUserRole();
 
-  // Only show for shift_manager and above, but NOT super_admin (they receive tickets)
+  // Only show for shift_manager and above, but NOT super_admin (they have the Support tab)
   if (!isShiftManager || isSuperAdmin) return null;
 
   return (
@@ -22,7 +23,11 @@ export function SupportButton() {
         <span className="hidden sm:inline">Support</span>
       </Button>
 
-      <CreateTicketDialog open={isOpen} onOpenChange={setIsOpen} />
+      <Sheet open={isOpen} onOpenChange={setIsOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-md p-0 pt-[env(safe-area-inset-top)] pb-safe">
+          <UserSupportView />
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

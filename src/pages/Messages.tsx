@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, ArrowLeft, Megaphone, ArrowLeftRight, Briefcase, MessageCircle } from 'lucide-react';
+import { Plus, Users, ArrowLeft, Megaphone, ArrowLeftRight, Briefcase, MessageCircle, Headphones } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { NewChatDialog } from '@/components/messages/NewChatDialog';
@@ -17,6 +17,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { HiringChatList } from '@/components/messages/HiringChatList';
 import { HiringChatPanel } from '@/components/hiring/HiringChatPanel';
+import { SupportChatPanel } from '@/components/support/SupportChatPanel';
+import { SupportButton } from '@/components/support/SupportButton';
 
 interface Chat {
   id: string;
@@ -42,10 +44,11 @@ interface Chat {
 }
 
 export default function Messages() {
-  const { isAdmin, isManager } = useUserRole();
+  const { isAdmin, isManager, isSuperAdmin } = useUserRole();
   const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
   const showHiringTab = isAdmin || isManager;
+  const showSupportTab = isSuperAdmin;
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
@@ -56,7 +59,7 @@ export default function Messages() {
   const [showChatList, setShowChatList] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
-  const [viewMode, setViewMode] = useState<'chats' | 'announcements' | 'marketplace' | 'hiring'>('chats');
+  const [viewMode, setViewMode] = useState<'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support'>('chats');
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedHiringConversation, setSelectedHiringConversation] = useState<any>(null);
 
@@ -233,9 +236,9 @@ export default function Messages() {
     }
   };
 
-  const applyViewFilter = (chatList: Chat[], mode: 'chats' | 'announcements' | 'marketplace' | 'hiring') => {
-    if (mode === 'marketplace' || mode === 'hiring') {
-      // Marketplace and Hiring are handled separately
+  const applyViewFilter = (chatList: Chat[], mode: 'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support') => {
+    if (mode === 'marketplace' || mode === 'hiring' || mode === 'support') {
+      // Marketplace, Hiring, and Support are handled separately
       setFilteredChats([]);
       return;
     }
@@ -304,13 +307,13 @@ export default function Messages() {
     }
   };
 
-  const handleViewModeChange = (mode: 'chats' | 'announcements' | 'marketplace' | 'hiring') => {
+  const handleViewModeChange = (mode: 'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support') => {
     setViewMode(mode);
     setSearchQuery('');
     setSelectedHiringConversation(null);
     if (mode === 'marketplace' && marketplaceChatId) {
       setSelectedChatId(marketplaceChatId);
-    } else if (mode === 'hiring') {
+    } else if (mode === 'hiring' || mode === 'support') {
       setSelectedChatId(null);
     } else {
       setSelectedChatId(null);
@@ -395,8 +398,8 @@ export default function Messages() {
             </div>
           </div>
           
-          <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-4">
-            <TabsList className="grid w-full grid-cols-4 h-10 p-1 gap-1">
+          <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support')} className="mb-4">
+            <TabsList className={`grid w-full ${showSupportTab ? 'grid-cols-3 gap-1' : 'grid-cols-4'} h-10 p-1 gap-1`}>
               <TabsTrigger value="chats" className="h-8" title="Chats">
                 <MessageCircle className="h-4 w-4" />
               </TabsTrigger>
@@ -406,15 +409,27 @@ export default function Messages() {
               <TabsTrigger value="marketplace" className="h-8" title="Shift Marketplace">
                 <ArrowLeftRight className="h-4 w-4" />
               </TabsTrigger>
-              <TabsTrigger 
-                value="hiring" 
-                className={`h-8 ${!showHiringTab ? 'invisible' : ''}`} 
-                title="Hiring"
-                disabled={!showHiringTab}
-              >
-                <Briefcase className="h-4 w-4" />
-              </TabsTrigger>
+              {!showSupportTab && (
+                <TabsTrigger 
+                  value="hiring" 
+                  className={`h-8 ${!showHiringTab ? 'invisible' : ''}`} 
+                  title="Hiring"
+                  disabled={!showHiringTab}
+                >
+                  <Briefcase className="h-4 w-4" />
+                </TabsTrigger>
+              )}
             </TabsList>
+            {showSupportTab && (
+              <TabsList className="grid w-full grid-cols-2 h-10 p-1 gap-1 mt-1">
+                <TabsTrigger value="hiring" className="h-8" title="Hiring">
+                  <Briefcase className="h-4 w-4" />
+                </TabsTrigger>
+                <TabsTrigger value="support" className="h-8" title="Support">
+                  <Headphones className="h-4 w-4" />
+                </TabsTrigger>
+              </TabsList>
+            )}
           </Tabs>
           
           {viewMode === 'hiring' ? (
@@ -422,6 +437,8 @@ export default function Messages() {
               onSelectConversation={(conv) => setSelectedHiringConversation(conv)}
               selectedId={selectedHiringConversation?.id}
             />
+          ) : viewMode === 'support' ? (
+            null // Support panel takes full width, no sidebar list needed
           ) : viewMode !== 'marketplace' && (
             <>
               <div className="mb-4">
@@ -441,8 +458,12 @@ export default function Messages() {
         </div>
 
         {/* Desktop: Chat Window */}
-        <div className="flex-1 bg-card rounded-lg flex min-w-0">
-          {viewMode === 'hiring' && selectedHiringConversation ? (
+        <div className={`${viewMode === 'support' ? 'flex-1' : 'flex-1'} bg-card rounded-lg flex min-w-0`}>
+          {viewMode === 'support' ? (
+            <div className="w-full h-full">
+              <SupportChatPanel />
+            </div>
+          ) : viewMode === 'hiring' && selectedHiringConversation ? (
             <div className="p-4 w-full">
               <HiringChatPanel
                 applicationId={selectedHiringConversation.application_id}
@@ -500,8 +521,8 @@ export default function Messages() {
           </div>
         </div>
         
-        <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring')} className="mb-3">
-          <TabsList className="grid w-full grid-cols-4 h-10 p-1 gap-1">
+        <Tabs value={viewMode} onValueChange={(value) => handleViewModeChange(value as 'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support')} className="mb-3">
+          <TabsList className={`grid w-full ${showSupportTab ? 'grid-cols-3' : 'grid-cols-4'} h-10 p-1 gap-1`}>
             <TabsTrigger value="chats" className="h-8" title="Chats">
               <MessageCircle className="h-4 w-4" />
             </TabsTrigger>
@@ -511,19 +532,33 @@ export default function Messages() {
             <TabsTrigger value="marketplace" className="h-8" title="Shift Marketplace">
               <ArrowLeftRight className="h-4 w-4" />
             </TabsTrigger>
-            <TabsTrigger 
-              value="hiring" 
-              className={`h-8 ${!showHiringTab ? 'invisible' : ''}`} 
-              title="Hiring"
-              disabled={!showHiringTab}
-            >
-              <Briefcase className="h-4 w-4" />
-            </TabsTrigger>
+            {!showSupportTab && (
+              <TabsTrigger 
+                value="hiring" 
+                className={`h-8 ${!showHiringTab ? 'invisible' : ''}`} 
+                title="Hiring"
+                disabled={!showHiringTab}
+              >
+                <Briefcase className="h-4 w-4" />
+              </TabsTrigger>
+            )}
           </TabsList>
+          {showSupportTab && (
+            <TabsList className="grid w-full grid-cols-2 h-10 p-1 gap-1 mt-1">
+              <TabsTrigger value="hiring" className="h-8" title="Hiring">
+                <Briefcase className="h-4 w-4" />
+              </TabsTrigger>
+              <TabsTrigger value="support" className="h-8" title="Support">
+                <Headphones className="h-4 w-4" />
+              </TabsTrigger>
+            </TabsList>
+          )}
         </Tabs>
         
         <div className="flex-1 overflow-hidden">
-          {viewMode === 'hiring' ? (
+          {viewMode === 'support' ? (
+            <SupportChatPanel />
+          ) : viewMode === 'hiring' ? (
             <HiringChatList
               onSelectConversation={(conv) => setSelectedHiringConversation(conv)}
               selectedId={selectedHiringConversation?.id}
@@ -672,6 +707,9 @@ export default function Messages() {
           }}
         />
       )}
+
+      {/* Floating Support Button for non-super-admin users */}
+      <SupportButton />
     </Layout>
   );
 }
