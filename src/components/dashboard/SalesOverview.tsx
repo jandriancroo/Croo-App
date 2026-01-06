@@ -275,6 +275,17 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       ? (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number; projected?: number }>)
       : [];
     
+    // Build daily labor from cache
+    const dailyLabor = cached && (Number(cached.labor_cost) > 0 || Number(cached.labor_hours) > 0) ? {
+      laborPercent: cached.net_sales && Number(cached.net_sales) > 0 
+        ? (Number(cached.labor_cost) / Number(cached.net_sales)) * 100 
+        : 0,
+      laborCost: Number(cached.labor_cost) || 0,
+      hoursWorked: Number(cached.labor_hours) || 0,
+      regularHours: Number(cached.regular_hours) || Number(cached.labor_hours) || 0,
+      overtimeHours: Number(cached.overtime_hours) || 0
+    } : null;
+    
     return {
       daily: cached ? (Number(cached.net_sales) || 0) : 0,
       weekly: weeklySales,
@@ -298,7 +309,8 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
         today: dateStr,
         weekStart: weekStartStr,
         monthStart: monthStartStr
-      }
+      },
+      labor: dailyLabor
     };
   };
 
