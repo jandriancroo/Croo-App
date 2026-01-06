@@ -59,6 +59,18 @@ const STATUS_COLORS: Record<string, string> = {
   resolved: 'bg-green-500/20 text-green-500 border-green-500/30',
 };
 
+const STATUS_BORDER_COLORS: Record<string, string> = {
+  open: 'border-l-yellow-500',
+  in_progress: 'border-l-blue-500',
+  resolved: 'border-l-green-500',
+};
+
+const STATUS_BG_COLORS: Record<string, string> = {
+  open: 'bg-yellow-500/5 hover:bg-yellow-500/10',
+  in_progress: 'bg-blue-500/5 hover:bg-blue-500/10',
+  resolved: 'bg-muted/50 hover:bg-muted',
+};
+
 export function SupportChatPanel() {
   const { isSuperAdmin } = useUserRole();
   const isMobile = useIsMobile();
@@ -384,35 +396,44 @@ export function SupportChatPanel() {
     // Show ticket list (full width on mobile)
     return (
       <div className="flex flex-col h-full">
-        <div className="p-4 border-b">
-          <h2 className="font-semibold">Support Tickets</h2>
-          <p className="text-xs text-muted-foreground">
-            {tickets.filter(t => t.status !== 'resolved').length} open
+        <div className="p-4 border-b bg-card">
+          <h2 className="font-semibold text-lg">Support Tickets</h2>
+          <p className="text-sm text-muted-foreground">
+            <span className="text-yellow-500 font-medium">{tickets.filter(t => t.status === 'open').length} open</span>
+            <span className="mx-2">•</span>
+            <span className="text-blue-500 font-medium">{tickets.filter(t => t.status === 'in_progress').length} in progress</span>
+            <span className="mx-2">•</span>
+            <span className="text-green-500 font-medium">{tickets.filter(t => t.status === 'resolved').length} resolved</span>
           </p>
         </div>
         <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
+          <div className="divide-y divide-border">
             {tickets.map((ticket) => (
               <button
                 key={ticket.id}
                 onClick={() => setSelectedTicket(ticket)}
-                className="w-full p-3 rounded-lg text-left transition-colors hover:bg-muted"
+                className={`w-full p-4 text-left transition-all border-l-4 ${STATUS_BORDER_COLORS[ticket.status]} ${STATUS_BG_COLORS[ticket.status]}`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-mono text-xs font-medium">
-                    {formatTicketId(ticket.ticket_number)}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-mono text-xs font-semibold text-primary">
+                        {formatTicketId(ticket.ticket_number)}
+                      </span>
+                      <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[ticket.status]}`}>
+                        {ticket.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-semibold truncate">{ticket.profiles?.full_name}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {CATEGORY_LABELS[ticket.category] || ticket.category}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}
                   </span>
-                  <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[ticket.status]}`}>
-                    {ticket.status.replace('_', ' ')}
-                  </Badge>
                 </div>
-                <p className="text-sm font-medium truncate">{ticket.profiles?.full_name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {CATEGORY_LABELS[ticket.category] || ticket.category}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}
-                </p>
+                <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{ticket.description}</p>
               </button>
             ))}
           </div>
@@ -426,39 +447,45 @@ export function SupportChatPanel() {
     <div className="flex h-full">
       {/* Ticket List */}
       <div className="w-80 border-r flex flex-col">
-        <div className="p-4 border-b">
-          <h2 className="font-semibold">Support Tickets</h2>
-          <p className="text-xs text-muted-foreground">
-            {tickets.filter(t => t.status !== 'resolved').length} open
+        <div className="p-4 border-b bg-card">
+          <h2 className="font-semibold text-lg">Support Tickets</h2>
+          <p className="text-sm text-muted-foreground">
+            <span className="text-yellow-500 font-medium">{tickets.filter(t => t.status === 'open').length} open</span>
+            <span className="mx-2">•</span>
+            <span className="text-blue-500 font-medium">{tickets.filter(t => t.status === 'in_progress').length} in progress</span>
           </p>
         </div>
         <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
+          <div className="divide-y divide-border">
             {tickets.map((ticket) => (
               <button
                 key={ticket.id}
                 onClick={() => setSelectedTicket(ticket)}
-                className={`w-full p-3 rounded-lg text-left transition-colors ${
+                className={`w-full p-3 text-left transition-all border-l-4 ${STATUS_BORDER_COLORS[ticket.status]} ${
                   selectedTicket?.id === ticket.id
-                    ? 'bg-primary/10 border border-primary/30'
-                    : 'hover:bg-muted'
+                    ? 'bg-primary/10 border-l-primary'
+                    : STATUS_BG_COLORS[ticket.status]
                 }`}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-mono text-xs font-medium">
-                    {formatTicketId(ticket.ticket_number)}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-mono text-xs font-semibold text-primary">
+                        {formatTicketId(ticket.ticket_number)}
+                      </span>
+                      <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[ticket.status]}`}>
+                        {ticket.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                    <p className="text-sm font-semibold truncate">{ticket.profiles?.full_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {CATEGORY_LABELS[ticket.category] || ticket.category}
+                    </p>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                    {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}
                   </span>
-                  <Badge variant="outline" className={`text-[10px] ${STATUS_COLORS[ticket.status]}`}>
-                    {ticket.status.replace('_', ' ')}
-                  </Badge>
                 </div>
-                <p className="text-sm font-medium truncate">{ticket.profiles?.full_name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {CATEGORY_LABELS[ticket.category] || ticket.category}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}
-                </p>
               </button>
             ))}
           </div>
