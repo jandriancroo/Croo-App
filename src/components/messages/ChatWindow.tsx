@@ -87,12 +87,53 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   const [processedSmackTalks, setProcessedSmackTalks] = useState<Set<string>>(new Set());
   const [isArcadeChat, setIsArcadeChat] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
+  const [signedAttachmentUrls, setSignedAttachmentUrls] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = (instant = false) => {
     messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'auto' : 'smooth' });
   };
+
+  const parseStorageObjectUrl = (url: string): { bucket: string; path: string } | null => {
+    // Supports both /object/public/:bucket/:path and /object/:bucket/:path
+    const match = url.match(/\/storage\/v1\/object\/(?:public\/)?([^/]+)\/(.+)$/);
+    if (!match) return null;
+    return { bucket: match[1], path: decodeURIComponent(match[2]) };
+  };
+
+  useEffect(() => {
+    // Message attachments are stored in a private bucket; images in <img> tags need a signed URL.
+    const resolveSignedUrls = async () => {
+      const toResolve = messages.filter((m) => m.attachment_url && !signedAttachmentUrls[m.id]);
+      if (toResolve.length === 0) return;
+
+      const results = await Promise.all(
+        toResolve.map(async (m) => {
+          const parsed = parseStorageObjectUrl(m.attachment_url!);
+          if (!parsed) return null;
+
+          const { data, error } = await supabase.storage
+            .from(parsed.bucket)
+            .createSignedUrl(parsed.path, 60 * 60);
+
+          if (error || !data?.signedUrl) return null;
+          return { id: m.id, url: data.signedUrl };
+        })
+      );
+
+      const next: Record<string, string> = {};
+      for (const r of results) {
+        if (r) next[r.id] = r.url;
+      }
+      if (Object.keys(next).length > 0) {
+        setSignedAttachmentUrls((prev) => ({ ...prev, ...next }));
+      }
+    };
+
+    resolveSignedUrls();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -755,28 +796,32 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                           </div>
                         );
                       })()}
-                      {message.attachment_url && (
-                        <div className="mb-2">
-                          {message.attachment_type?.startsWith('image/') ? (
-                            <img
-                              src={message.attachment_url}
-                              alt="Attachment"
-                              className="rounded max-w-xs cursor-pointer hover:opacity-90 transition-opacity"
-                              onClick={() => setViewingImage(message.attachment_url)}
-                            />
-                          ) : (
-                            <a
-                              href={message.attachment_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 hover:underline"
-                            >
-                              <File className="h-4 w-4" />
-                              {message.content}
-                            </a>
-                          )}
-                        </div>
-                      )}
+                      {message.attachment_url && (() => {
+                        const displayUrl = signedAttachmentUrls[message.id] || message.attachment_url;
+                        return (
+                          <div className="mb-2">
+                            {message.attachment_type?.startsWith('image/') ? (
+                              <img
+                                src={displayUrl}
+                                alt="Message attachment"
+                                className="rounded max-w-xs cursor-pointer hover:opacity-90 transition-opacity"
+                                onClick={() => setViewingImage(displayUrl)}
+                                loading="lazy"
+                              />
+                            ) : (
+                              <a
+                                href={displayUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-2 hover:underline"
+                              >
+                                <File className="h-4 w-4" />
+                                {message.content || 'Attachment'}
+                              </a>
+                            )}
+                          </div>
+                        );
+                      })()}
                       {message.content && (
                         <MessageContent 
                           content={message.content} 
