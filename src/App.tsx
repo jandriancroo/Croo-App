@@ -1,9 +1,10 @@
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "@/lib/auth";
+import { AuthProvider, useAuth } from "@/lib/auth";
 import { LocationProvider } from "@/hooks/useLocation";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
@@ -11,6 +12,7 @@ import { CrooCashAnimationProvider } from "@/contexts/CrooCashAnimationContext";
 import { DockToastProvider } from "@/contexts/DockToastContext";
 import { DiagnosticMode } from "@/components/DiagnosticMode";
 import BreakOverlay from "@/components/BreakOverlay";
+import { AppSplashScreen } from "@/components/AppSplashScreen";
 import Dashboard from "./pages/Dashboard";
 import Auth from "./pages/Auth";
 import CreateChecklist from "./pages/CreateChecklist";
@@ -69,6 +71,33 @@ import QRCodeGenerator from "./pages/QRCodeGenerator";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
+
+// Wrapper to show splash screen during initial auth loading
+const AppWithSplash = () => {
+  const { loading } = useAuth();
+  const [showSplash, setShowSplash] = useState(true);
+  const [splashComplete, setSplashComplete] = useState(false);
+
+  // Only show splash on initial cold start (not on every route change)
+  useEffect(() => {
+    // If auth is done loading and splash animation completed, hide splash
+    if (!loading && splashComplete) {
+      setShowSplash(false);
+    }
+  }, [loading, splashComplete]);
+
+  // Handle splash animation completion
+  const handleSplashComplete = () => {
+    setSplashComplete(true);
+  };
+
+  return (
+    <>
+      {showSplash && <AppSplashScreen onComplete={handleSplashComplete} />}
+      <AppContent />
+    </>
+  );
+};
 
 const AppContent = () => {
   // Don't setup push notifications until user navigates to protected routes
@@ -151,7 +180,7 @@ const App = () => (
               <DockToastProvider>
                 <DiagnosticMode />
                 <BreakOverlay />
-                <AppContent />
+                <AppWithSplash />
               </DockToastProvider>
             </CrooCashAnimationProvider>
           </LocationProvider>
