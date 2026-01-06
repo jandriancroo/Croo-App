@@ -587,64 +587,6 @@ export default function Dashboard() {
   // Checklists grid content - passed to WidgetsSection for unified drag & drop
   const checklistsGridContent = (
     <div className="grid gap-3 grid-cols-1 md:grid-cols-3 items-start">
-      
-      {/* Catering Order Cards */}
-      {todaysCateringOrders.map(order => {
-        const isCompleted = order.status === "completed";
-        const ORANGE_COLOR = "#f97316";
-        const GREEN_COLOR = "#22c55e";
-        const accentColor = isCompleted ? GREEN_COLOR : ORANGE_COLOR;
-        
-        return (
-          <Card 
-            key={`catering-${order.id}`}
-            className={`overflow-hidden ${isCompleted ? "opacity-75" : ""}`}
-            style={{ borderLeft: `4px solid ${accentColor}` }}
-          >
-            <CardContent className="p-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div
-                  className="p-2 rounded-lg"
-                  style={{ backgroundColor: `${accentColor}20` }}
-                >
-                  {isCompleted ? (
-                    <Check className="h-4 w-4" style={{ color: accentColor }} />
-                  ) : (
-                    <ChefHat className="h-4 w-4" style={{ color: accentColor }} />
-                  )}
-                </div>
-                <div className="min-w-0">
-                  <p className="font-medium text-sm truncate">{order.customer_name}</p>
-                  <p className="text-xs text-muted-foreground flex items-center gap-2">
-                    {formatCateringTime(order.pickup_time)}
-                    {order.headcount && (
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {order.headcount}
-                      </span>
-                    )}
-                    <span
-                      className="px-1.5 py-0.5 rounded text-[10px]"
-                      style={{ backgroundColor: `${accentColor}20`, color: accentColor }}
-                    >
-                      {order.items.length} items
-                    </span>
-                  </p>
-                </div>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="shrink-0"
-                onClick={() => setSelectedCateringOrder(order)}
-              >
-                {isCompleted ? "View" : "View Order"}
-              </Button>
-            </CardContent>
-          </Card>
-        );
-      })}
-      
       {/* Checklist Cards */}
       {checklists.map(checklist => {
         const { expected, completed } = getCompletionData(checklist.id);
