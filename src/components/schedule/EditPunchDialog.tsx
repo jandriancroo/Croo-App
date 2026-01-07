@@ -205,10 +205,20 @@ export function EditPunchDialog({
         const punchTime = toISOStringInTimezone(punchDate, update.time, timezone);
 
         if (update.existingId) {
-          // Update existing punch
+          // Update existing punch - clear auto_punched_out flag if manually editing clock_out
+          const updateData: Record<string, unknown> = { 
+            punch_time: punchTime, 
+            notes: update.notes || null 
+          };
+          
+          // If editing a clock_out, clear the auto-punched flag since it's now a manual edit
+          if (update.type === 'clock_out') {
+            updateData.is_auto_punched_out = false;
+          }
+          
           const { error } = await supabase
             .from('time_punches')
-            .update({ punch_time: punchTime, notes: update.notes || null })
+            .update(updateData)
             .eq('id', update.existingId);
           if (error) throw error;
         } else {
