@@ -94,6 +94,7 @@ interface DayPunch {
   isActive: boolean;
   profile: Profile;
   hoursWorked: number;
+  createdByName: string | null; // Name of manager who created punch if different from employee
   scheduledShift?: {
     id: string;
     start_time: string;
@@ -173,14 +174,29 @@ export function MobileScheduleView({
     endOfDayPlus.setHours(endOfDayPlus.getHours() + 12); // Add buffer for timezone edge cases
     const endOfDay = endOfDayPlus.toISOString();
     
-    // Get ALL punches for today ordered by time
+    // Get ALL punches for today ordered by time (include created_by for manager edits)
     const { data: allPunches } = await supabase
       .from('time_punches')
-      .select('id, user_id, punch_time, punch_type, notes')
+      .select('id, user_id, punch_time, punch_type, notes, created_by')
       .eq('location_id', currentLocation.id)
       .gte('punch_time', startOfDay)
       .lte('punch_time', endOfDay)
       .order('punch_time', { ascending: true });
+    
+    // Get unique created_by IDs (managers who created punches for others)
+    const createdByIds = [...new Set((allPunches || [])
+      .filter(p => p.created_by && p.created_by !== p.user_id)
+      .map(p => p.created_by))] as string[];
+    
+    // Fetch creator profiles
+    const { data: creatorProfiles } = createdByIds.length > 0
+      ? await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', createdByIds)
+      : { data: [] };
+    
+    const creatorMap = new Map((creatorProfiles || []).map(p => [p.id, p.full_name]));
     
     // Get unique user IDs from punches to fetch their profiles
     const punchUserIds = [...new Set((allPunches || []).map(p => p.user_id))];
@@ -222,7 +238,7 @@ export function MobileScheduleView({
     setTodayEvents(filteredEvents);
     
     // Group by user and build punch summaries for each user
-    const userPunches: Record<string, Array<{id: string, punch_time: string, punch_type: string, notes: string | null}>> = {};
+    const userPunches: Record<string, Array<{id: string, punch_time: string, punch_type: string, notes: string | null, created_by: string | null}>> = {};
     allPunches?.forEach(p => {
       if (!userPunches[p.user_id]) userPunches[p.user_id] = [];
       userPunches[p.user_id].push(p);
@@ -233,7 +249,7 @@ export function MobileScheduleView({
     Object.entries(userPunches).forEach(([userId, punches]) => {
       let isClockedIn = false;
       let isOnBreak = false;
-      let firstClockIn: { id: string; punch_time: string } | null = null;
+      let firstClockIn: { id: string; punch_time: string; created_by: string | null } | null = null;
       let lastClockOut: { punch_time: string } | null = null;
       let breakStart: { punch_time: string; notes: string } | null = null;
       let breakEnd: { punch_time: string } | null = null;
@@ -248,7 +264,7 @@ export function MobileScheduleView({
           }
           if (!isClockedIn) {
             isClockedIn = true;
-            if (!firstClockIn) firstClockIn = { id: p.id, punch_time: p.punch_time };
+            if (!firstClockIn) firstClockIn = { id: p.id, punch_time: p.punch_time, created_by: p.created_by };
           }
           return;
         }
@@ -280,6 +296,10 @@ export function MobileScheduleView({
         const hoursWorked = (endTime - new Date(firstClockIn.punch_time).getTime()) / 3600000;
         const scheduledShift = todayScheduledShifts?.find(s => s.user_id === userId);
         
+        // Determine if punch was created by someone else (manager edit)
+        const createdByOther = firstClockIn.created_by && firstClockIn.created_by !== userId;
+        const createdByName = createdByOther ? creatorMap.get(firstClockIn.created_by!) || null : null;
+        
         punchSummaries.push({
           id: firstClockIn.id,
           user_id: userId,
@@ -291,6 +311,7 @@ export function MobileScheduleView({
           isActive: isClockedIn,
           profile: profile || { id: userId, full_name: 'Unknown', profile_photo_url: null },
           hoursWorked,
+          createdByName,
           scheduledShift: scheduledShift ? { 
             id: scheduledShift.id, 
             start_time: scheduledShift.start_time, 
@@ -467,6 +488,14 @@ export function MobileScheduleView({
                             <div className="flex items-center gap-3 text-sm">
                               <span className="text-muted-foreground">Break: <span className="text-foreground font-medium">{formatTimeDisplay(punch.breakStartTime, timezone)}</span></span>
                               <span className="text-muted-foreground">- <span className="text-foreground font-medium">{punch.breakEndTime ? formatTimeDisplay(punch.breakEndTime, timezone) : 'Active'}</span></span>
+                            </div>
+                          )}
+                          
+                          {/* Manager edit indicator */}
+                          {punch.createdByName && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                              <Pencil className="h-3 w-3" />
+                              <span>Entered by {punch.createdByName}</span>
                             </div>
                           )}
                         </div>
