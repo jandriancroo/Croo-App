@@ -453,6 +453,10 @@ serve(async (req) => {
           console.log(`${locationName}: Updated - $${netSales.toFixed(2)}, ${guestCount} guests, ${pizzaCount} pizzas (from crusts)`);
           results.push({ locationId, name: locationName, status: 'success', salesUpdated: netSales, pizzaCount });
         }
+        
+        // Note: For labor in sync-live-sales, we would need to also fetch labor data
+        // For now, labor caching is handled by fetch-qubeyond-sales when it runs
+        // This function focuses on quick sales sync during business hours
       } else {
         console.log(`${locationName}: No sales data yet (${netSales}), skipping update to preserve existing data`);
         results.push({ locationId, name: locationName, status: 'no_sales_yet' });

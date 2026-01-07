@@ -2955,6 +2955,31 @@ serve(async (req) => {
           } else {
             console.log(`[BACKGROUND] Saved today's sales: $${dailySales}, ${dailyGuestCount} guests, ${finalPizzaCount} pizzas`);
           }
+          
+          // Save today's labor to labor_cache
+          if (laborData && (laborData.laborCost > 0 || laborData.hoursWorked > 0)) {
+            const { error: laborError } = await cacheSupabase
+              .from('labor_cache')
+              .upsert({
+                location_id: locationId,
+                labor_date: todayStr,
+                source: laborSource === 'punches' ? 'punch_clock' : 'qubeyond',
+                labor_cost: laborData.laborCost || 0,
+                labor_hours: laborData.hoursWorked || 0,
+                regular_hours: laborData.regularHours || 0,
+                overtime_hours: laborData.overtimeHours || 0,
+                double_time_hours: 0,
+                fetched_at: new Date().toISOString()
+              }, {
+                onConflict: 'location_id,labor_date,source'
+              });
+            
+            if (laborError) {
+              console.error(`[BACKGROUND] Failed to save labor to labor_cache:`, laborError.message);
+            } else {
+              console.log(`[BACKGROUND] Saved labor to labor_cache: ${laborSource} source, $${laborData.laborCost.toFixed(2)}, ${laborData.hoursWorked.toFixed(2)}h`);
+            }
+          }
         }
       } catch (bgError) {
         console.error('[BACKGROUND] Error in background save task:', bgError);
