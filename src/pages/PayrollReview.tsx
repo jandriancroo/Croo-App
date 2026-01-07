@@ -8,7 +8,7 @@ import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { useTipDistribution } from '@/hooks/useTipDistribution';
 import { toast } from 'sonner';
-import { ChevronLeft, AlertTriangle, Trash2, Clock, CheckCircle2, Lock, AlertCircle, Coffee, Download, FileSpreadsheet, Calendar, DollarSign, ChevronDown } from 'lucide-react';
+import { ChevronLeft, AlertTriangle, Trash2, Clock, CheckCircle2, Lock, AlertCircle, Coffee, Download, FileSpreadsheet, Calendar, DollarSign, ChevronDown, Pencil } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -506,12 +506,30 @@ export default function PayrollReview() {
         const { data: currentWage } = await supabase
           .rpc('get_current_wage', { p_user_id: profile.id });
 
-        // Group punches by day (in the location timezone)
+        // Fetch creator profiles for punches made by someone other than the employee
+        const creatorIds = [...new Set((punches || [])
+          .filter(p => p.created_by && p.created_by !== profile.id)
+          .map(p => p.created_by))] as string[];
+        
+        const { data: creatorProfiles } = creatorIds.length > 0
+          ? await supabase
+              .from('profiles')
+              .select('id, full_name')
+              .in('id', creatorIds)
+          : { data: [] };
+        
+        const creatorMap = new Map((creatorProfiles || []).map(p => [p.id, p.full_name]));
+
+        // Group punches by day (in the location timezone) and attach creator names
         const punchesByDay: { [key: string]: any[] } = {};
         punches?.forEach((punch) => {
           const day = getDateInTimezone(new Date(punch.punch_time), timezone);
           if (!punchesByDay[day]) punchesByDay[day] = [];
-          punchesByDay[day].push(punch);
+          // Attach creator name if different from employee
+          const createdByName = punch.created_by && punch.created_by !== profile.id
+            ? creatorMap.get(punch.created_by) || null
+            : null;
+          punchesByDay[day].push({ ...punch, created_by_name: createdByName });
         });
 
         // Calculate total hours and check for issues
@@ -1652,6 +1670,17 @@ export default function PayrollReview() {
                                               })}
                                             </div>
                                           )}
+                                          
+                                          {/* Manager edit indicator - show if any punch was created by someone else */}
+                                          {(() => {
+                                            const creatorName = dayPunches.find((p: any) => p.created_by_name)?.created_by_name;
+                                            return creatorName ? (
+                                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                                <Pencil className="h-2.5 w-2.5" />
+                                                <span>Entered by {creatorName}</span>
+                                              </div>
+                                            ) : null;
+                                          })()}
                                         </div>
 
                                         {/* Hours */}
