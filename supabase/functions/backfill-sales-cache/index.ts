@@ -566,6 +566,7 @@ serve(async (req) => {
       for (const dateStr of laborDates) {
         const laborData = await fetchLaborData(auth.tokenGw, dateStr, qbLocationId);
         if (laborData && laborData.laborCost > 0) {
+          // Save to sales_cache (legacy)
           await supabase
             .from('sales_cache')
             .upsert({
@@ -577,6 +578,22 @@ serve(async (req) => {
               overtime_hours: laborData.overtimeHours,
               fetched_at: new Date().toISOString()
             }, { onConflict: 'location_id,sale_date' });
+          
+          // Also save to labor_cache (new dedicated table)
+          await supabase
+            .from('labor_cache')
+            .upsert({
+              location_id: locationId,
+              labor_date: dateStr,
+              source: 'qubeyond',
+              labor_cost: laborData.laborCost,
+              labor_hours: laborData.hoursWorked,
+              regular_hours: laborData.regularHours,
+              overtime_hours: laborData.overtimeHours,
+              double_time_hours: 0,
+              fetched_at: new Date().toISOString()
+            }, { onConflict: 'location_id,labor_date,source' });
+          
           successCount++;
         }
         await new Promise(resolve => setTimeout(resolve, 200));

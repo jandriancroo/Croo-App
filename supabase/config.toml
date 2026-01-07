@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.sync-pfg-orders]
 verify_jwt = false
+
+[functions.backfill-punch-labor]
+verify_jwt = false
