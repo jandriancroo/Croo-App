@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks } from 'date-fns';
+import { format, addDays, startOfWeek, isSameDay, addWeeks, subWeeks, isSameWeek } from 'date-fns';
 import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -144,6 +144,36 @@ export function MobileScheduleView({
   
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
   const selectedDayOfWeek = weekDays.findIndex(day => isSameDay(day, selectedDate));
+
+  // Get week label relative to current week
+  const getWeekLabel = () => {
+    const todayDate = new Date();
+    const thisWeekStart = startOfWeek(todayDate, { weekStartsOn: 1 });
+    
+    if (isSameWeek(currentWeekStart, thisWeekStart, { weekStartsOn: 1 })) {
+      return { label: "Current Week", variant: "default" as const };
+    }
+    
+    const lastWeekStart = subWeeks(thisWeekStart, 1);
+    if (isSameWeek(currentWeekStart, lastWeekStart, { weekStartsOn: 1 })) {
+      return { label: "Last Week", variant: "secondary" as const };
+    }
+    
+    const nextWeekStart = addWeeks(thisWeekStart, 1);
+    if (isSameWeek(currentWeekStart, nextWeekStart, { weekStartsOn: 1 })) {
+      return { label: "Next Week", variant: "outline" as const };
+    }
+    
+    // Calculate weeks difference
+    const diffTime = currentWeekStart.getTime() - thisWeekStart.getTime();
+    const diffWeeks = Math.round(diffTime / (7 * 24 * 60 * 60 * 1000));
+    
+    if (diffWeeks < 0) {
+      return { label: `${Math.abs(diffWeeks)} Weeks Ago`, variant: "secondary" as const };
+    } else {
+      return { label: `${diffWeeks} Weeks Ahead`, variant: "outline" as const };
+    }
+  };
 
   // Persist selected tab across re-mounts (e.g., resize/breakpoint recalcs)
   useEffect(() => {
@@ -509,13 +539,16 @@ export function MobileScheduleView({
         </div>
       ) : (
         <>
-          {/* Week Header - Centered */}
-          <div className="px-4 py-2 border-b flex justify-center">
+          {/* Week Header - Centered with week label */}
+          <div className="px-4 py-2 border-b flex flex-col items-center gap-1">
             <DateNavigator
               onPrev={handlePreviousWeek}
               onNext={handleNextWeek}
               label={`${format(currentWeekStart, 'MMM d')} - ${format(addDays(currentWeekStart, 6), 'MMM d, yyyy')}`}
             />
+            <Badge variant={getWeekLabel().variant} className="text-xs">
+              {getWeekLabel().label}
+            </Badge>
           </div>
 
       {/* Week Calendar */}

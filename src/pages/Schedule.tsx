@@ -10,6 +10,7 @@ import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { toast } from "sonner";
 import { Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown, AlertTriangle, Sparkles } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { DateNavigator } from "@/components/ui/date-navigator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -17,7 +18,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays } from "date-fns";
+import { format, startOfWeek, endOfWeek, addWeeks, subWeeks, addDays, isSameWeek } from "date-fns";
 import { parseDateStringInTimezone } from "@/utils/timezoneUtils";
 import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor, TouchSensor, closestCenter } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
@@ -140,6 +141,8 @@ export default function Schedule() {
     userName: string;
     newRole: string;
   } | null>(null);
+  const [currentWeekWarningOpen, setCurrentWeekWarningOpen] = useState(false);
+  const [pendingEditAction, setPendingEditAction] = useState<(() => void) | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -611,8 +614,13 @@ export default function Schedule() {
       return;
     }
 
-    // No conflicts, proceed with scheduling
-    await executeShiftOperation(active, userId, dayIndex, shiftDate);
+    // No conflicts, proceed with scheduling (with current week warning if applicable)
+    if (isCurrentWeek() && isPublished) {
+      setPendingEditAction(() => () => executeShiftOperation(active, userId, dayIndex, shiftDate));
+      setCurrentWeekWarningOpen(true);
+    } else {
+      await executeShiftOperation(active, userId, dayIndex, shiftDate);
+    }
   };
 
   const executeShiftOperation = async (active: any, userId: string, dayIndex: number, shiftDate: string) => {
@@ -1057,6 +1065,57 @@ export default function Schedule() {
     return changes;
   };
 
+  // Get week label relative to current week
+  const getWeekLabel = () => {
+    const todayStr = getTodayInTimezone();
+    const [y, m, d] = todayStr.split('-').map(Number);
+    const todayDate = new Date(y, m - 1, d);
+    const thisWeekStart = startOfWeek(todayDate, { weekStartsOn: 1 });
+    
+    if (isSameWeek(currentWeekStart, thisWeekStart, { weekStartsOn: 1 })) {
+      return { label: "Current Week", variant: "default" as const };
+    }
+    
+    const lastWeekStart = subWeeks(thisWeekStart, 1);
+    if (isSameWeek(currentWeekStart, lastWeekStart, { weekStartsOn: 1 })) {
+      return { label: "Last Week", variant: "secondary" as const };
+    }
+    
+    const nextWeekStart = addWeeks(thisWeekStart, 1);
+    if (isSameWeek(currentWeekStart, nextWeekStart, { weekStartsOn: 1 })) {
+      return { label: "Next Week", variant: "outline" as const };
+    }
+    
+    // Calculate weeks difference
+    const diffTime = currentWeekStart.getTime() - thisWeekStart.getTime();
+    const diffWeeks = Math.round(diffTime / (7 * 24 * 60 * 60 * 1000));
+    
+    if (diffWeeks < 0) {
+      return { label: `${Math.abs(diffWeeks)} Weeks Ago`, variant: "secondary" as const };
+    } else {
+      return { label: `${diffWeeks} Weeks Ahead`, variant: "outline" as const };
+    }
+  };
+
+  // Check if viewing current week (for edit warning)
+  const isCurrentWeek = () => {
+    const todayStr = getTodayInTimezone();
+    const [y, m, d] = todayStr.split('-').map(Number);
+    const todayDate = new Date(y, m - 1, d);
+    const thisWeekStart = startOfWeek(todayDate, { weekStartsOn: 1 });
+    return isSameWeek(currentWeekStart, thisWeekStart, { weekStartsOn: 1 });
+  };
+
+  // Wrapper to show warning when editing current week
+  const wrapEditAction = (action: () => void) => {
+    if (isCurrentWeek() && isPublished) {
+      setPendingEditAction(() => action);
+      setCurrentWeekWarningOpen(true);
+    } else {
+      action();
+    }
+  };
+
   const handleRoleChange = async () => {
     if (!pendingRoleChange) return;
     
@@ -1147,13 +1206,16 @@ export default function Schedule() {
           <Card className="overflow-hidden">
             {/* Header inside card */}
             <div className="flex items-center gap-4 p-4 border-b border-border bg-muted/30">
-              <div className="flex-1">
+              <div className="flex items-center gap-3 flex-1">
                 <DateNavigator
                   onPrev={handlePreviousWeek}
                   onNext={handleNextWeek}
                   label={`${format(currentWeekStart, "MMMM d")} - ${format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), "MMMM d, yyyy")}`}
                   leftAlignOnDesktop
                 />
+                <Badge variant={getWeekLabel().variant} className="whitespace-nowrap">
+                  {getWeekLabel().label}
+                </Badge>
               </div>
               {(isAdmin || isManager) && (
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -1169,7 +1231,7 @@ export default function Schedule() {
                   <Button 
                     variant="outline" 
                     size="icon"
-                    onClick={() => setIsCreatingShift(true)}
+                    onClick={() => wrapEditAction(() => setIsCreatingShift(true))}
                     className="opacity-60 hover:opacity-100 transition-opacity"
                   >
                     <Plus className="h-4 w-4" />
@@ -1193,7 +1255,7 @@ export default function Schedule() {
                         <Copy className="h-4 w-4" />
                         Copy Schedule to Future Week
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setClearScheduleDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
+                      <DropdownMenuItem onClick={() => wrapEditAction(() => setClearScheduleDialogOpen(true))} className="gap-2 cursor-pointer text-destructive">
                         <Trash2 className="h-4 w-4" />
                         Clear Schedule
                       </DropdownMenuItem>
@@ -1347,7 +1409,7 @@ export default function Schedule() {
                               onUpdate={fetchScheduleData}
                               canTakeShifts={isAdmin || isManager}
                               currentUserId={currentUserId || undefined}
-                              onEditShift={setEditingShift}
+                              onEditShift={(shift) => wrapEditAction(() => setEditingShift(shift))}
                               isDraggable={isAdmin || isManager}
                               isPublished={isPublished}
                               publishedSnapshot={publishedSnapshot}
@@ -1586,6 +1648,37 @@ export default function Schedule() {
               <AlertDialogCancel onClick={() => setPendingRoleChange(null)}>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={handleRoleChange}>
                 Change Role
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Current Week Edit Warning Dialog */}
+        <AlertDialog open={currentWeekWarningOpen} onOpenChange={setCurrentWeekWarningOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+                <AlertTriangle className="h-5 w-5" />
+                Editing Active Schedule
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                You're about to edit the <strong>current week's schedule</strong> which is already live. 
+                Changes will affect employees who may already be working or have planned their week based on this schedule.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => {
+                setPendingEditAction(null);
+                setCurrentWeekWarningOpen(false);
+              }}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => {
+                if (pendingEditAction) {
+                  pendingEditAction();
+                }
+                setPendingEditAction(null);
+                setCurrentWeekWarningOpen(false);
+              }} className="bg-amber-600 text-white hover:bg-amber-700">
+                Edit Anyway
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
