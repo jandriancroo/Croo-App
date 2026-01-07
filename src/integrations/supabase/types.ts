@@ -1852,6 +1852,65 @@ export type Database = {
           },
         ]
       }
+      labor_cache: {
+        Row: {
+          created_at: string
+          double_time_hours: number | null
+          employee_breakdown: Json | null
+          fetched_at: string
+          hourly_breakdown: Json | null
+          id: string
+          labor_cost: number | null
+          labor_date: string
+          labor_hours: number | null
+          location_id: string
+          overtime_hours: number | null
+          regular_hours: number | null
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          double_time_hours?: number | null
+          employee_breakdown?: Json | null
+          fetched_at?: string
+          hourly_breakdown?: Json | null
+          id?: string
+          labor_cost?: number | null
+          labor_date: string
+          labor_hours?: number | null
+          location_id: string
+          overtime_hours?: number | null
+          regular_hours?: number | null
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          double_time_hours?: number | null
+          employee_breakdown?: Json | null
+          fetched_at?: string
+          hourly_breakdown?: Json | null
+          id?: string
+          labor_cost?: number | null
+          labor_date?: string
+          labor_hours?: number | null
+          location_id?: string
+          overtime_hours?: number | null
+          regular_hours?: number | null
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "labor_cache_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       labor_rules: {
         Row: {
           auto_punch_out_time: string | null
