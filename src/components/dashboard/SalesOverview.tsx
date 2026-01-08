@@ -282,19 +282,25 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       ? (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number; projected?: number }>)
       : [];
     
-    // Build daily labor from labor_cache (aggregates all sources for this date)
+    // Build daily labor from labor_cache - prioritize punch_clock over qubeyond (do NOT aggregate sources)
     const laborData = laborResult.data || [];
-    const aggregatedLabor = laborData.reduce((acc: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number }, row: any) => ({
-      laborCost: acc.laborCost + (Number(row.labor_cost) || 0),
-      hoursWorked: acc.hoursWorked + (Number(row.labor_hours) || 0),
-      regularHours: acc.regularHours + (Number(row.regular_hours) || 0),
-      overtimeHours: acc.overtimeHours + (Number(row.overtime_hours) || 0)
-    }), { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 });
+    // Pick the best source: punch_clock > qubeyond (punch_clock is our internal source of truth)
+    const punchClockRow = laborData.find((r: any) => r.source === 'punch_clock' && (Number(r.labor_hours) > 0 || Number(r.labor_cost) > 0));
+    const qubeyondRow = laborData.find((r: any) => r.source === 'qubeyond');
+    const preferredRow = punchClockRow || qubeyondRow;
+    
+    const aggregatedLabor = preferredRow ? {
+      laborCost: Number(preferredRow.labor_cost) || 0,
+      hoursWorked: Number(preferredRow.labor_hours) || 0,
+      regularHours: Number(preferredRow.regular_hours) || 0,
+      overtimeHours: Number(preferredRow.overtime_hours) || 0
+    } : { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 };
     
     console.log('[SalesOverview] Labor from labor_cache:', { 
       labor_cost: aggregatedLabor.laborCost, 
       labor_hours: aggregatedLabor.hoursWorked,
-      sources: laborData.map((r: any) => r.source),
+      selectedSource: preferredRow?.source || 'none',
+      availableSources: laborData.map((r: any) => r.source),
       net_sales: cached?.net_sales,
       hasLabor: aggregatedLabor.laborCost > 0 || aggregatedLabor.hoursWorked > 0
     });
