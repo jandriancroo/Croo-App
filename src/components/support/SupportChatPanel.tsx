@@ -348,20 +348,6 @@ export function SupportChatPanel() {
                   </div>
                 </div>
               </div>
-              {selectedTicket.status !== 'resolved' && (
-                <Button
-                  onClick={handleResolve}
-                  disabled={resolving}
-                  size="sm"
-                  className="gap-1 h-8"
-                >
-                  {resolving ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <CheckCircle className="h-3 w-3" />
-                  )}
-                </Button>
-              )}
             </div>
           </div>
 
