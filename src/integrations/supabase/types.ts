@@ -2564,6 +2564,7 @@ export type Database = {
           overdue_checklists: boolean
           schedule_updates: boolean
           shift_approvals: boolean
+          support_tickets: boolean | null
           updated_at: string
           user_id: string
         }
@@ -2578,6 +2579,7 @@ export type Database = {
           overdue_checklists?: boolean
           schedule_updates?: boolean
           shift_approvals?: boolean
+          support_tickets?: boolean | null
           updated_at?: string
           user_id: string
         }
@@ -2592,6 +2594,7 @@ export type Database = {
           overdue_checklists?: boolean
           schedule_updates?: boolean
           shift_approvals?: boolean
+          support_tickets?: boolean | null
           updated_at?: string
           user_id?: string
         }

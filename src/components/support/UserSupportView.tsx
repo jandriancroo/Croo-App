@@ -155,6 +155,7 @@ export function UserSupportView() {
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !selectedTicket || !currentUserId) return;
 
+    const messageContent = newMessage.trim();
     setSending(true);
     try {
       const { error } = await supabase
@@ -162,10 +163,32 @@ export function UserSupportView() {
         .insert({
           ticket_id: selectedTicket.id,
           sender_id: currentUserId,
-          content: newMessage.trim(),
+          content: messageContent,
         });
 
       if (error) throw error;
+
+      // Notify support admins about new message from user
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', currentUserId)
+          .single();
+
+        await supabase.functions.invoke('notify-support-ticket', {
+          body: {
+            ticket_id: selectedTicket.id,
+            event_type: 'new_message',
+            message_content: messageContent,
+            sender_name: profile?.full_name || 'User',
+          },
+        });
+      } catch (notifyError) {
+        console.error('Error notifying support team:', notifyError);
+      }
+
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
