@@ -778,9 +778,13 @@ const handler = async (req: Request): Promise<Response> => {
     const topItems = productMixData.topItems;
     const actualSales = salesCache.data?.net_sales || 0;
     
-    // Determine if this is today or a past date
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD in UTC
-    const isToday = entry_date === today;
+    // Determine if this is today or a past date (in location's timezone - America/Los_Angeles for Blaze)
+    // The entry_date is already in local timezone format (YYYY-MM-DD)
+    // We need to check against local "today", not UTC
+    const nowInLA = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    const todayLA = `${nowInLA.getFullYear()}-${String(nowInLA.getMonth() + 1).padStart(2, '0')}-${String(nowInLA.getDate()).padStart(2, '0')}`;
+    const isToday = entry_date === todayLA;
+    console.log(`[sales] Date check: entry_date=${entry_date}, todayLA=${todayLA}, isToday=${isToday}`);
     
     // For TODAY: use live projection (what dashboard shows now)
     // For PAST dates: use cached projection (what dashboard showed that day)
