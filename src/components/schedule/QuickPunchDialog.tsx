@@ -40,6 +40,7 @@ export function QuickPunchDialog({
   const [punchDate, setPunchDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [showClockOut, setShowClockOut] = useState(false);
   const [includeBreak, setIncludeBreak] = useState(false);
   const [breakStartTime, setBreakStartTime] = useState('');
   const [breakEndTime, setBreakEndTime] = useState('');
@@ -54,6 +55,7 @@ export function QuickPunchDialog({
       const minutes = now.getMinutes().toString().padStart(2, '0');
       setStartTime(`${hours}:${minutes}`);
       setEndTime('');
+      setShowClockOut(false);
       setBreakStartTime('');
       setBreakEndTime('');
       setBreakType('unpaid');
@@ -63,6 +65,16 @@ export function QuickPunchDialog({
       setPunchDate(format(selectedDate, 'yyyy-MM-dd'));
     }
   }, [open, selectedDate]);
+
+  // Check if a time is in the future (only relevant for today)
+  const isTimeInFuture = (time: string): boolean => {
+    if (!time || punchDate !== getTodayInTimezone()) return false;
+    const now = new Date();
+    const [hours, minutes] = time.split(':').map(Number);
+    const timeDate = new Date();
+    timeDate.setHours(hours, minutes, 0, 0);
+    return timeDate > now;
+  };
 
   // Calculate break duration in minutes
   const getBreakDurationMinutes = () => {
@@ -77,6 +89,24 @@ export function QuickPunchDialog({
   const handleQuickPunchNow = async () => {
     if (!selectedUserId) {
       toast.error('Please select an employee');
+      return;
+    }
+
+    // Validate no future times
+    if (isTimeInFuture(startTime)) {
+      toast.error('Clock in time cannot be in the future');
+      return;
+    }
+    if (showClockOut && endTime && isTimeInFuture(endTime)) {
+      toast.error('Clock out time cannot be in the future');
+      return;
+    }
+    if (includeBreak && breakStartTime && isTimeInFuture(breakStartTime)) {
+      toast.error('Break start time cannot be in the future');
+      return;
+    }
+    if (includeBreak && breakEndTime && isTimeInFuture(breakEndTime)) {
+      toast.error('Break end time cannot be in the future');
       return;
     }
 
@@ -140,8 +170,8 @@ export function QuickPunchDialog({
         }
       }
 
-      // If end time provided, also create clock-out
-      if (endTime) {
+      // If end time provided and clock out is shown, also create clock-out
+      if (showClockOut && endTime) {
         const clockOutISO = toISO(punchDate, endTime);
         const { error: clockOutError } = await supabase
           .from('time_punches')
@@ -259,7 +289,7 @@ export function QuickPunchDialog({
           )}
 
           {/* Time Inputs */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-3">
             <div className="space-y-2">
               <Label>Clock In</Label>
               <Input
@@ -268,15 +298,40 @@ export function QuickPunchDialog({
                 onChange={(e) => setStartTime(e.target.value)}
               />
             </div>
-            <div className="space-y-2">
-              <Label>Clock Out <span className="text-muted-foreground text-xs">(optional)</span></Label>
-              <Input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                placeholder="Leave blank"
-              />
-            </div>
+            
+            {showClockOut ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Clock Out</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs text-muted-foreground"
+                    onClick={() => {
+                      setShowClockOut(false);
+                      setEndTime('');
+                    }}
+                  >
+                    Remove
+                  </Button>
+                </div>
+                <Input
+                  type="time"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                />
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setShowClockOut(true)}
+              >
+                + Add Clock Out
+              </Button>
+            )}
           </div>
 
           {/* Break Toggle */}
@@ -328,9 +383,11 @@ export function QuickPunchDialog({
             </div>
           )}
 
-          <p className="text-xs text-muted-foreground text-center">
-            Leave clock out blank to just punch them in. They can clock out later.
-          </p>
+          {!showClockOut && (
+            <p className="text-xs text-muted-foreground text-center">
+              Clock out can be added later when they leave.
+            </p>
+          )}
         </div>
 
         <DialogFooter className="gap-2">
@@ -339,10 +396,10 @@ export function QuickPunchDialog({
           </Button>
           <Button 
             onClick={handleQuickPunchNow} 
-            disabled={saving || !selectedUserId || !startTime || (includeBreak && !breakStartTime)}
+            disabled={saving || !selectedUserId || !startTime || (includeBreak && !breakStartTime) || (showClockOut && !endTime)}
             className="flex-1"
           >
-            {saving ? 'Saving...' : endTime ? 'Record Shift' : 'Punch In'}
+            {saving ? 'Saving...' : (showClockOut && endTime) ? 'Record Shift' : 'Punch In'}
           </Button>
         </DialogFooter>
       </DialogContent>
