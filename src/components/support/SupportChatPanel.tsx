@@ -71,6 +71,20 @@ const STATUS_BG_COLORS: Record<string, string> = {
   resolved: 'bg-muted/50 hover:bg-muted',
 };
 
+interface QuickReply {
+  label: string;
+  message: string;
+  status?: 'in_progress' | 'resolved';
+  variant?: 'default' | 'secondary' | 'outline';
+}
+
+const QUICK_REPLIES: QuickReply[] = [
+  { label: "On it!", message: "Thanks for reporting this! I'm looking into it now.", status: 'in_progress', variant: 'default' },
+  { label: "Need details", message: "Could you provide more details about when this happened and what you were doing?", variant: 'outline' },
+  { label: "Thanks for patience", message: "Thanks for your patience while we work on this!", variant: 'outline' },
+  { label: "Resolved", message: "This issue has been resolved. Please let us know if you experience any further problems!", status: 'resolved', variant: 'secondary' },
+];
+
 export function SupportChatPanel() {
   const { isSuperAdmin } = useUserRole();
   const isMobile = useIsMobile();
@@ -234,6 +248,59 @@ export function SupportChatPanel() {
     }
   };
 
+  const handleQuickReply = async (quickReply: QuickReply) => {
+    if (!selectedTicket || !currentUserId) return;
+
+    setSending(true);
+    try {
+      // Send the message
+      const { error: msgError } = await supabase
+        .from('support_messages')
+        .insert({
+          ticket_id: selectedTicket.id,
+          sender_id: currentUserId,
+          content: quickReply.message,
+        });
+
+      if (msgError) throw msgError;
+
+      // Update status if specified
+      if (quickReply.status) {
+        const updateData: Record<string, unknown> = { status: quickReply.status };
+        
+        if (quickReply.status === 'resolved') {
+          const { data: { user } } = await supabase.auth.getUser();
+          updateData.resolved_at = new Date().toISOString();
+          updateData.resolved_by = user?.id;
+        }
+
+        const { error: statusError } = await supabase
+          .from('support_tickets')
+          .update(updateData)
+          .eq('id', selectedTicket.id);
+
+        if (statusError) throw statusError;
+
+        // Send resolution email if resolved
+        if (quickReply.status === 'resolved') {
+          await supabase.functions.invoke('send-support-resolution', {
+            body: { ticketId: selectedTicket.id }
+          });
+          toast.success('Ticket resolved! User notified.');
+        } else {
+          toast.success('Status updated to In Progress');
+        }
+        
+        fetchTickets();
+      }
+    } catch (error) {
+      console.error('Error with quick reply:', error);
+      toast.error('Failed to send quick reply');
+    } finally {
+      setSending(false);
+    }
+  };
+
   const formatTicketId = (num: number) => `#SUP-${String(num).padStart(3, '0')}`;
 
   if (loading) {
@@ -365,7 +432,24 @@ export function SupportChatPanel() {
 
           {/* Message Input */}
           {selectedTicket.status !== 'resolved' && (
-            <div className="p-4 border-t">
+            <div className="p-4 border-t space-y-3">
+              {/* Quick Replies */}
+              <div className="flex flex-wrap gap-2">
+                {QUICK_REPLIES.map((qr, idx) => (
+                  <Button
+                    key={idx}
+                    variant={qr.variant || 'outline'}
+                    size="sm"
+                    onClick={() => handleQuickReply(qr)}
+                    disabled={sending}
+                    className="text-xs"
+                  >
+                    {qr.label}
+                    {qr.status === 'in_progress' && <span className="ml-1 text-blue-400">→ In Progress</span>}
+                    {qr.status === 'resolved' && <span className="ml-1 text-green-400">→ Resolved</span>}
+                  </Button>
+                ))}
+              </div>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -600,7 +684,24 @@ export function SupportChatPanel() {
 
             {/* Message Input */}
             {selectedTicket.status !== 'resolved' && (
-              <div className="p-4 border-t">
+              <div className="p-4 border-t space-y-3">
+                {/* Quick Replies */}
+                <div className="flex flex-wrap gap-2">
+                  {QUICK_REPLIES.map((qr, idx) => (
+                    <Button
+                      key={idx}
+                      variant={qr.variant || 'outline'}
+                      size="sm"
+                      onClick={() => handleQuickReply(qr)}
+                      disabled={sending}
+                      className="text-xs"
+                    >
+                      {qr.label}
+                      {qr.status === 'in_progress' && <span className="ml-1 text-blue-400">→ In Progress</span>}
+                      {qr.status === 'resolved' && <span className="ml-1 text-green-400">→ Resolved</span>}
+                    </Button>
+                  ))}
+                </div>
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
