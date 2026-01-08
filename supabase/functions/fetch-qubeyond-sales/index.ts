@@ -1132,7 +1132,7 @@ async function cacheLaborData(
 }
 
 // Get cached labor data from dedicated labor_cache table
-// Aggregates data from both sources (qubeyond and punch_clock) for each date
+// PRIORITIZES punch_clock over qubeyond (does NOT aggregate sources - picks the best one per date)
 async function getCachedLaborData(
   supabase: any,
   locationId: string,
@@ -1153,23 +1153,30 @@ async function getCachedLaborData(
     }
     
     if (data) {
-      // Aggregate labor from all sources per date
+      // Group by date, then pick best source: punch_clock > qubeyond (do NOT aggregate)
+      const byDate = new Map<string, typeof data>();
       for (const row of data) {
-        const existing = cachedLabor.get(row.labor_date) || {
-          laborCost: 0,
-          hoursWorked: 0,
-          regularHours: 0,
-          overtimeHours: 0
-        };
-        
-        cachedLabor.set(row.labor_date, {
-          laborCost: existing.laborCost + (parseFloat(row.labor_cost) || 0),
-          hoursWorked: existing.hoursWorked + (parseFloat(row.labor_hours) || 0),
-          regularHours: existing.regularHours + (parseFloat(row.regular_hours) || 0),
-          overtimeHours: existing.overtimeHours + (parseFloat(row.overtime_hours) || 0)
-        });
+        const existing = byDate.get(row.labor_date) || [];
+        existing.push(row);
+        byDate.set(row.labor_date, existing);
       }
-      console.log(`[LABOR-CACHE] Found ${data.length} labor_cache entries for ${dates.length} dates (aggregated to ${cachedLabor.size} unique dates)`);
+      
+      for (const [date, rows] of byDate) {
+        // Pick punch_clock if it exists and has data, otherwise qubeyond
+        const punchRow = rows.find((r: any) => r.source === 'punch_clock' && (parseFloat(r.labor_hours) > 0 || parseFloat(r.labor_cost) > 0));
+        const qubeyondRow = rows.find((r: any) => r.source === 'qubeyond');
+        const preferredRow = punchRow || qubeyondRow;
+        
+        if (preferredRow) {
+          cachedLabor.set(date, {
+            laborCost: parseFloat(preferredRow.labor_cost) || 0,
+            hoursWorked: parseFloat(preferredRow.labor_hours) || 0,
+            regularHours: parseFloat(preferredRow.regular_hours) || 0,
+            overtimeHours: parseFloat(preferredRow.overtime_hours) || 0
+          });
+        }
+      }
+      console.log(`[LABOR-CACHE] Found ${data.length} labor_cache entries for ${dates.length} dates, selected ${cachedLabor.size} unique dates (prioritized punch_clock over qubeyond)`);
     }
   } catch (e) {
     console.error('[LABOR-CACHE] Exception fetching cached labor:', e);
