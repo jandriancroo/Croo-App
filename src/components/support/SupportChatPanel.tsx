@@ -348,11 +348,17 @@ export function SupportChatPanel() {
                   </div>
                 </div>
               </div>
-              {/* Status Indicator */}
-              <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[selectedTicket.status]} border`}>
-                {selectedTicket.status === 'open' && '🟡 Open'}
-                {selectedTicket.status === 'in_progress' && '🔵 In Progress'}
-                {selectedTicket.status === 'resolved' && '✅ Resolved'}
+              {/* Status Indicator - icon only */}
+              <div className={`inline-flex items-center justify-center w-7 h-7 rounded-full ${
+                selectedTicket.status === 'resolved' 
+                  ? 'bg-green-500/20 text-green-400' 
+                  : selectedTicket.status === 'in_progress'
+                  ? 'bg-blue-500/20 text-blue-400'
+                  : 'bg-yellow-500/20 text-yellow-400'
+              }`} title={selectedTicket.status === 'resolved' ? 'Resolved' : selectedTicket.status === 'in_progress' ? 'In Progress' : 'Open'}>
+                {selectedTicket.status === 'resolved' ? <CheckCheck className="h-4 w-4" /> : 
+                 selectedTicket.status === 'in_progress' ? <Zap className="h-4 w-4" /> : 
+                 <Clock className="h-4 w-4" />}
               </div>
             </div>
           </div>
@@ -400,47 +406,47 @@ export function SupportChatPanel() {
           {/* Message Input */}
           {selectedTicket.status !== 'resolved' && (
             <div className="p-3 border-t space-y-2">
-              {/* Quick Replies - icon only on mobile */}
-              <div className="flex gap-1.5">
+              {/* Quick Replies with icons */}
+              <div className="flex flex-wrap gap-1.5">
                 <Button
                   variant="default"
                   size="sm"
                   onClick={() => handleQuickReply(QUICK_REPLIES[0])}
                   disabled={sending}
-                  className="h-8 w-8 p-0"
-                  title="On it! → In Progress"
+                  className="text-xs h-7 px-2"
                 >
-                  <Zap className="h-4 w-4" />
+                  <Zap className="h-3 w-3 mr-1" />
+                  On it!
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handleQuickReply(QUICK_REPLIES[1])}
                   disabled={sending}
-                  className="h-8 w-8 p-0"
-                  title="Need details"
+                  className="text-xs h-7 px-2"
                 >
-                  <HelpCircle className="h-4 w-4" />
+                  <HelpCircle className="h-3 w-3 mr-1" />
+                  Need details
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => handleQuickReply(QUICK_REPLIES[2])}
                   disabled={sending}
-                  className="h-8 w-8 p-0"
-                  title="Thanks for patience"
+                  className="text-xs h-7 px-2"
                 >
-                  <Heart className="h-4 w-4" />
+                  <Heart className="h-3 w-3 mr-1" />
+                  Thanks
                 </Button>
                 <Button
                   variant="secondary"
                   size="sm"
                   onClick={() => handleQuickReply(QUICK_REPLIES[3])}
                   disabled={sending}
-                  className="h-8 w-8 p-0"
-                  title="Mark Resolved"
+                  className="text-xs h-7 px-2"
                 >
-                  <CheckCheck className="h-4 w-4" />
+                  <CheckCheck className="h-3 w-3 mr-1" />
+                  Resolve
                 </Button>
               </div>
               <form
