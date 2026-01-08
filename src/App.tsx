@@ -69,6 +69,7 @@ import BasketballGame from "./pages/BasketballGame";
 import PizzaPaddleGame from "./pages/PizzaPaddleGame";
 import MarcManGame from "./pages/MarcManGame";
 import QRCodeGenerator from "./pages/QRCodeGenerator";
+import FeatureTree from "./pages/FeatureTree";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
@@ -169,6 +170,7 @@ const AppContent = () => {
       <Route path="/games/pizza" element={<ProtectedRoute><PizzaPaddleGame /></ProtectedRoute>} />
       <Route path="/games/marcman" element={<ProtectedRoute><MarcManGame /></ProtectedRoute>} />
       <Route path="/qr-generator" element={<QRCodeGenerator />} />
+      <Route path="/feature-tree" element={<ProtectedRoute><FeatureTree /></ProtectedRoute>} />
       <Route path="/testing-checklist" element={<ProtectedRoute><TestingChecklist /></ProtectedRoute>} />
       <Route path="*" element={<NotFound />} />
     </Routes>
