@@ -307,7 +307,60 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { schedule_id, location_id, cc_email } = await req.json();
+    const { schedule_id, location_id, cc_email, test_mode, test_email } = await req.json();
+    
+    // Test mode: send a sample schedule email without needing real data
+    if (test_mode && test_email) {
+      const sampleShifts: ShiftData[] = [
+        { shift_date: '2026-01-12', start_time: '09:00', end_time: '17:00', is_time_off: false },
+        { shift_date: '2026-01-13', start_time: '10:00', end_time: '18:00', is_time_off: false },
+        { shift_date: '2026-01-14', start_time: '08:00', end_time: '16:00', is_time_off: false },
+        { shift_date: '2026-01-15', start_time: '00:00', end_time: '00:00', is_time_off: true },
+        { shift_date: '2026-01-16', start_time: '11:00', end_time: '19:00', is_time_off: false },
+      ];
+      
+      const sampleTeam: TeamMemberSchedule[] = [
+        { name: 'Jordan Test', shifts: sampleShifts, totalHours: 30.5 },
+        { name: 'Alex Demo', shifts: [
+          { shift_date: '2026-01-12', start_time: '08:00', end_time: '14:00', is_time_off: false },
+          { shift_date: '2026-01-14', start_time: '12:00', end_time: '20:00', is_time_off: false },
+        ], totalHours: 13.5 },
+        { name: 'Sam Sample', shifts: [
+          { shift_date: '2026-01-13', start_time: '06:00', end_time: '14:00', is_time_off: false },
+          { shift_date: '2026-01-15', start_time: '10:00', end_time: '18:00', is_time_off: false },
+          { shift_date: '2026-01-16', start_time: '07:00', end_time: '15:00', is_time_off: false },
+        ], totalHours: 22.5 },
+      ];
+      
+      const { subject, html } = generateScheduleEmail(
+        'Jordan Test',
+        'Palm Springs (Test)',
+        'Jan 12 - Jan 18, 2026',
+        sampleShifts,
+        true, // Manager view
+        sampleTeam
+      );
+      
+      try {
+        await resend.emails.send({
+          from: "Croo <schedule@croohq.email>",
+          to: [test_email],
+          subject: `[TEST] ${subject}`,
+          html
+        });
+        
+        return new Response(
+          JSON.stringify({ success: true, test_mode: true, sent_to: test_email }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      } catch (err: any) {
+        console.error("Test email error:", err);
+        return new Response(
+          JSON.stringify({ success: false, error: err.message }),
+          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+    }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     
