@@ -955,7 +955,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Send email
     const emailResponse = await resend.emails.send({
-      from: "Croo <hello@croohq.email>",
+      from: "Croo <hello@croohq.mail>",
       to: recipientEmails,
       subject: `📋 ${location.name} - ${formatDateForDisplay(entry_date)}`,
       html: emailHtml,

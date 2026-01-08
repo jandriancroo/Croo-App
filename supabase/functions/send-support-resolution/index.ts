@@ -47,7 +47,7 @@ serve(async (req) => {
     // Send email notification
     if (userEmail) {
       const emailResponse = await resend.emails.send({
-        from: "Croo Support <support@croohq.email>",
+        from: "Croo Support <support@croohq.mail>",
         to: [userEmail],
         subject: `Your support ticket ${ticketNumber} has been resolved`,
         html: `
