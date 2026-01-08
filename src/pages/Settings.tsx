@@ -62,11 +62,11 @@ export default function Settings() {
   }, [theme]);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin || isOrgAdmin) {
       fetchLocations();
       fetchOrganizations();
     }
-  }, [isAdmin]);
+  }, [isAdmin, isOrgAdmin]);
 
   const fetchLocations = async () => {
     try {
@@ -148,9 +148,8 @@ export default function Settings() {
         );
 
       case 'organizations':
-        // org_admin should not see the organizations section (they only manage their own org)
-        // BUT super_admins always have full access even if they also have org_admin role
-        if (!isAdmin || (isOrgAdmin && !isSuperAdmin)) return null;
+        // Both admin and org_admin can see organizations section
+        if (!isAdmin && !isOrgAdmin) return null;
         return (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -287,7 +286,10 @@ export default function Settings() {
     }
     
     // Standard filtering for normal locations
-    if (['organizations', 'roles', 'maintenance'].includes(id)) {
+    if (id === 'organizations') {
+      return isAdmin || isOrgAdmin;
+    }
+    if (['roles', 'maintenance'].includes(id)) {
       return isAdmin;
     }
     return true;
