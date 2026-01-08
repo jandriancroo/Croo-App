@@ -1096,13 +1096,13 @@ async function fetchLaborData(
   }
 }
 
-// Cache labor data to sales_cache table
 // Cache labor data to dedicated labor_cache table with source tracking
 async function cacheLaborData(
   supabase: any,
   locationId: string,
   dateStr: string,
-  laborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number }
+  laborData: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number },
+  source: 'qubeyond' | 'punch_clock' = 'qubeyond'
 ): Promise<void> {
   try {
     const { error } = await supabase
@@ -1114,7 +1114,7 @@ async function cacheLaborData(
         labor_hours: laborData.hoursWorked,
         regular_hours: laborData.regularHours,
         overtime_hours: laborData.overtimeHours,
-        source: 'qubeyond',
+        source: source,
         fetched_at: new Date().toISOString()
       }, {
         onConflict: 'location_id,labor_date,source',
@@ -1124,7 +1124,7 @@ async function cacheLaborData(
     if (error) {
       console.error(`[LABOR-CACHE] Error caching labor for ${dateStr}:`, error.message);
     } else {
-      console.log(`[LABOR-CACHE] Cached labor to labor_cache for ${dateStr}: $${laborData.laborCost.toFixed(2)} / ${laborData.hoursWorked.toFixed(1)}h (source: qubeyond)`);
+      console.log(`[LABOR-CACHE] Cached labor to labor_cache for ${dateStr}: $${laborData.laborCost.toFixed(2)} / ${laborData.hoursWorked.toFixed(1)}h (source: ${source})`);
     }
   } catch (e) {
     console.error(`[LABOR-CACHE] Exception caching labor:`, e);
@@ -2509,7 +2509,7 @@ serve(async (req) => {
         
         // Cache today's punch labor data so historical views work
         if (todayLaborData && todayLaborData.laborCost > 0) {
-          await cacheLaborData(cacheSupabase, locationId, todayStr, todayLaborData);
+          await cacheLaborData(cacheSupabase, locationId, todayStr, todayLaborData, 'punch_clock');
           console.log(`[PUNCH-CACHE] Cached today's punch labor: $${todayLaborData.laborCost.toFixed(2)} / ${todayLaborData.hoursWorked.toFixed(1)}h`);
         }
         
@@ -2519,7 +2519,7 @@ serve(async (req) => {
             // Get punch labor for this specific date
             const datePunchLabor = await calculateLaborFromPunches(cacheSupabase, locationId, dateStr, timezone);
             if (datePunchLabor && datePunchLabor.laborCost > 0) {
-              await cacheLaborData(cacheSupabase, locationId, dateStr, datePunchLabor);
+              await cacheLaborData(cacheSupabase, locationId, dateStr, datePunchLabor, 'punch_clock');
               console.log(`[PUNCH-CACHE] Cached punch labor for ${dateStr}: $${datePunchLabor.laborCost.toFixed(2)}`);
             }
           }
