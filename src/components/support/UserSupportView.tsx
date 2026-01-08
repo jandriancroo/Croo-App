@@ -322,10 +322,18 @@ export function UserSupportView() {
               href={selectedTicket.screenshot_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              className="block"
             >
-              <Image className="h-3 w-3" />
-              View Screenshot
+              <img
+                src={selectedTicket.screenshot_url}
+                alt="Support ticket screenshot"
+                loading="lazy"
+                className="rounded-md max-w-full"
+              />
+              <span className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-1">
+                <Image className="h-3 w-3" />
+                Open Screenshot
+              </span>
             </a>
           )}
         </div>
