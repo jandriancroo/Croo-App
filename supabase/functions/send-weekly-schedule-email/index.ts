@@ -17,11 +17,20 @@ const accentColor = "#f58220";
 const backgroundColor = "#f0ebe1";
 const textColor = "#0f1215";
 
+// Roles that are shift_manager or higher
+const MANAGER_ROLES = ['shift_manager', 'manager', 'general_manager', 'admin', 'org_admin', 'fbc', 'brand_admin', 'super_admin'];
+
 interface ShiftData {
   shift_date: string;
   start_time: string;
   end_time: string;
   is_time_off: boolean;
+}
+
+interface TeamMemberSchedule {
+  name: string;
+  shifts: ShiftData[];
+  totalHours: number;
 }
 
 function formatTime(time: string): string {
@@ -36,6 +45,11 @@ function formatDate(dateStr: string): string {
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+function formatShortDate(dateStr: string): string {
+  const date = new Date(dateStr + 'T12:00:00');
+  return date.toLocaleDateString('en-US', { weekday: 'short' });
+}
+
 function calculateHours(startTime: string, endTime: string): number {
   const [startH, startM] = startTime.split(':').map(Number);
   const [endH, endM] = endTime.split(':').map(Number);
@@ -45,24 +59,30 @@ function calculateHours(startTime: string, endTime: string): number {
   return end - start;
 }
 
+function calculateNetHours(shifts: ShiftData[]): number {
+  let totalHours = 0;
+  shifts.forEach(shift => {
+    if (!shift.is_time_off) {
+      const hours = calculateHours(shift.start_time, shift.end_time);
+      totalHours += hours > 5 ? hours - 0.5 : hours;
+    }
+  });
+  return totalHours;
+}
+
 function generateScheduleEmail(
   employeeName: string,
   locationName: string,
   weekRange: string,
-  shifts: ShiftData[]
+  shifts: ShiftData[],
+  isManager: boolean = false,
+  teamSchedule?: TeamMemberSchedule[]
 ): { subject: string; html: string } {
   // Sort shifts by date
   const sortedShifts = [...shifts].sort((a, b) => a.shift_date.localeCompare(b.shift_date));
   
   // Calculate total hours
-  let totalHours = 0;
-  sortedShifts.forEach(shift => {
-    if (!shift.is_time_off) {
-      const hours = calculateHours(shift.start_time, shift.end_time);
-      // Deduct 30min break for shifts over 5 hours
-      totalHours += hours > 5 ? hours - 0.5 : hours;
-    }
-  });
+  const totalHours = calculateNetHours(shifts);
 
   const shiftsHtml = sortedShifts.map(shift => {
     const hours = calculateHours(shift.start_time, shift.end_time);
@@ -99,6 +119,82 @@ function generateScheduleEmail(
     `;
   }).join('');
 
+  // Generate team overview for managers
+  let teamOverviewHtml = '';
+  if (isManager && teamSchedule && teamSchedule.length > 0) {
+    // Sort team by name
+    const sortedTeam = [...teamSchedule].sort((a, b) => a.name.localeCompare(b.name));
+    
+    // Get all unique dates
+    const allDates = [...new Set(sortedTeam.flatMap(t => t.shifts.map(s => s.shift_date)))].sort();
+    
+    // Build team rows
+    const teamRows = sortedTeam.map(member => {
+      // Create a map of date to shift for this member
+      const shiftMap = new Map(member.shifts.map(s => [s.shift_date, s]));
+      
+      const shiftCells = allDates.map(date => {
+        const shift = shiftMap.get(date);
+        if (!shift) {
+          return `<td style="padding: 6px 4px; text-align: center; color: #ccc; font-size: 11px;">—</td>`;
+        }
+        if (shift.is_time_off) {
+          return `<td style="padding: 6px 4px; text-align: center; color: #22c55e; font-size: 11px; font-weight: 500;">OFF</td>`;
+        }
+        return `<td style="padding: 6px 4px; text-align: center; font-size: 10px; color: ${textColor};">${formatTime(shift.start_time).replace(' ', '')}<br/>${formatTime(shift.end_time).replace(' ', '')}</td>`;
+      }).join('');
+      
+      return `
+        <tr>
+          <td style="padding: 8px 12px; border-bottom: 1px solid #e8e5df; font-weight: 500; color: ${textColor}; white-space: nowrap;">${member.name.split(' ')[0]}</td>
+          ${shiftCells}
+          <td style="padding: 8px 8px; border-bottom: 1px solid #e8e5df; text-align: right; font-weight: 600; color: ${primaryColor};">${member.totalHours.toFixed(1)}</td>
+        </tr>
+      `;
+    }).join('');
+    
+    // Date headers
+    const dateHeaders = allDates.map(date => 
+      `<th style="padding: 8px 4px; text-align: center; font-size: 10px; text-transform: uppercase; color: #666; font-weight: 600;">${formatShortDate(date)}</th>`
+    ).join('');
+    
+    // Calculate total team hours
+    const totalTeamHours = sortedTeam.reduce((sum, m) => sum + m.totalHours, 0);
+    
+    teamOverviewHtml = `
+      <!-- Team Overview Section -->
+      <tr>
+        <td style="padding: 30px 40px 0;">
+          <div style="border-top: 2px solid ${backgroundColor}; padding-top: 24px;">
+            <h2 style="color: ${textColor}; font-size: 16px; font-weight: 600; margin: 0 0 16px;">
+              👥 Full Team Schedule
+            </h2>
+            <div style="overflow-x: auto;">
+              <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #fafafa; border-radius: 10px; overflow: hidden; font-size: 12px;">
+                <thead>
+                  <tr style="background-color: ${backgroundColor};">
+                    <th style="padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; color: #666; font-weight: 600;">Name</th>
+                    ${dateHeaders}
+                    <th style="padding: 10px 8px; text-align: right; font-size: 11px; text-transform: uppercase; color: #666; font-weight: 600;">Hrs</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${teamRows}
+                </tbody>
+                <tfoot>
+                  <tr style="background-color: ${backgroundColor};">
+                    <td colspan="${allDates.length + 1}" style="padding: 10px 12px; font-weight: 600; color: ${textColor};">Total Team Hours</td>
+                    <td style="padding: 10px 8px; text-align: right; font-weight: 700; color: ${primaryColor};">${totalTeamHours.toFixed(1)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
   const html = `
     <!DOCTYPE html>
     <html lang="en">
@@ -110,7 +206,7 @@ function generateScheduleEmail(
       <table role="presentation" style="width: 100%; border-collapse: collapse;">
         <tr>
           <td style="padding: 30px 20px;">
-            <table role="presentation" style="max-width: 560px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
+            <table role="presentation" style="max-width: 640px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.06);">
               <!-- Header -->
               <tr>
                 <td style="background: linear-gradient(135deg, ${primaryColor} 0%, #0d5a65 100%); padding: 30px 40px; text-align: center;">
@@ -120,7 +216,7 @@ function generateScheduleEmail(
                     style="height: 50px; width: auto; margin-bottom: 12px; filter: brightness(0) invert(1);" 
                   />
                   <h1 style="color: #ffffff; font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.5px;">
-                    📅 Your Weekly Schedule
+                    📅 ${isManager ? 'Weekly Schedule Published' : 'Your Weekly Schedule'}
                   </h1>
                 </td>
               </tr>
@@ -132,7 +228,10 @@ function generateScheduleEmail(
                     Hey <strong>${employeeName.split(' ')[0]}</strong>! 👋
                   </p>
                   <p style="color: #666; font-size: 14px; line-height: 1.6; margin: 0 0 24px;">
-                    Your schedule for <strong style="color: ${primaryColor};">${weekRange}</strong> at <strong>${locationName}</strong> is ready.
+                    ${isManager 
+                      ? `The schedule for <strong style="color: ${primaryColor};">${weekRange}</strong> at <strong>${locationName}</strong> has been published. Here's your schedule:`
+                      : `Your schedule for <strong style="color: ${primaryColor};">${weekRange}</strong> at <strong>${locationName}</strong> is ready.`
+                    }
                   </p>
                   
                   <!-- Schedule Table -->
@@ -151,13 +250,22 @@ function generateScheduleEmail(
                   
                   <!-- Total Hours -->
                   <div style="background: linear-gradient(135deg, ${primaryColor}15 0%, ${primaryColor}08 100%); border-radius: 10px; padding: 16px; margin-top: 20px; text-align: center;">
-                    <span style="color: #666; font-size: 12px; text-transform: uppercase;">Total Scheduled Hours</span><br/>
+                    <span style="color: #666; font-size: 12px; text-transform: uppercase;">Your Scheduled Hours</span><br/>
                     <strong style="color: ${primaryColor}; font-size: 28px; font-weight: 700;">${totalHours.toFixed(1)}</strong>
                     <span style="color: ${primaryColor}; font-size: 14px;"> hours</span>
                   </div>
-                  
+                </td>
+              </tr>
+              
+              ${teamOverviewHtml}
+              
+              <tr>
+                <td style="padding: 0 40px 30px;">
                   <p style="color: #999; font-size: 12px; margin: 20px 0 0; text-align: center;">
-                    Questions about your schedule? Talk to your manager or check the app.
+                    ${isManager 
+                      ? 'View the full schedule in the app for more details.'
+                      : 'Questions about your schedule? Talk to your manager or check the app.'
+                    }
                   </p>
                 </td>
               </tr>
@@ -188,7 +296,7 @@ function generateScheduleEmail(
   `;
 
   return {
-    subject: `📅 Your Schedule: ${weekRange} — ${locationName}`,
+    subject: `📅 ${isManager ? 'Schedule Published' : 'Your Schedule'}: ${weekRange} — ${locationName}`,
     html
   };
 }
@@ -241,9 +349,16 @@ serve(async (req: Request): Promise<Response> => {
     
     if (profilesError) throw profilesError;
     
-    const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+    // Get roles for these users
+    const { data: userRoles, error: rolesError } = await supabase
+      .from('user_roles')
+      .select('user_id, role')
+      .in('user_id', userIds);
     
-    if (shiftsError) throw shiftsError;
+    if (rolesError) throw rolesError;
+    
+    const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+    const roleMap = new Map((userRoles || []).map(r => [r.user_id, r.role]));
     
     // Group shifts by user
     const userShifts = new Map<string, { email: string; name: string; shifts: ShiftData[] }>();
@@ -270,6 +385,13 @@ serve(async (req: Request): Promise<Response> => {
       });
     }
     
+    // Build team schedule for managers
+    const teamSchedule: TeamMemberSchedule[] = Array.from(userShifts.entries()).map(([userId, data]) => ({
+      name: data.name,
+      shifts: data.shifts,
+      totalHours: calculateNetHours(data.shifts)
+    }));
+    
     // Format week range
     const startDate = new Date(schedule.week_start_date + 'T12:00:00');
     const endDate = new Date(schedule.week_end_date + 'T12:00:00');
@@ -280,46 +402,45 @@ serve(async (req: Request): Promise<Response> => {
     
     // Send email to each user
     for (const [userId, userData] of userShifts) {
+      const userRole = roleMap.get(userId) || 'team_member';
+      const isManager = MANAGER_ROLES.includes(userRole);
+      
       const { subject, html } = generateScheduleEmail(
         userData.name,
         location.name,
         weekRange,
-        userData.shifts
+        userData.shifts,
+        isManager,
+        isManager ? teamSchedule : undefined
       );
       
       try {
-        const recipients = [userData.email];
-        
-        // Add CC if provided and this is NOT the cc_email user
-        if (cc_email && userData.email !== cc_email) {
-          // We'll send a separate copy to CC
-        }
-        
         await resend.emails.send({
           from: "Croo <schedule@croohq.com>",
-          to: recipients,
+          to: [userData.email],
           subject,
           html
         });
         
-        emailsSent.push(userData.email);
-        console.log(`Sent schedule email to ${userData.email}`);
+        emailsSent.push(`${userData.email}${isManager ? ' (manager)' : ''}`);
+        console.log(`Sent schedule email to ${userData.email} (manager: ${isManager})`);
       } catch (err: any) {
         console.error(`Failed to send to ${userData.email}:`, err);
         errors.push(`${userData.email}: ${err.message}`);
       }
     }
     
-    // Send copy to CC email if provided
+    // Send copy to CC email if provided (send manager version)
     if (cc_email) {
-      // Pick a random user to show as example
       const randomUser = Array.from(userShifts.values())[0];
       if (randomUser) {
         const { subject, html } = generateScheduleEmail(
           randomUser.name,
           location.name,
           weekRange,
-          randomUser.shifts
+          randomUser.shifts,
+          true, // Send manager version
+          teamSchedule
         );
         
         try {
@@ -329,8 +450,8 @@ serve(async (req: Request): Promise<Response> => {
             subject: `[COPY] ${subject}`,
             html
           });
-          emailsSent.push(`${cc_email} (copy)`);
-          console.log(`Sent copy to ${cc_email}`);
+          emailsSent.push(`${cc_email} (copy - manager view)`);
+          console.log(`Sent manager copy to ${cc_email}`);
         } catch (err: any) {
           console.error(`Failed to send copy to ${cc_email}:`, err);
           errors.push(`${cc_email}: ${err.message}`);
