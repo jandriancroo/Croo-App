@@ -2412,18 +2412,22 @@ serve(async (req) => {
     
     if (credentials.pull_labor) {
       console.log('Pull labor enabled - fetching labor data from Real Time Summary (Qu) AND caching it');
-      // Fetch today's labor live, and use cache-aware fetching for week dates
-      const [todayLabor, weekLabor, todayTips, weekTips] = await Promise.all([
+      // Fetch today's labor live, and use cache-aware fetching for week + month dates
+      const [todayLabor, weekLabor, monthLabor, todayTips, weekTips] = await Promise.all([
         fetchLaborData(tokenGw, todayStr, qbLocationId),
         fetchLaborDataForDates(tokenGw, weekDates, qbLocationId, cacheSupabase, locationId),
+        fetchLaborDataForDates(tokenGw, monthDates, qbLocationId, cacheSupabase, locationId),
         fetchTipsData(tokenGw, todayStr, qbLocationId),
         fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
       ]);
       laborData = todayLabor;
       weeklyLaborData = weekLabor;
+      monthlyLaborData = monthLabor;
       laborSource = 'qu';
       tipsData = todayTips;
       weeklyTipsData = weekTips;
+      
+      console.log(`[LABOR-QU] MTD from Qu: $${monthLabor?.laborCost?.toFixed(2) || 0} / ${monthLabor?.hoursWorked?.toFixed(1) || 0}h`);
       
       // Cache today's labor data
       if (todayLabor && locationId && todayLabor.laborCost > 0) {
