@@ -394,6 +394,15 @@ export function SupportChatPanel() {
           {/* Messages */}
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-4">
+              {/* Status Indicator */}
+              <div className="flex justify-center">
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${STATUS_COLORS[selectedTicket.status]} border`}>
+                  {selectedTicket.status === 'open' && '🟡 Open - Awaiting Response'}
+                  {selectedTicket.status === 'in_progress' && '🔵 In Progress - Being Reviewed'}
+                  {selectedTicket.status === 'resolved' && '✅ Resolved'}
+                </div>
+              </div>
+              
               {messages.map((msg) => {
                 const isOwnMessage = msg.sender_id === currentUserId;
                 return (
@@ -646,6 +655,15 @@ export function SupportChatPanel() {
             {/* Messages */}
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-4">
+                {/* Status Indicator */}
+                <div className="flex justify-center">
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${STATUS_COLORS[selectedTicket.status]} border`}>
+                    {selectedTicket.status === 'open' && '🟡 Open - Awaiting Response'}
+                    {selectedTicket.status === 'in_progress' && '🔵 In Progress - Being Reviewed'}
+                    {selectedTicket.status === 'resolved' && '✅ Resolved'}
+                  </div>
+                </div>
+                
                 {messages.map((msg) => {
                   const isOwnMessage = msg.sender_id === currentUserId;
                   return (
