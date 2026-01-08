@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Send, CheckCircle, Image, Loader2, Clock, User, ArrowLeft } from 'lucide-react';
+import { Send, CheckCircle, Image, Loader2, Clock, User, ArrowLeft, Zap, HelpCircle, Heart, CheckCheck } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -400,21 +400,48 @@ export function SupportChatPanel() {
           {/* Message Input */}
           {selectedTicket.status !== 'resolved' && (
             <div className="p-3 border-t space-y-2">
-              {/* Quick Replies - more compact */}
-              <div className="flex flex-wrap gap-1.5">
-                {QUICK_REPLIES.map((qr, idx) => (
-                  <Button
-                    key={idx}
-                    variant={qr.variant || 'outline'}
-                    size="sm"
-                    onClick={() => handleQuickReply(qr)}
-                    disabled={sending}
-                    className="text-xs h-7 px-2"
-                  >
-                    {qr.label}
-                    {qr.status && <span className={`ml-1 ${qr.status === 'in_progress' ? 'text-blue-400' : 'text-green-400'}`}>→</span>}
-                  </Button>
-                ))}
+              {/* Quick Replies - icon only on mobile */}
+              <div className="flex gap-1.5">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => handleQuickReply(QUICK_REPLIES[0])}
+                  disabled={sending}
+                  className="h-8 w-8 p-0"
+                  title="On it! → In Progress"
+                >
+                  <Zap className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickReply(QUICK_REPLIES[1])}
+                  disabled={sending}
+                  className="h-8 w-8 p-0"
+                  title="Need details"
+                >
+                  <HelpCircle className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleQuickReply(QUICK_REPLIES[2])}
+                  disabled={sending}
+                  className="h-8 w-8 p-0"
+                  title="Thanks for patience"
+                >
+                  <Heart className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => handleQuickReply(QUICK_REPLIES[3])}
+                  disabled={sending}
+                  className="h-8 w-8 p-0"
+                  title="Mark Resolved"
+                >
+                  <CheckCheck className="h-4 w-4" />
+                </Button>
               </div>
               <form
                 onSubmit={(e) => {
