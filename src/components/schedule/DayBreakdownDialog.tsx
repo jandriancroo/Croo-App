@@ -160,8 +160,10 @@ export function DayBreakdownDialog({
       if (shift.is_time_off) return;
       const [startHour] = shift.start_time.split(":").map(Number);
       const [endHour] = shift.end_time.split(":").map(Number);
+      // Handle midnight crossover for bounds (e.g., 18:00-00:00 should extend to 24)
+      const effectiveEnd = endHour < startHour ? 24 : endHour;
       earliest = Math.min(earliest, startHour);
-      latest = Math.max(latest, endHour);
+      latest = Math.max(latest, effectiveEnd);
     });
 
     return { earliest, latest };
@@ -320,7 +322,11 @@ export function DayBreakdownDialog({
                         const [endHour, endMin] = shift.end_time.split(":").map(Number);
                         
                         const startTime = startHour + startMin / 60;
-                        const endTime = endHour + endMin / 60;
+                        let endTime = endHour + endMin / 60;
+                        // Handle midnight crossover (e.g., 6pm-12am)
+                        if (endTime < startTime) {
+                          endTime += 24;
+                        }
                         
                         // Calculate position and width as percentage
                         const totalRange = latest - earliest;
@@ -458,7 +464,13 @@ export function DayBreakdownDialog({
                 {sortedDayShifts.map((shift: any) => {
                   const [startHour, startMin] = shift.start_time.split(":").map(Number);
                   const [endHour, endMin] = shift.end_time.split(":").map(Number);
-                  const hours = endHour + endMin / 60 - (startHour + startMin / 60);
+                  const startTime = startHour + startMin / 60;
+                  let endTime = endHour + endMin / 60;
+                  // Handle midnight crossover (e.g., 6pm-12am)
+                  if (endTime < startTime) {
+                    endTime += 24;
+                  }
+                  const hours = endTime - startTime;
                   const workedHours = hours > 5 ? hours - 0.5 : hours;
                   const profile = getProfileForShift(shift);
                   const wage = profile?.hourly_wage ?? 15;
