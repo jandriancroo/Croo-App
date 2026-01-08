@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { parseISO } from 'date-fns';
 import { toISOStringInTimezone } from '@/utils/timezoneUtils';
-import { Clock, Trash2 } from 'lucide-react';
+import { Clock, Trash2, Plus, X } from 'lucide-react';
 import { formatInTimeZone } from 'date-fns-tz';
 import {
   AlertDialog,
@@ -55,6 +55,7 @@ export function EditPunchDialog({
 }: EditPunchDialogProps) {
   const [clockInTime, setClockInTime] = useState('');
   const [clockOutTime, setClockOutTime] = useState('');
+  const [showClockOut, setShowClockOut] = useState(false);
   const [includeBreak, setIncludeBreak] = useState(false);
   const [breakStartTime, setBreakStartTime] = useState('');
   const [breakEndTime, setBreakEndTime] = useState('');
@@ -116,7 +117,9 @@ export function EditPunchDialog({
       }
 
       setClockInTime(clockIn ? formatInTimeZone(parseISO(clockIn.punch_time), timezone, 'HH:mm') : '');
-      setClockOutTime(clockOut ? formatInTimeZone(parseISO(clockOut.punch_time), timezone, 'HH:mm') : '');
+      const clockOutTimeVal = clockOut ? formatInTimeZone(parseISO(clockOut.punch_time), timezone, 'HH:mm') : '';
+      setClockOutTime(clockOutTimeVal);
+      setShowClockOut(!!clockOutTimeVal); // Only show clock out field if there's an existing clock out
       
       if (breakStart) {
         setIncludeBreak(true);
@@ -156,10 +159,45 @@ export function EditPunchDialog({
     return endMinutes - startMinutes;
   };
 
+  // Helper to check if a time is in the future
+  const isTimeInFuture = (timeStr: string): boolean => {
+    if (!timeStr) return false;
+    const now = new Date();
+    const nowInTimezone = formatInTimeZone(now, timezone, 'yyyy-MM-dd HH:mm');
+    const [nowDate, nowTime] = nowInTimezone.split(' ');
+    
+    // If the punch date is in the future, allow any time
+    if (punchDate > nowDate) return true;
+    // If the punch date is in the past, no time is "in the future"
+    if (punchDate < nowDate) return false;
+    // Same day - compare times
+    return timeStr > nowTime;
+  };
+
   const handleSave = async () => {
     if (!clockInTime) {
       toast.error('Clock in time is required');
       return;
+    }
+
+    // Validate that punch times are not in the future
+    if (isTimeInFuture(clockInTime)) {
+      toast.error('Clock in time cannot be in the future');
+      return;
+    }
+    if (showClockOut && clockOutTime && isTimeInFuture(clockOutTime)) {
+      toast.error('Clock out time cannot be in the future');
+      return;
+    }
+    if (includeBreak) {
+      if (breakStartTime && isTimeInFuture(breakStartTime)) {
+        toast.error('Break start time cannot be in the future');
+        return;
+      }
+      if (breakEndTime && isTimeInFuture(breakEndTime)) {
+        toast.error('Break end time cannot be in the future');
+        return;
+      }
     }
 
     // Validate break duration if break is included
@@ -172,7 +210,6 @@ export function EditPunchDialog({
         return;
       }
     }
-
     setSaving(true);
     try {
       const breakNotes = `${breakType} break`;
@@ -186,7 +223,7 @@ export function EditPunchDialog({
       }
 
       const clockOut = punches.find(p => p.punch_type === 'clock_out');
-      if (clockOutTime) {
+      if (showClockOut && clockOutTime) {
         updates.push({ type: 'clock_out', time: clockOutTime, existingId: clockOut?.id });
       }
 
@@ -236,8 +273,8 @@ export function EditPunchDialog({
         }
       }
 
-      // Delete punches that were cleared
-      if (!clockOutTime && punches.find(p => p.punch_type === 'clock_out')) {
+      // Delete clock-out punch if it was removed (showClockOut is false but punch exists)
+      if (!showClockOut && punches.find(p => p.punch_type === 'clock_out')) {
         await supabase.from('time_punches').delete().eq('id', punches.find(p => p.punch_type === 'clock_out')!.id);
       }
       
@@ -324,22 +361,52 @@ export function EditPunchDialog({
               </div>
 
               {/* Time Inputs */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label>Clock In</Label>
-                  <Input
-                    type="time"
-                    value={clockInTime}
-                    onChange={(e) => setClockInTime(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Clock Out</Label>
-                  <Input
-                    type="time"
-                    value={clockOutTime}
-                    onChange={(e) => setClockOutTime(e.target.value)}
-                  />
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label>Clock In</Label>
+                    <Input
+                      type="time"
+                      value={clockInTime}
+                      onChange={(e) => setClockInTime(e.target.value)}
+                    />
+                  </div>
+                  {showClockOut ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Clock Out</Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5"
+                          onClick={() => {
+                            setShowClockOut(false);
+                            setClockOutTime('');
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <Input
+                        type="time"
+                        value={clockOutTime}
+                        onChange={(e) => setClockOutTime(e.target.value)}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-end">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setShowClockOut(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Clock Out
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
 
