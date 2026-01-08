@@ -121,9 +121,9 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     const monthStartStr = format(monthStart, 'yyyy-MM-dd');
     const monthEndStr = format(monthEnd, 'yyyy-MM-dd');
     
-    // Fetch daily data + week range + month range in parallel
+    // Fetch daily data + week range + month range + labor data in parallel
     // For month, always fetch full month (1st to last day)
-    const [dailyResult, weekResult, monthResult] = await Promise.all([
+    const [dailyResult, weekResult, monthResult, laborResult] = await Promise.all([
       supabase
         .from('sales_cache')
         .select('*')
@@ -143,13 +143,19 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
         .eq('location_id', currentLocation.id)
         .gte('sale_date', monthStartStr)
         .lte('sale_date', monthEndStr)
-        .order('sale_date')
+        .order('sale_date'),
+      // Fetch labor from dedicated labor_cache table
+      supabase
+        .from('labor_cache')
+        .select('labor_date, labor_cost, labor_hours, regular_hours, overtime_hours, source')
+        .eq('location_id', currentLocation.id)
+        .eq('labor_date', dateStr)
     ]);
 
     // If RLS blocks access (or any other DB error), surface it clearly.
-    const dbError = dailyResult.error || weekResult.error || monthResult.error;
+    const dbError = dailyResult.error || weekResult.error || monthResult.error || laborResult.error;
     if (dbError) {
-      console.error('[SalesOverview] sales_cache query error:', dbError);
+      console.error('[SalesOverview] sales_cache/labor_cache query error:', dbError);
       setDiagnosticInfo({
         lastFetchTime: new Date().toISOString(),
         locationId: currentLocation?.id || null,
@@ -158,7 +164,8 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
         rawResponse: {
           dailyError: dailyResult.error,
           weekError: weekResult.error,
-          monthError: monthResult.error
+          monthError: monthResult.error,
+          laborError: laborResult.error
         },
         error: dbError.message || String(dbError)
       });
@@ -275,21 +282,31 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       ? (cached.hourly_data as Array<{ hour: string; sales: number; checksCount: number; projected?: number }>)
       : [];
     
-    // Build daily labor from cache
-    console.log('[SalesOverview] Cache labor data:', { 
-      labor_cost: cached?.labor_cost, 
-      labor_hours: cached?.labor_hours,
+    // Build daily labor from labor_cache (aggregates all sources for this date)
+    const laborData = laborResult.data || [];
+    const aggregatedLabor = laborData.reduce((acc: { laborCost: number; hoursWorked: number; regularHours: number; overtimeHours: number }, row: any) => ({
+      laborCost: acc.laborCost + (Number(row.labor_cost) || 0),
+      hoursWorked: acc.hoursWorked + (Number(row.labor_hours) || 0),
+      regularHours: acc.regularHours + (Number(row.regular_hours) || 0),
+      overtimeHours: acc.overtimeHours + (Number(row.overtime_hours) || 0)
+    }), { laborCost: 0, hoursWorked: 0, regularHours: 0, overtimeHours: 0 });
+    
+    console.log('[SalesOverview] Labor from labor_cache:', { 
+      labor_cost: aggregatedLabor.laborCost, 
+      labor_hours: aggregatedLabor.hoursWorked,
+      sources: laborData.map((r: any) => r.source),
       net_sales: cached?.net_sales,
-      hasLabor: cached && (Number(cached.labor_cost) > 0 || Number(cached.labor_hours) > 0)
+      hasLabor: aggregatedLabor.laborCost > 0 || aggregatedLabor.hoursWorked > 0
     });
-    const dailyLabor = cached && (Number(cached.labor_cost) > 0 || Number(cached.labor_hours) > 0) ? {
-      laborPercent: cached.net_sales && Number(cached.net_sales) > 0 
-        ? (Number(cached.labor_cost) / Number(cached.net_sales)) * 100 
+    
+    const dailyLabor = (aggregatedLabor.laborCost > 0 || aggregatedLabor.hoursWorked > 0) ? {
+      laborPercent: cached?.net_sales && Number(cached.net_sales) > 0 
+        ? (aggregatedLabor.laborCost / Number(cached.net_sales)) * 100 
         : 0,
-      laborCost: Number(cached.labor_cost) || 0,
-      hoursWorked: Number(cached.labor_hours) || 0,
-      regularHours: Number(cached.regular_hours) || Number(cached.labor_hours) || 0,
-      overtimeHours: Number(cached.overtime_hours) || 0
+      laborCost: aggregatedLabor.laborCost,
+      hoursWorked: aggregatedLabor.hoursWorked,
+      regularHours: aggregatedLabor.regularHours || aggregatedLabor.hoursWorked,
+      overtimeHours: aggregatedLabor.overtimeHours
     } : null;
     console.log('[SalesOverview] Built dailyLabor:', dailyLabor);
     
