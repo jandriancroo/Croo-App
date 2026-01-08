@@ -518,7 +518,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { subject, html } = generateEmailContent(type, data);
 
     const emailResponse = await resend.emails.send({
-      from: "CrooHQ <hello@croohq.mail>",
+      from: "CrooHQ <hello@croohq.email>",
       to: [to],
       subject: subject,
       html: html,

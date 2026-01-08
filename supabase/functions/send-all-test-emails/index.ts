@@ -389,7 +389,7 @@ const handler = async (req: Request): Promise<Response> => {
       
       try {
         const emailResponse = await resend.emails.send({
-          from: "CrooHQ <hello@croohq.mail>",
+          from: "CrooHQ <hello@croohq.email>",
           to: [to],
           subject: `[TEST ${i + 1}/${testEmails.length}] ${email.subject}`,
           html: email.html(''),
