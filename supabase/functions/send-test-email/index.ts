@@ -32,7 +32,7 @@ const handler = async (req: Request): Promise<Response> => {
     const textColor = "#0f1215"; // hsl(220 25% 5%) - dark
 
     const emailResponse = await resend.emails.send({
-      from: "CrooHQ <hello@croohq.mail>",
+      from: "CrooHQ <hello@croohq.email>",
       to: [to],
       subject: subject,
       html: `
