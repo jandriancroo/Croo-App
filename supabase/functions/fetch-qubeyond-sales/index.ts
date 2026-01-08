@@ -1097,6 +1097,7 @@ async function fetchLaborData(
 }
 
 // Cache labor data to sales_cache table
+// Cache labor data to dedicated labor_cache table with source tracking
 async function cacheLaborData(
   supabase: any,
   locationId: string,
@@ -1105,31 +1106,33 @@ async function cacheLaborData(
 ): Promise<void> {
   try {
     const { error } = await supabase
-      .from('sales_cache')
+      .from('labor_cache')
       .upsert({
         location_id: locationId,
-        sale_date: dateStr,
+        labor_date: dateStr,
         labor_cost: laborData.laborCost,
         labor_hours: laborData.hoursWorked,
         regular_hours: laborData.regularHours,
         overtime_hours: laborData.overtimeHours,
+        source: 'qubeyond',
         fetched_at: new Date().toISOString()
       }, {
-        onConflict: 'location_id,sale_date',
+        onConflict: 'location_id,labor_date,source',
         ignoreDuplicates: false
       });
     
     if (error) {
       console.error(`[LABOR-CACHE] Error caching labor for ${dateStr}:`, error.message);
     } else {
-      console.log(`[LABOR-CACHE] Cached labor for ${dateStr}: $${laborData.laborCost.toFixed(2)} / ${laborData.hoursWorked.toFixed(1)}h`);
+      console.log(`[LABOR-CACHE] Cached labor to labor_cache for ${dateStr}: $${laborData.laborCost.toFixed(2)} / ${laborData.hoursWorked.toFixed(1)}h (source: qubeyond)`);
     }
   } catch (e) {
     console.error(`[LABOR-CACHE] Exception caching labor:`, e);
   }
 }
 
-// Get cached labor data from sales_cache table
+// Get cached labor data from dedicated labor_cache table
+// Aggregates data from both sources (qubeyond and punch_clock) for each date
 async function getCachedLaborData(
   supabase: any,
   locationId: string,
@@ -1139,11 +1142,10 @@ async function getCachedLaborData(
   
   try {
     const { data, error } = await supabase
-      .from('sales_cache')
-      .select('sale_date, labor_cost, labor_hours, regular_hours, overtime_hours')
+      .from('labor_cache')
+      .select('labor_date, labor_cost, labor_hours, regular_hours, overtime_hours, source')
       .eq('location_id', locationId)
-      .in('sale_date', dates)
-      .not('labor_cost', 'is', null);
+      .in('labor_date', dates);
     
     if (error) {
       console.error('[LABOR-CACHE] Error fetching cached labor:', error.message);
@@ -1151,15 +1153,23 @@ async function getCachedLaborData(
     }
     
     if (data) {
+      // Aggregate labor from all sources per date
       for (const row of data) {
-        cachedLabor.set(row.sale_date, {
-          laborCost: parseFloat(row.labor_cost) || 0,
-          hoursWorked: parseFloat(row.labor_hours) || 0,
-          regularHours: parseFloat(row.regular_hours) || 0,
-          overtimeHours: parseFloat(row.overtime_hours) || 0
+        const existing = cachedLabor.get(row.labor_date) || {
+          laborCost: 0,
+          hoursWorked: 0,
+          regularHours: 0,
+          overtimeHours: 0
+        };
+        
+        cachedLabor.set(row.labor_date, {
+          laborCost: existing.laborCost + (parseFloat(row.labor_cost) || 0),
+          hoursWorked: existing.hoursWorked + (parseFloat(row.labor_hours) || 0),
+          regularHours: existing.regularHours + (parseFloat(row.regular_hours) || 0),
+          overtimeHours: existing.overtimeHours + (parseFloat(row.overtime_hours) || 0)
         });
       }
-      console.log(`[LABOR-CACHE] Found ${cachedLabor.size} cached labor entries for ${dates.length} dates`);
+      console.log(`[LABOR-CACHE] Found ${data.length} labor_cache entries for ${dates.length} dates (aggregated to ${cachedLabor.size} unique dates)`);
     }
   } catch (e) {
     console.error('[LABOR-CACHE] Exception fetching cached labor:', e);
