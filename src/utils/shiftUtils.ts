@@ -12,6 +12,11 @@ export function shiftHasBreak(startTime: string | undefined | null, endTime: str
     minutes += 60;
   }
   
+  // Handle midnight crossover (e.g., 6pm-12am = 18:00-00:00)
+  if (hours < 0) {
+    hours += 24;
+  }
+  
   const totalHours = hours + minutes / 60;
   return totalHours > 5;
 }
@@ -28,6 +33,11 @@ export function calculateShiftHours(startTime: string | undefined | null, endTim
   if (minutes < 0) {
     hours -= 1;
     minutes += 60;
+  }
+  
+  // Handle midnight crossover (e.g., 6pm-12am = 18:00-00:00)
+  if (hours < 0) {
+    hours += 24;
   }
   
   let shiftHours = hours + minutes / 60;

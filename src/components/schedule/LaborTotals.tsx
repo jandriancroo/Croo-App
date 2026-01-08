@@ -270,6 +270,10 @@ export function LaborTotals({
           hours -= 1;
           minutes += 60;
         }
+        // Handle midnight crossover (e.g., 6pm-12am = 18:00-00:00)
+        if (hours < 0) {
+          hours += 24;
+        }
         let shiftHours = hours + minutes / 60;
 
         // Deduct 30 minutes if shift is over 5 hours
