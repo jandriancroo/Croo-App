@@ -6,13 +6,19 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Send, CheckCircle, Image, Loader2, Clock, User, ArrowLeft, Zap, CheckCheck, ChevronDown } from 'lucide-react';
+import { Send, CheckCircle, Image, Loader2, Clock, User, ArrowLeft, Zap, CheckCheck, ChevronDown, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -307,6 +313,23 @@ export function SupportChatPanel() {
     }
   };
 
+  const handleUnsendMessage = async (messageId: string) => {
+    try {
+      const { error } = await supabase
+        .from('support_messages')
+        .delete()
+        .eq('id', messageId);
+
+      if (error) throw error;
+      
+      setMessages(prev => prev.filter(m => m.id !== messageId));
+      toast.success('Message unsent');
+    } catch (error) {
+      console.error('Error unsending message:', error);
+      toast.error('Failed to unsend message');
+    }
+  };
+
   const formatTicketId = (num: number) => `#SUP-${String(num).padStart(3, '0')}`;
 
   if (loading) {
@@ -375,33 +398,54 @@ export function SupportChatPanel() {
               
               {messages.map((msg) => {
                 const isOwnMessage = msg.sender_id === currentUserId;
+                const messageContent = (
+                  <div
+                    className={`max-w-[85%] rounded-lg p-2.5 ${
+                      isOwnMessage
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted'
+                    }`}
+                  >
+                    {!isOwnMessage && (
+                      <p className="text-xs font-medium mb-1">{msg.profiles?.full_name}</p>
+                    )}
+                    {msg.content && <p className="text-sm">{msg.content}</p>}
+                    {msg.image_url && (
+                      <img
+                        src={msg.image_url}
+                        alt="Attachment"
+                        className="mt-2 rounded max-w-full"
+                      />
+                    )}
+                    <p className={`text-xs mt-1 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                      {format(new Date(msg.created_at), 'h:mm a')}
+                    </p>
+                  </div>
+                );
+
                 return (
                   <div
                     key={msg.id}
                     className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                   >
-                    <div
-                      className={`max-w-[85%] rounded-lg p-2.5 ${
-                        isOwnMessage
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
-                      }`}
-                    >
-                      {!isOwnMessage && (
-                        <p className="text-xs font-medium mb-1">{msg.profiles?.full_name}</p>
-                      )}
-                      {msg.content && <p className="text-sm">{msg.content}</p>}
-                      {msg.image_url && (
-                        <img
-                          src={msg.image_url}
-                          alt="Attachment"
-                          className="mt-2 rounded max-w-full"
-                        />
-                      )}
-                      <p className={`text-xs mt-1 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                        {format(new Date(msg.created_at), 'h:mm a')}
-                      </p>
-                    </div>
+                    {isOwnMessage ? (
+                      <ContextMenu>
+                        <ContextMenuTrigger asChild>
+                          {messageContent}
+                        </ContextMenuTrigger>
+                        <ContextMenuContent className="bg-background">
+                          <ContextMenuItem
+                            onClick={() => handleUnsendMessage(msg.id)}
+                            className="text-destructive focus:text-destructive cursor-pointer"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Unsend
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    ) : (
+                      messageContent
+                    )}
                   </div>
                 );
               })}
@@ -648,33 +692,54 @@ export function SupportChatPanel() {
                 
                 {messages.map((msg) => {
                   const isOwnMessage = msg.sender_id === currentUserId;
+                  const messageContent = (
+                    <div
+                      className={`max-w-[70%] rounded-lg p-3 ${
+                        isOwnMessage
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
+                      }`}
+                    >
+                      {!isOwnMessage && (
+                        <p className="text-xs font-medium mb-1">{msg.profiles?.full_name}</p>
+                      )}
+                      {msg.content && <p className="text-sm">{msg.content}</p>}
+                      {msg.image_url && (
+                        <img
+                          src={msg.image_url}
+                          alt="Attachment"
+                          className="mt-2 rounded max-w-full"
+                        />
+                      )}
+                      <p className={`text-xs mt-1 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                        {format(new Date(msg.created_at), 'h:mm a')}
+                      </p>
+                    </div>
+                  );
+
                   return (
                     <div
                       key={msg.id}
                       className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div
-                        className={`max-w-[70%] rounded-lg p-3 ${
-                          isOwnMessage
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted'
-                        }`}
-                      >
-                        {!isOwnMessage && (
-                          <p className="text-xs font-medium mb-1">{msg.profiles?.full_name}</p>
-                        )}
-                        {msg.content && <p className="text-sm">{msg.content}</p>}
-                        {msg.image_url && (
-                          <img
-                            src={msg.image_url}
-                            alt="Attachment"
-                            className="mt-2 rounded max-w-full"
-                          />
-                        )}
-                        <p className={`text-xs mt-1 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
-                          {format(new Date(msg.created_at), 'h:mm a')}
-                        </p>
-                      </div>
+                      {isOwnMessage ? (
+                        <ContextMenu>
+                          <ContextMenuTrigger asChild>
+                            {messageContent}
+                          </ContextMenuTrigger>
+                          <ContextMenuContent className="bg-background">
+                            <ContextMenuItem
+                              onClick={() => handleUnsendMessage(msg.id)}
+                              className="text-destructive focus:text-destructive cursor-pointer"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Unsend
+                            </ContextMenuItem>
+                          </ContextMenuContent>
+                        </ContextMenu>
+                      ) : (
+                        messageContent
+                      )}
                     </div>
                   );
                 })}
