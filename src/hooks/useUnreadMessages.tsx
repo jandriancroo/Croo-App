@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useUnreadMessages = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const userIdRef = useRef<string | null>(null);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -13,6 +14,8 @@ export const useUnreadMessages = () => {
         setLoading(false);
         return;
       }
+      
+      userIdRef.current = user.id;
 
       // Get all chats the user is a member of (excluding announcements)
       const { data: memberChats } = await supabase
@@ -29,31 +32,43 @@ export const useUnreadMessages = () => {
 
       const chatIds = memberChats.map(cm => cm.chat_id);
 
-      // Count unread chats (chats with at least one unread message)
+      // Get the latest message per chat not sent by current user, using a single query
+      const { data: latestMessages } = await supabase
+        .from('messages')
+        .select('id, chat_id, created_at')
+        .in('chat_id', chatIds)
+        .neq('sender_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (!latestMessages || latestMessages.length === 0) {
+        setUnreadCount(0);
+        setLoading(false);
+        return;
+      }
+
+      // Group by chat_id to get only the latest message per chat
+      const latestPerChat = new Map<string, { id: string; created_at: string }>();
+      for (const msg of latestMessages) {
+        if (!latestPerChat.has(msg.chat_id)) {
+          latestPerChat.set(msg.chat_id, { id: msg.id, created_at: msg.created_at });
+        }
+      }
+
+      const messageIds = Array.from(latestPerChat.values()).map(m => m.id);
+
+      // Get all read receipts for these messages in a single query
+      const { data: readReceipts } = await supabase
+        .from('message_read_receipts')
+        .select('message_id')
+        .in('message_id', messageIds)
+        .eq('user_id', user.id);
+
+      const readMessageIds = new Set(readReceipts?.map(r => r.message_id) || []);
+
+      // Count unread chats
       let unreadChats = 0;
-
-      for (const chatId of chatIds) {
-        // Get the latest message in this chat not sent by the user
-        const { data: latestMessage } = await supabase
-          .from('messages')
-          .select('id, created_at')
-          .eq('chat_id', chatId)
-          .neq('sender_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (!latestMessage) continue;
-
-        // Check if user has read this message
-        const { data: readReceipt } = await supabase
-          .from('message_read_receipts')
-          .select('id')
-          .eq('message_id', latestMessage.id)
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (!readReceipt) {
+      for (const [, msg] of latestPerChat) {
+        if (!readMessageIds.has(msg.id)) {
           unreadChats++;
         }
       }
@@ -70,13 +85,13 @@ export const useUnreadMessages = () => {
   useEffect(() => {
     fetchUnreadCount();
 
-    // Subscribe to new messages
+    // Subscribe to new messages and read receipts
     const messageChannel = supabase
-      .channel('unread-messages')
+      .channel('unread-messages-tracker')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'messages'
         },
@@ -87,12 +102,15 @@ export const useUnreadMessages = () => {
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
           table: 'message_read_receipts'
         },
-        () => {
-          fetchUnreadCount();
+        (payload) => {
+          // Only refetch if this read receipt is for the current user
+          if (payload.new && (payload.new as any).user_id === userIdRef.current) {
+            fetchUnreadCount();
+          }
         }
       )
       .subscribe();
