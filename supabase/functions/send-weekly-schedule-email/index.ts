@@ -221,19 +221,27 @@ serve(async (req: Request): Promise<Response> => {
     
     if (locationError) throw locationError;
     
-    // Get all shifts with user info
+    // Get all shifts
     const { data: shifts, error: shiftsError } = await supabase
       .from('scheduled_shifts')
-      .select(`
-        user_id,
-        shift_date,
-        start_time,
-        end_time,
-        is_time_off,
-        profiles!inner(email, full_name)
-      `)
+      .select('user_id, shift_date, start_time, end_time, is_time_off')
       .eq('schedule_id', schedule_id)
       .not('user_id', 'is', null);
+    
+    if (shiftsError) throw shiftsError;
+    
+    // Get unique user IDs
+    const userIds = [...new Set((shifts || []).map(s => s.user_id))];
+    
+    // Get profiles for these users
+    const { data: profiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, email, full_name')
+      .in('id', userIds);
+    
+    if (profilesError) throw profilesError;
+    
+    const profileMap = new Map((profiles || []).map(p => [p.id, p]));
     
     if (shiftsError) throw shiftsError;
     
@@ -242,7 +250,7 @@ serve(async (req: Request): Promise<Response> => {
     
     for (const shift of shifts || []) {
       const userId = shift.user_id;
-      const profile = shift.profiles as any;
+      const profile = profileMap.get(userId);
       
       if (!profile?.email) continue;
       
