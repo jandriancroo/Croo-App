@@ -2411,23 +2411,79 @@ serve(async (req) => {
     let weeklyTipsData: { ccTips: number; cashTips: number; dailyTips: { date: string; ccTips: number; cashTips: number }[] } | null = null;
     
     if (credentials.pull_labor) {
-      console.log('Pull labor enabled - fetching labor data from Real Time Summary (Qu) AND caching it');
-      // Fetch today's labor live, and use cache-aware fetching for week + month dates
-      const [todayLabor, weekLabor, monthLabor, todayTips, weekTips] = await Promise.all([
+      console.log('Pull labor enabled - fetching today live from Qu, historical from labor_cache');
+      
+      // Get historical dates (excluding today)
+      const pastMonthDates = monthDates.filter(d => d < todayStr);
+      const pastWeekDates = weekDates.filter(d => d < todayStr);
+      
+      // Fetch today's labor live, historical from cache
+      const [todayLabor, cachedMonthLabor, todayTips, weekTips] = await Promise.all([
         fetchLaborData(tokenGw, todayStr, qbLocationId),
-        fetchLaborDataForDates(tokenGw, weekDates, qbLocationId, cacheSupabase, locationId),
-        fetchLaborDataForDates(tokenGw, monthDates, qbLocationId, cacheSupabase, locationId),
+        getCachedLaborData(cacheSupabase, locationId, pastMonthDates),
         fetchTipsData(tokenGw, todayStr, qbLocationId),
         fetchTipsDataForDates(tokenGw, weekDates, qbLocationId)
       ]);
+      
       laborData = todayLabor;
-      weeklyLaborData = weekLabor;
-      monthlyLaborData = monthLabor;
       laborSource = 'qu';
       tipsData = todayTips;
       weeklyTipsData = weekTips;
       
-      console.log(`[LABOR-QU] MTD from Qu: $${monthLabor?.laborCost?.toFixed(2) || 0} / ${monthLabor?.hoursWorked?.toFixed(1) || 0}h`);
+      // Calculate MTD from cached historical + today's live
+      let mtdLaborCost = todayLabor?.laborCost || 0;
+      let mtdHoursWorked = todayLabor?.hoursWorked || 0;
+      let mtdRegularHours = todayLabor?.regularHours || 0;
+      let mtdOvertimeHours = todayLabor?.overtimeHours || 0;
+      const dailyLabor: { date: string; laborPercent: number; laborCost: number }[] = [];
+      
+      for (const dateStr of pastMonthDates) {
+        const cached = cachedMonthLabor.get(dateStr);
+        if (cached) {
+          mtdLaborCost += cached.laborCost;
+          mtdHoursWorked += cached.hoursWorked;
+          mtdRegularHours += cached.regularHours;
+          mtdOvertimeHours += cached.overtimeHours;
+          dailyLabor.push({ date: dateStr, laborPercent: 0, laborCost: cached.laborCost });
+        }
+      }
+      
+      monthlyLaborData = {
+        laborCost: mtdLaborCost,
+        hoursWorked: mtdHoursWorked,
+        regularHours: mtdRegularHours,
+        overtimeHours: mtdOvertimeHours,
+        dailyLabor
+      };
+      
+      // Calculate weekly from cache + today
+      let weekLaborCost = todayLabor?.laborCost || 0;
+      let weekHoursWorked = todayLabor?.hoursWorked || 0;
+      let weekRegularHours = todayLabor?.regularHours || 0;
+      let weekOvertimeHours = todayLabor?.overtimeHours || 0;
+      const weekDailyLabor: { date: string; laborPercent: number; laborCost: number }[] = [];
+      
+      for (const dateStr of pastWeekDates) {
+        const cached = cachedMonthLabor.get(dateStr);
+        if (cached) {
+          weekLaborCost += cached.laborCost;
+          weekHoursWorked += cached.hoursWorked;
+          weekRegularHours += cached.regularHours;
+          weekOvertimeHours += cached.overtimeHours;
+          weekDailyLabor.push({ date: dateStr, laborPercent: 0, laborCost: cached.laborCost });
+        }
+      }
+      
+      weeklyLaborData = {
+        laborCost: weekLaborCost,
+        hoursWorked: weekHoursWorked,
+        regularHours: weekRegularHours,
+        overtimeHours: weekOvertimeHours,
+        dailyLabor: weekDailyLabor
+      };
+      
+      console.log(`[LABOR-QU] Today live: $${todayLabor?.laborCost?.toFixed(2) || 0} / ${todayLabor?.hoursWorked?.toFixed(1) || 0}h`);
+      console.log(`[LABOR-QU] MTD (cache + today): $${mtdLaborCost.toFixed(2)} / ${mtdHoursWorked.toFixed(1)}h`);
       
       // Cache today's labor data
       if (todayLabor && locationId && todayLabor.laborCost > 0) {
