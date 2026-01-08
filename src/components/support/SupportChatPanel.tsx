@@ -317,88 +317,62 @@ export function SupportChatPanel() {
       // Show chat view with back button
       return (
         <div className="flex flex-col h-full">
-          {/* Ticket Header with Back Button */}
-          <div className="p-4 border-b space-y-2">
-            <div className="flex items-center gap-2 mb-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSelectedTicket(null)}
-                className="gap-1 -ml-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-            </div>
+          {/* Compact Ticket Header with Back Button */}
+          <div className="p-3 border-b">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedTicket(null)}
+                  className="gap-1 -ml-2 h-8 px-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <Avatar className="h-8 w-8">
                   <AvatarImage src={selectedTicket.profiles?.profile_photo_url || ''} />
                   <AvatarFallback>
-                    <User className="h-5 w-5" />
+                    <User className="h-4 w-4" />
                   </AvatarFallback>
                 </Avatar>
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold">{selectedTicket.profiles?.full_name}</span>
+                    <span className="font-semibold text-sm truncate">{selectedTicket.profiles?.full_name}</span>
                     <span className="font-mono text-xs text-muted-foreground">
                       {formatTicketId(selectedTicket.ticket_number)}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{selectedTicket.profiles?.email}</p>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs h-5">{CATEGORY_LABELS[selectedTicket.category]}</Badge>
+                    <span className="text-xs text-muted-foreground truncate">{selectedTicket.description.slice(0, 30)}...</span>
+                  </div>
                 </div>
               </div>
-            </div>
-            
-            {/* Ticket Details */}
-            <div className="bg-muted/50 rounded-lg p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <Badge variant="outline">{CATEGORY_LABELS[selectedTicket.category]}</Badge>
-                {selectedTicket.status !== 'resolved' && (
-                  <Button
-                    onClick={handleResolve}
-                    disabled={resolving}
-                    size="sm"
-                    className="gap-1"
-                  >
-                    {resolving ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <CheckCircle className="h-3 w-3" />
-                    )}
-                    Resolve
-                  </Button>
-                )}
-              </div>
-              {selectedTicket.occurrence_time && (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="h-3 w-3" />
-                  {format(new Date(selectedTicket.occurrence_time), 'MMM d, h:mm a')}
-                </span>
-              )}
-              <p className="text-sm">{selectedTicket.description}</p>
-              {selectedTicket.screenshot_url && (
-                <a
-                  href={selectedTicket.screenshot_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              {selectedTicket.status !== 'resolved' && (
+                <Button
+                  onClick={handleResolve}
+                  disabled={resolving}
+                  size="sm"
+                  className="gap-1 h-8"
                 >
-                  <Image className="h-3 w-3" />
-                  View Screenshot
-                </a>
+                  {resolving ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <CheckCircle className="h-3 w-3" />
+                  )}
+                </Button>
               )}
             </div>
           </div>
 
           {/* Messages */}
-          <ScrollArea className="flex-1 p-4">
-            <div className="space-y-4">
+          <ScrollArea className="flex-1 min-h-0">
+            <div className="p-3 space-y-3">
               {/* Status Indicator */}
-              <div className="flex justify-center">
-                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${STATUS_COLORS[selectedTicket.status]} border`}>
-                  {selectedTicket.status === 'open' && '🟡 Open - Awaiting Response'}
-                  {selectedTicket.status === 'in_progress' && '🔵 In Progress - Being Reviewed'}
+              <div className="flex justify-center sticky top-0 z-10 py-1">
+                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${STATUS_COLORS[selectedTicket.status]} border backdrop-blur-sm`}>
+                  {selectedTicket.status === 'open' && '🟡 Open'}
+                  {selectedTicket.status === 'in_progress' && '🔵 In Progress'}
                   {selectedTicket.status === 'resolved' && '✅ Resolved'}
                 </div>
               </div>
@@ -411,7 +385,7 @@ export function SupportChatPanel() {
                     className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-lg p-3 ${
+                      className={`max-w-[85%] rounded-lg p-2.5 ${
                         isOwnMessage
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-muted'
@@ -441,9 +415,9 @@ export function SupportChatPanel() {
 
           {/* Message Input */}
           {selectedTicket.status !== 'resolved' && (
-            <div className="p-4 border-t space-y-3">
-              {/* Quick Replies */}
-              <div className="flex flex-wrap gap-2">
+            <div className="p-3 border-t space-y-2">
+              {/* Quick Replies - more compact */}
+              <div className="flex flex-wrap gap-1.5">
                 {QUICK_REPLIES.map((qr, idx) => (
                   <Button
                     key={idx}
@@ -451,11 +425,10 @@ export function SupportChatPanel() {
                     size="sm"
                     onClick={() => handleQuickReply(qr)}
                     disabled={sending}
-                    className="text-xs"
+                    className="text-xs h-7 px-2"
                   >
                     {qr.label}
-                    {qr.status === 'in_progress' && <span className="ml-1 text-blue-400">→ In Progress</span>}
-                    {qr.status === 'resolved' && <span className="ml-1 text-green-400">→ Resolved</span>}
+                    {qr.status && <span className={`ml-1 ${qr.status === 'in_progress' ? 'text-blue-400' : 'text-green-400'}`}>→</span>}
                   </Button>
                 ))}
               </div>
@@ -471,8 +444,9 @@ export function SupportChatPanel() {
                   onChange={(e) => setNewMessage(e.target.value)}
                   placeholder="Type your response..."
                   disabled={sending}
+                  className="h-9"
                 />
-                <Button type="submit" disabled={sending || !newMessage.trim()}>
+                <Button type="submit" disabled={sending || !newMessage.trim()} className="h-9 w-9 p-0">
                   {sending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
@@ -480,6 +454,11 @@ export function SupportChatPanel() {
                   )}
                 </Button>
               </form>
+            </div>
+          )}
+          {selectedTicket.status === 'resolved' && (
+            <div className="p-3 border-t text-center text-sm text-muted-foreground">
+              ✅ This ticket has been resolved
             </div>
           )}
         </div>
