@@ -777,12 +777,27 @@ const handler = async (req: Request): Promise<Response> => {
 
     const topItems = productMixData.topItems;
     const actualSales = salesCache.data?.net_sales || 0;
-    // ALWAYS use cached projection - this is what the dashboard showed during the day
-    // Only fall back to live calculation if no cached value exists
-    const projectedSales = (salesCache.data?.projected_sales || 0) > 0 
-      ? salesCache.data?.projected_sales 
-      : productMixData.projectedSales;
-    console.log(`[sales] Using projectedSales: ${projectedSales} (cached: ${salesCache.data?.projected_sales || 0}, live fallback: ${productMixData.projectedSales})`);
+    
+    // Determine if this is today or a past date
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD in UTC
+    const isToday = entry_date === today;
+    
+    // For TODAY: use live projection (what dashboard shows now)
+    // For PAST dates: use cached projection (what dashboard showed that day)
+    let projectedSales: number;
+    if (isToday) {
+      // Today: prefer live calculation, fall back to cache
+      projectedSales = productMixData.projectedSales > 0 
+        ? productMixData.projectedSales 
+        : (salesCache.data?.projected_sales || 0);
+      console.log(`[sales] TODAY - Using live projectedSales: ${projectedSales} (live: ${productMixData.projectedSales}, cached: ${salesCache.data?.projected_sales || 0})`);
+    } else {
+      // Past date: prefer cached value, fall back to live
+      projectedSales = (salesCache.data?.projected_sales || 0) > 0 
+        ? salesCache.data?.projected_sales 
+        : productMixData.projectedSales;
+      console.log(`[sales] PAST DATE - Using cached projectedSales: ${projectedSales} (cached: ${salesCache.data?.projected_sales || 0}, live fallback: ${productMixData.projectedSales})`);
+    }
     
     
     const laborPercent = actualSales > 0 && laborData.laborCost > 0 
