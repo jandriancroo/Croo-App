@@ -404,10 +404,18 @@ export function SupportChatPanel() {
                       href={selectedTicket.screenshot_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-primary-foreground/80 hover:text-primary-foreground mt-1"
+                      className="block mt-2"
                     >
-                      <Image className="h-3 w-3" />
-                      View Screenshot
+                      <img
+                        src={selectedTicket.screenshot_url}
+                        alt="Support ticket screenshot"
+                        loading="lazy"
+                        className="rounded-md max-w-full"
+                      />
+                      <span className="inline-flex items-center gap-1 text-xs text-primary-foreground/80 hover:text-primary-foreground mt-1">
+                        <Image className="h-3 w-3" />
+                        Open Screenshot
+                      </span>
                     </a>
                   )}
                   <p className="text-xs mt-1 text-primary-foreground/70">
@@ -433,8 +441,9 @@ export function SupportChatPanel() {
                     {msg.image_url && (
                       <img
                         src={msg.image_url}
-                        alt="Attachment"
-                        className="mt-2 rounded max-full"
+                        alt="Message attachment"
+                        loading="lazy"
+                        className="mt-2 rounded max-w-full"
                       />
                     )}
                     <p className={`text-xs mt-1 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
