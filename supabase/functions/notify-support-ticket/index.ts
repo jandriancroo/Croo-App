@@ -133,7 +133,7 @@ serve(async (req) => {
     for (const email of adminEmails) {
       try {
         await resend.emails.send({
-          from: "Croo Support <onboarding@resend.dev>",
+          from: "Croo Support <support@croohq.email>",
           to: [email],
           subject: emailSubject,
           html: emailBody,
