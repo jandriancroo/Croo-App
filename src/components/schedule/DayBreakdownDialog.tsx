@@ -181,7 +181,11 @@ export function DayBreakdownDialog({
       const [endHour, endMin] = shift.end_time.split(":").map(Number);
 
       const startTime = startHour + startMin / 60;
-      const endTime = endHour + endMin / 60;
+      let endTime = endHour + endMin / 60;
+      // Handle midnight crossover (e.g., 6pm-12am = 18:00-00:00)
+      if (endTime < startTime) {
+        endTime += 24;
+      }
       const totalHours = endTime - startTime;
       const hasBreak = totalHours > 5;
       const workedHours = hasBreak ? totalHours - 0.5 : totalHours;
@@ -216,7 +220,9 @@ export function DayBreakdownDialog({
     if (shift.is_time_off) return sum;
     const [startHour, startMin] = shift.start_time.split(":").map(Number);
     const [endHour, endMin] = shift.end_time.split(":").map(Number);
-    const hours = endHour + endMin / 60 - (startHour + startMin / 60);
+    let hours = endHour + endMin / 60 - (startHour + startMin / 60);
+    // Handle midnight crossover (e.g., 6pm-12am)
+    if (hours < 0) hours += 24;
     return sum + (hours > 5 ? hours - 0.5 : hours);
   }, 0);
 
@@ -224,7 +230,9 @@ export function DayBreakdownDialog({
     if (shift.is_time_off) return sum;
     const [startHour, startMin] = shift.start_time.split(":").map(Number);
     const [endHour, endMin] = shift.end_time.split(":").map(Number);
-    const hours = endHour + endMin / 60 - (startHour + startMin / 60);
+    let hours = endHour + endMin / 60 - (startHour + startMin / 60);
+    // Handle midnight crossover (e.g., 6pm-12am)
+    if (hours < 0) hours += 24;
     const workedHours = hours > 5 ? hours - 0.5 : hours;
     const profile = getProfileForShift(shift);
     const wage = profile?.hourly_wage ?? 15;
