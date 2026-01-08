@@ -83,7 +83,7 @@ const handler = async (req: Request): Promise<Response> => {
     const textColor = "#0f1215"; // dark
 
     const emailResponse = await resend.emails.send({
-      from: "CrooHQ <hello@croohq.email>",
+      from: "CrooHQ <hello@croohq.mail>",
       to: [to],
       subject: `🎉 Welcome to ${brandName || organizationName}${locationName ? ` - ${locationName}` : ''}!`,
       html: `
