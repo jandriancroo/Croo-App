@@ -348,20 +348,18 @@ export function SupportChatPanel() {
                   </div>
                 </div>
               </div>
+              {/* Status Indicator */}
+              <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[selectedTicket.status]} border`}>
+                {selectedTicket.status === 'open' && '🟡 Open'}
+                {selectedTicket.status === 'in_progress' && '🔵 In Progress'}
+                {selectedTicket.status === 'resolved' && '✅ Resolved'}
+              </div>
             </div>
           </div>
 
           {/* Messages */}
           <ScrollArea className="flex-1 min-h-0">
             <div className="p-3 space-y-3">
-              {/* Status Indicator */}
-              <div className="flex justify-center sticky top-0 z-10 py-1">
-                <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${STATUS_COLORS[selectedTicket.status]} border backdrop-blur-sm`}>
-                  {selectedTicket.status === 'open' && '🟡 Open'}
-                  {selectedTicket.status === 'in_progress' && '🔵 In Progress'}
-                  {selectedTicket.status === 'resolved' && '✅ Resolved'}
-                </div>
-              </div>
               
               {messages.map((msg) => {
                 const isOwnMessage = msg.sender_id === currentUserId;
