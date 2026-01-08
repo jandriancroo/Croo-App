@@ -6,7 +6,13 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Send, CheckCircle, Image, Loader2, Clock, User, ArrowLeft, Zap, HelpCircle, Heart, CheckCheck } from 'lucide-react';
+import { Send, CheckCircle, Image, Loader2, Clock, User, ArrowLeft, Zap, CheckCheck, ChevronDown } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -406,49 +412,29 @@ export function SupportChatPanel() {
           {/* Message Input */}
           {selectedTicket.status !== 'resolved' && (
             <div className="p-3 border-t space-y-2">
-              {/* Quick Replies with icons */}
-              <div className="flex flex-wrap gap-1.5">
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => handleQuickReply(QUICK_REPLIES[0])}
-                  disabled={sending}
-                  className="text-xs h-7 px-2"
-                >
-                  <Zap className="h-3 w-3 mr-1" />
-                  On it!
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickReply(QUICK_REPLIES[1])}
-                  disabled={sending}
-                  className="text-xs h-7 px-2"
-                >
-                  <HelpCircle className="h-3 w-3 mr-1" />
-                  Need details
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleQuickReply(QUICK_REPLIES[2])}
-                  disabled={sending}
-                  className="text-xs h-7 px-2"
-                >
-                  <Heart className="h-3 w-3 mr-1" />
-                  Thanks
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => handleQuickReply(QUICK_REPLIES[3])}
-                  disabled={sending}
-                  className="text-xs h-7 px-2"
-                >
-                  <CheckCheck className="h-3 w-3 mr-1" />
-                  Resolve
-                </Button>
-              </div>
+              {/* Quick Replies Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-xs h-7" disabled={sending}>
+                    Quick Reply
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="bg-background">
+                  {QUICK_REPLIES.map((qr, idx) => (
+                    <DropdownMenuItem
+                      key={idx}
+                      onClick={() => handleQuickReply(qr)}
+                      className="text-xs cursor-pointer"
+                    >
+                      {qr.status === 'in_progress' && <Zap className="h-3 w-3 mr-2 text-blue-400" />}
+                      {qr.status === 'resolved' && <CheckCheck className="h-3 w-3 mr-2 text-green-400" />}
+                      {!qr.status && <span className="w-5" />}
+                      {qr.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
