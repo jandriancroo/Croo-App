@@ -97,10 +97,23 @@ export function CreateTicketDialog({ open, onOpenChange }: CreateTicketDialogPro
           screenshot_url: screenshotUrl,
           occurrence_time: new Date(occurrenceTime).toISOString(),
         })
-        .select('ticket_number')
+        .select('id, ticket_number')
         .single();
 
       if (ticketError) throw ticketError;
+
+      // Notify support admins about new ticket
+      try {
+        await supabase.functions.invoke('notify-support-ticket', {
+          body: {
+            ticket_id: ticket.id,
+            event_type: 'new_ticket',
+          },
+        });
+      } catch (notifyError) {
+        console.error('Error notifying support team:', notifyError);
+        // Don't fail the ticket creation if notification fails
+      }
 
       toast.success(`Support ticket #SUP-${String(ticket.ticket_number).padStart(3, '0')} created!`);
       resetForm();

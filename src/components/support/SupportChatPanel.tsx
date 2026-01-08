@@ -395,6 +395,31 @@ export function SupportChatPanel() {
           {/* Messages */}
           <ScrollArea className="flex-1 min-h-0">
             <div className="p-3 space-y-3">
+              {/* Initial Ticket Context Card - always show as first item */}
+              <div className="bg-muted/50 border rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Clock className="h-3 w-3" />
+                  <span>Ticket opened {format(new Date(selectedTicket.created_at), 'MMM d, yyyy \'at\' h:mm a')}</span>
+                </div>
+                <p className="text-sm">{selectedTicket.description}</p>
+                {selectedTicket.screenshot_url && (
+                  <a
+                    href={selectedTicket.screenshot_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <Image className="h-3 w-3" />
+                    View Screenshot
+                  </a>
+                )}
+                {selectedTicket.occurrence_time && (
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <span>Issue occurred:</span>
+                    <span className="font-medium">{format(new Date(selectedTicket.occurrence_time), 'MMM d \'at\' h:mm a')}</span>
+                  </p>
+                )}
+              </div>
               
               {messages.map((msg) => {
                 const isOwnMessage = msg.sender_id === currentUserId;
@@ -414,7 +439,7 @@ export function SupportChatPanel() {
                       <img
                         src={msg.image_url}
                         alt="Attachment"
-                        className="mt-2 rounded max-w-full"
+                        className="mt-2 rounded max-full"
                       />
                     )}
                     <p className={`text-xs mt-1 ${isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
