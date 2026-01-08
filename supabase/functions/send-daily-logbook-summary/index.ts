@@ -180,8 +180,8 @@ async function fetchLaborData(supabase: any, locationId: string, dateStr: string
   }
 }
 
-// Fetch product mix from fetch-qubeyond-sales edge function (same data as Dashboard)
-async function fetchProductMix(supabaseUrl: string, supabaseAnonKey: string, locationId: string, dateStr: string) {
+// Fetch product mix AND projections from fetch-qubeyond-sales edge function
+async function fetchProductMixAndProjections(supabaseUrl: string, supabaseAnonKey: string, locationId: string, dateStr: string): Promise<{ topItems: { name: string; quantity: number; sales: number }[]; projectedSales: number }> {
   try {
     console.log(`[productMix] Fetching from fetch-qubeyond-sales for ${dateStr}`);
     
@@ -194,20 +194,24 @@ async function fetchProductMix(supabaseUrl: string, supabaseAnonKey: string, loc
       body: JSON.stringify({
         locationId,
         targetDate: dateStr,
-        skipProjections: true, // We only need product mix
+        skipProjections: false, // We need projections for the email
       }),
     });
 
     if (!response.ok) {
       console.error('[productMix] fetch-qubeyond-sales failed:', response.status);
-      return [];
+      return { topItems: [], projectedSales: 0 };
     }
 
     const data = await response.json();
     
+    // Get the daily projection from the response
+    const projectedSales = data?.projections?.todayProjected || 0;
+    console.log(`[productMix] Got projectedSales from live calculation: ${projectedSales}`);
+    
     if (!data?.productMix || !Array.isArray(data.productMix)) {
       console.log('[productMix] No productMix in response');
-      return [];
+      return { topItems: [], projectedSales };
     }
 
     // Return top 5 items sorted by sales
@@ -220,11 +224,11 @@ async function fetchProductMix(supabaseUrl: string, supabaseAnonKey: string, loc
         sales: item.sales || 0,
       }));
 
-    console.log(`[productMix] Got ${topItems.length} top items`);
-    return topItems;
+    console.log(`[productMix] Got ${topItems.length} top items, projectedSales=${projectedSales}`);
+    return { topItems, projectedSales };
   } catch (error) {
     console.error('Error fetching product mix:', error);
-    return [];
+    return { topItems: [], projectedSales: 0 };
   }
 }
 
@@ -763,16 +767,20 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Fetch all data in parallel
-    const [laborData, topItems, checklistData, eventsData, salesCache] = await Promise.all([
+    const [laborData, productMixData, checklistData, eventsData, salesCache] = await Promise.all([
       fetchLaborData(supabase, location_id, entry_date),
-      fetchProductMix(supabaseUrl, supabaseAnonKey, location_id, entry_date),
+      fetchProductMixAndProjections(supabaseUrl, supabaseAnonKey, location_id, entry_date),
       fetchChecklistData(supabase, location_id, entry_date),
       fetchEventsData(supabase, location_id, entry_date),
       supabase.from('sales_cache').select('net_sales, projected_sales').eq('location_id', location_id).eq('sale_date', entry_date).maybeSingle()
     ]);
 
+    const topItems = productMixData.topItems;
     const actualSales = salesCache.data?.net_sales || 0;
-    const projectedSales = salesCache.data?.projected_sales || 0;
+    // Use live-calculated projection if available, fallback to cached value
+    const projectedSales = productMixData.projectedSales > 0 ? productMixData.projectedSales : (salesCache.data?.projected_sales || 0);
+    console.log(`[sales] Using projectedSales: ${projectedSales} (live: ${productMixData.projectedSales}, cached: ${salesCache.data?.projected_sales || 0})`);
+    
     
     const laborPercent = actualSales > 0 && laborData.laborCost > 0 
       ? (laborData.laborCost / actualSales) * 100 
