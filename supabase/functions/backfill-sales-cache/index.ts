@@ -566,20 +566,8 @@ serve(async (req) => {
       for (const dateStr of laborDates) {
         const laborData = await fetchLaborData(auth.tokenGw, dateStr, qbLocationId);
         if (laborData && laborData.laborCost > 0) {
-          // Save to sales_cache (legacy)
-          await supabase
-            .from('sales_cache')
-            .upsert({
-              location_id: locationId,
-              sale_date: dateStr,
-              labor_cost: laborData.laborCost,
-              labor_hours: laborData.hoursWorked,
-              regular_hours: laborData.regularHours,
-              overtime_hours: laborData.overtimeHours,
-              fetched_at: new Date().toISOString()
-            }, { onConflict: 'location_id,sale_date' });
-          
-          // Also save to labor_cache (new dedicated table)
+          // Save ONLY to labor_cache (dedicated table for labor data)
+          // NOTE: We no longer write labor to sales_cache - those columns are deprecated
           await supabase
             .from('labor_cache')
             .upsert({
