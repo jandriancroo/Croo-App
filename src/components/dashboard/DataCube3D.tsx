@@ -36,9 +36,19 @@ function formatValue(value: number | undefined, format: 'currency' | 'percent' |
   }
 }
 
+// Map metric category to display prefix
+function getCategoryPrefix(category?: string): string {
+  switch (category) {
+    case 'daily': return 'Daily';
+    case 'weekly': return 'Wkly';
+    case 'monthly': return 'Mthly';
+    default: return '';
+  }
+}
+
 // Generate dynamic labels for "last year" metrics with actual date references
-// Optionally prepends category prefix if label doesn't already contain it
-function getDynamicLabel(metricType: MetricType, categoryPrefix?: string): string {
+// Auto-derives time period prefix from metric category, or uses manual override
+function getDynamicLabel(metricType: MetricType, manualPrefix?: string): string {
   const config = METRIC_CONFIGS[metricType];
   if (!config) return '';
   
@@ -60,13 +70,16 @@ function getDynamicLabel(metricType: MetricType, categoryPrefix?: string): strin
       baseLabel = config.shortLabel;
   }
   
-  // Add category prefix if provided and not already in the label
-  if (categoryPrefix) {
-    const prefixLower = categoryPrefix.toLowerCase();
+  // Determine prefix: use manual override if provided, otherwise derive from category
+  const prefix = manualPrefix || getCategoryPrefix(config.category);
+  
+  // Add prefix if we have one and it's not already in the label
+  if (prefix) {
+    const prefixLower = prefix.toLowerCase();
     const labelLower = baseLabel.toLowerCase();
-    // Don't add prefix if label already contains it (e.g., "Net Sales" already has "Sales")
+    // Don't add prefix if label already contains it
     if (!labelLower.includes(prefixLower)) {
-      return `${categoryPrefix} ${baseLabel}`;
+      return `${prefix} ${baseLabel}`;
     }
   }
   
