@@ -37,23 +37,40 @@ function formatValue(value: number | undefined, format: 'currency' | 'percent' |
 }
 
 // Generate dynamic labels for "last year" metrics with actual date references
-function getDynamicLabel(metricType: MetricType): string {
+// Optionally prepends category prefix if label doesn't already contain it
+function getDynamicLabel(metricType: MetricType, categoryPrefix?: string): string {
   const config = METRIC_CONFIGS[metricType];
   if (!config) return '';
   
   const now = new Date();
   const lastYear = subYears(now, 1);
   
+  let baseLabel: string;
   switch (metricType) {
     case 'sales_last_year_day':
-      return format(lastYear, "MMM d ''yy");
+      baseLabel = format(lastYear, "MMM d ''yy");
+      break;
     case 'sales_last_year_week':
-      return `Wk ${getWeek(lastYear)} '${format(lastYear, 'yy')}`;
+      baseLabel = `Wk ${getWeek(lastYear)} '${format(lastYear, 'yy')}`;
+      break;
     case 'sales_last_year_month':
-      return format(lastYear, "MMM ''yy");
+      baseLabel = format(lastYear, "MMM ''yy");
+      break;
     default:
-      return config.shortLabel;
+      baseLabel = config.shortLabel;
   }
+  
+  // Add category prefix if provided and not already in the label
+  if (categoryPrefix) {
+    const prefixLower = categoryPrefix.toLowerCase();
+    const labelLower = baseLabel.toLowerCase();
+    // Don't add prefix if label already contains it (e.g., "Net Sales" already has "Sales")
+    if (!labelLower.includes(prefixLower)) {
+      return `${categoryPrefix} ${baseLabel}`;
+    }
+  }
+  
+  return baseLabel;
 }
 
 function getPaymentsForPeriod(
@@ -478,7 +495,7 @@ function CubeFaceComponent({
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
-                        {getDynamicLabel(metricType)}
+                        {getDynamicLabel(metricType, title)}
                       </div>
                     </div>
                 );
@@ -533,7 +550,7 @@ function CubeFaceComponent({
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
-                        {getDynamicLabel(metricType)}
+                        {getDynamicLabel(metricType, title)}
                       </div>
                     </div>
                   );
@@ -565,7 +582,7 @@ function CubeFaceComponent({
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
-                        {getDynamicLabel(metricType)}
+                        {getDynamicLabel(metricType, title)}
                       </div>
                     </div>
                   );
@@ -611,7 +628,7 @@ function CubeFaceComponent({
                         isLightBg ? "text-muted-foreground" : "text-white/70"
                       )}
                     >
-                      {getDynamicLabel(metricType)}
+                      {getDynamicLabel(metricType, title)}
                     </div>
                   </div>
                 );
@@ -645,7 +662,7 @@ function CubeFaceComponent({
                       isLightBg ? "text-muted-foreground" : "text-white/70"
                     )}
                   >
-                    {getDynamicLabel(metricType)}
+                    {getDynamicLabel(metricType, title)}
                   </div>
                 </div>
               );
