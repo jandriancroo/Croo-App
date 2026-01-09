@@ -523,8 +523,13 @@ export default function PublicApplication() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Position Selection */}
-          {templates && templates.length > 1 && (
+          {/* Position Selection or Display */}
+          {templates && templates.length === 1 ? (
+            <div className="text-center py-2">
+              <p className="text-sm text-muted-foreground">Applying for</p>
+              <p className="text-lg font-semibold text-foreground">{templates[0].name}</p>
+            </div>
+          ) : templates && templates.length > 1 ? (
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Select Position</CardTitle>
@@ -542,7 +547,7 @@ export default function PublicApplication() {
                 </Select>
               </CardContent>
             </Card>
-          )}
+          ) : null}
 
           {/* Basic Info */}
           <Card>
