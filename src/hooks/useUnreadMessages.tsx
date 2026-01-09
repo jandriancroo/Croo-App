@@ -6,6 +6,9 @@ import { useAuth } from '@/lib/auth';
 let lastFetchTime = 0;
 const DEBOUNCE_MS = 2000;
 
+// Global refetch callback for immediate updates after marking as read
+let globalRefetch: (() => void) | null = null;
+
 export const useUnreadMessages = () => {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -41,6 +44,14 @@ export const useUnreadMessages = () => {
       setLoading(false);
     }
   }, [user]);
+
+  // Register global refetch for immediate updates
+  useEffect(() => {
+    globalRefetch = fetchUnreadCount;
+    return () => {
+      globalRefetch = null;
+    };
+  }, [fetchUnreadCount]);
 
   // Debounced fetch that prevents hammering the database
   const debouncedFetch = useCallback(() => {
@@ -117,10 +128,18 @@ export const useUnreadMessages = () => {
 };
 
 // Helper to update last_read_at when viewing a chat
-export const markChatAsRead = async (chatId: string, userId: string) => {
-  await supabase
+// Immediately triggers a refetch of unread count (bypasses debounce)
+export const markChatAsRead = async (chatId: string, userId: string): Promise<void> => {
+  const { error } = await supabase
     .from('chat_members')
     .update({ last_read_at: new Date().toISOString() })
     .eq('chat_id', chatId)
     .eq('user_id', userId);
+  
+  if (error) {
+    console.error('Error marking chat as read:', error);
+  } else {
+    // Immediately refetch unread count (bypass debounce)
+    globalRefetch?.();
+  }
 };
