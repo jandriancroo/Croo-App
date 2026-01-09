@@ -1,26 +1,28 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
 
 // Debounce unread count fetches to prevent cascade
 let lastFetchTime = 0;
 const DEBOUNCE_MS = 2000;
 
 export const useUnreadMessages = () => {
+  const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const userIdRef = useRef<string | null>(null);
   const pendingFetchRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchUnreadCount = useCallback(async () => {
+    if (!user) {
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
+    
+    userIdRef.current = user.id;
+    
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setUnreadCount(0);
-        setLoading(false);
-        return;
-      }
-      
-      userIdRef.current = user.id;
 
       // Get all chats the user is a member of (excluding announcements)
       const { data: memberChats } = await supabase
@@ -85,7 +87,7 @@ export const useUnreadMessages = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   // Debounced fetch that prevents hammering the database
   const debouncedFetch = useCallback(() => {
