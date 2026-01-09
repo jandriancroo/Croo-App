@@ -3,6 +3,7 @@ import { Layout } from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Plus, Users, ArrowLeft, Megaphone, ArrowLeftRight, Briefcase, MessageCircle, Headphones } from 'lucide-react';
 import { ChatList } from '@/components/messages/ChatList';
@@ -44,6 +45,7 @@ interface Chat {
 }
 
 export default function Messages() {
+  const { user } = useAuth();
   const { isAdmin, isManager, isSuperAdmin } = useUserRole();
   const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
@@ -60,18 +62,18 @@ export default function Messages() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredChats, setFilteredChats] = useState<Chat[]>([]);
   const [viewMode, setViewMode] = useState<'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support'>('chats');
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedHiringConversation, setSelectedHiringConversation] = useState<any>(null);
+
+  // Use user.id from auth context
+  const currentUserId = user?.id || null;
 
   const chatIdsRef = useRef<Set<string>>(new Set());
   const fetchChatsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchChats = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      setCurrentUserId(user.id);
 
       // Ensure shift marketplace chat exists (single instance)
       let { data: marketplaceChats } = await supabase
@@ -240,7 +242,7 @@ export default function Messages() {
     } finally {
       setLoading(false);
     }
-  }, [currentLocation, viewMode]);
+  }, [currentLocation, viewMode, user]);
 
   const debouncedFetchChats = useCallback(() => {
     if (fetchChatsTimerRef.current) return;
@@ -271,7 +273,6 @@ export default function Messages() {
     }
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       // Search for messages containing the query
