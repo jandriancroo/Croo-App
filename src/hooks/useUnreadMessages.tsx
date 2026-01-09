@@ -12,6 +12,7 @@ export const useUnreadMessages = () => {
   const [loading, setLoading] = useState(true);
   const userIdRef = useRef<string | null>(null);
   const pendingFetchRef = useRef<NodeJS.Timeout | null>(null);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const fetchUnreadCount = useCallback(async () => {
     if (!user) {
@@ -23,59 +24,16 @@ export const useUnreadMessages = () => {
     userIdRef.current = user.id;
     
     try {
-      // NEW: Use last_read_at approach - single efficient query
-      // Get chats where there are messages newer than last_read_at
-      const { data: memberChats, error: memberError } = await supabase
-        .from('chat_members')
-        .select(`
-          chat_id,
-          last_read_at,
-          chats!inner(id, is_announcement)
-        `)
-        .eq('user_id', user.id)
-        .eq('chats.is_announcement', false);
+      // Single efficient database call using RPC function
+      const { data, error } = await supabase
+        .rpc('get_unread_chat_count', { _user_id: user.id });
 
-      if (memberError || !memberChats || memberChats.length === 0) {
+      if (error) {
+        console.error('Error fetching unread count:', error);
         setUnreadCount(0);
-        setLoading(false);
-        return;
+      } else {
+        setUnreadCount(data ?? 0);
       }
-
-      // Count chats with unread messages using a single query per chat
-      // This is much more efficient than the old approach
-      let unreadChats = 0;
-      
-      // Efficient: Check each chat for unread messages with a single optimized query per chat
-      // Using Promise.all for parallel execution
-      const chatIds = memberChats.map(cm => cm.chat_id);
-      
-      // Build a map of last_read_at for quick lookup
-      const lastReadMap = new Map<string, Date>();
-      for (const chat of memberChats) {
-        lastReadMap.set(chat.chat_id, chat.last_read_at ? new Date(chat.last_read_at) : new Date(0));
-      }
-
-      // Single efficient query: get count of chats with unread messages
-      // For each chat, check if there's at least one message newer than last_read_at
-      const unreadChecks = await Promise.all(
-        memberChats.map(async (chat) => {
-          const lastRead = chat.last_read_at || '1970-01-01T00:00:00Z';
-          
-          const { count } = await supabase
-            .from('messages')
-            .select('id', { count: 'exact', head: true })
-            .eq('chat_id', chat.chat_id)
-            .neq('sender_id', user.id)
-            .gt('created_at', lastRead)
-            .limit(1);
-          
-          return (count ?? 0) > 0;
-        })
-      );
-
-      unreadChats = unreadChecks.filter(Boolean).length;
-
-      setUnreadCount(unreadChats);
     } catch (error) {
       console.error('Error fetching unread count:', error);
       setUnreadCount(0);
@@ -103,11 +61,24 @@ export const useUnreadMessages = () => {
   }, [fetchUnreadCount]);
 
   useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
+
     fetchUnreadCount();
 
-    // Subscribe to new messages and last_read_at updates
-    const messageChannel = supabase
-      .channel('unread-messages-tracker')
+    // Clean up previous channel if exists
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+    }
+
+    // Optimized realtime subscription:
+    // 1. Filter chat_members updates to only current user (server-side filter)
+    // 2. Still need broad message listener, but single RPC call is fast
+    channelRef.current = supabase
+      .channel(`unread-tracker-${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -125,21 +96,22 @@ export const useUnreadMessages = () => {
           event: 'UPDATE',
           schema: 'public',
           table: 'chat_members',
+          filter: `user_id=eq.${user.id}` // Server-side filter - only this user's updates
         },
-        (payload) => {
-          // Only refetch if last_read_at changed for current user
-          if (payload.new && (payload.new as any).user_id === userIdRef.current) {
-            debouncedFetch();
-          }
+        () => {
+          debouncedFetch();
         }
       )
       .subscribe();
 
     return () => {
       if (pendingFetchRef.current) clearTimeout(pendingFetchRef.current);
-      supabase.removeChannel(messageChannel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
-  }, [fetchUnreadCount, debouncedFetch]);
+  }, [user, fetchUnreadCount, debouncedFetch]);
 
   return { unreadCount, loading, refetch: fetchUnreadCount };
 };
