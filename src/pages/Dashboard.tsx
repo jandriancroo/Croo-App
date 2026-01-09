@@ -106,7 +106,8 @@ export default function Dashboard() {
       ? { personalData: personalPayData }
       : null;
 
-  // Fetch cubes for the edit dialog
+  // Use shared query for cubes (WidgetsSection fetches, we just read from cache)
+  // This prevents duplicate network requests - same queryKey means shared cache
   const { data: dashboardCubes = [] } = useQuery({
     queryKey: ['user-data-cubes', user?.id, currentLocation?.id],
     queryFn: async () => {
@@ -137,6 +138,7 @@ export default function Dashboard() {
       })) as CubeConfig[];
     },
     enabled: !!user?.id && !!currentLocation?.id,
+    staleTime: 30 * 1000, // 30s cache - prevent duplicate fetches on mount
   });
 
   const handleUpdateCube = async (id: string, updates: Partial<CubeConfig>) => {
@@ -394,6 +396,8 @@ export default function Dashboard() {
   }, [checklists]);
 
   const loadCompletionData = async () => {
+    if (!checklists.length || !currentLocation?.id) return;
+    
     // Use business date which accounts for late-night operations
     // (submissions before cutoff time count as previous day)
     const businessDateStr = getBusinessDateInTimezone();
@@ -405,58 +409,82 @@ export default function Dashboard() {
     // Business day runs from cutoff hour today to cutoff hour tomorrow
     const { start: periodStartBusiness, end: periodEndBusiness } = getBusinessDayRangeInTimezone(businessDateStr);
     
-    const dataMap: Record<string, {
-      expected: number;
-      completed: number;
-    }> = {};
+    // Monthly period
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    
+    const checklistIds = checklists.map(c => c.id);
+    
+    // BATCH QUERY 1: Get all checklist items for all checklists at once
+    const { data: allChecklistItems } = await supabase
+      .from('checklist_items')
+      .select('id, checklist_id, days_of_week')
+      .in('checklist_id', checklistIds);
+    
+    // BATCH QUERY 2: Get all responses for all checklists at once
+    // Use the broader time range (either business day or month start, whichever is earlier)
+    const { data: allResponses } = await supabase
+      .from('checklist_responses')
+      .select(`
+        id,
+        item_id,
+        created_at,
+        checklist_submissions!inner(id, checklist_id, location_id)
+      `)
+      .in('checklist_submissions.checklist_id', checklistIds)
+      .eq('checklist_submissions.location_id', currentLocation.id)
+      .gte('created_at', monthStart.toISOString())
+      .lte('created_at', monthEnd.toISOString());
+    
+    // Group items by checklist_id
+    const itemsByChecklist = new Map<string, typeof allChecklistItems>();
+    allChecklistItems?.forEach(item => {
+      const existing = itemsByChecklist.get(item.checklist_id) || [];
+      existing.push(item);
+      itemsByChecklist.set(item.checklist_id, existing);
+    });
+    
+    // Group responses by checklist_id
+    const responsesByChecklist = new Map<string, typeof allResponses>();
+    allResponses?.forEach((response: any) => {
+      const checklistId = response.checklist_submissions?.checklist_id;
+      if (checklistId) {
+        const existing = responsesByChecklist.get(checklistId) || [];
+        existing.push(response);
+        responsesByChecklist.set(checklistId, existing);
+      }
+    });
+    
+    const dataMap: Record<string, { expected: number; completed: number }> = {};
+    
     for (const checklist of checklists) {
-      // Get checklist items
-      const {
-        data: checklistItems
-      } = await supabase.from('checklist_items').select('id, days_of_week').eq('checklist_id', checklist.id);
-      let itemCount = checklistItems?.length || 0;
-      if (checklist.template_type === 'dynamic' && checklistItems) {
+      const checklistItems = itemsByChecklist.get(checklist.id) || [];
+      let itemCount = checklistItems.length;
+      
+      if (checklist.template_type === 'dynamic') {
         itemCount = checklistItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).length;
       }
 
       // For monthly checklists, use start/end of month; otherwise use business day period
       const isMonthly = checklist.frequency === 'monthly';
-      let periodStart: Date;
-      let periodEnd: Date;
+      const periodStart = isMonthly ? monthStart : periodStartBusiness;
+      const periodEnd = isMonthly ? monthEnd : periodEndBusiness;
       
-      if (isMonthly) {
-        const now = new Date();
-        periodStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
-        periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      } else {
-        // Use business day range (5 AM to 5 AM) for daily checklists
-        periodStart = periodStartBusiness;
-        periodEnd = periodEndBusiness;
-      }
-
-      // Get responses directly filtered by created_at to catch items added to ongoing submissions
-      // This fixes the bug where responses added later to an existing submission were missed
-      const {
-        data: responses
-      } = await supabase.from('checklist_responses').select(`
-          id,
-          item_id,
-          created_at,
-          checklist_submissions!inner(id, checklist_id, location_id)
-        `)
-        .eq('checklist_submissions.checklist_id', checklist.id)
-        .eq('checklist_submissions.location_id', currentLocation?.id)
-        .gte('created_at', periodStart.toISOString())
-        .lte('created_at', periodEnd.toISOString());
+      // Filter responses for this checklist and time period
+      const responses = (responsesByChecklist.get(checklist.id) || []).filter((r: any) => {
+        const createdAt = new Date(r.created_at);
+        return createdAt >= periodStart && createdAt <= periodEnd;
+      });
       
       // Count unique item_ids to avoid double-counting collaborative completions
       // For dynamic checklists, only count items scheduled for today
-      const todayItemIds = checklist.template_type === 'dynamic' && checklistItems
+      const todayItemIds = checklist.template_type === 'dynamic'
         ? new Set(checklistItems.filter(item => item.days_of_week && item.days_of_week.includes(currentDay)).map(item => item.id))
         : null;
       
       const uniqueItemIds = new Set();
-      responses?.forEach((response: any) => {
+      responses.forEach((response: any) => {
         if (response.item_id) {
           // For dynamic checklists, only count if it's a today item
           if (todayItemIds === null || todayItemIds.has(response.item_id)) {
@@ -464,10 +492,10 @@ export default function Dashboard() {
           }
         }
       });
-      const completedCount = uniqueItemIds.size;
+      
       dataMap[checklist.id] = {
         expected: itemCount,
-        completed: completedCount
+        completed: uniqueItemIds.size
       };
     }
     setCompletionData(dataMap);
