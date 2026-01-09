@@ -325,26 +325,31 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
         return;
       }
       
-      // Check super_admin
-      const { data: isSuperAdminResult } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'super_admin' });
-      setIsSuperAdmin(isSuperAdminResult === true);
+      const perfStart = performance.now();
       
-      // Check brand_admin or fbc role
-      const { data: isBrandAdmin } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'brand_admin' });
-      const { data: isFBC } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'fbc' });
+      // Parallelize all role checks
+      const [superAdminResult, brandAdminResult, fbcResult, orgMembershipsResult] = await Promise.all([
+        supabase.rpc('has_role', { _user_id: user.id, _role: 'super_admin' }),
+        supabase.rpc('has_role', { _user_id: user.id, _role: 'brand_admin' }),
+        supabase.rpc('has_role', { _user_id: user.id, _role: 'fbc' }),
+        supabase
+          .from('organization_members')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('org_role', 'admin')
+          .limit(1)
+      ]);
       
-      setHasFBCAccess(isSuperAdminResult === true || isBrandAdmin === true || isFBC === true);
+      console.log(`[Layout] Role checks: ${(performance.now() - perfStart).toFixed(0)}ms`);
       
-      // Check multi-location access (org admin or brand admin)
-      const { data: orgMemberships } = await supabase
-        .from('organization_members')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('org_role', 'admin')
-        .limit(1);
+      const isSuperAdminResult = superAdminResult.data === true;
+      const isBrandAdmin = brandAdminResult.data === true;
+      const isFBC = fbcResult.data === true;
+      const hasOrgAdmin = orgMembershipsResult.data && orgMembershipsResult.data.length > 0;
       
-      const hasOrgAdmin = orgMemberships && orgMemberships.length > 0;
-      setHasMultiLocationAccess(isSuperAdminResult === true || isBrandAdmin === true || hasOrgAdmin);
+      setIsSuperAdmin(isSuperAdminResult);
+      setHasFBCAccess(isSuperAdminResult || isBrandAdmin || isFBC);
+      setHasMultiLocationAccess(isSuperAdminResult || isBrandAdmin || hasOrgAdmin);
     };
     checkRoles();
   }, [user?.id]);

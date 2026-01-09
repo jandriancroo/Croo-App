@@ -185,6 +185,9 @@ export default function Schedule() {
   }, [currentWeekStart, role, currentLocation?.id]);
 
   const fetchScheduleData = async (showLoading = true) => {
+    const perfStart = performance.now();
+    console.log('[Schedule] fetchScheduleData started');
+    
     if (!currentLocation?.id) return;
     
     // Only show loading spinner on initial load, not on refreshes after actions
@@ -235,7 +238,10 @@ export default function Schedule() {
       setIsPublished(scheduleData.is_published || false);
       setPublishedSnapshot(Array.isArray(scheduleData.published_shifts_snapshot) ? scheduleData.published_shifts_snapshot : []);
 
+      console.log(`[Schedule] Schedule lookup: ${(performance.now() - perfStart).toFixed(0)}ms`);
+      
       // Parallelize all independent data fetches
+      const parallelStart = performance.now();
       const [
         shiftsResult,
         eventsResult,
@@ -335,6 +341,8 @@ export default function Schedule() {
           .eq("location_id", currentLocation!.id)
           .single()
       ]);
+
+      console.log(`[Schedule] Parallel queries: ${(performance.now() - parallelStart).toFixed(0)}ms`);
 
       // Handle shifts
       if (shiftsResult.error) throw shiftsResult.error;
@@ -465,8 +473,10 @@ export default function Schedule() {
       supabase.functions.invoke('sync-birthday-events').catch(err => 
         console.error('Failed to sync birthday holidays:', err)
       );
+      console.log(`[Schedule] fetchScheduleData completed: ${(performance.now() - perfStart).toFixed(0)}ms total`);
     } catch (error: any) {
-      console.error("Error fetching schedule data:", error);
+      console.error("[Schedule] Error fetching schedule data:", error);
+      console.log(`[Schedule] fetchScheduleData failed: ${(performance.now() - perfStart).toFixed(0)}ms`);
       toast.error("Failed to load schedule");
     } finally {
       setLoading(false);
