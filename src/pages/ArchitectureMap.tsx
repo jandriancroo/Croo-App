@@ -30,7 +30,7 @@ const frequencyColors = {
 };
 
 const frequencyPulse = {
-  high: 'animate-pulse',
+  high: '',
   medium: '',
   low: '',
   'on-demand': ''
