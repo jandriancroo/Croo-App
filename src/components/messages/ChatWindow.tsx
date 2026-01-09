@@ -2,13 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { markChatAsRead } from '@/hooks/useUnreadMessages';
 import { Button } from '@/components/ui/button';
 import { MentionInput } from './MentionInput';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Send, Paperclip, File, Settings, MessageSquare, Trash2, Megaphone, Users, Loader2 } from 'lucide-react';
 import { GifPicker } from './GifPicker';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { ReactionPicker } from './ReactionPicker';
 import { MessageReactions } from './MessageReactions';
 import { GroupSettingsDialog } from './GroupSettingsDialog';
@@ -17,6 +18,7 @@ import { ReadReceipts } from './ReadReceipts';
 import { AnnouncementStats } from './AnnouncementStats';
 import { SmackTalkPicker } from './SmackTalkPicker';
 import { SmackTalkPopup } from './SmackTalkPopup';
+import { DateSeparator } from './DateSeparator';
 import { useUserRole } from '@/hooks/useUserRole';
 import { compressImage, uploadWithRetry } from '@/utils/imageCompression';
 import {
@@ -320,40 +322,13 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     }
   }, [chatId, chatDetails, currentUserId]);
 
-  // Mark messages as read
+  // Mark chat as read using last_read_at (much simpler than per-message receipts)
   useEffect(() => {
-    if (!currentUserId || messages.length === 0) return;
-
-    const markAsRead = async () => {
-      const messageIds = messages
-        .filter((m) => m.sender_id !== currentUserId && !m.isPending)
-        .map((m) => m.id);
-
-      if (messageIds.length === 0) return;
-
-      const { data: existingReceipts } = await supabase
-        .from('message_read_receipts')
-        .select('message_id')
-        .in('message_id', messageIds)
-        .eq('user_id', currentUserId);
-
-      const alreadyRead = new Set(existingReceipts?.map((r) => r.message_id) || []);
-      const toInsert = messageIds
-        .filter((id) => !alreadyRead.has(id))
-        .map((id) => ({ message_id: id, user_id: currentUserId }));
-
-      if (toInsert.length > 0) {
-        await supabase
-          .from('message_read_receipts')
-          .upsert(toInsert, {
-            onConflict: 'message_id,user_id',
-            ignoreDuplicates: true,
-          });
-      }
-    };
-
-    markAsRead();
-  }, [messages, currentUserId]);
+    if (!currentUserId || !chatId) return;
+    
+    // Update last_read_at once when viewing messages
+    markChatAsRead(chatId, currentUserId);
+  }, [chatId, currentUserId, messages.length]);
 
   // Auto-scroll to bottom when messages load or new message arrives
   useEffect(() => {
@@ -865,7 +840,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             }
           });
 
-          return allMessages.map((message) => {
+          return allMessages.map((message, index) => {
             const isOwnMessage = currentUserId && message.sender_id === currentUserId;
             const isPending = message.isPending;
             
@@ -877,7 +852,14 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             // Get smack talks for this game score (by message ID)
             const smackTalks = smackTalkMap.get(message.id) || [];
             
+            // Date separator logic
+            const messageDate = new Date(message.created_at);
+            const prevMessage = index > 0 ? allMessages[index - 1] : null;
+            const showDateSeparator = !prevMessage || !isSameDay(messageDate, new Date(prevMessage.created_at));
+            
             return (
+              <div key={message.id}>
+                {showDateSeparator && <DateSeparator date={messageDate} />}
               <div
                 key={message.id}
                 className={`flex gap-2 sm:gap-3 ${isOwnMessage ? 'flex-row-reverse' : ''}`}
@@ -998,6 +980,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
                     )}
                   </div>
                 </div>
+              </div>
               </div>
             );
           });

@@ -23,26 +23,34 @@ export const useUnreadMessages = () => {
     userIdRef.current = user.id;
     
     try {
-
-      // Get all chats the user is a member of (excluding announcements)
-      const { data: memberChats } = await supabase
+      // NEW: Use last_read_at approach - single efficient query
+      // Get chats where there are messages newer than last_read_at
+      const { data: memberChats, error: memberError } = await supabase
         .from('chat_members')
-        .select('chat_id, chats!inner(id, is_announcement)')
+        .select(`
+          chat_id,
+          last_read_at,
+          chats!inner(id, is_announcement)
+        `)
         .eq('user_id', user.id)
         .eq('chats.is_announcement', false);
 
-      if (!memberChats || memberChats.length === 0) {
+      if (memberError || !memberChats || memberChats.length === 0) {
         setUnreadCount(0);
         setLoading(false);
         return;
       }
 
+      // Count chats with unread messages using a single query per chat
+      // This is much more efficient than the old approach
+      let unreadChats = 0;
+      
+      // Batch check: get the latest message per chat that's NOT from current user
       const chatIds = memberChats.map(cm => cm.chat_id);
-
-      // Get the latest message per chat not sent by current user, using a single query
+      
       const { data: latestMessages } = await supabase
         .from('messages')
-        .select('id, chat_id, created_at')
+        .select('chat_id, created_at')
         .in('chat_id', chatIds)
         .neq('sender_id', user.id)
         .order('created_at', { ascending: false });
@@ -54,29 +62,22 @@ export const useUnreadMessages = () => {
       }
 
       // Group by chat_id to get only the latest message per chat
-      const latestPerChat = new Map<string, { id: string; created_at: string }>();
+      const latestPerChat = new Map<string, string>();
       for (const msg of latestMessages) {
         if (!latestPerChat.has(msg.chat_id)) {
-          latestPerChat.set(msg.chat_id, { id: msg.id, created_at: msg.created_at });
+          latestPerChat.set(msg.chat_id, msg.created_at);
         }
       }
 
-      const messageIds = Array.from(latestPerChat.values()).map(m => m.id);
-
-      // Get all read receipts for these messages in a single query
-      const { data: readReceipts } = await supabase
-        .from('message_read_receipts')
-        .select('message_id')
-        .in('message_id', messageIds)
-        .eq('user_id', user.id);
-
-      const readMessageIds = new Set(readReceipts?.map(r => r.message_id) || []);
-
-      // Count unread chats
-      let unreadChats = 0;
-      for (const [, msg] of latestPerChat) {
-        if (!readMessageIds.has(msg.id)) {
-          unreadChats++;
+      // Compare with last_read_at
+      for (const chat of memberChats) {
+        const latestMsgTime = latestPerChat.get(chat.chat_id);
+        if (latestMsgTime) {
+          const lastRead = chat.last_read_at ? new Date(chat.last_read_at) : new Date(0);
+          const latestMsg = new Date(latestMsgTime);
+          if (latestMsg > lastRead) {
+            unreadChats++;
+          }
         }
       }
 
@@ -110,7 +111,7 @@ export const useUnreadMessages = () => {
   useEffect(() => {
     fetchUnreadCount();
 
-    // Subscribe to new messages and read receipts
+    // Subscribe to new messages and last_read_at updates
     const messageChannel = supabase
       .channel('unread-messages-tracker')
       .on(
@@ -121,20 +122,20 @@ export const useUnreadMessages = () => {
           table: 'messages'
         },
         () => {
-          debouncedFetch(); // Use debounced version
+          debouncedFetch();
         }
       )
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: 'UPDATE',
           schema: 'public',
-          table: 'message_read_receipts'
+          table: 'chat_members',
         },
         (payload) => {
-          // Only refetch if this read receipt is for the current user
+          // Only refetch if last_read_at changed for current user
           if (payload.new && (payload.new as any).user_id === userIdRef.current) {
-            debouncedFetch(); // Use debounced version
+            debouncedFetch();
           }
         }
       )
@@ -147,4 +148,13 @@ export const useUnreadMessages = () => {
   }, [fetchUnreadCount, debouncedFetch]);
 
   return { unreadCount, loading, refetch: fetchUnreadCount };
+};
+
+// Helper to update last_read_at when viewing a chat
+export const markChatAsRead = async (chatId: string, userId: string) => {
+  await supabase
+    .from('chat_members')
+    .update({ last_read_at: new Date().toISOString() })
+    .eq('chat_id', chatId)
+    .eq('user_id', userId);
 };
