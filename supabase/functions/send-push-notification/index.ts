@@ -353,6 +353,7 @@ interface PushNotificationRequest {
   data?: Record<string, any>;
   notification_type?: 'overdue_checklists' | 'late_arrivals' | 'announcements' | 'chat_messages' | 'schedule_updates' | 'shift_approvals' | 'certification_expiring' | 'logbook_entry' | 'catering_order' | 'drawer_count' | 'safe_count' | 'arcade_scores' | 'cash_drawer_count' | 'cash_safe_count' | 'cash_bank_deposit';
   badge_count?: number;
+  sender_id?: string; // Optional: exclude this user from receiving the notification
 }
 
 function getNotificationSound(_type?: string): string {
@@ -403,13 +404,22 @@ const handler = async (req: Request): Promise<Response> => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const { user_ids: providedUserIds, roles, location_id, title, body, data, notification_type, badge_count }: PushNotificationRequest = await req.json();
+    const { user_ids: providedUserIds, roles, location_id, title, body, data, notification_type, badge_count, sender_id }: PushNotificationRequest = await req.json();
 
     const formattedContent = formatNotificationContent(notification_type, title, body);
     const notificationSound = getNotificationSound(notification_type);
 
     // If roles are provided, fetch user_ids from those roles at the specified location
     let user_ids = providedUserIds || [];
+    
+    // Filter out sender_id if provided (prevents sender from receiving their own notification)
+    if (sender_id && user_ids.length > 0) {
+      const originalCount = user_ids.length;
+      user_ids = user_ids.filter(id => id !== sender_id);
+      if (user_ids.length < originalCount) {
+        console.log(`Filtered out sender ${sender_id} from recipients`);
+      }
+    }
     
     if (roles && roles.length > 0 && location_id) {
       console.log(`Fetching users by roles ${roles.join(', ')} at location ${location_id}`);

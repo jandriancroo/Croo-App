@@ -462,6 +462,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           await supabase.functions.invoke('send-push-notification', {
             body: {
               user_ids: members.map(m => m.user_id),
+              sender_id: currentUserId, // Ensure sender doesn't receive their own notification
               title: senderProfile?.full_name || 'New Message',
               body: messageContent.substring(0, 100),
               notification_type: 'chat_messages',
@@ -557,6 +558,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           await supabase.functions.invoke('send-push-notification', {
             body: {
               user_ids: members.map(m => m.user_id),
+              sender_id: currentUserId, // Ensure sender doesn't receive their own notification
               title: senderProfile?.full_name || 'New Message',
               body: 'Sent a GIF',
               notification_type: 'chat_messages',
@@ -612,6 +614,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           await supabase.functions.invoke('send-push-notification', {
             body: {
               user_ids: members.map(m => m.user_id),
+              sender_id: currentUserId, // Ensure sender doesn't receive their own notification
               title: `⚡ ${senderProfile?.full_name || 'Someone'} says:`,
               body: smackText,
               notification_type: 'chat_messages',
@@ -698,6 +701,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           await supabase.functions.invoke('send-push-notification', {
             body: {
               user_ids: members.map(m => m.user_id),
+              sender_id: currentUserId, // Ensure sender doesn't receive their own notification
               title: senderProfile?.full_name || 'New Message',
               body: `Sent ${file.type.startsWith('image/') ? 'an image' : 'a file'}`,
               notification_type: 'chat_messages',
