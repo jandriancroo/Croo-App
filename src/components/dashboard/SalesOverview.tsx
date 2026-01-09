@@ -503,7 +503,8 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     enabled: !!currentLocation?.id,
     staleTime: isTodayQuery ? 5 * 60 * 1000 : 0, // Historical dates always refetch from DB cache
     gcTime: isTodayQuery ? 30 * 60 * 1000 : 0, // Don't cache historical queries in memory
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true, // Refresh when user tabs back
+    refetchInterval: isTodayQuery ? 5 * 60 * 1000 : false, // Auto-refresh every 5 min for live data
     initialData,
     initialDataUpdatedAt
   });
