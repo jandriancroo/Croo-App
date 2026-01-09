@@ -7,7 +7,8 @@ import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles, Loader2, RotateCcw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { getCachedSalesData, setCachedSalesData } from '@/utils/salesCache';
@@ -253,6 +254,69 @@ export function LaborTotals({
       toast.error('Failed to save projected sales');
     }
   };
+
+  // Reload AI/historical projection for a specific day
+  const handleReloadProjection = async (dayIndex: number) => {
+    if (!currentLocation?.id || !scheduleId) return;
+    
+    const day = weekDays[dayIndex];
+    const dateStr = format(day, 'yyyy-MM-dd');
+    const today = startOfDay(new Date());
+    const isPast = isBefore(day, today);
+    const isTodayDate = isToday(day);
+    
+    try {
+      // First, delete the manual entry from the database
+      await supabase
+        .from('schedule_projected_sales')
+        .delete()
+        .eq('schedule_id', scheduleId)
+        .eq('day_of_week', dayIndex);
+      
+      // Clear from local state
+      setProjectedSales(prev => {
+        const newState = { ...prev };
+        delete newState[dayIndex];
+        return newState;
+      });
+      setSalesSource(prev => {
+        const newState = { ...prev };
+        delete newState[dayIndex];
+        return newState;
+      });
+      
+      // Fetch fresh projection from API
+      const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
+        body: { locationId: currentLocation.id, targetDate: dateStr }
+      });
+      
+      if (!error && data) {
+        let salesValue: number;
+        let source: 'historical' | 'ai';
+        
+        if (isPast || isTodayDate) {
+          salesValue = Math.round((data.daily || 0) * 100) / 100;
+          source = 'historical';
+        } else {
+          salesValue = Math.round((data.projections?.todayProjected || 0) * 100) / 100;
+          source = 'ai';
+        }
+        
+        if (salesValue > 0) {
+          setProjectedSales(prev => ({ ...prev, [dayIndex]: salesValue }));
+          setSalesSource(prev => ({ ...prev, [dayIndex]: source }));
+          toast.success(`Reloaded ${source === 'ai' ? 'AI projection' : 'actual sales'} for ${format(day, 'EEE')}`);
+        } else {
+          toast.info(`No ${source === 'ai' ? 'projection' : 'sales data'} available for ${format(day, 'EEE')}`);
+        }
+      } else {
+        toast.error('Failed to reload projection');
+      }
+    } catch (error) {
+      console.error('Error reloading projection:', error);
+      toast.error('Failed to reload projection');
+    }
+  };
   const dailyTotals = useMemo(() => {
     return weekDays.map((day, dayIndex) => {
       const dayShifts = shifts.filter(s => s.day_of_week === dayIndex);
@@ -349,28 +413,48 @@ export function LaborTotals({
           const source = salesSource[index];
           const isAI = source === 'ai';
           const isHistorical = source === 'historical';
+          const isManual = source === 'manual';
           
           return (
             <div key={index} className="p-1 border-r border-border text-center relative">
               {isEditable ? (
-                <div className="relative">
+                <div className="relative flex items-center gap-0.5">
                   <Input 
                     type="number" 
                     step="0.01" 
                     min="0" 
                     value={projectedSales[index] || ''} 
                     onChange={e => handleSalesChange(index, e.target.value)} 
-                    className={`h-7 text-center text-xs p-1 ${isAI ? 'pr-5 border-primary/30' : ''}`} 
+                    className={`h-7 text-center text-xs p-1 flex-1 ${isAI ? 'border-primary/30' : ''}`} 
                     placeholder="$0" 
                   />
                   {isAI && (
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Sparkles className="absolute right-1 top-1/2 -translate-y-1/2 h-3 w-3 text-primary" />
+                          <Sparkles className="h-3 w-3 text-primary shrink-0" />
                         </TooltipTrigger>
                         <TooltipContent side="top">
                           <p className="text-xs">Croo AI Projection</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {isManual && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 p-0 shrink-0"
+                            onClick={() => handleReloadProjection(index)}
+                          >
+                            <RotateCcw className="h-3 w-3 text-muted-foreground hover:text-primary" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="text-xs">Reload AI projection</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
