@@ -218,9 +218,13 @@ export function LaborTotals({
           
           // TODAY or cache miss: Fetch live from API
           try {
-            const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
-              body: { locationId: currentLocation.id, targetDate: dateStr }
-            });
+            // For "today", don't pass targetDate - let edge function use PST "today"
+            // This avoids timezone mismatch where browser thinks it's "tomorrow" but store is still "today"
+            const body = isTodayDate 
+              ? { locationId: currentLocation.id }
+              : { locationId: currentLocation.id, targetDate: dateStr };
+            
+            const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", { body });
             
             if (!error && data) {
               // Cache past data for future use (localStorage)
