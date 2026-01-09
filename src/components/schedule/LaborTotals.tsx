@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
-import { Sparkles, Loader2, RotateCcw } from 'lucide-react';
+import { Sparkles, Loader2, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -416,7 +416,7 @@ export function LaborTotals({
           const isManual = source === 'manual';
           
           return (
-            <div key={index} className="p-1 border-r border-border text-center relative">
+            <div key={index} className={`p-1 border-r border-border text-center relative ${isHistorical ? 'bg-green-500/10' : ''}`}>
               {isEditable ? (
                 <div className="relative flex items-center gap-0.5">
                   <Input 
@@ -425,7 +425,7 @@ export function LaborTotals({
                     min="0" 
                     value={projectedSales[index] || ''} 
                     onChange={e => handleSalesChange(index, e.target.value)} 
-                    className={`h-7 text-center text-xs p-1 flex-1 ${isAI ? 'border-primary/30' : ''}`} 
+                    className={`h-7 text-center text-xs p-1 flex-1 ${isAI ? 'border-primary/30' : ''} ${isHistorical ? 'border-green-500/30 bg-green-500/5' : ''}`} 
                     placeholder="$0" 
                   />
                   {isAI && (
@@ -436,6 +436,18 @@ export function LaborTotals({
                         </TooltipTrigger>
                         <TooltipContent side="top">
                           <p className="text-xs">Croo AI Projection</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                  {isHistorical && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <CheckCircle2 className="h-3 w-3 text-green-500 shrink-0" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                          <p className="text-xs">Actual Sales</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -466,6 +478,7 @@ export function LaborTotals({
                     {isLoadingSales || isLoadingQuSales ? '...' : projectedSales[index] ? `$${projectedSales[index].toFixed(0)}` : '-'}
                   </p>
                   {isAI && <Sparkles className="h-2.5 w-2.5 text-primary" />}
+                  {isHistorical && <CheckCircle2 className="h-2.5 w-2.5 text-green-500" />}
                 </div>
               )}
             </div>
