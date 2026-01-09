@@ -19,6 +19,7 @@ import { useDashboardSections } from '@/components/dashboard/DataCubesSection';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useTeamSalesVisibility } from '@/hooks/useTeamSalesVisibility';
+import { useShouldUseRoleCubes } from '@/hooks/useRoleDashboardCubes';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/auth';
 import { getDayOfWeekInTimezone } from '@/utils/timezoneUtils';
@@ -82,7 +83,7 @@ export default function Dashboard() {
   const { canSeeSales } = useTeamSalesVisibility();
   const { user } = useAuth();
   const canCompleteCatering = isShiftManager || isGeneralManager || isManager || isAdmin;
-  const { currentLocation, isChecklistOnlyLocation } = useAppLocation();
+  const { currentLocation, isChecklistOnlyLocation, organizationId } = useAppLocation();
   const { getTodayInTimezone, timezone, getBusinessDateInTimezone, getBusinessDayRangeInTimezone } = useLocationTimezone();
   const { animationAmount } = useCrooCashAnimation();
   const [salesOverviewData, setSalesOverviewData] = useState<SalesDataForWidgets | null>(null);
@@ -91,6 +92,9 @@ export default function Dashboard() {
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
   const queryClient = useQueryClient();
+  
+  // Role-based cubes for TM/SM/Manager (locked by Org Admin)
+  const { shouldUseRoleCubes, roleCubes, isLoading: roleCubesLoading } = useShouldUseRoleCubes(organizationId);
   
   // Fetch personal pay data for personal metrics
   const { data: personalPayData } = usePersonalPayData();
@@ -823,6 +827,8 @@ export default function Dashboard() {
         setSalesOverviewData(data);
         setIsLoadingSales(false);
       }}
+      roleCubes={roleCubes}
+      useRoleCubes={shouldUseRoleCubes}
     />
   ) : (
     // If section not visible, just render the checklists grid directly
@@ -833,20 +839,25 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold">Dash</h1>
           <div className="flex gap-2 items-center">
-            {hasQuBeyondIntegration && canSeeSales && (
-              <Button 
-                onClick={toggleEditMode} 
-                variant={isEditMode ? "default" : "ghost"}
-                size="icon" 
-                className="h-10 w-10" 
-                title={isEditMode ? "Done Reordering" : "Reorder Cubes"}
-              >
-                <ArrowUpDown className="h-4 w-4" />
-              </Button>
+            {/* Hide reorder/edit buttons for role-based cube users (cubes locked by Org Admin) */}
+            {!shouldUseRoleCubes && (
+              <>
+                {hasQuBeyondIntegration && canSeeSales && (
+                  <Button 
+                    onClick={toggleEditMode} 
+                    variant={isEditMode ? "default" : "ghost"}
+                    size="icon" 
+                    className="h-10 w-10" 
+                    title={isEditMode ? "Done Reordering" : "Reorder Cubes"}
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button onClick={() => setShowEditDashboard(true)} variant="ghost" size="icon" className="h-10 w-10" title="Edit Dashboard">
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </>
             )}
-            <Button onClick={() => setShowEditDashboard(true)} variant="ghost" size="icon" className="h-10 w-10" title="Edit Dashboard">
-              <Settings2 className="h-4 w-4" />
-            </Button>
           </div>
         </div>
 
