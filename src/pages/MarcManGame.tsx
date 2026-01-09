@@ -64,7 +64,7 @@ const MarcManGame = () => {
   const lastMoveTime = useRef(0);
 
   const [gameState, setGameState] = useState<'idle' | 'playing' | 'gameover'>('idle');
-  const [marc, setMarc] = useState<Position>({ x: 5, y: 9 });
+  const [marc, setMarc] = useState<Position>({ x: 1, y: 1 });
   const [direction, setDirection] = useState<Direction>('RIGHT');
   const [nextDirection, setNextDirection] = useState<Direction>('RIGHT');
   const [ghosts, setGhosts] = useState<Ghost[]>([]);
@@ -121,10 +121,10 @@ const MarcManGame = () => {
   // Initialize ghosts
   const initGhosts = useCallback((): Ghost[] => {
     return [
-      { x: 4, y: 9, direction: 'LEFT', type: 'ghost', color: '#FF0000' },
-      { x: 6, y: 9, direction: 'RIGHT', type: 'ghost', color: '#00FFFF' },
-      { x: 5, y: 8, direction: 'UP', type: 'firefighter', color: '#FF6600' },
-      { x: 5, y: 10, direction: 'DOWN', type: 'firefighter', color: '#FFFF00' },
+      { x: 3, y: 9, direction: 'LEFT', type: 'ghost', color: '#FF0000' },
+      { x: 7, y: 9, direction: 'RIGHT', type: 'ghost', color: '#00FFFF' },
+      { x: 1, y: 5, direction: 'UP', type: 'firefighter', color: '#FF6600' },
+      { x: 9, y: 13, direction: 'DOWN', type: 'firefighter', color: '#FFFF00' },
     ];
   }, []);
 
@@ -149,7 +149,7 @@ const MarcManGame = () => {
 
   // Start game
   const startGame = useCallback(() => {
-    setMarc({ x: 5, y: 9 });
+    setMarc({ x: 1, y: 1 });
     setDirection('RIGHT');
     setNextDirection('RIGHT');
     setGhosts(initGhosts());
