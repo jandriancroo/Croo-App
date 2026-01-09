@@ -204,7 +204,6 @@ export function LaborTotals({
         
         const results = await Promise.all(salesPromises);
         
-        const today = startOfDay(new Date());
         const newSales: Record<number, number> = { ...projectedSales };
         const newSources: Record<number, 'manual' | 'historical' | 'ai'> = { ...salesSource };
         
