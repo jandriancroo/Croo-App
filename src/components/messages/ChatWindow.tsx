@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { MentionInput } from './MentionInput';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Send, Paperclip, File, Settings, MessageSquare, Trash2, Megaphone, Users } from 'lucide-react';
+import { Send, Paperclip, File, Settings, MessageSquare, Trash2, Megaphone, Users, Loader2 } from 'lucide-react';
 import { GifPicker } from './GifPicker';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -32,6 +34,8 @@ import {
   DialogContent,
 } from '@/components/ui/dialog';
 
+const MESSAGES_PER_PAGE = 50;
+
 interface ParentMessageData {
   content: string | null;
   profiles: {
@@ -52,7 +56,7 @@ interface Message {
     profile_photo_url: string | null;
   };
   parent_message?: ParentMessageData[] | ParentMessageData | null;
-  isPending?: boolean; // For optimistic updates
+  isPending?: boolean;
 }
 
 interface ChatDetails {
@@ -73,13 +77,15 @@ interface ChatWindowProps {
 }
 
 export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }: ChatWindowProps) {
+  const { user } = useAuth();
+  const currentUserId = user?.id || null;
+  const queryClient = useQueryClient();
   const { isAdmin } = useUserRole();
-  const [messages, setMessages] = useState<Message[]>([]);
+  
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [replyToMessage, setReplyToMessage] = useState<Message | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -88,22 +94,147 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   const [isArcadeChat, setIsArcadeChat] = useState(false);
   const [viewingImage, setViewingImage] = useState<string | null>(null);
   const [signedAttachmentUrls, setSignedAttachmentUrls] = useState<Record<string, string>>({});
+  const [earlierMessages, setEarlierMessages] = useState<Message[]>([]);
+  const [hasMoreEarlier, setHasMoreEarlier] = useState(true);
+  const [loadingEarlier, setLoadingEarlier] = useState(false);
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const shouldScrollRef = useRef(true);
 
-  const scrollToBottom = (instant = false) => {
-    messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'auto' : 'smooth' });
-  };
+  const scrollToBottom = useCallback((instant = false) => {
+    if (shouldScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'auto' : 'smooth' });
+    }
+  }, []);
 
   const parseStorageObjectUrl = (url: string): { bucket: string; path: string } | null => {
-    // Supports both /object/public/:bucket/:path and /object/:bucket/:path
     const match = url.match(/\/storage\/v1\/object\/(?:public\/)?([^/]+)\/(.+)$/);
     if (!match) return null;
     return { bucket: match[1], path: decodeURIComponent(match[2]) };
   };
 
+  // Fetch latest 50 messages with React Query
+  const { data: recentMessages = [], isLoading: messagesLoading } = useQuery({
+    queryKey: ['chat-messages', chatId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          profiles!messages_sender_id_fkey(full_name, profile_photo_url)
+        `)
+        .eq('chat_id', chatId)
+        .order('created_at', { ascending: false })
+        .limit(MESSAGES_PER_PAGE);
+
+      if (error) throw error;
+
+      // Bulk fetch parent messages
+      const parentIds = Array.from(
+        new Set((data || []).map((m) => m.parent_message_id).filter(Boolean) as string[])
+      );
+
+      const parentMap = new Map<string, any>();
+      if (parentIds.length > 0) {
+        const { data: parentRows } = await supabase
+          .from('messages')
+          .select('id, content, profiles:profiles!messages_sender_id_fkey(full_name)')
+          .in('id', parentIds);
+
+        for (const p of parentRows || []) parentMap.set(p.id, p);
+      }
+
+      const messagesWithParent = (data || []).map((msg: any) => {
+        const parent = msg.parent_message_id ? parentMap.get(msg.parent_message_id) : null;
+        return { ...msg, parent_message: parent || null };
+      });
+
+      // Return in ascending order for display (newest at bottom)
+      return messagesWithParent.reverse() as Message[];
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !!chatId,
+  });
+
+  // Combine earlier + recent messages
+  const messages = [...earlierMessages, ...recentMessages];
+
+  // Load earlier messages handler
+  const loadEarlierMessages = async () => {
+    if (!hasMoreEarlier || loadingEarlier) return;
+    
+    setLoadingEarlier(true);
+    shouldScrollRef.current = false; // Don't auto-scroll when loading earlier
+    
+    try {
+      const oldestMessage = messages[0];
+      if (!oldestMessage) return;
+
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          profiles!messages_sender_id_fkey(full_name, profile_photo_url)
+        `)
+        .eq('chat_id', chatId)
+        .lt('created_at', oldestMessage.created_at)
+        .order('created_at', { ascending: false })
+        .limit(MESSAGES_PER_PAGE);
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+        setHasMoreEarlier(false);
+        return;
+      }
+
+      if (data.length < MESSAGES_PER_PAGE) {
+        setHasMoreEarlier(false);
+      }
+
+      // Bulk fetch parent messages
+      const parentIds = Array.from(
+        new Set(data.map((m) => m.parent_message_id).filter(Boolean) as string[])
+      );
+
+      const parentMap = new Map<string, any>();
+      if (parentIds.length > 0) {
+        const { data: parentRows } = await supabase
+          .from('messages')
+          .select('id, content, profiles:profiles!messages_sender_id_fkey(full_name)')
+          .in('id', parentIds);
+
+        for (const p of parentRows || []) parentMap.set(p.id, p);
+      }
+
+      const messagesWithParent = data.map((msg: any) => {
+        const parent = msg.parent_message_id ? parentMap.get(msg.parent_message_id) : null;
+        return { ...msg, parent_message: parent || null };
+      });
+
+      // Prepend older messages (reverse to get ascending order)
+      setEarlierMessages(prev => [...messagesWithParent.reverse(), ...prev]);
+    } catch (error) {
+      console.error('Error loading earlier messages:', error);
+      toast.error('Failed to load earlier messages');
+    } finally {
+      setLoadingEarlier(false);
+      // Re-enable auto-scroll after a short delay
+      setTimeout(() => { shouldScrollRef.current = true; }, 100);
+    }
+  };
+
+  // Reset earlier messages when chat changes
   useEffect(() => {
-    // Message attachments are stored in a private bucket; images in <img> tags need a signed URL.
+    setEarlierMessages([]);
+    setHasMoreEarlier(true);
+    shouldScrollRef.current = true;
+  }, [chatId]);
+
+  // Resolve signed URLs for attachments
+  useEffect(() => {
     const resolveSignedUrls = async () => {
       const toResolve = messages.filter((m) => m.attachment_url && !signedAttachmentUrls[m.id]);
       if (toResolve.length === 0) return;
@@ -132,14 +263,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     };
 
     resolveSignedUrls();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages]);
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user) setCurrentUserId(user.id);
-    });
-  }, []);
+  }, [messages, signedAttachmentUrls]);
 
   // Check if this is an arcade chat
   useEffect(() => {
@@ -169,15 +293,14 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   }, [currentUserId, processedSmackTalks]);
 
   useEffect(() => {
-    // Check for new smack talks in latest message
     if (messages.length > 0) {
       const latestMessage = messages[messages.length - 1];
       handleNewSmackTalk(latestMessage);
     }
   }, [messages, handleNewSmackTalk]);
 
+  // Mark announcement as opened
   useEffect(() => {
-    // Mark announcement as opened
     if (chatDetails?.is_announcement && currentUserId && currentUserId !== chatDetails.created_by) {
       const markAsOpened = async () => {
         try {
@@ -197,89 +320,51 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     }
   }, [chatId, chatDetails, currentUserId]);
 
-  const fetchMessages = async () => {
-    try {
-      // Fetch messages for chat
-      const { data, error } = await supabase
-        .from('messages')
-        .select(`
-          *,
-          profiles!messages_sender_id_fkey(full_name, profile_photo_url)
-        `)
-        .eq('chat_id', chatId)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-
-      // Bulk fetch parent messages (avoids N+1 queries)
-      const parentIds = Array.from(
-        new Set((data || []).map((m) => m.parent_message_id).filter(Boolean) as string[])
-      );
-
-      const parentMap = new Map<string, any>();
-      if (parentIds.length > 0) {
-        const { data: parentRows } = await supabase
-          .from('messages')
-          .select('id, content, profiles:profiles!messages_sender_id_fkey(full_name)')
-          .in('id', parentIds);
-
-        for (const p of parentRows || []) parentMap.set(p.id, p);
-      }
-
-      const messagesWithParent = (data || []).map((msg: any) => {
-        const parent = msg.parent_message_id ? parentMap.get(msg.parent_message_id) : null;
-        return { ...msg, parent_message: parent || null };
-      });
-
-      setMessages(messagesWithParent);
-      setTimeout(() => scrollToBottom(true), 50);
-
-      // Mark unread messages as read (only those lacking a receipt)
-      if (currentUserId && data && data.length > 0) {
-        const messageIds = data
-          .filter((m) => m.sender_id !== currentUserId)
-          .map((m) => m.id);
-
-        if (messageIds.length > 0) {
-          const { data: existingReceipts } = await supabase
-            .from('message_read_receipts')
-            .select('message_id')
-            .in('message_id', messageIds)
-            .eq('user_id', currentUserId);
-
-          const alreadyRead = new Set(existingReceipts?.map((r) => r.message_id) || []);
-          const toInsert = messageIds
-            .filter((id) => !alreadyRead.has(id))
-            .map((id) => ({ message_id: id, user_id: currentUserId }));
-
-          if (toInsert.length > 0) {
-            await supabase
-              .from('message_read_receipts')
-              .upsert(toInsert, {
-                onConflict: 'message_id,user_id',
-                ignoreDuplicates: true,
-              });
-          }
-        }
-      }
-    } catch (error: any) {
-      console.error('Error fetching messages:', error);
-      toast.error('Failed to load messages');
-    }
-  };
-
-  const fetchMessagesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const debouncedFetchMessages = useCallback(() => {
-    if (fetchMessagesTimerRef.current) return;
-    fetchMessagesTimerRef.current = setTimeout(() => {
-      fetchMessagesTimerRef.current = null;
-      fetchMessages();
-    }, 400);
-  }, [chatId, currentUserId]);
-
+  // Mark messages as read
   useEffect(() => {
-    fetchMessages();
+    if (!currentUserId || messages.length === 0) return;
+
+    const markAsRead = async () => {
+      const messageIds = messages
+        .filter((m) => m.sender_id !== currentUserId && !m.isPending)
+        .map((m) => m.id);
+
+      if (messageIds.length === 0) return;
+
+      const { data: existingReceipts } = await supabase
+        .from('message_read_receipts')
+        .select('message_id')
+        .in('message_id', messageIds)
+        .eq('user_id', currentUserId);
+
+      const alreadyRead = new Set(existingReceipts?.map((r) => r.message_id) || []);
+      const toInsert = messageIds
+        .filter((id) => !alreadyRead.has(id))
+        .map((id) => ({ message_id: id, user_id: currentUserId }));
+
+      if (toInsert.length > 0) {
+        await supabase
+          .from('message_read_receipts')
+          .upsert(toInsert, {
+            onConflict: 'message_id,user_id',
+            ignoreDuplicates: true,
+          });
+      }
+    };
+
+    markAsRead();
+  }, [messages, currentUserId]);
+
+  // Auto-scroll to bottom when messages load or new message arrives
+  useEffect(() => {
+    if (messages.length > 0 && !messagesLoading) {
+      setTimeout(() => scrollToBottom(true), 50);
+    }
+  }, [recentMessages, messagesLoading, scrollToBottom]);
+
+  // Realtime subscription - append new messages directly instead of refetching
+  useEffect(() => {
+    if (!chatId) return;
 
     const channel = supabase
       .channel(`messages-${chatId}`)
@@ -291,21 +376,45 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           table: 'messages',
           filter: `chat_id=eq.${chatId}`,
         },
-        () => {
-          debouncedFetchMessages();
+        async (payload) => {
+          const newMsg = payload.new as any;
+          
+          // Fetch the sender profile for the new message
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, profile_photo_url')
+            .eq('id', newMsg.sender_id)
+            .single();
+
+          const messageWithProfile: Message = {
+            ...newMsg,
+            profiles: profile || undefined,
+            parent_message: null,
+          };
+
+          // Append to cache instead of refetching
+          queryClient.setQueryData(['chat-messages', chatId], (old: Message[] | undefined) => {
+            if (!old) return [messageWithProfile];
+            // Avoid duplicates
+            if (old.some(m => m.id === newMsg.id)) return old;
+            return [...old, messageWithProfile];
+          });
+
+          // Remove from pending if it was an optimistic update
+          setPendingMessages(prev => prev.filter(m => 
+            !(m.content === newMsg.content && m.sender_id === newMsg.sender_id)
+          ));
+
+          shouldScrollRef.current = true;
+          setTimeout(() => scrollToBottom(), 50);
         }
       )
       .subscribe();
 
     return () => {
-      if (fetchMessagesTimerRef.current) {
-        clearTimeout(fetchMessagesTimerRef.current);
-        fetchMessagesTimerRef.current = null;
-      }
       supabase.removeChannel(channel);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chatId, currentUserId]);
+  }, [chatId, queryClient, scrollToBottom]);
 
   const handleSend = async () => {
     if (!newMessage.trim() && !uploading) return;
@@ -340,14 +449,13 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     scrollToBottom();
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      if (!currentUserId) throw new Error('Not authenticated');
 
       const { error } = await supabase
         .from('messages')
         .insert({
           chat_id: chatId,
-          sender_id: user.id,
+          sender_id: currentUserId,
           content: messageContent || null,
           parent_message_id: replyTo?.id || null,
         });
@@ -363,9 +471,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           .from('chat_members')
           .select('user_id')
           .eq('chat_id', chatId)
-          .neq('user_id', user.id);
-
-        console.log('Chat members query result:', { members, membersError, chatId });
+          .neq('user_id', currentUserId);
 
         if (membersError) {
           console.error('Error fetching chat members:', membersError);
@@ -375,12 +481,10 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           const { data: senderProfile } = await supabase
             .from('profiles')
             .select('full_name')
-            .eq('id', user.id)
+            .eq('id', currentUserId)
             .single();
 
-          console.log('Sending push notification to', members.length, 'users');
-
-          const response = await supabase.functions.invoke('send-push-notification', {
+          await supabase.functions.invoke('send-push-notification', {
             body: {
               user_ids: members.map(m => m.user_id),
               title: senderProfile?.full_name || 'New Message',
@@ -392,14 +496,9 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
               }
             }
           });
-
-          console.log('Push notification response:', response);
-        } else {
-          console.log('No chat members found to notify');
         }
       } catch (notifError) {
         console.error('Error sending push notification:', notifError);
-        // Don't fail the message send if notifications fail
       }
 
     } catch (error: any) {
@@ -450,16 +549,14 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   };
 
   const handleGifSelect = async (gifUrl: string) => {
+    if (!currentUserId) return;
     setSending(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
       const { error } = await supabase
         .from('messages')
         .insert({
           chat_id: chatId,
-          sender_id: user.id,
+          sender_id: currentUserId,
           content: 'GIF',
           attachment_url: gifUrl,
           attachment_type: 'image/gif',
@@ -473,13 +570,13 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           .from('chat_members')
           .select('user_id')
           .eq('chat_id', chatId)
-          .neq('user_id', user.id);
+          .neq('user_id', currentUserId);
 
         if (members && members.length > 0) {
           const { data: senderProfile } = await supabase
             .from('profiles')
             .select('full_name')
-            .eq('id', user.id)
+            .eq('id', currentUserId)
             .single();
 
           await supabase.functions.invoke('send-push-notification', {
@@ -506,18 +603,16 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   };
 
   const handleSmackTalk = async (smackText: string, targetMessageId?: string) => {
+    if (!currentUserId) return;
     setSending(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
       const content = `SMACK_TALK:${smackText}`;
 
       const { error } = await supabase
         .from('messages')
         .insert({
           chat_id: chatId,
-          sender_id: user.id,
+          sender_id: currentUserId,
           content,
           parent_message_id: targetMessageId || null,
         });
@@ -530,13 +625,13 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           .from('chat_members')
           .select('user_id')
           .eq('chat_id', chatId)
-          .neq('user_id', user.id);
+          .neq('user_id', currentUserId);
 
         if (members && members.length > 0) {
           const { data: senderProfile } = await supabase
             .from('profiles')
             .select('full_name')
-            .eq('id', user.id)
+            .eq('id', currentUserId)
             .single();
 
           await supabase.functions.invoke('send-push-notification', {
@@ -581,21 +676,18 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || !currentUserId) return;
 
     setUploading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
-
       // Compress images to reduce memory usage on mobile
       let fileToUpload: File | Blob = file;
-      let fileName = `${user.id}/${Date.now()}.${file.name.split('.').pop()}`;
+      let fileName = `${currentUserId}/${Date.now()}.${file.name.split('.').pop()}`;
       const bucketName = 'checklist-images';
 
       if (file.type.startsWith('image/')) {
         fileToUpload = await compressImage(file, 1200, 1200, 0.8);
-        fileName = `${user.id}/${Date.now()}.jpg`;
+        fileName = `${currentUserId}/${Date.now()}.jpg`;
       }
 
       // Use retry logic for flaky mobile connections
@@ -605,7 +697,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         .from('messages')
         .insert({
           chat_id: chatId,
-          sender_id: user.id,
+          sender_id: currentUserId,
           content: file.name,
           attachment_url: publicUrl,
           attachment_type: file.type,
@@ -619,13 +711,13 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           .from('chat_members')
           .select('user_id')
           .eq('chat_id', chatId)
-          .neq('user_id', user.id);
+          .neq('user_id', currentUserId);
 
         if (members && members.length > 0) {
           const { data: senderProfile } = await supabase
             .from('profiles')
             .select('full_name')
-            .eq('id', user.id)
+            .eq('id', currentUserId)
             .single();
 
           await supabase.functions.invoke('send-push-notification', {
@@ -717,7 +809,36 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       )}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 scroll-smooth">
+        {/* Load Earlier Button */}
+        {hasMoreEarlier && messages.length > 0 && (
+          <div className="flex justify-center sticky top-0 z-10">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadEarlierMessages}
+              disabled={loadingEarlier}
+              className="bg-background/95 backdrop-blur-sm shadow-sm"
+            >
+              {loadingEarlier ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                'Load Earlier Messages'
+              )}
+            </Button>
+          </div>
+        )}
+
+        {/* Loading state */}
+        {messagesLoading && messages.length === 0 && (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+
         {(() => {
           // Combine actual messages with pending messages
           const allMessages = [...messages, ...pendingMessages];
