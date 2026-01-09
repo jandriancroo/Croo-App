@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Layout } from '@/components/Layout';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -63,7 +63,10 @@ export default function Messages() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [selectedHiringConversation, setSelectedHiringConversation] = useState<any>(null);
 
-  const fetchChats = async () => {
+  const chatIdsRef = useRef<Set<string>>(new Set());
+  const fetchChatsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchChats = useCallback(async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -103,26 +106,26 @@ export default function Messages() {
             created_by: user.id,
             is_group: true,
             title: "Shift Marketplace",
-            location_id: currentLocation.id
+            location_id: currentLocation.id,
           })
           .select()
           .single();
 
         if (newChat) {
           marketplaceChat = newChat;
-          
+
           // Add all users to marketplace chat
-          const { data: allUsers } = await supabase
-            .from("profiles")
-            .select("id");
+          const { data: allUsers } = await supabase.from("profiles").select("id");
 
           if (allUsers) {
             await supabase
               .from("chat_members")
-              .insert(allUsers.map(u => ({
-                chat_id: newChat.id,
-                user_id: u.id
-              })));
+              .insert(
+                allUsers.map((u) => ({
+                  chat_id: newChat.id,
+                  user_id: u.id,
+                }))
+              );
           }
         }
       }
@@ -145,88 +148,91 @@ export default function Messages() {
       }
 
       const { data, error } = await query;
-
       if (error) throw error;
 
       // Filter to only chats where current user is a member
-      const userChats = data?.filter((chat: any) => 
-        chat.chat_members.some((member: any) => member.user_id === user.id)
-      ) || [];
+      const userChats =
+        data?.filter((chat: any) => chat.chat_members.some((m: any) => m.user_id === user.id)) || [];
 
-      // Get unread counts for each chat
-      const chatsWithUnread = await Promise.all(
-        userChats.map(async (chat: any) => {
-          // Get last message in this chat
-          const { data: messages } = await supabase
-            .from('messages')
-            .select('id, created_at, sender_id, content')
-            .eq('chat_id', chat.id)
-            .order('created_at', { ascending: false })
-            .limit(1);
+      const chatIds = userChats.map((c: any) => c.id);
+      chatIdsRef.current = new Set(chatIds);
 
-          let unreadCount = 0;
-          let messagePreview = '';
-          let lastMessageTime = chat.updated_at;
-          
-          if (messages && messages.length > 0) {
-            const lastMessage = messages[0];
-            messagePreview = lastMessage.content || '';
-            lastMessageTime = lastMessage.created_at;
-            
-            // Only count as unread if last message wasn't sent by current user
-            if (lastMessage.sender_id !== user.id) {
-              // Check if user has read this message
-              const { data: receipt } = await supabase
-                .from('message_read_receipts')
-                .select('id')
-                .eq('message_id', lastMessage.id)
-                .eq('user_id', user.id)
-                .single();
-              
-              if (!receipt) {
-                unreadCount = 1;
-              }
-            }
+      // Bulk fetch latest message per chat
+      const latestPerChat = new Map<string, { id: string; sender_id: string; content: string | null; created_at: string }>();
+      if (chatIds.length > 0) {
+        const { data: latestMessages } = await supabase
+          .from('messages')
+          .select('id, chat_id, sender_id, content, created_at')
+          .in('chat_id', chatIds)
+          .order('created_at', { ascending: false });
+
+        for (const msg of latestMessages || []) {
+          if (!latestPerChat.has(msg.chat_id)) {
+            latestPerChat.set(msg.chat_id, {
+              id: msg.id,
+              sender_id: msg.sender_id,
+              content: msg.content,
+              created_at: msg.created_at,
+            });
           }
+        }
+      }
 
-          // For DMs, set title to the other person's name
-          if (!chat.is_group && !chat.title) {
-            const otherMember = chat.chat_members.find((m: any) => m.user_id !== user.id);
-            chat.title = otherMember?.profiles?.full_name || 'Direct Message';
-          }
+      const latestMessageIds = Array.from(latestPerChat.values()).map((m) => m.id);
 
-          // Check if current user has pinned this chat
-          const currentMember = chat.chat_members.find((m: any) => m.user_id === user.id);
-          const isPinned = currentMember?.is_pinned || false;
+      // Bulk fetch read receipts for latest messages
+      const readMessageIds = new Set<string>();
+      if (latestMessageIds.length > 0) {
+        const { data: receipts } = await supabase
+          .from('message_read_receipts')
+          .select('message_id')
+          .in('message_id', latestMessageIds)
+          .eq('user_id', user.id);
 
-          return { ...chat, unreadCount, isPinned, messagePreview, updated_at: lastMessageTime };
-        })
-      );
+        for (const r of receipts || []) readMessageIds.add(r.message_id);
+      }
+
+      const chatsWithUnread = userChats.map((chat: any) => {
+        const latest = latestPerChat.get(chat.id);
+        const lastMessageTime = latest?.created_at || chat.updated_at;
+        const messagePreview = latest?.content || '';
+
+        let unreadCount = 0;
+        if (latest && latest.sender_id !== user.id && !readMessageIds.has(latest.id)) {
+          unreadCount = 1;
+        }
+
+        // For DMs, set title to the other person's name
+        let title = chat.title;
+        if (!chat.is_group && !title) {
+          const otherMember = chat.chat_members.find((m: any) => m.user_id !== user.id);
+          title = otherMember?.profiles?.full_name || 'Direct Message';
+        }
+
+        const currentMember = chat.chat_members.find((m: any) => m.user_id === user.id);
+        const isPinned = currentMember?.is_pinned || false;
+
+        return { ...chat, title, unreadCount, isPinned, messagePreview, updated_at: lastMessageTime };
+      });
 
       // Find and store marketplace chat ID
-      const marketplaceItem = chatsWithUnread.find(c => c.title === "Shift Marketplace");
+      const marketplaceItem = chatsWithUnread.find((c: any) => c.title === 'Shift Marketplace');
       if (marketplaceItem) {
         setMarketplaceChatId(marketplaceItem.id);
       }
 
       // Sort chats: pinned first, then unread, then by updated_at (excluding marketplace from regular list)
       const sortedChats = chatsWithUnread
-        .filter(c => c.title !== "Shift Marketplace") // Remove marketplace from chat list
-        .sort((a, b) => {
-          // Pinned chats first
+        .filter((c: any) => c.title !== 'Shift Marketplace')
+        .sort((a: any, b: any) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
-          
-          // Then sort by unread status
           if (a.unreadCount > 0 && b.unreadCount === 0) return -1;
           if (a.unreadCount === 0 && b.unreadCount > 0) return 1;
-          
-          // If both have same status, sort by updated_at
           return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
         });
 
       setChats(sortedChats);
-      setFilteredChats(sortedChats);
       applyViewFilter(sortedChats, viewMode);
     } catch (error: any) {
       console.error('Error fetching chats:', error);
@@ -234,7 +240,15 @@ export default function Messages() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentLocation, viewMode]);
+
+  const debouncedFetchChats = useCallback(() => {
+    if (fetchChatsTimerRef.current) return;
+    fetchChatsTimerRef.current = setTimeout(() => {
+      fetchChatsTimerRef.current = null;
+      fetchChats();
+    }, 750);
+  }, [fetchChats]);
 
   const applyViewFilter = (chatList: Chat[], mode: 'chats' | 'announcements' | 'marketplace' | 'hiring' | 'support') => {
     if (mode === 'marketplace' || mode === 'hiring' || mode === 'support') {
@@ -346,26 +360,33 @@ export default function Messages() {
       fetchChats();
     }
 
-    // Subscribe to new messages for real-time updates
+    // Subscribe to INSERTs only; debounce to avoid UI lockups
     const channel = supabase
       .channel('messages-changes')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
           schema: 'public',
-          table: 'messages'
+          table: 'messages',
         },
-        () => {
-          fetchChats();
+        (payload) => {
+          const chatId = (payload.new as any)?.chat_id as string | undefined;
+          if (!chatId) return;
+          if (!chatIdsRef.current.has(chatId)) return;
+          debouncedFetchChats();
         }
       )
       .subscribe();
 
     return () => {
+      if (fetchChatsTimerRef.current) {
+        clearTimeout(fetchChatsTimerRef.current);
+        fetchChatsTimerRef.current = null;
+      }
       supabase.removeChannel(channel);
     };
-  }, [currentLocation]);
+  }, [currentLocation, fetchChats, debouncedFetchChats]);
 
   return (
     <Layout>

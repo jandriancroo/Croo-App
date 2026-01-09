@@ -199,7 +199,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
 
   const fetchMessages = async () => {
     try {
-      // Fetch messages without self-join (parent_message_id FK doesn't exist)
+      // Fetch messages for chat
       const { data, error } = await supabase
         .from('messages')
         .select(`
@@ -210,45 +210,55 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      
-      // Enrich messages with parent message data
-      const messagesWithParent = await Promise.all((data || []).map(async (msg) => {
-        if (msg.parent_message_id) {
-          const { data: parentData } = await supabase
-            .from('messages')
-            .select('content, profiles:profiles!messages_sender_id_fkey(full_name)')
-            .eq('id', msg.parent_message_id)
-            .maybeSingle();
-          return { ...msg, parent_message: parentData };
-        }
-        return { ...msg, parent_message: null };
-      }));
-      
+
+      // Bulk fetch parent messages (avoids N+1 queries)
+      const parentIds = Array.from(
+        new Set((data || []).map((m) => m.parent_message_id).filter(Boolean) as string[])
+      );
+
+      const parentMap = new Map<string, any>();
+      if (parentIds.length > 0) {
+        const { data: parentRows } = await supabase
+          .from('messages')
+          .select('id, content, profiles:profiles!messages_sender_id_fkey(full_name)')
+          .in('id', parentIds);
+
+        for (const p of parentRows || []) parentMap.set(p.id, p);
+      }
+
+      const messagesWithParent = (data || []).map((msg: any) => {
+        const parent = msg.parent_message_id ? parentMap.get(msg.parent_message_id) : null;
+        return { ...msg, parent_message: parent || null };
+      });
+
       setMessages(messagesWithParent);
-      // Instant scroll on initial load
       setTimeout(() => scrollToBottom(true), 50);
 
-      // Mark ALL unread messages as read
+      // Mark unread messages as read (only those lacking a receipt)
       if (currentUserId && data && data.length > 0) {
-        // Get all messages not sent by current user
-        const messagesToMark = data.filter(msg => msg.sender_id !== currentUserId);
-        
-        if (messagesToMark.length > 0) {
-          try {
-            // Upsert read receipts for all messages in this chat
-            const receipts = messagesToMark.map(msg => ({
-              message_id: msg.id,
-              user_id: currentUserId
-            }));
-            
+        const messageIds = data
+          .filter((m) => m.sender_id !== currentUserId)
+          .map((m) => m.id);
+
+        if (messageIds.length > 0) {
+          const { data: existingReceipts } = await supabase
+            .from('message_read_receipts')
+            .select('message_id')
+            .in('message_id', messageIds)
+            .eq('user_id', currentUserId);
+
+          const alreadyRead = new Set(existingReceipts?.map((r) => r.message_id) || []);
+          const toInsert = messageIds
+            .filter((id) => !alreadyRead.has(id))
+            .map((id) => ({ message_id: id, user_id: currentUserId }));
+
+          if (toInsert.length > 0) {
             await supabase
               .from('message_read_receipts')
-              .upsert(receipts, { 
+              .upsert(toInsert, {
                 onConflict: 'message_id,user_id',
-                ignoreDuplicates: true 
+                ignoreDuplicates: true,
               });
-          } catch (err: any) {
-            console.error('Error marking messages as read:', err);
           }
         }
       }
@@ -257,6 +267,16 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       toast.error('Failed to load messages');
     }
   };
+
+  const fetchMessagesTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const debouncedFetchMessages = useCallback(() => {
+    if (fetchMessagesTimerRef.current) return;
+    fetchMessagesTimerRef.current = setTimeout(() => {
+      fetchMessagesTimerRef.current = null;
+      fetchMessages();
+    }, 400);
+  }, [chatId, currentUserId]);
 
   useEffect(() => {
     fetchMessages();
@@ -269,17 +289,22 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           event: 'INSERT',
           schema: 'public',
           table: 'messages',
-          filter: `chat_id=eq.${chatId}`
+          filter: `chat_id=eq.${chatId}`,
         },
         () => {
-          fetchMessages();
+          debouncedFetchMessages();
         }
       )
       .subscribe();
 
     return () => {
+      if (fetchMessagesTimerRef.current) {
+        clearTimeout(fetchMessagesTimerRef.current);
+        fetchMessagesTimerRef.current = null;
+      }
       supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatId, currentUserId]);
 
   const handleSend = async () => {

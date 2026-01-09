@@ -317,9 +317,56 @@ export default function Dashboard() {
       fetchData();
       fetchTodaysCateringOrders();
     }
-    fetchCrooCashBalance();
     fetchUserName();
   }, [currentLocation?.id]);
+
+  // Fetch Croo Cash balance + subscribe once per user (prevents channel leaks)
+  useEffect(() => {
+    if (!user?.id) {
+      setCrooCashBalance(0);
+      return;
+    }
+
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('croo_cash_balance')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+        if (!cancelled) setCrooCashBalance(data?.croo_cash_balance || 0);
+      } catch (error) {
+        console.error('Error fetching Croo Cash balance:', error);
+      }
+    };
+
+    load();
+
+    const channel = supabase
+      .channel(`croo-cash-${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user.id}`,
+        },
+        (payload: any) => {
+          setCrooCashBalance(payload.new.croo_cash_balance || 0);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id]);
 
   const fetchUserName = async () => {
     try {
@@ -346,44 +393,6 @@ export default function Dashboard() {
     }
   }, [checklists]);
 
-  const fetchCrooCashBalance = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("croo_cash_balance")
-        .eq("id", user.id)
-        .single();
-
-      if (error) throw error;
-      setCrooCashBalance(data?.croo_cash_balance || 0);
-
-      // Set up real-time subscription for balance updates
-      const channel = supabase
-        .channel(`croo-cash-${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "UPDATE",
-            schema: "public",
-            table: "profiles",
-            filter: `id=eq.${user.id}`
-          },
-          (payload: any) => {
-            setCrooCashBalance(payload.new.croo_cash_balance || 0);
-          }
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    } catch (error) {
-      console.error("Error fetching Croo Cash balance:", error);
-    }
-  };
   const loadCompletionData = async () => {
     // Use business date which accounts for late-night operations
     // (submissions before cutoff time count as previous day)
