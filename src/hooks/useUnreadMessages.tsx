@@ -1,10 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
+// Debounce unread count fetches to prevent cascade
+let lastFetchTime = 0;
+const DEBOUNCE_MS = 2000;
+
 export const useUnreadMessages = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const userIdRef = useRef<string | null>(null);
+  const pendingFetchRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchUnreadCount = useCallback(async () => {
     try {
@@ -82,6 +87,24 @@ export const useUnreadMessages = () => {
     }
   }, []);
 
+  // Debounced fetch that prevents hammering the database
+  const debouncedFetch = useCallback(() => {
+    const now = Date.now();
+    if (now - lastFetchTime < DEBOUNCE_MS) {
+      // Schedule a fetch after debounce window if not already scheduled
+      if (!pendingFetchRef.current) {
+        pendingFetchRef.current = setTimeout(() => {
+          pendingFetchRef.current = null;
+          lastFetchTime = Date.now();
+          fetchUnreadCount();
+        }, DEBOUNCE_MS);
+      }
+      return;
+    }
+    lastFetchTime = now;
+    fetchUnreadCount();
+  }, [fetchUnreadCount]);
+
   useEffect(() => {
     fetchUnreadCount();
 
@@ -96,7 +119,7 @@ export const useUnreadMessages = () => {
           table: 'messages'
         },
         () => {
-          fetchUnreadCount();
+          debouncedFetch(); // Use debounced version
         }
       )
       .on(
@@ -109,16 +132,17 @@ export const useUnreadMessages = () => {
         (payload) => {
           // Only refetch if this read receipt is for the current user
           if (payload.new && (payload.new as any).user_id === userIdRef.current) {
-            fetchUnreadCount();
+            debouncedFetch(); // Use debounced version
           }
         }
       )
       .subscribe();
 
     return () => {
+      if (pendingFetchRef.current) clearTimeout(pendingFetchRef.current);
       supabase.removeChannel(messageChannel);
     };
-  }, [fetchUnreadCount]);
+  }, [fetchUnreadCount, debouncedFetch]);
 
   return { unreadCount, loading, refetch: fetchUnreadCount };
 };

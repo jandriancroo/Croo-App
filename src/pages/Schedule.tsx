@@ -469,10 +469,15 @@ export default function Schedule() {
         setLocationSettings(null);
       }
 
-      // Sync birthday holidays (non-blocking, happens in background)
-      supabase.functions.invoke('sync-birthday-events').catch(err => 
-        console.error('Failed to sync birthday holidays:', err)
-      );
+      // Sync birthday holidays - only once per session to avoid repeated calls
+      const lastBirthdaySync = sessionStorage.getItem('lastBirthdaySyncTime');
+      const now = Date.now();
+      if (!lastBirthdaySync || now - parseInt(lastBirthdaySync) > 300000) { // 5 min throttle
+        sessionStorage.setItem('lastBirthdaySyncTime', now.toString());
+        supabase.functions.invoke('sync-birthday-events').catch(err => 
+          console.error('Failed to sync birthday holidays:', err)
+        );
+      }
       console.log(`[Schedule] fetchScheduleData completed: ${(performance.now() - perfStart).toFixed(0)}ms total`);
     } catch (error: any) {
       console.error("[Schedule] Error fetching schedule data:", error);
