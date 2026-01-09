@@ -45,41 +45,35 @@ export const useUnreadMessages = () => {
       // This is much more efficient than the old approach
       let unreadChats = 0;
       
-      // Batch check: get the latest message per chat that's NOT from current user
+      // Efficient: Check each chat for unread messages with a single optimized query per chat
+      // Using Promise.all for parallel execution
       const chatIds = memberChats.map(cm => cm.chat_id);
       
-      const { data: latestMessages } = await supabase
-        .from('messages')
-        .select('chat_id, created_at')
-        .in('chat_id', chatIds)
-        .neq('sender_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (!latestMessages || latestMessages.length === 0) {
-        setUnreadCount(0);
-        setLoading(false);
-        return;
-      }
-
-      // Group by chat_id to get only the latest message per chat
-      const latestPerChat = new Map<string, string>();
-      for (const msg of latestMessages) {
-        if (!latestPerChat.has(msg.chat_id)) {
-          latestPerChat.set(msg.chat_id, msg.created_at);
-        }
-      }
-
-      // Compare with last_read_at
+      // Build a map of last_read_at for quick lookup
+      const lastReadMap = new Map<string, Date>();
       for (const chat of memberChats) {
-        const latestMsgTime = latestPerChat.get(chat.chat_id);
-        if (latestMsgTime) {
-          const lastRead = chat.last_read_at ? new Date(chat.last_read_at) : new Date(0);
-          const latestMsg = new Date(latestMsgTime);
-          if (latestMsg > lastRead) {
-            unreadChats++;
-          }
-        }
+        lastReadMap.set(chat.chat_id, chat.last_read_at ? new Date(chat.last_read_at) : new Date(0));
       }
+
+      // Single efficient query: get count of chats with unread messages
+      // For each chat, check if there's at least one message newer than last_read_at
+      const unreadChecks = await Promise.all(
+        memberChats.map(async (chat) => {
+          const lastRead = chat.last_read_at || '1970-01-01T00:00:00Z';
+          
+          const { count } = await supabase
+            .from('messages')
+            .select('id', { count: 'exact', head: true })
+            .eq('chat_id', chat.chat_id)
+            .neq('sender_id', user.id)
+            .gt('created_at', lastRead)
+            .limit(1);
+          
+          return (count ?? 0) > 0;
+        })
+      );
+
+      unreadChats = unreadChecks.filter(Boolean).length;
 
       setUnreadCount(unreadChats);
     } catch (error) {
