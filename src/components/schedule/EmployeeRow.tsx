@@ -6,7 +6,6 @@ import { ShiftCard } from "./ShiftCard";
 import { addDays, format, parseISO } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { GripVertical } from "lucide-react";
-import { useUserRole } from "@/hooks/useUserRole";
 interface Profile {
   id: string;
   full_name: string;
@@ -28,6 +27,7 @@ interface EmployeeRowProps {
   isDraggable?: boolean;
   isPublished?: boolean;
   publishedSnapshot?: any[];
+  canViewAllWages?: boolean;
 }
 export function EmployeeRow({
   profile,
@@ -42,10 +42,10 @@ export function EmployeeRow({
   onEditShift,
   isDraggable = false,
   isPublished = true,
-  publishedSnapshot
+  publishedSnapshot,
+  canViewAllWages = false
 }: EmployeeRowProps) {
   const navigate = useNavigate();
-  const { canViewAllWages } = useUserRole();
   const weekDays = Array.from({
     length: 7
   }, (_, i) => addDays(currentWeekStart, i));
