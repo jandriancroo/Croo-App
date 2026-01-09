@@ -39,6 +39,7 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       return data || [];
     },
     enabled: !!currentLocation && canAccessCashHandling,
+    staleTime: 5 * 60 * 1000, // 5 min cache - categories rarely change
   });
   
   // Fetch today's logbook entries to check what's been submitted
@@ -59,6 +60,7 @@ export function CashHandlingTasks({ locationHours, timezone = "America/Los_Angel
       return data || [];
     },
     enabled: !!currentLocation && canAccessCashHandling,
+    staleTime: 15 * 1000, // 15s cache
     refetchInterval: 30000, // Refresh every 30 seconds
   });
   
