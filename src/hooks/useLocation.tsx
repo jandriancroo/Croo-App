@@ -29,6 +29,9 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   const fetchLocations = async () => {
+    const perfStart = performance.now();
+    console.log('[useLocation] fetchLocations started');
+    
     if (!user) {
       setLocations([]);
       setCurrentLocationState(null);
@@ -43,6 +46,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         .select('all_locations_enabled, default_location_id')
         .eq('id', user.id)
         .single();
+      console.log(`[useLocation] Profile query: ${(performance.now() - perfStart).toFixed(0)}ms`);
 
       let locs: Location[] = [];
 
@@ -108,8 +112,9 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
           localStorage.setItem('currentLocationId', locs[0].id);
         }
       }
+      console.log(`[useLocation] fetchLocations completed: ${(performance.now() - perfStart).toFixed(0)}ms, ${locs.length} locations`);
     } catch (error) {
-      console.error('Error fetching locations:', error);
+      console.error('[useLocation] Error fetching locations:', error);
     } finally {
       setLoading(false);
     }
