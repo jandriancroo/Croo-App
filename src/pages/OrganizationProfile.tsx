@@ -261,8 +261,8 @@ export default function OrganizationProfile() {
         )}
 
         {/* Role Management Section (includes Permissions + Notifications) */}
-        {!isNew && (
-          <RoleManagementSection />
+        {!isNew && id && (
+          <RoleManagementSection organizationId={id} />
         )}
 
         {/* Positions */}

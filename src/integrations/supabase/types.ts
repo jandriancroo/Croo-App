@@ -3084,6 +3084,51 @@ export type Database = {
         }
         Relationships: []
       }
+      role_dashboard_cubes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          cubes: Json
+          id: string
+          organization_id: string
+          role: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          cubes?: Json
+          id?: string
+          organization_id: string
+          role: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          cubes?: Json
+          id?: string
+          organization_id?: string
+          role?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_dashboard_cubes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_dashboard_cubes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       role_notification_settings: {
         Row: {
           created_at: string
