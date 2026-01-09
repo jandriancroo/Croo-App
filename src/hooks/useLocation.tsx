@@ -8,6 +8,7 @@ interface Location {
   name: string;
   location_type: string;
   store_number?: string | null;
+  organization_id?: string;
 }
 
 interface LocationContextType {
@@ -17,6 +18,7 @@ interface LocationContextType {
   loading: boolean;
   refetchLocations: () => Promise<void>;
   isChecklistOnlyLocation: boolean;
+  organizationId: string | null;
 }
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
@@ -27,6 +29,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
   const [currentLocation, setCurrentLocationState] = useState<Location | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
 
   const fetchLocations = async () => {
     const perfStart = performance.now();
@@ -62,10 +65,11 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         const orgId = userLocs?.[0]?.locations?.organization_id;
         
         if (orgId) {
+          setOrganizationId(orgId);
           // Get all locations in this organization
           const { data: orgLocations, error: orgError } = await supabase
             .from('locations')
-            .select('id, name, location_type, store_number')
+            .select('id, name, location_type, store_number, organization_id')
             .eq('organization_id', orgId);
 
           if (orgError) throw orgError;
@@ -83,7 +87,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         // Standard behavior: only assigned locations
         const { data, error } = await supabase
           .from('user_locations')
-          .select('location_id, locations(id, name, location_type, store_number)')
+          .select('location_id, locations(id, name, location_type, store_number, organization_id)')
           .eq('user_id', user.id);
 
         if (error) throw error;
@@ -91,6 +95,11 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         locs = data
           ?.map((ul: any) => ul.locations)
           .filter(Boolean) as Location[];
+        
+        // Set organization ID from first location
+        if (locs.length > 0 && locs[0].organization_id) {
+          setOrganizationId(locs[0].organization_id);
+        }
       }
 
       setLocations(locs || []);
@@ -151,6 +160,7 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
         loading,
         refetchLocations: fetchLocations,
         isChecklistOnlyLocation,
+        organizationId,
       }}
     >
       {children}

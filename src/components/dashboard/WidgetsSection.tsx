@@ -244,6 +244,19 @@ function SortableChecklistsBlock({ children, isReorderMode }: SortableChecklists
   );
 }
 
+interface RoleCubeConfig {
+  id: string;
+  title: string;
+  size: WidgetSize;
+  metrics: MetricType[];
+  accentColor: string;
+  cubeType: CubeType | 'data-3d';
+  faceMetrics?: MetricType[][];
+  faceTitles?: string[];
+  numFaces?: number;
+  displayOrder: number;
+}
+
 interface WidgetsSectionProps {
   salesData: SalesDataForWidgets | null;
   isLoadingSales?: boolean;
@@ -254,6 +267,9 @@ interface WidgetsSectionProps {
   isReorderMode?: boolean;
   checklistsContent?: ReactNode;
   onSalesDataChange?: (data: SalesDataForWidgets | null) => void;
+  // Role-based cubes (locked by Org Admin for TM/SM/Manager)
+  roleCubes?: RoleCubeConfig[];
+  useRoleCubes?: boolean;
 }
 
 export function WidgetsSection({ 
@@ -266,6 +282,8 @@ export function WidgetsSection({
   isReorderMode = false,
   checklistsContent,
   onSalesDataChange,
+  roleCubes,
+  useRoleCubes = false,
 }: WidgetsSectionProps) {
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
@@ -304,6 +322,7 @@ export function WidgetsSection({
   );
 
   // Fetch user's data cubes (data, data-3d, and sales-chart types)
+  // Skip fetching if using role-based cubes (locked by Org Admin)
   const { data: cubes = [], isLoading } = useQuery({
     queryKey: ['user-data-cubes', user?.id, currentLocation?.id],
     queryFn: async () => {
@@ -335,23 +354,40 @@ export function WidgetsSection({
         numFaces: cube.num_faces || 1,
       })) as DataCubeConfig[];
     },
-    enabled: !!user?.id && !!currentLocation?.id,
+    enabled: !!user?.id && !!currentLocation?.id && !useRoleCubes,
     staleTime: 30 * 1000, // 30s cache - prevent duplicate fetches on mount
   });
+
+  // Determine which cubes to use: role-based (locked) or personal
+  const effectiveCubes: DataCubeConfig[] = useRoleCubes && roleCubes 
+    ? roleCubes.map(rc => ({
+        id: rc.id,
+        title: rc.title,
+        size: rc.size,
+        metrics: rc.metrics,
+        accentColor: rc.accentColor,
+        displayOrder: rc.displayOrder,
+        cubeType: rc.cubeType,
+        faceMetrics: rc.faceMetrics || [],
+        faceTitles: rc.faceTitles || [],
+        numFaces: rc.numFaces || 1,
+      }))
+    : cubes;
 
   // Check if sales chart already exists
   const hasSalesChart = localCubes.some(c => c.cubeType === 'sales-chart');
 
-  // Sync local cubes state with fetched data
+  // Sync local cubes state with fetched/role data
   useEffect(() => {
-    setLocalCubes(cubes);
-  }, [cubes]);
+    setLocalCubes(effectiveCubes);
+  }, [effectiveCubes]);
 
   // Auto-create Sales Chart widget for users who don't have one yet
   // This ensures all team members see Sales Overview by default
+  // Skip for role-based cubes (those are configured by Org Admin)
   useEffect(() => {
     const autoCreateSalesChart = async () => {
-      if (!user?.id || !currentLocation?.id || isLoading) return;
+      if (!user?.id || !currentLocation?.id || isLoading || useRoleCubes) return;
       
       // Only auto-create if user has no cubes at all (first visit) or explicitly no sales chart
       // and the location has QuBeyond integration (hasQuBeyondIntegration prop)
@@ -454,6 +490,9 @@ export function WidgetsSection({
     const cubesOnly = newOrder.filter((item): item is DataCubeConfig => item.id !== CHECKLISTS_BLOCK_ID);
     setLocalCubes(cubesOnly);
 
+    // Skip persisting for role-based cubes (those are locked by Org Admin)
+    if (useRoleCubes) return;
+    
     // Persist the new cube order to database (2-phase to avoid unique constraint collisions)
     try {
       const updates = cubesOnly.map((cube, index) => ({ id: cube.id, display_order: index }));
@@ -581,8 +620,13 @@ export function WidgetsSection({
     }
   };
 
-  // If no cubes and no checklists content, just show the dialog
-  if (localCubes.length === 0 && !checklistsContent) {
+  // If using role cubes and no cubes configured, show empty state (no add dialogs)
+  if (useRoleCubes && localCubes.length === 0 && !checklistsContent) {
+    return null; // Empty - Org Admin hasn't configured cubes for this role yet
+  }
+
+  // If no cubes and no checklists content, just show the dialog (only for personal cubes)
+  if (!useRoleCubes && localCubes.length === 0 && !checklistsContent) {
     return (
       <>
         <AddWidgetDialog
@@ -660,26 +704,30 @@ export function WidgetsSection({
         />
       )}
 
-      {/* Add Data Cube Dialog */}
-      <AddWidgetDialog
-        open={showAddDialog}
-        onOpenChange={setShowAddDialog}
-        onAdd={handleAddCube}
-        defaultColorIndex={localCubes.length}
-        hasSalesChart={hasSalesChart}
-        onAdd3DCube={() => {
-          setShowAddDialog(false);
-          setShow3DCubeDialog(true);
-        }}
-      />
-      
-      {/* Add 3D Cube Dialog */}
-      <Add3DCubeDialog
-        open={show3DCubeDialog}
-        onOpenChange={setShow3DCubeDialog}
-        onAdd={handleAdd3DCube}
-        defaultColorIndex={localCubes.length}
-      />
+      {/* Add Data Cube Dialog - only for personal cubes */}
+      {!useRoleCubes && (
+        <>
+          <AddWidgetDialog
+            open={showAddDialog}
+            onOpenChange={setShowAddDialog}
+            onAdd={handleAddCube}
+            defaultColorIndex={localCubes.length}
+            hasSalesChart={hasSalesChart}
+            onAdd3DCube={() => {
+              setShowAddDialog(false);
+              setShow3DCubeDialog(true);
+            }}
+          />
+          
+          {/* Add 3D Cube Dialog */}
+          <Add3DCubeDialog
+            open={show3DCubeDialog}
+            onOpenChange={setShow3DCubeDialog}
+            onAdd={handleAdd3DCube}
+            defaultColorIndex={localCubes.length}
+          />
+        </>
+      )}
     </div>
   );
 }
