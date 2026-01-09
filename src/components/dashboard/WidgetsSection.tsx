@@ -336,6 +336,7 @@ export function WidgetsSection({
       })) as DataCubeConfig[];
     },
     enabled: !!user?.id && !!currentLocation?.id,
+    staleTime: 30 * 1000, // 30s cache - prevent duplicate fetches on mount
   });
 
   // Check if sales chart already exists

@@ -50,6 +50,7 @@ export function useDashboardSections() {
       })) as SectionConfig[];
     },
     enabled: !!user?.id && !!currentLocation?.id,
+    staleTime: 60 * 1000, // 1 min cache - sections rarely change
   });
 
   // All sections are now mandatory - always return true
