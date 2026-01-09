@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Shield, User, Bell } from 'lucide-react';
+import { Shield, User, Bell, LayoutGrid } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 
 type AppRole = 'super_admin' | 'brand_admin' | 'org_admin' | 'admin' | 'manager' | 'shift_manager' | 'team_member';
@@ -25,7 +26,12 @@ type NotificationSetting = {
   enabled: boolean;
 };
 
-export function RoleManagementSection() {
+interface RoleManagementSectionProps {
+  organizationId?: string;
+}
+
+export function RoleManagementSection({ organizationId }: RoleManagementSectionProps) {
+  const navigate = useNavigate();
   const [permissions, setPermissions] = useState<RolePermission[]>([]);
   const [notifications, setNotifications] = useState<NotificationSetting[]>([]);
   const [loading, setLoading] = useState(true);
@@ -115,10 +121,15 @@ export function RoleManagementSection() {
       case 'org_admin': return 'Org Admin';
       case 'admin': return 'Admin';
       case 'manager': return 'Manager';
+      case 'general_manager': return 'General Manager';
       case 'shift_manager': return 'Shift Manager';
       default: return 'Team Member';
     }
   };
+
+  // Roles that can have their dashboard configured by org admin
+  const configurableRoles = ['team_member', 'shift_manager', 'manager'] as const;
+  const canConfigureDashboard = configurableRoles.includes(selectedRole as any);
 
   const rolePermissions = permissions.filter((p) => p.role === selectedRole);
   const roleNotifications = notifications.filter((n) => n.role === selectedRole);
@@ -183,6 +194,19 @@ export function RoleManagementSection() {
               Team Member
             </Button>
           </div>
+
+          {/* Dashboard Configuration Button */}
+          {canConfigureDashboard && organizationId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => navigate(`/organization/${organizationId}/role-dashboard?role=${selectedRole}`)}
+            >
+              <LayoutGrid className="h-4 w-4 mr-2" />
+              Configure {getRoleLabel(selectedRole)} Dashboard
+            </Button>
+          )}
 
           {/* Two column layout for Permissions and Notifications */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

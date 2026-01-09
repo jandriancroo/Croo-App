@@ -71,6 +71,7 @@ import MarcManGame from "./pages/MarcManGame";
 import QRCodeGenerator from "./pages/QRCodeGenerator";
 import FeatureTree from "./pages/FeatureTree";
 import ArchitectureMap from "./pages/ArchitectureMap";
+import RoleDashboardCustomizer from "./pages/RoleDashboardCustomizer";
 import { ScrollToTop } from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
@@ -150,6 +151,7 @@ const AppContent = () => {
       <Route path="/location/:locationId" element={<ProtectedRoute><LocationProfile /></ProtectedRoute>} />
       <Route path="/location/:locationId/punch-clock" element={<ProtectedRoute><PunchClockCustomization /></ProtectedRoute>} />
       <Route path="/organization/:id" element={<ProtectedRoute><OrganizationProfile /></ProtectedRoute>} />
+      <Route path="/organization/:organizationId/role-dashboard" element={<ProtectedRoute><RoleDashboardCustomizer /></ProtectedRoute>} />
       <Route path="/brands" element={<ProtectedRoute><BrandManagement /></ProtectedRoute>} />
       <Route path="/certifications" element={<ProtectedRoute><Certifications /></ProtectedRoute>} />
       <Route path="/alerts" element={<ProtectedRoute><Alerts /></ProtectedRoute>} />
