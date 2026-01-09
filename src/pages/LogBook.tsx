@@ -84,6 +84,7 @@ export default function LogBook() {
       return data;
     },
     enabled: !!currentLocation,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Fetch location settings for safe/drawer targets and notification settings
@@ -100,6 +101,7 @@ export default function LogBook() {
       return data;
     },
     enabled: !!currentLocation,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Set initial category or handle URL parameter
@@ -165,6 +167,7 @@ export default function LogBook() {
       return data;
     },
     enabled: !!selectedCategory,
+    staleTime: 5 * 60 * 1000,
   });
 
   // Fetch entry for selected date and category
