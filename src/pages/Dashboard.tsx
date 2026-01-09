@@ -75,7 +75,7 @@ export default function Dashboard() {
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [crooCashBalance, setCrooCashBalance] = useState<number>(0);
-  const [userName, setUserName] = useState<string>('');
+  // userName derived from auth context below
   const [showWelcomeAnimation, setShowWelcomeAnimation] = useState(false);
   // salesOverviewOpen state moved to WidgetsSection
   const navigate = useNavigate();
@@ -319,7 +319,6 @@ export default function Dashboard() {
       fetchData();
       fetchTodaysCateringOrders();
     }
-    fetchUserName();
   }, [currentLocation?.id]);
 
   // Fetch Croo Cash balance + subscribe once per user (prevents channel leaks)
@@ -370,24 +369,8 @@ export default function Dashboard() {
     };
   }, [user?.id]);
 
-  const fetchUserName = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", user.id)
-        .single();
-
-      if (error) throw error;
-      const firstName = data?.full_name?.split(' ')[0] || '';
-      setUserName(firstName);
-    } catch (error) {
-      console.error("Error fetching user name:", error);
-    }
-  };
+  // User name is derived from auth context - no need for separate fetch
+  const userName = user?.user_metadata?.full_name?.split(' ')[0] || '';
   
   useEffect(() => {
     if (checklists.length > 0) {

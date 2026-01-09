@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { EventCard } from "@/components/schedule/EventCard";
 import { getTodayInTimezone, getDayOfWeekInTimezone } from "@/utils/dateUtils";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface EventTask {
   id: string;
@@ -15,11 +16,6 @@ interface EventTask {
   } | null;
 }
 
-interface EventTaskCompletion {
-  event_id: string;
-  completed_date: string;
-}
-
 interface EventDailyTasksProps {
   locationId: string;
   timezone?: string;
@@ -28,24 +24,17 @@ interface EventDailyTasksProps {
 const DEFAULT_TIMEZONE = 'America/Los_Angeles';
 
 export function EventDailyTasks({ locationId, timezone = DEFAULT_TIMEZONE }: EventDailyTasksProps) {
-  const [tasks, setTasks] = useState<EventTask[]>([]);
-  const [completions, setCompletions] = useState<EventTaskCompletion[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [completing, setCompleting] = useState<string | null>(null);
 
   // Use timezone-aware date functions
   const today = getTodayInTimezone(timezone);
   const todayDayOfWeek = getDayOfWeekInTimezone(timezone);
 
-  useEffect(() => {
-    if (locationId) {
-      fetchTasks();
-    }
-  }, [locationId]);
-
-  const fetchTasks = async () => {
-    try {
-      // Fetch events that are daily tasks and occur today
+  // Fetch event tasks with React Query
+  const { data: tasks = [], isLoading } = useQuery({
+    queryKey: ["event-daily-tasks", locationId, todayDayOfWeek],
+    queryFn: async () => {
       const { data: eventsData, error: eventsError } = await supabase
         .from("schedule_events")
         .select(`
@@ -77,25 +66,30 @@ export function EventDailyTasks({ locationId, timezone = DEFAULT_TIMEZONE }: Eve
         category: event.event_categories,
       }));
 
-      setTasks(todaysTasks);
+      return todaysTasks as EventTask[];
+    },
+    enabled: !!locationId,
+    staleTime: 60 * 1000, // 1 min cache - event definitions rarely change mid-day
+  });
 
-      // Fetch today's completions
-      if (todaysTasks.length > 0) {
-        const { data: completionsData, error: completionsError } = await supabase
-          .from("event_task_completions")
-          .select("event_id, completed_date")
-          .in("event_id", todaysTasks.map((t: EventTask) => t.id))
-          .eq("completed_date", today);
-
-        if (completionsError) throw completionsError;
-        setCompletions(completionsData || []);
-      }
-    } catch (error) {
-      console.error("Error fetching event tasks:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fetch completions with React Query
+  const { data: completions = [] } = useQuery({
+    queryKey: ["event-task-completions", today, tasks.map(t => t.id)],
+    queryFn: async () => {
+      if (tasks.length === 0) return [];
+      
+      const { data, error } = await supabase
+        .from("event_task_completions")
+        .select("event_id, completed_date")
+        .in("event_id", tasks.map(t => t.id))
+        .eq("completed_date", today);
+        
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: tasks.length > 0,
+    staleTime: 10 * 1000, // 10s cache for completions
+  });
 
   const handleComplete = async (taskId: string) => {
     setCompleting(taskId);
@@ -123,8 +117,8 @@ export function EventDailyTasks({ locationId, timezone = DEFAULT_TIMEZONE }: Eve
         return;
       }
 
-      setCompletions([...completions, { event_id: taskId, completed_date: today }]);
       toast.success("Task completed!");
+      queryClient.invalidateQueries({ queryKey: ["event-task-completions"] });
     } catch (error) {
       console.error("Error completing task:", error);
       toast.error("Failed to complete task");
@@ -140,7 +134,7 @@ export function EventDailyTasks({ locationId, timezone = DEFAULT_TIMEZONE }: Eve
   // Filter out completed tasks
   const incompleteTasks = tasks.filter((t) => !isCompleted(t.id));
 
-  if (loading || incompleteTasks.length === 0) {
+  if (isLoading || incompleteTasks.length === 0) {
     return null;
   }
 

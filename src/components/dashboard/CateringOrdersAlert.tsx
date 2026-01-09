@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,9 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "@/hooks/useLocation";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { toast } from "sonner";
-import { ChefHat, Clock, Users, Check, Eye } from "lucide-react";
+import { ChefHat, Check, Eye } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { TemporaryTaskCard } from "./TemporaryTaskCard";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface CateringOrder {
   id: string;
@@ -30,62 +31,65 @@ export function CateringOrdersAlert() {
   const { currentLocation } = useLocation();
   const { getTodayInTimezone, getDateInTimezoneOffset } = useLocationTimezone();
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
-  const [todaysOrders, setTodaysOrders] = useState<CateringOrder[]>([]);
-  const [tomorrowsOrders, setTomorrowsOrders] = useState<CateringOrder[]>([]);
+  const queryClient = useQueryClient();
   const [selectedOrder, setSelectedOrder] = useState<CateringOrder | null>(null);
   const [isTomorrowOrder, setIsTomorrowOrder] = useState(false);
-  const [loading, setLoading] = useState(true);
 
   const canComplete = isShiftManager || isGeneralManager || isManager || isAdmin;
+  const today = getTodayInTimezone();
+  const tomorrow = getDateInTimezoneOffset(1);
 
-  useEffect(() => {
-    if (currentLocation?.id) {
-      fetchOrders();
-    }
-  }, [currentLocation?.id]);
-
-  const fetchOrders = async () => {
-    try {
-      const today = getTodayInTimezone();
-      const tomorrow = getDateInTimezoneOffset(1);
+  // Fetch today's orders with React Query
+  const { data: todaysOrders = [], isLoading: loadingToday } = useQuery({
+    queryKey: ["catering-orders-today", currentLocation?.id, today],
+    queryFn: async () => {
+      if (!currentLocation?.id) return [];
       
-      // Fetch today's orders
-      const { data: todayData, error: todayError } = await supabase
+      const { data, error } = await supabase
         .from("catering_orders")
         .select("*")
-        .eq("location_id", currentLocation?.id)
+        .eq("location_id", currentLocation.id)
         .eq("pickup_date", today)
         .eq("status", "pending")
         .order("pickup_time", { ascending: true });
 
-      if (todayError) throw todayError;
+      if (error) throw error;
       
-      // Fetch tomorrow's orders
-      const { data: tomorrowData, error: tomorrowError } = await supabase
+      return (data || []).map(order => ({
+        ...order,
+        items: order.items as unknown as { quantity: number; item: string; notes?: string }[]
+      })) as CateringOrder[];
+    },
+    enabled: !!currentLocation?.id,
+    staleTime: 30 * 1000, // 30s cache
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  // Fetch tomorrow's orders with React Query
+  const { data: tomorrowsOrders = [], isLoading: loadingTomorrow } = useQuery({
+    queryKey: ["catering-orders-tomorrow", currentLocation?.id, tomorrow],
+    queryFn: async () => {
+      if (!currentLocation?.id) return [];
+      
+      const { data, error } = await supabase
         .from("catering_orders")
         .select("*")
-        .eq("location_id", currentLocation?.id)
+        .eq("location_id", currentLocation.id)
         .eq("pickup_date", tomorrow)
         .eq("status", "pending")
         .order("pickup_time", { ascending: true });
 
-      if (tomorrowError) throw tomorrowError;
-
-      setTodaysOrders((todayData || []).map(order => ({
-        ...order,
-        items: order.items as unknown as { quantity: number; item: string; notes?: string }[]
-      })) as CateringOrder[]);
+      if (error) throw error;
       
-      setTomorrowsOrders((tomorrowData || []).map(order => ({
+      return (data || []).map(order => ({
         ...order,
         items: order.items as unknown as { quantity: number; item: string; notes?: string }[]
-      })) as CateringOrder[]);
-    } catch (error) {
-      console.error("Error fetching catering orders:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+      })) as CateringOrder[];
+    },
+    enabled: !!currentLocation?.id,
+    staleTime: 60 * 1000, // 1 min cache - tomorrow orders change less often
+    refetchInterval: 120000, // Refresh every 2 minutes
+  });
 
   const handleComplete = async (order: CateringOrder) => {
     try {
@@ -105,7 +109,8 @@ export function CateringOrdersAlert() {
 
       toast.success("Catering order completed!");
       setSelectedOrder(null);
-      fetchOrders();
+      // Invalidate query to refetch
+      queryClient.invalidateQueries({ queryKey: ["catering-orders-today"] });
     } catch (error) {
       console.error("Error completing order:", error);
       toast.error("Failed to complete order");
@@ -124,6 +129,8 @@ export function CateringOrdersAlert() {
     setSelectedOrder(order);
     setIsTomorrowOrder(isTomorrow);
   };
+
+  const loading = loadingToday || loadingTomorrow;
 
   if (loading || (todaysOrders.length === 0 && tomorrowsOrders.length === 0)) {
     return null;

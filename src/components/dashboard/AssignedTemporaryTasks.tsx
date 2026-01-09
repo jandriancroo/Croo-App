@@ -61,25 +61,13 @@ export function AssignedTemporaryTasks({
   const { isAdmin, isManager, isShiftManager, isGeneralManager } = useUserRole();
   const canComplete = isShiftManager || isGeneralManager || isManager || isAdmin;
 
-  // Fetch user's role
-  const { data: userRole } = useQuery({
-    queryKey: ["user-role", user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null;
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data?.role;
-    },
-    enabled: !!user?.id,
-  });
+  // Get user role from useUserRole hook (already fetched above via isAdmin, etc)
+  // Use supabase rpc call for role filtering in query - avoids duplicate fetch
+  const userRoleForFilter = isAdmin ? 'admin' : isGeneralManager ? 'general_manager' : isManager ? 'manager' : isShiftManager ? 'shift_manager' : 'team_member';
 
   // Fetch assigned temporary tasks (both completed and incomplete for today)
   const { data: tasks = [], refetch } = useQuery({
-    queryKey: ["assigned-temp-tasks", currentLocation?.id, user?.id, userRole, showCompleted],
+    queryKey: ["assigned-temp-tasks", currentLocation?.id, user?.id, userRoleForFilter, showCompleted],
     queryFn: async () => {
       if (!currentLocation?.id || !user?.id) return [];
 
@@ -87,7 +75,7 @@ export function AssignedTemporaryTasks({
       const { data: assignments, error: assignError } = await supabase
         .from("temporary_task_assignments")
         .select("task_id")
-        .or(`user_id.eq.${user.id}${userRole ? `,role.eq.${userRole}` : ""}`);
+        .or(`user_id.eq.${user.id}${userRoleForFilter ? `,role.eq.${userRoleForFilter}` : ""}`);
 
       if (assignError) throw assignError;
       if (!assignments || assignments.length === 0) return [];
@@ -149,6 +137,7 @@ export function AssignedTemporaryTasks({
       return tasksData || [];
     },
     enabled: !!currentLocation?.id && !!user?.id,
+    staleTime: 10 * 1000, // 10s cache - prevent refetch on re-mount
     refetchInterval: 30000,
   });
 
@@ -173,6 +162,7 @@ export function AssignedTemporaryTasks({
       })) as CateringOrder[];
     },
     enabled: !!currentLocation?.id && includeCateringOrders,
+    staleTime: 10 * 1000,
     refetchInterval: 30000,
   });
 
