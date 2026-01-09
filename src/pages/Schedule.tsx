@@ -8,6 +8,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown, AlertTriangle, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -101,7 +102,7 @@ interface Holiday {
 
 export default function Schedule() {
   const navigate = useNavigate();
-  const { role, isAdmin, isManager } = useUserRole();
+  const { role, isAdmin, isManager, canViewAllWages } = useUserRole();
   const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
   const { timezone, getTodayInTimezone } = useLocationTimezone();
@@ -144,11 +145,11 @@ export default function Schedule() {
   const [currentWeekWarningOpen, setCurrentWeekWarningOpen] = useState(false);
   const [pendingEditAction, setPendingEditAction] = useState<(() => void) | null>(null);
 
+  // Get current user ID from auth context (no duplicate fetch needed)
+  const { user } = useAuth();
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setCurrentUserId(user?.id || null);
-    });
-  }, []);
+    setCurrentUserId(user?.id || null);
+  }, [user?.id]);
 
   // Initialize week start based on the location timezone (one-time)
   useEffect(() => {
@@ -1372,6 +1373,7 @@ export default function Schedule() {
                       isDraggable={false}
                       isPublished={isPublished}
                       publishedSnapshot={publishedSnapshot}
+                      canViewAllWages={canViewAllWages}
                     />
                   ))
                 ) : (
@@ -1428,6 +1430,7 @@ export default function Schedule() {
                               isDraggable={isAdmin || isManager}
                               isPublished={isPublished}
                               publishedSnapshot={publishedSnapshot}
+                              canViewAllWages={canViewAllWages}
                             />
                           ))}
                         </SortableContext>

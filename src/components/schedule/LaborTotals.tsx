@@ -1,4 +1,5 @@
 import { useMemo, useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { format, addDays, isBefore, isToday, startOfDay } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -30,6 +31,23 @@ interface LaborTotalsProps {
   scheduleId?: string | null;
   isEditable?: boolean;
 }
+
+// Fetch wages for a specific user+date combo
+async function fetchWageForShift(userId: string, shiftDate: string): Promise<number | null> {
+  try {
+    const { data, error } = await supabase.rpc('get_current_wage', {
+      p_user_id: userId,
+      p_date: shiftDate
+    });
+    if (!error && data !== null) {
+      return data;
+    }
+  } catch (error) {
+    console.error('Error fetching wage:', error);
+  }
+  return null;
+}
+
 export function LaborTotals({
   shifts,
   profiles,
@@ -43,18 +61,22 @@ export function LaborTotals({
   const weekDays = Array.from({
     length: 7
   }, (_, i) => addDays(currentWeekStart, i));
-  const [shiftWages, setShiftWages] = useState<Record<string, number>>({});
-  const [isLoadingWages, setIsLoadingWages] = useState(true);
   const [projectedSales, setProjectedSales] = useState<Record<number, number>>({});
   const [salesSource, setSalesSource] = useState<Record<number, 'manual' | 'historical' | 'ai'>>({});
   const [isLoadingSales, setIsLoadingSales] = useState(true);
   const [isLoadingQuSales, setIsLoadingQuSales] = useState(false);
-  
-  useEffect(() => {
-    const fetchWages = async () => {
-      setIsLoadingWages(true);
-      const wages: Record<string, number> = {};
 
+  // Compute a stable key for shifts to trigger wage refetch
+  const shiftsKey = useMemo(() => {
+    return shifts.map(s => `${s.id}-${s.user_id}-${s.shift_date}`).join('|');
+  }, [shifts]);
+
+  // Use React Query for wage fetching with staleTime
+  const { data: shiftWages = {}, isLoading: isLoadingWages } = useQuery({
+    queryKey: ['shift-wages', shiftsKey],
+    queryFn: async () => {
+      const wages: Record<string, number> = {};
+      
       // Group shifts by user to reduce queries
       const shiftsByUser = shifts.reduce((acc, shift) => {
         if (!shift.user_id) return acc;
@@ -63,34 +85,15 @@ export function LaborTotals({
         return acc;
       }, {} as Record<string, ScheduledShift[]>);
 
-      // Fetch wages for all users in parallel, one query per user
+      // Fetch wages for all users in parallel
       await Promise.all(Object.entries(shiftsByUser).map(async ([userId, userShifts]) => {
-        // Get unique dates for this user
         const uniqueDates = [...new Set(userShifts.map(s => s.shift_date))];
-
-        // Fetch wage for each unique date
+        
         const userWages = await Promise.all(uniqueDates.map(async date => {
-          try {
-            const {
-              data,
-              error
-            } = await supabase.rpc('get_current_wage', {
-              p_user_id: userId,
-              p_date: date
-            });
-            if (!error && data !== null) {
-              return {
-                date,
-                wage: data
-              };
-            }
-          } catch (error) {
-            console.error('Error fetching wage:', error);
-          }
-          return null;
+          const wage = await fetchWageForShift(userId, date);
+          return wage !== null ? { date, wage } : null;
         }));
 
-        // Map wages to shifts
         userShifts.forEach(shift => {
           const wageData = userWages.find(w => w?.date === shift.shift_date);
           if (wageData) {
@@ -98,15 +101,13 @@ export function LaborTotals({
           }
         });
       }));
-      setShiftWages(wages);
-      setIsLoadingWages(false);
-    };
-    if (shifts.length > 0) {
-      fetchWages();
-    } else {
-      setIsLoadingWages(false);
-    }
-  }, [shifts]);
+      
+      return wages;
+    },
+    enabled: shifts.length > 0,
+    staleTime: 5 * 60 * 1000, // 5 minutes - wages don't change often
+    gcTime: 30 * 60 * 1000, // Keep in cache for 30 minutes
+  });
 
   // Fetch saved projected sales first
   useEffect(() => {
