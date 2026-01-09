@@ -204,14 +204,24 @@ export function LaborTotals({
         
         const results = await Promise.all(salesPromises);
         
+        const today = startOfDay(new Date());
         const newSales: Record<number, number> = { ...projectedSales };
         const newSources: Record<number, 'manual' | 'historical' | 'ai'> = { ...salesSource };
         
         results.forEach(result => {
-          // Only auto-fill if no manual entry exists
-          if (result && result.sales > 0 && !projectedSales[result.dayIndex]) {
-            newSales[result.dayIndex] = result.sales;
-            newSources[result.dayIndex] = result.source;
+          if (result && result.sales > 0) {
+            const day = weekDays[result.dayIndex];
+            const isPastDay = isBefore(day, today) || isToday(day);
+            
+            // For past/today days: always use actuals and mark as historical
+            // For future days: only auto-fill if no manual entry exists
+            if (isPastDay) {
+              newSales[result.dayIndex] = result.sales;
+              newSources[result.dayIndex] = 'historical';
+            } else if (!projectedSales[result.dayIndex]) {
+              newSales[result.dayIndex] = result.sales;
+              newSources[result.dayIndex] = result.source;
+            }
           }
         });
         
