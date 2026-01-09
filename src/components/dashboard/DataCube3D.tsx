@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { DollarSign, Users, TrendingUp, Clock, Percent, Target, Wallet, Calendar, Pizza } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, TrendingDown, Clock, Percent, Target, Wallet, Calendar, Pizza } from 'lucide-react';
 import { MetricType, METRIC_CONFIGS, SalesDataForWidgets } from './DashboardWidget';
 import { format, subYears, getWeek } from 'date-fns';
 import { ThemeColorKey, migrateAccentColor, getThemeColorClass, getThemeTextClass, isThemeColorKey } from '@/utils/themeColors';
@@ -84,6 +84,47 @@ function getDynamicLabel(metricType: MetricType, manualPrefix?: string): string 
   }
   
   return baseLabel;
+}
+
+// Get pacing status indicator for a metric (compares pace to goal)
+// Returns: 'up' if pace > goal, 'down' if pace < goal, null if not applicable
+function getPacingStatus(metricType: MetricType, salesData?: SalesDataForWidgets | null): 'up' | 'down' | null {
+  if (!salesData) return null;
+  
+  const config = METRIC_CONFIGS[metricType];
+  if (!config) return null;
+  
+  // Only show for sales metrics (not labor, guests, etc.)
+  if (!metricType.startsWith('sales_')) return null;
+  
+  // Get pace and goal based on category
+  let pace: number | undefined;
+  let goal: number | undefined;
+  
+  switch (config.category) {
+    case 'daily':
+      pace = salesData.projections?.todayPaceAdjusted;
+      goal = salesData.projections?.todayProjected;
+      break;
+    case 'weekly':
+      pace = salesData.projections?.weekPaceAdjusted ?? salesData.projections?.weekProjected;
+      goal = salesData.projections?.weekProjected;
+      break;
+    case 'monthly':
+      pace = salesData.projections?.monthPaceAdjusted ?? salesData.projections?.monthProjected;
+      goal = salesData.projections?.monthProjected;
+      break;
+    default:
+      return null;
+  }
+  
+  if (pace === undefined || goal === undefined || goal === 0) return null;
+  
+  // Only show if there's a meaningful difference (more than 1%)
+  const percentDiff = ((pace - goal) / goal) * 100;
+  if (Math.abs(percentDiff) < 1) return null;
+  
+  return pace >= goal ? 'up' : 'down';
 }
 
 function getPaymentsForPeriod(
@@ -342,6 +383,17 @@ export function DataCube3D({
   );
 }
 
+// Pacing indicator component
+function PacingIndicator({ status, isLightBg }: { status: 'up' | 'down' | null; isLightBg: boolean }) {
+  if (!status) return null;
+  
+  return status === 'up' ? (
+    <TrendingUp className={cn("h-3 w-3 flex-shrink-0", isLightBg ? "text-green-600" : "text-green-400")} />
+  ) : (
+    <TrendingDown className={cn("h-3 w-3 flex-shrink-0", isLightBg ? "text-red-600" : "text-red-400")} />
+  );
+}
+
 interface CubeFaceComponentProps {
   face?: CubeFace;
   themeColorKey: ThemeColorKey;
@@ -487,20 +539,24 @@ function CubeFaceComponent({
                 
                 const value = getMetricValue(metricType, salesData);
                 const formattedValue = formatValue(value, config.format);
+                const pacingStatus = getPacingStatus(metricType, salesData);
                 
                 // Align: 0=left, 1=right, 2=left, 3=right
                 const isRight = index % 2 === 1;
                 
                 return (
                     <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
-                      <div 
-                        className={cn(
-                          "font-bold leading-none truncate text-lg md:text-xl",
-                          isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
-                          isLightBg ? "text-foreground" : "text-white"
-                        )}
-                      >
-                        {!isLoading && formattedValue}
+                      <div className={cn("flex items-center gap-1", isRight && "flex-row-reverse")}>
+                        <div 
+                          className={cn(
+                            "font-bold leading-none truncate text-lg md:text-xl",
+                            isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
+                            isLightBg ? "text-foreground" : "text-white"
+                          )}
+                        >
+                          {!isLoading && formattedValue}
+                        </div>
+                        {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} />}
                       </div>
                       <div 
                         className={cn(
@@ -544,18 +600,22 @@ function CubeFaceComponent({
                   
                   const value = getMetricValue(metricType, salesData);
                   const formattedValue = formatValue(value, config.format);
+                  const pacingStatus = getPacingStatus(metricType, salesData);
                   const isRight = index === 1;
                   
                   return (
                     <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
-                      <div 
-                        className={cn(
-                          "font-bold leading-none truncate text-lg md:text-xl",
-                          isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
-                          isLightBg ? "text-foreground" : "text-white"
-                        )}
-                      >
-                        {!isLoading && formattedValue}
+                      <div className={cn("flex items-center gap-1", isRight && "flex-row-reverse")}>
+                        <div 
+                          className={cn(
+                            "font-bold leading-none truncate text-lg md:text-xl",
+                            isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
+                            isLightBg ? "text-foreground" : "text-white"
+                          )}
+                        >
+                          {!isLoading && formattedValue}
+                        </div>
+                        {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} />}
                       </div>
                       <div 
                         className={cn(
@@ -577,17 +637,21 @@ function CubeFaceComponent({
                   
                   const value = getMetricValue(metricType, salesData);
                   const formattedValue = formatValue(value, config.format);
+                  const pacingStatus = getPacingStatus(metricType, salesData);
                   
                   return (
                     <div key={index} className="flex flex-col items-center text-center min-w-0">
-                      <div 
-                        className={cn(
-                          "font-bold leading-none truncate text-lg md:text-xl",
-                          isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
-                          isLightBg ? "text-foreground" : "text-white"
-                        )}
-                      >
-                        {!isLoading && formattedValue}
+                      <div className="flex items-center gap-1">
+                        <div 
+                          className={cn(
+                            "font-bold leading-none truncate text-lg md:text-xl",
+                            isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
+                            isLightBg ? "text-foreground" : "text-white"
+                          )}
+                        >
+                          {!isLoading && formattedValue}
+                        </div>
+                        {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} />}
                       </div>
                       <div 
                         className={cn(
@@ -622,18 +686,22 @@ function CubeFaceComponent({
                 
                 const value = getMetricValue(metricType, salesData);
                 const formattedValue = formatValue(value, config.format);
+                const pacingStatus = getPacingStatus(metricType, salesData);
                 const isRight = index === 1;
                 
                 return (
                   <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
-                    <div 
-                      className={cn(
-                        "font-bold leading-none truncate text-lg md:text-xl",
-                        isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
-                        isLightBg ? "text-foreground" : "text-white"
-                      )}
-                    >
-                      {!isLoading && formattedValue}
+                    <div className={cn("flex items-center gap-1", isRight && "flex-row-reverse")}>
+                      <div 
+                        className={cn(
+                          "font-bold leading-none truncate text-lg md:text-xl",
+                          isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
+                          isLightBg ? "text-foreground" : "text-white"
+                        )}
+                      >
+                        {!isLoading && formattedValue}
+                      </div>
+                      {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} />}
                     </div>
                     <div 
                       className={cn(
@@ -657,17 +725,21 @@ function CubeFaceComponent({
               
               const value = getMetricValue(metricType, salesData);
               const formattedValue = formatValue(value, config.format);
+              const pacingStatus = getPacingStatus(metricType, salesData);
               
               return (
                 <div key={index} className="flex flex-col items-center text-center min-w-0">
-                  <div 
-                    className={cn(
-                      "font-bold leading-none truncate text-2xl md:text-3xl",
-                      isLoading && "animate-pulse bg-white/30 rounded w-16 h-6",
-                      isLightBg ? "text-foreground" : "text-white"
-                    )}
-                  >
-                    {!isLoading && formattedValue}
+                  <div className="flex items-center gap-1">
+                    <div 
+                      className={cn(
+                        "font-bold leading-none truncate text-2xl md:text-3xl",
+                        isLoading && "animate-pulse bg-white/30 rounded w-16 h-6",
+                        isLightBg ? "text-foreground" : "text-white"
+                      )}
+                    >
+                      {!isLoading && formattedValue}
+                    </div>
+                    {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} />}
                   </div>
                   <div 
                     className={cn(
