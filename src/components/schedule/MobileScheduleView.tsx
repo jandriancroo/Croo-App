@@ -16,6 +16,7 @@ import { QuickPunchDialog } from './QuickPunchDialog';
 import { EditPunchDialog } from './EditPunchDialog';
 import { EventCard } from './EventCard';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useTeamScheduleVisibility } from '@/hooks/useTeamScheduleVisibility';
 import { AssignedTemporaryTasks } from '@/components/dashboard/AssignedTemporaryTasks';
 import { useAuth } from '@/lib/auth';
 import { formatTime12Hour } from '@/lib/utils';
@@ -137,6 +138,7 @@ export function MobileScheduleView({
   const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string} | null>(null);
   const [todayEvents, setTodayEvents] = useState<Event[]>([]);
   const { isAdmin, isManager } = useUserRole();
+  const { canSeeFullSchedule } = useTeamScheduleVisibility();
   const { user } = useAuth();
   const { currentLocation } = useLocation();
   const { timezone } = useLocationTimezone();
@@ -362,10 +364,22 @@ export function MobileScheduleView({
   };
 
   // Get shifts and events for selected day
-  // Admins see all shifts, non-admins only see published shifts
-  const dayShifts = shifts.filter(
-    s => s.day_of_week === selectedDayOfWeek && s.user_id && (isAdmin || isManager || isPublished)
-  );
+  // Admins/managers see all shifts, team members see all if canSeeFullSchedule, otherwise only their own shifts
+  const dayShifts = shifts.filter(s => {
+    if (s.day_of_week !== selectedDayOfWeek || !s.user_id) return false;
+    
+    // Admins/managers always see everything (including unpublished)
+    if (isAdmin || isManager) return true;
+    
+    // For non-admin/manager: only show published shifts
+    if (!isPublished) return false;
+    
+    // If they can see full schedule (shift managers OR team members with permission), show all
+    if (canSeeFullSchedule) return true;
+    
+    // Otherwise, team members only see their own shifts
+    return s.user_id === user?.id;
+  });
   const dayEvents = events.filter(e => {
     if (e.days_of_week && e.days_of_week.length > 0) {
       return e.days_of_week.includes(selectedDayOfWeek);
