@@ -147,8 +147,10 @@ export function LaborTotals({
     [currentWeekStart]
   );
 
-  // Auto-fill from Qu data - use cache for past days, only fetch fresh for today/future
-  // This effect only runs when scheduleId, location, or week changes - NOT on collapse/expand
+  // Auto-fill from Qu data:
+  // - Past days: use localStorage cache or fetch actuals
+  // - Today: fetch live from API (real-time pace)
+  // - Future days: read from sales_cache.projected_sales (fixed monthly projection)
   useEffect(() => {
     const fetchQuSalesData = async () => {
       if (!currentLocation?.id || isLoadingSales) return;
@@ -157,13 +159,46 @@ export function LaborTotals({
       
       setIsLoadingQuSales(true);
       try {
-        // Process all days - use cache for past, fetch for today/future
+        // Collect all future dates to batch-fetch from sales_cache
+        const futureDates: string[] = [];
+        const futureDayIndexMap: Record<string, number> = {};
+        
+        weekDays.forEach((day, dayIndex) => {
+          const dateStr = format(day, 'yyyy-MM-dd');
+          const isPast = isBefore(day, today);
+          const isTodayDate = isToday(day);
+          
+          if (!isPast && !isTodayDate) {
+            futureDates.push(dateStr);
+            futureDayIndexMap[dateStr] = dayIndex;
+          }
+        });
+        
+        // Batch fetch cached projections for future dates from sales_cache
+        let cachedProjections: Record<string, number> = {};
+        if (futureDates.length > 0) {
+          const { data: cacheData } = await supabase
+            .from('sales_cache')
+            .select('sale_date, projected_sales')
+            .eq('location_id', currentLocation.id)
+            .in('sale_date', futureDates);
+          
+          if (cacheData) {
+            cacheData.forEach(row => {
+              if (row.projected_sales && row.projected_sales > 0) {
+                cachedProjections[row.sale_date] = row.projected_sales;
+              }
+            });
+          }
+        }
+        
+        // Process all days
         const salesPromises = weekDays.map(async (day, dayIndex) => {
           const dateStr = format(day, 'yyyy-MM-dd');
           const isPast = isBefore(day, today);
           const isTodayDate = isToday(day);
           
-          // Check cache for past dates first
+          // PAST DAYS: Check localStorage cache first
           if (isPast) {
             const cached = getCachedSalesData(currentLocation.id, dateStr);
             if (cached) {
@@ -172,14 +207,23 @@ export function LaborTotals({
             }
           }
           
-          // Fetch from API for cache misses and today/future
+          // FUTURE DAYS: Use cached projection from sales_cache (fixed monthly projection)
+          if (!isPast && !isTodayDate) {
+            const cachedProjection = cachedProjections[dateStr];
+            if (cachedProjection) {
+              return { dayIndex, sales: Math.round(cachedProjection * 100) / 100, source: 'ai' as const };
+            }
+            // No cached projection - will need to trigger a fetch to populate it
+          }
+          
+          // TODAY or cache miss: Fetch live from API
           try {
             const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
               body: { locationId: currentLocation.id, targetDate: dateStr }
             });
             
             if (!error && data) {
-              // Cache past data for future use
+              // Cache past data for future use (localStorage)
               if (isPast && data.daily > 0) {
                 setCachedSalesData(currentLocation.id, dateStr, {
                   daily: data.daily,
@@ -189,9 +233,11 @@ export function LaborTotals({
               }
               
               if (isPast || isTodayDate) {
+                // Past/today: use actual sales
                 const salesValue = Math.round((data.daily || 0) * 100) / 100;
                 return { dayIndex, sales: salesValue, source: 'historical' as const };
               } else {
+                // Future with no cache: use live projection (will be cached by API)
                 const salesValue = Math.round((data.projections?.todayProjected || 0) * 100) / 100;
                 return { dayIndex, sales: salesValue, source: 'ai' as const };
               }
