@@ -63,15 +63,11 @@ interface ChecklistStats {
   submissions_today: number;
 }
 export default function Dashboard() {
-  const [checklists, setChecklists] = useState<Checklist[]>([]);
-  const [stats, setStats] = useState<Record<string, ChecklistStats>>({});
   const [completionData, setCompletionData] = useState<Record<string, {
     expected: number;
     completed: number;
   }>>({});
-  const [loading, setLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [todaysCateringOrders, setTodaysCateringOrders] = useState<CateringOrder[]>([]);
   const [selectedCateringOrder, setSelectedCateringOrder] = useState<CateringOrder | null>(null);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [crooCashBalance, setCrooCashBalance] = useState<number>(0);
@@ -256,12 +252,13 @@ export default function Dashboard() {
     },
     enabled: !!currentLocation,
   });
-  const fetchTodaysCateringOrders = async () => {
-    if (!currentLocation?.id) return;
-    try {
-      // Get today's date in location's timezone
+  // Catering orders with React Query (cached, instant on revisit)
+  const { data: todaysCateringOrders = [] } = useQuery({
+    queryKey: ['todays-catering-orders', currentLocation?.id, getTodayInTimezone()],
+    staleTime: 2 * 60 * 1000, // 2 min cache
+    queryFn: async () => {
+      if (!currentLocation?.id) return [];
       const today = getTodayInTimezone();
-      
       
       const { data, error } = await supabase
         .from("catering_orders")
@@ -272,20 +269,18 @@ export default function Dashboard() {
         .order("pickup_time", { ascending: true });
 
       if (error) throw error;
-      setTodaysCateringOrders((data || []).map(order => ({
+      return (data || []).map(order => ({
         ...order,
         items: order.items as unknown as { quantity: number; item: string; notes?: string }[]
-      })) as CateringOrder[]);
-    } catch (error) {
-      console.error("Error fetching today's catering orders:", error);
-    }
-  };
+      })) as CateringOrder[];
+    },
+    enabled: !!currentLocation?.id,
+  });
 
   const handleCompleteCateringOrder = async (order: CateringOrder) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    if (!user) return;
 
+    try {
       const { error } = await supabase
         .from("catering_orders")
         .update({
@@ -299,7 +294,7 @@ export default function Dashboard() {
 
       toast.success("Catering order completed!");
       setSelectedCateringOrder(null);
-      fetchTodaysCateringOrders();
+      queryClient.invalidateQueries({ queryKey: ['todays-catering-orders'] });
     } catch (error) {
       console.error("Error completing order:", error);
       toast.error("Failed to complete order");
@@ -314,12 +309,87 @@ export default function Dashboard() {
     return `${hour12}:${minutes} ${ampm}`;
   };
 
-  useEffect(() => {
-    if (currentLocation?.id) {
-      fetchData();
-      fetchTodaysCateringOrders();
-    }
-  }, [currentLocation?.id]);
+  // Checklists data with React Query (cached, instant on revisit)
+  const { data: checklistData, isLoading: checklistsLoading } = useQuery({
+    queryKey: ['dashboard-checklists', currentLocation?.id, timezone],
+    staleTime: 2 * 60 * 1000, // 2 min cache
+    queryFn: async () => {
+      if (!currentLocation?.id) return { checklists: [], stats: {} };
+      
+      const currentDay = getDayOfWeekInTimezone(timezone);
+
+      // Parallel fetch: checklists + submissions
+      const [checklistsResult, submissionsResult] = await Promise.all([
+        supabase.from('checklists').select(`
+            *,
+            checklist_items(id, days_of_week)
+          `)
+          .eq('is_active', true)
+          .eq('location_id', currentLocation.id)
+          .order('display_order', { ascending: true })
+          .order('created_at', { ascending: false }),
+        supabase.from('checklist_submissions')
+          .select('checklist_id, submitted_at')
+          .eq('location_id', currentLocation.id)
+      ]);
+
+      if (checklistsResult.error) throw checklistsResult.error;
+      if (submissionsResult.error) throw submissionsResult.error;
+
+      const checklistsData = checklistsResult.data || [];
+      const submissions = submissionsResult.data || [];
+
+      // Filter checklists
+      const filteredChecklists = checklistsData.filter(checklist => {
+        if (checklist.template_type === 'dynamic') {
+          const todayItems = checklist.checklist_items?.filter((item: any) => 
+            item.days_of_week && item.days_of_week.includes(currentDay)
+          );
+          return todayItems && todayItems.length > 0;
+        }
+        
+        if (checklist.frequency === 'monthly' && checklist.visible_days_before_month_end) {
+          const today = new Date();
+          const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          const daysUntilMonthEnd = lastDayOfMonth.getDate() - today.getDate();
+          return daysUntilMonthEnd < checklist.visible_days_before_month_end;
+        }
+        
+        return true;
+      });
+
+      // Calculate stats
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      
+      const statsMap: Record<string, ChecklistStats> = {};
+      checklistsData.forEach(checklist => {
+        const checklistSubmissions = submissions.filter(sub => sub.checklist_id === checklist.id);
+        const submissionsToday = checklistSubmissions.filter(sub => new Date(sub.submitted_at) >= startOfToday).length;
+        const submissionsThisWeek = checklistSubmissions.filter(sub => new Date(sub.submitted_at) >= oneWeekAgo).length;
+        const submissionsThisMonth = checklistSubmissions.filter(sub => new Date(sub.submitted_at) >= oneMonthAgo).length;
+        const sortedSubmissions = [...checklistSubmissions].sort((a, b) => 
+          new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime()
+        );
+        statsMap[checklist.id] = {
+          checklist_id: checklist.id,
+          total_submissions: checklistSubmissions.length,
+          last_submission: sortedSubmissions[0]?.submitted_at || null,
+          submissions_this_week: submissionsThisWeek,
+          submissions_this_month: submissionsThisMonth,
+          submissions_today: submissionsToday
+        };
+      });
+
+      return { checklists: filteredChecklists as Checklist[], stats: statsMap };
+    },
+    enabled: !!currentLocation?.id,
+  });
+
+  const checklists = checklistData?.checklists || [];
+  const stats = checklistData?.stats || {};
 
   // Fetch Croo Cash balance + subscribe once per user (prevents channel leaks)
   useEffect(() => {
@@ -483,86 +553,7 @@ export default function Dashboard() {
     }
     setCompletionData(dataMap);
   };
-  const fetchData = async () => {
-    if (!currentLocation?.id) return;
-    
-    try {
-      // Use timezone-aware day of week (Mon=0, Sun=6)
-      const currentDay = getDayOfWeekInTimezone(timezone);
-
-      // Fetch all active checklists for this location
-      const {
-        data: checklistsData,
-        error: checklistsError
-      } = await supabase.from('checklists').select(`
-          *,
-          checklist_items(id, days_of_week)
-        `)
-        .eq('is_active', true)
-        .eq('location_id', currentLocation.id)
-        .order('display_order', { ascending: true })
-        .order('created_at', { ascending: false });
-      if (checklistsError) throw checklistsError;
-
-      // Filter checklists - exclude dynamic templates with no items for today
-      // and monthly checklists that shouldn't be visible yet
-      const filteredChecklists = (checklistsData || []).filter(checklist => {
-        // Filter dynamic templates by day
-        if (checklist.template_type === 'dynamic') {
-          const todayItems = checklist.checklist_items?.filter((item: any) => item.days_of_week && item.days_of_week.includes(currentDay));
-          return todayItems && todayItems.length > 0;
-        }
-        
-        // Filter monthly checklists by visibility window
-        if (checklist.frequency === 'monthly' && checklist.visible_days_before_month_end) {
-          const today = new Date();
-          const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-          const daysUntilMonthEnd = lastDayOfMonth.getDate() - today.getDate();
-          // Show if we're within the visibility window (e.g., last 7 days)
-          return daysUntilMonthEnd < checklist.visible_days_before_month_end;
-        }
-        
-        return true;
-      });
-      setChecklists(filteredChecklists);
-
-      // Fetch submissions for stats (location-filtered)
-      const {
-        data: submissions,
-        error: submissionsError
-      } = await supabase.from('checklist_submissions')
-        .select('checklist_id, submitted_at')
-        .eq('location_id', currentLocation.id);
-      if (submissionsError) throw submissionsError;
-
-      // Calculate stats
-      const now = new Date();
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      const statsMap: Record<string, ChecklistStats> = {};
-      checklistsData?.forEach(checklist => {
-        const checklistSubmissions = submissions?.filter(sub => sub.checklist_id === checklist.id) || [];
-        const submissionsToday = checklistSubmissions.filter(sub => new Date(sub.submitted_at) >= startOfToday).length;
-        const submissionsThisWeek = checklistSubmissions.filter(sub => new Date(sub.submitted_at) >= oneWeekAgo).length;
-        const submissionsThisMonth = checklistSubmissions.filter(sub => new Date(sub.submitted_at) >= oneMonthAgo).length;
-        const sortedSubmissions = checklistSubmissions.sort((a, b) => new Date(b.submitted_at).getTime() - new Date(a.submitted_at).getTime());
-        statsMap[checklist.id] = {
-          checklist_id: checklist.id,
-          total_submissions: checklistSubmissions.length,
-          last_submission: sortedSubmissions[0]?.submitted_at || null,
-          submissions_this_week: submissionsThisWeek,
-          submissions_this_month: submissionsThisMonth,
-          submissions_today: submissionsToday
-        };
-      });
-      setStats(statsMap);
-    } catch (error: any) {
-      toast.error('Failed to load checklists');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // fetchData is now replaced by React Query above (dashboard-checklists query)
   const toggleEditMode = () => {
     setIsEditMode(!isEditMode);
     if (isEditMode) {
@@ -869,7 +860,7 @@ export default function Dashboard() {
           onAddCube={() => setShowAddCubeDialog(true)}
         />
 
-        {loading ? <PageSkeleton variant="grid" /> : checklists.length === 0 ? <Card className="text-center py-12">
+        {checklistsLoading ? <PageSkeleton variant="grid" /> : checklists.length === 0 ? <Card className="text-center py-12">
             <CardContent>
               <ClipboardCheck className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">No checklists yet</h3>
