@@ -1019,7 +1019,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                         <Sparkles className="h-3.5 w-3.5 text-white" />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground">Target EOD</span>
+                        <span className="text-xs text-muted-foreground">AI Goal EOD</span>
                         <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
                           {formatCurrency(salesData.projections.todayProjected)}
                         </span>
@@ -1289,7 +1289,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                         <Sparkles className="h-3.5 w-3.5 text-white" />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground">Target EOW</span>
+                        <span className="text-xs text-muted-foreground">AI Goal EOW</span>
                         <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
                           {formatCurrency(calculatedWeekProjected)}
                         </span>
@@ -1456,7 +1456,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                         <Sparkles className="h-3.5 w-3.5 text-white" />
                       </div>
                       <div className="flex flex-col">
-                        <span className="text-xs text-muted-foreground">Target EOM</span>
+                        <span className="text-xs text-muted-foreground">AI Goal EOM</span>
                         <span className="text-sm sm:text-base font-semibold text-primary transition-all duration-300 ease-out">
                           {formatCurrency(salesData.projections.monthProjected)}
                         </span>
