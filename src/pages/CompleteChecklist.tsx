@@ -903,7 +903,7 @@ export default function CompleteChecklist() {
                       
                       {completerInfo && (
                         <div className="gap-2 bg-background/80 backdrop-blur-sm rounded-lg shadow-md py-[4px] px-[6px] flex-row flex items-center justify-center">
-                          <Avatar className="h-8 w-8">
+                          <Avatar className="h-16 w-16">
                             <AvatarImage src={completerInfo.profilePhoto || undefined} />
                             <AvatarFallback className="text-xs">
                               {completerInfo.fullName.split(' ').map(n => n[0]).join('')}
