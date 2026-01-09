@@ -6,8 +6,9 @@ import { useAuth } from '@/lib/auth';
 let lastFetchTime = 0;
 const DEBOUNCE_MS = 2000;
 
-// Global refetch callback for immediate updates after marking as read
-let globalRefetch: (() => void) | null = null;
+// Event-based refetch trigger (safer than global callback for HMR)
+const refetchEvent = new EventTarget();
+const REFETCH_EVENT = 'refetch-unread';
 
 export const useUnreadMessages = () => {
   const { user } = useAuth();
@@ -45,11 +46,14 @@ export const useUnreadMessages = () => {
     }
   }, [user]);
 
-  // Register global refetch for immediate updates
+  // Listen for refetch events (triggered by markChatAsRead)
   useEffect(() => {
-    globalRefetch = fetchUnreadCount;
+    const handler = () => {
+      fetchUnreadCount();
+    };
+    refetchEvent.addEventListener(REFETCH_EVENT, handler);
     return () => {
-      globalRefetch = null;
+      refetchEvent.removeEventListener(REFETCH_EVENT, handler);
     };
   }, [fetchUnreadCount]);
 
@@ -128,7 +132,7 @@ export const useUnreadMessages = () => {
 };
 
 // Helper to update last_read_at when viewing a chat
-// Immediately triggers a refetch of unread count (bypasses debounce)
+// Dispatches event to trigger immediate refetch (bypasses debounce)
 export const markChatAsRead = async (chatId: string, userId: string): Promise<void> => {
   const { error } = await supabase
     .from('chat_members')
@@ -139,7 +143,7 @@ export const markChatAsRead = async (chatId: string, userId: string): Promise<vo
   if (error) {
     console.error('Error marking chat as read:', error);
   } else {
-    // Immediately refetch unread count (bypass debounce)
-    globalRefetch?.();
+    // Dispatch event to trigger immediate refetch (bypass debounce)
+    refetchEvent.dispatchEvent(new Event(REFETCH_EVENT));
   }
 };
