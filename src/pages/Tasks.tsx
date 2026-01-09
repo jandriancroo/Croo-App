@@ -63,12 +63,15 @@ export default function Tasks() {
     }));
 
     try {
-      for (const update of updates) {
-        await supabase
-          .from('checklists')
-          .update({ display_order: update.display_order })
-          .eq('id', update.id);
-      }
+      // Batch update - all updates in parallel instead of sequential
+      await Promise.all(
+        updates.map(update => 
+          supabase
+            .from('checklists')
+            .update({ display_order: update.display_order })
+            .eq('id', update.id)
+        )
+      );
       
       toast.success("Checklist order updated");
       queryClient.invalidateQueries({ queryKey: ['user-checklists'] });
@@ -223,6 +226,7 @@ export default function Tasks() {
   // Fetch completion history for selected date (location-filtered)
   const { data: historyStats } = useQuery({
     queryKey: ['completion-history', format(historyDate, 'yyyy-MM-dd'), user?.id, currentLocation?.id],
+    staleTime: 2 * 60 * 1000, // 2 min cache - show cached instantly
     queryFn: async () => {
       if (!currentLocation?.id) return [];
       
@@ -236,7 +240,7 @@ export default function Tasks() {
       // Use timezone-aware day of week for the history date
       const currentDay = getDateDayOfWeekInTimezone(historyDate, timezone);
 
-      // Get all checklists for this location
+      // Get all checklists for this location with items
       const { data: checklistsData } = await supabase
         .from('checklists')
         .select(`
@@ -250,99 +254,117 @@ export default function Tasks() {
         .eq('location_id', currentLocation.id)
         .order('display_order', { ascending: true });
 
-      if (!checklistsData) return [];
+      if (!checklistsData || checklistsData.length === 0) return [];
 
-      // For each checklist, check completion status for the history date
-      const results = await Promise.all(
-        checklistsData.map(async (checklist) => {
-          // For dynamic checklists, count only items for that day
-          let itemCount = checklist.checklist_items?.length || 0;
-          if (checklist.template_type === 'dynamic') {
-            itemCount = checklist.checklist_items?.filter((item: any) => 
-              item.days_of_week && item.days_of_week.includes(currentDay)
-            ).length || 0;
-          }
+      // Build checklist info map with item counts
+      const checklistInfo = checklistsData.map(checklist => {
+        let itemCount = checklist.checklist_items?.length || 0;
+        if (checklist.template_type === 'dynamic') {
+          itemCount = checklist.checklist_items?.filter((item: any) => 
+            item.days_of_week && item.days_of_week.includes(currentDay)
+          ).length || 0;
+        }
+        
+        const isMonthly = checklist.frequency === 'monthly';
+        let periodStart: Date;
+        let periodEnd: Date;
+        
+        if (isMonthly) {
+          periodStart = new Date(historyDate.getFullYear(), historyDate.getMonth(), 1, 0, 0, 0, 0);
+          periodEnd = new Date(historyDate.getFullYear(), historyDate.getMonth() + 1, 0, 23, 59, 59, 999);
+        } else {
+          periodStart = startOfDay;
+          periodEnd = endOfDay;
+        }
+        
+        return { ...checklist, itemCount, periodStart, periodEnd };
+      }).filter(c => c.itemCount > 0);
 
-          if (itemCount === 0) return null;
+      if (checklistInfo.length === 0) return [];
 
-          // For monthly checklists, use start/end of month; otherwise use the specific day
-          const isMonthly = checklist.frequency === 'monthly';
-          let periodStart: Date;
-          let periodEnd: Date;
-          
-          if (isMonthly) {
-            periodStart = new Date(historyDate.getFullYear(), historyDate.getMonth(), 1, 0, 0, 0, 0);
-            periodEnd = new Date(historyDate.getFullYear(), historyDate.getMonth() + 1, 0, 23, 59, 59, 999);
-          } else {
-            periodStart = startOfDay;
-            periodEnd = endOfDay;
-          }
+      // BATCH QUERY 1: Get all submissions for all checklists in one query
+      const checklistIds = checklistInfo.map(c => c.id);
+      const { data: allSubmissions } = await supabase
+        .from('checklist_submissions')
+        .select('id, checklist_id, submitted_by')
+        .in('checklist_id', checklistIds)
+        .gte('submitted_at', startOfDay.toISOString())
+        .lte('submitted_at', endOfDay.toISOString());
 
-          // Check submissions and responses for this period (using local timezone)
-          const { data: submissions } = await supabase
-            .from('checklist_submissions')
-            .select(`
-              id,
-              submitted_by,
-              profiles(full_name, profile_photo_url)
-            `)
-            .eq('checklist_id', checklist.id)
-            .gte('submitted_at', periodStart.toISOString())
-            .lte('submitted_at', periodEnd.toISOString());
+      const submissionIds = allSubmissions?.map(s => s.id) || [];
+      
+      // BATCH QUERY 2: Get all responses for all submissions in one query
+      let allResponses: any[] = [];
+      if (submissionIds.length > 0) {
+        const { data: responses } = await supabase
+          .from('checklist_responses')
+          .select('id, submission_id, completed_by')
+          .in('submission_id', submissionIds)
+          .not('completed_by', 'is', null);
+        allResponses = responses || [];
+      }
 
-          // Get completed responses (those with completed_by set)
-          const submissionIds = submissions?.map(s => s.id) || [];
-          let completedCount = 0;
-          let uniqueContributorIds = new Set<string>();
-          
-          if (submissionIds.length > 0) {
-            const { data: completedResponses } = await supabase
-              .from('checklist_responses')
-              .select('id, completed_by')
-              .in('submission_id', submissionIds)
-              .not('completed_by', 'is', null);
-            
-            completedCount = completedResponses?.length || 0;
-            
-            // Collect unique user IDs who completed items
-            completedResponses?.forEach((resp: any) => {
-              if (resp.completed_by) {
-                uniqueContributorIds.add(resp.completed_by);
-              }
-            });
-          }
-          
-          // Fetch profiles for unique contributors
-          let contributors: Array<{ name: string; photo: string | null }> = [];
-          if (uniqueContributorIds.size > 0) {
-            const { data: profilesData } = await supabase
-              .from('profiles')
-              .select('id, full_name, profile_photo_url')
-              .in('id', Array.from(uniqueContributorIds));
-            
-            contributors = profilesData?.map((profile: any) => ({
-              name: profile.full_name,
-              photo: profile.profile_photo_url
-            })) || [];
-          }
-          
-          // Cap completed count at item count and completion rate at 100%
-          const cappedCompletedCount = Math.min(completedCount, itemCount);
-          const completionRate = itemCount > 0 ? Math.min(cappedCompletedCount / itemCount, 1) : 0;
-          
-          return {
-            id: checklist.id,
-            title: checklist.title,
-            completed: completionRate === 1,
-            completionRate,
-            itemCount,
-            completedCount: cappedCompletedCount,
-            contributors
-          };
-        })
-      );
+      // BATCH QUERY 3: Get all contributor profiles in one query
+      const allContributorIds = [...new Set(allResponses.map(r => r.completed_by).filter(Boolean))];
+      let profilesMap: Record<string, { name: string; photo: string | null }> = {};
+      if (allContributorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, profile_photo_url')
+          .in('id', allContributorIds);
+        
+        profiles?.forEach((p: any) => {
+          profilesMap[p.id] = { name: p.full_name, photo: p.profile_photo_url };
+        });
+      }
 
-      return results.filter(r => r !== null);
+      // Group submissions by checklist_id
+      const submissionsByChecklist = (allSubmissions || []).reduce((acc: Record<string, any[]>, s) => {
+        if (!acc[s.checklist_id]) acc[s.checklist_id] = [];
+        acc[s.checklist_id].push(s);
+        return acc;
+      }, {});
+
+      // Group responses by submission_id
+      const responsesBySubmission = allResponses.reduce((acc: Record<string, any[]>, r) => {
+        if (!acc[r.submission_id]) acc[r.submission_id] = [];
+        acc[r.submission_id].push(r);
+        return acc;
+      }, {});
+
+      // Build results from pre-fetched data (no more N+1 queries!)
+      return checklistInfo.map(checklist => {
+        const submissions = submissionsByChecklist[checklist.id] || [];
+        const submissionIdsForChecklist = submissions.map(s => s.id);
+        
+        let completedCount = 0;
+        const contributorIds = new Set<string>();
+        
+        submissionIdsForChecklist.forEach(subId => {
+          const responses = responsesBySubmission[subId] || [];
+          completedCount += responses.length;
+          responses.forEach((r: any) => {
+            if (r.completed_by) contributorIds.add(r.completed_by);
+          });
+        });
+
+        const contributors = Array.from(contributorIds)
+          .map(id => profilesMap[id])
+          .filter(Boolean);
+
+        const cappedCompletedCount = Math.min(completedCount, checklist.itemCount);
+        const completionRate = checklist.itemCount > 0 ? Math.min(cappedCompletedCount / checklist.itemCount, 1) : 0;
+
+        return {
+          id: checklist.id,
+          title: checklist.title,
+          completed: completionRate === 1,
+          completionRate,
+          itemCount: checklist.itemCount,
+          completedCount: cappedCompletedCount,
+          contributors
+        };
+      });
     },
     enabled: !!user && !!currentLocation?.id,
   });
