@@ -1,0 +1,55 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useUserRole } from '@/hooks/useUserRole';
+
+/**
+ * Hook to determine if the current user can view the full team schedule.
+ * 
+ * Schedule visibility rules:
+ * - Shift managers and above can ALWAYS see the full schedule
+ * - Team members can only see the full schedule if the org-level role permission 'view_full_schedule' is enabled
+ *   Otherwise, team members only see their own shifts
+ * 
+ * The setting is checked in real-time, so changes take effect immediately.
+ */
+export const useTeamScheduleVisibility = () => {
+  const { role, isShiftManager, loading: roleLoading } = useUserRole();
+
+  // Fetch the org-level role permission for team member schedule visibility
+  const { data: permissionData, isLoading: permissionLoading } = useQuery({
+    queryKey: ['team-schedule-permission'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('role_permissions')
+        .select('enabled')
+        .eq('role', 'team_member')
+        .eq('permission_key', 'view_full_schedule')
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching team schedule permission:', error);
+        return { enabled: false };
+      }
+
+      return data || { enabled: false };
+    },
+    staleTime: 30 * 1000, // 30 seconds - changes should reflect quickly
+    refetchInterval: 30 * 1000, // Refetch every 30 seconds to pick up changes
+  });
+
+  // Determine if the user can see the full schedule
+  // - Shift managers and above: always yes (based on role hierarchy)
+  // - Team members: only if org-level permission is enabled
+  const isTeamMember = role === 'team_member';
+  const teamMemberFullScheduleEnabled = permissionData?.enabled ?? false;
+
+  // If user is shift manager or above, they can see full schedule regardless of setting
+  // If user is team member, they need the permission to be enabled
+  const canSeeFullSchedule = isShiftManager || (isTeamMember && teamMemberFullScheduleEnabled);
+
+  return {
+    canSeeFullSchedule,
+    loading: roleLoading || permissionLoading,
+    teamMemberFullScheduleEnabled,
+  };
+};
