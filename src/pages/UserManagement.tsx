@@ -219,45 +219,59 @@ export default function UserManagement() {
   }, [location.state, users, navigate, location.pathname]);
 
   const fetchUsers = async () => {
+    const perfStart = performance.now();
+    console.log('[UserManagement] fetchUsers started');
+    
     try {
       setLoading(true);
       
       if (!currentLocation) return;
 
       // Get users at current location
+      const locStart = performance.now();
       const { data: userLocations } = await supabase
         .from('user_locations')
         .select('user_id')
         .eq('location_id', currentLocation.id);
+      console.log(`[UserManagement] user_locations query: ${(performance.now() - locStart).toFixed(0)}ms`);
 
       const userIds = userLocations?.map(ul => ul.user_id) || [];
+      console.log(`[UserManagement] Found ${userIds.length} users at location`);
 
-      // Fetch profiles for users at current location
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .in('id', userIds)
-        .order('created_at', { ascending: false });
+      // Fetch profiles, roles, availability, and certifications in parallel
+      const parallelStart = performance.now();
+      const [profilesResult, rolesResult, availabilityResult, wageHistoryResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .in('id', userIds)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('user_roles')
+          .select('user_id, role'),
+        supabase
+          .from('availability_requests')
+          .select('user_id, request_type, hours_requested, status')
+          .eq('status', 'approved')
+          .gte('start_date', `${new Date().getFullYear()}-01-01`)
+          .lte('start_date', `${new Date().getFullYear()}-12-31`),
+        // Get current effective wages in bulk instead of N individual calls
+        supabase
+          .from('wage_history')
+          .select('user_id, hourly_wage, effective_date')
+          .in('user_id', userIds)
+          .lte('effective_date', getTodayInPST())
+          .order('effective_date', { ascending: false })
+      ]);
+      console.log(`[UserManagement] Parallel queries: ${(performance.now() - parallelStart).toFixed(0)}ms`);
 
-      if (profilesError) throw profilesError;
+      if (profilesResult.error) throw profilesResult.error;
+      if (rolesResult.error) throw rolesResult.error;
+      if (availabilityResult.error) throw availabilityResult.error;
 
-      // Fetch all user roles
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id, role');
-
-      if (rolesError) throw rolesError;
-
-      // Fetch availability hours for the current year
-      const currentYear = new Date().getFullYear();
-      const { data: availabilityData, error: availabilityError } = await supabase
-        .from('availability_requests')
-        .select('user_id, request_type, hours_requested, status')
-        .eq('status', 'approved')
-        .gte('start_date', `${currentYear}-01-01`)
-        .lte('start_date', `${currentYear}-12-31`);
-
-      if (availabilityError) throw availabilityError;
+      const profiles = profilesResult.data;
+      const roles = rolesResult.data;
+      const availabilityData = availabilityResult.data;
 
       // Calculate total hours by user and type
       const hoursByUser = (availabilityData || []).reduce((acc: any, req: any) => {
@@ -272,27 +286,25 @@ export default function UserManagement() {
         return acc;
       }, {});
 
-      // Fetch current wages for all users using the database function
-      const wagePromises = profiles.map(async (profile) => {
-        const { data, error } = await supabase
-          .rpc('get_current_wage', { p_user_id: profile.id });
-        
-        if (error) {
-          console.error(`Error fetching wage for user ${profile.id}:`, error);
-          return profile.hourly_wage || 15.00;
+      // Build wage map from bulk query (take first/most recent per user)
+      const wageMap = new Map<string, number>();
+      if (wageHistoryResult.data) {
+        for (const wh of wageHistoryResult.data) {
+          if (!wageMap.has(wh.user_id)) {
+            wageMap.set(wh.user_id, wh.hourly_wage);
+          }
         }
-        return data;
-      });
+      }
 
-      const currentWages = await Promise.all(wagePromises);
-
-      // Fetch certifications for all users
+      // Fetch certifications
+      const certStart = performance.now();
       const { data: certifications } = await supabase
         .from('certifications')
         .select('user_id, status, expiration_date')
         .in('user_id', profiles.map(p => p.id))
         .eq('status', 'approved')
         .gte('expiration_date', getTodayInPST());
+      console.log(`[UserManagement] Certifications query: ${(performance.now() - certStart).toFixed(0)}ms`);
 
       // Create map of user certifications
       const certificationMap = new Map(
@@ -300,16 +312,17 @@ export default function UserManagement() {
       );
 
       // Merge profiles with their roles, hours, current wages, and certification status
-      const usersWithRoles = profiles.map((profile, index) => ({
+      const usersWithRoles = profiles.map((profile) => ({
         ...profile,
         role: roles.find((r) => r.user_id === profile.id)?.role as AppRole || 'team_member',
         paid_hours: hoursByUser[profile.id]?.paid || 0,
         unpaid_hours: hoursByUser[profile.id]?.unpaid || 0,
-        hourly_wage: currentWages[index],
+        hourly_wage: wageMap.get(profile.id) ?? profile.hourly_wage ?? 15.00,
         has_certification: certificationMap.has(profile.id),
       }));
 
       setUsers(usersWithRoles);
+      console.log(`[UserManagement] fetchUsers completed: ${(performance.now() - perfStart).toFixed(0)}ms total`);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast({
@@ -1718,10 +1731,13 @@ export default function UserManagement() {
                             return;
                           }
                           try {
+                            const pinStart = performance.now();
+                            console.log('[UserManagement] PIN update started');
                             const { error } = await supabase
                               .from('profiles')
                               .update({ employee_pin: editEmployeePin })
                               .eq('id', viewingUser.id);
+                            console.log(`[UserManagement] PIN update query: ${(performance.now() - pinStart).toFixed(0)}ms`);
                             
                             if (error) throw error;
                             
@@ -1729,9 +1745,15 @@ export default function UserManagement() {
                               title: 'Success',
                               description: 'PIN updated',
                             });
-                            setViewingUser({ ...viewingUser, employee_pin: editEmployeePin });
-                            fetchUsers();
+                            // Update local state without full refetch
+                            const updatedPin = editEmployeePin;
+                            setViewingUser({ ...viewingUser, employee_pin: updatedPin });
+                            setUsers(prev => prev.map(u => 
+                              u.id === viewingUser.id ? { ...u, employee_pin: updatedPin } : u
+                            ));
+                            console.log(`[UserManagement] PIN update completed: ${(performance.now() - pinStart).toFixed(0)}ms total`);
                           } catch (error: any) {
+                            console.error('[UserManagement] PIN update error:', error);
                             toast({
                               title: 'Error',
                               description: error.message,
