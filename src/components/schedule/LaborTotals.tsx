@@ -425,6 +425,13 @@ export function LaborTotals({
           const isHistorical = source === 'historical';
           const isManual = source === 'manual';
           
+          // Determine if this is a past day (no reload possible - use actuals)
+          const today = startOfDay(new Date());
+          const isPastDay = isBefore(day, today) || isToday(day);
+          
+          // Only show reload button for future days with manual entries
+          const canReload = isManual && !isPastDay;
+          
           return (
             <div key={index} className={`p-1 border-r border-border text-center relative ${isHistorical ? 'bg-green-500/10' : ''}`}>
               {isEditable ? (
@@ -462,7 +469,7 @@ export function LaborTotals({
                       </Tooltip>
                     </TooltipProvider>
                   )}
-                  {isManual && (
+                  {canReload && (
                     <TooltipProvider>
                       <Tooltip>
                         <TooltipTrigger asChild>
