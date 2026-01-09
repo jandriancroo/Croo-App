@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -99,8 +100,7 @@ const getVersionDisplay = (userVersion: string | null | undefined, currentVersio
 };
 
 export default function UserManagement() {
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [inviting, setInviting] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -177,9 +177,112 @@ export default function UserManagement() {
     }
   }, [canAccessPage, roleLoading, navigate, toast]);
  
+  // Users query with React Query (cached, instant on revisit)
+  const { data: users = [], isLoading: loading, refetch: refetchUsers } = useQuery({
+    queryKey: ['user-management-users', currentLocation?.id],
+    staleTime: 2 * 60 * 1000, // 2 min cache
+    queryFn: async () => {
+      if (!currentLocation?.id) return [];
+      
+      const perfStart = performance.now();
+      console.log('[UserManagement] fetchUsers started');
+
+      // Get users at current location
+      const { data: userLocations } = await supabase
+        .from('user_locations')
+        .select('user_id')
+        .eq('location_id', currentLocation.id);
+
+      const userIds = userLocations?.map(ul => ul.user_id) || [];
+      if (userIds.length === 0) return [];
+
+      // Fetch profiles, roles, availability, and wages in parallel
+      const [profilesResult, rolesResult, availabilityResult, wageHistoryResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .in('id', userIds)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('user_roles')
+          .select('user_id, role'),
+        supabase
+          .from('availability_requests')
+          .select('user_id, request_type, hours_requested, status')
+          .eq('status', 'approved')
+          .gte('start_date', `${new Date().getFullYear()}-01-01`)
+          .lte('start_date', `${new Date().getFullYear()}-12-31`),
+        supabase
+          .from('wage_history')
+          .select('user_id, hourly_wage, effective_date')
+          .in('user_id', userIds)
+          .lte('effective_date', getTodayInPST())
+          .order('effective_date', { ascending: false })
+      ]);
+
+      if (profilesResult.error) throw profilesResult.error;
+      if (rolesResult.error) throw rolesResult.error;
+      if (availabilityResult.error) throw availabilityResult.error;
+
+      const profiles = profilesResult.data;
+      const roles = rolesResult.data;
+      const availabilityData = availabilityResult.data;
+
+      // Calculate total hours by user and type
+      const hoursByUser = (availabilityData || []).reduce((acc: any, req: any) => {
+        if (!acc[req.user_id]) {
+          acc[req.user_id] = { paid: 0, unpaid: 0 };
+        }
+        if (req.request_type === 'paid') {
+          acc[req.user_id].paid += req.hours_requested;
+        } else {
+          acc[req.user_id].unpaid += req.hours_requested;
+        }
+        return acc;
+      }, {});
+
+      // Build wage map from bulk query (take first/most recent per user)
+      const wageMap = new Map<string, number>();
+      if (wageHistoryResult.data) {
+        for (const wh of wageHistoryResult.data) {
+          if (!wageMap.has(wh.user_id)) {
+            wageMap.set(wh.user_id, wh.hourly_wage);
+          }
+        }
+      }
+
+      // Fetch certifications
+      const { data: certifications } = await supabase
+        .from('certifications')
+        .select('user_id, status, expiration_date')
+        .in('user_id', profiles.map(p => p.id))
+        .eq('status', 'approved')
+        .gte('expiration_date', getTodayInPST());
+
+      // Create map of user certifications
+      const certificationMap = new Map(
+        certifications?.map(cert => [cert.user_id, true]) || []
+      );
+
+      // Merge profiles with their roles, hours, current wages, and certification status
+      const usersWithRoles = profiles.map((profile) => ({
+        ...profile,
+        role: roles.find((r) => r.user_id === profile.id)?.role as AppRole || 'team_member',
+        paid_hours: hoursByUser[profile.id]?.paid || 0,
+        unpaid_hours: hoursByUser[profile.id]?.unpaid || 0,
+        hourly_wage: wageMap.get(profile.id) ?? profile.hourly_wage ?? 15.00,
+        has_certification: certificationMap.has(profile.id),
+      }));
+
+      console.log(`[UserManagement] fetchUsers completed: ${(performance.now() - perfStart).toFixed(0)}ms total`);
+      return usersWithRoles as UserProfile[];
+    },
+    enabled: canAccessPage && !!currentLocation?.id,
+  });
+
+  // Fetch locations on mount
   useEffect(() => {
     if (canAccessPage && currentLocation) {
-      fetchUsers();
       fetchLocations();
     }
   }, [canAccessPage, currentLocation]);
@@ -218,121 +321,9 @@ export default function UserManagement() {
     }
   }, [location.state, users, navigate, location.pathname]);
 
-  const fetchUsers = async () => {
-    const perfStart = performance.now();
-    console.log('[UserManagement] fetchUsers started');
-    
-    try {
-      setLoading(true);
-      
-      if (!currentLocation) return;
-
-      // Get users at current location
-      const locStart = performance.now();
-      const { data: userLocations } = await supabase
-        .from('user_locations')
-        .select('user_id')
-        .eq('location_id', currentLocation.id);
-      console.log(`[UserManagement] user_locations query: ${(performance.now() - locStart).toFixed(0)}ms`);
-
-      const userIds = userLocations?.map(ul => ul.user_id) || [];
-      console.log(`[UserManagement] Found ${userIds.length} users at location`);
-
-      // Fetch profiles, roles, availability, and certifications in parallel
-      const parallelStart = performance.now();
-      const [profilesResult, rolesResult, availabilityResult, wageHistoryResult] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('*')
-          .in('id', userIds)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('user_roles')
-          .select('user_id, role'),
-        supabase
-          .from('availability_requests')
-          .select('user_id, request_type, hours_requested, status')
-          .eq('status', 'approved')
-          .gte('start_date', `${new Date().getFullYear()}-01-01`)
-          .lte('start_date', `${new Date().getFullYear()}-12-31`),
-        // Get current effective wages in bulk instead of N individual calls
-        supabase
-          .from('wage_history')
-          .select('user_id, hourly_wage, effective_date')
-          .in('user_id', userIds)
-          .lte('effective_date', getTodayInPST())
-          .order('effective_date', { ascending: false })
-      ]);
-      console.log(`[UserManagement] Parallel queries: ${(performance.now() - parallelStart).toFixed(0)}ms`);
-
-      if (profilesResult.error) throw profilesResult.error;
-      if (rolesResult.error) throw rolesResult.error;
-      if (availabilityResult.error) throw availabilityResult.error;
-
-      const profiles = profilesResult.data;
-      const roles = rolesResult.data;
-      const availabilityData = availabilityResult.data;
-
-      // Calculate total hours by user and type
-      const hoursByUser = (availabilityData || []).reduce((acc: any, req: any) => {
-        if (!acc[req.user_id]) {
-          acc[req.user_id] = { paid: 0, unpaid: 0 };
-        }
-        if (req.request_type === 'paid') {
-          acc[req.user_id].paid += req.hours_requested;
-        } else {
-          acc[req.user_id].unpaid += req.hours_requested;
-        }
-        return acc;
-      }, {});
-
-      // Build wage map from bulk query (take first/most recent per user)
-      const wageMap = new Map<string, number>();
-      if (wageHistoryResult.data) {
-        for (const wh of wageHistoryResult.data) {
-          if (!wageMap.has(wh.user_id)) {
-            wageMap.set(wh.user_id, wh.hourly_wage);
-          }
-        }
-      }
-
-      // Fetch certifications
-      const certStart = performance.now();
-      const { data: certifications } = await supabase
-        .from('certifications')
-        .select('user_id, status, expiration_date')
-        .in('user_id', profiles.map(p => p.id))
-        .eq('status', 'approved')
-        .gte('expiration_date', getTodayInPST());
-      console.log(`[UserManagement] Certifications query: ${(performance.now() - certStart).toFixed(0)}ms`);
-
-      // Create map of user certifications
-      const certificationMap = new Map(
-        certifications?.map(cert => [cert.user_id, true]) || []
-      );
-
-      // Merge profiles with their roles, hours, current wages, and certification status
-      const usersWithRoles = profiles.map((profile) => ({
-        ...profile,
-        role: roles.find((r) => r.user_id === profile.id)?.role as AppRole || 'team_member',
-        paid_hours: hoursByUser[profile.id]?.paid || 0,
-        unpaid_hours: hoursByUser[profile.id]?.unpaid || 0,
-        hourly_wage: wageMap.get(profile.id) ?? profile.hourly_wage ?? 15.00,
-        has_certification: certificationMap.has(profile.id),
-      }));
-
-      setUsers(usersWithRoles);
-      console.log(`[UserManagement] fetchUsers completed: ${(performance.now() - perfStart).toFixed(0)}ms total`);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load users',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
+  // Helper function to invalidate users query (replaces old fetchUsers calls)
+  const fetchUsers = () => {
+    queryClient.invalidateQueries({ queryKey: ['user-management-users'] });
   };
 
   const handleCreateTestEmployee = async () => {
@@ -838,10 +829,10 @@ export default function UserManagement() {
       const { error: historyError } = await supabase
         .from('wage_history')
         .upsert({
-          user_id: editingWageUser.id,
+        user_id: editingWageUser.id,
           hourly_wage: wageValue,
           effective_date: wageEffectiveDate,
-          created_by: (await supabase.auth.getUser()).data.user?.id,
+          created_by: user?.id,
           notes: wageNotes.trim() || null,
         }, {
           onConflict: 'user_id,effective_date'
@@ -1080,7 +1071,7 @@ export default function UserManagement() {
         .insert({
           user_id: viewingUser.id,
           note: newEmployeeNote.trim(),
-          created_by: (await supabase.auth.getUser()).data.user?.id,
+          created_by: user?.id,
         });
 
       if (error) throw error;
@@ -1138,8 +1129,7 @@ export default function UserManagement() {
     try {
       setBulkUpdating(true);
       
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) throw new Error('Not authenticated');
+      if (!user) throw new Error('Not authenticated');
 
       const effectiveDateStr = getDateInPST(effectiveDate);
       const today = getTodayInPST();
@@ -1153,7 +1143,7 @@ export default function UserManagement() {
             user_id: userId,
             hourly_wage: wage,
             effective_date: effectiveDateStr,
-            created_by: currentUser.id,
+            created_by: user?.id,
             notes: notes.trim() || null,
           }, {
             onConflict: 'user_id,effective_date'
@@ -1748,9 +1738,10 @@ export default function UserManagement() {
                             // Update local state without full refetch
                             const updatedPin = editEmployeePin;
                             setViewingUser({ ...viewingUser, employee_pin: updatedPin });
-                            setUsers(prev => prev.map(u => 
-                              u.id === viewingUser.id ? { ...u, employee_pin: updatedPin } : u
-                            ));
+                            // Optimistic update in React Query cache
+                            queryClient.setQueryData(['user-management-users', currentLocation?.id], (old: UserProfile[] | undefined) => 
+                              old?.map(u => u.id === viewingUser.id ? { ...u, employee_pin: updatedPin } : u) || []
+                            );
                             console.log(`[UserManagement] PIN update completed: ${(performance.now() - pinStart).toFixed(0)}ms total`);
                           } catch (error: any) {
                             console.error('[UserManagement] PIN update error:', error);
