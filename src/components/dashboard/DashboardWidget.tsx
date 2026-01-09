@@ -100,7 +100,7 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   // Daily metrics - Order: Sales, Pace, Projected, Last Wk, Last Yr, Guests, Pizzas, Avg Ticket, Labor%, Labor$, Hours
   sales_today: { type: 'sales_today', label: 'Sales', shortLabel: 'Sales', icon: DollarSign, format: 'currency', category: 'daily' },
   sales_pace: { type: 'sales_pace', label: 'Pace', shortLabel: 'Pace', icon: TrendingUp, format: 'currency', category: 'daily' },
-  sales_projected_today: { type: 'sales_projected_today', label: 'AI Goal EOD', shortLabel: 'AI Goal EOD', icon: Target, format: 'currency', category: 'daily' },
+  sales_projected_today: { type: 'sales_projected_today', label: 'AI Goal EOD', shortLabel: 'AI EOD', icon: Target, format: 'currency', category: 'daily' },
   sales_last_week: { type: 'sales_last_week', label: 'Last Week', shortLabel: 'Last Wk', icon: Calendar, format: 'currency', category: 'daily' },
   sales_last_year_day: { type: 'sales_last_year_day', label: 'Last Year', shortLabel: 'Last Yr', icon: Calendar, format: 'currency', category: 'daily' },
   guest_count_today: { type: 'guest_count_today', label: 'Guests', shortLabel: 'Guests', icon: Users, format: 'number', category: 'daily' },
@@ -113,7 +113,7 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   // Weekly metrics - Same order: Sales, Pace, Projected, Last Wk, Last Yr, Guests, Pizzas, Labor%, Labor$, Hours
   sales_wtd: { type: 'sales_wtd', label: 'Sales WTD', shortLabel: 'WTD', icon: DollarSign, format: 'currency', category: 'weekly' },
   sales_pace_week: { type: 'sales_pace_week', label: 'Week Pace', shortLabel: 'Pace', icon: TrendingUp, format: 'currency', category: 'weekly' },
-  sales_projected_week: { type: 'sales_projected_week', label: 'AI Goal EOW', shortLabel: 'AI Goal EOW', icon: Target, format: 'currency', category: 'weekly' },
+  sales_projected_week: { type: 'sales_projected_week', label: 'AI Goal EOW', shortLabel: 'AI EOW', icon: Target, format: 'currency', category: 'weekly' },
   sales_prev_week: { type: 'sales_prev_week', label: 'Last Week', shortLabel: 'Last Wk', icon: Calendar, format: 'currency', category: 'weekly' },
   sales_last_year_week: { type: 'sales_last_year_week', label: 'Last Year', shortLabel: 'Last Yr', icon: Calendar, format: 'currency', category: 'weekly' },
   guest_count_wtd: { type: 'guest_count_wtd', label: 'Guests WTD', shortLabel: 'Guests', icon: Users, format: 'number', category: 'weekly' },
@@ -125,7 +125,7 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   // Monthly metrics - Same order: Sales, Pace, Projected, Last Mo, Last Yr, Guests, Pizzas, Labor%, Labor$, Hours
   sales_mtd: { type: 'sales_mtd', label: 'Sales MTD', shortLabel: 'MTD', icon: DollarSign, format: 'currency', category: 'monthly' },
   sales_pace_month: { type: 'sales_pace_month', label: 'Month Pace', shortLabel: 'Pace', icon: TrendingUp, format: 'currency', category: 'monthly' },
-  sales_projected_month: { type: 'sales_projected_month', label: 'AI Goal EOM', shortLabel: 'AI Goal EOM', icon: Target, format: 'currency', category: 'monthly' },
+  sales_projected_month: { type: 'sales_projected_month', label: 'AI Goal EOM', shortLabel: 'AI EOM', icon: Target, format: 'currency', category: 'monthly' },
   sales_prev_month: { type: 'sales_prev_month', label: 'Last Month', shortLabel: 'Last Mo', icon: Calendar, format: 'currency', category: 'monthly' },
   sales_last_year_month: { type: 'sales_last_year_month', label: 'Last Year', shortLabel: 'Last Yr', icon: Calendar, format: 'currency', category: 'monthly' },
   guest_count_mtd: { type: 'guest_count_mtd', label: 'Guests MTD', shortLabel: 'Guests', icon: Users, format: 'number', category: 'monthly' },
