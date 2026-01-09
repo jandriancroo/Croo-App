@@ -1,14 +1,16 @@
-import React, { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { 
-  Database, Cloud, Code, Layers, ArrowRight, ArrowDown,
-  RefreshCw, HardDrive, Zap, Globe, Lock, Users,
-  FileText, Calendar, MessageSquare, ClipboardList, Package,
-  DollarSign, Bell, Settings, BarChart3, Truck
+  Database, Cloud, Code, Layers, 
+  RefreshCw, HardDrive, Zap, Globe, Users,
+  Calendar, MessageSquare, ClipboardList, Package,
+  DollarSign, Bell, BarChart3, Truck, ArrowLeft
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 interface DataNode {
   id: string;
@@ -19,54 +21,57 @@ interface DataNode {
   estimatedSize?: string;
   description: string;
   connections: string[];
-  layer: number;
+}
+
+interface NodePosition {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 const frequencyColors = {
-  high: 'bg-red-500/20 text-red-400 border-red-500/30',
-  medium: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-  low: 'bg-green-500/20 text-green-400 border-green-500/30',
-  'on-demand': 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+  high: 'border-red-500 bg-red-500/10 shadow-red-500/20',
+  medium: 'border-amber-500 bg-amber-500/10 shadow-amber-500/20',
+  low: 'border-green-500 bg-green-500/10 shadow-green-500/20',
+  'on-demand': 'border-blue-500 bg-blue-500/10 shadow-blue-500/20'
 };
 
-const frequencyPulse = {
-  high: '',
-  medium: '',
-  low: '',
-  'on-demand': ''
+const frequencyDotColors = {
+  high: 'bg-red-500',
+  medium: 'bg-amber-500',
+  low: 'bg-green-500',
+  'on-demand': 'bg-blue-500'
 };
 
-const layerColors = [
-  'from-violet-500/20 to-purple-500/20 border-violet-500/30',
-  'from-blue-500/20 to-cyan-500/20 border-blue-500/30',
-  'from-emerald-500/20 to-green-500/20 border-emerald-500/30',
-  'from-amber-500/20 to-orange-500/20 border-amber-500/30',
-  'from-rose-500/20 to-pink-500/20 border-rose-500/30',
-];
+const lineColors = {
+  high: '#ef4444',
+  medium: '#f59e0b',
+  low: '#22c55e',
+  'on-demand': '#3b82f6'
+};
 
 const architectureData: DataNode[] = [
-  // Layer 0: UI Components
+  // UI Layer
   {
     id: 'ui-pages',
     name: 'Pages & Views',
     type: 'layer',
     icon: <Layers className="w-4 h-4" />,
     callFrequency: 'high',
-    description: '50+ pages including Dashboard, Schedule, Messages, Tasks, Inventory',
-    connections: ['hooks-layer', 'contexts-layer'],
-    layer: 0
+    description: '50+ pages',
+    connections: ['hooks-layer', 'contexts-layer']
   },
   
-  // Layer 1: Hooks & Contexts
+  // State Layer
   {
     id: 'hooks-layer',
     name: 'Custom Hooks',
     type: 'layer',
     icon: <Code className="w-4 h-4" />,
     callFrequency: 'high',
-    description: 'useLocation, useUnreadMessages, useRolePermissions, useTipDistribution',
-    connections: ['supabase-client'],
-    layer: 1
+    description: 'useLocation, useUnreadMessages, etc.',
+    connections: ['supabase-client']
   },
   {
     id: 'contexts-layer',
@@ -74,24 +79,22 @@ const architectureData: DataNode[] = [
     type: 'layer',
     icon: <Users className="w-4 h-4" />,
     callFrequency: 'high',
-    description: 'LocationProvider, AuthProvider, DockToastContext, CrooCashAnimation',
-    connections: ['supabase-client'],
-    layer: 1
+    description: 'LocationProvider, AuthProvider',
+    connections: ['supabase-client']
   },
   
-  // Layer 2: Supabase Client
+  // Data Client
   {
     id: 'supabase-client',
     name: 'Supabase Client',
     type: 'layer',
     icon: <Database className="w-4 h-4" />,
     callFrequency: 'high',
-    description: 'Central data layer - all DB queries flow through here',
-    connections: ['profiles', 'locations', 'shifts', 'chats', 'checklists', 'inventory', 'edge-functions'],
-    layer: 2
+    description: 'Central data layer',
+    connections: ['profiles', 'locations', 'shifts', 'chats', 'checklists', 'inventory', 'sales_cache', 'labor_cache', 'edge-functions']
   },
   
-  // Layer 3: Database Tables (grouped)
+  // Database Tables
   {
     id: 'profiles',
     name: 'profiles',
@@ -99,9 +102,8 @@ const architectureData: DataNode[] = [
     icon: <Users className="w-4 h-4" />,
     callFrequency: 'high',
     estimatedSize: '~500 rows',
-    description: 'User profiles, roles, wages, settings',
-    connections: [],
-    layer: 3
+    description: 'Users & roles',
+    connections: []
   },
   {
     id: 'locations',
@@ -110,53 +112,48 @@ const architectureData: DataNode[] = [
     icon: <Globe className="w-4 h-4" />,
     callFrequency: 'high',
     estimatedSize: '~10 rows',
-    description: 'Store locations, hours, settings',
-    connections: [],
-    layer: 3
+    description: 'Store locations',
+    connections: []
   },
   {
     id: 'shifts',
-    name: 'shifts + punch_records',
+    name: 'shifts',
     type: 'table',
     icon: <Calendar className="w-4 h-4" />,
     callFrequency: 'high',
     estimatedSize: '~50K rows',
-    description: 'Scheduled shifts and punch clock records',
-    connections: ['labor_cache'],
-    layer: 3
+    description: 'Schedules & punches',
+    connections: []
   },
   {
     id: 'chats',
-    name: 'chats + messages',
+    name: 'messages',
     type: 'table',
     icon: <MessageSquare className="w-4 h-4" />,
     callFrequency: 'high',
     estimatedSize: '~100K rows',
-    description: 'Chat rooms and message history (realtime)',
-    connections: [],
-    layer: 3
+    description: 'Chat history (realtime)',
+    connections: []
   },
   {
     id: 'checklists',
-    name: 'checklists + submissions',
+    name: 'checklists',
     type: 'table',
     icon: <ClipboardList className="w-4 h-4" />,
     callFrequency: 'medium',
     estimatedSize: '~20K rows',
-    description: 'Task checklists, items, responses',
-    connections: [],
-    layer: 3
+    description: 'Tasks & responses',
+    connections: []
   },
   {
     id: 'inventory',
-    name: 'inventory_*',
+    name: 'inventory',
     type: 'table',
     icon: <Package className="w-4 h-4" />,
     callFrequency: 'low',
     estimatedSize: '~5K rows',
-    description: 'Items, counts, locations, schedules',
-    connections: ['pfg-api'],
-    layer: 3
+    description: 'Items & counts',
+    connections: []
   },
   {
     id: 'sales_cache',
@@ -165,9 +162,8 @@ const architectureData: DataNode[] = [
     icon: <DollarSign className="w-4 h-4" />,
     callFrequency: 'medium',
     estimatedSize: '~10K rows',
-    description: 'Cached daily sales from QUBeyond',
-    connections: ['qubeyond-api'],
-    layer: 3
+    description: 'Daily sales',
+    connections: []
   },
   {
     id: 'labor_cache',
@@ -176,361 +172,331 @@ const architectureData: DataNode[] = [
     icon: <BarChart3 className="w-4 h-4" />,
     callFrequency: 'medium',
     estimatedSize: '~10K rows',
-    description: 'Labor hours/costs (source: qubeyond or punch_clock)',
-    connections: ['qubeyond-api'],
-    layer: 3
+    description: 'Labor hours/costs',
+    connections: []
   },
   
-  // Layer 4: Edge Functions
+  // Edge Functions
   {
     id: 'edge-functions',
     name: 'Edge Functions',
-    type: 'layer',
+    type: 'edge-function',
     icon: <Zap className="w-4 h-4" />,
     callFrequency: 'on-demand',
-    description: '40+ serverless functions for integrations & processing',
-    connections: ['qubeyond-api', 'pfg-api', 'resend-api', 'ovation-api', 'ai-gateway'],
-    layer: 4
+    description: '40+ serverless functions',
+    connections: ['qubeyond-api', 'pfg-api', 'resend-api', 'ovation-api', 'ai-gateway']
   },
   
-  // Layer 5: External APIs
+  // External APIs
   {
     id: 'qubeyond-api',
-    name: 'QUBeyond API',
+    name: 'QUBeyond',
     type: 'external-api',
     icon: <Cloud className="w-4 h-4" />,
     callFrequency: 'medium',
-    description: 'POS sales & labor data sync (daily cron + on-demand)',
-    connections: [],
-    layer: 5
+    description: 'POS sales & labor',
+    connections: []
   },
   {
     id: 'pfg-api',
-    name: 'PFG API',
+    name: 'PFG',
     type: 'external-api',
     icon: <Truck className="w-4 h-4" />,
     callFrequency: 'low',
-    description: 'Food distributor order history sync',
-    connections: [],
-    layer: 5
+    description: 'Food orders',
+    connections: []
   },
   {
     id: 'resend-api',
-    name: 'Resend API',
+    name: 'Resend',
     type: 'external-api',
     icon: <Bell className="w-4 h-4" />,
     callFrequency: 'on-demand',
-    description: 'Email notifications (invites, schedules, alerts)',
-    connections: [],
-    layer: 5
+    description: 'Email notifications',
+    connections: []
   },
   {
     id: 'ovation-api',
-    name: 'OvationUp API',
+    name: 'OvationUp',
     type: 'external-api',
     icon: <BarChart3 className="w-4 h-4" />,
     callFrequency: 'low',
-    description: 'Customer survey scores',
-    connections: [],
-    layer: 5
+    description: 'Survey scores',
+    connections: []
   },
   {
     id: 'ai-gateway',
-    name: 'Lovable AI Gateway',
+    name: 'Lovable AI',
     type: 'external-api',
     icon: <Zap className="w-4 h-4" />,
     callFrequency: 'on-demand',
-    description: 'AI processing (resume parsing, voice inventory, temp extraction)',
-    connections: [],
-    layer: 5
+    description: 'AI processing',
+    connections: []
   },
 ];
 
-const ArchitectureMap = () => {
-  const [selectedNode, setSelectedNode] = useState<string | null>(null);
-  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+// Define layout rows
+const layoutRows = [
+  ['ui-pages'],
+  ['hooks-layer', 'contexts-layer'],
+  ['supabase-client'],
+  ['profiles', 'locations', 'shifts', 'chats', 'checklists', 'inventory', 'sales_cache', 'labor_cache'],
+  ['edge-functions'],
+  ['qubeyond-api', 'pfg-api', 'resend-api', 'ovation-api', 'ai-gateway'],
+];
 
-  const layers = useMemo(() => {
-    const grouped: Record<number, DataNode[]> = {};
-    architectureData.forEach(node => {
-      if (!grouped[node.layer]) grouped[node.layer] = [];
-      grouped[node.layer].push(node);
+const ArchitectureMap = () => {
+  const navigate = useNavigate();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [nodePositions, setNodePositions] = useState<Record<string, NodePosition>>({});
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Calculate positions after render
+  const updatePositions = useCallback(() => {
+    if (!containerRef.current) return;
+    
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const newPositions: Record<string, NodePosition> = {};
+    
+    Object.entries(nodeRefs.current).forEach(([id, el]) => {
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        newPositions[id] = {
+          x: rect.left - containerRect.left + rect.width / 2,
+          y: rect.top - containerRect.top + rect.height / 2,
+          width: rect.width,
+          height: rect.height
+        };
+      }
     });
-    return grouped;
+    
+    setNodePositions(newPositions);
   }, []);
 
-  const layerNames = [
-    'UI Layer',
-    'State Management',
-    'Data Client',
-    'Database Tables',
-    'Serverless Functions',
-    'External Services'
-  ];
+  useEffect(() => {
+    updatePositions();
+    window.addEventListener('resize', updatePositions);
+    return () => window.removeEventListener('resize', updatePositions);
+  }, [updatePositions]);
 
-  const selectedNodeData = selectedNode ? architectureData.find(n => n.id === selectedNode) : null;
-  const connectedIds = selectedNodeData?.connections || [];
-
-  const getNodeStyle = (node: DataNode) => {
-    const isSelected = selectedNode === node.id;
-    const isConnected = connectedIds.includes(node.id);
-    const isSourceOfSelected = selectedNodeData && node.connections.includes(selectedNode!);
+  // Generate connection lines
+  const renderConnections = () => {
+    const lines: React.ReactNode[] = [];
     
-    if (isSelected) return 'ring-2 ring-primary scale-105';
-    if (isConnected || isSourceOfSelected) return 'ring-2 ring-primary/50 opacity-100';
-    if (selectedNode && !isConnected && !isSourceOfSelected) return 'opacity-40';
-    return '';
+    architectureData.forEach(node => {
+      const fromPos = nodePositions[node.id];
+      if (!fromPos) return;
+      
+      node.connections.forEach(targetId => {
+        const toPos = nodePositions[targetId];
+        if (!toPos) return;
+        
+        const isHighlighted = selectedNode === node.id || selectedNode === targetId;
+        const targetNode = architectureData.find(n => n.id === targetId);
+        const color = lineColors[node.callFrequency];
+        
+        // Calculate control points for curved lines
+        const midY = (fromPos.y + toPos.y) / 2;
+        const path = `M ${fromPos.x} ${fromPos.y + fromPos.height / 2} 
+                      Q ${fromPos.x} ${midY}, ${(fromPos.x + toPos.x) / 2} ${midY}
+                      T ${toPos.x} ${toPos.y - toPos.height / 2}`;
+        
+        lines.push(
+          <g key={`${node.id}-${targetId}`}>
+            <path
+              d={path}
+              fill="none"
+              stroke={isHighlighted ? color : `${color}40`}
+              strokeWidth={isHighlighted ? 2 : 1}
+              strokeDasharray={node.callFrequency === 'on-demand' ? '4 4' : undefined}
+              className="transition-all duration-300"
+            />
+            {/* Arrow head */}
+            <circle
+              cx={toPos.x}
+              cy={toPos.y - toPos.height / 2}
+              r={isHighlighted ? 4 : 2}
+              fill={isHighlighted ? color : `${color}60`}
+              className="transition-all duration-300"
+            />
+          </g>
+        );
+      });
+    });
+    
+    return lines;
   };
 
+  const selectedNodeData = selectedNode ? architectureData.find(n => n.id === selectedNode) : null;
+
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-6xl mx-auto space-y-4">
         {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
-            CrooHQ Architecture Map
-          </h1>
-          <p className="text-muted-foreground text-sm">
-            Interactive visualization of app layers, data flow, and external integrations
-          </p>
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-xl font-bold">Architecture Map</h1>
+            <p className="text-xs text-muted-foreground">Click nodes to highlight connections</p>
+          </div>
         </div>
 
         {/* Legend */}
-        <div className="flex flex-wrap justify-center gap-3 text-xs">
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-red-500/50" />
-            <span className="text-muted-foreground">High frequency</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-amber-500/50" />
-            <span className="text-muted-foreground">Medium</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-green-500/50" />
-            <span className="text-muted-foreground">Low</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-3 h-3 rounded-full bg-blue-500/50" />
-            <span className="text-muted-foreground">On-demand</span>
-          </div>
-        </div>
-
-        {/* Architecture Layers */}
-        <div className="space-y-4">
-          {Object.entries(layers).map(([layerIndex, nodes]) => (
-            <motion.div
-              key={layerIndex}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: parseInt(layerIndex) * 0.1 }}
-              className="space-y-2"
-            >
-              {/* Layer Label */}
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className={cn(
-                  'text-xs border bg-gradient-to-r',
-                  layerColors[parseInt(layerIndex) % layerColors.length]
-                )}>
-                  Layer {layerIndex}
-                </Badge>
-                <span className="text-sm font-medium text-muted-foreground">
-                  {layerNames[parseInt(layerIndex)]}
-                </span>
-                {parseInt(layerIndex) < Object.keys(layers).length - 1 && (
-                  <ArrowDown className="w-4 h-4 text-muted-foreground/50 ml-auto" />
-                )}
-              </div>
-
-              {/* Nodes in Layer */}
-              <div className="flex flex-wrap gap-3">
-                {nodes.map((node) => (
-                  <motion.div
-                    key={node.id}
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setSelectedNode(selectedNode === node.id ? null : node.id)}
-                    onMouseEnter={() => setHoveredNode(node.id)}
-                    onMouseLeave={() => setHoveredNode(null)}
-                    className={cn(
-                      'cursor-pointer rounded-lg p-3 border transition-all duration-200',
-                      'bg-gradient-to-br',
-                      layerColors[parseInt(layerIndex) % layerColors.length],
-                      getNodeStyle(node),
-                      frequencyPulse[node.callFrequency]
-                    )}
-                  >
-                    <div className="flex items-start gap-2">
-                      <div className={cn(
-                        'p-1.5 rounded-md',
-                        frequencyColors[node.callFrequency]
-                      )}>
-                        {node.icon}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-sm truncate">{node.name}</span>
-                          {node.estimatedSize && (
-                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                              <HardDrive className="w-2.5 h-2.5 mr-1" />
-                              {node.estimatedSize}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
-                          {node.description}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {/* Connection indicators */}
-                    {node.connections.length > 0 && (
-                      <div className="flex items-center gap-1 mt-2 text-[10px] text-muted-foreground">
-                        <ArrowRight className="w-3 h-3" />
-                        <span>{node.connections.length} connections</span>
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
-              </div>
-            </motion.div>
+        <div className="flex flex-wrap gap-4 text-xs">
+          {Object.entries(frequencyDotColors).map(([freq, color]) => (
+            <div key={freq} className="flex items-center gap-1.5">
+              <div className={cn('w-2.5 h-2.5 rounded-full', color)} />
+              <span className="text-muted-foreground capitalize">{freq.replace('-', ' ')}</span>
+            </div>
           ))}
         </div>
 
-        {/* Selected Node Details */}
-        <AnimatePresence>
-          {selectedNodeData && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-            >
-              <Card className="border-primary/30">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    {selectedNodeData.icon}
-                    {selectedNodeData.name}
-                    <Badge className={cn('ml-2', frequencyColors[selectedNodeData.callFrequency])}>
-                      <RefreshCw className="w-3 h-3 mr-1" />
-                      {selectedNodeData.callFrequency}
-                    </Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">{selectedNodeData.description}</p>
+        {/* Main Diagram */}
+        <div ref={containerRef} className="relative bg-card/50 rounded-xl border p-6 overflow-x-auto">
+          {/* SVG Layer for connections */}
+          <svg 
+            className="absolute inset-0 w-full h-full pointer-events-none z-0"
+            style={{ minWidth: '100%', minHeight: '100%' }}
+          >
+            {renderConnections()}
+          </svg>
+
+          {/* Nodes Layer */}
+          <div className="relative z-10 space-y-8">
+            {layoutRows.map((row, rowIndex) => (
+              <div 
+                key={rowIndex} 
+                className="flex flex-wrap justify-center gap-3"
+              >
+                {row.map(nodeId => {
+                  const node = architectureData.find(n => n.id === nodeId);
+                  if (!node) return null;
                   
-                  {selectedNodeData.estimatedSize && (
-                    <div className="flex items-center gap-2 text-sm">
-                      <HardDrive className="w-4 h-4 text-muted-foreground" />
-                      <span>Estimated size: <strong>{selectedNodeData.estimatedSize}</strong></span>
-                    </div>
-                  )}
+                  const isSelected = selectedNode === node.id;
+                  const isConnected = selectedNode && (
+                    architectureData.find(n => n.id === selectedNode)?.connections.includes(node.id) ||
+                    node.connections.includes(selectedNode)
+                  );
                   
-                  {selectedNodeData.connections.length > 0 && (
-                    <div className="space-y-1">
-                      <span className="text-sm font-medium">Connects to:</span>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedNodeData.connections.map(connId => {
-                          const connNode = architectureData.find(n => n.id === connId);
-                          return connNode ? (
-                            <Badge 
-                              key={connId} 
-                              variant="secondary" 
-                              className="cursor-pointer hover:bg-secondary/80"
-                              onClick={() => setSelectedNode(connId)}
-                            >
-                              {connNode.icon}
-                              <span className="ml-1">{connNode.name}</span>
-                            </Badge>
-                          ) : null;
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* Show what connects TO this node */}
-                  {(() => {
-                    const incomingConnections = architectureData.filter(n => n.connections.includes(selectedNodeData.id));
-                    if (incomingConnections.length === 0) return null;
-                    return (
-                      <div className="space-y-1">
-                        <span className="text-sm font-medium">Used by:</span>
-                        <div className="flex flex-wrap gap-2">
-                          {incomingConnections.map(node => (
-                            <Badge 
-                              key={node.id} 
-                              variant="outline" 
-                              className="cursor-pointer hover:bg-secondary/50"
-                              onClick={() => setSelectedNode(node.id)}
-                            >
-                              {node.icon}
-                              <span className="ml-1">{node.name}</span>
-                            </Badge>
-                          ))}
+                  return (
+                    <motion.div
+                      key={node.id}
+                      ref={el => { nodeRefs.current[node.id] = el; }}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        setSelectedNode(selectedNode === node.id ? null : node.id);
+                        setTimeout(updatePositions, 10);
+                      }}
+                      className={cn(
+                        'cursor-pointer rounded-lg p-3 border-2 shadow-lg transition-all duration-200 min-w-[100px]',
+                        frequencyColors[node.callFrequency],
+                        isSelected && 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-105',
+                        isConnected && 'ring-1 ring-primary/50',
+                        selectedNode && !isSelected && !isConnected && 'opacity-40'
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          'p-1.5 rounded-md',
+                          frequencyDotColors[node.callFrequency],
+                          'bg-opacity-20'
+                        )}>
+                          {node.icon}
+                        </div>
+                        <div>
+                          <div className="font-medium text-sm whitespace-nowrap">{node.name}</div>
+                          {node.estimatedSize && (
+                            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <HardDrive className="w-2.5 h-2.5" />
+                              {node.estimatedSize}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    );
-                  })()}
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
 
-        {/* Summary Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Card className="bg-gradient-to-br from-violet-500/10 to-purple-500/10 border-violet-500/20">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold">50+</div>
-              <div className="text-xs text-muted-foreground">Pages</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border-blue-500/20">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold">30+</div>
-              <div className="text-xs text-muted-foreground">DB Tables</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-emerald-500/10 to-green-500/10 border-emerald-500/20">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold">40+</div>
-              <div className="text-xs text-muted-foreground">Edge Functions</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-amber-500/20">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-bold">5</div>
-              <div className="text-xs text-muted-foreground">External APIs</div>
-            </CardContent>
-          </Card>
+          {/* Row Labels */}
+          <div className="absolute left-2 top-6 space-y-8 text-[10px] text-muted-foreground font-medium hidden md:block">
+            <div className="h-[52px] flex items-center">UI</div>
+            <div className="h-[52px] flex items-center">State</div>
+            <div className="h-[52px] flex items-center">Client</div>
+            <div className="h-[52px] flex items-center">Database</div>
+            <div className="h-[52px] flex items-center">Functions</div>
+            <div className="h-[52px] flex items-center">External</div>
+          </div>
         </div>
 
-        {/* Data Flow Summary */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <RefreshCw className="w-4 h-4" />
-              Data Flow Patterns
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge className={frequencyColors.high}>High</Badge>
-              <span className="text-muted-foreground">profiles, locations, shifts, messages - every page load</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className={frequencyColors.medium}>Medium</Badge>
-              <span className="text-muted-foreground">sales_cache, labor_cache - dashboard widgets, synced daily</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className={frequencyColors.low}>Low</Badge>
-              <span className="text-muted-foreground">inventory, PFG orders - weekly counts, on-demand sync</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge className={frequencyColors['on-demand']}>On-demand</Badge>
-              <span className="text-muted-foreground">AI processing, email sends, external API calls</span>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Selected Node Details */}
+        {selectedNodeData && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Card className="border-primary/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2">
+                  {selectedNodeData.icon}
+                  {selectedNodeData.name}
+                  <Badge variant="outline" className={cn('ml-2 text-xs', frequencyColors[selectedNodeData.callFrequency])}>
+                    <RefreshCw className="w-3 h-3 mr-1" />
+                    {selectedNodeData.callFrequency}
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm space-y-2">
+                <p className="text-muted-foreground">{selectedNodeData.description}</p>
+                
+                {selectedNodeData.connections.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs text-muted-foreground">Connects to:</span>
+                    {selectedNodeData.connections.map(connId => {
+                      const conn = architectureData.find(n => n.id === connId);
+                      return conn ? (
+                        <Badge 
+                          key={connId} 
+                          variant="secondary" 
+                          className="text-xs cursor-pointer"
+                          onClick={() => setSelectedNode(connId)}
+                        >
+                          {conn.name}
+                        </Badge>
+                      ) : null;
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+
+        {/* Summary Stats */}
+        <div className="grid grid-cols-4 gap-2 text-center">
+          <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+            <div className="text-lg font-bold">50+</div>
+            <div className="text-[10px] text-muted-foreground">Pages</div>
+          </div>
+          <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+            <div className="text-lg font-bold">30+</div>
+            <div className="text-[10px] text-muted-foreground">Tables</div>
+          </div>
+          <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
+            <div className="text-lg font-bold">40+</div>
+            <div className="text-[10px] text-muted-foreground">Functions</div>
+          </div>
+          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <div className="text-lg font-bold">5</div>
+            <div className="text-[10px] text-muted-foreground">APIs</div>
+          </div>
+        </div>
       </div>
     </div>
   );
