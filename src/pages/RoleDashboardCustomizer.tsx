@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { ArrowLeft, Plus, Trash2, Check, Box, LineChart, LayoutGrid, Minus, Save, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { MetricType, METRIC_CONFIGS, METRIC_GROUPS, WidgetSize, SalesDataForWidgets } from '@/components/dashboard/DashboardWidget';
@@ -20,6 +21,7 @@ import { SalesOverview } from '@/components/dashboard/SalesOverview';
 import { THEME_COLORS, ThemeColorKey, getThemeColorClass, isThemeColorKey } from '@/utils/themeColors';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface CubeConfig {
   id: string;
@@ -47,11 +49,13 @@ export default function RoleDashboardCustomizer() {
   const role = searchParams.get('role') || 'team_member';
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const isMobile = useIsMobile();
   
   const [cubes, setCubes] = useState<CubeConfig[]>([]);
   const [selectedCubeIndex, setSelectedCubeIndex] = useState<number | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   
   // 3D cube editing state
   const [activeFace, setActiveFace] = useState(0);
@@ -290,6 +294,76 @@ export default function RoleDashboardCustomizer() {
     );
   }
 
+  // Preview content (reusable for both desktop and mobile sheet)
+  const previewContent = (
+    <div className="space-y-4">
+      {cubes.length === 0 ? (
+        <Card className="p-8 text-center">
+          <p className="text-muted-foreground">
+            Dashboard is empty. Add widgets on the left to configure what {ROLE_LABELS[role]}s see.
+          </p>
+        </Card>
+      ) : (
+        cubes.map((cube, index) => {
+          if (cube.cubeType === 'sales-chart') {
+            return (
+              <Card key={cube.id} className="overflow-hidden">
+                <Collapsible defaultOpen>
+                  <CollapsibleTrigger asChild>
+                    <button 
+                      className="w-full px-3 py-2 flex items-center justify-between cursor-pointer hover:opacity-90"
+                      style={{ backgroundColor: '#0D9488' }}
+                    >
+                      <span className="text-sm font-semibold text-white">Sales Overview</span>
+                      <ChevronDown className="h-4 w-4 text-white/80" />
+                    </button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="p-4 text-center text-muted-foreground text-sm">
+                      Sales chart preview (actual data in production)
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </Card>
+            );
+          }
+          
+          if (cube.cubeType === 'data-3d' && cube.faceMetrics && cube.numFaces) {
+            const faces = cube.faceMetrics.slice(0, cube.numFaces).map((metrics, idx) => ({
+              metrics,
+              title: cube.faceTitles?.[idx] || undefined,
+            }));
+            
+            // Skip empty cubes in preview
+            if (faces.every(f => f.metrics.length === 0)) {
+              return (
+                <Card key={cube.id} className="p-4 text-center">
+                  <p className="text-muted-foreground text-sm">
+                    3D Cube (no metrics selected yet)
+                  </p>
+                </Card>
+              );
+            }
+            
+            return (
+              <div key={cube.id} className="aspect-square md:aspect-[2/1] max-w-lg">
+                <DataCube3D
+                  title={cube.title}
+                  faces={faces}
+                  accentColor={cube.accentColor}
+                  salesData={previewSalesData}
+                  isLoading={false}
+                />
+              </div>
+            );
+          }
+          
+          return null;
+        })
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
@@ -300,18 +374,45 @@ export default function RoleDashboardCustomizer() {
           </Button>
           <div>
             <h1 className="font-semibold">{ROLE_LABELS[role]} Dashboard</h1>
-            <p className="text-xs text-muted-foreground">Configure what this role sees on their dashboard</p>
+            <p className="text-xs text-muted-foreground hidden sm:block">Configure what this role sees on their dashboard</p>
           </div>
         </div>
-        <Button onClick={handleSave} disabled={isSaving || !hasChanges}>
-          <Save className="h-4 w-4 mr-2" />
-          {isSaving ? 'Saving...' : 'Save'}
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Mobile Preview Button */}
+          {isMobile && (
+            <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Eye className="h-4 w-4 mr-1" />
+                  Preview
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-full sm:max-w-md p-0">
+                <SheetHeader className="p-4 border-b">
+                  <SheetTitle className="flex items-center gap-2">
+                    <Eye className="h-4 w-4" />
+                    Live Preview
+                  </SheetTitle>
+                </SheetHeader>
+                <div className="p-4 overflow-auto h-[calc(100vh-80px)]">
+                  <p className="text-xs text-muted-foreground mb-4">
+                    How {ROLE_LABELS[role]}s will see their dashboard
+                  </p>
+                  {previewContent}
+                </div>
+              </SheetContent>
+            </Sheet>
+          )}
+          <Button onClick={handleSave} disabled={isSaving || !hasChanges} size={isMobile ? "sm" : "default"}>
+            <Save className="h-4 w-4 mr-2" />
+            {isSaving ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Left: Configuration Panel */}
-        <div className="w-80 border-r bg-card flex flex-col">
+        {/* Configuration Panel - full width on mobile, fixed width on desktop */}
+        <div className="w-full md:w-80 md:border-r bg-card flex flex-col">
           {/* Cubes List */}
           <div className="p-4 border-b">
             <div className="flex items-center justify-between mb-3">
@@ -525,8 +626,8 @@ export default function RoleDashboardCustomizer() {
           )}
         </div>
 
-        {/* Right: Live Preview */}
-        <div className="flex-1 bg-muted/30 p-6 overflow-auto">
+        {/* Right: Live Preview - hidden on mobile (use Sheet instead) */}
+        <div className="hidden md:block flex-1 bg-muted/30 p-6 overflow-auto">
           <div className="flex items-center gap-2 mb-4">
             <Eye className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium">Live Preview</span>
@@ -534,73 +635,7 @@ export default function RoleDashboardCustomizer() {
               (How {ROLE_LABELS[role]}s will see their dashboard)
             </span>
           </div>
-          
-          <div className="space-y-4">
-            {cubes.length === 0 ? (
-              <Card className="p-8 text-center">
-                <p className="text-muted-foreground">
-                  Dashboard is empty. Add widgets on the left to configure what {ROLE_LABELS[role]}s see.
-                </p>
-              </Card>
-            ) : (
-              cubes.map((cube, index) => {
-                if (cube.cubeType === 'sales-chart') {
-                  return (
-                    <Card key={cube.id} className="overflow-hidden">
-                      <Collapsible defaultOpen>
-                        <CollapsibleTrigger asChild>
-                          <button 
-                            className="w-full px-3 py-2 flex items-center justify-between cursor-pointer hover:opacity-90"
-                            style={{ backgroundColor: '#0D9488' }}
-                          >
-                            <span className="text-sm font-semibold text-white">Sales Overview</span>
-                            <ChevronDown className="h-4 w-4 text-white/80" />
-                          </button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <div className="p-4 text-center text-muted-foreground text-sm">
-                            Sales chart preview (actual data in production)
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </Card>
-                  );
-                }
-                
-                if (cube.cubeType === 'data-3d' && cube.faceMetrics && cube.numFaces) {
-                  const faces = cube.faceMetrics.slice(0, cube.numFaces).map((metrics, idx) => ({
-                    metrics,
-                    title: cube.faceTitles?.[idx] || undefined,
-                  }));
-                  
-                  // Skip empty cubes in preview
-                  if (faces.every(f => f.metrics.length === 0)) {
-                    return (
-                      <Card key={cube.id} className="p-4 text-center">
-                        <p className="text-muted-foreground text-sm">
-                          3D Cube (no metrics selected yet)
-                        </p>
-                      </Card>
-                    );
-                  }
-                  
-                  return (
-                    <div key={cube.id} className="aspect-square md:aspect-[2/1] max-w-lg">
-                      <DataCube3D
-                        title={cube.title}
-                        faces={faces}
-                        accentColor={cube.accentColor}
-                        salesData={previewSalesData}
-                        isLoading={false}
-                      />
-                    </div>
-                  );
-                }
-                
-                return null;
-              })
-            )}
-          </div>
+          {previewContent}
         </div>
       </div>
     </div>
