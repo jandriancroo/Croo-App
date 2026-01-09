@@ -129,9 +129,15 @@ export const LocationProvider = ({ children }: { children: ReactNode }) => {
     setCurrentLocationState(location);
     localStorage.setItem('currentLocationId', location.id);
     
-    // Invalidate queries instead of removing them - this triggers refetch
-    // without causing "fewer hooks" errors from removed query state mid-render
-    queryClient.invalidateQueries();
+    // Only invalidate location-specific queries, NOT the entire app
+    // This prevents cascade of refetches across all components
+    queryClient.invalidateQueries({ queryKey: ['schedule'] });
+    queryClient.invalidateQueries({ queryKey: ['users'] });
+    queryClient.invalidateQueries({ queryKey: ['shifts'] });
+    queryClient.invalidateQueries({ queryKey: ['sales'] });
+    queryClient.invalidateQueries({ queryKey: ['labor'] });
+    queryClient.invalidateQueries({ queryKey: ['checklists'] });
+    queryClient.invalidateQueries({ queryKey: ['inventory'] });
   }, [queryClient]);
 
   const isChecklistOnlyLocation = currentLocation?.location_type === 'checklist_only';
