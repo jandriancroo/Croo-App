@@ -560,11 +560,14 @@ export default function PayrollReview() {
           }
           
           if (clockIn && clockOut) {
-            const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+            // Handle midnight crossover - if negative, the shift crossed midnight
+            let hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+            if (hours < 0) hours += 24;
             
             // Subtract meal break if present
             if (mealBreakStart && mealBreakEnd) {
-              const breakHours = (new Date(mealBreakEnd.punch_time).getTime() - new Date(mealBreakStart.punch_time).getTime()) / 3600000;
+              let breakHours = (new Date(mealBreakEnd.punch_time).getTime() - new Date(mealBreakStart.punch_time).getTime()) / 3600000;
+              if (breakHours < 0) breakHours += 24;
               totalHours += (hours - breakHours);
             } else {
               totalHours += hours;
@@ -593,6 +596,16 @@ export default function PayrollReview() {
     setTimeCards(cards);
   };
 
+  // Helper to calculate hours between two timestamps, handling midnight crossover
+  const calculateTimeDifferenceHours = (startTime: Date, endTime: Date): number => {
+    let hours = (endTime.getTime() - startTime.getTime()) / 3600000;
+    // Handle midnight crossover - if negative, the shift crossed midnight
+    if (hours < 0) {
+      hours += 24;
+    }
+    return hours;
+  };
+
   const calculateDayHours = (dayPunches: any[], showLive = true) => {
     const clockIn = dayPunches.find(p => p.punch_type === 'clock_in');
     const clockOut = dayPunches.find(p => p.punch_type === 'clock_out');
@@ -614,10 +627,10 @@ export default function PayrollReview() {
     const endTime = clockOut ? new Date(clockOut.punch_time) : (showLive ? new Date() : null);
     if (!endTime) return 0;
     
-    const hours = (endTime.getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+    const hours = calculateTimeDifferenceHours(new Date(clockIn.punch_time), endTime);
     
     if (mealBreakStart && mealBreakEnd) {
-      const breakHours = (new Date(mealBreakEnd.punch_time).getTime() - new Date(mealBreakStart.punch_time).getTime()) / 3600000;
+      const breakHours = calculateTimeDifferenceHours(new Date(mealBreakStart.punch_time), new Date(mealBreakEnd.punch_time));
       return hours - breakHours;
     }
     
@@ -632,7 +645,8 @@ export default function PayrollReview() {
     if (clockIn && !clockOut) return true;
     
     if (clockIn && clockOut) {
-      const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+      let hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+      if (hours < 0) hours += 24; // Handle midnight crossover
       if (hours > 5 && mealBreak.length === 0) return true;
     }
     
@@ -729,7 +743,8 @@ export default function PayrollReview() {
     
     let hasBreakViolation = false;
     if (clockIn && clockOut) {
-      const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+      let hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+      if (hours < 0) hours += 24; // Handle midnight crossover
       if (hours > 5 && !mealBreakStart) {
         hasBreakViolation = true;
       }
@@ -788,7 +803,8 @@ export default function PayrollReview() {
         const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
         
         if (clockIn && clockOut) {
-          const hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+          let hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+          if (hours < 0) hours += 24; // Handle midnight crossover
           if (hours > 5 && !mealBreakStart) {
             flags.push('Missing Meal Break');
           }
@@ -1578,7 +1594,8 @@ export default function PayrollReview() {
                                     // Calculate break violation: shift > 5 hours without meal break
                                     let hasBreakViolation = false;
                                     if (clockIn && clockOut) {
-                                      const shiftHours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+                                      let shiftHours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+                                      if (shiftHours < 0) shiftHours += 24; // Handle midnight crossover
                                       if (shiftHours > 5 && !mealBreakStart) {
                                         hasBreakViolation = true;
                                       }
