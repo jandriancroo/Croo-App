@@ -1,5 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface LiveStatusBadgeProps {
   isPublished: boolean;
@@ -7,6 +9,9 @@ interface LiveStatusBadgeProps {
   hasPendingChanges: boolean;
   onGoLive: () => void;
   onUpdate: () => void;
+  lastStatusChangedAt?: string | null;
+  lastStatusChangedByName?: string | null;
+  lastStatusAction?: string | null;
 }
 
 export function LiveStatusBadge({ 
@@ -14,10 +19,54 @@ export function LiveStatusBadge({
   isPublishing, 
   hasPendingChanges,
   onGoLive,
-  onUpdate
+  onUpdate,
+  lastStatusChangedAt,
+  lastStatusChangedByName,
+  lastStatusAction
 }: LiveStatusBadgeProps) {
+  
+  // Format the status info for tooltip
+  const getStatusInfo = () => {
+    if (!lastStatusChangedAt || !lastStatusAction) return null;
+    
+    const timeAgo = formatDistanceToNow(new Date(lastStatusChangedAt), { addSuffix: true });
+    const actionLabel = lastStatusAction === 'published' ? 'Published' 
+      : lastStatusAction === 'updated' ? 'Updated'
+      : lastStatusAction === 'withdrawn' ? 'Withdrawn'
+      : lastStatusAction;
+    
+    const byName = lastStatusChangedByName || 'Unknown';
+    
+    return { timeAgo, actionLabel, byName };
+  };
+
+  const statusInfo = getStatusInfo();
+  
   // State 1: Never published - show "Go Live" button
   if (!isPublished) {
+    // If it was withdrawn, show who did it
+    if (statusInfo && lastStatusAction === 'withdrawn') {
+      return (
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-xs text-muted-foreground hidden md:inline">
+                  Withdrawn by {statusInfo.byName}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{statusInfo.actionLabel} {statusInfo.timeAgo}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <Button onClick={onGoLive} disabled={isPublishing}>
+            {isPublishing ? 'Publishing...' : 'Go Live'}
+          </Button>
+        </div>
+      );
+    }
+    
     return (
       <Button onClick={onGoLive} disabled={isPublishing}>
         {isPublishing ? 'Publishing...' : 'Go Live'}
@@ -28,37 +77,69 @@ export function LiveStatusBadge({
   // State 2: Published with pending changes - show "Update" button
   if (hasPendingChanges) {
     return (
-      <Button 
-        onClick={onUpdate} 
-        disabled={isPublishing}
-        variant="outline"
-        className="border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
-      >
-        {isPublishing ? (
-          <>
-            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-            Updating...
-          </>
-        ) : (
-          <>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Update
-          </>
+      <div className="flex items-center gap-2">
+        {statusInfo && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-xs text-muted-foreground hidden md:inline">
+                  {statusInfo.actionLabel} by {statusInfo.byName}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{statusInfo.timeAgo}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
-      </Button>
+        <Button 
+          onClick={onUpdate} 
+          disabled={isPublishing}
+          variant="outline"
+          className="border-amber-500 text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
+        >
+          {isPublishing ? (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Updating...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Update
+            </>
+          )}
+        </Button>
+      </div>
     );
   }
 
-  // State 3: Published with no changes - show "LIVE" badge
+  // State 3: Published with no changes - show "LIVE" badge with status info
   return (
-    <div className="relative inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 border-2 border-red-500 rounded-lg">
-      <span className="relative flex items-end gap-[2px] h-4">
-        <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
-        <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
-        <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
-        <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
-      </span>
-      <span className="font-semibold text-red-500 uppercase tracking-wide">Live</span>
+    <div className="flex items-center gap-2">
+      {statusInfo && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-xs text-muted-foreground hidden md:inline">
+                {statusInfo.actionLabel} by {statusInfo.byName}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{statusInfo.timeAgo}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
+      <div className="relative inline-flex items-center gap-2 px-4 py-2 bg-red-500/10 border-2 border-red-500 rounded-lg">
+        <span className="relative flex items-end gap-[2px] h-4">
+          <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-1" style={{ height: '25%' }}></span>
+          <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-2" style={{ height: '50%' }}></span>
+          <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-3" style={{ height: '75%' }}></span>
+          <span className="w-1 bg-red-500 rounded-sm animate-wifi-bar-4" style={{ height: '100%' }}></span>
+        </span>
+        <span className="font-semibold text-red-500 uppercase tracking-wide">Live</span>
+      </div>
     </div>
   );
 }

@@ -3529,6 +3529,9 @@ export type Database = {
           created_by: string | null
           id: string
           is_published: boolean | null
+          last_status_action: string | null
+          last_status_changed_at: string | null
+          last_status_changed_by: string | null
           location_id: string | null
           published_shifts_snapshot: Json | null
           published_snapshot: Json | null
@@ -3541,6 +3544,9 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_published?: boolean | null
+          last_status_action?: string | null
+          last_status_changed_at?: string | null
+          last_status_changed_by?: string | null
           location_id?: string | null
           published_shifts_snapshot?: Json | null
           published_snapshot?: Json | null
@@ -3553,6 +3559,9 @@ export type Database = {
           created_by?: string | null
           id?: string
           is_published?: boolean | null
+          last_status_action?: string | null
+          last_status_changed_at?: string | null
+          last_status_changed_by?: string | null
           location_id?: string | null
           published_shifts_snapshot?: Json | null
           published_snapshot?: Json | null
