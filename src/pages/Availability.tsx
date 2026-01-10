@@ -391,8 +391,8 @@ export default function Availability() {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center flex-wrap gap-4">
+      <div className="space-y-4">
+        <div className="flex justify-between items-center flex-wrap gap-4 pb-2 border-b border-border/40">
           <div>
             <h1 className="text-3xl font-bold">Availability</h1>
           </div>
