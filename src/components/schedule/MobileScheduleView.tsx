@@ -145,7 +145,18 @@ export function MobileScheduleView({
   const queryClient = useQueryClient();
   
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
-  const selectedDayOfWeek = weekDays.findIndex(day => isSameDay(day, selectedDate));
+  
+  // Calculate day index within current week - if selectedDate isn't in this week,
+  // default to first day of the week to prevent -1 index issues
+  const rawDayIndex = weekDays.findIndex(day => isSameDay(day, selectedDate));
+  const selectedDayOfWeek = rawDayIndex >= 0 ? rawDayIndex : 0;
+  
+  // If selectedDate isn't in this week, sync it to first day
+  useEffect(() => {
+    if (rawDayIndex < 0) {
+      setSelectedDate(weekDays[0]);
+    }
+  }, [rawDayIndex, weekDays]);
 
   // Memoized today string for query key stability
   const todayStr = useMemo(() => {
