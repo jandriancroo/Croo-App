@@ -2,11 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 
-// Debounce unread count fetches to prevent cascade
-let lastFetchTime = 0;
-const DEBOUNCE_MS = 2000;
-
-// Event-based refetch trigger (safer than global callback for HMR)
+// Event-based refetch trigger for instant badge updates
 const refetchEvent = new EventTarget();
 const REFETCH_EVENT = 'refetch-unread';
 
@@ -14,8 +10,6 @@ export const useUnreadMessages = () => {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const userIdRef = useRef<string | null>(null);
-  const pendingFetchRef = useRef<NodeJS.Timeout | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   const fetchUnreadCount = useCallback(async () => {
@@ -25,10 +19,7 @@ export const useUnreadMessages = () => {
       return;
     }
     
-    userIdRef.current = user.id;
-    
     try {
-      // Single efficient database call using RPC function
       const { data, error } = await supabase
         .rpc('get_unread_chat_count', { _user_id: user.id });
 
@@ -46,7 +37,7 @@ export const useUnreadMessages = () => {
     }
   }, [user]);
 
-  // Listen for refetch events (triggered by markChatAsRead)
+  // Listen for refetch events - INSTANT, no debounce
   useEffect(() => {
     const handler = () => {
       fetchUnreadCount();
@@ -55,24 +46,6 @@ export const useUnreadMessages = () => {
     return () => {
       refetchEvent.removeEventListener(REFETCH_EVENT, handler);
     };
-  }, [fetchUnreadCount]);
-
-  // Debounced fetch that prevents hammering the database
-  const debouncedFetch = useCallback(() => {
-    const now = Date.now();
-    if (now - lastFetchTime < DEBOUNCE_MS) {
-      // Schedule a fetch after debounce window if not already scheduled
-      if (!pendingFetchRef.current) {
-        pendingFetchRef.current = setTimeout(() => {
-          pendingFetchRef.current = null;
-          lastFetchTime = Date.now();
-          fetchUnreadCount();
-        }, DEBOUNCE_MS);
-      }
-      return;
-    }
-    lastFetchTime = now;
-    fetchUnreadCount();
   }, [fetchUnreadCount]);
 
   useEffect(() => {
@@ -89,9 +62,7 @@ export const useUnreadMessages = () => {
       supabase.removeChannel(channelRef.current);
     }
 
-    // Optimized realtime subscription:
-    // 1. Filter chat_members updates to only current user (server-side filter)
-    // 2. Still need broad message listener, but single RPC call is fast
+    // Realtime subscription for new messages and read status updates
     channelRef.current = supabase
       .channel(`unread-tracker-${user.id}`)
       .on(
@@ -102,7 +73,8 @@ export const useUnreadMessages = () => {
           table: 'messages'
         },
         () => {
-          debouncedFetch();
+          // Small delay to let DB settle, then fetch
+          setTimeout(fetchUnreadCount, 100);
         }
       )
       .on(
@@ -111,28 +83,28 @@ export const useUnreadMessages = () => {
           event: 'UPDATE',
           schema: 'public',
           table: 'chat_members',
-          filter: `user_id=eq.${user.id}` // Server-side filter - only this user's updates
+          filter: `user_id=eq.${user.id}`
         },
         () => {
-          debouncedFetch();
+          // Immediate fetch on read status update
+          fetchUnreadCount();
         }
       )
       .subscribe();
 
     return () => {
-      if (pendingFetchRef.current) clearTimeout(pendingFetchRef.current);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [user, fetchUnreadCount, debouncedFetch]);
+  }, [user, fetchUnreadCount]);
 
   return { unreadCount, loading, refetch: fetchUnreadCount };
 };
 
 // Helper to update last_read_at when viewing a chat
-// Dispatches event to trigger immediate refetch (bypasses debounce)
+// Triggers INSTANT refetch - no debounce
 export const markChatAsRead = async (chatId: string, userId: string): Promise<void> => {
   const { error } = await supabase
     .from('chat_members')
@@ -143,7 +115,7 @@ export const markChatAsRead = async (chatId: string, userId: string): Promise<vo
   if (error) {
     console.error('Error marking chat as read:', error);
   } else {
-    // Dispatch event to trigger immediate refetch (bypass debounce)
+    // Dispatch event to trigger INSTANT refetch
     refetchEvent.dispatchEvent(new Event(REFETCH_EVENT));
   }
 };
