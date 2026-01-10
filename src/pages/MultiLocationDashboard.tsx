@@ -729,7 +729,7 @@ export default function MultiLocationDashboard() {
             <div className="absolute -inset-x-4 -top-4 h-32 bg-gradient-to-br from-primary/5 via-primary/10 to-transparent rounded-3xl -z-10" />
             <div className="flex items-end justify-between">
               <div>
-                <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
+                <h1 className="text-3xl font-bold tracking-tight">Org Admin</h1>
                 <p className="text-muted-foreground mt-1 flex items-center gap-2">
                   {format(new Date(), 'EEEE, MMMM d, yyyy')}
                   <span className="text-xs text-muted-foreground/60">
