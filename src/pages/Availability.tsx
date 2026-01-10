@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
+import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -392,17 +393,18 @@ export default function Availability() {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="flex justify-between items-center flex-wrap gap-4 pb-2 border-b border-border/40">
-          <div>
-            <h1 className="text-3xl font-bold">Availability</h1>
+        <div>
+          <div className="flex justify-between items-center flex-wrap gap-4">
+            <div>
+              <h1 className="text-3xl font-bold">Availability</h1>
+            </div>
+            <Button onClick={() => setRequestDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Request Time Off
+            </Button>
           </div>
-          <Button onClick={() => setRequestDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            Request Time Off
-          </Button>
+          <PageHeaderDivider />
         </div>
-
-        {/* PTO Balance - Non-Manager Only, controlled by location setting */}
         {!canApproveRequests && canViewSickTime && (
           <Card className="p-6 bg-primary/5 border-primary/20">
             <div className="flex items-center gap-4">

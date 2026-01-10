@@ -1,4 +1,5 @@
 import { Layout } from '@/components/Layout';
+import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -298,9 +299,10 @@ export default function Settings() {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="pb-2 border-b border-border/40">
+        <div>
           <h1 className="text-3xl font-bold">Settings</h1>
           <p className="text-muted-foreground">Manage your preferences</p>
+          <PageHeaderDivider />
         </div>
 
         <div className="grid gap-3">

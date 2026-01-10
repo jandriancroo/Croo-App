@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
+import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -491,16 +492,19 @@ export default function Tasks() {
     <Layout>
       <div className="space-y-4">
         <Tabs defaultValue="history" className="w-full">
-          <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4 pb-2 border-b border-border/40 mb-4">
-            <div className="space-y-3">
-              <h1 className="text-3xl font-bold">Tasks</h1>
-              <TabsList>
-                <TabsTrigger value="history">History</TabsTrigger>
-                {(isAdmin || isManager) && (
-                  <TabsTrigger value="edit">Edit</TabsTrigger>
-                )}
-              </TabsList>
+          <div className="mb-4">
+            <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4">
+              <div className="space-y-3">
+                <h1 className="text-3xl font-bold">Tasks</h1>
+                <TabsList>
+                  <TabsTrigger value="history">History</TabsTrigger>
+                  {(isAdmin || isManager) && (
+                    <TabsTrigger value="edit">Edit</TabsTrigger>
+                  )}
+                </TabsList>
+              </div>
             </div>
+            <PageHeaderDivider />
           </div>
 
           <TabsContent value="history" className="space-y-6">
