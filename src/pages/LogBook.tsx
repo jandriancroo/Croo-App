@@ -207,9 +207,9 @@ export default function LogBook() {
     gcTime: LOGBOOK_GC_TIME,
   });
 
-  // Fetch all entries for search - don't include searchQuery in key (filter client-side)
-  const { data: allEntries = [] } = useQuery({
-    queryKey: ['logbook-all-entries', currentLocation?.id],
+  // Fetch recent entries (last 50) for fast initial display
+  const { data: recentEntries = [] } = useQuery({
+    queryKey: ['logbook-recent-entries', currentLocation?.id],
     queryFn: async () => {
       if (!currentLocation) return [];
       const { data, error } = await supabase
@@ -231,6 +231,48 @@ export default function LogBook() {
     staleTime: LOGBOOK_STALE_TIME,
     gcTime: LOGBOOK_GC_TIME,
   });
+
+  // Debounced search query - only fires when user is actively searching
+  const debouncedSearch = useMemo(() => searchQuery.trim(), [searchQuery]);
+  
+  // Server-side search for full history (only when searching)
+  const { data: searchResults = [], isLoading: isSearching } = useQuery({
+    queryKey: ['logbook-search', currentLocation?.id, debouncedSearch],
+    queryFn: async () => {
+      if (!currentLocation || !debouncedSearch) return [];
+      const searchLower = debouncedSearch.toLowerCase();
+      
+      // Search across all entries (no limit for search)
+      const { data, error } = await supabase
+        .from('logbook_entries')
+        .select(`
+          *,
+          logbook_entry_values(*),
+          profiles(full_name, profile_photo_url),
+          logbook_categories(name)
+        `)
+        .eq('location_id', currentLocation.id)
+        .order('created_at', { ascending: false })
+        .limit(200); // Higher limit for search results
+
+      if (error) throw error;
+      
+      // Filter results client-side for more flexible matching
+      return (data || []).filter((entry: any) => 
+        entry.profiles?.full_name?.toLowerCase().includes(searchLower) ||
+        entry.logbook_categories?.name?.toLowerCase().includes(searchLower) ||
+        entry.logbook_entry_values?.some((val: any) => 
+          val.value_text?.toLowerCase().includes(searchLower)
+        )
+      );
+    },
+    enabled: !!currentLocation && !!debouncedSearch && debouncedSearch.length >= 2,
+    staleTime: 60 * 1000, // 1 minute for search results
+    gcTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  // Use search results when searching, otherwise recent entries
+  const allEntries = debouncedSearch && debouncedSearch.length >= 2 ? searchResults : recentEntries;
 
   // Find bank deposit category ID (create if doesn't exist)
   const bankDepositCategoryId = categories.find((c: any) => c.name?.toLowerCase() === 'bank deposit')?.id;
@@ -392,7 +434,8 @@ export default function LogBook() {
     onSuccess: () => {
       toast({ title: "Entry saved successfully" });
       queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
-      queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['logbook-recent-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['logbook-search'] });
       setFormData({});
       // Navigate to search tab to show submission
       setActiveTab('search');
@@ -433,7 +476,8 @@ export default function LogBook() {
     onSuccess: () => {
       toast({ title: "Entry deleted" });
       queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
-      queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['logbook-recent-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['logbook-search'] });
       setDeleteEntryId(null);
     },
     onError: (error: any) => {
@@ -460,7 +504,8 @@ export default function LogBook() {
     },
     onSuccess: () => {
       toast({ title: "Follow-up completed" });
-      queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['logbook-recent-entries'] });
+      queryClient.invalidateQueries({ queryKey: ['logbook-search'] });
     },
     onError: (error: any) => {
       toast({
@@ -471,18 +516,8 @@ export default function LogBook() {
     },
   });
 
-  const filteredEntries = allEntries.filter((entry: any) => {
-    if (!searchQuery) return true;
-    const searchLower = searchQuery.toLowerCase();
-    
-    return (
-      entry.profiles?.full_name?.toLowerCase().includes(searchLower) ||
-      entry.logbook_categories?.name?.toLowerCase().includes(searchLower) ||
-      entry.logbook_entry_values?.some((val: any) => 
-        val.value_text?.toLowerCase().includes(searchLower)
-      )
-    );
-  });
+  // When searching, results are already filtered; when browsing, show all recent
+  const filteredEntries = allEntries;
 
   // Expand safe count entries so AM and PM appear as separate cards
   const expandedEntries = filteredEntries.flatMap((entry: any) => {
@@ -611,7 +646,8 @@ export default function LogBook() {
                 if (error) throw error;
                 
                 toast({ title: "Weekly summary generated!" });
-                queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                queryClient.invalidateQueries({ queryKey: ['logbook-recent-entries'] });
+                queryClient.invalidateQueries({ queryKey: ['logbook-search'] });
                 setShowNewEntrySheet(false);
                 setActiveTab('search');
               } catch (error: any) {
@@ -717,7 +753,8 @@ export default function LogBook() {
                 if (valuesError) throw valuesError;
 
                 toast({ title: "Bank deposit recorded successfully" });
-                queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                queryClient.invalidateQueries({ queryKey: ['logbook-recent-entries'] });
+                queryClient.invalidateQueries({ queryKey: ['logbook-search'] });
                 queryClient.invalidateQueries({ queryKey: ['deposited-drawer-entries'] });
                 setShowNewEntrySheet(false);
                 setActiveTab('search');
@@ -817,7 +854,8 @@ export default function LogBook() {
 
                 toast({ title: "Drawer count saved successfully" });
                 queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
-                queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                queryClient.invalidateQueries({ queryKey: ['logbook-recent-entries'] });
+                queryClient.invalidateQueries({ queryKey: ['logbook-search'] });
                 queryClient.invalidateQueries({ queryKey: ['drawer-count-entries'] });
                 setShowNewEntrySheet(false);
                 setActiveTab('search');
@@ -863,7 +901,8 @@ export default function LogBook() {
                     });
                     
                     toast({ title: "Weekly summary generated!" });
-                    queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                    queryClient.invalidateQueries({ queryKey: ['logbook-recent-entries'] });
+                    queryClient.invalidateQueries({ queryKey: ['logbook-search'] });
                   } catch (summaryError) {
                     console.error('Error generating weekly summary:', summaryError);
                   }
@@ -990,7 +1029,8 @@ export default function LogBook() {
 
                 toast({ title: "Safe count saved successfully" });
                 queryClient.invalidateQueries({ queryKey: ['logbook-entry'] });
-                queryClient.invalidateQueries({ queryKey: ['logbook-all-entries'] });
+                queryClient.invalidateQueries({ queryKey: ['logbook-recent-entries'] });
+                queryClient.invalidateQueries({ queryKey: ['logbook-search'] });
                 queryClient.invalidateQueries({ queryKey: ['safe-count-entries'] });
                 setShowNewEntrySheet(false);
                 setActiveTab('search');
