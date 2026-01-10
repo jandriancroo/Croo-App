@@ -1231,6 +1231,7 @@ export default function PayrollReview() {
               {payPeriods.map((period, index) => {
                 const status = getPeriodStatus(period);
                 const isClosed = status?.status === 'closed';
+                const periodLabel = index === 0 ? 'This Period' : index === 1 ? 'Last Period' : null;
                 
                 return (
                   <Card
@@ -1239,15 +1240,22 @@ export default function PayrollReview() {
                     onClick={() => setSelectedPeriod(period)}
                   >
                     <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{period.label}</CardTitle>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CardTitle className="text-lg truncate">{period.label}</CardTitle>
+                          {periodLabel && (
+                            <Badge variant="secondary" className="shrink-0 text-xs">
+                              {periodLabel}
+                            </Badge>
+                          )}
+                        </div>
                         {isClosed ? (
-                          <Badge variant="outline" className="bg-muted">
+                          <Badge variant="outline" className="bg-muted shrink-0">
                             <Lock className="mr-1 h-3 w-3" />
                             Closed
                           </Badge>
                         ) : (
-                          <Badge variant="default">
+                          <Badge variant="default" className="shrink-0">
                             <CheckCircle2 className="mr-1 h-3 w-3" />
                             Open
                           </Badge>
