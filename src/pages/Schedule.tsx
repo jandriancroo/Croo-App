@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
@@ -177,8 +177,20 @@ export default function Schedule() {
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
+  // Determine "this week" using the location's timezone (prevents off-by-one-week bugs)
+  const thisWeekStart = useMemo(() => {
+    try {
+      const todayStr = getTodayInTimezone();
+      const [y, m, d] = todayStr.split('-').map(Number);
+      if (!y || !m || !d) return startOfWeek(new Date(), { weekStartsOn: 1 });
+      return startOfWeek(new Date(y, m - 1, d), { weekStartsOn: 1 });
+    } catch {
+      return startOfWeek(new Date(), { weekStartsOn: 1 });
+    }
+  }, [getTodayInTimezone]);
+
   // Determine if viewing a past week (for infinite cache)
-  const todayStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const todayStart = thisWeekStart;
   const isPastWeek = currentWeekStart < todayStart;
 
   // Query key for the schedule data - includes location and week
@@ -1140,44 +1152,34 @@ export default function Schedule() {
     return changes;
   };
 
-  // Get week label relative to current week
+  // Get week label relative to current week (computed in location timezone)
   const getWeekLabel = () => {
-    const todayStr = getTodayInTimezone();
-    const [y, m, d] = todayStr.split('-').map(Number);
-    const todayDate = new Date(y, m - 1, d);
-    const thisWeekStart = startOfWeek(todayDate, { weekStartsOn: 1 });
-    
     if (isSameWeek(currentWeekStart, thisWeekStart, { weekStartsOn: 1 })) {
       return { label: "Current Week", variant: "default" as const };
     }
-    
+
     const lastWeekStart = subWeeks(thisWeekStart, 1);
     if (isSameWeek(currentWeekStart, lastWeekStart, { weekStartsOn: 1 })) {
       return { label: "Last Week", variant: "secondary" as const };
     }
-    
+
     const nextWeekStart = addWeeks(thisWeekStart, 1);
     if (isSameWeek(currentWeekStart, nextWeekStart, { weekStartsOn: 1 })) {
       return { label: "Next Week", variant: "outline" as const };
     }
-    
+
     // Calculate weeks difference
     const diffTime = currentWeekStart.getTime() - thisWeekStart.getTime();
     const diffWeeks = Math.round(diffTime / (7 * 24 * 60 * 60 * 1000));
-    
+
     if (diffWeeks < 0) {
       return { label: `${Math.abs(diffWeeks)} Weeks Ago`, variant: "secondary" as const };
-    } else {
-      return { label: `${diffWeeks} Weeks Ahead`, variant: "outline" as const };
     }
+    return { label: `${diffWeeks} Weeks Ahead`, variant: "outline" as const };
   };
 
   // Check if viewing current week (for edit warning)
   const isCurrentWeek = () => {
-    const todayStr = getTodayInTimezone();
-    const [y, m, d] = todayStr.split('-').map(Number);
-    const todayDate = new Date(y, m - 1, d);
-    const thisWeekStart = startOfWeek(todayDate, { weekStartsOn: 1 });
     return isSameWeek(currentWeekStart, thisWeekStart, { weekStartsOn: 1 });
   };
 
