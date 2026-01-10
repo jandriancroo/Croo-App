@@ -870,7 +870,7 @@ export default function Dashboard() {
         onRefresh={handleRefresh}
       >
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between pb-2 border-b border-border/40">
             <h1 className="text-3xl font-bold">Dash</h1>
             <div className="flex gap-2 items-center">
               {/* Hide reorder/edit buttons for role-based cube users (cubes locked by Org Admin) */}
