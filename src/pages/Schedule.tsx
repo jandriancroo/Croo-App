@@ -438,6 +438,9 @@ export default function Schedule() {
         profiles: profilesWithRoles,
         templates,
         availabilityRequests,
+        lastStatusChangedAt: schedule.last_status_changed_at,
+        lastStatusChangedBy: schedule.last_status_changed_by,
+        lastStatusAction: schedule.last_status_action,
       };
     },
     enabled: !!role && !!currentLocation?.id,
@@ -510,6 +513,26 @@ export default function Schedule() {
   const profiles = scheduleData?.profiles ?? [];
   const templates = scheduleData?.templates ?? [];
   const availabilityRequests = scheduleData?.availabilityRequests ?? [];
+  const lastStatusChangedAt = scheduleData?.lastStatusChangedAt ?? null;
+  const lastStatusChangedBy = scheduleData?.lastStatusChangedBy ?? null;
+  const lastStatusAction = scheduleData?.lastStatusAction ?? null;
+
+  // Fetch the name of the user who last changed the status (may not be in current location's profiles)
+  const { data: statusChangerProfile } = useQuery({
+    queryKey: ['profile-name', lastStatusChangedBy],
+    queryFn: async () => {
+      if (!lastStatusChangedBy) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', lastStatusChangedBy)
+        .single();
+      return data;
+    },
+    enabled: !!lastStatusChangedBy,
+    staleTime: Infinity, // Names don't change often
+  });
+  const lastStatusChangedByName = statusChangerProfile?.full_name || profiles.find(p => p.id === lastStatusChangedBy)?.full_name || null;
 
   // Helper to refetch schedule data after mutations
   const fetchScheduleData = useCallback((showLoading = true) => {
@@ -914,12 +937,15 @@ export default function Schedule() {
         toast.success("Schedule published!");
       }
 
-      // Update schedule with new snapshot
+      // Update schedule with new snapshot and audit info
       const { error } = await supabase
         .from('schedules')
         .update({ 
           is_published: true,
-          published_shifts_snapshot: currentShifts
+          published_shifts_snapshot: currentShifts,
+          last_status_changed_at: new Date().toISOString(),
+          last_status_changed_by: user?.id,
+          last_status_action: 'published'
         })
         .eq('id', scheduleId);
 
@@ -990,11 +1016,14 @@ export default function Schedule() {
         toast.success("Schedule updated!");
       }
 
-      // Update snapshot
+      // Update snapshot with audit info
       const { error } = await supabase
         .from('schedules')
         .update({ 
-          published_shifts_snapshot: currentShifts
+          published_shifts_snapshot: currentShifts,
+          last_status_changed_at: new Date().toISOString(),
+          last_status_changed_by: user?.id,
+          last_status_action: 'updated'
         })
         .eq('id', scheduleId);
 
@@ -1017,7 +1046,10 @@ export default function Schedule() {
         .from('schedules')
         .update({ 
           is_published: false,
-          published_shifts_snapshot: null
+          published_shifts_snapshot: null,
+          last_status_changed_at: new Date().toISOString(),
+          last_status_changed_by: user?.id,
+          last_status_action: 'withdrawn'
         })
         .eq('id', scheduleId);
 
@@ -1314,6 +1346,9 @@ export default function Schedule() {
                       hasPendingChanges={hasPendingChanges}
                       onGoLive={handleGoLive}
                       onUpdate={handleUpdate}
+                      lastStatusChangedAt={lastStatusChangedAt}
+                      lastStatusChangedByName={lastStatusChangedByName}
+                      lastStatusAction={lastStatusAction}
                     />
                   )}
                 </div>
