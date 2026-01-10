@@ -31,6 +31,8 @@ import { FEATURE_FLAGS } from '@/config/featureFlags';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
+import { PullToRefresh, setLastSyncTime } from '@/components/PullToRefresh';
+import { useCallback } from 'react';
 
 
 interface CateringOrder {
@@ -92,6 +94,22 @@ export default function Dashboard() {
   const [showAddCubeDialog, setShowAddCubeDialog] = useState(false);
   const [showEditDashboard, setShowEditDashboard] = useState(false);
   const queryClient = useQueryClient();
+  const [lastSyncDisplay, setLastSyncDisplay] = useState<Date | null>(null);
+  
+  // Query keys to refresh on pull-to-refresh
+  const REFRESH_QUERY_KEYS = [
+    ['user-checklists'],
+    ['checklist-stats'],
+    ['user-data-cubes'],
+    ['catering-orders'],
+    ['temporary-tasks'],
+    ['location-hours-today'],
+  ];
+  
+  // Handle pull-to-refresh
+  const handleRefresh = useCallback((timestamp: Date, wasActualRefresh: boolean) => {
+    setLastSyncDisplay(timestamp);
+  }, []);
   
   // Role-based cubes for TM/SM/Manager (locked by Org Admin)
   const { shouldUseRoleCubes, roleCubes, isLoading: roleCubesLoading } = useShouldUseRoleCubes(organizationId);
@@ -835,61 +853,66 @@ export default function Dashboard() {
     checklistsGridContent
   );
   return <Layout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Dash</h1>
-          <div className="flex gap-2 items-center">
-            {/* Hide reorder/edit buttons for role-based cube users (cubes locked by Org Admin) */}
-            {!shouldUseRoleCubes && (
-              <>
-                {hasQuBeyondIntegration && canSeeSales && (
-                  <Button 
-                    onClick={toggleEditMode} 
-                    variant={isEditMode ? "default" : "ghost"}
-                    size="icon" 
-                    className="h-10 w-10" 
-                    title={isEditMode ? "Done Reordering" : "Reorder Cubes"}
-                  >
-                    <ArrowUpDown className="h-4 w-4" />
+      <PullToRefresh
+        queryKeys={REFRESH_QUERY_KEYS}
+        cooldownMs={2 * 60 * 1000}
+        onRefresh={handleRefresh}
+      >
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold">Dash</h1>
+            <div className="flex gap-2 items-center">
+              {/* Hide reorder/edit buttons for role-based cube users (cubes locked by Org Admin) */}
+              {!shouldUseRoleCubes && (
+                <>
+                  {hasQuBeyondIntegration && canSeeSales && (
+                    <Button 
+                      onClick={toggleEditMode} 
+                      variant={isEditMode ? "default" : "ghost"}
+                      size="icon" 
+                      className="h-10 w-10" 
+                      title={isEditMode ? "Done Reordering" : "Reorder Cubes"}
+                    >
+                      <ArrowUpDown className="h-4 w-4" />
+                    </Button>
+                  )}
+                  <Button onClick={() => setShowEditDashboard(true)} variant="ghost" size="icon" className="h-10 w-10" title="Edit Dashboard">
+                    <Settings2 className="h-4 w-4" />
                   </Button>
-                )}
-                <Button onClick={() => setShowEditDashboard(true)} variant="ghost" size="icon" className="h-10 w-10" title="Edit Dashboard">
-                  <Settings2 className="h-4 w-4" />
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Edit Dashboard Dialog */}
-        <EditDashboardDialog
-          open={showEditDashboard}
-          onOpenChange={setShowEditDashboard}
-          cubes={dashboardCubes}
-          onUpdateCube={handleUpdateCube}
-          onDeleteCube={handleDeleteCube}
-          onAddCube={() => setShowAddCubeDialog(true)}
-        />
-
-        {checklistsLoading ? <PageSkeleton variant="grid" /> : checklists.length === 0 ? <Card className="text-center py-12">
-            <CardContent>
-              <ClipboardCheck className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">No checklists yet</h3>
-              <p className="text-muted-foreground mb-4">Go to Tasks to create your first checklist</p>
-              <Button onClick={() => navigate('/tasks')}>Go to Tasks</Button>
-            </CardContent>
-          </Card> : (
-            <div className="space-y-6">
-              {quickTasksContent}
-              {dashboardContent}
+                </>
+              )}
             </div>
-          )}
-      </div>
-      
-      {/* Welcome animation overlay */}
-      {showWelcomeAnimation && (
-        <CrowSplashAnimation onComplete={() => setShowWelcomeAnimation(false)} />
-      )}
-      
+          </div>
+
+          {/* Edit Dashboard Dialog */}
+          <EditDashboardDialog
+            open={showEditDashboard}
+            onOpenChange={setShowEditDashboard}
+            cubes={dashboardCubes}
+            onUpdateCube={handleUpdateCube}
+            onDeleteCube={handleDeleteCube}
+            onAddCube={() => setShowAddCubeDialog(true)}
+          />
+
+          {checklistsLoading ? <PageSkeleton variant="grid" /> : checklists.length === 0 ? <Card className="text-center py-12">
+              <CardContent>
+                <ClipboardCheck className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No checklists yet</h3>
+                <p className="text-muted-foreground mb-4">Go to Tasks to create your first checklist</p>
+                <Button onClick={() => navigate('/tasks')}>Go to Tasks</Button>
+              </CardContent>
+            </Card> : (
+              <div className="space-y-6">
+                {quickTasksContent}
+                {dashboardContent}
+              </div>
+            )}
+        </div>
+        
+        {/* Welcome animation overlay */}
+        {showWelcomeAnimation && (
+          <CrowSplashAnimation onComplete={() => setShowWelcomeAnimation(false)} />
+        )}
+      </PullToRefresh>
     </Layout>;
 }
