@@ -173,7 +173,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       // Return in ascending order for display (newest at bottom)
       return messagesWithParent.reverse() as Message[];
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes - cache for background, but...
+    refetchOnMount: 'always', // Always fetch fresh when opening a chat
     enabled: !!chatId,
   });
 
