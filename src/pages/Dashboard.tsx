@@ -204,7 +204,7 @@ export default function Dashboard() {
   // Fetch location hours for current day of week
   const { data: locationSettings } = useQuery({
     queryKey: ["location-hours-today", currentLocation?.id],
-    staleTime: 5 * 60 * 1000, // 5 min cache - show instantly
+    staleTime: 10 * 60 * 1000, // 10 min cache - store hours don't change mid-day
     queryFn: async () => {
       if (!currentLocation) return null;
       const today = new Date();
@@ -231,7 +231,7 @@ export default function Dashboard() {
       };
     },
     enabled: !!currentLocation,
-    refetchInterval: 15000, // Refresh every 15 seconds
+    // No refetchInterval - store hours don't change mid-day, saves battery/network
   });
 
   // Check if location has active QuBeyond integration
