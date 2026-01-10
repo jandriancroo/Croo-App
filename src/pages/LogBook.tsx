@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +37,11 @@ import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { startOfWeek, endOfWeek, getDay, subDays } from "date-fns";
 import crooLogo from "@/assets/croo-logo.png";
 import { Building2 } from "lucide-react";
+
+// Cache time constants for LogBook
+const LOGBOOK_STALE_TIME = 5 * 60 * 1000; // 5 minutes for recent data
+const LOGBOOK_STALE_TIME_PAST = 30 * 60 * 1000; // 30 minutes for past dates (they rarely change)
+const LOGBOOK_GC_TIME = 60 * 60 * 1000; // 60 minutes - keep in cache
 
 export default function LogBook() {
   const { user } = useAuth();
@@ -170,6 +175,15 @@ export default function LogBook() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Check if viewing a past date for cache optimization
+  const isPastDate = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const selected = new Date(selectedDate);
+    selected.setHours(0, 0, 0, 0);
+    return selected < today;
+  }, [selectedDate]);
+
   // Fetch entry for selected date and category
   const { data: entry } = useQuery({
     queryKey: ['logbook-entry', selectedCategory, getDateInTimezone(selectedDate)],
@@ -189,14 +203,16 @@ export default function LogBook() {
       return data;
     },
     enabled: !!selectedCategory,
+    staleTime: isPastDate ? LOGBOOK_STALE_TIME_PAST : LOGBOOK_STALE_TIME,
+    gcTime: LOGBOOK_GC_TIME,
   });
 
-  // Fetch all entries for search
+  // Fetch all entries for search - don't include searchQuery in key (filter client-side)
   const { data: allEntries = [] } = useQuery({
-    queryKey: ['logbook-all-entries', searchQuery, currentLocation?.id],
+    queryKey: ['logbook-all-entries', currentLocation?.id],
     queryFn: async () => {
       if (!currentLocation) return [];
-      let query = supabase
+      const { data, error } = await supabase
         .from('logbook_entries')
         .select(`
           *,
@@ -208,11 +224,12 @@ export default function LogBook() {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
     enabled: !!currentLocation,
+    staleTime: LOGBOOK_STALE_TIME,
+    gcTime: LOGBOOK_GC_TIME,
   });
 
   // Find bank deposit category ID (create if doesn't exist)
@@ -238,6 +255,8 @@ export default function LogBook() {
       return data || [];
     },
     enabled: !!safeCountCategoryId && !!currentLocation,
+    staleTime: isPastDate ? LOGBOOK_STALE_TIME_PAST : LOGBOOK_STALE_TIME,
+    gcTime: LOGBOOK_GC_TIME,
   });
 
   // Fetch drawer count entries for selected date
@@ -256,6 +275,8 @@ export default function LogBook() {
       return data || [];
     },
     enabled: !!drawerCountCategoryId && !!currentLocation,
+    staleTime: isPastDate ? LOGBOOK_STALE_TIME_PAST : LOGBOOK_STALE_TIME,
+    gcTime: LOGBOOK_GC_TIME,
   });
 
   // Get existing shifts from safe count entries
