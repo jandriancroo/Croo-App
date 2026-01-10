@@ -869,7 +869,7 @@ export default function Dashboard() {
         cooldownMs={2 * 60 * 1000}
         onRefresh={handleRefresh}
       >
-        <div className="space-y-6">
+        <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold">Dash</h1>
             <div className="flex gap-2 items-center">
@@ -913,7 +913,7 @@ export default function Dashboard() {
                 <Button onClick={() => navigate('/tasks')}>Go to Tasks</Button>
               </CardContent>
             </Card> : (
-              <div className="space-y-6">
+              <div className="space-y-3">
                 {quickTasksContent}
                 {dashboardContent}
               </div>
