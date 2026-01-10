@@ -1245,8 +1245,8 @@ export default function PayrollReview() {
                           <CardTitle className="text-lg truncate">{period.label}</CardTitle>
                           {periodLabel && (
                             <Badge 
-                              variant={index === 0 ? "default" : "outline"} 
-                              className={`shrink-0 text-xs ${index === 1 ? 'text-muted-foreground' : ''}`}
+                              variant={index === 0 ? "default" : "secondary"}
+                              className="shrink-0 text-xs"
                             >
                               {periodLabel}
                             </Badge>
