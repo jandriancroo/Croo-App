@@ -36,7 +36,7 @@ import {
   DialogContent,
 } from '@/components/ui/dialog';
 
-const MESSAGES_PER_PAGE = 50;
+const MESSAGES_PER_PAGE = 25;
 
 interface ParentMessageData {
   content: string | null;
@@ -59,6 +59,7 @@ interface Message {
   };
   parent_message?: ParentMessageData[] | ParentMessageData | null;
   isPending?: boolean;
+  isNew?: boolean; // For fade-in animation
 }
 
 interface ChatDetails {
@@ -99,16 +100,32 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   const [earlierMessages, setEarlierMessages] = useState<Message[]>([]);
   const [hasMoreEarlier, setHasMoreEarlier] = useState(true);
   const [loadingEarlier, setLoadingEarlier] = useState(false);
+  const [showNewMessageBubble, setShowNewMessageBubble] = useState(false);
+  const [newMessageCount, setNewMessageCount] = useState(0);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const shouldScrollRef = useRef(true);
+  const isNearBottomRef = useRef(true);
+
+  // Check if user is near bottom of scroll
+  const checkIfNearBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return true;
+    const threshold = 150; // pixels from bottom
+    const isNear = container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
+    isNearBottomRef.current = isNear;
+    if (isNear) {
+      setShowNewMessageBubble(false);
+      setNewMessageCount(0);
+    }
+    return isNear;
+  }, []);
 
   const scrollToBottom = useCallback((instant = false) => {
-    if (shouldScrollRef.current) {
-      messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'auto' : 'smooth' });
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: instant ? 'auto' : 'smooth' });
+    setShowNewMessageBubble(false);
+    setNewMessageCount(0);
   }, []);
 
   const parseStorageObjectUrl = (url: string): { bucket: string; path: string } | null => {
@@ -168,7 +185,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     if (!hasMoreEarlier || loadingEarlier) return;
     
     setLoadingEarlier(true);
-    shouldScrollRef.current = false; // Don't auto-scroll when loading earlier
+    const scrollContainer = messagesContainerRef.current;
+    const scrollHeightBefore = scrollContainer?.scrollHeight || 0;
     
     try {
       const oldestMessage = messages[0];
@@ -218,13 +236,19 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
 
       // Prepend older messages (reverse to get ascending order)
       setEarlierMessages(prev => [...messagesWithParent.reverse(), ...prev]);
+      
+      // Maintain scroll position after prepending
+      requestAnimationFrame(() => {
+        if (scrollContainer) {
+          const scrollHeightAfter = scrollContainer.scrollHeight;
+          scrollContainer.scrollTop = scrollHeightAfter - scrollHeightBefore;
+        }
+      });
     } catch (error) {
       console.error('Error loading earlier messages:', error);
       toast.error('Failed to load earlier messages');
     } finally {
       setLoadingEarlier(false);
-      // Re-enable auto-scroll after a short delay
-      setTimeout(() => { shouldScrollRef.current = true; }, 100);
     }
   };
 
@@ -232,7 +256,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
   useEffect(() => {
     setEarlierMessages([]);
     setHasMoreEarlier(true);
-    shouldScrollRef.current = true;
+    setShowNewMessageBubble(false);
+    setNewMessageCount(0);
   }, [chatId]);
 
   // Resolve signed URLs for attachments
@@ -322,20 +347,31 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     }
   }, [chatId, chatDetails, currentUserId]);
 
-  // Mark chat as read using last_read_at (much simpler than per-message receipts)
+  // Mark chat as read IMMEDIATELY on chat open (not waiting for messages)
   useEffect(() => {
     if (!currentUserId || !chatId) return;
-    
-    // Update last_read_at once when viewing messages
     markChatAsRead(chatId, currentUserId);
-  }, [chatId, currentUserId, messages.length]);
+  }, [chatId, currentUserId]);
 
-  // Auto-scroll to bottom when messages load or new message arrives
+  // Track scroll position to enable smart auto-scroll
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    
+    const handleScroll = () => {
+      checkIfNearBottom();
+    };
+    
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [checkIfNearBottom]);
+
+  // Auto-scroll to bottom on initial load only
   useEffect(() => {
     if (messages.length > 0 && !messagesLoading) {
       setTimeout(() => scrollToBottom(true), 50);
     }
-  }, [recentMessages, messagesLoading, scrollToBottom]);
+  }, [messagesLoading]); // Only on loading state change, not every message
 
   // Realtime subscription - append new messages directly instead of refetching
   useEffect(() => {
@@ -365,6 +401,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             ...newMsg,
             profiles: profile || undefined,
             parent_message: null,
+            isNew: true, // Mark for fade-in animation
           };
 
           // Append to cache instead of refetching
@@ -380,8 +417,19 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             !(m.content === newMsg.content && m.sender_id === newMsg.sender_id)
           ));
 
-          shouldScrollRef.current = true;
-          setTimeout(() => scrollToBottom(), 50);
+          // Smart scroll: only auto-scroll if near bottom, otherwise show bubble
+          if (isNearBottomRef.current) {
+            setTimeout(() => scrollToBottom(), 50);
+          } else if (newMsg.sender_id !== currentUserId) {
+            // Show "new message" bubble for messages from others
+            setShowNewMessageBubble(true);
+            setNewMessageCount(prev => prev + 1);
+          }
+          
+          // Mark as read since chat is open
+          if (currentUserId) {
+            markChatAsRead(chatId, currentUserId);
+          }
         }
       )
       .subscribe();
@@ -389,7 +437,7 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [chatId, queryClient, scrollToBottom]);
+  }, [chatId, queryClient, scrollToBottom, currentUserId]);
 
   const handleSend = async () => {
     if (!newMessage.trim() && !uploading) return;
@@ -788,7 +836,17 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
       )}
 
       {/* Messages */}
-      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 scroll-smooth">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 scroll-smooth overscroll-contain">
+        {/* New Message Bubble */}
+        {showNewMessageBubble && (
+          <button
+            onClick={() => scrollToBottom()}
+            className="fixed bottom-32 left-1/2 -translate-x-1/2 z-20 bg-primary text-primary-foreground px-4 py-2 rounded-full shadow-lg flex items-center gap-2 animate-bounce hover:bg-primary/90 transition-colors"
+          >
+            <span>New message{newMessageCount > 1 ? `s (${newMessageCount})` : ''}</span>
+            <span className="text-lg">↓</span>
+          </button>
+        )}
         {/* Load Earlier Button */}
         {hasMoreEarlier && messages.length > 0 && (
           <div className="flex justify-center sticky top-0 z-10">
@@ -862,10 +920,9 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
             const showDateSeparator = !prevMessage || !isSameDay(messageDate, new Date(prevMessage.created_at));
             
             return (
-              <div key={message.id}>
+              <div key={message.id} className={message.isNew ? 'animate-fade-in' : ''}>
                 {showDateSeparator && <DateSeparator date={messageDate} />}
               <div
-                key={message.id}
                 className={`flex gap-2 sm:gap-3 ${isOwnMessage ? 'flex-row-reverse' : ''}`}
               >
                 <Avatar className="h-8 w-8 flex-shrink-0">
