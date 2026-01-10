@@ -362,8 +362,32 @@ export default function Schedule() {
       if (allProfilesResult.error) throw allProfilesResult.error;
       if (rolesResult.error) throw rolesResult.error;
 
-      const locationUserIds = new Set((userLocationsResult.data || []).map(ul => ul.user_id));
-      const locationProfiles = (allProfilesResult.data || []).filter(p => locationUserIds.has(p.id));
+      // user_locations is the roster source of truth, but if it comes back empty (RLS or caching),
+      // fall back to the users that are actually scheduled for the week so the UI never looks blank.
+      const locationUserIds = new Set((userLocationsResult.data || []).map((ul) => ul.user_id));
+      if (locationUserIds.size === 0 && shifts.length > 0) {
+        shifts.forEach((s) => {
+          if (s.user_id) locationUserIds.add(s.user_id);
+        });
+      }
+
+      let locationProfiles = (allProfilesResult.data || []).filter((p) => locationUserIds.has(p.id));
+
+      // Last-resort: if roster resolution still yields zero profiles but we *do* have shifts,
+      // fetch just the profiles that are on the schedule for this week.
+      if (locationProfiles.length === 0 && shifts.length > 0) {
+        const shiftUserIds = Array.from(
+          new Set(shifts.map((s) => s.user_id).filter(Boolean) as string[])
+        );
+        if (shiftUserIds.length > 0) {
+          const { data: shiftProfiles, error: shiftProfilesError } = await supabase
+            .from('profiles')
+            .select('id, full_name, profile_photo_url, hourly_wage, display_order, appears_on_schedule')
+            .in('id', shiftUserIds);
+          if (shiftProfilesError) throw shiftProfilesError;
+          locationProfiles = (shiftProfiles || []) as any;
+        }
+      }
       
       const profilesWithRoles = locationProfiles.map(profile => {
         const userRole = rolesResult.data?.find(r => r.user_id === profile.id);
@@ -551,8 +575,11 @@ export default function Schedule() {
 
   // Helper to refetch schedule data after mutations
   const fetchScheduleData = useCallback((showLoading = true) => {
+    // If we previously prefetched a lightweight week payload, force a fresh fetch
+    // so profiles/events/etc are always present.
+    queryClient.invalidateQueries({ queryKey: scheduleQueryKey });
     refetchSchedule();
-  }, [refetchSchedule]);
+  }, [queryClient, scheduleQueryKey, refetchSchedule]);
 
   const checkForConflicts = (userId: string, dayIndex: number, shiftDate: string) => {
     if (userId === "unassigned") return [];
@@ -869,11 +896,19 @@ export default function Schedule() {
   };
 
   const handlePreviousWeek = () => {
-    setCurrentWeekStart(subWeeks(currentWeekStart, 1));
+    const target = subWeeks(currentWeekStart, 1);
+    if (currentLocation?.id) {
+      queryClient.invalidateQueries({ queryKey: ['schedule', currentLocation.id, format(target, 'yyyy-MM-dd')] });
+    }
+    setCurrentWeekStart(target);
   };
 
   const handleNextWeek = () => {
-    setCurrentWeekStart(addWeeks(currentWeekStart, 1));
+    const target = addWeeks(currentWeekStart, 1);
+    if (currentLocation?.id) {
+      queryClient.invalidateQueries({ queryKey: ['schedule', currentLocation.id, format(target, 'yyyy-MM-dd')] });
+    }
+    setCurrentWeekStart(target);
   };
 
   // Compute if there are pending changes by comparing current shifts to snapshot
