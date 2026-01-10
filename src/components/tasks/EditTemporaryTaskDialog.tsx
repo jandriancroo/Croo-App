@@ -266,6 +266,7 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
         title: title.trim(),
         description: description.trim() || null,
         accent_color: accentColor,
+        push_enabled: pushEnabled,
       };
 
       if (taskStyle === "alarm") {
@@ -274,7 +275,6 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
         taskData.frequency_minutes = frequencyType !== "custom" ? parseInt(frequencyType) : null;
         taskData.custom_times = frequencyType === "custom" ? customTimes : null;
         taskData.notify_only_working = notifyOnlyWorking;
-        taskData.push_enabled = pushEnabled;
         taskData.show_on_punch_clock = showOnPunchClock;
       }
 
@@ -424,6 +424,26 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
             </Select>
           </div>
 
+          {/* Push Notification Toggle - for all task types */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-muted-foreground" />
+              <div className="space-y-0.5">
+                <Label>Push notifications</Label>
+                <p className="text-xs text-muted-foreground">
+                  {taskStyle === "alarm" 
+                    ? "Send push notification at each reminder time"
+                    : "Send push notification when task is created"
+                  }
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={pushEnabled}
+              onCheckedChange={setPushEnabled}
+            />
+          </div>
+
           {/* Alarm Task Fields */}
           {taskStyle === "alarm" && (
             <>
@@ -513,22 +533,6 @@ export function EditTemporaryTaskDialog({ open, onOpenChange, onSuccess, task }:
                 />
               </div>
 
-              {/* Push Notification Toggle */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Bell className="h-4 w-4 text-muted-foreground" />
-                  <div className="space-y-0.5">
-                    <Label>Push notifications</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Send push notification at each reminder time
-                    </p>
-                  </div>
-                </div>
-                <Switch
-                  checked={pushEnabled}
-                  onCheckedChange={setPushEnabled}
-                />
-              </div>
 
               {/* Show on Punch Clock Toggle */}
               <div className="flex items-center justify-between">
