@@ -151,7 +151,6 @@ export default function UserManagement() {
   const [editPhoneNumber, setEditPhoneNumber] = useState('');
   const [editBirthday, setEditBirthday] = useState<Date | undefined>();
   const [editEmployeePin, setEditEmployeePin] = useState<string>('');
-  const [availableLocations, setAvailableLocations] = useState<any[]>([]);
   const [editUserLocations, setEditUserLocations] = useState<string[]>([]);
   const [editAllLocationsEnabled, setEditAllLocationsEnabled] = useState(false);
   const [creatingTestUser, setCreatingTestUser] = useState(false);
@@ -279,12 +278,61 @@ export default function UserManagement() {
     enabled: canAccessPage && !!currentLocation?.id,
   });
 
-  // Fetch locations on mount
-  useEffect(() => {
-    if (canAccessPage && currentLocation) {
-      fetchLocations();
-    }
-  }, [canAccessPage, currentLocation]);
+  // Locations query with React Query (cached)
+  const { data: availableLocations = [] } = useQuery({
+    queryKey: ['user-management-locations', user?.id, isSuperAdmin],
+    staleTime: 10 * 60 * 1000, // 10 min - locations rarely change
+    gcTime: 60 * 60 * 1000, // 1 hour cache
+    queryFn: async () => {
+      // Super admins see all locations
+      if (isSuperAdmin) {
+        const { data, error } = await supabase
+          .from('locations')
+          .select('*')
+          .order('name', { ascending: true });
+        if (error) throw error;
+        return data || [];
+      }
+
+      // Check if user is an org admin (has organization membership)
+      const { data: orgMembership } = await supabase
+        .from('organization_members')
+        .select('organization_id')
+        .eq('user_id', user?.id)
+        .single();
+
+      if (orgMembership?.organization_id) {
+        // Org admins see all locations in their organization
+        const { data, error } = await supabase
+          .from('locations')
+          .select('*')
+          .eq('organization_id', orgMembership.organization_id)
+          .order('name', { ascending: true });
+        if (error) throw error;
+        return data || [];
+      }
+
+      // Other admins/managers see only their assigned locations
+      const { data: userLocationIds } = await supabase
+        .from('user_locations')
+        .select('location_id')
+        .eq('user_id', user?.id);
+
+      if (userLocationIds && userLocationIds.length > 0) {
+        const locationIds = userLocationIds.map(ul => ul.location_id);
+        const { data, error } = await supabase
+          .from('locations')
+          .select('*')
+          .in('id', locationIds)
+          .order('name', { ascending: true });
+        if (error) throw error;
+        return data || [];
+      }
+      
+      return [];
+    },
+    enabled: canAccessPage && !!user?.id,
+  });
   
   // Helper to check if current user can edit a specific user's profile
   const canEditUser = (userId: string) => {
@@ -365,63 +413,6 @@ export default function UserManagement() {
     }
   };
 
-  const fetchLocations = async () => {
-    try {
-      // Super admins see all locations
-      if (isSuperAdmin) {
-        const { data, error } = await supabase
-          .from('locations')
-          .select('*')
-          .order('name', { ascending: true });
-
-        if (error) throw error;
-        setAvailableLocations(data || []);
-        return;
-      }
-
-      // Check if user is an org admin (has organization membership)
-      const { data: orgMembership } = await supabase
-        .from('organization_members')
-        .select('organization_id')
-        .eq('user_id', user?.id)
-        .single();
-
-      if (orgMembership?.organization_id) {
-        // Org admins see all locations in their organization
-        const { data, error } = await supabase
-          .from('locations')
-          .select('*')
-          .eq('organization_id', orgMembership.organization_id)
-          .order('name', { ascending: true });
-
-        if (error) throw error;
-        setAvailableLocations(data || []);
-        return;
-      }
-
-      // Other admins/managers see only their assigned locations
-      const { data: userLocationIds } = await supabase
-        .from('user_locations')
-        .select('location_id')
-        .eq('user_id', user?.id);
-
-      if (userLocationIds && userLocationIds.length > 0) {
-        const locationIds = userLocationIds.map(ul => ul.location_id);
-        const { data, error } = await supabase
-          .from('locations')
-          .select('*')
-          .in('id', locationIds)
-          .order('name', { ascending: true });
-
-        if (error) throw error;
-        setAvailableLocations(data || []);
-      } else {
-        setAvailableLocations([]);
-      }
-    } catch (error: any) {
-      console.error('Error fetching locations:', error);
-    }
-  };
 
   const fetchWageHistory = async (userId: string) => {
     try {

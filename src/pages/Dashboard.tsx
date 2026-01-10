@@ -470,6 +470,17 @@ export default function Dashboard() {
     }
   }, [checklists]);
 
+  // Prefetch UserManagement data for admins/managers (instant load on navigation)
+  useEffect(() => {
+    if (!user?.id || !currentLocation?.id || !(isAdmin || isManager)) return;
+    
+    // Prefetch user management data so it's instant when they navigate
+    queryClient.prefetchQuery({
+      queryKey: ['user-management-users', currentLocation.id],
+      staleTime: 5 * 60 * 1000, // Match UserManagement staleTime
+    });
+  }, [user?.id, currentLocation?.id, isAdmin, isManager, queryClient]);
+
   const loadCompletionData = async () => {
     if (!checklists.length || !currentLocation?.id) return;
     
