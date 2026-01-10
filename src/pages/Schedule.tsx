@@ -507,7 +507,10 @@ export default function Schedule() {
             availabilityRequests: [],
           };
         },
-        staleTime: weekStart < todayStart ? SCHEDULE_STALE_TIME_PAST : SCHEDULE_STALE_TIME,
+        // IMPORTANT: this prefetch is intentionally lightweight. Mark it stale immediately
+        // so that when the user navigates to that week, the full queryFn runs and
+        // fills in profiles/events/etc.
+        staleTime: 0,
       });
     };
 
