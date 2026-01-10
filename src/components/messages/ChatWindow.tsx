@@ -366,12 +366,12 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     return () => container.removeEventListener('scroll', handleScroll);
   }, [checkIfNearBottom]);
 
-  // Auto-scroll to bottom on initial load only
+  // Auto-scroll to bottom when opening a chat (any chat, cached or not)
   useEffect(() => {
     if (messages.length > 0 && !messagesLoading) {
       setTimeout(() => scrollToBottom(true), 50);
     }
-  }, [messagesLoading]); // Only on loading state change, not every message
+  }, [chatId, messagesLoading]); // Trigger on chatId change too for cached chats
 
   // Realtime subscription - append new messages directly instead of refetching
   useEffect(() => {
