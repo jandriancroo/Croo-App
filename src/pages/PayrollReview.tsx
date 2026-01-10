@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { format, addDays, addWeeks, startOfWeek, endOfWeek, isSameWeek } from 'date-fns';
+import { formatInTimeZone } from 'date-fns-tz';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
@@ -525,9 +526,53 @@ export default function PayrollReview() {
         const creatorMap = new Map((creatorProfiles || []).map(p => [p.id, p.full_name]));
 
         // Group punches by day (in the location timezone) and attach creator names
+        // IMPORTANT: Handle overnight shifts - if a clock_out is early AM (before 6 AM) without
+        // a clock_in on the same day, associate it with the previous day's shift
         const punchesByDay: { [key: string]: any[] } = {};
-        punches?.forEach((punch) => {
-          const day = getDateInTimezone(new Date(punch.punch_time), timezone);
+        const allPunches = punches || [];
+        
+        // First pass: identify all clock_ins by day
+        const clockInsByDay = new Map<string, any>();
+        allPunches.forEach((punch) => {
+          if (punch.punch_type === 'clock_in') {
+            const day = getDateInTimezone(new Date(punch.punch_time), timezone);
+            clockInsByDay.set(day, punch);
+          }
+        });
+        
+        allPunches.forEach((punch) => {
+          const punchTime = new Date(punch.punch_time);
+          let day = getDateInTimezone(punchTime, timezone);
+          
+          // Check if this is an overnight clock_out (early AM without clock_in on same day)
+          if (punch.punch_type === 'clock_out') {
+            const punchHour = parseInt(formatInTimeZone(punchTime, timezone, 'H'));
+            // If clock_out is before 6 AM and no clock_in exists on this day
+            if (punchHour < 6 && !clockInsByDay.has(day)) {
+              // Move to previous day
+              const prevDate = new Date(punchTime);
+              prevDate.setDate(prevDate.getDate() - 1);
+              const prevDay = getDateInTimezone(prevDate, timezone);
+              // Only reassign if previous day has a clock_in
+              if (clockInsByDay.has(prevDay)) {
+                day = prevDay;
+              }
+            }
+          }
+          
+          // Also handle break_end that might belong to previous day's overnight shift
+          if (punch.punch_type === 'break_end') {
+            const punchHour = parseInt(formatInTimeZone(punchTime, timezone, 'H'));
+            if (punchHour < 6 && !clockInsByDay.has(day)) {
+              const prevDate = new Date(punchTime);
+              prevDate.setDate(prevDate.getDate() - 1);
+              const prevDay = getDateInTimezone(prevDate, timezone);
+              if (clockInsByDay.has(prevDay)) {
+                day = prevDay;
+              }
+            }
+          }
+          
           if (!punchesByDay[day]) punchesByDay[day] = [];
           // Attach creator name if different from employee
           const createdByName = punch.created_by && punch.created_by !== profile.id
