@@ -1,10 +1,10 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, Bug, RefreshCcw } from 'lucide-react';
+import { ChevronDown, TrendingUp, TrendingDown, Package, Sparkles, Bug, RefreshCcw, Radio } from 'lucide-react';
 import { ResponsiveContainer, Tooltip, ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
 import { format, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isSameDay, isSameWeek, isSameMonth } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -77,6 +77,9 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
   const isBackgroundRefreshing = useRef(false);
   const lastIntegrationErrorKey = useRef<string | null>(null);
   const lastSalesDataSentKey = useRef<string>("");
+  const [lastFetchTimestamp, setLastFetchTimestamp] = useState<Date | null>(null);
+  const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const visibilityRefreshInterval = useRef<NodeJS.Timeout | null>(null);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', { 
@@ -497,11 +500,18 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     return cached.isStale ? 0 : Date.now();
   }, [isTodayQuery, currentLocation?.id]);
   
-  const { data: rawSalesData, isLoading, refetch } = useQuery({
+  const { data: rawSalesData, isLoading, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["qubeyond-sales", currentLocation?.id, getDateString(targetDate)],
-    queryFn: fetchSalesData,
+    queryFn: async () => {
+      const data = await fetchSalesData();
+      // Track when we last fetched live data
+      if (isTodayQuery && data) {
+        setLastFetchTimestamp(new Date());
+      }
+      return data;
+    },
     enabled: !!currentLocation?.id,
-    staleTime: isTodayQuery ? 5 * 60 * 1000 : 0, // Historical dates always refetch from DB cache
+    staleTime: isTodayQuery ? 15 * 60 * 1000 : 0, // 15 min stale time for today, historical always refetch
     gcTime: isTodayQuery ? 30 * 60 * 1000 : 0, // Don't cache historical queries in memory
     refetchOnWindowFocus: true, // Refresh when user tabs back
     initialData,
@@ -520,6 +530,106 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       });
     }
   }, [currentLocation?.id, targetDate, refetch]);
+
+  // Visibility-based auto-refresh: only refresh when dashboard is visible/focused
+  // This prevents unnecessary API calls when user isn't looking at the dashboard
+  useEffect(() => {
+    if (!currentLocation?.id) return;
+
+    const VISIBILITY_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+
+    const handleVisibilityChange = () => {
+      // Clear any existing interval
+      if (visibilityRefreshInterval.current) {
+        clearInterval(visibilityRefreshInterval.current);
+        visibilityRefreshInterval.current = null;
+      }
+
+      // If page becomes visible and we're viewing today, start refresh interval
+      if (document.visibilityState === 'visible' && isSameDay(targetDate, new Date())) {
+        // Check if data is stale and refresh immediately if so
+        const timeSinceLastFetch = lastFetchTimestamp ? Date.now() - lastFetchTimestamp.getTime() : Infinity;
+        if (timeSinceLastFetch > VISIBILITY_REFRESH_INTERVAL) {
+          refetch();
+        }
+
+        // Start interval for periodic refresh while visible
+        visibilityRefreshInterval.current = setInterval(() => {
+          if (document.visibilityState === 'visible' && !isBackgroundRefreshing.current) {
+            isBackgroundRefreshing.current = true;
+            refetch().finally(() => {
+              isBackgroundRefreshing.current = false;
+            });
+          }
+        }, VISIBILITY_REFRESH_INTERVAL);
+      }
+    };
+
+    // Set up visibility listener
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Initial check - if page is already visible, start interval
+    if (document.visibilityState === 'visible' && isSameDay(targetDate, new Date())) {
+      visibilityRefreshInterval.current = setInterval(() => {
+        if (document.visibilityState === 'visible' && !isBackgroundRefreshing.current) {
+          isBackgroundRefreshing.current = true;
+          refetch().finally(() => {
+            isBackgroundRefreshing.current = false;
+          });
+        }
+      }, VISIBILITY_REFRESH_INTERVAL);
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (visibilityRefreshInterval.current) {
+        clearInterval(visibilityRefreshInterval.current);
+      }
+    };
+  }, [currentLocation?.id, targetDate, refetch, lastFetchTimestamp]);
+
+  // Manual refresh handler
+  const handleManualRefresh = useCallback(async () => {
+    if (isManualRefreshing) return;
+    
+    setIsManualRefreshing(true);
+    try {
+      await refetch();
+      toast.success('Sales data refreshed');
+    } catch (error) {
+      console.error('Manual refresh failed:', error);
+    } finally {
+      setIsManualRefreshing(false);
+    }
+  }, [refetch, isManualRefreshing]);
+
+  // Calculate how long ago data was fetched
+  const dataAgeText = useMemo(() => {
+    if (!lastFetchTimestamp) return null;
+    
+    const ageMs = Date.now() - lastFetchTimestamp.getTime();
+    const ageMinutes = Math.floor(ageMs / 60000);
+    
+    if (ageMinutes < 1) return 'Just now';
+    if (ageMinutes === 1) return '1 min ago';
+    if (ageMinutes < 60) return `${ageMinutes} min ago`;
+    
+    const ageHours = Math.floor(ageMinutes / 60);
+    if (ageHours === 1) return '1 hour ago';
+    return `${ageHours} hours ago`;
+  }, [lastFetchTimestamp]);
+
+  // Update data age text every minute
+  const [, forceUpdate] = useState(0);
+  useEffect(() => {
+    if (!lastFetchTimestamp) return;
+    
+    const interval = setInterval(() => {
+      forceUpdate(n => n + 1);
+    }, 60000); // Update every minute
+    
+    return () => clearInterval(interval);
+  }, [lastFetchTimestamp]);
 
   // Convert hourly data to 12-hour format and filter to business hours only
   const salesData = useMemo(() => {
