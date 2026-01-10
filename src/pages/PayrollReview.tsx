@@ -257,7 +257,10 @@ export default function PayrollReview() {
   const [deleteConfirmation, setDeleteConfirmation] = useState<{ dayPunches: any[], shiftDate: string } | null>(null);
   const [laborRules, setLaborRules] = useState<any>(null);
 
-  // Tip distribution hook
+  // Check if current period is closed (for tip fetching optimization)
+  const periodClosedForTips = selectedPeriod?.startDate && periodStatuses[selectedPeriod.startDate]?.status === 'closed';
+
+  // Tip distribution hook - only fetch when period is closed (for export/summary)
   const { 
     isLoading: tipsLoading, 
     employeeTipShares, 
@@ -269,7 +272,8 @@ export default function PayrollReview() {
     currentLocation?.id || null,
     selectedPeriod?.start || null,
     selectedPeriod?.end || null,
-    timeCards
+    timeCards,
+    periodClosedForTips // Only fetch tips when period is closed
   );
 
   useEffect(() => {
