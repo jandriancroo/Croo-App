@@ -297,8 +297,8 @@ export default function Settings() {
 
   return (
     <Layout>
-      <div className="space-y-6">
-        <div>
+      <div className="space-y-4">
+        <div className="pb-2 border-b border-border/40">
           <h1 className="text-3xl font-bold">Settings</h1>
           <p className="text-muted-foreground">Manage your preferences</p>
         </div>

@@ -1221,7 +1221,7 @@ export default function LogBook() {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-2 border-b border-border/40 mb-4">
           <h1 className="text-3xl font-bold">Logs</h1>
           {isAdmin && (
             <Button variant="outline" size="sm" onClick={() => setManageCategoriesOpen(true)}>

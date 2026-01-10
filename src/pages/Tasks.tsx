@@ -489,9 +489,9 @@ export default function Tasks() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-4">
         <Tabs defaultValue="history" className="w-full">
-          <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4 mb-6">
+          <div className="flex justify-between items-start sm:items-center flex-col sm:flex-row gap-4 pb-2 border-b border-border/40 mb-4">
             <div className="space-y-3">
               <h1 className="text-3xl font-bold">Tasks</h1>
               <TabsList>
