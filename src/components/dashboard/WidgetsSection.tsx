@@ -655,7 +655,7 @@ export function WidgetsSection({
   const salesChart = localCubes.find(c => c.cubeType === 'sales-chart');
 
   return (
-    <div className="space-y-4 md:max-w-[970px] md:mx-auto">
+    <div className="space-y-4 w-full">
       {/* Data Cubes Row */}
       {dataCubes.length > 0 && (
         <DndContext
