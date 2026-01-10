@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
+import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { PageSkeleton } from '@/components/ui/page-skeleton';
 import { Button } from '@/components/ui/button';
@@ -870,29 +871,32 @@ export default function Dashboard() {
         onRefresh={handleRefresh}
       >
         <div className="space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-border/40">
-            <h1 className="text-3xl font-bold">Dash</h1>
-            <div className="flex gap-2 items-center">
-              {/* Hide reorder/edit buttons for role-based cube users (cubes locked by Org Admin) */}
-              {!shouldUseRoleCubes && (
-                <>
-                  {hasQuBeyondIntegration && canSeeSales && (
-                    <Button 
-                      onClick={toggleEditMode} 
-                      variant={isEditMode ? "default" : "ghost"}
-                      size="icon" 
-                      className="h-10 w-10" 
-                      title={isEditMode ? "Done Reordering" : "Reorder Cubes"}
-                    >
-                      <ArrowUpDown className="h-4 w-4" />
+          <div>
+            <div className="flex items-center justify-between">
+              <h1 className="text-3xl font-bold">Dash</h1>
+              <div className="flex gap-2 items-center">
+                {/* Hide reorder/edit buttons for role-based cube users (cubes locked by Org Admin) */}
+                {!shouldUseRoleCubes && (
+                  <>
+                    {hasQuBeyondIntegration && canSeeSales && (
+                      <Button 
+                        onClick={toggleEditMode} 
+                        variant={isEditMode ? "default" : "ghost"}
+                        size="icon" 
+                        className="h-10 w-10" 
+                        title={isEditMode ? "Done Reordering" : "Reorder Cubes"}
+                      >
+                        <ArrowUpDown className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button onClick={() => setShowEditDashboard(true)} variant="ghost" size="icon" className="h-10 w-10" title="Edit Dashboard">
+                      <Settings2 className="h-4 w-4" />
                     </Button>
-                  )}
-                  <Button onClick={() => setShowEditDashboard(true)} variant="ghost" size="icon" className="h-10 w-10" title="Edit Dashboard">
-                    <Settings2 className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
+                  </>
+                )}
+              </div>
             </div>
+            <PageHeaderDivider />
           </div>
 
           {/* Edit Dashboard Dialog */}

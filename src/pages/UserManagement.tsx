@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
+import { PageHeaderDivider } from '@/components/ui/page-header-divider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -1308,8 +1309,11 @@ export default function UserManagement() {
 
   return (
     <Layout>
-      <div className="container mx-auto p-4 md:p-6 space-y-6 max-w-full md:max-w-7xl">
-        <h1 className="text-3xl font-bold">User Management</h1>
+      <div className="container mx-auto p-4 md:p-6 space-y-4 max-w-full md:max-w-7xl">
+        <div>
+          <h1 className="text-3xl font-bold">User Management</h1>
+          <PageHeaderDivider />
+        </div>
         {isAdmin && <InviteLinkCard />}
         <Card>
           <CardHeader>

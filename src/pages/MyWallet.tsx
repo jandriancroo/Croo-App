@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
+import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
@@ -249,13 +250,14 @@ export default function MyWallet() {
   return (
     <Layout>
       <div className="space-y-4">
-        <div className="pb-2 border-b border-border/40">
+        <div>
           <h1 className="text-3xl font-bold">My Wallet</h1>
           <p className="text-muted-foreground">
             {currentPayPeriod && (
               <>Pay Period: {format(parseISO(currentPayPeriod.start_date), "MMM d")} - {format(parseISO(currentPayPeriod.end_date), "MMM d, yyyy")}</>
             )}
           </p>
+          <PageHeaderDivider />
         </div>
 
         {/* Hours & Earnings Summary */}
