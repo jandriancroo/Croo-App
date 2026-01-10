@@ -180,7 +180,8 @@ export default function UserManagement() {
   // Users query with React Query (cached, instant on revisit)
   const { data: users = [], isLoading: loading, refetch: refetchUsers } = useQuery({
     queryKey: ['user-management-users', currentLocation?.id],
-    staleTime: 2 * 60 * 1000, // 2 min cache
+    staleTime: 5 * 60 * 1000, // 5 min - user list doesn't change often
+    gcTime: 30 * 60 * 1000, // Keep in cache for 30 min
     queryFn: async () => {
       if (!currentLocation?.id) return [];
       
@@ -196,8 +197,8 @@ export default function UserManagement() {
       const userIds = userLocations?.map(ul => ul.user_id) || [];
       if (userIds.length === 0) return [];
 
-      // Fetch profiles, roles, availability, and wages in parallel
-      const [profilesResult, rolesResult, availabilityResult, wageHistoryResult] = await Promise.all([
+      // Fetch profiles, roles, availability, wages, AND certifications in parallel
+      const [profilesResult, rolesResult, availabilityResult, wageHistoryResult, certificationsResult] = await Promise.all([
         supabase
           .from('profiles')
           .select('*')
@@ -217,7 +218,13 @@ export default function UserManagement() {
           .select('user_id, hourly_wage, effective_date')
           .in('user_id', userIds)
           .lte('effective_date', getTodayInPST())
-          .order('effective_date', { ascending: false })
+          .order('effective_date', { ascending: false }),
+        supabase
+          .from('certifications')
+          .select('user_id, status, expiration_date')
+          .in('user_id', userIds)
+          .eq('status', 'approved')
+          .gte('expiration_date', getTodayInPST())
       ]);
 
       if (profilesResult.error) throw profilesResult.error;
@@ -251,17 +258,9 @@ export default function UserManagement() {
         }
       }
 
-      // Fetch certifications
-      const { data: certifications } = await supabase
-        .from('certifications')
-        .select('user_id, status, expiration_date')
-        .in('user_id', profiles.map(p => p.id))
-        .eq('status', 'approved')
-        .gte('expiration_date', getTodayInPST());
-
-      // Create map of user certifications
+      // Create map of user certifications (already fetched in parallel)
       const certificationMap = new Map(
-        certifications?.map(cert => [cert.user_id, true]) || []
+        certificationsResult.data?.map(cert => [cert.user_id, true]) || []
       );
 
       // Merge profiles with their roles, hours, current wages, and certification status
