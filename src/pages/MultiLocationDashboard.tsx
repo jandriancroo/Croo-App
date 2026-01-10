@@ -23,6 +23,7 @@ import {
 import { format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth, subYears } from 'date-fns';
 import { ResponsiveContainer, ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
 import { getCachedLiveSales, setCachedLiveSales } from '@/utils/salesCache';
+import { PullToRefresh, setLastSyncTime } from '@/components/PullToRefresh';
 
 interface ChecklistMetric {
   id: string;
@@ -115,6 +116,10 @@ export default function MultiLocationDashboard() {
   const [hasAccess, setHasAccess] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [defaultLocationId, setDefaultLocationId] = useState<string | null>(null);
+  const [displayTimestamp, setDisplayTimestamp] = useState<Date>(new Date());
+
+  // Query key for pull-to-refresh tracking
+  const REFRESH_QUERY_KEY = [['multi-location-dashboard']];
 
   // Show cached data immediately while fetching fresh data
   useEffect(() => {
@@ -360,6 +365,9 @@ export default function MultiLocationDashboard() {
       // Set initial data immediately (fast first paint)
       setLocations(initialMetrics);
       setLoading(false);
+      setDisplayTimestamp(new Date());
+      // Mark this as the initial sync time for pull-to-refresh throttling
+      setLastSyncTime('multi-location-dashboard');
 
       // Fetch sales data in parallel for locations with QuBeyond
       const locationsWithQuBeyond = initialMetrics.filter(l => l.hasQuBeyond);
@@ -699,40 +707,57 @@ export default function MultiLocationDashboard() {
     );
   }
 
+  // Handle pull-to-refresh callback
+  const handleRefresh = useCallback((timestamp: Date, wasActualRefresh: boolean) => {
+    setDisplayTimestamp(timestamp);
+    if (wasActualRefresh) {
+      // Trigger actual data refetch
+      checkAccessAndFetchData();
+    }
+  }, []);
+
   return (
     <Layout>
-      <div className="space-y-6">
-        {/* Header with gradient accent */}
-        <div className="relative">
-          <div className="absolute -inset-x-4 -top-4 h-32 bg-gradient-to-br from-primary/5 via-primary/10 to-transparent rounded-3xl -z-10" />
-          <div className="flex items-end justify-between">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
-              <p className="text-muted-foreground mt-1">
-                {format(new Date(), 'EEEE, MMMM d, yyyy')}
-              </p>
-            </div>
-            <Badge variant="outline" className="text-xs font-medium">
-              {locations.length} locations
-            </Badge>
-          </div>
-        </div>
-
-        {/* Search bar - only show when more than 5 locations */}
-        {locations.length > 5 && (
+      <PullToRefresh
+        queryKeys={REFRESH_QUERY_KEY}
+        cooldownMs={2 * 60 * 1000}
+        onRefresh={handleRefresh}
+      >
+        <div className="space-y-6 pb-6">
+          {/* Header with gradient accent */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search locations..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+            <div className="absolute -inset-x-4 -top-4 h-32 bg-gradient-to-br from-primary/5 via-primary/10 to-transparent rounded-3xl -z-10" />
+            <div className="flex items-end justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Overview</h1>
+                <p className="text-muted-foreground mt-1 flex items-center gap-2">
+                  {format(new Date(), 'EEEE, MMMM d, yyyy')}
+                  <span className="text-xs text-muted-foreground/60">
+                    • {format(displayTimestamp, 'h:mm a')}
+                  </span>
+                </p>
+              </div>
+              <Badge variant="outline" className="text-xs font-medium">
+                {locations.length} locations
+              </Badge>
+            </div>
           </div>
-        )}
 
-        {/* Location Cards */}
-        <div className="space-y-3">
+          {/* Search bar - only show when more than 5 locations */}
+          {locations.length > 5 && (
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search locations..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          )}
+
+          {/* Location Cards */}
+          <div className="space-y-3">
           {sortedAndFilteredLocations.map((loc, index) => (
             <Card 
               key={loc.id} 
@@ -935,8 +960,9 @@ export default function MultiLocationDashboard() {
               </CardContent>
             </Card>
           ))}
+          </div>
         </div>
-      </div>
+      </PullToRefresh>
     </Layout>
   );
 }

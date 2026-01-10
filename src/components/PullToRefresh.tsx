@@ -1,11 +1,25 @@
-import { useState, useRef, ReactNode } from 'react';
+import { useState, useRef, ReactNode, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface PullToRefreshProps {
   children: ReactNode;
+  /** Query keys to invalidate on refresh. If not provided, all queries are invalidated. */
+  queryKeys?: string[][];
+  /** Cooldown in milliseconds. Default: 2 minutes */
+  cooldownMs?: number;
+  /** Callback when refresh completes, passes the display timestamp */
+  onRefresh?: (displayTimestamp: Date, wasActualRefresh: boolean) => void;
 }
 
-export const PullToRefresh = ({ children }: PullToRefreshProps) => {
+// Track last actual sync time globally per cache key
+const lastSyncTimes: Record<string, number> = {};
+
+export const PullToRefresh = ({ 
+  children, 
+  queryKeys,
+  cooldownMs = 2 * 60 * 1000, // 2 minutes default
+  onRefresh 
+}: PullToRefreshProps) => {
   const queryClient = useQueryClient();
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -14,6 +28,12 @@ export const PullToRefresh = ({ children }: PullToRefreshProps) => {
   const isPulling = useRef(false);
 
   const threshold = 80;
+
+  // Generate a cache key from query keys for tracking sync time
+  const getCacheKey = useCallback(() => {
+    if (!queryKeys || queryKeys.length === 0) return 'global';
+    return queryKeys.map(k => k.join('-')).join('|');
+  }, [queryKeys]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     const container = containerRef.current;
@@ -47,11 +67,35 @@ export const PullToRefresh = ({ children }: PullToRefreshProps) => {
       setIsRefreshing(true);
       setPullDistance(threshold * 0.6);
       
-      // Invalidate queries with a timeout so it doesn't hang
-      const refreshPromise = queryClient.invalidateQueries();
-      const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
+      const cacheKey = getCacheKey();
+      const lastSync = lastSyncTimes[cacheKey] || 0;
+      const timeSinceSync = Date.now() - lastSync;
+      const isWithinCooldown = timeSinceSync < cooldownMs;
       
-      await Promise.race([refreshPromise, timeoutPromise]);
+      // Animation always plays, but behavior differs based on cooldown
+      if (isWithinCooldown) {
+        // Silent refresh - use cached data but update display timestamp
+        // Quick animation (feels responsive)
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Notify parent with display timestamp, mark as cached refresh
+        onRefresh?.(new Date(), false);
+      } else {
+        // Actual refresh - invalidate queries and update sync time
+        const refreshPromise = queryKeys && queryKeys.length > 0
+          ? Promise.all(queryKeys.map(key => queryClient.invalidateQueries({ queryKey: key })))
+          : queryClient.invalidateQueries();
+        
+        const timeoutPromise = new Promise(resolve => setTimeout(resolve, 2000));
+        
+        await Promise.race([refreshPromise, timeoutPromise]);
+        
+        // Update last sync time
+        lastSyncTimes[cacheKey] = Date.now();
+        
+        // Notify parent with display timestamp, mark as actual refresh
+        onRefresh?.(new Date(), true);
+      }
       
       setIsRefreshing(false);
     }
@@ -121,4 +165,14 @@ export const PullToRefresh = ({ children }: PullToRefreshProps) => {
       {children}
     </div>
   );
+};
+
+// Export helper to manually set sync time (useful for initial load)
+export const setLastSyncTime = (cacheKey: string, timestamp: number = Date.now()) => {
+  lastSyncTimes[cacheKey] = timestamp;
+};
+
+// Export helper to get last sync time
+export const getLastSyncTime = (cacheKey: string): number | null => {
+  return lastSyncTimes[cacheKey] || null;
 };
