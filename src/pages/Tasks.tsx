@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { PageSkeleton } from "@/components/ui/page-skeleton";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { TemplateTypeDialog } from "@/components/TemplateTypeDialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { format, addDays, subDays } from "date-fns";
+import { format, addDays, subDays, eachDayOfInterval } from "date-fns";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { SortableChecklistItem } from '@/components/tasks/SortableChecklistItem';
@@ -224,9 +224,12 @@ export default function Tasks() {
   });
 
   // Fetch completion history for selected date (location-filtered)
+  // Historical data is immutable - cache for 1 hour, today's data refreshes more often
+  const isHistoryToday = format(historyDate, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
   const { data: historyStats } = useQuery({
     queryKey: ['completion-history', format(historyDate, 'yyyy-MM-dd'), user?.id, currentLocation?.id],
-    staleTime: 2 * 60 * 1000, // 2 min cache - show cached instantly
+    staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000, // Today: 2 min, Past: 1 hour
+    gcTime: isHistoryToday ? 10 * 60 * 1000 : 60 * 60 * 1000, // Keep in cache same duration
     queryFn: async () => {
       if (!currentLocation?.id) return [];
       
@@ -370,8 +373,11 @@ export default function Tasks() {
   });
 
   // Fetch completed quick tasks for selected date
+  // Historical data is immutable - cache for 1 hour, today's data refreshes more often
   const { data: completedTempTasks = [] } = useQuery({
     queryKey: ['completed-temp-tasks', format(historyDate, 'yyyy-MM-dd'), currentLocation?.id],
+    staleTime: isHistoryToday ? 2 * 60 * 1000 : 60 * 60 * 1000,
+    gcTime: isHistoryToday ? 10 * 60 * 1000 : 60 * 60 * 1000,
     queryFn: async () => {
       if (!currentLocation?.id) return [];
 
@@ -439,6 +445,33 @@ export default function Tasks() {
     },
     enabled: !!currentLocation?.id,
   });
+
+  // Prefetch past 14 days of history for instant navigation (same pattern as Schedule)
+  useEffect(() => {
+    if (!user?.id || !currentLocation?.id) return;
+    
+    const today = new Date();
+    const pastDates = eachDayOfInterval({
+      start: subDays(today, 14),
+      end: subDays(today, 1) // Don't prefetch today - it's fetched by current query
+    });
+
+    pastDates.forEach(date => {
+      const dateStr = format(date, 'yyyy-MM-dd');
+      
+      // Prefetch completion-history for each past day
+      queryClient.prefetchQuery({
+        queryKey: ['completion-history', dateStr, user.id, currentLocation.id],
+        staleTime: 60 * 60 * 1000, // 1 hour for historical data
+      });
+      
+      // Prefetch completed-temp-tasks for each past day
+      queryClient.prefetchQuery({
+        queryKey: ['completed-temp-tasks', dateStr, currentLocation.id],
+        staleTime: 60 * 60 * 1000, // 1 hour for historical data
+      });
+    });
+  }, [user?.id, currentLocation?.id, queryClient]);
 
   // Use timezone-aware day of week for display
   const currentDayIndex = getDayOfWeekInTimezone(timezone);
