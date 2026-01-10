@@ -407,11 +407,14 @@ export default function PunchClock() {
     };
   }, []);
 
+  // Fetch all user data in parallel after PIN verification
   useEffect(() => {
     if (currentUser) {
-      checkTodayShift();
-      checkLastPunch();
-      checkExpiringCertifications();
+      Promise.all([
+        checkTodayShift(),
+        checkLastPunch(),
+        checkExpiringCertifications()
+      ]);
     }
   }, [currentUser]);
 
@@ -588,7 +591,7 @@ export default function PunchClock() {
       .select('*')
       .eq('user_id', currentUser.id)
       .eq('shift_date', today)
-      .single();
+      .maybeSingle();
 
     setTodayShift(data);
   };
@@ -604,7 +607,7 @@ export default function PunchClock() {
       .gte('punch_time', today)
       .order('punch_time', { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     setLastPunch(data || null);
   };
