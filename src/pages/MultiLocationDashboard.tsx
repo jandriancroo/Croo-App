@@ -676,6 +676,15 @@ export default function MultiLocationDashboard() {
     { clockedIn: 0, scheduled: 0, checklistsCompleted: 0, totalChecklists: 0 }
   );
 
+  // Handle pull-to-refresh callback - MUST be before early returns (Rules of Hooks)
+  const handleRefresh = useCallback((timestamp: Date, wasActualRefresh: boolean) => {
+    setDisplayTimestamp(timestamp);
+    if (wasActualRefresh) {
+      // Trigger actual data refetch
+      checkAccessAndFetchData();
+    }
+  }, []);
+
   if (loading && locations.length === 0) {
     return (
       <Layout>
@@ -706,15 +715,6 @@ export default function MultiLocationDashboard() {
       </Layout>
     );
   }
-
-  // Handle pull-to-refresh callback
-  const handleRefresh = useCallback((timestamp: Date, wasActualRefresh: boolean) => {
-    setDisplayTimestamp(timestamp);
-    if (wasActualRefresh) {
-      // Trigger actual data refetch
-      checkAccessAndFetchData();
-    }
-  }, []);
 
   return (
     <Layout>
