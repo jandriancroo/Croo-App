@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -35,6 +36,10 @@ import { LiveStatusBadge } from "@/components/schedule/LiveStatusBadge";
 import { DayBreakdownDialog } from "@/components/schedule/DayBreakdownDialog";
 import { PortraitOnlyMessage } from "@/components/schedule/PortraitOnlyMessage";
 import { AutoScheduleWizard } from "@/components/schedule/AutoScheduleWizard";
+
+// Cache time constants - 15 min staleTime for hot weeks (last/current/next)
+const SCHEDULE_STALE_TIME = 15 * 60 * 1000; // 15 minutes
+const SCHEDULE_GC_TIME = 30 * 60 * 1000; // 30 minutes
 
 interface Profile {
   id: string;
@@ -106,25 +111,17 @@ export default function Schedule() {
   const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
   const { timezone, getTodayInTimezone } = useLocationTimezone();
+  const queryClient = useQueryClient();
   const didInitWeek = useRef(false);
   const [currentWeekStart, setCurrentWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false);
-  const [scheduleId, setScheduleId] = useState<string | null>(null);
-  const [isPublished, setIsPublished] = useState(false);
-  const [profiles, setProfiles] = useState<Profile[]>([]);
-  const [shifts, setShifts] = useState<ScheduledShift[]>([]);
-  const [events, setEvents] = useState<ScheduleEvent[]>([]);
-  const [templates, setTemplates] = useState<ShiftTemplate[]>([]);
-  const [availabilityRequests, setAvailabilityRequests] = useState<AvailabilityRequest[]>([]);
   const [activeShift, setActiveShift] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [isPublishing, setIsPublishing] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [editingShift, setEditingShift] = useState<any>(null);
   const [conflictDialogOpen, setConflictDialogOpen] = useState(false);
   const [pendingShiftData, setPendingShiftData] = useState<any>(null);
   const [conflicts, setConflicts] = useState<any[]>([]);
-  const [publishedSnapshot, setPublishedSnapshot] = useState<any[]>([]);
   const [selectedDayForBreakdown, setSelectedDayForBreakdown] = useState<Date | null>(null);
   const [dayBreakdownOpen, setDayBreakdownOpen] = useState(false);
   const [clearScheduleDialogOpen, setClearScheduleDialogOpen] = useState(false);
@@ -179,27 +176,26 @@ export default function Schedule() {
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
 
-  useEffect(() => {
-    if (role && currentLocation?.id) {
-      fetchScheduleData();
-    }
-  }, [currentWeekStart, role, currentLocation?.id]);
+  // Query key for the schedule data - includes location and week
+  const scheduleQueryKey = ['schedule', currentLocation?.id, format(currentWeekStart, 'yyyy-MM-dd')];
 
-  const fetchScheduleData = async (showLoading = true) => {
-    const perfStart = performance.now();
-    console.log('[Schedule] fetchScheduleData started');
-    
-    if (!currentLocation?.id) return;
-    
-    // Only show loading spinner on initial load, not on refreshes after actions
-    if (showLoading && shifts.length === 0) {
-      setLoading(true);
-    }
-    try {
+  // Main schedule data query with React Query caching
+  const { 
+    data: scheduleData, 
+    isLoading: loading, 
+    refetch: refetchSchedule 
+  } = useQuery({
+    queryKey: scheduleQueryKey,
+    queryFn: async () => {
+      const perfStart = performance.now();
+      console.log('[Schedule] fetchScheduleData started');
+      
+      if (!currentLocation?.id) return null;
+      
       const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
 
       // Fetch or create schedule for this week and location
-      let { data: scheduleData, error: scheduleError } = await supabase
+      let { data: schedule, error: scheduleError } = await supabase
         .from("schedules")
         .select("*")
         .eq("week_start_date", format(currentWeekStart, "yyyy-MM-dd"))
@@ -220,24 +216,22 @@ export default function Schedule() {
             .single();
 
           if (createError) throw createError;
-          scheduleData = newSchedule;
+          schedule = newSchedule;
         }
       }
 
-      if (!scheduleData) {
-        // Clear state when no schedule exists
-        setScheduleId(null);
-        setIsPublished(false);
-        setPublishedSnapshot(null);
-        setShifts([]);
-        setEvents([]);
-        setLoading(false);
-        return;
+      if (!schedule) {
+        return {
+          scheduleId: null,
+          isPublished: false,
+          publishedSnapshot: [],
+          shifts: [],
+          events: [],
+          profiles: [],
+          templates: [],
+          availabilityRequests: [],
+        };
       }
-
-      setScheduleId(scheduleData.id);
-      setIsPublished(scheduleData.is_published || false);
-      setPublishedSnapshot(Array.isArray(scheduleData.published_shifts_snapshot) ? scheduleData.published_shifts_snapshot : []);
 
       console.log(`[Schedule] Schedule lookup: ${(performance.now() - perfStart).toFixed(0)}ms`);
       
@@ -256,100 +250,67 @@ export default function Schedule() {
         holidaysResult,
         locationSettingsResult
       ] = await Promise.all([
-        // Fetch shifts with template data
         supabase
           .from("scheduled_shifts")
-          .select(`
-            *,
-            template:shift_templates(*)
-          `)
-          .eq("schedule_id", scheduleData.id),
-        
-        // Fetch events for this schedule
+          .select(`*, template:shift_templates(*)`)
+          .eq("schedule_id", schedule.id),
         supabase
           .from("schedule_events")
           .select("*, event_categories(name, color)")
-          .eq("schedule_id", scheduleData.id),
-        
-        // Fetch recurring events (not tied to specific schedule) for this location
+          .eq("schedule_id", schedule.id),
         supabase
           .from("schedule_events")
           .select("*, event_categories(name, color)")
           .eq("is_recurring", true)
           .is("schedule_id", null)
           .eq("location_id", currentLocation.id),
-        
-        // Fetch user_locations for this location to get user IDs
         supabase
           .from("user_locations")
           .select("user_id")
-          .eq("location_id", currentLocation!.id),
-        
-        // Fetch all active profiles that appear on schedule
+          .eq("location_id", currentLocation.id),
         supabase
           .from("profiles")
-          .select(`
-            id, 
-            full_name, 
-            profile_photo_url,
-            hourly_wage,
-            display_order,
-            appears_on_schedule
-          `)
+          .select(`id, full_name, profile_photo_url, hourly_wage, display_order, appears_on_schedule`)
           .eq("is_active", true)
           .eq("appears_on_schedule", true),
-        
-        // Fetch user roles
-        supabase
-          .from("user_roles")
-          .select("user_id, role"),
-        
-        // Fetch shift templates for this location
+        supabase.from("user_roles").select("user_id, role"),
         supabase
           .from("shift_templates")
           .select("*")
-          .eq("location_id", currentLocation!.id)
+          .eq("location_id", currentLocation.id)
           .order("start_time", { ascending: true }),
-        
-        // Fetch availability requests for this location
         supabase
           .from("availability_requests")
           .select("*")
-          .eq("location_id", currentLocation!.id)
+          .eq("location_id", currentLocation.id)
           .eq("request_type", "unpaid")
           .in("status", ["pending", "approved"])
           .gte("start_date", format(currentWeekStart, "yyyy-MM-dd"))
           .lte("start_date", format(weekEnd, "yyyy-MM-dd")),
-        
-        // Fetch projected sales for the week
-        scheduleData ? supabase
+        supabase
           .from("schedule_projected_sales")
           .select("*")
-          .eq("schedule_id", scheduleData.id) : Promise.resolve({ data: [], error: null }),
-        
-        // Fetch holidays for the week (location-specific or global)
+          .eq("schedule_id", schedule.id),
         supabase
           .from("holidays")
           .select("*")
-          .or(`location_id.eq.${currentLocation!.id},location_id.is.null`)
+          .or(`location_id.eq.${currentLocation.id},location_id.is.null`)
           .gte("holiday_date", format(currentWeekStart, "yyyy-MM-dd"))
           .lte("holiday_date", format(weekEnd, "yyyy-MM-dd")),
-        
-        // Fetch location settings (blackout dates, hours)
         supabase
           .from("location_settings")
           .select("blackout_dates, hours_open, hours_close")
-          .eq("location_id", currentLocation!.id)
+          .eq("location_id", currentLocation.id)
           .single()
       ]);
 
       console.log(`[Schedule] Parallel queries: ${(performance.now() - parallelStart).toFixed(0)}ms`);
 
-      // Handle shifts
+      // Process shifts
       if (shiftsResult.error) throw shiftsResult.error;
-      setShifts(shiftsResult.data || []);
+      const shifts = shiftsResult.data || [];
 
-      // Handle events - combine schedule-specific and recurring events
+      // Process events - combine schedule-specific and recurring
       if (eventsResult.error) throw eventsResult.error;
       if (recurringEventsResult.error) throw recurringEventsResult.error;
       
@@ -367,8 +328,7 @@ export default function Schedule() {
         category: event.event_categories || null
       }));
       
-      // Merge and deduplicate (schedule-specific events take precedence)
-      const allEvents = [...scheduleEvents];
+      const allEvents: ScheduleEvent[] = [...scheduleEvents];
       recurringEvents.forEach(recurEvent => {
         const exists = scheduleEvents.some(e => 
           e.event_name === recurEvent.event_name && 
@@ -379,10 +339,8 @@ export default function Schedule() {
           allEvents.push(recurEvent);
         }
       });
-      
-      setEvents(allEvents);
 
-      // Handle profiles and roles - filter by location
+      // Process profiles
       if (userLocationsResult.error) throw userLocationsResult.error;
       if (allProfilesResult.error) throw allProfilesResult.error;
       if (rolesResult.error) throw rolesResult.error;
@@ -390,11 +348,6 @@ export default function Schedule() {
       const locationUserIds = new Set((userLocationsResult.data || []).map(ul => ul.user_id));
       const locationProfiles = (allProfilesResult.data || []).filter(p => locationUserIds.has(p.id));
       
-      console.log('[Schedule] All profiles from query:', allProfilesResult.data?.length);
-      console.log('[Schedule] Location user IDs:', Array.from(locationUserIds));
-      console.log('[Schedule] Filtered location profiles:', locationProfiles.map(p => ({ id: p.id, name: p.full_name })));
-      console.log('[Schedule] Roles from DB:', rolesResult.data);
-
       const profilesWithRoles = locationProfiles.map(profile => {
         const userRole = rolesResult.data?.find(r => r.user_id === profile.id);
         return {
@@ -404,90 +357,103 @@ export default function Schedule() {
         };
       });
       
-      console.log('[Schedule] Profiles with roles:', profilesWithRoles.map(p => ({ name: p.full_name, role: p.role })));
-
-      // Sort by role first, then by display_order within each role
       const roleOrder: Record<string, number> = { 
-        super_admin: 0,
-        brand_admin: 1,
-        org_admin: 2,
-        admin: 3, 
-        manager: 4, 
-        shift_manager: 5,
-        team_member: 6 
+        super_admin: 0, brand_admin: 1, org_admin: 2, admin: 3, 
+        manager: 4, shift_manager: 5, team_member: 6 
       };
       profilesWithRoles.sort((a, b) => {
         const aRoleOrder = roleOrder[a.role as string] ?? 5;
         const bRoleOrder = roleOrder[b.role as string] ?? 5;
-        
-        // If same role, sort by display_order
         if (aRoleOrder === bRoleOrder) {
           return (a.display_order ?? 0) - (b.display_order ?? 0);
         }
-        
         return aRoleOrder - bRoleOrder;
       });
 
-      setProfiles(profilesWithRoles);
-
-      // Handle templates
+      // Process templates
       if (templatesResult.error) throw templatesResult.error;
-      setTemplates(templatesResult.data || []);
+      const templates = templatesResult.data || [];
 
-      // Handle availability
+      // Process availability
       if (availabilityResult.error) throw availabilityResult.error;
-      setAvailabilityRequests(availabilityResult.data || []);
+      const availabilityRequests = availabilityResult.data || [];
 
-      // Handle projected sales
-      if (salesResult && !salesResult.error && salesResult.data) {
-        const totalSales = (salesResult.data as any[]).reduce((sum: number, sale: any) => 
-          sum + (Number(sale.projected_sales) || 0)
-        , 0);
-        setWeeklyTotalSales(totalSales);
-      } else {
-        setWeeklyTotalSales(0);
+      // Process sales
+      let totalSales = 0;
+      if (!salesResult.error && salesResult.data) {
+        totalSales = (salesResult.data as any[]).reduce((sum: number, sale: any) => 
+          sum + (Number(sale.projected_sales) || 0), 0);
       }
 
-      // Handle holidays
-      if (holidaysResult.error) {
-        console.error('Error fetching holidays:', holidaysResult.error);
-      } else {
-        const allHolidays = (holidaysResult.data || []) as Holiday[];
-        // Birthdays must be location-specific; ignore legacy "global" birthday rows.
-        const filtered = allHolidays.filter(h => h.holiday_type !== 'birthday' || h.location_id === currentLocation?.id);
-        setHolidays(filtered);
+      // Process holidays
+      let processedHolidays: Holiday[] = [];
+      if (!holidaysResult.error && holidaysResult.data) {
+        processedHolidays = (holidaysResult.data as Holiday[]).filter(
+          h => h.holiday_type !== 'birthday' || h.location_id === currentLocation.id
+        );
       }
 
-      // Handle location settings
-      if (locationSettingsResult && !locationSettingsResult.error && locationSettingsResult.data) {
-        setBlackoutDates(locationSettingsResult.data.blackout_dates || []);
-        setLocationSettings({
+      // Process location settings
+      let processedBlackoutDates: string[] = [];
+      let processedLocationSettings: { hours_open?: string; hours_close?: string } | null = null;
+      if (!locationSettingsResult.error && locationSettingsResult.data) {
+        processedBlackoutDates = locationSettingsResult.data.blackout_dates || [];
+        processedLocationSettings = {
           hours_open: locationSettingsResult.data.hours_open || undefined,
           hours_close: locationSettingsResult.data.hours_close || undefined
-        });
-      } else {
-        setBlackoutDates([]);
-        setLocationSettings(null);
+        };
       }
 
-      // Sync birthday holidays - only once per session to avoid repeated calls
+      // Sync birthday holidays (throttled)
       const lastBirthdaySync = sessionStorage.getItem('lastBirthdaySyncTime');
       const now = Date.now();
-      if (!lastBirthdaySync || now - parseInt(lastBirthdaySync) > 300000) { // 5 min throttle
+      if (!lastBirthdaySync || now - parseInt(lastBirthdaySync) > 300000) {
         sessionStorage.setItem('lastBirthdaySyncTime', now.toString());
         supabase.functions.invoke('sync-birthday-events').catch(err => 
           console.error('Failed to sync birthday holidays:', err)
         );
       }
+
       console.log(`[Schedule] fetchScheduleData completed: ${(performance.now() - perfStart).toFixed(0)}ms total`);
-    } catch (error: any) {
-      console.error("[Schedule] Error fetching schedule data:", error);
-      console.log(`[Schedule] fetchScheduleData failed: ${(performance.now() - perfStart).toFixed(0)}ms`);
-      toast.error("Failed to load schedule");
-    } finally {
-      setLoading(false);
-    }
-  };
+
+      // Update side-effect state that isn't part of main query data
+      setWeeklyTotalSales(totalSales);
+      setHolidays(processedHolidays);
+      setBlackoutDates(processedBlackoutDates);
+      setLocationSettings(processedLocationSettings);
+
+      return {
+        scheduleId: schedule.id,
+        isPublished: schedule.is_published || false,
+        publishedSnapshot: (Array.isArray(schedule.published_shifts_snapshot) 
+          ? schedule.published_shifts_snapshot 
+          : []) as unknown as ScheduledShift[],
+        shifts,
+        events: allEvents,
+        profiles: profilesWithRoles,
+        templates,
+        availabilityRequests,
+      };
+    },
+    enabled: !!role && !!currentLocation?.id,
+    staleTime: SCHEDULE_STALE_TIME,
+    gcTime: SCHEDULE_GC_TIME,
+  });
+
+  // Extract data from query result with defaults
+  const scheduleId = scheduleData?.scheduleId ?? null;
+  const isPublished = scheduleData?.isPublished ?? false;
+  const publishedSnapshot = scheduleData?.publishedSnapshot ?? [];
+  const shifts = scheduleData?.shifts ?? [];
+  const events = scheduleData?.events ?? [];
+  const profiles = scheduleData?.profiles ?? [];
+  const templates = scheduleData?.templates ?? [];
+  const availabilityRequests = scheduleData?.availabilityRequests ?? [];
+
+  // Helper to refetch schedule data after mutations
+  const fetchScheduleData = useCallback((showLoading = true) => {
+    refetchSchedule();
+  }, [refetchSchedule]);
 
   const checkForConflicts = (userId: string, dayIndex: number, shiftDate: string) => {
     if (userId === "unassigned") return [];
@@ -589,7 +555,7 @@ export default function Schedule() {
           return aRoleOrder - bRoleOrder;
         });
         
-        setProfiles(newProfiles);
+        fetchScheduleData(false);
         toast.success("Employee order updated");
       } catch (error) {
         console.error("Error updating employee order:", error);
@@ -724,8 +690,8 @@ export default function Schedule() {
         .from("schedules")
         .update({ is_published: false, published_shifts_snapshot: null })
         .eq("id", scheduleId);
-      setIsPublished(false);
-      setPublishedSnapshot([]);
+      // Refetch to update state
+      await refetchSchedule();
 
       toast.success("Schedule cleared successfully");
       setClearScheduleDialogOpen(false);
@@ -898,8 +864,8 @@ export default function Schedule() {
 
       if (error) throw error;
 
-      setIsPublished(true);
-      setPublishedSnapshot(currentShifts || []);
+      // Refetch to update state
+      await refetchSchedule();
     } catch (error: any) {
       console.error('Error publishing schedule:', error);
       toast.error("Failed to publish schedule");
@@ -973,7 +939,7 @@ export default function Schedule() {
 
       if (error) throw error;
 
-      setPublishedSnapshot(currentShifts || []);
+      await refetchSchedule();
     } catch (error: any) {
       console.error('Error updating schedule:', error);
       toast.error("Failed to update schedule");
@@ -996,8 +962,8 @@ export default function Schedule() {
 
       if (error) throw error;
 
-      setIsPublished(false);
-      setPublishedSnapshot([]);
+      // Refetch to update state
+      await refetchSchedule();
       setWithdrawDialogOpen(false);
       toast.success("Schedule withdrawn. It will no longer be visible to team members until you Go Live again.");
     } catch (error: any) {
@@ -1145,11 +1111,8 @@ export default function Schedule() {
       if (error) throw error;
       
       // Update local state
-      setProfiles(profiles.map(p => 
-        p.id === pendingRoleChange.userId 
-          ? { ...p, role: pendingRoleChange.newRole }
-          : p
-      ));
+      // Refetch to update profiles with new role
+      fetchScheduleData(false);
       
       const roleDisplayName = pendingRoleChange.newRole === 'team_member' ? 'Team Member' 
         : pendingRoleChange.newRole === 'shift_manager' ? 'Shift Manager'
