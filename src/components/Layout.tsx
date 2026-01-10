@@ -2,7 +2,8 @@ import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { BarChart3, CheckSquare, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, NotebookPen, Briefcase, Download, RefreshCw, Building2, User, Gamepad2, LayoutDashboard, Check, X, Save, Mic, MicOff } from 'lucide-react';
+import { BarChart3, CheckSquare, Users, Calendar, MessageSquare, Menu, Clock, CalendarCheck, DollarSign, Settings as SettingsIcon, ChevronDown, ChevronRight, Scroll, DoorOpen, Wallet, FlaskConical, MapPin, NotebookPen, Briefcase, Download, RefreshCw, Building2, User, Gamepad2, LayoutDashboard, Check, X, Save, Mic, MicOff, Palette } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -237,6 +238,25 @@ export const Layout = ({
 const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); // null = not checked yet
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [showOrgBubble, setShowOrgBubble] = useState(false); // Popup bubble for long-press
+  const [theme, setTheme] = useState(localStorage.getItem('app-theme') || 'default');
+
+  const themes = [
+    { value: 'default', label: 'Default' },
+    { value: 'oled', label: 'Dark Knight' },
+    { value: 'earth', label: 'Warm Earth' },
+    { value: 'ocean', label: 'Ocean Breeze' },
+    { value: 'sage', label: 'Sage' },
+    { value: 'lavender', label: 'Lavender' },
+    { value: 'vibrant', label: 'Vibrant' },
+    { value: 'blaze', label: 'Blaze Pizza' },
+  ];
+
+  const handleThemeChange = (value: string) => {
+    setTheme(value);
+    localStorage.setItem('app-theme', value);
+    document.documentElement.setAttribute('data-theme', value);
+    toast('Theme updated');
+  };
 
   // Auto-show update toast when new version detected
   useEffect(() => {
@@ -902,6 +922,23 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                     </Button>
                   );
                 })}
+
+                {/* Theme Selector */}
+                <div className="flex items-center gap-3 h-11 px-4 border rounded-md">
+                  <Palette className="h-5 w-5 text-muted-foreground" />
+                  <Select value={theme} onValueChange={handleThemeChange}>
+                    <SelectTrigger className="flex-1 border-0 h-9 px-0 focus:ring-0">
+                      <SelectValue placeholder="Theme" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {themes.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 <Button variant="outline" onClick={() => {
                   signOut();
