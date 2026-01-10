@@ -760,7 +760,7 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
       {/* Mobile Header */}
       <header className="sticky top-0 z-50 md:hidden bg-background border-b border-border/20" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-        <div className="container max-w-7xl mx-auto flex items-center relative h-14">
+        <div className="flex items-center relative h-14 px-2">
           <div className="flex items-center gap-2 flex-shrink-0">
             <button onClick={() => navigate('/dashboard')} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
               <img 
@@ -791,10 +791,10 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
           <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
               <button
-                className="ml-auto p-2 hover:opacity-80 transition-opacity text-foreground"
+                className="ml-auto p-2 rounded-lg border border-primary text-primary hover:bg-primary/10 transition-colors"
                 title="More options"
               >
-                <Menu className="h-7 w-7" />
+                <Menu className="h-6 w-6" />
               </button>
             </SheetTrigger>
             <SheetContent side="bottom" className="h-auto">
