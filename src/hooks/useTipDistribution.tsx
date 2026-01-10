@@ -31,14 +31,15 @@ export function useTipDistribution(
   locationId: string | null,
   startDate: Date | null,
   endDate: Date | null,
-  timeCards: any[]
+  timeCards: any[],
+  enabled: boolean = true // Only fetch when needed (e.g., when period is closed)
 ): TipDistributionResult {
   const [dailyTips, setDailyTips] = useState<DailyTipData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTipsData = async () => {
-    if (!locationId || !startDate || !endDate) {
+    if (!locationId || !startDate || !endDate || !enabled) {
       setIsLoading(false);
       return;
     }
@@ -168,8 +169,10 @@ export function useTipDistribution(
   };
 
   useEffect(() => {
-    fetchTipsData();
-  }, [locationId, startDate?.toISOString(), endDate?.toISOString()]);
+    if (enabled) {
+      fetchTipsData();
+    }
+  }, [locationId, startDate?.toISOString(), endDate?.toISOString(), enabled]);
 
   // Calculate tip distributions based on hours worked per day
   const employeeTipShares = useMemo(() => {
