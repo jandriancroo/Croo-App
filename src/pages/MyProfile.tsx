@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
+import { useQuery } from '@tanstack/react-query';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,59 +31,46 @@ const MyProfile = () => {
   const navigate = useNavigate();
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [profile, setProfile] = useState<{
-    full_name: string | null;
-    email: string;
-    phone_number: string | null;
-    birthday: string | null;
-    profile_photo_url: string | null;
-    croo_cash_balance: number | null;
-  } | null>(null);
 
-  // Form state
+  // Form state (initialized from query data)
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [birthday, setBirthday] = useState<Date | undefined>(undefined);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState<string | null>(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [formInitialized, setFormInitialized] = useState(false);
 
   // Crop dialog state
   const [cropDialogOpen, setCropDialogOpen] = useState(false);
   const [tempImageSrc, setTempImageSrc] = useState<string>('');
 
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-    }
-  }, [user]);
-
-  const fetchProfile = async () => {
-    if (!user) return;
-
-    try {
-      setLoading(true);
+  // React Query for profile with caching
+  const { data: profile, isLoading: loading } = useQuery({
+    queryKey: ['my-profile', user?.id],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('full_name, email, phone_number, birthday, profile_photo_url, croo_cash_balance')
-        .eq('id', user.id)
+        .eq('id', user!.id)
         .single();
 
       if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 min cache
+    gcTime: 30 * 60 * 1000,
+  });
 
-      setProfile(data);
-      setFullName(data.full_name || '');
-      setPhoneNumber(data.phone_number || '');
-      setBirthday(data.birthday ? parseDateOnlyToLocalDate(data.birthday) : undefined);
-      setProfilePhotoUrl(data.profile_photo_url);
-    } catch (error: any) {
-      console.error('Error fetching profile:', error);
-      toast.error('Failed to load profile');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Initialize form when profile loads (only once)
+  if (profile && !formInitialized) {
+    setFullName(profile.full_name || '');
+    setPhoneNumber(profile.phone_number || '');
+    setBirthday(profile.birthday ? parseDateOnlyToLocalDate(profile.birthday) : undefined);
+    setProfilePhotoUrl(profile.profile_photo_url);
+    setFormInitialized(true);
+  }
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
