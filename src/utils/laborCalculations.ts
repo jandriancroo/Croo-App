@@ -49,6 +49,11 @@ export function calculateShiftHoursWithBreaks(
     minutes += 60;
   }
   
+  // Handle midnight crossover (e.g., 6pm-12am = 18:00-00:00)
+  if (hours < 0) {
+    hours += 24;
+  }
+  
   let totalHours = hours + minutes / 60;
   
   // Deduct unpaid meal break if shift exceeds threshold
