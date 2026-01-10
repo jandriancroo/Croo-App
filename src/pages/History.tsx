@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/auth';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,29 +55,17 @@ type HistoryItem =
   | { type: 'task'; data: CompletedTask; timestamp: string };
 
 export default function History() {
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [completedTasks, setCompletedTasks] = useState<CompletedTask[]>([]);
-  const [loading, setLoading] = useState(true);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingSubmission, setDeletingSubmission] = useState<Submission | null>(null);
   const navigate = useNavigate();
   const { user } = useAuth();
   const { currentLocation } = useAppLocation();
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (currentLocation?.id) {
-      fetchData();
-    }
-  }, [currentLocation?.id]);
-
-  const fetchData = async () => {
-    setLoading(true);
-    await Promise.all([fetchSubmissions(), fetchCompletedTasks()]);
-    setLoading(false);
-  };
-
-  const fetchSubmissions = async () => {
-    try {
+  // Fetch both submissions and tasks in parallel with React Query
+  const { data: submissions = [], isLoading: loadingSubmissions } = useQuery({
+    queryKey: ['history-submissions', currentLocation?.id],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('checklist_submissions')
         .select(`
@@ -89,14 +78,16 @@ export default function History() {
         .limit(50);
 
       if (error) throw error;
-      setSubmissions(data || []);
-    } catch (error: any) {
-      toast.error('Failed to load submission history');
-    }
-  };
+      return (data || []) as Submission[];
+    },
+    enabled: !!currentLocation?.id,
+    staleTime: 2 * 60 * 1000, // 2 min cache
+    gcTime: 10 * 60 * 1000,
+  });
 
-  const fetchCompletedTasks = async () => {
-    try {
+  const { data: completedTasks = [], isLoading: loadingTasks } = useQuery({
+    queryKey: ['history-tasks', currentLocation?.id],
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('temporary_tasks')
         .select(`
@@ -114,7 +105,7 @@ export default function History() {
 
       if (error) throw error;
 
-      // Fetch completer profiles separately
+      // Fetch completer profiles in parallel
       const completedByIds = [...new Set((data || []).map(t => t.completed_by).filter(Boolean))];
       let profilesMap: Record<string, any> = {};
       
@@ -130,7 +121,7 @@ export default function History() {
         }, {} as Record<string, any>);
       }
 
-      const tasksWithProfiles: CompletedTask[] = (data || []).map(t => ({
+      return (data || []).map(t => ({
         id: t.id,
         title: t.title,
         description: t.description,
@@ -140,13 +131,14 @@ export default function History() {
         completer_name: profilesMap[t.completed_by!]?.full_name || null,
         completer_email: profilesMap[t.completed_by!]?.email || null,
         completer_photo: profilesMap[t.completed_by!]?.profile_photo_url || null,
-      }));
+      })) as CompletedTask[];
+    },
+    enabled: !!currentLocation?.id,
+    staleTime: 2 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
 
-      setCompletedTasks(tasksWithProfiles);
-    } catch (error: any) {
-      console.error('Failed to load completed tasks:', error);
-    }
-  };
+  const loading = loadingSubmissions || loadingTasks;
 
   const handleDeleteSubmission = async () => {
     if (!deletingSubmission) return;
@@ -169,7 +161,9 @@ export default function History() {
       toast.success('Submission deleted successfully');
       setDeleteDialogOpen(false);
       setDeletingSubmission(null);
-      fetchSubmissions();
+      
+      // Invalidate cache to refetch
+      queryClient.invalidateQueries({ queryKey: ['history-submissions', currentLocation?.id] });
     } catch (error: any) {
       toast.error('Failed to delete submission');
       console.error('Error deleting submission:', error);
