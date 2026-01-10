@@ -36,7 +36,7 @@ import {
   DialogContent,
 } from '@/components/ui/dialog';
 
-const MESSAGES_PER_PAGE = 25;
+const MESSAGES_PER_PAGE = 10;
 
 interface ParentMessageData {
   content: string | null;
