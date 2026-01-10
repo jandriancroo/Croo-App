@@ -37,9 +37,10 @@ import { DayBreakdownDialog } from "@/components/schedule/DayBreakdownDialog";
 import { PortraitOnlyMessage } from "@/components/schedule/PortraitOnlyMessage";
 import { AutoScheduleWizard } from "@/components/schedule/AutoScheduleWizard";
 
-// Cache time constants - 15 min staleTime for hot weeks (last/current/next)
-const SCHEDULE_STALE_TIME = 15 * 60 * 1000; // 15 minutes
-const SCHEDULE_GC_TIME = 30 * 60 * 1000; // 30 minutes
+// Cache time constants
+const SCHEDULE_STALE_TIME = 15 * 60 * 1000; // 15 minutes for current/next week
+const SCHEDULE_STALE_TIME_PAST = Infinity; // Past weeks never change - cache forever
+const SCHEDULE_GC_TIME = 60 * 60 * 1000; // 60 minutes - keep in cache longer
 
 interface Profile {
   id: string;
@@ -175,6 +176,10 @@ export default function Schedule() {
   );
 
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(currentWeekStart, i));
+
+  // Determine if viewing a past week (for infinite cache)
+  const todayStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+  const isPastWeek = currentWeekStart < todayStart;
 
   // Query key for the schedule data - includes location and week
   const scheduleQueryKey = ['schedule', currentLocation?.id, format(currentWeekStart, 'yyyy-MM-dd')];
@@ -436,9 +441,65 @@ export default function Schedule() {
       };
     },
     enabled: !!role && !!currentLocation?.id,
-    staleTime: SCHEDULE_STALE_TIME,
+    // Past weeks use infinite staleTime (they never change)
+    staleTime: isPastWeek ? SCHEDULE_STALE_TIME_PAST : SCHEDULE_STALE_TIME,
     gcTime: SCHEDULE_GC_TIME,
   });
+
+  // Prefetch adjacent weeks for instant navigation
+  useEffect(() => {
+    if (!role || !currentLocation?.id) return;
+
+    const prefetchWeek = (weekStart: Date) => {
+      const weekKey = ['schedule', currentLocation.id, format(weekStart, 'yyyy-MM-dd')];
+      const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+      
+      queryClient.prefetchQuery({
+        queryKey: weekKey,
+        queryFn: async () => {
+          // Simplified prefetch - just get schedule existence, not full data
+          const { data: schedule } = await supabase
+            .from("schedules")
+            .select("id, is_published, published_shifts_snapshot")
+            .eq("week_start_date", format(weekStart, "yyyy-MM-dd"))
+            .eq("location_id", currentLocation.id)
+            .single();
+
+          if (!schedule) return null;
+
+          // Fetch shifts and basic data for prefetch
+          const [shiftsResult, templatesResult] = await Promise.all([
+            supabase
+              .from("scheduled_shifts")
+              .select(`*, template:shift_templates(*)`)
+              .eq("schedule_id", schedule.id),
+            supabase
+              .from("shift_templates")
+              .select("*")
+              .eq("location_id", currentLocation.id)
+          ]);
+
+          return {
+            scheduleId: schedule.id,
+            isPublished: schedule.is_published || false,
+            publishedSnapshot: (Array.isArray(schedule.published_shifts_snapshot) 
+              ? schedule.published_shifts_snapshot 
+              : []) as unknown as ScheduledShift[],
+            shifts: shiftsResult.data || [],
+            events: [],
+            profiles: [],
+            templates: templatesResult.data || [],
+            availabilityRequests: [],
+          };
+        },
+        staleTime: weekStart < todayStart ? SCHEDULE_STALE_TIME_PAST : SCHEDULE_STALE_TIME,
+      });
+    };
+
+    // Prefetch previous and next week
+    prefetchWeek(subWeeks(currentWeekStart, 1));
+    prefetchWeek(addWeeks(currentWeekStart, 1));
+  }, [currentWeekStart, currentLocation?.id, role, queryClient, todayStart]);
 
   // Extract data from query result with defaults
   const scheduleId = scheduleData?.scheduleId ?? null;
