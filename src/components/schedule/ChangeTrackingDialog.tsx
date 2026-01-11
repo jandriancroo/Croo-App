@@ -166,64 +166,36 @@ export function ChangeTrackingDialog({
               {changes.map((change) => (
                 <div
                   key={change.id}
-                  className="border rounded-lg p-3 space-y-2 bg-card"
+                  className="border rounded-md px-3 py-2 bg-card text-xs"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
                       {getChangeIcon(change.change_type)}
-                      <Badge variant={getChangeBadgeVariant(change.change_type)}>
-                        {change.change_type.charAt(0).toUpperCase() +
-                          change.change_type.slice(1)}
+                      <Badge variant={getChangeBadgeVariant(change.change_type)} className="text-[10px] px-1.5 py-0">
+                        {change.change_type.charAt(0).toUpperCase() + change.change_type.slice(1)}
                       </Badge>
                       <Badge 
-                        variant={change.is_draft ? "outline" : "secondary"}
-                        className={change.is_draft ? "text-yellow-600 border-yellow-600" : "text-green-600 border-green-600"}
+                        variant="outline"
+                        className={`text-[10px] px-1.5 py-0 ${change.is_draft ? "text-yellow-600 border-yellow-500/50" : "text-green-600 border-green-500/50"}`}
                       >
-                        {change.is_draft ? "Draft" : "Published"}
+                        {change.is_draft ? "Draft" : "Live"}
                       </Badge>
-                      <span className="text-sm font-medium">
-                        {change.profiles?.full_name || "Unknown Employee"}
+                      <span className="font-medium truncate">
+                        {change.profiles?.full_name || "Unknown"}
+                      </span>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="text-muted-foreground whitespace-nowrap">
+                        {change.change_type === "removed" && change.old_shift_data
+                          ? formatShiftInfo(change.old_shift_data)
+                          : formatShiftInfo(change.new_shift_data)}
                       </span>
                     </div>
-                  </div>
-
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    {change.change_type === "added" && change.new_shift_data && (
-                      <p className="text-green-600 dark:text-green-400">
-                        + {formatShiftInfo(change.new_shift_data)}
-                      </p>
-                    )}
-                    {change.change_type === "removed" && change.old_shift_data && (
-                      <p className="text-red-600 dark:text-red-400">
-                        − {formatShiftInfo(change.old_shift_data)}
-                      </p>
-                    )}
-                    {change.change_type === "modified" && (
-                      <>
-                        {change.old_shift_data && (
-                          <p className="text-red-600 dark:text-red-400">
-                            − {formatShiftInfo(change.old_shift_data)}
-                          </p>
-                        )}
-                        {change.new_shift_data && (
-                          <p className="text-green-600 dark:text-green-400">
-                            + {formatShiftInfo(change.new_shift_data)}
-                          </p>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap shrink-0">
                       <User className="h-3 w-3" />
-                      <span>
-                        {change.changed_by ? (change.changer?.full_name || "Unknown") : "System"}
-                      </span>
+                      <span>{change.changed_by ? (change.changer?.full_name || "Unknown") : "System"}</span>
+                      <span>•</span>
+                      <span>{format(new Date(change.created_at), "M/d h:mm a")}</span>
                     </div>
-                    <span>
-                      {format(new Date(change.created_at), "MMM d, h:mm a")}
-                    </span>
                   </div>
                 </div>
               ))}
