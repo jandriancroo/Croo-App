@@ -391,23 +391,25 @@ function PacingIndicator({ status, isLightBg, mode }: { status: 'up' | 'down' | 
   );
 }
 
-// Background arrow component (for 'background-arrow' mode)
-function BackgroundArrow({ status, themeColorKey }: { status: 'up' | 'down' | null; themeColorKey: ThemeColorKey }) {
+// Inline background arrow component (for 'background-arrow' mode - shows behind individual metric)
+function InlineBackgroundArrow({ status, isLightBg }: { status: 'up' | 'down' | null; isLightBg: boolean }) {
   if (!status) return null;
   
-  // Use the theme color but make it very faint
   const ArrowIcon = status === 'up' ? ArrowUp : ArrowDown;
   
+  // Green tint for up, red tint for down - using semantic colors
+  const colorClass = status === 'up' 
+    ? (isLightBg ? "text-green-500/20" : "text-green-400/25")
+    : (isLightBg ? "text-red-500/25" : "text-red-400/30");
+  
   return (
-    <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-      <ArrowIcon 
-        className={cn(
-          "w-20 h-20 md:w-24 md:h-24",
-          status === 'up' ? "text-white/15" : "text-black/10"
-        )}
-        strokeWidth={3}
-      />
-    </div>
+    <ArrowIcon 
+      className={cn(
+        "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 md:w-14 md:h-14 pointer-events-none",
+        colorClass
+      )}
+      strokeWidth={2.5}
+    />
   );
 }
 
@@ -460,24 +462,6 @@ function CubeFaceComponent({
   const displayMetrics = face?.metrics?.slice(0, 4) || [];
   const metricCount = displayMetrics.length;
   
-  // For background-arrow mode, find the dominant pacing status for this face
-  const facePacingStatus = React.useMemo(() => {
-    if (pacingDisplay !== 'background-arrow' || !displayMetrics.length) return null;
-    
-    let upCount = 0;
-    let downCount = 0;
-    
-    for (const metricType of displayMetrics) {
-      const status = getPacingStatus(metricType, salesData);
-      if (status === 'up') upCount++;
-      else if (status === 'down') downCount++;
-    }
-    
-    if (upCount > downCount) return 'up';
-    if (downCount > upCount) return 'down';
-    if (upCount > 0) return 'up'; // Tie goes to up
-    return null;
-  }, [displayMetrics, salesData, pacingDisplay]);
 
   if (!face || displayMetrics.length === 0) {
     return (
@@ -557,11 +541,6 @@ function CubeFaceComponent({
         </div>
       )}
       
-      {/* Background arrow for 'background-arrow' mode */}
-      {pacingDisplay === 'background-arrow' && !isLoading && (
-        <BackgroundArrow status={facePacingStatus} themeColorKey={themeColorKey} />
-      )}
-      
       {/* Content - positioned layout for metrics */}
       <div className={cn(
         "flex-1 relative z-10",
@@ -600,8 +579,12 @@ function CubeFaceComponent({
                 const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
                 
                 return (
-                    <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
-                      <div className={cn("flex items-center gap-1", isRight && "flex-row-reverse")}>
+                    <div key={index} className={cn("relative flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
+                      {/* Inline background arrow for this metric */}
+                      {pacingDisplay === 'background-arrow' && !isLoading && (
+                        <InlineBackgroundArrow status={pacingStatus} isLightBg={isLightBg} />
+                      )}
+                      <div className={cn("flex items-center gap-1 relative z-10", isRight && "flex-row-reverse")}>
                         <div 
                           className={cn(
                             "font-bold leading-none truncate text-lg md:text-xl",
@@ -615,7 +598,7 @@ function CubeFaceComponent({
                       </div>
                       <div 
                         className={cn(
-                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5 relative z-10",
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
@@ -660,8 +643,12 @@ function CubeFaceComponent({
                   const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
                   
                   return (
-                    <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
-                      <div className={cn("flex items-center gap-1", isRight && "flex-row-reverse")}>
+                    <div key={index} className={cn("relative flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
+                      {/* Inline background arrow for this metric */}
+                      {pacingDisplay === 'background-arrow' && !isLoading && (
+                        <InlineBackgroundArrow status={pacingStatus} isLightBg={isLightBg} />
+                      )}
+                      <div className={cn("flex items-center gap-1 relative z-10", isRight && "flex-row-reverse")}>
                         <div 
                           className={cn(
                             "font-bold leading-none truncate text-lg md:text-xl",
@@ -675,7 +662,7 @@ function CubeFaceComponent({
                       </div>
                       <div 
                         className={cn(
-                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5 relative z-10",
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
@@ -697,8 +684,12 @@ function CubeFaceComponent({
                   const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
                   
                   return (
-                    <div key={index} className="flex flex-col items-center text-center min-w-0">
-                      <div className="flex items-center gap-1">
+                    <div key={index} className="relative flex flex-col items-center text-center min-w-0">
+                      {/* Inline background arrow for this metric */}
+                      {pacingDisplay === 'background-arrow' && !isLoading && (
+                        <InlineBackgroundArrow status={pacingStatus} isLightBg={isLightBg} />
+                      )}
+                      <div className="flex items-center gap-1 relative z-10">
                         <div 
                           className={cn(
                             "font-bold leading-none truncate text-lg md:text-xl",
@@ -712,7 +703,7 @@ function CubeFaceComponent({
                       </div>
                       <div 
                         className={cn(
-                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5 relative z-10",
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
@@ -748,8 +739,12 @@ function CubeFaceComponent({
                 const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
                 
                 return (
-                  <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
-                    <div className={cn("flex items-center gap-1", isRight && "flex-row-reverse")}>
+                  <div key={index} className={cn("relative flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
+                    {/* Inline background arrow for this metric */}
+                    {pacingDisplay === 'background-arrow' && !isLoading && (
+                      <InlineBackgroundArrow status={pacingStatus} isLightBg={isLightBg} />
+                    )}
+                    <div className={cn("flex items-center gap-1 relative z-10", isRight && "flex-row-reverse")}>
                       <div 
                         className={cn(
                           "font-bold leading-none truncate text-lg md:text-xl",
@@ -763,7 +758,7 @@ function CubeFaceComponent({
                     </div>
                     <div 
                       className={cn(
-                        "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                        "text-[10px] md:text-xs font-semibold truncate -mt-0.5 relative z-10",
                         isLightBg ? "text-muted-foreground" : "text-white/70"
                       )}
                     >
@@ -787,8 +782,12 @@ function CubeFaceComponent({
               const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
               
               return (
-                <div key={index} className="flex flex-col items-center text-center min-w-0">
-                  <div className="flex items-center gap-1">
+                <div key={index} className="relative flex flex-col items-center text-center min-w-0">
+                  {/* Inline background arrow for this metric */}
+                  {pacingDisplay === 'background-arrow' && !isLoading && (
+                    <InlineBackgroundArrow status={pacingStatus} isLightBg={isLightBg} />
+                  )}
+                  <div className="flex items-center gap-1 relative z-10">
                     <div 
                       className={cn(
                         "font-bold leading-none truncate text-2xl md:text-3xl",
@@ -802,7 +801,7 @@ function CubeFaceComponent({
                   </div>
                   <div 
                     className={cn(
-                      "text-xs md:text-sm font-semibold truncate",
+                      "text-xs md:text-sm font-semibold truncate relative z-10",
                       isLightBg ? "text-muted-foreground" : "text-white/70"
                     )}
                   >
