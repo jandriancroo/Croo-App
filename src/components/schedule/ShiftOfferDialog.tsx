@@ -22,17 +22,24 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
   useEffect(() => {
     const checkExistingOffer = async () => {
       if (!shift?.id) return;
-      
-      const { data } = await supabase
+
+      const { data, error } = await supabase
         .from("shift_offers")
         .select("*")
         .eq("shift_id", shift.id)
         .eq("status", "available")
-        .maybeSingle();
-      
-      setExistingOffer(data);
+        .order("created_at", { ascending: true })
+        .limit(1);
+
+      if (error) {
+        console.error("[ShiftOfferDialog] checkExistingOffer error", { shiftId: shift.id, error });
+        setExistingOffer(null);
+        return;
+      }
+
+      setExistingOffer(data?.[0] ?? null);
     };
-    
+
     if (open) {
       checkExistingOffer();
     }
@@ -49,20 +56,31 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
   const handleOfferUp = async () => {
     setIsSubmitting(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      console.log("[ShiftOfferDialog] handleOfferUp start", {
+        shiftId: shift?.id,
+        locationId: shift?.location_id,
+      });
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+      if (userError) throw userError;
       if (!user) throw new Error("Not authenticated");
 
       // Check if this shift is already offered to prevent duplicates
-      const { data: existingOfferCheck } = await supabase
+      const { data: existingOffers, error: existingOfferError } = await supabase
         .from("shift_offers")
-        .select("id")
+        .select("id,status")
         .eq("shift_id", shift.id)
         .in("status", ["available", "claimed"])
-        .maybeSingle();
+        .order("created_at", { ascending: true })
+        .limit(1);
 
-      if (existingOfferCheck) {
+      if (existingOfferError) throw existingOfferError;
+
+      if (existingOffers?.length) {
         toast.error("This shift is already in the marketplace");
-        setIsSubmitting(false);
         return;
       }
 
@@ -72,7 +90,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
         .insert({
           shift_id: shift.id,
           offered_by_user_id: user.id,
-          status: "available"
+          status: "available",
         })
         .select()
         .single();
@@ -84,14 +102,16 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
 
       // Get or create shift marketplace chat for this location
       // Use limit(1) to handle duplicate chats gracefully
-      let { data: marketplaceChats } = await supabase
+      let { data: marketplaceChats, error: marketplaceChatsError } = await supabase
         .from("chats")
         .select("id")
         .eq("title", "Shift Marketplace")
         .eq("location_id", locationId)
         .order("created_at", { ascending: true })
         .limit(1);
-      
+
+      if (marketplaceChatsError) throw marketplaceChatsError;
+
       let marketplaceChat = marketplaceChats?.[0] || null;
 
       if (!marketplaceChat) {
@@ -101,7 +121,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
             created_by: user.id,
             is_group: true,
             title: "Shift Marketplace",
-            location_id: locationId
+            location_id: locationId,
           })
           .select()
           .single();
@@ -110,39 +130,61 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
         marketplaceChat = newChat;
 
         // Add users at this location to the marketplace chat
-        const { data: locationUsers } = await supabase
+        const { data: locationUsers, error: locationUsersError } = await supabase
           .from("user_locations")
           .select("user_id")
           .eq("location_id", locationId);
 
-        if (locationUsers) {
-          await supabase
+        if (locationUsersError) throw locationUsersError;
+
+        if (locationUsers?.length) {
+          const { error: addMembersError } = await supabase
             .from("chat_members")
-            .insert(locationUsers.map(u => ({
-              chat_id: marketplaceChat.id,
-              user_id: u.user_id
-            })));
+            .insert(
+              locationUsers.map((u) => ({
+                chat_id: marketplaceChat.id,
+                user_id: u.user_id,
+              }))
+            );
+
+          if (addMembersError) throw addMembersError;
         }
       }
 
-      // Post message about the shift offer with offer ID
-      const shiftDateFormatted = parseDateStringInTimezone(shift.shift_date, 'America/Los_Angeles').toLocaleDateString();
-      const messageContent = `SHIFT_OFFER:${newOffer.id}`;
+      // Ensure the offering user is actually a member of the marketplace chat (required by messages RLS)
+      const { error: ensureMemberError } = await supabase
+        .from("chat_members")
+        .insert({ chat_id: marketplaceChat.id, user_id: user.id })
+        .select()
+        .maybeSingle();
 
-      await supabase
-        .from("messages")
-        .insert({
-          chat_id: marketplaceChat.id,
-          sender_id: user.id,
-          content: messageContent
-        });
+      // If already exists, ignore; otherwise fail
+      if (ensureMemberError && ensureMemberError.code !== "23505") {
+        throw ensureMemberError;
+      }
+
+      // Post message about the shift offer with offer ID
+      const messageContent = `SHIFT_OFFER:${newOffer.id}`;
+      const { error: messageError } = await supabase.from("messages").insert({
+        chat_id: marketplaceChat.id,
+        sender_id: user.id,
+        content: messageContent,
+      });
+
+      if (messageError) throw messageError;
 
       toast.success("Shift offered up successfully!");
       onOfferCreated?.();
       onOpenChange(false);
-    } catch (error) {
-      console.error("Error offering shift:", error);
-      toast.error("Failed to offer shift");
+    } catch (error: any) {
+      console.error("[ShiftOfferDialog] Error offering shift", {
+        error,
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+      });
+      toast.error(error?.message ? `Failed to offer shift: ${error.message}` : "Failed to offer shift");
     } finally {
       setIsSubmitting(false);
     }
