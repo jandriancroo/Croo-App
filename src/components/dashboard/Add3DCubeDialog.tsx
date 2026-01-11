@@ -15,7 +15,7 @@ import { THEME_COLORS, ThemeColorKey, getThemeColorClass } from "@/utils/themeCo
 
 export interface New3DCubeConfig {
   title?: string; // Legacy single title (optional now)
-  faceMetrics: MetricType[][]; // Array of faces, each face has up to 4 metrics
+  faceMetrics: MetricType[][]; // Array of faces, each face has up to 5 metrics (4 corners + 1 center)
   faceTitles: string[]; // Title for each face
   numFaces: number;
   accentColor: string;
@@ -59,7 +59,7 @@ export function Add3DCubeDialog({
 
   const toggleMetric = (metric: MetricType) => {
     const currentFaceMetrics = faceMetrics[activeFace];
-    const maxMetrics = 4;
+    const maxMetrics = 5; // 4 corners + 1 center
     
     if (currentFaceMetrics.includes(metric)) {
       // Remove metric
@@ -198,7 +198,7 @@ export function Add3DCubeDialog({
                     
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">
-                        Select up to 4 metrics for this face
+                        Select up to 5 metrics (4 corners + 1 center)
                       </span>
                       <span className="text-xs font-medium">
                         {faceMetrics[idx].length}/4
