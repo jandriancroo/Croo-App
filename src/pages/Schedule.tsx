@@ -1370,13 +1370,13 @@ export default function Schedule() {
                         <Copy className="h-4 w-4" />
                         Copy Schedule to Future Week
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => wrapEditAction(() => setClearScheduleDialogOpen(true))} className="gap-2 cursor-pointer text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                        Clear Schedule
-                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setChangeTrackingOpen(true)} className="gap-2 cursor-pointer">
                         <History className="h-4 w-4" />
                         Change Tracking
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => wrapEditAction(() => setClearScheduleDialogOpen(true))} className="gap-2 cursor-pointer text-destructive">
+                        <Trash2 className="h-4 w-4" />
+                        Clear Schedule
                       </DropdownMenuItem>
                       {isPublished && (
                         <DropdownMenuItem onClick={() => setWithdrawDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
