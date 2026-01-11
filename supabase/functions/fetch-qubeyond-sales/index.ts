@@ -2875,14 +2875,18 @@ serve(async (req) => {
     }
 
     // Add labor % to weekly breakdown if we have weekly labor data
+    // IMPORTANT: Calculate laborPercent from laborCost / sales since cache stores laborPercent as 0
     let weeklyWithLabor = weeklyWithProjections;
     if (weeklyLaborData && weeklyLaborData.dailyLabor.length > 0) {
       weeklyWithLabor = weeklyWithProjections.map(d => {
         const dayLabor = weeklyLaborData.dailyLabor.find(l => l.date === d.date);
+        const laborCost = dayLabor?.laborCost || 0;
+        // Calculate labor % from cost / sales (not from cached laborPercent which is always 0)
+        const laborPercent = (laborCost > 0 && d.sales > 0) ? (laborCost / d.sales) * 100 : 0;
         return {
           ...d,
-          laborPercent: dayLabor?.laborPercent || 0,
-          laborCost: dayLabor?.laborCost || 0
+          laborPercent,
+          laborCost
         };
       });
     }
