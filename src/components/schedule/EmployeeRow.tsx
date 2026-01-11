@@ -133,8 +133,9 @@ export function EmployeeRow({
       </div>
 
       {weekDays.map((day, dayIndex) => {
-      const dayShifts = shifts.filter(s => s.day_of_week === dayIndex);
       const cellDateStr = format(day, "yyyy-MM-dd");
+      // Filter by shift_date (source of truth) instead of day_of_week which can be inconsistent
+      const dayShifts = shifts.filter(s => s.shift_date === cellDateStr);
       const dayAvailability = availabilityRequests.filter(r => {
         // Compare date strings directly to avoid timezone issues
         if (r.time_scope === "multi_day" && r.end_date) {
