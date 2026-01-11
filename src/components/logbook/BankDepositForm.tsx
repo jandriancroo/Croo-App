@@ -3,14 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Building2, DollarSign, CalendarRange, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, Building2, DollarSign, CalendarIcon, AlertCircle, CheckCircle2, Printer } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
-import { format, eachDayOfInterval, isSameDay, isAfter, isBefore, startOfDay } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
+import { format, eachDayOfInterval, isBefore, startOfDay, isAfter } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export interface BankDepositData {
@@ -39,7 +39,10 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [notes, setNotes] = useState("");
-  const [step, setStep] = useState<'start' | 'end' | 'review'>('start');
+  const [startOpen, setStartOpen] = useState(false);
+  const [endOpen, setEndOpen] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [submittedData, setSubmittedData] = useState<BankDepositData | null>(null);
   
   // Fetch bank deposit category to find existing deposits
   const { data: bankDepositCategory } = useQuery({
@@ -128,6 +131,9 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
     enabled: !!currentLocation,
   });
   
+  // Auto-fetch drawer entries when both dates are selected
+  const shouldFetchEntries = !!startDate && !!endDate && !submitted;
+  
   // Fetch drawer count entries for selected date range
   const { data: drawerEntries = [], isLoading: loadingEntries } = useQuery({
     queryKey: ["drawer-entries-for-deposit", currentLocation?.id, drawerCountCategory?.id, startDate, endDate],
@@ -151,7 +157,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
       if (error) throw error;
       return data || [];
     },
-    enabled: !!currentLocation && !!drawerCountCategory && !!startDate && !!endDate && step === 'review',
+    enabled: !!currentLocation && !!drawerCountCategory && shouldFetchEntries,
   });
   
   
@@ -228,33 +234,47 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
     }).format(amount);
   };
   
+  const isDateDeposited = (date: Date) => {
+    return depositedDateRanges.has(format(date, "yyyy-MM-dd"));
+  };
+  
+  const isStartDateDisabled = (date: Date) => {
+    const today = startOfDay(new Date());
+    if (isAfter(date, today)) return true;
+    if (isDateDeposited(date)) return true;
+    return false;
+  };
+  
+  const isEndDateDisabled = (date: Date) => {
+    const today = startOfDay(new Date());
+    if (isAfter(date, today)) return true;
+    if (isDateDeposited(date)) return true;
+    if (startDate && isBefore(date, startDate)) return true;
+    return false;
+  };
+  
   const handleStartDateSelect = (date: Date | undefined) => {
     if (date) {
-      // Check if this date is already deposited
       const dateStr = format(date, "yyyy-MM-dd");
-      if (depositedDateRanges.has(dateStr)) {
-        return; // Don't allow selecting already deposited dates
-      }
+      if (depositedDateRanges.has(dateStr)) return;
       setStartDate(date);
-      setEndDate(undefined);
-      setStep('end');
+      // If end date is before start date, clear it
+      if (endDate && isBefore(endDate, date)) {
+        setEndDate(undefined);
+      }
+      setStartOpen(false);
     }
   };
   
   const handleEndDateSelect = (date: Date | undefined) => {
     if (date && startDate) {
-      // Ensure end date is not before start date
-      if (isBefore(date, startDate)) {
-        return;
-      }
+      if (isBefore(date, startDate)) return;
       // Check if any date in range is already deposited
       const days = eachDayOfInterval({ start: startDate, end: date });
       const hasDepositedDay = days.some(d => depositedDateRanges.has(format(d, "yyyy-MM-dd")));
-      if (hasDepositedDay) {
-        return; // Range includes already deposited dates
-      }
+      if (hasDepositedDay) return;
       setEndDate(date);
-      setStep('review');
+      setEndOpen(false);
     }
   };
   
@@ -276,17 +296,17 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
       notes: notes || undefined,
     };
     
+    setSubmittedData(data);
+    setSubmitted(true);
     onSave(data);
   };
   
-  const handleBack = () => {
-    if (step === 'review') {
-      setStep('end');
-      setEndDate(undefined);
-    } else if (step === 'end') {
-      setStep('start');
-      setStartDate(undefined);
-    }
+  const handleReset = () => {
+    setStartDate(undefined);
+    setEndDate(undefined);
+    setNotes("");
+    setSubmitted(false);
+    setSubmittedData(null);
   };
   
   if (loadingDeposited) {
@@ -297,204 +317,319 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
     );
   }
   
-  const isDateDeposited = (date: Date) => {
-    return depositedDateRanges.has(format(date, "yyyy-MM-dd"));
-  };
-  
-  const isDateDisabled = (date: Date) => {
-    const today = startOfDay(new Date());
-    // Can't select future dates
-    if (isAfter(date, today)) return true;
-    // Can't select already deposited dates
-    if (isDateDeposited(date)) return true;
-    // In end date selection, can't select before start date
-    if (step === 'end' && startDate && isBefore(date, startDate)) return true;
-    return false;
-  };
-  
-  return (
-    <div className="space-y-6">
-      {/* Step indicator */}
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Badge variant={step === 'start' ? 'default' : 'secondary'}>1. Start Date</Badge>
-        <span>→</span>
-        <Badge variant={step === 'end' ? 'default' : 'secondary'}>2. End Date</Badge>
-        <span>→</span>
-        <Badge variant={step === 'review' ? 'default' : 'secondary'}>3. Review</Badge>
-      </div>
-      
-      {/* Date Selection */}
-      {(step === 'start' || step === 'end') && (
-        <Card>
+  // Show success summary after submission
+  if (submitted && submittedData) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-green-500/50 bg-green-500/5">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <CalendarRange className="h-5 w-5" />
-              {step === 'start' ? 'Select Start Date' : 'Select End Date'}
+            <CardTitle className="text-base flex items-center gap-2 text-green-600 dark:text-green-400">
+              <CheckCircle2 className="h-5 w-5" />
+              Bank Deposit Recorded
             </CardTitle>
             <CardDescription>
-              {step === 'start' 
-                ? 'Choose the first day of drawer counts to include in this bank deposit.' 
-                : `Start date: ${startDate ? format(startDate, 'PPP') : 'Not selected'}. Choose the last day to include.`
-              }
+              {format(new Date(submittedData.startDate + 'T12:00:00'), 'PP')} — {format(new Date(submittedData.endDate + 'T12:00:00'), 'PP')}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center gap-4">
-              <Calendar
-                mode="single"
-                selected={step === 'start' ? startDate : endDate}
-                onSelect={step === 'start' ? handleStartDateSelect : handleEndDateSelect}
-                disabled={isDateDisabled}
-                modifiers={{
-                  deposited: (date) => isDateDeposited(date),
-                }}
-                modifiersStyles={{
-                  deposited: {
-                    backgroundColor: 'hsl(var(--destructive) / 0.2)',
-                    color: 'hsl(var(--destructive))',
-                    fontWeight: 'bold',
-                  },
-                }}
-                className="rounded-md border pointer-events-auto"
-              />
+          <CardContent className="space-y-4">
+            {/* Summary Card - What to take to bank */}
+            <div className="rounded-lg border-2 border-primary bg-primary/5 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-primary font-semibold">
+                <Building2 className="h-5 w-5" />
+                Take to Bank
+              </div>
               
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-sm bg-destructive/20 border border-destructive/50" />
-                  <span>Already deposited</span>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-background rounded-lg p-3 text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Bills</div>
+                  <div className="text-xl font-bold">{formatCurrency(submittedData.totalDollars)}</div>
+                </div>
+                <div className="bg-background rounded-lg p-3 text-center">
+                  <div className="text-xs text-muted-foreground mb-1">Coins</div>
+                  <div className="text-xl font-bold">{formatCurrency(submittedData.totalChange)}</div>
                 </div>
               </div>
               
-              {step === 'end' && (
-                <Button variant="outline" size="sm" onClick={handleBack}>
-                  Back to Start Date
-                </Button>
-              )}
+              <div className="bg-primary text-primary-foreground rounded-lg p-4 text-center">
+                <div className="text-sm opacity-80 mb-1">Total Deposit</div>
+                <div className="text-3xl font-bold">{formatCurrency(submittedData.totalAmount)}</div>
+              </div>
+              
+              <div className="text-center text-sm text-muted-foreground">
+                {submittedData.daysIncluded} day{submittedData.daysIncluded !== 1 ? 's' : ''} included
+              </div>
             </div>
+            
+            {/* Daily breakdown */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Daily Breakdown</Label>
+              <div className="rounded-lg border divide-y max-h-48 overflow-y-auto">
+                {submittedData.entries.map((entry) => (
+                  <div 
+                    key={entry.entryId}
+                    className="flex items-center justify-between p-3"
+                  >
+                    <span className="text-sm">
+                      {format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d')}
+                    </span>
+                    <span className="font-mono text-sm font-semibold">
+                      {formatCurrency(entry.depositAmount)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {submittedData.notes && (
+              <div className="text-sm text-muted-foreground">
+                <span className="font-medium">Notes:</span> {submittedData.notes}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        
+        <Button variant="outline" onClick={handleReset} className="w-full">
+          Record Another Deposit
+        </Button>
+      </div>
+    );
+  }
+  
+  const canShowPreview = startDate && endDate && !loadingEntries;
+  const canSubmit = canShowPreview && summary.includableEntries.length > 0;
+  
+  return (
+    <div className="space-y-6">
+      {/* Date Selection - Side by side fields */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarIcon className="h-5 w-5" />
+            Select Date Range
+          </CardTitle>
+          <CardDescription>
+            Choose the start and end dates for drawer counts to include
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            {/* Start Date */}
+            <div className="space-y-2">
+              <Label className="text-sm">Start Date</Label>
+              <Popover open={startOpen} onOpenChange={setStartOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-auto py-3",
+                      !startDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="truncate">
+                      {startDate ? format(startDate, "MMM d") : "Pick start"}
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={startDate}
+                    onSelect={handleStartDateSelect}
+                    disabled={isStartDateDisabled}
+                    modifiers={{
+                      deposited: (date) => isDateDeposited(date),
+                    }}
+                    modifiersStyles={{
+                      deposited: {
+                        backgroundColor: 'hsl(var(--destructive) / 0.2)',
+                        color: 'hsl(var(--destructive))',
+                        fontWeight: 'bold',
+                      },
+                    }}
+                    initialFocus
+                  />
+                  <div className="p-2 border-t">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="w-3 h-3 rounded-sm bg-destructive/20 border border-destructive/50" />
+                      <span>Already deposited</span>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            {/* End Date */}
+            <div className="space-y-2">
+              <Label className="text-sm">End Date</Label>
+              <Popover open={endOpen} onOpenChange={setEndOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal h-auto py-3",
+                      !endDate && "text-muted-foreground"
+                    )}
+                    disabled={!startDate}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="truncate">
+                      {endDate ? format(endDate, "MMM d") : "Pick end"}
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={endDate}
+                    onSelect={handleEndDateSelect}
+                    disabled={isEndDateDisabled}
+                    modifiers={{
+                      deposited: (date) => isDateDeposited(date),
+                      inRange: (date) => startDate ? !isBefore(date, startDate) : false,
+                    }}
+                    modifiersStyles={{
+                      deposited: {
+                        backgroundColor: 'hsl(var(--destructive) / 0.2)',
+                        color: 'hsl(var(--destructive))',
+                        fontWeight: 'bold',
+                      },
+                    }}
+                    initialFocus
+                  />
+                  <div className="p-2 border-t">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="w-3 h-3 rounded-sm bg-destructive/20 border border-destructive/50" />
+                      <span>Already deposited</span>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          
+          {startDate && endDate && (
+            <div className="text-sm text-muted-foreground text-center">
+              {format(startDate, 'PP')} — {format(endDate, 'PP')}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Preview/Summary */}
+      {canShowPreview && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Deposit Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {loadingEntries ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            ) : summary.includableEntries.length === 0 ? (
+              <div className="flex items-center gap-2 p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-amber-700 dark:text-amber-400">
+                <AlertCircle className="h-5 w-5 shrink-0" />
+                <span className="text-sm">No drawer counts found for this date range, or all have already been deposited.</span>
+              </div>
+            ) : (
+              <>
+                {/* Daily breakdown */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Daily Breakdown</Label>
+                  <div className="rounded-lg border divide-y max-h-48 overflow-y-auto">
+                    {summary.entries.map((entry) => (
+                      <div 
+                        key={entry.entryId}
+                        className={cn(
+                          "flex items-center justify-between p-3",
+                          entry.alreadyDeposited && "opacity-50 bg-muted"
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">
+                            {format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d')}
+                          </span>
+                          {entry.alreadyDeposited && (
+                            <Badge variant="secondary" className="text-xs">Already deposited</Badge>
+                          )}
+                        </div>
+                        <span className={cn(
+                          "font-mono text-sm",
+                          entry.alreadyDeposited ? "line-through" : "font-semibold"
+                        )}>
+                          {formatCurrency(entry.depositAmount)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Totals */}
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <span className="text-muted-foreground">Bills (Dollars)</span>
+                    <span className="font-semibold">{formatCurrency(summary.totalDollars)}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <span className="text-muted-foreground">Coins (Change)</span>
+                    <span className="font-semibold">{formatCurrency(summary.totalChange)}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-primary/10 border border-primary/30 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-5 w-5 text-primary" />
+                      <span className="font-medium">Total Deposit</span>
+                    </div>
+                    <span className="text-2xl font-bold text-primary">
+                      {formatCurrency(summary.totalAmount)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <span className="text-muted-foreground">Days Included</span>
+                    <Badge variant="secondary">{summary.daysIncluded} day{summary.daysIncluded !== 1 ? 's' : ''}</Badge>
+                  </div>
+                </div>
+                
+                {/* Notes */}
+                <div className="space-y-2">
+                  <Label htmlFor="deposit-notes">Notes (optional)</Label>
+                  <Textarea
+                    id="deposit-notes"
+                    placeholder="Any notes about this deposit..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                  />
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       )}
       
-      {/* Review & Submit */}
-      {step === 'review' && (
-        <>
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Bank Deposit Summary
-              </CardTitle>
-              <CardDescription>
-                {format(startDate!, 'PP')} — {format(endDate!, 'PP')}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {loadingEntries ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                </div>
-              ) : summary.includableEntries.length === 0 ? (
-                <div className="flex items-center gap-2 p-4 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-amber-700 dark:text-amber-400">
-                  <AlertCircle className="h-5 w-5" />
-                  <span>No drawer counts found for this date range, or all have already been deposited.</span>
-                </div>
-              ) : (
-                <>
-                  {/* Daily breakdown */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium">Daily Breakdown</Label>
-                    <div className="rounded-lg border divide-y">
-                      {summary.entries.map((entry) => (
-                        <div 
-                          key={entry.entryId}
-                          className={cn(
-                            "flex items-center justify-between p-3",
-                            entry.alreadyDeposited && "opacity-50 bg-muted"
-                          )}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">
-                              {format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d')}
-                            </span>
-                            {entry.alreadyDeposited && (
-                              <Badge variant="secondary" className="text-xs">Already deposited</Badge>
-                            )}
-                          </div>
-                          <span className={cn(
-                            "font-mono text-sm",
-                            entry.alreadyDeposited ? "line-through" : "font-semibold"
-                          )}>
-                            {formatCurrency(entry.depositAmount)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Totals */}
-                  <div className="space-y-2 pt-2">
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <span className="text-muted-foreground">Bills (Dollars)</span>
-                      <span className="font-semibold">{formatCurrency(summary.totalDollars)}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <span className="text-muted-foreground">Coins (Change)</span>
-                      <span className="font-semibold">{formatCurrency(summary.totalChange)}</span>
-                    </div>
-                    <div className="flex items-center justify-between p-4 bg-primary/10 border border-primary/30 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <DollarSign className="h-5 w-5 text-primary" />
-                        <span className="font-medium">Total Deposit</span>
-                      </div>
-                      <span className="text-2xl font-bold text-primary">
-                        {formatCurrency(summary.totalAmount)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <span className="text-muted-foreground">Days Included</span>
-                      <Badge variant="secondary">{summary.daysIncluded} day{summary.daysIncluded !== 1 ? 's' : ''}</Badge>
-                    </div>
-                  </div>
-                  
-                  {/* Notes */}
-                  <div className="space-y-2">
-                    <Label htmlFor="deposit-notes">Notes (optional)</Label>
-                    <Textarea
-                      id="deposit-notes"
-                      placeholder="Any notes about this deposit..."
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      rows={2}
-                    />
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-          
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleBack} className="flex-1">
-              Change Dates
-            </Button>
-            <Button 
-              onClick={handleSubmit} 
-              disabled={isSaving || summary.includableEntries.length === 0}
-              className="flex-1"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Submit Bank Deposit
-                </>
-              )}
-            </Button>
-          </div>
-        </>
+      {/* Submit Button */}
+      {canShowPreview && (
+        <Button 
+          onClick={handleSubmit} 
+          disabled={isSaving || !canSubmit}
+          className="w-full"
+          size="lg"
+        >
+          {isSaving ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              Submit Bank Deposit
+            </>
+          )}
+        </Button>
       )}
     </div>
   );
