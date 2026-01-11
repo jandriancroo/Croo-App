@@ -215,6 +215,17 @@ function getMetricValue(metricType: MetricType, salesData?: SalesDataForWidgets 
     case 'payment_olo_prepaid_today': return getPaymentAmount(getPaymentsForPeriod(salesData, 'daily'), ['olo prepaid', 'prepaid']);
     case 'payment_olo_giftcard_today': return getPaymentAmount(getPaymentsForPeriod(salesData, 'daily'), ['olo gift card', 'olo giftcard']);
     case 'payment_svs_giftcard_today': return getPaymentAmount(getPaymentsForPeriod(salesData, 'daily'), ['svs gift card', 'svs giftcard']);
+    // Combined OLO (sum of Visa, MC, Prepaid, GC)
+    case 'payment_olo_combined_today': {
+      const payments = getPaymentsForPeriod(salesData, 'daily');
+      if (!payments) return undefined;
+      const visa = getPaymentAmount(payments, ['olo visa']) ?? 0;
+      const mc = getPaymentAmount(payments, ['olo mastercard', 'olo mc']) ?? 0;
+      const prepaid = getPaymentAmount(payments, ['olo prepaid', 'prepaid']) ?? 0;
+      const gc = getPaymentAmount(payments, ['olo gift card', 'olo giftcard']) ?? 0;
+      const total = visa + mc + prepaid + gc;
+      return total > 0 ? total : undefined;
+    }
     case 'payment_cash_today_pct': return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['cash']);
     case 'payment_credit_card_today_pct': return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['credit card', 'creditcard']);
     case 'payment_olo_doordash_today_pct': return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['doordash', 'door dash']);
@@ -224,6 +235,17 @@ function getMetricValue(metricType: MetricType, salesData?: SalesDataForWidgets 
     case 'payment_olo_prepaid_today_pct': return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['olo prepaid', 'prepaid']);
     case 'payment_olo_giftcard_today_pct': return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['olo gift card', 'olo giftcard']);
     case 'payment_svs_giftcard_today_pct': return getPaymentPercent(getPaymentsForPeriod(salesData, 'daily'), ['svs gift card', 'svs giftcard']);
+    // Combined OLO percent
+    case 'payment_olo_combined_today_pct': {
+      const payments = getPaymentsForPeriod(salesData, 'daily');
+      if (!payments) return undefined;
+      const visa = getPaymentPercent(payments, ['olo visa']) ?? 0;
+      const mc = getPaymentPercent(payments, ['olo mastercard', 'olo mc']) ?? 0;
+      const prepaid = getPaymentPercent(payments, ['olo prepaid', 'prepaid']) ?? 0;
+      const gc = getPaymentPercent(payments, ['olo gift card', 'olo giftcard']) ?? 0;
+      const total = visa + mc + prepaid + gc;
+      return total > 0 ? total : undefined;
+    }
     case 'payment_cash_wtd': return getPaymentAmount(getPaymentsForPeriod(salesData, 'weekly'), ['cash']);
     case 'payment_credit_card_wtd': return getPaymentAmount(getPaymentsForPeriod(salesData, 'weekly'), ['credit card', 'creditcard']);
     case 'payment_olo_doordash_wtd': return getPaymentAmount(getPaymentsForPeriod(salesData, 'weekly'), ['doordash', 'door dash']);
