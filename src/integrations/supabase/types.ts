@@ -3319,6 +3319,7 @@ export type Database = {
       schedule_change_log: {
         Row: {
           change_type: string
+          changed_by: string | null
           created_at: string
           id: string
           new_shift_data: Json | null
@@ -3328,6 +3329,7 @@ export type Database = {
         }
         Insert: {
           change_type: string
+          changed_by?: string | null
           created_at?: string
           id?: string
           new_shift_data?: Json | null
@@ -3337,6 +3339,7 @@ export type Database = {
         }
         Update: {
           change_type?: string
+          changed_by?: string | null
           created_at?: string
           id?: string
           new_shift_data?: Json | null
