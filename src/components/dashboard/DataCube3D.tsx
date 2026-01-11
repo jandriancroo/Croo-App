@@ -719,8 +719,7 @@ function CubeFaceComponent({
                   <div 
                     className={cn(
                       "flex flex-col items-center text-center px-2 py-1 rounded-lg",
-                      isLightBg ? "bg-background/80" : "bg-black/30",
-                      "backdrop-blur-sm"
+                      isLightBg ? "bg-black/10" : "bg-black/10"
                     )}
                   >
                     <div className="flex items-center gap-1">
