@@ -260,7 +260,9 @@ export const METRIC_GROUPS = [
       'payment_cash_today',
       'payment_credit_card_today',
       'payment_olo_doordash_today',
-      'payment_olo_ubereats_today'
+      'payment_olo_ubereats_today',
+      'payment_olo_combined_today',
+      'payment_olo_combined_today_pct'
     ] as MetricType[]
   },
 ];
