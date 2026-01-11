@@ -603,16 +603,16 @@ function CubeFaceComponent({
                       </div>
                       <div 
                         className={cn(
-                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                          "flex items-center gap-1 text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                          isRight && "flex-row-reverse",
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
                         {getDynamicLabel(metricType)}
+                        {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
+                          <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
+                        )}
                       </div>
-                      {/* Small triangle below label for pace metrics only */}
-                      {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
-                        <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
-                      )}
                     </div>
                 );
               })}
@@ -667,16 +667,16 @@ function CubeFaceComponent({
                       </div>
                       <div 
                         className={cn(
-                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                          "flex items-center gap-1 text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                          isRight && "flex-row-reverse",
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
                         {getDynamicLabel(metricType)}
+                        {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
+                          <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
+                        )}
                       </div>
-                      {/* Small triangle below label for pace metrics only */}
-                      {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
-                        <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
-                      )}
                     </div>
                   );
                 })}
@@ -708,16 +708,15 @@ function CubeFaceComponent({
                       </div>
                       <div 
                         className={cn(
-                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                          "flex items-center justify-center gap-1 text-[10px] md:text-xs font-semibold truncate -mt-0.5",
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
                         {getDynamicLabel(metricType)}
+                        {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
+                          <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
+                        )}
                       </div>
-                      {/* Small triangle below label for pace metrics only */}
-                      {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
-                        <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
-                      )}
                     </div>
                   );
                 })}
@@ -763,16 +762,16 @@ function CubeFaceComponent({
                     </div>
                     <div 
                       className={cn(
-                        "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                        "flex items-center gap-1 text-[10px] md:text-xs font-semibold truncate -mt-0.5",
+                        isRight && "flex-row-reverse",
                         isLightBg ? "text-muted-foreground" : "text-white/70"
                       )}
                     >
                       {getDynamicLabel(metricType)}
+                      {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
+                        <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
+                      )}
                     </div>
-                    {/* Small triangle below label for pace metrics only */}
-                    {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
-                      <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
-                    )}
                   </div>
                 );
               })}
@@ -806,16 +805,15 @@ function CubeFaceComponent({
                   </div>
                   <div 
                     className={cn(
-                      "text-xs md:text-sm font-semibold truncate",
+                      "flex items-center justify-center gap-1 text-xs md:text-sm font-semibold truncate",
                       isLightBg ? "text-muted-foreground" : "text-white/70"
                     )}
                   >
                     {getDynamicLabel(metricType)}
+                    {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
+                      <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
+                    )}
                   </div>
-                  {/* Small triangle below label for pace metrics only */}
-                  {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
-                    <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
-                  )}
                 </div>
               );
             })}
