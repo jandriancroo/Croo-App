@@ -489,9 +489,12 @@ function CubeFaceComponent({
   const textClass = getThemeTextClass(themeColorKey);
   const isLightBg = themeColorKey === 'secondary' || themeColorKey === 'muted';
   
-  // Allow up to 4 metrics per face
-  const displayMetrics = face?.metrics?.slice(0, 4) || [];
+  // Allow up to 5 metrics per face (4 corners + 1 center)
+  const displayMetrics = face?.metrics?.slice(0, 5) || [];
   const metricCount = displayMetrics.length;
+  const hasCenterMetric = metricCount === 5;
+  const cornerMetrics = hasCenterMetric ? displayMetrics.slice(0, 4) : displayMetrics;
+  const centerMetric = hasCenterMetric ? displayMetrics[4] : null;
   
 
   if (!face || displayMetrics.length === 0) {
@@ -575,10 +578,10 @@ function CubeFaceComponent({
       {/* Content - positioned layout for metrics */}
       <div className={cn(
         "flex-1 relative z-10",
-        metricCount === 4 ? "p-2 md:p-3" : "px-2.5 md:px-3 py-1"
+        (metricCount === 4 || metricCount === 5) ? "p-2 md:p-3" : "px-2.5 md:px-3 py-1"
       )}>
-        {metricCount === 4 ? (
-          // 4 metrics: 2x2 grid layout with quadrant dividers
+        {(metricCount === 4 || metricCount === 5) ? (
+          // 4 or 5 metrics: 2x2 grid layout with optional center metric
           <div className="relative h-full">
             {/* Quadrant glow dividers */}
             <div 
@@ -597,7 +600,7 @@ function CubeFaceComponent({
             />
             
             <div className="grid grid-cols-2 grid-rows-2 h-full gap-1">
-              {displayMetrics.map((metricType, index) => {
+              {cornerMetrics.map((metricType, index) => {
                 const config = METRIC_CONFIGS[metricType];
                 if (!config) return null;
                 
@@ -639,6 +642,53 @@ function CubeFaceComponent({
                 );
               })}
             </div>
+            
+            {/* Center metric (5th metric) */}
+            {centerMetric && (() => {
+              const config = METRIC_CONFIGS[centerMetric];
+              if (!config) return null;
+              
+              const value = getMetricValue(centerMetric, salesData);
+              const formattedValue = formatValue(value, config.format);
+              const pacingStatus = getPacingStatus(centerMetric, salesData);
+              const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
+              
+              return (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div 
+                    className={cn(
+                      "flex flex-col items-center text-center px-2 py-1 rounded-lg",
+                      isLightBg ? "bg-background/80" : "bg-black/30",
+                      "backdrop-blur-sm"
+                    )}
+                  >
+                    <div className="flex items-center gap-1">
+                      <div 
+                        className={cn(
+                          "font-bold leading-none truncate text-base md:text-lg",
+                          isLoading && "animate-pulse bg-white/30 rounded w-10 h-4",
+                          textColorClass || (isLightBg ? "text-foreground" : "text-white")
+                        )}
+                      >
+                        {!isLoading && formattedValue}
+                      </div>
+                      {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} mode={pacingDisplay} />}
+                    </div>
+                    <div 
+                      className={cn(
+                        "flex items-center gap-1 text-[9px] md:text-[10px] font-semibold truncate -mt-0.5",
+                        isLightBg ? "text-muted-foreground" : "text-white/70"
+                      )}
+                    >
+                      {getDynamicLabel(centerMetric)}
+                      {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(centerMetric) && (
+                        <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         ) : metricCount === 3 ? (
           // 3 metrics: top-left, top-right, bottom row layout with dividers

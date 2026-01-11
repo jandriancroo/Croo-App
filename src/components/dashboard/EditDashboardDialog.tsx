@@ -143,7 +143,7 @@ export function EditDashboardDialog({
     if (editingCube.cubeType === 'data-3d') {
       // 3D cube: toggle metric on current face
       const currentFaceMetrics = faceMetrics[activeFace];
-      const maxMetrics = 4;
+      const maxMetrics = 5; // 4 corners + 1 center
       
       if (currentFaceMetrics.includes(metric)) {
         const updated = [...faceMetrics];
@@ -443,7 +443,7 @@ export function EditDashboardDialog({
                               
                               <div className="flex items-center justify-between">
                                 <span className="text-xs text-muted-foreground">
-                                  Select up to 4 metrics for this face
+                                  Select up to 5 metrics (4 corners + 1 center)
                                 </span>
                                 <span className="text-xs font-medium">
                                   {faceMetrics[idx].length}/4
