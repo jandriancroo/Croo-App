@@ -454,8 +454,9 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     setNewMessage('');
     setReplyToMessage(null);
     
-    // Create optimistic message
+    // Create optimistic message with user's profile for immediate display
     const optimisticId = `pending-${Date.now()}`;
+    const userFullName = user?.user_metadata?.full_name || 'You';
     const optimisticMessage: Message = {
       id: optimisticId,
       content: messageContent || null,
@@ -468,6 +469,10 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
         content: replyTo.content, 
         profiles: replyTo.profiles ? { full_name: replyTo.profiles.full_name } : null 
       } : null,
+      profiles: {
+        full_name: userFullName,
+        profile_photo_url: null, // Will be updated when real message arrives
+      },
       isPending: true,
     };
     
@@ -873,8 +878,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
           </div>
         )}
 
-        {/* Loading state */}
-        {messagesLoading && messages.length === 0 && (
+        {/* Loading state - only show if no messages AND no pending messages */}
+        {messagesLoading && messages.length === 0 && pendingMessages.length === 0 && (
           <div className="flex justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
