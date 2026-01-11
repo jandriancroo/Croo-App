@@ -100,57 +100,57 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   // Daily metrics - Order: Sales, Pace, Projected, Last Wk, Last Yr, Guests, Pizzas, Avg Ticket, Labor%, Labor$, Hours
   sales_today: { type: 'sales_today', label: 'Sales', shortLabel: 'Sales', icon: DollarSign, format: 'currency', category: 'daily' },
   sales_pace: { type: 'sales_pace', label: 'Pace', shortLabel: 'Pace', icon: TrendingUp, format: 'currency', category: 'daily' },
-  sales_projected_today: { type: 'sales_projected_today', label: 'AI Goal EOD', shortLabel: 'AI EOD', icon: Target, format: 'currency', category: 'daily' },
-  sales_last_week: { type: 'sales_last_week', label: 'Last Week', shortLabel: 'LW', icon: Calendar, format: 'currency', category: 'daily' },
-  sales_last_year_day: { type: 'sales_last_year_day', label: 'Last Year', shortLabel: 'LY', icon: Calendar, format: 'currency', category: 'daily' },
+  sales_projected_today: { type: 'sales_projected_today', label: 'AI Goal EOD', shortLabel: 'EOD Goal', icon: Target, format: 'currency', category: 'daily' },
+  sales_last_week: { type: 'sales_last_week', label: 'Last Week', shortLabel: 'SDLW', icon: Calendar, format: 'currency', category: 'daily' },
+  sales_last_year_day: { type: 'sales_last_year_day', label: 'Last Year', shortLabel: 'SDLY', icon: Calendar, format: 'currency', category: 'daily' }, // Dynamic: SDLY + date
   guest_count_today: { type: 'guest_count_today', label: 'Guests', shortLabel: 'Guests', icon: Users, format: 'number', category: 'daily' },
   pizza_count_today: { type: 'pizza_count_today', label: 'Pizzas', shortLabel: 'Pizzas', icon: Pizza, format: 'number', category: 'daily' },
-  avg_ticket: { type: 'avg_ticket', label: 'Avg Ticket', shortLabel: 'Avg$', icon: DollarSign, format: 'currency', category: 'daily' },
-  labor_percent_today: { type: 'labor_percent_today', label: 'Labor %', shortLabel: 'Labor%', icon: Users, format: 'percent', category: 'daily' },
-  labor_cost_today: { type: 'labor_cost_today', label: 'Labor Cost', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'daily' },
-  labor_hours_today: { type: 'labor_hours_today', label: 'Hours', shortLabel: 'Hrs', icon: Clock, format: 'hours', category: 'daily' },
+  avg_ticket: { type: 'avg_ticket', label: 'Avg Ticket', shortLabel: 'Avg Check', icon: DollarSign, format: 'currency', category: 'daily' },
+  labor_percent_today: { type: 'labor_percent_today', label: 'Labor %', shortLabel: 'Lab%', icon: Users, format: 'percent', category: 'daily' },
+  labor_cost_today: { type: 'labor_cost_today', label: 'Labor Cost', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'daily' }, // Hidden (x)
+  labor_hours_today: { type: 'labor_hours_today', label: 'Hours', shortLabel: 'Lab Hrs', icon: Clock, format: 'hours', category: 'daily' },
   
   // Weekly metrics - Same order: Sales, Pace, Projected, Last Wk, Last Yr, Guests, Pizzas, Labor%, Labor$, Hours
   sales_wtd: { type: 'sales_wtd', label: 'Sales WTD', shortLabel: 'WTD', icon: DollarSign, format: 'currency', category: 'weekly' },
-  sales_pace_week: { type: 'sales_pace_week', label: 'Week Pace', shortLabel: 'Pace', icon: TrendingUp, format: 'currency', category: 'weekly' },
-  sales_projected_week: { type: 'sales_projected_week', label: 'AI Goal EOW', shortLabel: 'AI EOW', icon: Target, format: 'currency', category: 'weekly' },
+  sales_pace_week: { type: 'sales_pace_week', label: 'Week Pace', shortLabel: 'Wkly Pace', icon: TrendingUp, format: 'currency', category: 'weekly' },
+  sales_projected_week: { type: 'sales_projected_week', label: 'AI Goal EOW', shortLabel: 'EOW Goal', icon: Target, format: 'currency', category: 'weekly' },
   sales_prev_week: { type: 'sales_prev_week', label: 'Last Week', shortLabel: 'LW', icon: Calendar, format: 'currency', category: 'weekly' },
-  sales_last_year_week: { type: 'sales_last_year_week', label: 'Last Year', shortLabel: 'LY', icon: Calendar, format: 'currency', category: 'weekly' },
-  guest_count_wtd: { type: 'guest_count_wtd', label: 'Guests WTD', shortLabel: 'Guests', icon: Users, format: 'number', category: 'weekly' },
-  pizza_count_wtd: { type: 'pizza_count_wtd', label: 'Pizzas WTD', shortLabel: 'Pizzas', icon: Pizza, format: 'number', category: 'weekly' },
-  labor_percent_wtd: { type: 'labor_percent_wtd', label: 'Labor % WTD', shortLabel: 'Labor%', icon: Users, format: 'percent', category: 'weekly' },
-  labor_cost_wtd: { type: 'labor_cost_wtd', label: 'Labor Cost WTD', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'weekly' },
-  labor_hours_wtd: { type: 'labor_hours_wtd', label: 'Hours WTD', shortLabel: 'Hrs', icon: Clock, format: 'hours', category: 'weekly' },
+  sales_last_year_week: { type: 'sales_last_year_week', label: 'Last Year', shortLabel: 'SWLY', icon: Calendar, format: 'currency', category: 'weekly' }, // Dynamic: SWLY + Wk#
+  guest_count_wtd: { type: 'guest_count_wtd', label: 'Guests WTD', shortLabel: 'WTD Guests', icon: Users, format: 'number', category: 'weekly' },
+  pizza_count_wtd: { type: 'pizza_count_wtd', label: 'Pizzas WTD', shortLabel: 'WTD Pizzas', icon: Pizza, format: 'number', category: 'weekly' },
+  labor_percent_wtd: { type: 'labor_percent_wtd', label: 'Labor % WTD', shortLabel: 'WTD Lab%', icon: Users, format: 'percent', category: 'weekly' },
+  labor_cost_wtd: { type: 'labor_cost_wtd', label: 'Labor Cost WTD', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'weekly' }, // Hidden (x)
+  labor_hours_wtd: { type: 'labor_hours_wtd', label: 'Hours WTD', shortLabel: 'Hrs', icon: Clock, format: 'hours', category: 'weekly' }, // Hidden (x)
   
   // Monthly metrics - Same order: Sales, Pace, Projected, Last Mo, Last Yr, Guests, Pizzas, Labor%, Labor$, Hours
   sales_mtd: { type: 'sales_mtd', label: 'Sales MTD', shortLabel: 'MTD', icon: DollarSign, format: 'currency', category: 'monthly' },
-  sales_pace_month: { type: 'sales_pace_month', label: 'Month Pace', shortLabel: 'Pace', icon: TrendingUp, format: 'currency', category: 'monthly' },
-  sales_projected_month: { type: 'sales_projected_month', label: 'AI Goal EOM', shortLabel: 'AI EOM', icon: Target, format: 'currency', category: 'monthly' },
+  sales_pace_month: { type: 'sales_pace_month', label: 'Month Pace', shortLabel: 'Pace', icon: TrendingUp, format: 'currency', category: 'monthly' }, // Dynamic: Month + Pace
+  sales_projected_month: { type: 'sales_projected_month', label: 'AI Goal EOM', shortLabel: 'EOM Goal', icon: Target, format: 'currency', category: 'monthly' },
   sales_prev_month: { type: 'sales_prev_month', label: 'Last Month', shortLabel: 'LM', icon: Calendar, format: 'currency', category: 'monthly' },
-  sales_last_year_month: { type: 'sales_last_year_month', label: 'Last Year', shortLabel: 'LY', icon: Calendar, format: 'currency', category: 'monthly' },
-  guest_count_mtd: { type: 'guest_count_mtd', label: 'Guests MTD', shortLabel: 'Guests', icon: Users, format: 'number', category: 'monthly' },
-  pizza_count_mtd: { type: 'pizza_count_mtd', label: 'Pizzas MTD', shortLabel: 'Pizzas', icon: Pizza, format: 'number', category: 'monthly' },
-  labor_percent_mtd: { type: 'labor_percent_mtd', label: 'Labor % MTD', shortLabel: 'Labor%', icon: Users, format: 'percent', category: 'monthly' },
-  labor_cost_mtd: { type: 'labor_cost_mtd', label: 'Labor Cost MTD', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'monthly' },
-  labor_hours_mtd: { type: 'labor_hours_mtd', label: 'Hours MTD', shortLabel: 'Hrs', icon: Clock, format: 'hours', category: 'monthly' },
+  sales_last_year_month: { type: 'sales_last_year_month', label: 'Last Year', shortLabel: 'SMLY', icon: Calendar, format: 'currency', category: 'monthly' },
+  guest_count_mtd: { type: 'guest_count_mtd', label: 'Guests MTD', shortLabel: 'MTD Guests', icon: Users, format: 'number', category: 'monthly' },
+  pizza_count_mtd: { type: 'pizza_count_mtd', label: 'Pizzas MTD', shortLabel: 'MTD Pizzas', icon: Pizza, format: 'number', category: 'monthly' },
+  labor_percent_mtd: { type: 'labor_percent_mtd', label: 'Labor % MTD', shortLabel: 'MTD Lab%', icon: Users, format: 'percent', category: 'monthly' },
+  labor_cost_mtd: { type: 'labor_cost_mtd', label: 'Labor Cost MTD', shortLabel: 'Labor$', icon: DollarSign, format: 'currency', category: 'monthly' }, // Hidden (x)
+  labor_hours_mtd: { type: 'labor_hours_mtd', label: 'Hours MTD', shortLabel: 'Hrs', icon: Clock, format: 'hours', category: 'monthly' }, // Hidden (x)
   
-  // Personal metrics - available to all users
-  personal_hours_week: { type: 'personal_hours_week', label: 'My Hours (Week)', shortLabel: 'My Hrs', icon: Clock, format: 'hours', category: 'weekly' },
+  // Personal metrics - available to all users (some hidden)
+  personal_hours_week: { type: 'personal_hours_week', label: 'My Hours (Week)', shortLabel: 'My Hrs', icon: Clock, format: 'hours', category: 'weekly' }, // Hidden (x)
   personal_hours_payroll: { type: 'personal_hours_payroll', label: 'My Hours (Payroll)', shortLabel: 'Pay Hrs', icon: Clock, format: 'hours', category: 'weekly' },
-  personal_pay_week: { type: 'personal_pay_week', label: 'Est. Pay (Week)', shortLabel: 'My Pay', icon: DollarSign, format: 'currency', category: 'weekly' },
+  personal_pay_week: { type: 'personal_pay_week', label: 'Est. Pay (Week)', shortLabel: 'My Pay', icon: DollarSign, format: 'currency', category: 'weekly' }, // Hidden (x)
   personal_pay_payroll: { type: 'personal_pay_payroll', label: 'Est. Pay (Payroll)', shortLabel: 'Pay $', icon: DollarSign, format: 'currency', category: 'weekly' },
   
-  // Payment type metrics - Daily (amount)
+  // Payment type metrics - Daily (amount) - only Cash, CC, DD, UE visible
   payment_cash_today: { type: 'payment_cash_today', label: 'Cash', shortLabel: 'Cash', icon: DollarSign, format: 'currency', category: 'daily' },
   payment_credit_card_today: { type: 'payment_credit_card_today', label: 'Credit Card', shortLabel: 'CC', icon: CreditCard, format: 'currency', category: 'daily' },
   payment_olo_doordash_today: { type: 'payment_olo_doordash_today', label: 'DoorDash', shortLabel: 'DD', icon: CreditCard, format: 'currency', category: 'daily' },
   payment_olo_ubereats_today: { type: 'payment_olo_ubereats_today', label: 'UberEats', shortLabel: 'UE', icon: CreditCard, format: 'currency', category: 'daily' },
-  payment_olo_visa_today: { type: 'payment_olo_visa_today', label: 'OLO Visa', shortLabel: 'OLO V', icon: CreditCard, format: 'currency', category: 'daily' },
-  payment_olo_mastercard_today: { type: 'payment_olo_mastercard_today', label: 'OLO MC', shortLabel: 'OLO MC', icon: CreditCard, format: 'currency', category: 'daily' },
-  payment_olo_prepaid_today: { type: 'payment_olo_prepaid_today', label: 'OLO Prepaid', shortLabel: 'Prepaid', icon: CreditCard, format: 'currency', category: 'daily' },
-  payment_olo_giftcard_today: { type: 'payment_olo_giftcard_today', label: 'OLO Gift Card', shortLabel: 'OLO GC', icon: CreditCard, format: 'currency', category: 'daily' },
-  payment_svs_giftcard_today: { type: 'payment_svs_giftcard_today', label: 'SVS Gift Card', shortLabel: 'SVS GC', icon: CreditCard, format: 'currency', category: 'daily' },
-  // Payment type metrics - Daily (percent)
+  payment_olo_visa_today: { type: 'payment_olo_visa_today', label: 'OLO Visa', shortLabel: 'OLO V', icon: CreditCard, format: 'currency', category: 'daily' }, // Hidden (x)
+  payment_olo_mastercard_today: { type: 'payment_olo_mastercard_today', label: 'OLO MC', shortLabel: 'OLO MC', icon: CreditCard, format: 'currency', category: 'daily' }, // Hidden (x)
+  payment_olo_prepaid_today: { type: 'payment_olo_prepaid_today', label: 'OLO Prepaid', shortLabel: 'Prepaid', icon: CreditCard, format: 'currency', category: 'daily' }, // Hidden (x)
+  payment_olo_giftcard_today: { type: 'payment_olo_giftcard_today', label: 'OLO Gift Card', shortLabel: 'OLO GC', icon: CreditCard, format: 'currency', category: 'daily' }, // Hidden (x)
+  payment_svs_giftcard_today: { type: 'payment_svs_giftcard_today', label: 'SVS Gift Card', shortLabel: 'SVS GC', icon: CreditCard, format: 'currency', category: 'daily' }, // Hidden (x)
+  // Payment type metrics - Daily (percent) - all hidden (x)
   payment_cash_today_pct: { type: 'payment_cash_today_pct', label: 'Cash %', shortLabel: 'Cash%', icon: DollarSign, format: 'percent', category: 'daily' },
   payment_credit_card_today_pct: { type: 'payment_credit_card_today_pct', label: 'Credit Card %', shortLabel: 'CC%', icon: CreditCard, format: 'percent', category: 'daily' },
   payment_olo_doordash_today_pct: { type: 'payment_olo_doordash_today_pct', label: 'DoorDash %', shortLabel: 'DD%', icon: CreditCard, format: 'percent', category: 'daily' },
@@ -161,7 +161,7 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   payment_olo_giftcard_today_pct: { type: 'payment_olo_giftcard_today_pct', label: 'OLO GC %', shortLabel: 'OGC%', icon: CreditCard, format: 'percent', category: 'daily' },
   payment_svs_giftcard_today_pct: { type: 'payment_svs_giftcard_today_pct', label: 'SVS GC %', shortLabel: 'SGC%', icon: CreditCard, format: 'percent', category: 'daily' },
   
-  // Payment type metrics - Weekly (amount)
+  // Payment type metrics - Weekly (amount) - all hidden (x)
   payment_cash_wtd: { type: 'payment_cash_wtd', label: 'Cash WTD', shortLabel: 'Cash', icon: DollarSign, format: 'currency', category: 'weekly' },
   payment_credit_card_wtd: { type: 'payment_credit_card_wtd', label: 'Credit Card WTD', shortLabel: 'CC', icon: CreditCard, format: 'currency', category: 'weekly' },
   payment_olo_doordash_wtd: { type: 'payment_olo_doordash_wtd', label: 'DoorDash WTD', shortLabel: 'DD', icon: CreditCard, format: 'currency', category: 'weekly' },
@@ -171,7 +171,7 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   payment_olo_prepaid_wtd: { type: 'payment_olo_prepaid_wtd', label: 'OLO Prepaid WTD', shortLabel: 'Prepaid', icon: CreditCard, format: 'currency', category: 'weekly' },
   payment_olo_giftcard_wtd: { type: 'payment_olo_giftcard_wtd', label: 'OLO GC WTD', shortLabel: 'OLO GC', icon: CreditCard, format: 'currency', category: 'weekly' },
   payment_svs_giftcard_wtd: { type: 'payment_svs_giftcard_wtd', label: 'SVS GC WTD', shortLabel: 'SVS GC', icon: CreditCard, format: 'currency', category: 'weekly' },
-  // Payment type metrics - Weekly (percent)
+  // Payment type metrics - Weekly (percent) - all hidden (x)
   payment_cash_wtd_pct: { type: 'payment_cash_wtd_pct', label: 'Cash % WTD', shortLabel: 'Cash%', icon: DollarSign, format: 'percent', category: 'weekly' },
   payment_credit_card_wtd_pct: { type: 'payment_credit_card_wtd_pct', label: 'CC % WTD', shortLabel: 'CC%', icon: CreditCard, format: 'percent', category: 'weekly' },
   payment_olo_doordash_wtd_pct: { type: 'payment_olo_doordash_wtd_pct', label: 'DD % WTD', shortLabel: 'DD%', icon: CreditCard, format: 'percent', category: 'weekly' },
@@ -182,7 +182,7 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   payment_olo_giftcard_wtd_pct: { type: 'payment_olo_giftcard_wtd_pct', label: 'OLO GC % WTD', shortLabel: 'OGC%', icon: CreditCard, format: 'percent', category: 'weekly' },
   payment_svs_giftcard_wtd_pct: { type: 'payment_svs_giftcard_wtd_pct', label: 'SVS GC % WTD', shortLabel: 'SGC%', icon: CreditCard, format: 'percent', category: 'weekly' },
   
-  // Payment type metrics - Monthly (amount)
+  // Payment type metrics - Monthly (amount) - all hidden (x)
   payment_cash_mtd: { type: 'payment_cash_mtd', label: 'Cash MTD', shortLabel: 'Cash', icon: DollarSign, format: 'currency', category: 'monthly' },
   payment_credit_card_mtd: { type: 'payment_credit_card_mtd', label: 'Credit Card MTD', shortLabel: 'CC', icon: CreditCard, format: 'currency', category: 'monthly' },
   payment_olo_doordash_mtd: { type: 'payment_olo_doordash_mtd', label: 'DoorDash MTD', shortLabel: 'DD', icon: CreditCard, format: 'currency', category: 'monthly' },
@@ -192,7 +192,7 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   payment_olo_prepaid_mtd: { type: 'payment_olo_prepaid_mtd', label: 'OLO Prepaid MTD', shortLabel: 'Prepaid', icon: CreditCard, format: 'currency', category: 'monthly' },
   payment_olo_giftcard_mtd: { type: 'payment_olo_giftcard_mtd', label: 'OLO GC MTD', shortLabel: 'OLO GC', icon: CreditCard, format: 'currency', category: 'monthly' },
   payment_svs_giftcard_mtd: { type: 'payment_svs_giftcard_mtd', label: 'SVS GC MTD', shortLabel: 'SVS GC', icon: CreditCard, format: 'currency', category: 'monthly' },
-  // Payment type metrics - Monthly (percent)
+  // Payment type metrics - Monthly (percent) - all hidden (x)
   payment_cash_mtd_pct: { type: 'payment_cash_mtd_pct', label: 'Cash % MTD', shortLabel: 'Cash%', icon: DollarSign, format: 'percent', category: 'monthly' },
   payment_credit_card_mtd_pct: { type: 'payment_credit_card_mtd_pct', label: 'CC % MTD', shortLabel: 'CC%', icon: CreditCard, format: 'percent', category: 'monthly' },
   payment_olo_doordash_mtd_pct: { type: 'payment_olo_doordash_mtd_pct', label: 'DD % MTD', shortLabel: 'DD%', icon: CreditCard, format: 'percent', category: 'monthly' },
@@ -219,12 +219,12 @@ export function migrateMetricType(metric: string): MetricType {
   return (LEGACY_METRIC_MAP[metric] as MetricType) || (metric as MetricType);
 }
 
-// Consistent order across all time periods: Sales, Pace, Projected, Last Wk, Last Yr, Guests, Pizzas, [Avg Ticket daily only], Labor%, Labor$, Hours
+// Consistent order across all time periods - only includes non-hidden metrics (no "x" from CSV)
 export const METRIC_GROUPS = [
   { 
     label: 'Personal', 
     metrics: [
-      'personal_hours_week', 'personal_hours_payroll', 'personal_pay_week', 'personal_pay_payroll'
+      'personal_hours_payroll', 'personal_pay_payroll'
     ] as MetricType[] 
   },
   { 
@@ -232,7 +232,7 @@ export const METRIC_GROUPS = [
     metrics: [
       'sales_today', 'sales_pace', 'sales_projected_today', 'sales_last_week', 'sales_last_year_day',
       'guest_count_today', 'pizza_count_today', 'avg_ticket',
-      'labor_percent_today', 'labor_cost_today', 'labor_hours_today'
+      'labor_percent_today', 'labor_hours_today'
     ] as MetricType[] 
   },
   { 
@@ -240,7 +240,7 @@ export const METRIC_GROUPS = [
     metrics: [
       'sales_wtd', 'sales_pace_week', 'sales_projected_week', 'sales_prev_week', 'sales_last_year_week',
       'guest_count_wtd', 'pizza_count_wtd',
-      'labor_percent_wtd', 'labor_cost_wtd', 'labor_hours_wtd'
+      'labor_percent_wtd'
     ] as MetricType[] 
   },
   { 
@@ -248,49 +248,16 @@ export const METRIC_GROUPS = [
     metrics: [
       'sales_mtd', 'sales_pace_month', 'sales_projected_month', 'sales_prev_month', 'sales_last_year_month',
       'guest_count_mtd', 'pizza_count_mtd',
-      'labor_percent_mtd', 'labor_cost_mtd', 'labor_hours_mtd'
+      'labor_percent_mtd'
     ] as MetricType[] 
   },
   {
     label: 'Payments - Daily',
     metrics: [
-      'payment_cash_today', 'payment_cash_today_pct',
-      'payment_credit_card_today', 'payment_credit_card_today_pct',
-      'payment_olo_doordash_today', 'payment_olo_doordash_today_pct',
-      'payment_olo_ubereats_today', 'payment_olo_ubereats_today_pct',
-      'payment_olo_visa_today', 'payment_olo_visa_today_pct',
-      'payment_olo_mastercard_today', 'payment_olo_mastercard_today_pct',
-      'payment_olo_prepaid_today', 'payment_olo_prepaid_today_pct',
-      'payment_olo_giftcard_today', 'payment_olo_giftcard_today_pct',
-      'payment_svs_giftcard_today', 'payment_svs_giftcard_today_pct'
-    ] as MetricType[]
-  },
-  {
-    label: 'Payments - Weekly',
-    metrics: [
-      'payment_cash_wtd', 'payment_cash_wtd_pct',
-      'payment_credit_card_wtd', 'payment_credit_card_wtd_pct',
-      'payment_olo_doordash_wtd', 'payment_olo_doordash_wtd_pct',
-      'payment_olo_ubereats_wtd', 'payment_olo_ubereats_wtd_pct',
-      'payment_olo_visa_wtd', 'payment_olo_visa_wtd_pct',
-      'payment_olo_mastercard_wtd', 'payment_olo_mastercard_wtd_pct',
-      'payment_olo_prepaid_wtd', 'payment_olo_prepaid_wtd_pct',
-      'payment_olo_giftcard_wtd', 'payment_olo_giftcard_wtd_pct',
-      'payment_svs_giftcard_wtd', 'payment_svs_giftcard_wtd_pct'
-    ] as MetricType[]
-  },
-  {
-    label: 'Payments - Monthly',
-    metrics: [
-      'payment_cash_mtd', 'payment_cash_mtd_pct',
-      'payment_credit_card_mtd', 'payment_credit_card_mtd_pct',
-      'payment_olo_doordash_mtd', 'payment_olo_doordash_mtd_pct',
-      'payment_olo_ubereats_mtd', 'payment_olo_ubereats_mtd_pct',
-      'payment_olo_visa_mtd', 'payment_olo_visa_mtd_pct',
-      'payment_olo_mastercard_mtd', 'payment_olo_mastercard_mtd_pct',
-      'payment_olo_prepaid_mtd', 'payment_olo_prepaid_mtd_pct',
-      'payment_olo_giftcard_mtd', 'payment_olo_giftcard_mtd_pct',
-      'payment_svs_giftcard_mtd', 'payment_svs_giftcard_mtd_pct'
+      'payment_cash_today',
+      'payment_credit_card_today',
+      'payment_olo_doordash_today',
+      'payment_olo_ubereats_today'
     ] as MetricType[]
   },
 ];
