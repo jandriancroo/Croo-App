@@ -38,6 +38,7 @@ Payments Daily,payment_cash_today,Cash,Cash,Cash
 Payments Daily,payment_credit_card_today,Credit Card,CC,CC
 Payments Daily,payment_olo_doordash_today,DoorDash,DD,DD
 Payments Daily,payment_olo_ubereats_today,UberEats,UE,UE
+Payments Daily,payment_olo_combined_today,OLO Total,OLO$,OLO$
 Payments Daily,payment_olo_visa_today,OLO Visa,OLO V,X
 Payments Daily,payment_olo_mastercard_today,OLO MC,OLO MC,X
 Payments Daily,payment_olo_prepaid_today,OLO Prepaid,Prepaid,X
@@ -47,6 +48,7 @@ Payments Daily %,payment_cash_today_pct,Cash %,Cash%,X
 Payments Daily %,payment_credit_card_today_pct,Credit Card %,CC%,X
 Payments Daily %,payment_olo_doordash_today_pct,DoorDash %,DD%,X
 Payments Daily %,payment_olo_ubereats_today_pct,UberEats %,UE%,X
+Payments Daily %,payment_olo_combined_today_pct,OLO Total %,OLO%,OLO%
 Payments Daily %,payment_olo_visa_today_pct,OLO Visa %,V%,X
 Payments Daily %,payment_olo_mastercard_today_pct,OLO MC %,MC%,X
 Payments Daily %,payment_olo_prepaid_today_pct,OLO Prepaid %,Pre%,X

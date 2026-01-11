@@ -56,6 +56,7 @@ export type MetricType =
   | 'payment_credit_card_today' | 'payment_credit_card_today_pct'
   | 'payment_olo_doordash_today' | 'payment_olo_doordash_today_pct'
   | 'payment_olo_ubereats_today' | 'payment_olo_ubereats_today_pct'
+  | 'payment_olo_combined_today' | 'payment_olo_combined_today_pct'  // Combined OLO (Visa, MC, Prepaid, GC)
   | 'payment_olo_visa_today' | 'payment_olo_visa_today_pct'
   | 'payment_olo_mastercard_today' | 'payment_olo_mastercard_today_pct'
   | 'payment_olo_prepaid_today' | 'payment_olo_prepaid_today_pct'
@@ -145,6 +146,7 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   payment_credit_card_today: { type: 'payment_credit_card_today', label: 'Credit Card', shortLabel: 'CC', icon: CreditCard, format: 'currency', category: 'daily' },
   payment_olo_doordash_today: { type: 'payment_olo_doordash_today', label: 'DoorDash', shortLabel: 'DD', icon: CreditCard, format: 'currency', category: 'daily' },
   payment_olo_ubereats_today: { type: 'payment_olo_ubereats_today', label: 'UberEats', shortLabel: 'UE', icon: CreditCard, format: 'currency', category: 'daily' },
+  payment_olo_combined_today: { type: 'payment_olo_combined_today', label: 'OLO Total', shortLabel: 'OLO$', icon: CreditCard, format: 'currency', category: 'daily' }, // Combined: Visa + MC + Prepaid + GC
   payment_olo_visa_today: { type: 'payment_olo_visa_today', label: 'OLO Visa', shortLabel: 'OLO V', icon: CreditCard, format: 'currency', category: 'daily' }, // Hidden (x)
   payment_olo_mastercard_today: { type: 'payment_olo_mastercard_today', label: 'OLO MC', shortLabel: 'OLO MC', icon: CreditCard, format: 'currency', category: 'daily' }, // Hidden (x)
   payment_olo_prepaid_today: { type: 'payment_olo_prepaid_today', label: 'OLO Prepaid', shortLabel: 'Prepaid', icon: CreditCard, format: 'currency', category: 'daily' }, // Hidden (x)
@@ -155,6 +157,7 @@ export const METRIC_CONFIGS: Record<MetricType, MetricConfig> = {
   payment_credit_card_today_pct: { type: 'payment_credit_card_today_pct', label: 'Credit Card %', shortLabel: 'CC%', icon: CreditCard, format: 'percent', category: 'daily' },
   payment_olo_doordash_today_pct: { type: 'payment_olo_doordash_today_pct', label: 'DoorDash %', shortLabel: 'DD%', icon: CreditCard, format: 'percent', category: 'daily' },
   payment_olo_ubereats_today_pct: { type: 'payment_olo_ubereats_today_pct', label: 'UberEats %', shortLabel: 'UE%', icon: CreditCard, format: 'percent', category: 'daily' },
+  payment_olo_combined_today_pct: { type: 'payment_olo_combined_today_pct', label: 'OLO Total %', shortLabel: 'OLO%', icon: CreditCard, format: 'percent', category: 'daily' }, // Combined: Visa + MC + Prepaid + GC
   payment_olo_visa_today_pct: { type: 'payment_olo_visa_today_pct', label: 'OLO Visa %', shortLabel: 'V%', icon: CreditCard, format: 'percent', category: 'daily' },
   payment_olo_mastercard_today_pct: { type: 'payment_olo_mastercard_today_pct', label: 'OLO MC %', shortLabel: 'MC%', icon: CreditCard, format: 'percent', category: 'daily' },
   payment_olo_prepaid_today_pct: { type: 'payment_olo_prepaid_today_pct', label: 'OLO Prepaid %', shortLabel: 'Pre%', icon: CreditCard, format: 'percent', category: 'daily' },

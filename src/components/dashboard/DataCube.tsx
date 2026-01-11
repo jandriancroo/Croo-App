@@ -142,6 +142,17 @@ export function DataCube({
       case 'payment_olo_prepaid_today': return getPaymentAmount(salesData.payments?.daily, ['olo prepaid', 'prepaid']);
       case 'payment_olo_giftcard_today': return getPaymentAmount(salesData.payments?.daily, ['olo gift card', 'olo giftcard']);
       case 'payment_svs_giftcard_today': return getPaymentAmount(salesData.payments?.daily, ['svs gift card', 'svs giftcard']);
+      // Combined OLO (sum of Visa, MC, Prepaid, GC)
+      case 'payment_olo_combined_today': {
+        const payments = salesData.payments?.daily;
+        if (!payments) return undefined;
+        const visa = getPaymentAmount(payments, ['olo visa']) ?? 0;
+        const mc = getPaymentAmount(payments, ['olo mastercard', 'olo mc']) ?? 0;
+        const prepaid = getPaymentAmount(payments, ['olo prepaid', 'prepaid']) ?? 0;
+        const gc = getPaymentAmount(payments, ['olo gift card', 'olo giftcard']) ?? 0;
+        const total = visa + mc + prepaid + gc;
+        return total > 0 ? total : undefined;
+      }
       // Daily (percent)
       case 'payment_cash_today_pct': return getPaymentPercent(salesData.payments?.daily, ['cash']);
       case 'payment_credit_card_today_pct': return getPaymentPercent(salesData.payments?.daily, ['credit card', 'creditcard']);
@@ -152,6 +163,17 @@ export function DataCube({
       case 'payment_olo_prepaid_today_pct': return getPaymentPercent(salesData.payments?.daily, ['olo prepaid', 'prepaid']);
       case 'payment_olo_giftcard_today_pct': return getPaymentPercent(salesData.payments?.daily, ['olo gift card', 'olo giftcard']);
       case 'payment_svs_giftcard_today_pct': return getPaymentPercent(salesData.payments?.daily, ['svs gift card', 'svs giftcard']);
+      // Combined OLO percent
+      case 'payment_olo_combined_today_pct': {
+        const payments = salesData.payments?.daily;
+        if (!payments) return undefined;
+        const visa = getPaymentPercent(payments, ['olo visa']) ?? 0;
+        const mc = getPaymentPercent(payments, ['olo mastercard', 'olo mc']) ?? 0;
+        const prepaid = getPaymentPercent(payments, ['olo prepaid', 'prepaid']) ?? 0;
+        const gc = getPaymentPercent(payments, ['olo gift card', 'olo giftcard']) ?? 0;
+        const total = visa + mc + prepaid + gc;
+        return total > 0 ? total : undefined;
+      }
       
       // Payment type metrics - Weekly (amount)
       case 'payment_cash_wtd': return getPaymentAmount(salesData.payments?.weekly, ['cash']);
