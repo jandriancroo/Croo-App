@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
-import { DollarSign, Users, TrendingUp, TrendingDown, Clock, Percent, Target, Wallet, Calendar, Pizza } from 'lucide-react';
+import { DollarSign, Users, TrendingUp, TrendingDown, Clock, Percent, Target, Wallet, Calendar, Pizza, ArrowUp, ArrowDown } from 'lucide-react';
 import { MetricType, METRIC_CONFIGS, SalesDataForWidgets } from './DashboardWidget';
 import { format, subYears, getWeek } from 'date-fns';
 import { ThemeColorKey, migrateAccentColor, getThemeColorClass, getThemeTextClass, isThemeColorKey } from '@/utils/themeColors';
+
+// Pacing display mode: 'arrow' (current icons), 'text-color' (colored text), or 'background-arrow' (large faint arrow behind)
+export type PacingDisplayMode = 'arrow' | 'text-color' | 'background-arrow';
 
 interface CubeFace {
   metrics: MetricType[];
@@ -18,6 +21,7 @@ interface DataCube3DProps {
   className?: string;
   salesData?: SalesDataForWidgets | null;
   isLoading?: boolean;
+  pacingDisplay?: PacingDisplayMode;
 }
 
 function formatValue(value: number | undefined, format: 'currency' | 'percent' | 'number' | 'hours'): string {
@@ -263,6 +267,7 @@ export function DataCube3D({
   className,
   salesData,
   isLoading = false,
+  pacingDisplay = 'background-arrow', // Default to option 2 for demo
 }: DataCube3DProps) {
   const [currentFace, setCurrentFace] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -365,6 +370,7 @@ export function DataCube3D({
                 title={faceTitle}
                 rotateY={rotateY}
                 cubeDepth={cubeDepth}
+                pacingDisplay={pacingDisplay}
               />
             );
           })}
@@ -374,15 +380,46 @@ export function DataCube3D({
   );
 }
 
-// Pacing indicator component
-function PacingIndicator({ status, isLightBg }: { status: 'up' | 'down' | null; isLightBg: boolean }) {
-  if (!status) return null;
+// Pacing indicator component (for 'arrow' mode)
+function PacingIndicator({ status, isLightBg, mode }: { status: 'up' | 'down' | null; isLightBg: boolean; mode: PacingDisplayMode }) {
+  if (!status || mode !== 'arrow') return null;
   
   return status === 'up' ? (
     <TrendingUp className={cn("h-3 w-3 flex-shrink-0", isLightBg ? "text-green-600" : "text-green-400")} />
   ) : (
     <TrendingDown className={cn("h-3 w-3 flex-shrink-0", isLightBg ? "text-red-600" : "text-red-400")} />
   );
+}
+
+// Background arrow component (for 'background-arrow' mode)
+function BackgroundArrow({ status, themeColorKey }: { status: 'up' | 'down' | null; themeColorKey: ThemeColorKey }) {
+  if (!status) return null;
+  
+  // Use the theme color but make it very faint
+  const ArrowIcon = status === 'up' ? ArrowUp : ArrowDown;
+  
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+      <ArrowIcon 
+        className={cn(
+          "w-20 h-20 md:w-24 md:h-24",
+          status === 'up' ? "text-white/15" : "text-black/10"
+        )}
+        strokeWidth={3}
+      />
+    </div>
+  );
+}
+
+// Get text color class based on pacing status for 'text-color' mode
+function getPacingTextColor(status: 'up' | 'down' | null, isLightBg: boolean, mode: PacingDisplayMode): string {
+  if (!status || mode !== 'text-color') return '';
+  
+  if (status === 'up') {
+    return isLightBg ? 'text-green-600' : 'text-green-400';
+  } else {
+    return isLightBg ? 'text-red-600' : 'text-red-400';
+  }
 }
 
 interface CubeFaceComponentProps {
@@ -397,6 +434,7 @@ interface CubeFaceComponentProps {
   title?: string;
   rotateY: number;
   cubeDepth: number;
+  pacingDisplay: PacingDisplayMode;
 }
 
 function CubeFaceComponent({ 
@@ -411,6 +449,7 @@ function CubeFaceComponent({
   title,
   rotateY,
   cubeDepth,
+  pacingDisplay,
 }: CubeFaceComponentProps) {
   // Use theme color classes for solid background with white text
   const bgClass = getThemeColorClass(themeColorKey);
@@ -420,6 +459,25 @@ function CubeFaceComponent({
   // Allow up to 4 metrics per face
   const displayMetrics = face?.metrics?.slice(0, 4) || [];
   const metricCount = displayMetrics.length;
+  
+  // For background-arrow mode, find the dominant pacing status for this face
+  const facePacingStatus = React.useMemo(() => {
+    if (pacingDisplay !== 'background-arrow' || !displayMetrics.length) return null;
+    
+    let upCount = 0;
+    let downCount = 0;
+    
+    for (const metricType of displayMetrics) {
+      const status = getPacingStatus(metricType, salesData);
+      if (status === 'up') upCount++;
+      else if (status === 'down') downCount++;
+    }
+    
+    if (upCount > downCount) return 'up';
+    if (downCount > upCount) return 'down';
+    if (upCount > 0) return 'up'; // Tie goes to up
+    return null;
+  }, [displayMetrics, salesData, pacingDisplay]);
 
   if (!face || displayMetrics.length === 0) {
     return (
@@ -499,6 +557,11 @@ function CubeFaceComponent({
         </div>
       )}
       
+      {/* Background arrow for 'background-arrow' mode */}
+      {pacingDisplay === 'background-arrow' && !isLoading && (
+        <BackgroundArrow status={facePacingStatus} themeColorKey={themeColorKey} />
+      )}
+      
       {/* Content - positioned layout for metrics */}
       <div className={cn(
         "flex-1 relative z-10",
@@ -534,6 +597,7 @@ function CubeFaceComponent({
                 
                 // Align: 0=left, 1=right, 2=left, 3=right
                 const isRight = index % 2 === 1;
+                const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
                 
                 return (
                     <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
@@ -542,12 +606,12 @@ function CubeFaceComponent({
                           className={cn(
                             "font-bold leading-none truncate text-lg md:text-xl",
                             isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
-                            isLightBg ? "text-foreground" : "text-white"
+                            textColorClass || (isLightBg ? "text-foreground" : "text-white")
                           )}
                         >
                           {!isLoading && formattedValue}
                         </div>
-                        {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} />}
+                        {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} mode={pacingDisplay} />}
                       </div>
                       <div 
                         className={cn(
@@ -593,6 +657,7 @@ function CubeFaceComponent({
                   const formattedValue = formatValue(value, config.format);
                   const pacingStatus = getPacingStatus(metricType, salesData);
                   const isRight = index === 1;
+                  const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
                   
                   return (
                     <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
@@ -601,12 +666,12 @@ function CubeFaceComponent({
                           className={cn(
                             "font-bold leading-none truncate text-lg md:text-xl",
                             isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
-                            isLightBg ? "text-foreground" : "text-white"
+                            textColorClass || (isLightBg ? "text-foreground" : "text-white")
                           )}
                         >
                           {!isLoading && formattedValue}
                         </div>
-                        {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} />}
+                        {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} mode={pacingDisplay} />}
                       </div>
                       <div 
                         className={cn(
@@ -629,6 +694,7 @@ function CubeFaceComponent({
                   const value = getMetricValue(metricType, salesData);
                   const formattedValue = formatValue(value, config.format);
                   const pacingStatus = getPacingStatus(metricType, salesData);
+                  const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
                   
                   return (
                     <div key={index} className="flex flex-col items-center text-center min-w-0">
@@ -637,12 +703,12 @@ function CubeFaceComponent({
                           className={cn(
                             "font-bold leading-none truncate text-lg md:text-xl",
                             isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
-                            isLightBg ? "text-foreground" : "text-white"
+                            textColorClass || (isLightBg ? "text-foreground" : "text-white")
                           )}
                         >
                           {!isLoading && formattedValue}
                         </div>
-                        {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} />}
+                        {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} mode={pacingDisplay} />}
                       </div>
                       <div 
                         className={cn(
@@ -679,6 +745,7 @@ function CubeFaceComponent({
                 const formattedValue = formatValue(value, config.format);
                 const pacingStatus = getPacingStatus(metricType, salesData);
                 const isRight = index === 1;
+                const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
                 
                 return (
                   <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
@@ -687,12 +754,12 @@ function CubeFaceComponent({
                         className={cn(
                           "font-bold leading-none truncate text-lg md:text-xl",
                           isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
-                          isLightBg ? "text-foreground" : "text-white"
+                          textColorClass || (isLightBg ? "text-foreground" : "text-white")
                         )}
                       >
                         {!isLoading && formattedValue}
                       </div>
-                      {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} />}
+                      {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} mode={pacingDisplay} />}
                     </div>
                     <div 
                       className={cn(
@@ -717,6 +784,7 @@ function CubeFaceComponent({
               const value = getMetricValue(metricType, salesData);
               const formattedValue = formatValue(value, config.format);
               const pacingStatus = getPacingStatus(metricType, salesData);
+              const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
               
               return (
                 <div key={index} className="flex flex-col items-center text-center min-w-0">
@@ -725,12 +793,12 @@ function CubeFaceComponent({
                       className={cn(
                         "font-bold leading-none truncate text-2xl md:text-3xl",
                         isLoading && "animate-pulse bg-white/30 rounded w-16 h-6",
-                        isLightBg ? "text-foreground" : "text-white"
+                        textColorClass || (isLightBg ? "text-foreground" : "text-white")
                       )}
                     >
                       {!isLoading && formattedValue}
                     </div>
-                    {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} />}
+                    {!isLoading && <PacingIndicator status={pacingStatus} isLightBg={isLightBg} mode={pacingDisplay} />}
                   </div>
                   <div 
                     className={cn(
@@ -771,9 +839,10 @@ function CubeFaceComponent({
   );
 }
 
-// Demo component to showcase the 3D cube (can be removed after integration)
+// Demo component to showcase the 3D cube with all pacing display modes
 export function DataCube3DDemo() {
   // Demo data matching the actual SalesDataForWidgets type
+  // Includes goal data to trigger pacing indicators
   const demoSalesData: SalesDataForWidgets = {
     daily: 2450,
     weekly: 14200,
@@ -791,60 +860,56 @@ export function DataCube3DDemo() {
   };
 
   const demoFaces: CubeFace[] = [
-    { metrics: ['sales_today', 'guest_count_today', 'avg_ticket', 'pizza_count_today'] },
-    { metrics: ['sales_wtd', 'guest_count_wtd', 'labor_percent_wtd', 'labor_cost_wtd'] },
-    { metrics: ['sales_mtd', 'labor_hours_mtd', 'labor_percent_mtd', 'guest_count_mtd'] },
-    { metrics: ['labor_hours_today', 'labor_percent_today', 'labor_cost_today', 'avg_ticket'] },
+    { metrics: ['sales_today', 'guest_count_today', 'avg_ticket', 'pizza_count_today'], title: 'TODAY' },
+    { metrics: ['sales_wtd', 'guest_count_wtd', 'labor_percent_wtd', 'labor_cost_wtd'], title: 'THIS WEEK' },
   ];
 
   return (
     <div className="p-6 space-y-8">
-      <h2 className="text-xl font-bold text-foreground">3D Cube Prototype</h2>
-      <p className="text-muted-foreground text-sm">Click the cubes to rotate, or wait 8 seconds for auto-rotation.</p>
+      <h2 className="text-xl font-bold text-foreground">Pacing Display Options</h2>
+      <p className="text-muted-foreground text-sm">Compare the 3 different ways to show pacing status:</p>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-        {/* 4-face cube */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Option 1: Small Arrow Icons (original) */}
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground text-center">4 Faces</div>
-          <DataCube3D
-            title="Performance Overview"
-            faces={demoFaces}
-            accentColor="primary"
-            salesData={demoSalesData}
-          />
+          <div className="text-sm font-medium text-center">Option 1: Arrow Icons</div>
+          <div className="text-xs text-muted-foreground text-center mb-2">(current behavior)</div>
+          <div className="h-32">
+            <DataCube3D
+              faces={demoFaces}
+              accentColor="primary"
+              salesData={demoSalesData}
+              pacingDisplay="arrow"
+            />
+          </div>
         </div>
         
-        {/* 3-face cube */}
+        {/* Option 2: Colored Text */}
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground text-center">3 Faces</div>
-          <DataCube3D
-            title="Sales Metrics"
-            faces={demoFaces.slice(0, 3)}
-            accentColor="accent"
-            salesData={demoSalesData}
-          />
+          <div className="text-sm font-medium text-center">Option 2: Colored Text</div>
+          <div className="text-xs text-muted-foreground text-center mb-2">Red if below, green if on track</div>
+          <div className="h-32">
+            <DataCube3D
+              faces={demoFaces}
+              accentColor="primary"
+              salesData={demoSalesData}
+              pacingDisplay="text-color"
+            />
+          </div>
         </div>
         
-        {/* 2-face cube */}
+        {/* Option 3: Background Arrow */}
         <div className="space-y-2">
-          <div className="text-xs text-muted-foreground text-center">2 Faces</div>
-          <DataCube3D
-            title="Quick Stats"
-            faces={demoFaces.slice(0, 2)}
-            accentColor="destructive"
-            salesData={demoSalesData}
-          />
-        </div>
-        
-        {/* 1-face cube (no rotation) */}
-        <div className="space-y-2">
-          <div className="text-xs text-muted-foreground text-center">1 Face</div>
-          <DataCube3D
-            title="Daily Summary"
-            faces={demoFaces.slice(0, 1)}
-            accentColor="secondary"
-            salesData={demoSalesData}
-          />
+          <div className="text-sm font-medium text-center">Option 3: Background Arrow</div>
+          <div className="text-xs text-muted-foreground text-center mb-2">Large faint arrow behind data</div>
+          <div className="h-32">
+            <DataCube3D
+              faces={demoFaces}
+              accentColor="primary"
+              salesData={demoSalesData}
+              pacingDisplay="background-arrow"
+            />
+          </div>
         </div>
       </div>
     </div>
