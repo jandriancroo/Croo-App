@@ -74,8 +74,7 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
         .from("catering_orders")
         .select("*")
         .eq("location_id", currentLocation?.id)
-        .order("pickup_date", { ascending: true })
-        .order("pickup_time", { ascending: true });
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
       setOrders((data || []).map(order => ({
