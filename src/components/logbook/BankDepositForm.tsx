@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Building2, DollarSign, CalendarIcon, AlertCircle, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
-import { format, eachDayOfInterval, isBefore, startOfDay, isAfter, parse } from "date-fns";
+import { format, eachDayOfInterval, isBefore, startOfDay, isAfter, parse, isSameDay, isWithinInterval } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export interface BankDepositData {
@@ -356,12 +356,21 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                     disabled={isStartDateDisabled}
                     modifiers={{
                       deposited: (date) => isDateDeposited(date),
+                      rangeStart: (date) => !!startDate && isSameDay(date, startDate),
+                      rangeEnd: (date) => !!endDate && isSameDay(date, endDate),
+                      inRange: (date) =>
+                        !!startDate &&
+                        !!endDate &&
+                        isWithinInterval(date, { start: startDate, end: endDate }),
                     }}
                     modifiersStyles={{
                       deposited: {
-                        backgroundColor: 'hsl(var(--destructive) / 0.2)',
-                        color: 'hsl(var(--destructive))',
-                        fontWeight: 'bold',
+                        backgroundColor: "hsl(var(--destructive) / 0.2)",
+                        color: "hsl(var(--destructive))",
+                        fontWeight: "bold",
+                      },
+                      inRange: {
+                        backgroundColor: "hsl(var(--accent) / 0.35)",
                       },
                     }}
                     initialFocus
@@ -404,13 +413,21 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
                     disabled={isEndDateDisabled}
                     modifiers={{
                       deposited: (date) => isDateDeposited(date),
-                      inRange: (date) => startDate ? !isBefore(date, startDate) : false,
+                      rangeStart: (date) => !!startDate && isSameDay(date, startDate),
+                      rangeEnd: (date) => !!endDate && isSameDay(date, endDate),
+                      inRange: (date) =>
+                        !!startDate &&
+                        !!endDate &&
+                        isWithinInterval(date, { start: startDate, end: endDate }),
                     }}
                     modifiersStyles={{
                       deposited: {
-                        backgroundColor: 'hsl(var(--destructive) / 0.2)',
-                        color: 'hsl(var(--destructive))',
-                        fontWeight: 'bold',
+                        backgroundColor: "hsl(var(--destructive) / 0.2)",
+                        color: "hsl(var(--destructive))",
+                        fontWeight: "bold",
+                      },
+                      inRange: {
+                        backgroundColor: "hsl(var(--accent) / 0.35)",
                       },
                     }}
                     initialFocus
