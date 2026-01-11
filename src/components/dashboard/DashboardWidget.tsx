@@ -257,12 +257,11 @@ export const METRIC_GROUPS = [
   {
     label: 'Payments - Daily',
     metrics: [
-      'payment_cash_today',
-      'payment_credit_card_today',
-      'payment_olo_doordash_today',
-      'payment_olo_ubereats_today',
-      'payment_olo_combined_today',
-      'payment_olo_combined_today_pct'
+      'payment_cash_today', 'payment_cash_today_pct',
+      'payment_credit_card_today', 'payment_credit_card_today_pct',
+      'payment_olo_doordash_today', 'payment_olo_doordash_today_pct',
+      'payment_olo_ubereats_today', 'payment_olo_ubereats_today_pct',
+      'payment_olo_combined_today', 'payment_olo_combined_today_pct'
     ] as MetricType[]
   },
 ];
