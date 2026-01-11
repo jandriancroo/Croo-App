@@ -34,6 +34,7 @@ import CrowSplashAnimation from '@/components/CrowSplashAnimation';
 import { usePersonalPayData } from '@/hooks/usePersonalPayData';
 import { PullToRefresh, setLastSyncTime } from '@/components/PullToRefresh';
 import { useCallback } from 'react';
+import { DataCube3D, PacingDisplayMode } from '@/components/dashboard/DataCube3D';
 
 
 interface CateringOrder {
@@ -919,6 +920,61 @@ export default function Dashboard() {
               </CardContent>
             </Card> : (
               <div className="space-y-3">
+                {/* TEMPORARY: Pacing Display Options Comparison */}
+                <Card className="border-dashed border-2 border-primary/30">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      Pacing Display Options (Pick Your Favorite!)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-3 gap-3">
+                      {/* Option 1: Arrow Icons */}
+                      <div className="space-y-1">
+                        <div className="text-xs font-medium text-center">Arrow Icons</div>
+                        <div className="text-[10px] text-muted-foreground text-center">(current)</div>
+                        <div className="h-28">
+                          <DataCube3D
+                            faces={[{ metrics: ['sales_today', 'guest_count_today'], title: 'TODAY' }]}
+                            accentColor="primary"
+                            salesData={combinedSalesData}
+                            pacingDisplay="arrow"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Option 2: Colored Text */}
+                      <div className="space-y-1">
+                        <div className="text-xs font-medium text-center">Colored Text</div>
+                        <div className="text-[10px] text-muted-foreground text-center">red/green</div>
+                        <div className="h-28">
+                          <DataCube3D
+                            faces={[{ metrics: ['sales_today', 'guest_count_today'], title: 'TODAY' }]}
+                            accentColor="primary"
+                            salesData={combinedSalesData}
+                            pacingDisplay="text-color"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Option 3: Background Arrow */}
+                      <div className="space-y-1">
+                        <div className="text-xs font-medium text-center">BG Arrow</div>
+                        <div className="text-[10px] text-muted-foreground text-center">faint arrow</div>
+                        <div className="h-28">
+                          <DataCube3D
+                            faces={[{ metrics: ['sales_today', 'guest_count_today'], title: 'TODAY' }]}
+                            accentColor="primary"
+                            salesData={combinedSalesData}
+                            pacingDisplay="background-arrow"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                
                 {quickTasksContent}
                 {dashboardContent}
               </div>
