@@ -169,7 +169,6 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
             accentColor={cube.accentColor}
             salesData={salesData}
             isLoading={isLoading}
-            useDemoData={true} // TEMP: Remove after testing 5th metric
           />
         </div>
       </div>
