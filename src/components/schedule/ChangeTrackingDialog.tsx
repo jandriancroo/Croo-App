@@ -210,7 +210,7 @@ export function ChangeTrackingDialog({
                     <div className="flex items-center gap-1">
                       <User className="h-3 w-3" />
                       <span>
-                        {change.changer?.full_name || "Unknown"}
+                        {change.changed_by ? (change.changer?.full_name || "Unknown") : "System"}
                       </span>
                     </div>
                     <span>
