@@ -68,6 +68,19 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
       if (userError) throw userError;
       if (!user) throw new Error("Not authenticated");
 
+      // Determine who the offer should be attributed to.
+      // For admin/manager offering someone else's shift, the offer must be attributed to the shift owner.
+      let offeredByUserId: string | null = (shift as any)?.user_id ?? null;
+      if (!offeredByUserId) {
+        const { data: shiftRow, error: shiftRowError } = await supabase
+          .from("scheduled_shifts")
+          .select("user_id")
+          .eq("id", shift.id)
+          .single();
+        if (shiftRowError) throw shiftRowError;
+        offeredByUserId = shiftRow.user_id;
+      }
+
       // Check if this shift is already offered to prevent duplicates
       const { data: existingOffers, error: existingOfferError } = await supabase
         .from("shift_offers")
@@ -89,7 +102,7 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
         .from("shift_offers")
         .insert({
           shift_id: shift.id,
-          offered_by_user_id: user.id,
+          offered_by_user_id: offeredByUserId,
           status: "available",
         })
         .select()
@@ -99,8 +112,6 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
 
       // Get the location_id from the shift
       const locationId = shift.location_id;
-
-      // Get or create shift marketplace chat for this location
       // Use limit(1) to handle duplicate chats gracefully
       let { data: marketplaceChats, error: marketplaceChatsError } = await supabase
         .from("chats")
@@ -229,18 +240,20 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
             </span>
           </div>
         </div>
-        <div className="text-sm text-muted-foreground space-y-1">
-          <p>💰 <strong>Croo Cash:</strong></p>
-          <p>• You'll lose $1.00 Croo Cash for offering this shift</p>
-          {(() => {
-            const offerDate = new Date(shift?.shift_date);
-            const dayOfWeek = offerDate.getDay();
-            // Weekend = Friday (5), Saturday (6), Sunday (0)
-            return (dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6) && (
-              <p className="text-primary font-semibold">🎉 Weekend Bonus! You'll lose $2.00 Croo Cash (doubled)</p>
-            );
-          })()}
-        </div>
+          <div className="text-sm text-muted-foreground space-y-1">
+            <p>💰 <strong>Croo Cash:</strong></p>
+            <p>• You'll lose $1.00 Croo Cash for offering this shift</p>
+            {(() => {
+              const offerDate = shift?.shift_date
+                ? parseDateStringInTimezone(shift.shift_date, "America/Los_Angeles")
+                : null;
+              const dayOfWeek = offerDate ? offerDate.getDay() : null;
+              // Weekend = Friday (5), Saturday (6), Sunday (0)
+              return (dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6) && (
+                <p className="text-primary font-semibold">🎉 Weekend Bonus! You'll lose $2.00 Croo Cash (doubled)</p>
+              );
+            })()}
+          </div>
         
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
