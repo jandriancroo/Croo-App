@@ -162,40 +162,42 @@ export function ChangeTrackingDialog({
           </div>
         ) : (
           <ScrollArea className="max-h-[60vh] pr-4">
-            <div className="space-y-3">
+            <div className="space-y-2">
               {changes.map((change) => (
                 <div
                   key={change.id}
-                  className="border rounded-md px-3 py-2 bg-card text-xs"
+                  className="border rounded-lg p-3 bg-card"
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      {getChangeIcon(change.change_type)}
-                      <Badge variant={getChangeBadgeVariant(change.change_type)} className="text-[10px] px-1.5 py-0">
-                        {change.change_type.charAt(0).toUpperCase() + change.change_type.slice(1)}
-                      </Badge>
-                      <Badge 
-                        variant="outline"
-                        className={`text-[10px] px-1.5 py-0 ${change.is_draft ? "text-yellow-600 border-yellow-500/50" : "text-green-600 border-green-500/50"}`}
-                      >
-                        {change.is_draft ? "Draft" : "Live"}
-                      </Badge>
-                      <span className="font-medium truncate">
-                        {change.profiles?.full_name || "Unknown"}
-                      </span>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="text-muted-foreground whitespace-nowrap">
-                        {change.change_type === "removed" && change.old_shift_data
-                          ? formatShiftInfo(change.old_shift_data)
-                          : formatShiftInfo(change.new_shift_data)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap shrink-0">
-                      <User className="h-3 w-3" />
-                      <span>{change.changed_by ? (change.changer?.full_name || "Unknown") : "System"}</span>
-                      <span>•</span>
-                      <span>{format(new Date(change.created_at), "M/d h:mm a")}</span>
-                    </div>
+                  {/* Row 1: Change type, status, employee, shift info */}
+                  <div className="flex items-center gap-2 text-sm">
+                    {getChangeIcon(change.change_type)}
+                    <Badge variant={getChangeBadgeVariant(change.change_type)} className="text-xs">
+                      {change.change_type.charAt(0).toUpperCase() + change.change_type.slice(1)}
+                    </Badge>
+                    <Badge 
+                      variant="outline"
+                      className={`text-xs ${change.is_draft ? "text-yellow-600 border-yellow-500" : "text-green-600 border-green-500"}`}
+                    >
+                      {change.is_draft ? "Draft" : "Live"}
+                    </Badge>
+                    <span className="font-medium">
+                      {change.profiles?.full_name || "Unknown"}
+                    </span>
+                    <span className="text-muted-foreground">—</span>
+                    <span className="text-muted-foreground">
+                      {change.change_type === "removed" && change.old_shift_data
+                        ? formatShiftInfo(change.old_shift_data)
+                        : formatShiftInfo(change.new_shift_data)}
+                    </span>
+                  </div>
+                  
+                  {/* Row 2: Who made the change + timestamp */}
+                  <div className="flex items-center gap-2 mt-1.5 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">
+                      Changed by: {change.changed_by ? (change.changer?.full_name || "Unknown") : "System"}
+                    </span>
+                    <span>•</span>
+                    <span>{format(new Date(change.created_at), "MMM d, yyyy 'at' h:mm a")}</span>
                   </div>
                 </div>
               ))}
