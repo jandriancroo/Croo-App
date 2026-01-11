@@ -276,6 +276,7 @@ export type Database = {
           status: string
           total_price: number | null
           updated_at: string
+          vendor: string | null
         }
         Insert: {
           completed_at?: string | null
@@ -296,6 +297,7 @@ export type Database = {
           status?: string
           total_price?: number | null
           updated_at?: string
+          vendor?: string | null
         }
         Update: {
           completed_at?: string | null
@@ -316,6 +318,7 @@ export type Database = {
           status?: string
           total_price?: number | null
           updated_at?: string
+          vendor?: string | null
         }
         Relationships: [
           {

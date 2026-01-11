@@ -28,7 +28,15 @@ interface CateringOrder {
   created_at: string;
   contact_phone: string | null;
   total_price: number | null;
+  vendor: string | null;
 }
+
+const VENDOR_LABELS: Record<string, string> = {
+  ez_cater: "EZ Cater",
+  direct: "Direct",
+  phone: "Phone",
+  other: "Other",
+};
 
 interface CateringOrdersSectionProps {
   showHeader?: boolean;
@@ -282,7 +290,14 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
                     onClick={() => setSelectedOrder(order)}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <p className="font-medium">{order.customer_name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{order.customer_name}</p>
+                        {order.vendor && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            {VENDOR_LABELS[order.vendor] || order.vendor}
+                          </Badge>
+                        )}
+                      </div>
                       <Badge variant="destructive">{order.items.length} items</Badge>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
@@ -325,7 +340,14 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
                     onClick={() => setSelectedOrder(order)}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <p className="font-medium">{order.customer_name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{order.customer_name}</p>
+                        {order.vendor && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            {VENDOR_LABELS[order.vendor] || order.vendor}
+                          </Badge>
+                        )}
+                      </div>
                       <Badge>{order.items.length} items</Badge>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
@@ -368,7 +390,14 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
                     onClick={() => setSelectedOrder(order)}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <p className="font-medium">{order.customer_name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{order.customer_name}</p>
+                        {order.vendor && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            {VENDOR_LABELS[order.vendor] || order.vendor}
+                          </Badge>
+                        )}
+                      </div>
                       <Badge variant="outline" className="border-amber-500 text-amber-600">{order.items.length} items</Badge>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
@@ -411,7 +440,14 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
                     onClick={() => setSelectedOrder(order)}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <p className="font-medium">{order.customer_name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{order.customer_name}</p>
+                        {order.vendor && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            {VENDOR_LABELS[order.vendor] || order.vendor}
+                          </Badge>
+                        )}
+                      </div>
                       <Badge variant="outline">{order.items.length} items</Badge>
                     </div>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
@@ -457,6 +493,11 @@ export function CateringOrdersSection({ showHeader = true, externalUploadOpen, o
                       <div className="flex items-center gap-2">
                         <Check className="h-4 w-4 text-green-500" />
                         <p className="font-medium">{order.customer_name}</p>
+                        {order.vendor && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                            {VENDOR_LABELS[order.vendor] || order.vendor}
+                          </Badge>
+                        )}
                       </div>
                       <span className="text-sm text-muted-foreground">
                         {format(parseISO(order.pickup_date), "MMM d")}
