@@ -83,12 +83,16 @@ export function ShiftOfferDialog({ open, onOpenChange, shift, onOfferCreated }: 
       const locationId = shift.location_id;
 
       // Get or create shift marketplace chat for this location
-      let { data: marketplaceChat } = await supabase
+      // Use limit(1) to handle duplicate chats gracefully
+      let { data: marketplaceChats } = await supabase
         .from("chats")
         .select("id")
         .eq("title", "Shift Marketplace")
         .eq("location_id", locationId)
-        .maybeSingle();
+        .order("created_at", { ascending: true })
+        .limit(1);
+      
+      let marketplaceChat = marketplaceChats?.[0] || null;
 
       if (!marketplaceChat) {
         const { data: newChat, error: chatError } = await supabase
