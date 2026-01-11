@@ -678,7 +678,7 @@ function CubeFaceComponent({
                       <div className={cn("flex items-center gap-1", isRight && "flex-row-reverse")}>
                         <div 
                           className={cn(
-                            "font-bold leading-none truncate text-lg md:text-xl",
+                            "font-bold leading-none truncate text-base md:text-lg",
                             isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
                             textColorClass || (isLightBg ? "text-foreground" : "text-white")
                           )}
@@ -726,7 +726,7 @@ function CubeFaceComponent({
                     <div className="flex items-center gap-1">
                       <div 
                         className={cn(
-                          "font-bold leading-none truncate text-base md:text-lg",
+                          "font-bold leading-none truncate text-sm md:text-base",
                           isLoading && "animate-pulse bg-white/30 rounded w-10 h-4",
                           textColorClass || (isLightBg ? "text-foreground" : "text-white")
                         )}
@@ -787,11 +787,11 @@ function CubeFaceComponent({
                   return (
                     <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
                       <div className={cn("flex items-center gap-1", isRight && "flex-row-reverse")}>
-                        <div 
-                          className={cn(
-                            "font-bold leading-none truncate text-lg md:text-xl",
-                            isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
-                            textColorClass || (isLightBg ? "text-foreground" : "text-white")
+                      <div 
+                        className={cn(
+                          "font-bold leading-none truncate text-base md:text-lg",
+                          isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
+                          textColorClass || (isLightBg ? "text-foreground" : "text-white")
                           )}
                         >
                           {!isLoading && formattedValue}
@@ -830,7 +830,7 @@ function CubeFaceComponent({
                       <div className="flex items-center gap-1">
                         <div 
                           className={cn(
-                            "font-bold leading-none truncate text-lg md:text-xl",
+                            "font-bold leading-none truncate text-base md:text-lg",
                             isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
                             textColorClass || (isLightBg ? "text-foreground" : "text-white")
                           )}
@@ -884,7 +884,7 @@ function CubeFaceComponent({
                     <div className={cn("flex items-center gap-1", isRight && "flex-row-reverse")}>
                       <div 
                         className={cn(
-                          "font-bold leading-none truncate text-lg md:text-xl",
+                          "font-bold leading-none truncate text-base md:text-lg",
                           isLoading && "animate-pulse bg-white/30 rounded w-12 h-5",
                           textColorClass || (isLightBg ? "text-foreground" : "text-white")
                         )}
@@ -927,7 +927,7 @@ function CubeFaceComponent({
                   <div className="flex items-center gap-1">
                     <div 
                       className={cn(
-                        "font-bold leading-none truncate text-2xl md:text-3xl",
+                        "font-bold leading-none truncate text-xl md:text-2xl",
                         isLoading && "animate-pulse bg-white/30 rounded w-16 h-6",
                         textColorClass || (isLightBg ? "text-foreground" : "text-white")
                       )}
