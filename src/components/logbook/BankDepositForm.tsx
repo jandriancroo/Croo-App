@@ -7,7 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Building2, DollarSign, CalendarIcon, AlertCircle, CheckCircle2, Printer } from "lucide-react";
+import { Loader2, Building2, DollarSign, CalendarIcon, AlertCircle, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { format, eachDayOfInterval, isBefore, startOfDay, isAfter } from "date-fns";
@@ -41,8 +41,6 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   const [notes, setNotes] = useState("");
   const [startOpen, setStartOpen] = useState(false);
   const [endOpen, setEndOpen] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [submittedData, setSubmittedData] = useState<BankDepositData | null>(null);
   
   // Fetch bank deposit category to find existing deposits
   const { data: bankDepositCategory } = useQuery({
@@ -132,7 +130,7 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   });
   
   // Auto-fetch drawer entries when both dates are selected
-  const shouldFetchEntries = !!startDate && !!endDate && !submitted;
+  const shouldFetchEntries = !!startDate && !!endDate;
   
   // Fetch drawer count entries for selected date range
   const { data: drawerEntries = [], isLoading: loadingEntries } = useQuery({
@@ -296,101 +294,13 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
       notes: notes || undefined,
     };
     
-    setSubmittedData(data);
-    setSubmitted(true);
     onSave(data);
-  };
-  
-  const handleReset = () => {
-    setStartDate(undefined);
-    setEndDate(undefined);
-    setNotes("");
-    setSubmitted(false);
-    setSubmittedData(null);
   };
   
   if (loadingDeposited) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-  
-  // Show success summary after submission
-  if (submitted && submittedData) {
-    return (
-      <div className="space-y-6">
-        <Card className="border-green-500/50 bg-green-500/5">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2 text-green-600 dark:text-green-400">
-              <CheckCircle2 className="h-5 w-5" />
-              Bank Deposit Recorded
-            </CardTitle>
-            <CardDescription>
-              {format(new Date(submittedData.startDate + 'T12:00:00'), 'PP')} — {format(new Date(submittedData.endDate + 'T12:00:00'), 'PP')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Summary Card - What to take to bank */}
-            <div className="rounded-lg border-2 border-primary bg-primary/5 p-4 space-y-3">
-              <div className="flex items-center gap-2 text-primary font-semibold">
-                <Building2 className="h-5 w-5" />
-                Take to Bank
-              </div>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-background rounded-lg p-3 text-center">
-                  <div className="text-xs text-muted-foreground mb-1">Bills</div>
-                  <div className="text-xl font-bold">{formatCurrency(submittedData.totalDollars)}</div>
-                </div>
-                <div className="bg-background rounded-lg p-3 text-center">
-                  <div className="text-xs text-muted-foreground mb-1">Coins</div>
-                  <div className="text-xl font-bold">{formatCurrency(submittedData.totalChange)}</div>
-                </div>
-              </div>
-              
-              <div className="bg-primary text-primary-foreground rounded-lg p-4 text-center">
-                <div className="text-sm opacity-80 mb-1">Total Deposit</div>
-                <div className="text-3xl font-bold">{formatCurrency(submittedData.totalAmount)}</div>
-              </div>
-              
-              <div className="text-center text-sm text-muted-foreground">
-                {submittedData.daysIncluded} day{submittedData.daysIncluded !== 1 ? 's' : ''} included
-              </div>
-            </div>
-            
-            {/* Daily breakdown */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Daily Breakdown</Label>
-              <div className="rounded-lg border divide-y max-h-48 overflow-y-auto">
-                {submittedData.entries.map((entry) => (
-                  <div 
-                    key={entry.entryId}
-                    className="flex items-center justify-between p-3"
-                  >
-                    <span className="text-sm">
-                      {format(new Date(entry.entryDate + 'T12:00:00'), 'EEE, MMM d')}
-                    </span>
-                    <span className="font-mono text-sm font-semibold">
-                      {formatCurrency(entry.depositAmount)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            {submittedData.notes && (
-              <div className="text-sm text-muted-foreground">
-                <span className="font-medium">Notes:</span> {submittedData.notes}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        
-        <Button variant="outline" onClick={handleReset} className="w-full">
-          Record Another Deposit
-        </Button>
       </div>
     );
   }
