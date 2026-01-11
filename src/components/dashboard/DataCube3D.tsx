@@ -555,7 +555,7 @@ function CubeFaceComponent({
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
-                        {getDynamicLabel(metricType, title)}
+                        {getDynamicLabel(metricType)}
                       </div>
                     </div>
                 );
@@ -614,7 +614,7 @@ function CubeFaceComponent({
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
-                        {getDynamicLabel(metricType, title)}
+                        {getDynamicLabel(metricType)}
                       </div>
                     </div>
                   );
@@ -650,7 +650,7 @@ function CubeFaceComponent({
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
-                        {getDynamicLabel(metricType, title)}
+                        {getDynamicLabel(metricType)}
                       </div>
                     </div>
                   );
@@ -700,7 +700,7 @@ function CubeFaceComponent({
                         isLightBg ? "text-muted-foreground" : "text-white/70"
                       )}
                     >
-                      {getDynamicLabel(metricType, title)}
+                      {getDynamicLabel(metricType)}
                     </div>
                   </div>
                 );
@@ -738,7 +738,7 @@ function CubeFaceComponent({
                       isLightBg ? "text-muted-foreground" : "text-white/70"
                     )}
                   >
-                    {getDynamicLabel(metricType, title)}
+                    {getDynamicLabel(metricType)}
                   </div>
                 </div>
               );
