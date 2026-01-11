@@ -50,7 +50,7 @@ export default function LogBook() {
   const queryClient = useQueryClient();
   const { isAdmin, isManager, isShiftManager, loading: roleLoading } = useUserRole();
   const { currentLocation } = useAppLocation();
-  const { getDateInTimezone } = useLocationTimezone();
+  const { getDateInTimezone, getBusinessDateInTimezone, closeTime } = useLocationTimezone();
   const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -302,12 +302,14 @@ export default function LogBook() {
     gcTime: LOGBOOK_GC_TIME,
   });
 
-  // Fetch drawer count entries for selected date
+  // Fetch drawer count entries for current business date
+  // Uses business date to correctly handle late-night counts after midnight
   const { data: drawerCountEntries = [] } = useQuery({
-    queryKey: ['drawer-count-entries', drawerCountCategoryId, getDateInTimezone(selectedDate), currentLocation?.id],
+    queryKey: ['drawer-count-entries', drawerCountCategoryId, getBusinessDateInTimezone(), currentLocation?.id],
     queryFn: async () => {
       if (!drawerCountCategoryId || !currentLocation) return [];
-      const dateStr = getDateInTimezone(selectedDate);
+      // Use business date for drawer counts - handles late-night counts correctly
+      const dateStr = getBusinessDateInTimezone();
       const { data, error } = await supabase
         .from('logbook_entries')
         .select(`*, logbook_entry_values(*)`)
@@ -773,25 +775,18 @@ export default function LogBook() {
     }
     
     if (isDrawerCount) {
+      // For drawer counts, always use the business date (handles late-night counts after midnight)
+      const businessDateStr = getBusinessDateInTimezone();
+      const businessDateDisplay = new Date(businessDateStr + 'T12:00:00');
+      
       return (
         <div className="space-y-4">
           <div className="flex flex-col justify-between items-start gap-3">
             <h2 className="text-lg font-semibold">Drawer Count</h2>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full">
-                  <CalendarIcon className="h-4 w-4 mr-2" />
-                  <span className="text-xs sm:text-sm">{format(selectedDate, 'PPP')}</span>
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={(date) => date && setSelectedDate(date)}
-                />
-              </PopoverContent>
-            </Popover>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CalendarIcon className="h-4 w-4" />
+              <span>Business Day: {format(businessDateDisplay, 'EEEE, MMMM d, yyyy')}</span>
+            </div>
           </div>
           {entry && (
             <p className="text-xs text-muted-foreground">
@@ -799,12 +794,15 @@ export default function LogBook() {
             </p>
           )}
           <DrawerCountForm
-            key={getDateInTimezone(selectedDate)}
+            key={getBusinessDateInTimezone()}
+            businessDate={getBusinessDateInTimezone()}
             onSave={async (data: DrawerCountData) => {
               if (isSavingSpecialForm) return; // Prevent double-submit
               setIsSavingSpecialForm(true);
               try {
-                const dateStr = getDateInTimezone(selectedDate);
+                // Use business date for drawer counts - this handles late-night counts after midnight
+                // that should still be associated with the previous business day
+                const dateStr = getBusinessDateInTimezone();
                 let fieldId = fields[0]?.id;
                 
                 if (!fieldId) {
@@ -884,11 +882,14 @@ export default function LogBook() {
                 }
 
                 // Trigger weekly summary generation if this is a Sunday deposit
-                const dayOfWeek = getDay(selectedDate);
+                // Use business date to determine if it's Sunday (handles late-night deposits after midnight)
+                const businessDateStr = getBusinessDateInTimezone();
+                const businessDate = new Date(businessDateStr + 'T12:00:00');
+                const dayOfWeek = getDay(businessDate);
                 if (dayOfWeek === 0 && currentLocation?.id) { // 0 = Sunday
                   try {
-                    const weekStart = format(startOfWeek(selectedDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
-                    const weekEnd = format(endOfWeek(selectedDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+                    const weekStart = format(startOfWeek(businessDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+                    const weekEnd = format(endOfWeek(businessDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
                     
                     toast({ title: "Generating weekly summary...", description: "Please wait" });
                     
