@@ -1306,7 +1306,14 @@ export default function Schedule() {
           events={events}
           profiles={profiles}
           onShiftClick={(shift) => setEditingShift(shift)}
-          onWeekChange={setCurrentWeekStart}
+          onWeekChange={(newWeek) => {
+            // Invalidate the new week's query to force fresh data fetch
+            // (prefetched data may be incomplete - missing profiles/events)
+            queryClient.invalidateQueries({ 
+              queryKey: ['schedule', currentLocation?.id, format(newWeek, 'yyyy-MM-dd')] 
+            });
+            setCurrentWeekStart(newWeek);
+          }}
           onUpdate={fetchScheduleData}
           isPublished={isPublished}
           publishedSnapshot={publishedSnapshot}
