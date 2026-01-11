@@ -584,7 +584,8 @@ export default function LogBook() {
     const isDrawerCount = currentCategoryName === 'drawer count';
     const isSafeCount = currentCategoryName === 'safe count';
     const isWeeklySummary = currentCategoryName === 'weekly summary';
-    const isBankDeposit = selectedCategory === 'bank-deposit'; // Virtual category
+    // Bank deposit can be triggered via virtual 'bank-deposit' string OR by selecting the actual category
+    const isBankDeposit = selectedCategory === 'bank-deposit' || currentCategoryName === 'bank deposit';
     
     // Weekly Summary - special generate UI
     if (isWeeklySummary) {
