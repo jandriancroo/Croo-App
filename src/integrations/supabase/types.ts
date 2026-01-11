@@ -3322,6 +3322,7 @@ export type Database = {
           changed_by: string | null
           created_at: string
           id: string
+          is_draft: boolean
           new_shift_data: Json | null
           old_shift_data: Json | null
           schedule_id: string
@@ -3332,6 +3333,7 @@ export type Database = {
           changed_by?: string | null
           created_at?: string
           id?: string
+          is_draft?: boolean
           new_shift_data?: Json | null
           old_shift_data?: Json | null
           schedule_id: string
@@ -3342,6 +3344,7 @@ export type Database = {
           changed_by?: string | null
           created_at?: string
           id?: string
+          is_draft?: boolean
           new_shift_data?: Json | null
           old_shift_data?: Json | null
           schedule_id?: string
