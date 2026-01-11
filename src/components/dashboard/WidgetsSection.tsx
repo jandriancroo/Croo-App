@@ -47,6 +47,7 @@ interface DataCubeConfig {
   cubeType: CubeType | 'data-3d';
   // 3D cube specific
   faceMetrics?: MetricType[][];
+  faceTitles?: string[];
   numFaces?: number;
 }
 
@@ -139,7 +140,7 @@ function SortableDataCube({ cube, salesData, isLoading, locationSettings, isReor
 
   // For 3D data cubes
   if (cube.cubeType === 'data-3d' && cube.faceMetrics && cube.numFaces) {
-    const faceTitles = (cube as any).faceTitles || [];
+    const faceTitles = cube.faceTitles || [];
     const faces = cube.faceMetrics.slice(0, cube.numFaces).map((metrics, idx) => ({ 
       metrics, 
       title: faceTitles[idx] || undefined 
@@ -350,7 +351,7 @@ export function WidgetsSection({
         displayOrder: cube.display_order,
         cubeType: cube.cube_type as CubeType | 'data-3d',
         faceMetrics: (cube.face_metrics as MetricType[][]) || [],
-        faceTitles: ((cube as any).face_titles as string[]) || [],
+        faceTitles: (cube.face_titles as string[]) || [],
         numFaces: cube.num_faces || 1,
       })) as DataCubeConfig[];
     },
