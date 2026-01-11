@@ -126,7 +126,8 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     
     // Fetch daily data + week range + month range + labor data in parallel
     // For month, always fetch full month (1st to last day)
-    const [dailyResult, weekResult, monthResult, laborResult] = await Promise.all([
+    // Fetch labor for the ENTIRE WEEK to show labor% in weekly chart
+    const [dailyResult, weekResult, monthResult, laborResult, weeklyLaborResult] = await Promise.all([
       supabase
         .from('sales_cache')
         .select('*')
@@ -147,16 +148,23 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
         .gte('sale_date', monthStartStr)
         .lte('sale_date', monthEndStr)
         .order('sale_date'),
-      // Fetch labor from dedicated labor_cache table
+      // Fetch labor from dedicated labor_cache table for selected day
       supabase
         .from('labor_cache')
         .select('labor_date, labor_cost, labor_hours, regular_hours, overtime_hours, source')
         .eq('location_id', currentLocation.id)
-        .eq('labor_date', dateStr)
+        .eq('labor_date', dateStr),
+      // Fetch labor for entire week range for weekly chart
+      supabase
+        .from('labor_cache')
+        .select('labor_date, labor_cost, labor_hours, regular_hours, overtime_hours, source')
+        .eq('location_id', currentLocation.id)
+        .gte('labor_date', weekStartStr)
+        .lte('labor_date', weekEndStr)
     ]);
 
     // If RLS blocks access (or any other DB error), surface it clearly.
-    const dbError = dailyResult.error || weekResult.error || monthResult.error || laborResult.error;
+    const dbError = dailyResult.error || weekResult.error || monthResult.error || laborResult.error || weeklyLaborResult.error;
     if (dbError) {
       console.error('[SalesOverview] sales_cache/labor_cache query error:', dbError);
       setDiagnosticInfo({
@@ -168,7 +176,8 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
           dailyError: dailyResult.error,
           weekError: weekResult.error,
           monthError: monthResult.error,
-          laborError: laborResult.error
+          laborError: laborResult.error,
+          weeklyLaborError: weeklyLaborResult.error
         },
         error: dbError.message || String(dbError)
       });
@@ -177,6 +186,21 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
         description: dbError.message || 'Your account may not have access to sales history for this location.'
       });
       return null;
+    }
+    
+    // Build a map of daily labor data for the week (prefer punch_clock over qubeyond)
+    const weeklyLaborData = weeklyLaborResult.data || [];
+    const weeklyLaborMap = new Map<string, { laborCost: number; laborHours: number }>();
+    for (const row of weeklyLaborData) {
+      const dateKey = row.labor_date;
+      const existing = weeklyLaborMap.get(dateKey);
+      // Prefer punch_clock source, or use first entry if no preference
+      if (!existing || row.source === 'punch_clock') {
+        weeklyLaborMap.set(dateKey, {
+          laborCost: Number(row.labor_cost) || 0,
+          laborHours: Number(row.labor_hours) || 0
+        });
+      }
     }
 
     // Check if we have ANY cached data for the period (week or month)
@@ -197,8 +221,8 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     // Get today's date string for pace logic
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     
-    // Build full 7-day breakdown
-    const weeklyBreakdown: { date: string; sales: number; projected: number; guestCount: number }[] = [];
+    // Build full 7-day breakdown with labor data
+    const weeklyBreakdown: { date: string; sales: number; projected: number; guestCount: number; laborPercent?: number; laborCost?: number }[] = [];
     for (let i = 0; i < 7; i++) {
       const dayDate = addDays(weekStart, i);
       const dayStr = format(dayDate, 'yyyy-MM-dd');
@@ -209,12 +233,19 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       const storedProjection = existingData ? Number(existingData.projected_sales) || 0 : 0;
       const actualSales = existingData ? Number(existingData.net_sales) || 0 : 0;
       
+      // Get labor data for this day and calculate laborPercent from laborCost / sales
+      const dayLabor = weeklyLaborMap.get(dayStr);
+      const laborCost = dayLabor?.laborCost || 0;
+      const laborPercent = (laborCost > 0 && actualSales > 0) ? (laborCost / actualSales) * 100 : 0;
+      
       weeklyBreakdown.push({
         date: dayStr,
         sales: actualSales,
         // Use stored projection if available, otherwise use actual sales as the "projection"
         projected: storedProjection > 0 ? storedProjection : actualSales,
-        guestCount: existingData?.guest_count || 0
+        guestCount: existingData?.guest_count || 0,
+        laborPercent,
+        laborCost
       });
     }
     
@@ -319,6 +350,18 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     } : null;
     console.log('[SalesOverview] Built dailyLabor:', dailyLabor);
     
+    // Calculate weekly labor totals from weeklyLaborMap
+    const weeklyLaborTotalCost = weeklyBreakdown.reduce((sum, d) => sum + (d.laborCost || 0), 0);
+    const weeklyLaborTotalHours = Array.from(weeklyLaborMap.values()).reduce((sum, l) => sum + l.laborHours, 0);
+    const weeklyLabor = (weeklyLaborTotalCost > 0 || weeklyLaborTotalHours > 0) ? {
+      laborPercent: weeklySales > 0 ? (weeklyLaborTotalCost / weeklySales) * 100 : 0,
+      laborCost: weeklyLaborTotalCost,
+      hoursWorked: weeklyLaborTotalHours,
+      regularHours: weeklyLaborTotalHours, // We don't have breakdown, use total
+      overtimeHours: 0
+    } : null;
+    console.log('[SalesOverview] Built weeklyLabor:', weeklyLabor);
+    
     return {
       daily: cached ? (Number(cached.net_sales) || 0) : 0,
       weekly: weeklySales,
@@ -343,7 +386,8 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
         weekStart: weekStartStr,
         monthStart: monthStartStr
       },
-      labor: dailyLabor
+      labor: dailyLabor,
+      weeklyLabor
     };
   };
 
