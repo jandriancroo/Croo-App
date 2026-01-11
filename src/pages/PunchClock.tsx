@@ -1001,38 +1001,30 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
               )}
 
               {/* Right Side - Number Pad */}
-              <CardContent className="p-10 flex flex-col justify-center">
-                <div className="space-y-8">
-                  {/* Location Display - Larger with store number */}
+              <CardContent className="p-8 flex flex-col justify-center">
+                <div className="space-y-6">
+                  {/* Location Name Badge */}
                   {currentLocation && (
-                    <div className="text-center space-y-1">
-                      {currentLocation.store_number && (
-                        <div className="text-5xl font-bold text-primary tracking-tight">
-                          #{currentLocation.store_number}
-                        </div>
-                      )}
-                      <div className="text-2xl font-semibold text-foreground">
-                        {currentLocation.name}
-                      </div>
-                      <div className="flex items-center justify-center gap-2 mt-2">
-                        <div className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse" />
-                        <span className="text-sm text-muted-foreground">Online</span>
+                    <div className="text-center">
+                      <div className="inline-flex items-center gap-2 px-4 py-2 bg-primary/10 border border-primary/20 rounded-full">
+                        <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
+                        <span className="text-sm font-medium text-primary">{currentLocation.name}</span>
                       </div>
                     </div>
                   )}
                   <div>
-                    <h3 className={`text-xl font-medium mb-5 text-center transition-colors duration-200 ${pinError ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                    <h3 className={`text-lg font-medium mb-4 text-center transition-colors duration-200 ${pinError ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
                       {pinError ? 'Wrong PIN - Try Again' : 'Enter Your PIN'}
                     </h3>
-                    <div className="text-center mb-8">
+                    <div className="text-center mb-6">
                       <div 
-                        className={`flex items-center justify-center gap-4 h-20 ${pinShake ? 'animate-shake' : ''}`}
+                        className={`flex items-center justify-center gap-3 h-16 ${pinShake ? 'animate-shake' : ''}`}
                         style={pinShake ? { animation: 'shake 0.5s ease-in-out' } : undefined}
                       >
                         {[0, 1, 2, 3].map((i) => (
                           <div
                             key={i}
-                            className={`w-16 h-16 rounded-2xl border-2 flex items-center justify-center text-3xl font-bold transition-all duration-200 ${
+                            className={`w-12 h-12 rounded-xl border-2 flex items-center justify-center text-2xl font-bold transition-all duration-200 ${
                               pinError
                                 ? 'bg-destructive/20 border-destructive'
                                 : pin.length > i 
@@ -1047,13 +1039,13 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
                       <Button
                         key={num}
                         variant="outline"
                         size="lg"
-                        className="h-20 text-3xl font-bold rounded-2xl border-2 bg-card hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md"
+                        className="h-16 text-2xl font-bold rounded-xl border-2 bg-card hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md"
                         onClick={() => handleNumberClick(num.toString())}
                       >
                         {num}
@@ -1062,7 +1054,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     <Button
                       variant="ghost"
                       size="lg"
-                      className="h-20 text-base font-medium rounded-2xl hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all duration-150"
+                      className="h-16 text-sm font-medium rounded-xl hover:bg-destructive/10 hover:text-destructive active:scale-95 transition-all duration-150"
                       onClick={handleClear}
                     >
                       Clear
@@ -1070,7 +1062,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     <Button
                       variant="outline"
                       size="lg"
-                      className="h-20 text-3xl font-bold rounded-2xl border-2 bg-card hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md"
+                      className="h-16 text-2xl font-bold rounded-xl border-2 bg-card hover:bg-primary hover:text-primary-foreground hover:border-primary hover:scale-[1.02] active:scale-95 transition-all duration-150 shadow-sm hover:shadow-md"
                       onClick={() => handleNumberClick('0')}
                     >
                       0
@@ -1078,7 +1070,7 @@ const isClockedIn = lastPunch?.punch_type === 'clock_in';
                     <Button
                       variant="ghost"
                       size="lg"
-                      className="h-20 text-2xl font-medium rounded-2xl hover:bg-muted active:scale-95 transition-all duration-150"
+                      className="h-16 text-xl font-medium rounded-xl hover:bg-muted active:scale-95 transition-all duration-150"
                       onClick={handleBackspace}
                     >
                       ⌫
