@@ -120,14 +120,9 @@ export function DayBreakdownDialog({
 
   const getProfileForShift = (shift: any) => profiles.find((p) => p.id === shift.user_id) || null;
 
-  // Get shift template color
+  // Get shift color - match logic from ShiftCard.tsx
   const getShiftColor = (shift: any) => {
-    // Use template color if available
-    if (shift.template?.color) {
-      return shift.template.color;
-    }
-    // Fallback to a default color
-    return "hsl(var(--primary))";
+    return shift.template?.color || shift.color || "#ef4444";
   };
 
 
