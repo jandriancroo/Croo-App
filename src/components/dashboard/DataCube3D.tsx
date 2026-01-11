@@ -391,25 +391,29 @@ function PacingIndicator({ status, isLightBg, mode }: { status: 'up' | 'down' | 
   );
 }
 
-// Inline background arrow component (for 'background-arrow' mode - shows behind individual metric)
+// Inline background triangle (solid stock-market style) for 'background-arrow' mode
 function InlineBackgroundArrow({ status, isLightBg }: { status: 'up' | 'down' | null; isLightBg: boolean }) {
   if (!status) return null;
   
-  const ArrowIcon = status === 'up' ? ArrowUp : ArrowDown;
-  
-  // Green tint for up, red tint for down - using semantic colors
+  // Green tint for up, red tint for down
   const colorClass = status === 'up' 
-    ? (isLightBg ? "text-green-500/20" : "text-green-400/25")
-    : (isLightBg ? "text-red-500/25" : "text-red-400/30");
+    ? (isLightBg ? "text-green-500/25" : "text-green-400/30")
+    : (isLightBg ? "text-red-500/30" : "text-red-400/35");
   
   return (
-    <ArrowIcon 
+    <svg 
+      viewBox="0 0 24 24" 
       className={cn(
-        "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 md:w-14 md:h-14 pointer-events-none",
+        "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 pointer-events-none fill-current",
         colorClass
       )}
-      strokeWidth={2.5}
-    />
+    >
+      {status === 'up' ? (
+        <polygon points="12,4 22,20 2,20" />
+      ) : (
+        <polygon points="12,20 22,4 2,4" />
+      )}
+    </svg>
   );
 }
 
