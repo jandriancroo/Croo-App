@@ -11,7 +11,7 @@ import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import { Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown, AlertTriangle, Sparkles } from "lucide-react";
+import { Plus, Settings, Calendar, MoreVertical, Copy, Trash2, Wrench, ChevronDown, AlertTriangle, Sparkles, History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { DateNavigator } from "@/components/ui/date-navigator";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -36,6 +36,7 @@ import { LiveStatusBadge } from "@/components/schedule/LiveStatusBadge";
 import { DayBreakdownDialog } from "@/components/schedule/DayBreakdownDialog";
 import { PortraitOnlyMessage } from "@/components/schedule/PortraitOnlyMessage";
 import { AutoScheduleWizard } from "@/components/schedule/AutoScheduleWizard";
+import { ChangeTrackingDialog } from "@/components/schedule/ChangeTrackingDialog";
 
 // Cache time constants
 const SCHEDULE_STALE_TIME = 15 * 60 * 1000; // 15 minutes for current/next week
@@ -134,6 +135,7 @@ export default function Schedule() {
   const [locationSettings, setLocationSettings] = useState<{ hours_open?: string; hours_close?: string } | null>(null);
   const [isCreatingShift, setIsCreatingShift] = useState(false);
   const [autoScheduleOpen, setAutoScheduleOpen] = useState(false);
+  const [changeTrackingOpen, setChangeTrackingOpen] = useState(false);
   const [roleChangeDialogOpen, setRoleChangeDialogOpen] = useState(false);
   const [pendingRoleChange, setPendingRoleChange] = useState<{
     userId: string;
@@ -1035,7 +1037,7 @@ export default function Schedule() {
         // Get unique affected user IDs
         const affectedUserIds = [...new Set(changes.map(c => c.user_id).filter(Boolean))];
         
-        // Log changes
+        // Log changes with who made them
         for (const change of changes) {
           await supabase
             .from('schedule_change_log')
@@ -1044,7 +1046,8 @@ export default function Schedule() {
               user_id: change.user_id,
               change_type: change.type,
               old_shift_data: change.oldShift,
-              new_shift_data: change.newShift
+              new_shift_data: change.newShift,
+              changed_by: user?.id
             });
         }
         
@@ -1370,6 +1373,10 @@ export default function Schedule() {
                       <DropdownMenuItem onClick={() => wrapEditAction(() => setClearScheduleDialogOpen(true))} className="gap-2 cursor-pointer text-destructive">
                         <Trash2 className="h-4 w-4" />
                         Clear Schedule
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setChangeTrackingOpen(true)} className="gap-2 cursor-pointer">
+                        <History className="h-4 w-4" />
+                        Change Tracking
                       </DropdownMenuItem>
                       {isPublished && (
                         <DropdownMenuItem onClick={() => setWithdrawDialogOpen(true)} className="gap-2 cursor-pointer text-destructive">
@@ -1814,6 +1821,15 @@ export default function Schedule() {
           onScheduleGenerated={() => fetchScheduleData(false)}
         />
       )}
+
+      {/* Change Tracking Dialog */}
+      <ChangeTrackingDialog
+        open={changeTrackingOpen}
+        onOpenChange={setChangeTrackingOpen}
+        scheduleId={scheduleId}
+        weekStartDate={currentWeekStart}
+        isPublished={isPublished}
+      />
     </Layout>
   );
 }
