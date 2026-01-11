@@ -584,6 +584,15 @@ const handler = async (req: Request): Promise<Response> => {
       }
     }
 
+    // Filter out sender_id AFTER all other filtering (ensures sender doesn't get notified on any device)
+    if (sender_id) {
+      const beforeCount = finalUserIds.length;
+      finalUserIds = finalUserIds.filter(id => id !== sender_id);
+      if (finalUserIds.length < beforeCount) {
+        console.log(`Filtered out sender ${sender_id} from final recipients (was in ${beforeCount}, now ${finalUserIds.length})`);
+      }
+    }
+
     if (finalUserIds.length === 0) {
       return new Response(
         JSON.stringify({ message: "No users have this notification type enabled" }),
