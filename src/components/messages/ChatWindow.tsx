@@ -478,7 +478,8 @@ export function ChatWindow({ chatId, chatDetails, onChatDeleted, onChatUpdated }
     
     // Add to pending messages immediately
     setPendingMessages(prev => [...prev, optimisticMessage]);
-    scrollToBottom();
+    // Use rAF + instant scroll so the optimistic bubble appears immediately (no smooth-scroll delay)
+    requestAnimationFrame(() => scrollToBottom(true));
 
     try {
       if (!currentUserId) throw new Error('Not authenticated');
