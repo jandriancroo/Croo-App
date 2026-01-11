@@ -38,8 +38,8 @@ function formatValue(value: number | undefined, format: 'currency' | 'percent' |
 
 // Category prefix removed - labels now come directly from METRIC_CONFIGS
 
-// Generate dynamic labels for "last year" metrics with actual date references
-// Auto-derives time period prefix from metric category, or uses manual override
+// Generate dynamic labels for metrics with actual date references
+// Handles: SDLY + date, SWLY + Wk#, Month + Pace
 function getDynamicLabel(metricType: MetricType, manualPrefix?: string): string {
   const config = METRIC_CONFIGS[metricType];
   if (!config) return '';
@@ -50,13 +50,16 @@ function getDynamicLabel(metricType: MetricType, manualPrefix?: string): string 
   let baseLabel: string;
   switch (metricType) {
     case 'sales_last_year_day':
-      baseLabel = format(lastYear, "MMM d ''yy");
+      // SDLY + numerical date with slash (e.g., "SDLY 1/10")
+      baseLabel = `SDLY ${format(lastYear, 'M/d')}`;
       break;
     case 'sales_last_year_week':
-      baseLabel = `Wk ${getWeek(lastYear)} '${format(lastYear, 'yy')}`;
+      // SWLY + Wk# (e.g., "SWLY Wk2")
+      baseLabel = `SWLY Wk${getWeek(lastYear)}`;
       break;
-    case 'sales_last_year_month':
-      baseLabel = format(lastYear, "MMM ''yy");
+    case 'sales_pace_month':
+      // 3 letter month name + Pace (e.g., "Jan Pace")
+      baseLabel = `${format(now, 'MMM')} Pace`;
       break;
     default:
       baseLabel = config.shortLabel;
