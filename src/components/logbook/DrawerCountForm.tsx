@@ -37,6 +37,7 @@ interface DrawerCountFormProps {
   existingData?: DrawerCountData | null;
   entryCount?: number;
   drawerBank?: number;
+  businessDate?: string; // The business date to use for fetching expected deposit (YYYY-MM-DD)
 }
 
 export interface DrawerCountData {
@@ -48,7 +49,7 @@ export interface DrawerCountData {
   removalSuggestions: { denomination: string; count: number; value: number }[];
 }
 
-export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0, drawerBank = DEFAULT_DRAWER_BANK }: DrawerCountFormProps) {
+export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0, drawerBank = DEFAULT_DRAWER_BANK, businessDate }: DrawerCountFormProps) {
   const { currentLocation } = useAppLocation();
   const DRAWER_BANK = drawerBank;
   const [counts, setCounts] = useState<Record<string, number>>(() => {
@@ -90,14 +91,24 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
   }, []);
 
   // Auto-fetch expected deposit from Qu tills on load
+  // Uses the businessDate prop to ensure we fetch for the correct business day
+  // (e.g., if it's 12:30 AM but the store closed at midnight, we want Saturday's data not Sunday's)
   useEffect(() => {
     const fetchQuExpectedDeposit = async () => {
       if (!currentLocation?.id || existingData?.expectedDeposit || quDepositLoaded) return;
       
       setIsLoadingQuDeposit(true);
       try {
+        // Pass businessDate if provided, otherwise let the edge function use its default
+        const requestBody: { locationId: string; targetDate?: string } = { 
+          locationId: currentLocation.id 
+        };
+        if (businessDate) {
+          requestBody.targetDate = businessDate;
+        }
+        
         const { data, error } = await supabase.functions.invoke("fetch-qubeyond-sales", {
-          body: { locationId: currentLocation.id }
+          body: requestBody
         });
         
         if (!error && data?.tills?.expectedCash) {
@@ -117,7 +128,7 @@ export function DrawerCountForm({ onSave, isSaving, existingData, entryCount = 0
     };
 
     fetchQuExpectedDeposit();
-  }, [currentLocation?.id, existingData?.expectedDeposit, quDepositLoaded]);
+  }, [currentLocation?.id, existingData?.expectedDeposit, quDepositLoaded, businessDate]);
   const [drawerSet, setDrawerSet] = useState(!!existingData);
 
   // Calculate totals
