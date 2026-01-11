@@ -1102,7 +1102,10 @@ export default function LogBook() {
           saveEntryMutation.mutate();
           setShowNewEntrySheet(false);
         }} className="space-y-4">
-          {fields.map((field: any) => (
+          {fields
+            // Hide internal/technical fields that store JSON data for special forms
+            .filter((field: any) => !['bank_deposit_data', 'drawer_data', 'safe_data', 'weekly_summary_data'].includes(field.field_name))
+            .map((field: any) => (
             <div key={field.id} className="space-y-2">
               <Label>
                 {field.field_name}
@@ -1398,7 +1401,14 @@ export default function LogBook() {
                                 <div className="text-xs text-muted-foreground whitespace-nowrap">
                                   {format(new Date(entry.created_at), 'h:mm a')}
                                 </div>
-                                {(isAdmin || isManager || entry.created_by === user?.id) && (
+                                {(isAdmin || isManager || entry.created_by === user?.id) && (() => {
+                                  // Check if this is a special entry type that uses structured data (no editing via form)
+                                  const categoryName = entry.logbook_categories?.name?.toLowerCase() || '';
+                                  const isSpecialEntry = ['drawer count', 'safe count', 'bank deposit', 'weekly summary'].some(
+                                    name => categoryName.includes(name)
+                                  );
+                                  
+                                  return (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                       <Button variant="ghost" size="icon" className="h-6 w-6">
@@ -1406,27 +1416,30 @@ export default function LogBook() {
                                       </Button>
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
-                                      <DropdownMenuItem 
-                                        onClick={() => {
-                                          // Set up for editing: select category and date, then open sheet
-                                          setSelectedCategory(entry.category_id);
-                                          // Parse date properly to avoid timezone issues - add T12:00:00 to ensure same day
-                                          setSelectedDate(new Date(entry.entry_date + 'T12:00:00'));
-                                          // Pre-fill form data from existing values (for regular entries)
-                                          const existingData: Record<string, any> = {};
-                                          entry.logbook_entry_values?.forEach((val: any) => {
-                                            existingData[val.field_id] = val.value_text || val.value_number || val.value_date || val.attachment_url;
-                                          });
-                                          setFormData(existingData);
-                                          // Open the sheet for editing and skip to form step
-                                          setShowNewEntrySheet(true);
-                                          setWizardStep('form');
-                                          toast({ title: "Edit mode", description: "Update the entry and save" });
-                                        }}
-                                      >
-                                        <Pencil className="h-4 w-4 mr-2" />
-                                        Edit
-                                      </DropdownMenuItem>
+                                      {/* Hide Edit for special entry types that use structured forms */}
+                                      {!isSpecialEntry && (
+                                        <DropdownMenuItem 
+                                          onClick={() => {
+                                            // Set up for editing: select category and date, then open sheet
+                                            setSelectedCategory(entry.category_id);
+                                            // Parse date properly to avoid timezone issues - add T12:00:00 to ensure same day
+                                            setSelectedDate(new Date(entry.entry_date + 'T12:00:00'));
+                                            // Pre-fill form data from existing values (for regular entries)
+                                            const existingData: Record<string, any> = {};
+                                            entry.logbook_entry_values?.forEach((val: any) => {
+                                              existingData[val.field_id] = val.value_text || val.value_number || val.value_date || val.attachment_url;
+                                            });
+                                            setFormData(existingData);
+                                            // Open the sheet for editing and skip to form step
+                                            setShowNewEntrySheet(true);
+                                            setWizardStep('form');
+                                            toast({ title: "Edit mode", description: "Update the entry and save" });
+                                          }}
+                                        >
+                                          <Pencil className="h-4 w-4 mr-2" />
+                                          Edit
+                                        </DropdownMenuItem>
+                                      )}
                                       <DropdownMenuItem 
                                         onClick={() => setDeleteEntryId(entry.id)}
                                         className="text-destructive focus:text-destructive"
@@ -1436,7 +1449,8 @@ export default function LogBook() {
                                       </DropdownMenuItem>
                                     </DropdownMenuContent>
                                   </DropdownMenu>
-                                )}
+                                  );
+                                })()}
                               </div>
                               </div>
                               <div className="mt-2 space-y-1">
