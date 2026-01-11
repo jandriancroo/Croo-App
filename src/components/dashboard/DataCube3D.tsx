@@ -36,15 +36,7 @@ function formatValue(value: number | undefined, format: 'currency' | 'percent' |
   }
 }
 
-// Map metric category to display prefix
-function getCategoryPrefix(category?: string): string {
-  switch (category) {
-    case 'daily': return 'Daily';
-    case 'weekly': return 'Wkly';
-    case 'monthly': return 'Mthly';
-    default: return '';
-  }
-}
+// Category prefix removed - labels now come directly from METRIC_CONFIGS
 
 // Generate dynamic labels for "last year" metrics with actual date references
 // Auto-derives time period prefix from metric category, or uses manual override
@@ -70,16 +62,12 @@ function getDynamicLabel(metricType: MetricType, manualPrefix?: string): string 
       baseLabel = config.shortLabel;
   }
   
-  // Determine prefix: use manual override if provided, otherwise derive from category
-  const prefix = manualPrefix || getCategoryPrefix(config.category);
-  
-  // Add prefix if we have one and it's not already in the label
-  if (prefix) {
-    const prefixLower = prefix.toLowerCase();
+  // Only use manual prefix if explicitly provided (no auto-prefix from category)
+  if (manualPrefix) {
+    const prefixLower = manualPrefix.toLowerCase();
     const labelLower = baseLabel.toLowerCase();
-    // Don't add prefix if label already contains it
     if (!labelLower.includes(prefixLower)) {
-      return `${prefix} ${baseLabel}`;
+      return `${manualPrefix} ${baseLabel}`;
     }
   }
   
