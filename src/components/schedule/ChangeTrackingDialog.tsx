@@ -23,6 +23,7 @@ interface ChangeLogEntry {
   created_at: string;
   changed_by: string | null;
   user_id: string;
+  is_draft: boolean;
   profiles: { full_name: string } | null;
   changer: { full_name: string } | null;
 }
@@ -50,6 +51,7 @@ export function ChangeTrackingDialog({
           created_at,
           changed_by,
           user_id,
+          is_draft,
           profiles:user_id(full_name)
         `)
         .eq("schedule_id", scheduleId)
@@ -172,6 +174,12 @@ export function ChangeTrackingDialog({
                       <Badge variant={getChangeBadgeVariant(change.change_type)}>
                         {change.change_type.charAt(0).toUpperCase() +
                           change.change_type.slice(1)}
+                      </Badge>
+                      <Badge 
+                        variant={change.is_draft ? "outline" : "secondary"}
+                        className={change.is_draft ? "text-yellow-600 border-yellow-600" : "text-green-600 border-green-600"}
+                      >
+                        {change.is_draft ? "Draft" : "Published"}
                       </Badge>
                       <span className="text-sm font-medium">
                         {change.profiles?.full_name || "Unknown Employee"}

@@ -1069,6 +1069,13 @@ export default function Schedule() {
         toast.success("Schedule updated!");
       }
 
+      // Mark all draft changes as published
+      await supabase
+        .from('schedule_change_log')
+        .update({ is_draft: false })
+        .eq('schedule_id', scheduleId)
+        .eq('is_draft', true);
+
       // Update snapshot with audit info
       const { error } = await supabase
         .from('schedules')
