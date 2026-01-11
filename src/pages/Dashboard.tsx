@@ -153,6 +153,7 @@ export default function Dashboard() {
         accentColor: cube.accent_color || '#8B5CF6',
         cubeType: (cube.cube_type as CubeType | 'data-3d') || 'data',
         faceMetrics: (cube.face_metrics as MetricType[][]) || [],
+        faceTitles: (cube.face_titles as string[]) || [],
         numFaces: cube.num_faces || 1,
       })) as CubeConfig[];
     },
