@@ -326,10 +326,18 @@ export function MobileScheduleView({
     refetchInterval: activeTab === 'today' ? 60 * 1000 : false, // Refresh every minute when on today tab
   });
 
-  // Get week label relative to current week
+  // Get week label relative to current week (using timezone-aware calculation)
   const getWeekLabel = useCallback(() => {
-    const todayDate = new Date();
-    const thisWeekStart = startOfWeek(todayDate, { weekStartsOn: 1 });
+    // Use timezone-aware "today" to determine "this week"
+    const todayStr = timezone ? getTodayInTimezone(timezone) : null;
+    let thisWeekStart: Date;
+    
+    if (todayStr) {
+      const [y, m, d] = todayStr.split('-').map(Number);
+      thisWeekStart = startOfWeek(new Date(y, m - 1, d), { weekStartsOn: 1 });
+    } else {
+      thisWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    }
     
     if (isSameWeek(currentWeekStart, thisWeekStart, { weekStartsOn: 1 })) {
       return { label: "Current Week", variant: "default" as const };
@@ -353,7 +361,7 @@ export function MobileScheduleView({
     } else {
       return { label: `${diffWeeks} Weeks Ahead`, variant: "outline" as const };
     }
-  }, [currentWeekStart]);
+  }, [currentWeekStart, timezone]);
 
   // Persist selected tab across re-mounts
   useEffect(() => {
@@ -375,9 +383,13 @@ export function MobileScheduleView({
   };
 
   // Get shifts and events for selected day
+  // Use shift_date as source of truth (matches EmployeeRow.tsx fix)
+  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+  
   // Admins/managers see all shifts, team members see all if canSeeFullSchedule, otherwise only their own shifts
   const dayShifts = shifts.filter(s => {
-    if (s.day_of_week !== selectedDayOfWeek || !s.user_id) return false;
+    // Use shift_date instead of day_of_week to prevent week navigation bugs
+    if (s.shift_date !== selectedDateStr || !s.user_id) return false;
     
     // Admins/managers always see everything (including unpublished)
     if (isAdmin || isManager) return true;
