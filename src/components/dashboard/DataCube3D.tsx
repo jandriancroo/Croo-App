@@ -644,18 +644,22 @@ function CubeFaceComponent({
         {(metricCount === 4 || metricCount === 5) ? (
           // 4 or 5 metrics: 2x2 grid layout with optional center metric
           <div className="relative h-full">
-            {/* Quadrant glow dividers */}
+            {/* Quadrant glow dividers - fade towards center when 5th metric exists */}
             <div 
               className="absolute left-1/2 top-2 bottom-2 w-px pointer-events-none"
               style={{
-                background: 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 80%, transparent 100%)',
+                background: hasCenterMetric 
+                  ? 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 35%, transparent 50%, rgba(255,255,255,0.2) 65%, rgba(255,255,255,0.2) 80%, transparent 100%)'
+                  : 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 80%, transparent 100%)',
                 boxShadow: '0 0 8px rgba(255,255,255,0.15)',
               }}
             />
             <div 
               className="absolute top-1/2 left-2 right-2 h-px pointer-events-none"
               style={{
-                background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 80%, transparent 100%)',
+                background: hasCenterMetric
+                  ? 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 35%, transparent 50%, rgba(255,255,255,0.2) 65%, rgba(255,255,255,0.2) 80%, transparent 100%)'
+                  : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 80%, transparent 100%)',
                 boxShadow: '0 0 8px rgba(255,255,255,0.15)',
               }}
             />
