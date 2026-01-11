@@ -152,15 +152,27 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
         .select(`
           id,
           entry_date,
+          created_at,
           logbook_entry_values(value_text)
         `)
         .eq("location_id", currentLocation.id)
         .eq("category_id", drawerCountCategory.id)
         .gte("entry_date", startStr)
         .lte("entry_date", endStr)
-        .order("entry_date", { ascending: true });
+        .order("entry_date", { ascending: true })
+        .order("created_at", { ascending: false }); // Most recent first for each date
       if (error) throw error;
-      return data || [];
+      
+      // Deduplicate: keep only the most recent entry per date
+      const entriesByDate = new Map<string, any>();
+      (data || []).forEach((entry: any) => {
+        if (!entriesByDate.has(entry.entry_date)) {
+          entriesByDate.set(entry.entry_date, entry);
+        }
+        // Since we ordered by created_at DESC, the first one we see for each date is the most recent
+      });
+      
+      return Array.from(entriesByDate.values());
     },
     enabled: !!currentLocation && !!drawerCountCategory && shouldFetchEntries,
   });
