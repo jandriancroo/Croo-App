@@ -81,6 +81,11 @@ function getDynamicLabel(metricType: MetricType, manualPrefix?: string): string 
   return baseLabel;
 }
 
+// Check if metric is a pace metric (only these show background triangles)
+function isPaceMetric(metricType: MetricType): boolean {
+  return metricType === 'sales_pace' || metricType === 'sales_pace_week' || metricType === 'sales_pace_month';
+}
+
 // Get pacing status indicator for a metric (compares pace to goal)
 // Returns: 'up' if pace > goal, 'down' if pace < goal, null if not applicable
 function getPacingStatus(metricType: MetricType, salesData?: SalesDataForWidgets | null): 'up' | 'down' | null {
@@ -391,20 +396,20 @@ function PacingIndicator({ status, isLightBg, mode }: { status: 'up' | 'down' | 
   );
 }
 
-// Inline background triangle (solid stock-market style) for 'background-arrow' mode
-function InlineBackgroundArrow({ status, isLightBg }: { status: 'up' | 'down' | null; isLightBg: boolean }) {
+// Small triangle indicator below label for pace metrics only
+function PaceTriangleIndicator({ status, isLightBg }: { status: 'up' | 'down' | null; isLightBg: boolean }) {
   if (!status) return null;
   
-  // Green tint for up, red tint for down
+  // Green for up, red for down - more visible than before
   const colorClass = status === 'up' 
-    ? (isLightBg ? "text-green-500/25" : "text-green-400/30")
-    : (isLightBg ? "text-red-500/30" : "text-red-400/35");
+    ? (isLightBg ? "text-green-600" : "text-green-400")
+    : (isLightBg ? "text-red-600" : "text-red-400");
   
   return (
     <svg 
       viewBox="0 0 24 24" 
       className={cn(
-        "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 pointer-events-none fill-current",
+        "w-3 h-3 md:w-4 md:h-4 fill-current mx-auto mt-0.5",
         colorClass
       )}
     >
@@ -583,12 +588,8 @@ function CubeFaceComponent({
                 const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
                 
                 return (
-                    <div key={index} className={cn("relative flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
-                      {/* Inline background arrow for this metric */}
-                      {pacingDisplay === 'background-arrow' && !isLoading && (
-                        <InlineBackgroundArrow status={pacingStatus} isLightBg={isLightBg} />
-                      )}
-                      <div className={cn("flex items-center gap-1 relative z-10", isRight && "flex-row-reverse")}>
+                    <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
+                      <div className={cn("flex items-center gap-1", isRight && "flex-row-reverse")}>
                         <div 
                           className={cn(
                             "font-bold leading-none truncate text-lg md:text-xl",
@@ -602,12 +603,16 @@ function CubeFaceComponent({
                       </div>
                       <div 
                         className={cn(
-                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5 relative z-10",
+                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
                         {getDynamicLabel(metricType)}
                       </div>
+                      {/* Small triangle below label for pace metrics only */}
+                      {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
+                        <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
+                      )}
                     </div>
                 );
               })}
@@ -647,12 +652,8 @@ function CubeFaceComponent({
                   const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
                   
                   return (
-                    <div key={index} className={cn("relative flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
-                      {/* Inline background arrow for this metric */}
-                      {pacingDisplay === 'background-arrow' && !isLoading && (
-                        <InlineBackgroundArrow status={pacingStatus} isLightBg={isLightBg} />
-                      )}
-                      <div className={cn("flex items-center gap-1 relative z-10", isRight && "flex-row-reverse")}>
+                    <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
+                      <div className={cn("flex items-center gap-1", isRight && "flex-row-reverse")}>
                         <div 
                           className={cn(
                             "font-bold leading-none truncate text-lg md:text-xl",
@@ -666,12 +667,16 @@ function CubeFaceComponent({
                       </div>
                       <div 
                         className={cn(
-                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5 relative z-10",
+                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
                         {getDynamicLabel(metricType)}
                       </div>
+                      {/* Small triangle below label for pace metrics only */}
+                      {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
+                        <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
+                      )}
                     </div>
                   );
                 })}
@@ -688,12 +693,8 @@ function CubeFaceComponent({
                   const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
                   
                   return (
-                    <div key={index} className="relative flex flex-col items-center text-center min-w-0">
-                      {/* Inline background arrow for this metric */}
-                      {pacingDisplay === 'background-arrow' && !isLoading && (
-                        <InlineBackgroundArrow status={pacingStatus} isLightBg={isLightBg} />
-                      )}
-                      <div className="flex items-center gap-1 relative z-10">
+                    <div key={index} className="flex flex-col items-center text-center min-w-0">
+                      <div className="flex items-center gap-1">
                         <div 
                           className={cn(
                             "font-bold leading-none truncate text-lg md:text-xl",
@@ -707,12 +708,16 @@ function CubeFaceComponent({
                       </div>
                       <div 
                         className={cn(
-                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5 relative z-10",
+                          "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
                           isLightBg ? "text-muted-foreground" : "text-white/70"
                         )}
                       >
                         {getDynamicLabel(metricType)}
                       </div>
+                      {/* Small triangle below label for pace metrics only */}
+                      {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
+                        <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
+                      )}
                     </div>
                   );
                 })}
@@ -743,12 +748,8 @@ function CubeFaceComponent({
                 const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
                 
                 return (
-                  <div key={index} className={cn("relative flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
-                    {/* Inline background arrow for this metric */}
-                    {pacingDisplay === 'background-arrow' && !isLoading && (
-                      <InlineBackgroundArrow status={pacingStatus} isLightBg={isLightBg} />
-                    )}
-                    <div className={cn("flex items-center gap-1 relative z-10", isRight && "flex-row-reverse")}>
+                  <div key={index} className={cn("flex flex-col justify-center min-w-0", isRight && "items-end text-right")}>
+                    <div className={cn("flex items-center gap-1", isRight && "flex-row-reverse")}>
                       <div 
                         className={cn(
                           "font-bold leading-none truncate text-lg md:text-xl",
@@ -762,12 +763,16 @@ function CubeFaceComponent({
                     </div>
                     <div 
                       className={cn(
-                        "text-[10px] md:text-xs font-semibold truncate -mt-0.5 relative z-10",
+                        "text-[10px] md:text-xs font-semibold truncate -mt-0.5",
                         isLightBg ? "text-muted-foreground" : "text-white/70"
                       )}
                     >
                       {getDynamicLabel(metricType)}
                     </div>
+                    {/* Small triangle below label for pace metrics only */}
+                    {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
+                      <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
+                    )}
                   </div>
                 );
               })}
@@ -786,12 +791,8 @@ function CubeFaceComponent({
               const textColorClass = getPacingTextColor(pacingStatus, isLightBg, pacingDisplay);
               
               return (
-                <div key={index} className="relative flex flex-col items-center text-center min-w-0">
-                  {/* Inline background arrow for this metric */}
-                  {pacingDisplay === 'background-arrow' && !isLoading && (
-                    <InlineBackgroundArrow status={pacingStatus} isLightBg={isLightBg} />
-                  )}
-                  <div className="flex items-center gap-1 relative z-10">
+                <div key={index} className="flex flex-col items-center text-center min-w-0">
+                  <div className="flex items-center gap-1">
                     <div 
                       className={cn(
                         "font-bold leading-none truncate text-2xl md:text-3xl",
@@ -805,12 +806,16 @@ function CubeFaceComponent({
                   </div>
                   <div 
                     className={cn(
-                      "text-xs md:text-sm font-semibold truncate relative z-10",
+                      "text-xs md:text-sm font-semibold truncate",
                       isLightBg ? "text-muted-foreground" : "text-white/70"
                     )}
                   >
                     {getDynamicLabel(metricType)}
                   </div>
+                  {/* Small triangle below label for pace metrics only */}
+                  {pacingDisplay === 'background-arrow' && !isLoading && isPaceMetric(metricType) && (
+                    <PaceTriangleIndicator status={pacingStatus} isLightBg={isLightBg} />
+                  )}
                 </div>
               );
             })}
