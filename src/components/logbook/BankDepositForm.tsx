@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Building2, DollarSign, CalendarIcon, AlertCircle, CheckCircle2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
-import { format, eachDayOfInterval, isBefore, startOfDay, isAfter } from "date-fns";
+import { format, eachDayOfInterval, isBefore, startOfDay, isAfter, parse } from "date-fns";
 import { cn } from "@/lib/utils";
 
 export interface BankDepositData {
@@ -85,29 +85,36 @@ export function BankDepositForm({ onSave, isSaving, timezone = "America/Los_Ange
   const { depositedEntryIds, depositedDateRanges } = useMemo(() => {
     const entryIds: string[] = [];
     const dateRanges = new Set<string>();
-    
+
+    // IMPORTANT (timezone): never use `new Date('yyyy-MM-dd')` (UTC parsing → off-by-one).
+    const parseLocalYMD = (ymd: string) => startOfDay(parse(ymd, "yyyy-MM-dd", new Date()));
+
     bankDepositEntries.forEach((entry: any) => {
       try {
         const valueText = entry.logbook_entry_values?.[0]?.value_text;
-        if (valueText) {
-          const data = JSON.parse(valueText);
-          // Add all entry IDs from this deposit
-          if (data.entries) {
-            data.entries.forEach((e: any) => entryIds.push(e.entryId));
-          }
-          // Add all dates in range
-          if (data.startDate && data.endDate) {
-            const start = new Date(data.startDate);
-            const end = new Date(data.endDate);
-            const days = eachDayOfInterval({ start, end });
-            days.forEach(d => dateRanges.add(format(d, "yyyy-MM-dd")));
-          }
+        if (!valueText) return;
+
+        const data = JSON.parse(valueText);
+
+        // Add all entry IDs from this deposit
+        if (Array.isArray(data.entries)) {
+          data.entries.forEach((e: any) => {
+            if (e?.entryId) entryIds.push(e.entryId);
+          });
+        }
+
+        // Add all dates in the deposited range (inclusive)
+        if (data.startDate && data.endDate) {
+          const start = parseLocalYMD(data.startDate);
+          const end = parseLocalYMD(data.endDate);
+          const days = eachDayOfInterval({ start, end });
+          days.forEach((d) => dateRanges.add(format(d, "yyyy-MM-dd")));
         }
       } catch (e) {
         console.error("Failed to parse bank deposit entry:", e);
       }
     });
-    
+
     return { depositedEntryIds: entryIds, depositedDateRanges: dateRanges };
   }, [bankDepositEntries]);
   
