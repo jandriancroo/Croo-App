@@ -482,6 +482,100 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
 
     const salesData = data as SalesData;
 
+    // --- Repair weekly breakdown for CURRENT week ---
+    // The live integration can return partial/incorrect historical daily totals for earlier days in the current week.
+    // For Mon..Yesterday, prefer the backend sales_cache + labor_cache so labor% is stable and correct.
+    if (isTodayCheck && currentLocation?.id && salesData?.weeklyBreakdown?.length) {
+      try {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const weekStartStr = salesData.dateRange?.weekStart
+          ? salesData.dateRange.weekStart
+          : format(startOfWeek(targetDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+        const weekEndStr = format(endOfWeek(targetDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+
+        const [weekSalesRes, weekLaborRes] = await Promise.all([
+          supabase
+            .from('sales_cache')
+            .select('sale_date, net_sales, guest_count, projected_sales')
+            .eq('location_id', currentLocation.id)
+            .gte('sale_date', weekStartStr)
+            .lte('sale_date', weekEndStr),
+          supabase
+            .from('labor_cache')
+            .select('labor_date, labor_cost, labor_hours, source')
+            .eq('location_id', currentLocation.id)
+            .gte('labor_date', weekStartStr)
+            .lte('labor_date', weekEndStr),
+        ]);
+
+        if (!weekSalesRes.error && !weekLaborRes.error) {
+          const salesMap = new Map(
+            (weekSalesRes.data || []).map((r) => [
+              r.sale_date,
+              {
+                sales: Number(r.net_sales) || 0,
+                guests: Number(r.guest_count) || 0,
+                projected: Number(r.projected_sales) || 0,
+              },
+            ])
+          );
+
+          // Prefer punch_clock if both sources exist for the same day
+          const laborMap = new Map<string, { cost: number; hours: number }>();
+          for (const row of weekLaborRes.data || []) {
+            const existing = laborMap.get(row.labor_date);
+            if (!existing || row.source === 'punch_clock') {
+              laborMap.set(row.labor_date, {
+                cost: Number(row.labor_cost) || 0,
+                hours: Number(row.labor_hours) || 0,
+              });
+            }
+          }
+
+          const repairedWeeklyBreakdown = salesData.weeklyBreakdown.map((d) => {
+            // Only override past days (not today/future) to avoid breaking live pace.
+            if (d.date >= todayStr) return d;
+
+            const cachedSales = salesMap.get(d.date);
+            const sales = cachedSales?.sales ?? d.sales;
+            const guestCount = cachedSales?.guests ?? (d.guestCount || 0);
+            const storedProjection = cachedSales?.projected ?? (d.projected || 0);
+
+            const labor = laborMap.get(d.date);
+            const laborCost = labor?.cost ?? d.laborCost ?? 0;
+            const laborPercent = laborCost > 0 && sales > 0 ? (laborCost / sales) * 100 : 0;
+
+            return {
+              ...d,
+              sales,
+              guestCount,
+              projected: storedProjection > 0 ? storedProjection : sales,
+              laborCost,
+              laborPercent,
+            };
+          });
+
+          const repairedWeeklySales = repairedWeeklyBreakdown.reduce((sum, r) => sum + (Number(r.sales) || 0), 0);
+          const repairedWeeklyLaborCost = repairedWeeklyBreakdown.reduce((sum, r) => sum + (Number(r.laborCost) || 0), 0);
+          const repairedWeeklyLaborHours = Array.from(laborMap.values()).reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
+
+          salesData.weeklyBreakdown = repairedWeeklyBreakdown;
+          salesData.weekly = repairedWeeklySales;
+          salesData.weeklyLabor = (repairedWeeklyLaborCost > 0 || repairedWeeklyLaborHours > 0)
+            ? {
+                laborPercent: repairedWeeklySales > 0 ? (repairedWeeklyLaborCost / repairedWeeklySales) * 100 : 0,
+                laborCost: repairedWeeklyLaborCost,
+                hoursWorked: repairedWeeklyLaborHours,
+                regularHours: repairedWeeklyLaborHours,
+                overtimeHours: 0,
+              }
+            : null;
+        }
+      } catch (e) {
+        console.warn('[SalesOverview] Weekly repair failed:', e);
+      }
+    }
+
     // If we skipped projections but have cached ones, merge them in
     if (skipProjections && cachedProjections && salesData) {
       salesData.projections = {
@@ -561,6 +655,22 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     initialData,
     initialDataUpdatedAt
   });
+
+  // If the user switches to Weekly view while looking at "today", force a refetch and drop
+  // any cached live response so we don't keep showing a bad weekly labor% from localStorage.
+  useEffect(() => {
+    if (!currentLocation?.id) return;
+    if (!isTodayQuery) return;
+    if (activeTab !== 'week') return;
+
+    try {
+      localStorage.removeItem(`qu_live_sales_${currentLocation.id}`);
+    } catch {
+      // ignore
+    }
+
+    refetch();
+  }, [activeTab, currentLocation?.id, isTodayQuery, refetch]);
 
   // Background refresh when cache is stale but we have data to show
   useEffect(() => {
