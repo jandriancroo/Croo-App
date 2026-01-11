@@ -649,7 +649,7 @@ function CubeFaceComponent({
               className="absolute left-1/2 top-2 bottom-2 w-px pointer-events-none"
               style={{
                 background: hasCenterMetric 
-                  ? 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 35%, transparent 50%, rgba(255,255,255,0.2) 65%, rgba(255,255,255,0.2) 80%, transparent 100%)'
+                  ? 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.2) 15%, rgba(255,255,255,0.2) 25%, transparent 40%, transparent 60%, rgba(255,255,255,0.2) 75%, rgba(255,255,255,0.2) 85%, transparent 100%)'
                   : 'linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 80%, transparent 100%)',
                 boxShadow: '0 0 8px rgba(255,255,255,0.15)',
               }}
@@ -658,7 +658,7 @@ function CubeFaceComponent({
               className="absolute top-1/2 left-2 right-2 h-px pointer-events-none"
               style={{
                 background: hasCenterMetric
-                  ? 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 35%, transparent 50%, rgba(255,255,255,0.2) 65%, rgba(255,255,255,0.2) 80%, transparent 100%)'
+                  ? 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 15%, rgba(255,255,255,0.2) 25%, transparent 40%, transparent 60%, rgba(255,255,255,0.2) 75%, rgba(255,255,255,0.2) 85%, transparent 100%)'
                   : 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 20%, rgba(255,255,255,0.2) 80%, transparent 100%)',
                 boxShadow: '0 0 8px rgba(255,255,255,0.15)',
               }}
