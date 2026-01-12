@@ -348,10 +348,11 @@ export default function PayrollReview() {
   }, [laborRules]);
 
   useEffect(() => {
-    if (selectedPeriod) {
+    // Wait for timezone to load; otherwise we group punches into the wrong day (UTC) and the UI can show 0.0 hrs.
+    if (selectedPeriod && currentLocation && timezone) {
       fetchTimeCards();
     }
-  }, [selectedPeriod]);
+  }, [selectedPeriod, currentLocation, timezone]);
 
   const fetchLaborRules = async () => {
     if (!currentLocation) return;
@@ -616,7 +617,7 @@ export default function PayrollReview() {
   };
 
   const fetchTimeCards = async () => {
-    if (!selectedPeriod || !currentLocation) return;
+    if (!selectedPeriod || !currentLocation || !timezone) return;
 
     // Expand punch query window to safely capture overnight shifts that cross day/period boundaries.
     // We still FILTER display/totals to the selectedPeriod's date range later.
