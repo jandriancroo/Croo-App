@@ -1385,14 +1385,88 @@ export default function PayrollReview() {
     fetchPtoData();
   }, [selectedPeriod, currentLocation]);
 
+  // Helper to get week start (Monday) for a given date string in timezone
+  const getWeekStartForDate = (dateStr: string): string => {
+    const weekdayShort = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'short' }).format(
+      parseDateStringInTimezone(dateStr, timezone)
+    );
+    const map: Record<string, number> = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
+    const dow = map[weekdayShort] ?? 0;
+    const weekStart = addDays(parseDateStringInTimezone(dateStr, timezone), -dow);
+    return getDateInTimezone(weekStart, timezone);
+  };
+
   const calculatePayrollSummary = () => {
+    // Get thresholds from labor rules or use defaults
+    const dailyOTThreshold = laborRules?.daily_overtime_threshold ?? 8;
+    const dailyDTThreshold = laborRules?.daily_double_time_threshold ?? 12;
+    const weeklyOTThreshold = laborRules?.weekly_overtime_threshold ?? 40;
+    const otMultiplier = laborRules?.overtime_multiplier ?? 1.5;
+    const dtMultiplier = laborRules?.double_time_multiplier ?? 2.0;
+
     const summary = timeCards.map(card => {
       const ptoHours = ptoData[card.profile.id] || 0;
-      const regularHours = Math.min(card.totalHours, 40);
-      const overtimeHours = Math.max(card.totalHours - 40, 0);
       const wage = card.profile.hourly_wage || 15;
+      
+      // Group hours by week (Mon-Sun) for proper weekly OT calculation
+      const hoursByWeek: { [weekStart: string]: { dailyHours: { [day: string]: number } } } = {};
+      
+      Object.entries(card.punchesByDay).forEach(([day, punches]) => {
+        const weekStart = getWeekStartForDate(day);
+        if (!hoursByWeek[weekStart]) {
+          hoursByWeek[weekStart] = { dailyHours: {} };
+        }
+        hoursByWeek[weekStart].dailyHours[day] = calculateDayHours(punches as any[], false);
+      });
+      
+      // Calculate OT per week using California-style rules:
+      // - Daily OT: hours > 8 per day
+      // - Daily DT: hours > 12 per day
+      // - Weekly OT: hours > 40 per week (use higher of daily OT sum or weekly OT)
+      let totalRegular = 0;
+      let totalOT = 0;
+      let totalDT = 0;
+      
+      Object.values(hoursByWeek).forEach(week => {
+        const dailyHoursList = Object.values(week.dailyHours);
+        
+        // Calculate daily breakdown first
+        let weeklyDailyOT = 0;
+        let weeklyDailyDT = 0;
+        let weeklyDailyRegular = 0;
+        let weeklyTotalHours = 0;
+        
+        dailyHoursList.forEach(hours => {
+          weeklyTotalHours += hours;
+          
+          if (hours <= dailyOTThreshold) {
+            weeklyDailyRegular += hours;
+          } else if (hours <= dailyDTThreshold) {
+            weeklyDailyRegular += dailyOTThreshold;
+            weeklyDailyOT += hours - dailyOTThreshold;
+          } else {
+            weeklyDailyRegular += dailyOTThreshold;
+            weeklyDailyOT += dailyDTThreshold - dailyOTThreshold;
+            weeklyDailyDT += hours - dailyDTThreshold;
+          }
+        });
+        
+        // Calculate weekly OT (hours over 40 in the week)
+        const weeklyOT = Math.max(0, weeklyTotalHours - weeklyOTThreshold);
+        
+        // Use the HIGHER of daily OT sum or weekly OT (California rule)
+        const actualOT = Math.max(weeklyDailyOT, weeklyOT);
+        
+        // Regular = Total - OT - DT
+        const actualRegular = weeklyTotalHours - actualOT - weeklyDailyDT;
+        
+        totalRegular += Math.max(0, actualRegular);
+        totalOT += actualOT;
+        totalDT += weeklyDailyDT;
+      });
+      
       // Include PTO hours in gross wages calculation (paid at regular rate)
-      const grossWages = (regularHours * wage) + (overtimeHours * wage * 1.5) + (ptoHours * wage);
+      const grossWages = (totalRegular * wage) + (totalOT * wage * otMultiplier) + (totalDT * wage * dtMultiplier) + (ptoHours * wage);
       
       // Get tip share for this employee
       const tipShare = employeeTipShares.find(t => t.userId === card.profile.id);
@@ -1402,10 +1476,10 @@ export default function PayrollReview() {
         name: card.profile.full_name,
         odId: card.profile.id,
         wage,
-        regularHours,
-        overtimeHours,
+        regularHours: totalRegular,
+        overtimeHours: totalOT,
         ptoHours,
-        doubleOvertimeHours: 0, // Not calculated yet
+        doubleOvertimeHours: totalDT,
         tips,
         grossWages,
         totalCompensation: grossWages + tips
