@@ -164,8 +164,8 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem, showAm
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">None</SelectItem>
-                <SelectItem value="am">AM Manager</SelectItem>
-                <SelectItem value="pm">PM Manager</SelectItem>
+                <SelectItem value="am">AM</SelectItem>
+                <SelectItem value="pm">PM</SelectItem>
               </SelectContent>
             </Select>
           </div>

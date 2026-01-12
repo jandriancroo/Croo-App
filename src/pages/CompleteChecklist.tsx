@@ -911,22 +911,22 @@ export default function CompleteChecklist() {
               {/* AM/PM Division Divider */}
               {showDivider && (
                 <div className="flex items-center gap-3 py-4 my-2">
-                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
-                  <span className="text-sm font-semibold text-amber-600 dark:text-amber-400 px-3 py-1 rounded-full bg-amber-100/50 dark:bg-amber-900/30">
-                    PM Manager Tasks
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
+                  <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 px-3 py-1 rounded-full bg-blue-100/50 dark:bg-blue-900/30">
+                    PM Tasks
                   </span>
-                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
                 </div>
               )}
               
               {/* Show AM label for first AM item */}
               {hasAmPmDivision && idx === 0 && item.manager_shift === 'am' && (
                 <div className="flex items-center gap-3 pb-3 mb-2">
-                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
-                  <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 px-3 py-1 rounded-full bg-blue-100/50 dark:bg-blue-900/30">
-                    AM Manager Tasks
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
+                  <span className="text-sm font-semibold text-amber-600 dark:text-amber-400 px-3 py-1 rounded-full bg-amber-100/50 dark:bg-amber-900/30">
+                    AM Tasks
                   </span>
-                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
                 </div>
               )}
               
