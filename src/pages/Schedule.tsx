@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useTeamScheduleVisibility } from "@/hooks/useTeamScheduleVisibility";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
@@ -110,6 +111,7 @@ interface Holiday {
 export default function Schedule() {
   const navigate = useNavigate();
   const { role, isAdmin, isManager, canViewAllWages } = useUserRole();
+  const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
   const { currentLocation } = useAppLocation();
   const isMobile = useIsMobile();
   const { timezone, getTodayInTimezone } = useLocationTimezone();
@@ -364,9 +366,22 @@ export default function Schedule() {
       if (allProfilesResult.error) throw allProfilesResult.error;
       if (rolesResult.error) throw rolesResult.error;
 
-      // user_locations is the roster source of truth, but if it comes back empty (RLS or caching),
-      // fall back to the users that are actually scheduled for the week so the UI never looks blank.
+      // user_locations is the roster source of truth, but team members often only have RLS access
+      // to their own row. When a team member is allowed to view the full schedule, we instead
+      // derive the roster from the scheduled shifts so they can resolve other employees' profiles.
       const locationUserIds = new Set((userLocationsResult.data || []).map((ul) => ul.user_id));
+
+      const isTeamMemberContext = !isAdmin && !isManager;
+      const shouldDeriveRosterFromShifts = isTeamMemberContext && canSeeFullSchedule && !scheduleVisibilityLoading;
+
+      if (shouldDeriveRosterFromShifts) {
+        shifts.forEach((s) => {
+          if (s.user_id) locationUserIds.add(s.user_id);
+        });
+      }
+
+      // Back-compat fallback: if roster resolution yields zero profiles but we *do* have shifts,
+      // add scheduled users so the UI never looks blank.
       if (locationUserIds.size === 0 && shifts.length > 0) {
         shifts.forEach((s) => {
           if (s.user_id) locationUserIds.add(s.user_id);
