@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save, ArrowLeft, X, GripVertical } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import { useUserRole } from '@/hooks/useUserRole';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -30,6 +31,7 @@ interface ChecklistItem {
   reference_video_url?: string;
   reference_notes?: string;
   order_index: number;
+  manager_shift?: 'am' | 'pm' | null;
 }
 
 interface SortableChecklistItemProps {
@@ -38,9 +40,10 @@ interface SortableChecklistItemProps {
   index: number;
   updateItem: (index: number, field: keyof ChecklistItem, value: any) => void;
   removeItem: (index: number) => void;
+  showAmPmSelector?: boolean;
 }
 
-function SortableChecklistItem({ id, item, index, updateItem, removeItem }: SortableChecklistItemProps) {
+function SortableChecklistItem({ id, item, index, updateItem, removeItem, showAmPmSelector }: SortableChecklistItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
@@ -148,6 +151,25 @@ function SortableChecklistItem({ id, item, index, updateItem, removeItem }: Sort
             className="text-sm"
           />
         )}
+
+        {showAmPmSelector && (
+          <div className="flex items-center gap-2">
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">Shift:</Label>
+            <Select
+              value={item.manager_shift || 'none'}
+              onValueChange={(value) => updateItem(index, 'manager_shift', value === 'none' ? null : value)}
+            >
+              <SelectTrigger className="w-32">
+                <SelectValue placeholder="None" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="am">AM Manager</SelectItem>
+                <SelectItem value="pm">PM Manager</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -167,6 +189,7 @@ export default function EditChecklist() {
   const [templateType, setTemplateType] = useState<'standard' | 'dynamic'>('standard');
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [visibleDaysBeforeMonthEnd, setVisibleDaysBeforeMonthEnd] = useState<number | null>(7);
+  const [enableAmPmDivision, setEnableAmPmDivision] = useState(false);
   const [items, setItems] = useState<ChecklistItem[]>([]);
 
   useEffect(() => {
@@ -220,6 +243,7 @@ export default function EditChecklist() {
       setDueByTime(checklist.due_by_time || '');
       setTemplateType((checklist.template_type || 'standard') as 'standard' | 'dynamic');
       setVisibleDaysBeforeMonthEnd(checklist.visible_days_before_month_end || 7);
+      setEnableAmPmDivision((checklist as any).enable_am_pm_division || false);
       setSelectedRoles(roleTags?.map(rt => rt.role) || []);
       setItems(checklistItems.map(item => {
         // Map legacy 'temperature' type to 'image' with requires_temperature_validation
@@ -239,6 +263,7 @@ export default function EditChecklist() {
           reference_video_url: item.reference_video_url || undefined,
           reference_notes: item.reference_notes || undefined,
           order_index: item.order_index,
+          manager_shift: (item as any).manager_shift || null,
         };
       }));
     } catch (error) {
@@ -277,6 +302,7 @@ export default function EditChecklist() {
           due_by_time: dueByTime || null,
           template_type: templateType,
           visible_days_before_month_end: frequency === 'monthly' ? visibleDaysBeforeMonthEnd : null,
+          enable_am_pm_division: enableAmPmDivision,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id);
@@ -316,6 +342,7 @@ export default function EditChecklist() {
           reference_video_url: item.reference_video_url || null,
           reference_notes: item.reference_notes || null,
           order_index: index,
+          manager_shift: enableAmPmDivision ? (item.manager_shift || null) : null,
         };
 
         if (item.id) {
@@ -585,6 +612,21 @@ export default function EditChecklist() {
                 ))}
               </div>
             </div>
+            <div className="space-y-2 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="am-pm-division">AM/PM Manager Division</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Separate checklist items by shift responsibility
+                  </p>
+                </div>
+                <Switch
+                  id="am-pm-division"
+                  checked={enableAmPmDivision}
+                  onCheckedChange={setEnableAmPmDivision}
+                />
+              </div>
+            </div>
           </CardContent>
         </Card>
 
@@ -604,6 +646,7 @@ export default function EditChecklist() {
                     index={index}
                     updateItem={updateItem}
                     removeItem={removeItem}
+                    showAmPmSelector={enableAmPmDivision}
                   />
                 ))}
               </SortableContext>

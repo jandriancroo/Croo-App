@@ -529,6 +529,7 @@ export type Database = {
           id: string
           is_required: boolean | null
           item_type: string
+          manager_shift: string | null
           options: Json | null
           order_index: number
           question: string
@@ -546,6 +547,7 @@ export type Database = {
           id?: string
           is_required?: boolean | null
           item_type: string
+          manager_shift?: string | null
           options?: Json | null
           order_index: number
           question: string
@@ -563,6 +565,7 @@ export type Database = {
           id?: string
           is_required?: boolean | null
           item_type?: string
+          manager_shift?: string | null
           options?: Json | null
           order_index?: number
           question?: string
@@ -775,6 +778,7 @@ export type Database = {
           description: string | null
           display_order: number | null
           due_by_time: string | null
+          enable_am_pm_division: boolean | null
           frequency: string
           id: string
           is_active: boolean | null
@@ -791,6 +795,7 @@ export type Database = {
           description?: string | null
           display_order?: number | null
           due_by_time?: string | null
+          enable_am_pm_division?: boolean | null
           frequency: string
           id?: string
           is_active?: boolean | null
@@ -807,6 +812,7 @@ export type Database = {
           description?: string | null
           display_order?: number | null
           due_by_time?: string | null
+          enable_am_pm_division?: boolean | null
           frequency?: string
           id?: string
           is_active?: boolean | null
