@@ -4,12 +4,12 @@ import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { format, parseISO, addDays, subDays } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Clock, DollarSign, TrendingUp, TrendingDown, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import crooCashIcon from "@/assets/croo-cash-icon.png";
-import { useLocation } from "@/hooks/useLocation";
+import { usePersonalPayData } from "@/hooks/usePersonalPayData";
 
 interface Transaction {
   id: string;
@@ -20,232 +20,32 @@ interface Transaction {
   created_at: string;
 }
 
-interface PayPeriod {
-  start_date: string;
-  end_date: string;
-}
-
-interface ShiftEntry {
-  date: string;
-  clockIn: Date;
-  clockOut: Date | null;
-  hours: number;
-  estimatedPay: number;
-}
-
 export default function MyWallet() {
   const { user } = useAuth();
-  const { currentLocation } = useLocation();
-  const [loading, setLoading] = useState(true);
-  const [hoursWorked, setHoursWorked] = useState(0);
-  const [estimatedGross, setEstimatedGross] = useState(0);
+  const [periodOffset, setPeriodOffset] = useState(0);
   const [crooCashBalance, setCrooCashBalance] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [currentPayPeriod, setCurrentPayPeriod] = useState<PayPeriod | null>(null);
-  const [hourlyWage, setHourlyWage] = useState(15);
-  const [shifts, setShifts] = useState<ShiftEntry[]>([]);
-  const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, -1 = previous, etc.
-  const [cutoffHour, setCutoffHour] = useState(3); // Default 3am cutoff
 
-  // Baseline: Nov 3, 2025 (Monday)
-  const baseline = new Date(2025, 10, 3);
-
-  const getPayPeriod = (offset: number): PayPeriod => {
-    const today = new Date();
-    
-    // Calculate days since baseline
-    const daysSinceBaseline = Math.floor((today.getTime() - baseline.getTime()) / (1000 * 60 * 60 * 24));
-    
-    // Each pay period is 14 days
-    const periodsElapsed = Math.floor(daysSinceBaseline / 14) + offset;
-    
-    // Calculate period start
-    const periodStart = new Date(baseline);
-    periodStart.setDate(baseline.getDate() + (periodsElapsed * 14));
-    
-    // If this would be before baseline, use baseline
-    if (periodStart < baseline) {
-      return {
-        start_date: format(baseline, 'yyyy-MM-dd'),
-        end_date: format(new Date(baseline.getTime() + 13 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
-      };
-    }
-    
-    const periodEnd = new Date(periodStart);
-    periodEnd.setDate(periodStart.getDate() + 13);
-    
-    return {
-      start_date: format(periodStart, 'yyyy-MM-dd'),
-      end_date: format(periodEnd, 'yyyy-MM-dd')
-    };
-  };
+  // Use the shared hook for all pay period data
+  const { data: payData, isLoading } = usePersonalPayData(periodOffset);
 
   const isCurrentPeriod = periodOffset === 0;
 
+  // Fetch Croo Cash data separately
   useEffect(() => {
-    if (user) {
-      fetchWalletData();
-    }
-  }, [user, periodOffset, currentLocation?.id]);
-
-  // Fetch location hours for cutoff calculation
-  useEffect(() => {
-    const fetchCutoffHour = async () => {
-      if (!currentLocation?.id) return;
-      
-      const { data: locationHours } = await supabase
-        .from("location_hours")
-        .select("close_time")
-        .eq("location_id", currentLocation.id)
-        .not("close_time", "is", null)
-        .limit(1)
-        .single();
-      
-      if (locationHours?.close_time) {
-        const [hours] = locationHours.close_time.split(':').map(Number);
-        // Cutoff is close_time + 3 hours
-        setCutoffHour((hours + 3) % 24);
-      }
-    };
-    
-    fetchCutoffHour();
-  }, [currentLocation]);
-
-  // Helper to get business day for a punch time
-  const getBusinessDay = (punchTimeStr: string): string => {
-    const punchTime = new Date(punchTimeStr);
-    const hours = punchTime.getHours();
-    
-    // If punch is before cutoff hour (e.g., 3am), it belongs to previous business day
-    if (hours < cutoffHour) {
-      const prevDay = subDays(punchTime, 1);
-      return format(prevDay, 'yyyy-MM-dd');
-    }
-    
-    return format(punchTime, 'yyyy-MM-dd');
-  };
-
-  const fetchWalletData = async () => {
     if (!user) return;
 
-    try {
-      setLoading(true);
-      const payPeriod = getPayPeriod(periodOffset);
-      setCurrentPayPeriod(payPeriod);
-
-      // Fetch user profile for wage and croo cash
+    const fetchCrooCashData = async () => {
+      // Fetch user's croo cash balance
       const { data: profile } = await supabase
         .from("profiles")
-        .select("hourly_wage, croo_cash_balance")
+        .select("croo_cash_balance")
         .eq("id", user.id)
         .single();
 
-      const wage = profile?.hourly_wage || 15;
       if (profile) {
-        setHourlyWage(wage);
         setCrooCashBalance(profile.croo_cash_balance || 0);
       }
-
-      // Fetch time punches with a buffer for overnight shifts
-      // Buffer: 1 day before start, 1 day after end to catch overnight punches
-      const bufferStart = format(subDays(parseISO(payPeriod.start_date), 1), 'yyyy-MM-dd');
-      const bufferEnd = format(addDays(parseISO(payPeriod.end_date), 1), 'yyyy-MM-dd');
-      
-      const { data: punches } = await supabase
-        .from("time_punches")
-        .select("*")
-        .eq("user_id", user.id)
-        .gte("punch_time", `${bufferStart}T00:00:00`)
-        .lte("punch_time", `${bufferEnd}T23:59:59`)
-        .order("punch_time", { ascending: true });
-
-      // Group punches by BUSINESS DAY (not calendar day)
-      let totalMinutes = 0;
-      const shiftEntries: ShiftEntry[] = [];
-      
-      if (punches && punches.length > 0) {
-        const punchesByBusinessDay: Record<string, any[]> = {};
-        
-        for (const punch of punches) {
-          const businessDay = getBusinessDay(punch.punch_time);
-          
-          // Only include if business day falls within pay period
-          if (businessDay >= payPeriod.start_date && businessDay <= payPeriod.end_date) {
-            if (!punchesByBusinessDay[businessDay]) {
-              punchesByBusinessDay[businessDay] = [];
-            }
-            punchesByBusinessDay[businessDay].push(punch);
-          }
-        }
-
-        // Process each business day
-        for (const [date, dayPunches] of Object.entries(punchesByBusinessDay)) {
-          // Sort punches by time
-          dayPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
-          
-          // Find the FIRST clock_in (before any break_start)
-          const firstClockIn = dayPunches.find(p => p.punch_type === 'clock_in');
-          // Find the LAST clock_out
-          const lastClockOut = [...dayPunches].reverse().find(p => p.punch_type === 'clock_out');
-          
-          if (firstClockIn) {
-            const clockInTime = new Date(firstClockIn.punch_time);
-            const clockOutTime = lastClockOut ? new Date(lastClockOut.punch_time) : null;
-            
-            // Calculate gross shift time
-            let grossMinutes = 0;
-            if (clockOutTime) {
-              grossMinutes = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60);
-            } else {
-              // Currently clocked in - only for current period
-              if (isCurrentPeriod) {
-                grossMinutes = (new Date().getTime() - clockInTime.getTime()) / (1000 * 60);
-              }
-            }
-            
-            // Calculate unpaid break time
-            let breakMinutes = 0;
-            const breakStarts = dayPunches.filter(p => 
-              p.punch_type === 'break_start' && 
-              p.notes?.toLowerCase().includes('unpaid')
-            );
-            
-            for (const breakStart of breakStarts) {
-              const breakStartTime = new Date(breakStart.punch_time);
-              const breakEnd = dayPunches.find(p => 
-                p.punch_type === 'clock_in' && 
-                new Date(p.punch_time) > breakStartTime
-              );
-              
-              if (breakEnd) {
-                const breakEndTime = new Date(breakEnd.punch_time);
-                breakMinutes += (breakEndTime.getTime() - breakStartTime.getTime()) / (1000 * 60);
-              }
-            }
-            
-            // Net time worked
-            const netMinutes = grossMinutes - breakMinutes;
-            totalMinutes += netMinutes;
-            
-            const shiftHours = netMinutes / 60;
-            shiftEntries.push({
-              date,
-              clockIn: clockInTime,
-              clockOut: clockOutTime,
-              hours: shiftHours,
-              estimatedPay: shiftHours * wage
-            });
-          }
-        }
-      }
-
-      // Sort shifts by date descending (most recent first)
-      shiftEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setShifts(shiftEntries);
-
-      const hours = totalMinutes / 60;
-      setHoursWorked(hours);
-      setEstimatedGross(hours * wage);
 
       // Fetch Croo Cash transactions
       const { data: txns } = await supabase
@@ -256,12 +56,10 @@ export default function MyWallet() {
         .limit(10);
 
       setTransactions(txns || []);
-    } catch (error) {
-      console.error("Error fetching wallet data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+
+    fetchCrooCashData();
+  }, [user]);
 
   const getBalanceColor = () => {
     if (crooCashBalance > 0) return "text-green-500";
@@ -289,7 +87,7 @@ export default function MyWallet() {
     }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
@@ -299,6 +97,11 @@ export default function MyWallet() {
     );
   }
 
+  const hoursWorked = payData?.hoursPayroll ?? 0;
+  const estimatedGross = payData?.payPayroll ?? 0;
+  const hourlyWage = payData?.hourlyWage ?? 15;
+  const shifts = payData?.shifts ?? [];
+
   return (
     <Layout>
       <div className="space-y-4">
@@ -306,8 +109,8 @@ export default function MyWallet() {
           <h1 className="text-3xl font-bold">My Wallet</h1>
           <div className="flex items-center justify-between">
             <p className="text-muted-foreground">
-              {currentPayPeriod && (
-                <>Pay Period: {format(parseISO(currentPayPeriod.start_date), "MMM d")} - {format(parseISO(currentPayPeriod.end_date), "MMM d, yyyy")}</>
+              {payData && (
+                <>Pay Period: {format(parseISO(payData.payPeriodStart), "MMM d")} - {format(parseISO(payData.payPeriodEnd), "MMM d, yyyy")}</>
               )}
             </p>
             <div className="flex items-center gap-1">
