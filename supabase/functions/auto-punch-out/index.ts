@@ -62,17 +62,15 @@ Deno.serve(async (req) => {
       }
 
       // Find all employees at this location who are still clocked in
-      // (have a clock_in without a matching clock_out today)
-      const todayStart = new Date(localTime);
-      todayStart.setHours(0, 0, 0, 0);
+      // Look back 24 hours to catch overnight shifts that started yesterday
+      const lookbackTime = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       
       const { data: openPunches, error: punchError } = await supabase
         .from('time_punches')
         .select('id, user_id, punch_time')
         .eq('location_id', rule.location_id)
         .eq('punch_type', 'clock_in')
-        .gte('punch_time', todayStart.toISOString())
-        .is('approved_at', null);
+        .gte('punch_time', lookbackTime.toISOString());
 
       if (punchError) {
         console.error('Error fetching open punches:', punchError);
