@@ -725,7 +725,7 @@ export default function PayrollReview() {
     return `${hh12}:${mm} ${suffix}`;
   };
 
-  const getDayShiftPairs = (dayPunches: any[], showLive = true) => {
+  const getDayShiftPairs = (dayPunches: any[], showLive = true, includeIncomplete = false) => {
     const sortedPunches = [...dayPunches].sort((a, b) =>
       new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
     );
@@ -735,30 +735,31 @@ export default function PayrollReview() {
 
     const usedClockOutIds = new Set<string>();
 
-    return clockIns
-      .map((clockIn, index) => {
-        const clockInTime = new Date(clockIn.punch_time).getTime();
-        const nextClockIn = clockIns[index + 1];
-        const nextClockInTime = nextClockIn ? new Date(nextClockIn.punch_time).getTime() : Infinity;
+    const pairs = clockIns.map((clockIn, index) => {
+      const clockInTime = new Date(clockIn.punch_time).getTime();
+      const nextClockIn = clockIns[index + 1];
+      const nextClockInTime = nextClockIn ? new Date(nextClockIn.punch_time).getTime() : Infinity;
 
-        const clockOut = clockOuts.find((co) => {
-          const coTime = new Date(co.punch_time).getTime();
-          return coTime > clockInTime && coTime < nextClockInTime && !usedClockOutIds.has(co.id);
-        });
+      const clockOut = clockOuts.find((co) => {
+        const coTime = new Date(co.punch_time).getTime();
+        return coTime > clockInTime && coTime < nextClockInTime && !usedClockOutIds.has(co.id);
+      });
 
-        const endTime = clockOut
-          ? new Date(clockOut.punch_time)
-          : (showLive && index === clockIns.length - 1 ? new Date() : null);
+      const endTime = clockOut
+        ? new Date(clockOut.punch_time)
+        : (showLive && index === clockIns.length - 1 ? new Date() : null);
 
-        if (clockOut) usedClockOutIds.add(clockOut.id);
+      if (clockOut) usedClockOutIds.add(clockOut.id);
 
-        return {
-          clockIn,
-          clockOut: clockOut ?? null,
-          endTime,
-        };
-      })
-      .filter((p) => !!p.endTime);
+      return {
+        clockIn,
+        clockOut: clockOut ?? null,
+        endTime,
+      };
+    });
+
+    // For display, include all pairs (even incomplete); for calculations, filter by endTime
+    return includeIncomplete ? pairs : pairs.filter((p) => !!p.endTime);
   };
 
   const calculateDayHours = (dayPunches: any[], showLive = true) => {
@@ -1789,7 +1790,7 @@ export default function PayrollReview() {
                                 {Object.entries(weekData.days)
                                   .sort(([a], [b]) => a.localeCompare(b))
                                   .map(([day, dayPunches]: [string, any]) => {
-                                    const shiftPairs = getDayShiftPairs(dayPunches, true);
+                                    const shiftPairs = getDayShiftPairs(dayPunches, true, true); // includeIncomplete=true for display
                                     const primaryShift = shiftPairs[0];
                                     const clockIn = primaryShift?.clockIn;
                                     const clockOut = primaryShift?.clockOut;
