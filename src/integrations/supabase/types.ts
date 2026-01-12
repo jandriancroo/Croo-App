@@ -4043,6 +4043,8 @@ export type Database = {
           approved_by: string | null
           created_at: string | null
           created_by: string | null
+          edited_at: string | null
+          edited_by: string | null
           has_break_violation: boolean
           has_extended_break: boolean
           has_overtime: boolean
@@ -4060,6 +4062,8 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           created_by?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
           has_break_violation?: boolean
           has_extended_break?: boolean
           has_overtime?: boolean
@@ -4077,6 +4081,8 @@ export type Database = {
           approved_by?: string | null
           created_at?: string | null
           created_by?: string | null
+          edited_at?: string | null
+          edited_by?: string | null
           has_break_violation?: boolean
           has_extended_break?: boolean
           has_overtime?: boolean
@@ -4093,6 +4099,13 @@ export type Database = {
           {
             foreignKeyName: "time_punches_approved_by_fkey"
             columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "time_punches_edited_by_fkey"
+            columns: ["edited_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

@@ -127,33 +127,58 @@ function EditShiftForm({
   const [mealBreakEndTime, setMealBreakEndTime] = useState(formatTimeForEdit(mealBreakEnd) || '12:30');
   const [saving, setSaving] = useState(false);
 
+  // Helper to determine if a time crosses midnight relative to clock-in
+  // If clock-out time is earlier than clock-in time (e.g., clock-in 18:00, clock-out 01:30)
+  // then clock-out is on the next calendar day
+  const getAdjustedDateForTime = (timeStr: string, referenceTimeStr: string, baseDate: string): string => {
+    const [timeHour] = timeStr.split(':').map(Number);
+    const [refHour] = referenceTimeStr.split(':').map(Number);
+    
+    // If the time is significantly earlier than reference (e.g., 01:30 vs 18:00)
+    // it means the time crosses midnight and should be on the next day
+    // Use threshold: if time is < 12 and reference is >= 12, it's likely next day
+    if (timeHour < 12 && refHour >= 12) {
+      const nextDay = new Date(baseDate);
+      nextDay.setDate(nextDay.getDate() + 1);
+      return nextDay.toISOString().slice(0, 10);
+    }
+    return baseDate;
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
       // Get current user for change tracking
       const { data: { user } } = await supabase.auth.getUser();
       const currentUserId = user?.id || null;
+      const now = new Date().toISOString();
       
       // Update clock in - use timezone-aware conversion
+      // Note: Do NOT update created_by on edits - track edits via edited_by
       if (clockIn && clockInTime) {
         const newClockInTime = toISOStringInTimezone(shiftDate, clockInTime, timezone);
         await supabase.from('time_punches').update({ 
           punch_time: newClockInTime,
-          created_by: currentUserId 
+          edited_by: currentUserId,
+          edited_at: now
         }).eq('id', clockIn.id);
       }
 
       // Update clock out - clear auto_punched flag when manager edits
+      // Handle midnight-crossing: if clock-out time < clock-in time, use next day
       if (clockOut && clockOutTime) {
-        const newClockOutTime = toISOStringInTimezone(shiftDate, clockOutTime, timezone);
+        const clockOutDate = getAdjustedDateForTime(clockOutTime, clockInTime, shiftDate);
+        const newClockOutTime = toISOStringInTimezone(clockOutDate, clockOutTime, timezone);
         await supabase.from('time_punches').update({ 
           punch_time: newClockOutTime,
-          created_by: currentUserId,
+          edited_by: currentUserId,
+          edited_at: now,
           is_auto_punched_out: false // Clear flag when manager edits
         }).eq('id', clockOut.id);
       } else if (!clockOut && clockOutTime) {
-        // Add missing clock out
-        const newClockOutTime = toISOStringInTimezone(shiftDate, clockOutTime, timezone);
+        // Add missing clock out - this IS an insert, so set created_by
+        const clockOutDate = getAdjustedDateForTime(clockOutTime, clockInTime, shiftDate);
+        const newClockOutTime = toISOStringInTimezone(clockOutDate, clockOutTime, timezone);
         await supabase.from('time_punches').insert({
           user_id: userId,
           location_id: locationId,
@@ -165,15 +190,21 @@ function EditShiftForm({
 
       // Handle meal break
       if (hasMealBreak) {
-        const breakStartTime = toISOStringInTimezone(shiftDate, mealBreakStartTime, timezone);
-        const breakEndTime = toISOStringInTimezone(shiftDate, mealBreakEndTime, timezone);
+        // Break times should also handle midnight crossing relative to clock-in
+        const breakStartDate = getAdjustedDateForTime(mealBreakStartTime, clockInTime, shiftDate);
+        const breakEndDate = getAdjustedDateForTime(mealBreakEndTime, clockInTime, shiftDate);
+        const breakStartTime = toISOStringInTimezone(breakStartDate, mealBreakStartTime, timezone);
+        const breakEndTime = toISOStringInTimezone(breakEndDate, mealBreakEndTime, timezone);
 
         if (mealBreakStart) {
+          // Update - use edited_by, not created_by
           await supabase.from('time_punches').update({ 
             punch_time: breakStartTime,
-            created_by: currentUserId 
+            edited_by: currentUserId,
+            edited_at: now
           }).eq('id', mealBreakStart.id);
         } else {
+          // Insert - use created_by
           await supabase.from('time_punches').insert({
             user_id: userId,
             location_id: locationId,
@@ -185,11 +216,14 @@ function EditShiftForm({
         }
 
         if (mealBreakEnd) {
+          // Update - use edited_by, not created_by
           await supabase.from('time_punches').update({ 
             punch_time: breakEndTime,
-            created_by: currentUserId 
+            edited_by: currentUserId,
+            edited_at: now
           }).eq('id', mealBreakEnd.id);
         } else {
+          // Insert - use created_by
           await supabase.from('time_punches').insert({
             user_id: userId,
             location_id: locationId,
