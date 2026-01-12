@@ -30,6 +30,7 @@ import {
   getDateInTimezone,
   parseDateStringInTimezone,
   getEndOfDateStringInTimezone,
+  calculateCutoffHour,
 } from '@/utils/timezoneUtils';
 
 // Edit Shift Form Component - Full shift editing with clock in/out and breaks
@@ -142,12 +143,13 @@ function EditShiftForm({
         }).eq('id', clockIn.id);
       }
 
-      // Update clock out
+      // Update clock out - clear auto_punched flag when manager edits
       if (clockOut && clockOutTime) {
         const newClockOutTime = toISOStringInTimezone(shiftDate, clockOutTime, timezone);
         await supabase.from('time_punches').update({ 
           punch_time: newClockOutTime,
-          created_by: currentUserId 
+          created_by: currentUserId,
+          is_auto_punched_out: false // Clear flag when manager edits
         }).eq('id', clockOut.id);
       } else if (!clockOut && clockOutTime) {
         // Add missing clock out
@@ -660,6 +662,20 @@ export default function PayrollReview() {
     const punchQueryStart = new Date(selectedPeriod.start.getTime() - 24 * 60 * 60 * 1000);
     const punchQueryEnd = new Date(selectedPeriod.end.getTime() + 24 * 60 * 60 * 1000);
 
+    // Fetch location hours for all days to get dynamic cutoff times
+    const { data: locationHours } = await supabase
+      .from('location_hours')
+      .select('day_of_week, close_time')
+      .eq('location_id', currentLocation.id);
+    
+    // Create map of day_of_week -> cutoff hour (close_time + 3 hours)
+    const cutoffByDayOfWeek = new Map<number, number>();
+    (locationHours || []).forEach((h: { day_of_week: number; close_time: string | null }) => {
+      cutoffByDayOfWeek.set(h.day_of_week, calculateCutoffHour(h.close_time));
+    });
+    // Default cutoff if no hours configured
+    const defaultCutoff = 5;
+
     // Get users assigned to current location
     const { data: userLocations } = await supabase
       .from('user_locations')
@@ -746,10 +762,18 @@ export default function PayrollReview() {
         const creatorMap = new Map((creatorProfiles || []).map(p => [p.id, p.full_name]));
 
         // Group punches by day (in the location timezone) and attach creator names
-        // IMPORTANT: Handle overnight shifts - if a clock_out is early AM (before 6 AM) without
+        // IMPORTANT: Handle overnight shifts - if a clock_out is early AM (before cutoff) without
         // a clock_in on the same day, associate it with the previous day's shift
+        // Uses dynamic cutoff based on location's close_time + 3 hours
         const punchesByDay: { [key: string]: any[] } = {};
         const allPunches = punches || [];
+        
+        // Helper to get cutoff hour for a given date
+        const getCutoffForDate = (dateStr: string): number => {
+          const d = new Date(dateStr + 'T12:00:00Z');
+          const dayOfWeek = d.getUTCDay(); // 0=Sun, 1=Mon, etc.
+          return cutoffByDayOfWeek.get(dayOfWeek) ?? defaultCutoff;
+        };
         
         // First pass: identify all clock_ins by day
         const clockInsByDay = new Map<string, any>();
@@ -763,12 +787,16 @@ export default function PayrollReview() {
         allPunches.forEach((punch) => {
           const punchTime = new Date(punch.punch_time);
           let day = getDateInTimezone(punchTime, timezone);
+          const punchHour = parseInt(formatInTimeZone(punchTime, timezone, 'H'));
           
-          // Check if this is an overnight clock_out (early AM without clock_in on same day BEFORE it)
+          // Get the cutoff hour for this calendar day (based on previous day's close time)
+          // Since cutoff is close_time + 3hrs, a 1 AM punch on Tuesday uses Monday's cutoff
+          const cutoffHour = getCutoffForDate(day);
+          
+          // Check if this is an overnight clock_out (early AM before cutoff without clock_in on same day BEFORE it)
           if (punch.punch_type === 'clock_out') {
-            const punchHour = parseInt(formatInTimeZone(punchTime, timezone, 'H'));
-            // If clock_out is before 6 AM
-            if (punchHour < 6) {
+            // If clock_out is before the cutoff hour (dynamic, not hardcoded 6)
+            if (punchHour < cutoffHour) {
               const sameDayClockIn = clockInsByDay.get(day);
               // Move to previous day if:
               // 1. No clock_in on same day, OR
@@ -790,10 +818,9 @@ export default function PayrollReview() {
             }
           }
           
-          // Also handle break_end that might belong to previous day's overnight shift
-          if (punch.punch_type === 'break_end') {
-            const punchHour = parseInt(formatInTimeZone(punchTime, timezone, 'H'));
-            if (punchHour < 6) {
+          // Also handle break_start/break_end that might belong to previous day's overnight shift
+          if (punch.punch_type === 'break_end' || punch.punch_type === 'break_start') {
+            if (punchHour < cutoffHour) {
               const sameDayClockIn = clockInsByDay.get(day);
               const shouldMoveToPrevDay = !sameDayClockIn || 
                 new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();

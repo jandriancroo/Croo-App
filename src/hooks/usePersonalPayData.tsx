@@ -5,6 +5,7 @@ import { useLocation } from '@/hooks/useLocation';
 import { useLocationTimezone } from '@/hooks/useLocationTimezone';
 import { startOfWeek, endOfWeek, addDays, differenceInMinutes, parseISO } from 'date-fns';
 import { toZonedTime, format as formatTZ } from 'date-fns-tz';
+import { calculateCutoffHour } from '@/utils/timezoneUtils';
 
 interface PersonalPayData {
   hoursWeek: number;
@@ -45,12 +46,25 @@ export function usePersonalPayData() {
 
       const hourlyWage = profile?.hourly_wage || 0;
 
+      // Fetch location hours for dynamic cutoff calculation
+      const { data: locationHours } = await supabase
+        .from('location_hours')
+        .select('day_of_week, close_time')
+        .eq('location_id', currentLocation.id);
+      
+      // Create map of day_of_week -> cutoff hour (close_time + 3 hours)
+      const cutoffByDayOfWeek = new Map<number, number>();
+      (locationHours || []).forEach((h: { day_of_week: number; close_time: string | null }) => {
+        cutoffByDayOfWeek.set(h.day_of_week, calculateCutoffHour(h.close_time));
+      });
+      const defaultCutoff = 5;
+
       // Get labor rules for pay period info
       const { data: laborRules } = await supabase
         .from('labor_rules')
         .select('pay_period_type, pay_period_start_date, meal_break_hours, meal_break_duration')
         .eq('location_id', currentLocation.id)
-        .single();
+        .maybeSingle();
 
       // Calculate week start/end in timezone
       const now = new Date();
@@ -85,17 +99,23 @@ export function usePersonalPayData() {
       const payPeriodStartStr = formatTZ(payPeriodStart, 'yyyy-MM-dd', { timeZone: timezone });
       const payPeriodEndStr = formatTZ(payPeriodEnd, 'yyyy-MM-dd', { timeZone: timezone });
 
-      // Fetch punches for both week and pay period (use wider range)
+      // Fetch punches for both week and pay period (use wider range + buffer for overnight)
       const earlierDate = payPeriodStartStr < weekStartStr ? payPeriodStartStr : weekStartStr;
       const laterDate = payPeriodEndStr > weekEndStr ? payPeriodEndStr : weekEndStr;
+      
+      // Expand range by 1 day on each side to capture overnight shifts
+      const queryStartDate = new Date(earlierDate);
+      queryStartDate.setDate(queryStartDate.getDate() - 1);
+      const queryEndDate = new Date(laterDate);
+      queryEndDate.setDate(queryEndDate.getDate() + 1);
       
       const { data: punches, error: punchError } = await supabase
         .from('time_punches')
         .select('id, user_id, punch_type, punch_time, notes')
         .eq('user_id', user.id)
         .eq('location_id', currentLocation.id)
-        .gte('punch_time', earlierDate)
-        .lt('punch_time', laterDate)
+        .gte('punch_time', queryStartDate.toISOString())
+        .lt('punch_time', queryEndDate.toISOString())
         .order('punch_time', { ascending: true });
 
       if (punchError) {
@@ -106,34 +126,77 @@ export function usePersonalPayData() {
       console.log('[usePersonalPayData] Query range:', earlierDate, 'to', laterDate);
       console.log('[usePersonalPayData] Fetched punches count:', punches?.length);
 
-      // Calculate hours for a given date range
+      // Helper to get cutoff hour for a given date
+      const getCutoffForDate = (dateStr: string): number => {
+        const d = new Date(dateStr + 'T12:00:00Z');
+        const dayOfWeek = d.getUTCDay(); // 0=Sun, 1=Mon, etc.
+        return cutoffByDayOfWeek.get(dayOfWeek) ?? defaultCutoff;
+      };
+
+      // Group punches by BUSINESS day (handling overnight shifts)
+      const groupPunchesByBusinessDay = (allPunches: TimePunch[]): Map<string, TimePunch[]> => {
+        const punchesByDay = new Map<string, TimePunch[]>();
+        
+        // First pass: identify all clock_ins by calendar day
+        const clockInsByDay = new Map<string, TimePunch>();
+        allPunches.forEach((punch) => {
+          if (punch.punch_type === 'clock_in') {
+            const punchDate = toZonedTime(new Date(punch.punch_time), timezone);
+            const day = formatTZ(punchDate, 'yyyy-MM-dd', { timeZone: timezone });
+            clockInsByDay.set(day, punch);
+          }
+        });
+        
+        // Second pass: assign punches to business days
+        allPunches.forEach((punch) => {
+          const punchTime = new Date(punch.punch_time);
+          const punchDate = toZonedTime(punchTime, timezone);
+          let day = formatTZ(punchDate, 'yyyy-MM-dd', { timeZone: timezone });
+          const punchHour = parseInt(formatTZ(punchDate, 'H', { timeZone: timezone }));
+          
+          // Get dynamic cutoff for this calendar day
+          const cutoffHour = getCutoffForDate(day);
+          
+          // If punch is before cutoff hour, it might belong to previous business day
+          if (punch.punch_type !== 'clock_in' && punchHour < cutoffHour) {
+            const sameDayClockIn = clockInsByDay.get(day);
+            const shouldMoveToPrevDay = !sameDayClockIn || 
+              new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
+            
+            if (shouldMoveToPrevDay) {
+              // Calculate previous day
+              const dateAtNoon = new Date(day + 'T12:00:00Z');
+              dateAtNoon.setUTCDate(dateAtNoon.getUTCDate() - 1);
+              const prevDay = dateAtNoon.toISOString().slice(0, 10);
+              // Only reassign if previous day has a clock_in
+              if (clockInsByDay.has(prevDay)) {
+                day = prevDay;
+              }
+            }
+          }
+          
+          if (!punchesByDay.has(day)) {
+            punchesByDay.set(day, []);
+          }
+          punchesByDay.get(day)!.push(punch);
+        });
+        
+        return punchesByDay;
+      };
+
+      // Calculate hours for a given date range using business day grouping
       const calculateHours = (startDate: string, endDate: string): number => {
         console.log('[usePersonalPayData] calculateHours for range:', startDate, 'to', endDate);
         
-        const rangePunches = (punches || []).filter((p) => {
-          // Convert punch_time to local date in timezone
-          const punchDate = toZonedTime(new Date(p.punch_time), timezone);
-          const punchDateStr = formatTZ(punchDate, 'yyyy-MM-dd', { timeZone: timezone });
-          const inRange = punchDateStr >= startDate && punchDateStr < endDate;
-          return inRange;
-        }) as TimePunch[];
+        const allPunches = (punches || []) as TimePunch[];
+        const punchesByBusinessDay = groupPunchesByBusinessDay(allPunches);
         
-        console.log('[usePersonalPayData] Punches in range:', rangePunches.length);
-
-        // Group punches by date (in local timezone)
-        const punchesByDate = new Map<string, TimePunch[]>();
-        rangePunches.forEach((punch) => {
-          const punchDate = toZonedTime(new Date(punch.punch_time), timezone);
-          const dateStr = formatTZ(punchDate, 'yyyy-MM-dd', { timeZone: timezone });
-          if (!punchesByDate.has(dateStr)) {
-            punchesByDate.set(dateStr, []);
-          }
-          punchesByDate.get(dateStr)!.push(punch);
-        });
-
         let totalMinutes = 0;
 
-        punchesByDate.forEach((dayPunches) => {
+        punchesByBusinessDay.forEach((dayPunches, day) => {
+          // Only count days within the requested range
+          if (day < startDate || day >= endDate) return;
+          
           // Sort by time
           dayPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
 
