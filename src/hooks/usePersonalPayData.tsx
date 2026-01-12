@@ -210,63 +210,112 @@ export function usePersonalPayData(periodOffset: number = 0) {
           // Sort by time
           dayPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
 
-          // Find first clock_in and last clock_out
-          const clockIns = dayPunches.filter(p => p.punch_type === 'clock_in');
-          const clockOuts = dayPunches.filter(p => p.punch_type === 'clock_out');
-          const breakStarts = dayPunches.filter(p => p.punch_type === 'break_start');
-
-          if (clockIns.length === 0) return;
-
-          const firstClockIn = clockIns[0];
-          const lastClockOut = clockOuts.length > 0 ? clockOuts[clockOuts.length - 1] : null;
-
-          const shiftStart = new Date(firstClockIn.punch_time);
-          const shiftEnd = lastClockOut ? new Date(lastClockOut.punch_time) : null;
-          
-          // Calculate gross minutes
-          let grossMinutes = 0;
-          if (shiftEnd) {
-            grossMinutes = differenceInMinutes(shiftEnd, shiftStart);
-          } else if (periodOffset === 0) {
-            // Still clocked in - only count for current period
-            grossMinutes = differenceInMinutes(new Date(), shiftStart);
-          }
-
-          // Subtract unpaid breaks
-          let breakMinutes = 0;
-          breakStarts.forEach(breakStart => {
-            // Check if it's an unpaid break
-            const isUnpaid = breakStart.notes?.toLowerCase().includes('unpaid');
-            if (!isUnpaid) return;
-
-            // Find the clock_in that ends this break (clock_in that comes after break_start)
-            const breakStartTime = new Date(breakStart.punch_time);
-            const breakEndPunch = clockIns.find(ci => 
-              new Date(ci.punch_time) > breakStartTime && 
-              ci.id !== firstClockIn.id
-            );
-
-            if (breakEndPunch) {
-              const breakEndTime = new Date(breakEndPunch.punch_time);
-              breakMinutes += differenceInMinutes(breakEndTime, breakStartTime);
+          // Identify SHIFT-STARTING clock_ins (not return-from-break clock_ins)
+          // A clock_in that follows a clock_out starts a new shift
+          // A clock_in that follows a break_start is just returning from break
+          const shiftStartClockIns: TimePunch[] = [];
+          dayPunches.forEach((punch, idx) => {
+            if (punch.punch_type !== 'clock_in') return;
+            
+            if (idx === 0) {
+              shiftStartClockIns.push(punch);
+              return;
+            }
+            
+            const prevPunch = dayPunches[idx - 1];
+            // Only consider it a new shift if previous punch was clock_out
+            if (prevPunch.punch_type === 'clock_out') {
+              shiftStartClockIns.push(punch);
             }
           });
 
-          const netMinutes = Math.max(0, grossMinutes - breakMinutes);
-          totalMinutes += netMinutes;
+          if (shiftStartClockIns.length === 0) return;
+
+          const clockOuts = dayPunches.filter(p => p.punch_type === 'clock_out');
+          const usedClockOutIds = new Set<string>();
           
-          const shiftHours = netMinutes / 60;
-          shiftEntries.push({
-            date: day,
-            clockIn: shiftStart,
-            clockOut: shiftEnd,
-            hours: shiftHours,
-            estimatedPay: shiftHours * hourlyWage,
+          // Find earliest clock_in to exclude orphaned clock_outs from previous day
+          const earliestClockInTime = new Date(shiftStartClockIns[0].punch_time).getTime();
+
+          // Process each distinct shift
+          shiftStartClockIns.forEach((clockIn, index) => {
+            const clockInTime = new Date(clockIn.punch_time).getTime();
+            const nextShiftStart = shiftStartClockIns[index + 1];
+            const nextShiftStartTime = nextShiftStart ? new Date(nextShiftStart.punch_time).getTime() : Infinity;
+            
+            // Find clock_out for THIS shift (after this clock_in, before next shift, not already used)
+            const shiftClockOuts = clockOuts.filter(co => {
+              const coTime = new Date(co.punch_time).getTime();
+              return coTime > clockInTime && 
+                     coTime < nextShiftStartTime && 
+                     !usedClockOutIds.has(co.id) &&
+                     coTime > earliestClockInTime;
+            });
+            
+            const clockOut = shiftClockOuts.length > 0 ? shiftClockOuts[shiftClockOuts.length - 1] : null;
+            
+            // Calculate shift duration
+            let shiftEnd: Date | null = null;
+            if (clockOut) {
+              shiftEnd = new Date(clockOut.punch_time);
+              usedClockOutIds.add(clockOut.id);
+            } else if (periodOffset === 0) {
+              // Still clocked in - only for current period
+              shiftEnd = new Date();
+            }
+            
+            if (!shiftEnd) return;
+            
+            const shiftStart = new Date(clockIn.punch_time);
+            let grossMinutes = differenceInMinutes(shiftEnd, shiftStart);
+
+            // Subtract unpaid breaks within this shift
+            const clockOutTime = shiftEnd.getTime();
+            const shiftBreakStarts = dayPunches.filter(p => 
+              p.punch_type === 'break_start' && 
+              p.notes?.toLowerCase().includes('unpaid') &&
+              new Date(p.punch_time).getTime() > clockInTime &&
+              new Date(p.punch_time).getTime() < clockOutTime
+            );
+            
+            let breakMinutes = 0;
+            shiftBreakStarts.forEach(breakStart => {
+              const breakStartTime = new Date(breakStart.punch_time).getTime();
+              
+              // Find the clock_in that ends this break (return from break, not a new shift)
+              const breakEndPunch = dayPunches.find(p => {
+                const pTime = new Date(p.punch_time).getTime();
+                if (p.punch_type !== 'clock_in') return false;
+                if (pTime <= breakStartTime || pTime >= clockOutTime) return false;
+                // Must NOT be a shift-starting clock_in
+                return !shiftStartClockIns.some(s => s.id === p.id);
+              });
+              
+              if (breakEndPunch) {
+                breakMinutes += differenceInMinutes(new Date(breakEndPunch.punch_time), new Date(breakStart.punch_time));
+              }
+            });
+
+            const netMinutes = Math.max(0, grossMinutes - breakMinutes);
+            totalMinutes += netMinutes;
+            
+            const shiftHours = netMinutes / 60;
+            shiftEntries.push({
+              date: day,
+              clockIn: shiftStart,
+              clockOut: clockOut ? shiftEnd : null,
+              hours: shiftHours,
+              estimatedPay: shiftHours * hourlyWage,
+            });
           });
         });
 
-        // Sort shifts by date descending
-        shiftEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        // Sort shifts by date descending, then by clockIn time descending
+        shiftEntries.sort((a, b) => {
+          const dateCompare = new Date(b.date).getTime() - new Date(a.date).getTime();
+          if (dateCompare !== 0) return dateCompare;
+          return b.clockIn.getTime() - a.clockIn.getTime();
+        });
 
         return { hours: totalMinutes / 60, shifts: shiftEntries };
       };
