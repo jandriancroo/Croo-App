@@ -412,21 +412,14 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                 </div>
 
                 <div className="border-t pt-4">
-                  <h4 className="font-semibold mb-3">Auto Punch-Out (Optional)</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Automatically clock out employees who forget to punch out
-                  </p>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="auto-punch-out">Auto Punch-Out Time</Label>
-                      <Input
-                        id="auto-punch-out"
-                        type="time"
-                        value={formData.auto_punch_out_time || ''}
-                        onChange={(e) => setFormData({...formData, auto_punch_out_time: e.target.value || null})}
-                      />
-                      <p className="text-xs text-muted-foreground">e.g., 11:00 PM for closing</p>
-                    </div>
+                  <h4 className="font-semibold mb-3">Auto Punch-Out</h4>
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <p className="text-sm text-muted-foreground">
+                      Auto punch-out is now automatically calculated as <strong>close time + 3 hours</strong> based on your Business Hours settings.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      This ensures a unified "business day" across all systems (time tracking, checklists, logbook, etc.)
+                    </p>
                   </div>
                 </div>
               </div>
@@ -514,11 +507,9 @@ export const LaborRulesSection = ({ locationId }: LaborRulesSectionProps) => {
                       <span className="text-muted-foreground">Rest Break:</span> {rule.rest_break_duration}min after {rule.rest_break_hours}h
                     </div>
                   )}
-                  {rule.auto_punch_out_time && (
-                    <div>
-                      <span className="text-muted-foreground">Auto Punch-Out:</span> {new Date(`2000-01-01T${rule.auto_punch_out_time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
-                    </div>
-                  )}
+                  <div className="col-span-2 text-xs text-muted-foreground italic">
+                    Auto punch-out: Close time + 3 hours (from Business Hours)
+                  </div>
                 </div>
               </div>
             ))}
