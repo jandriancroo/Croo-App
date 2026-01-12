@@ -618,6 +618,11 @@ export default function PayrollReview() {
   const fetchTimeCards = async () => {
     if (!selectedPeriod || !currentLocation) return;
 
+    // Expand punch query window to safely capture overnight shifts that cross day/period boundaries.
+    // We still FILTER display/totals to the selectedPeriod's date range later.
+    const punchQueryStart = new Date(selectedPeriod.start.getTime() - 24 * 60 * 60 * 1000);
+    const punchQueryEnd = new Date(selectedPeriod.end.getTime() + 24 * 60 * 60 * 1000);
+
     // Get users assigned to current location
     const { data: userLocations } = await supabase
       .from('user_locations')
@@ -632,8 +637,8 @@ export default function PayrollReview() {
       .from('time_punches')
       .select('user_id')
       .eq('location_id', currentLocation.id)
-      .gte('punch_time', selectedPeriod.start.toISOString())
-      .lte('punch_time', selectedPeriod.end.toISOString());
+      .gte('punch_time', punchQueryStart.toISOString())
+      .lte('punch_time', punchQueryEnd.toISOString());
 
     const punchUserIds = new Set(punchUsers?.map(p => p.user_id) || []);
     
@@ -663,8 +668,8 @@ export default function PayrollReview() {
             .select('*')
             .eq('user_id', profile.id)
             .eq('location_id', currentLocation.id)
-            .gte('punch_time', selectedPeriod.start.toISOString())
-            .lte('punch_time', selectedPeriod.end.toISOString())
+            .gte('punch_time', punchQueryStart.toISOString())
+            .lte('punch_time', punchQueryEnd.toISOString())
             .order('punch_time'),
           (supabase
             .from('scheduled_shifts' as any)
@@ -767,7 +772,11 @@ export default function PayrollReview() {
               }
             }
           }
-          
+          // Only keep days inside the selected period (dates are yyyy-MM-dd so string compare is safe)
+          if (day < selectedPeriod.startDate || day > selectedPeriod.endDate) {
+            return;
+          }
+
           if (!punchesByDay[day]) punchesByDay[day] = [];
           // Attach creator name if different from employee
           const createdByName = punch.created_by && punch.created_by !== profile.id
