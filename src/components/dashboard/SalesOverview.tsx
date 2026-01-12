@@ -889,24 +889,37 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
   };
 
   // Calculate Target EOW from weekly breakdown: actual sales + projected for days without actuals
+  // For today, use todayPaceAdjusted (daily pace) if available to show a real-time "where will week end up" number
   const calculatedWeekProjected = useMemo(() => {
     if (!salesData?.weeklyBreakdown || salesData.weeklyBreakdown.length === 0) {
       return salesData?.projections?.weekProjected || 0;
     }
     
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    
     // Sum: for each day, use actual if > 0, otherwise use projected
+    // For today: use todayPaceAdjusted if available (so weekly pace reflects today's projected finish)
     let total = 0;
     for (const day of salesData.weeklyBreakdown) {
-      total += day.sales > 0 ? day.sales : (day.projected || 0);
+      if (day.date === todayStr && isToday) {
+        // Today: use daily pace if available, otherwise fall back to actual > 0 ? actual : projected
+        const todayValue = salesData?.projections?.todayPaceAdjusted 
+          ?? (day.sales > 0 ? day.sales : (day.projected || 0));
+        total += todayValue;
+      } else {
+        // Past/future days: use actual if available, otherwise projected
+        total += day.sales > 0 ? day.sales : (day.projected || 0);
+      }
     }
     
     // If we have 7 days with projections, use our calculated total
     // Otherwise fall back to the backend's weekProjected
     return total > 0 ? total : (salesData?.projections?.weekProjected || 0);
-  }, [salesData?.weeklyBreakdown, salesData?.projections?.weekProjected]);
+  }, [salesData?.weeklyBreakdown, salesData?.projections?.weekProjected, salesData?.projections?.todayPaceAdjusted, isToday]);
 
-  // Calculate accumulated week delta: sum of (actual - projection) for all completed days + today's pace delta
-  // This shows the true accumulated position, not just today's delta
+  // Calculate accumulated week delta: sum of (actual - projection) for all days
+  // Since calculatedWeekProjected now uses todayPaceAdjusted for today, the delta for today is already built-in
+  // So we calculate: for past days (actual - projected), for today (pace - projected), for future (0)
   const accumulatedWeekDelta = useMemo(() => {
     if (!salesData?.weeklyBreakdown) return 0;
     
@@ -914,25 +927,24 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     let delta = 0;
     
     for (const day of salesData.weeklyBreakdown) {
-      const actual = day.sales || 0;
       const projected = day.projected || 0;
       
-      if (day.date < todayStr && actual > 0) {
-        // Past day with sales: add the difference (actual - projected)
-        delta += actual - projected;
-      } else if (day.date === todayStr && isToday) {
-        // Today: use pace delta if available, otherwise use actual - projected
-        if (salesData?.projections?.todayPaceAdjusted && salesData?.projections?.todayProjected) {
-          delta += salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected;
-        } else if (actual > 0) {
+      if (day.date < todayStr) {
+        // Past day: delta = actual - projected
+        const actual = day.sales || 0;
+        if (actual > 0) {
           delta += actual - projected;
         }
+      } else if (day.date === todayStr && isToday) {
+        // Today: delta = todayPaceAdjusted - projected (mirrors what calculatedWeekProjected uses)
+        const todayValue = salesData?.projections?.todayPaceAdjusted ?? day.sales ?? 0;
+        delta += todayValue - projected;
       }
       // Future days: no delta yet
     }
     
     return delta;
-  }, [salesData?.weeklyBreakdown, salesData?.projections?.todayPaceAdjusted, salesData?.projections?.todayProjected, isToday]);
+  }, [salesData?.weeklyBreakdown, salesData?.projections?.todayPaceAdjusted, isToday]);
 
   // Calculate accumulated month delta: sum of (actual - projection) for all completed days + today's pace delta
   const accumulatedMonthDelta = useMemo(() => {
