@@ -138,7 +138,7 @@ export function MobileScheduleView({
   const [selectedPunch, setSelectedPunch] = useState<{userId: string, userName: string, userPhoto: string | null, punchDate: string} | null>(null);
   const [todayEvents, setTodayEvents] = useState<Event[]>([]);
   const { isAdmin, isManager } = useUserRole();
-  const { canSeeFullSchedule } = useTeamScheduleVisibility();
+  const { canSeeFullSchedule, loading: scheduleVisibilityLoading } = useTeamScheduleVisibility();
   const { user } = useAuth();
   const { currentLocation } = useLocation();
   const { timezone } = useLocationTimezone();
@@ -387,6 +387,7 @@ export function MobileScheduleView({
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   
   // Admins/managers see all shifts, team members see all if canSeeFullSchedule, otherwise only their own shifts
+  // While loading visibility permission, show only user's own shifts to be safe
   const dayShifts = shifts.filter(s => {
     // Use shift_date instead of day_of_week to prevent week navigation bugs
     if (s.shift_date !== selectedDateStr || !s.user_id) return false;
@@ -396,6 +397,9 @@ export function MobileScheduleView({
     
     // For non-admin/manager: only show published shifts
     if (!isPublished) return false;
+    
+    // While loading visibility permission, default to showing only own shifts
+    if (scheduleVisibilityLoading) return s.user_id === user?.id;
     
     // If they can see full schedule (shift managers OR team members with permission), show all
     if (canSeeFullSchedule) return true;
