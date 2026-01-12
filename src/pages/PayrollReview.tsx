@@ -586,43 +586,74 @@ export default function PayrollReview() {
         const issues: string[] = [];
         
         Object.entries(punchesByDay).forEach(([day, dayPunches]) => {
-          const clockIn = dayPunches.find(p => p.punch_type === 'clock_in');
-          const clockOut = dayPunches.find(p => p.punch_type === 'clock_out');
-          const mealBreakStart = dayPunches.find(p => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
-          let mealBreakEnd = dayPunches.find(p => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
+          // Sort punches by time to properly pair clock_in/clock_out for multiple shifts
+          const sortedPunches = [...dayPunches].sort((a, b) => 
+            new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
+          );
           
-          // Fallback: clock_in after break_start can indicate break end
-          if (mealBreakStart && !mealBreakEnd) {
-            const breakStartTime = new Date(mealBreakStart.punch_time).getTime();
-            const clockInAfterBreak = dayPunches.find(p => 
-              p.punch_type === 'clock_in' && new Date(p.punch_time).getTime() > breakStartTime
-            );
-            if (clockInAfterBreak) mealBreakEnd = clockInAfterBreak;
-          }
+          // Identify all shifts in the day by pairing clock_ins with their corresponding clock_outs
+          const clockIns = sortedPunches.filter(p => p.punch_type === 'clock_in');
+          const clockOuts = sortedPunches.filter(p => p.punch_type === 'clock_out');
+          const mealBreaks = sortedPunches.filter(p => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
           
-          if (clockIn && !clockOut) {
-            issues.push(`${day}: Missing clock out`);
-          }
+          // Track which clock_outs have been matched
+          const usedClockOutIds = new Set<string>();
           
-          if (clockIn && clockOut) {
+          clockIns.forEach((clockIn, shiftIndex) => {
+            const clockInTime = new Date(clockIn.punch_time).getTime();
+            
+            // Find the next clock_out after this clock_in that hasn't been used
+            const clockOut = clockOuts.find(co => {
+              const coTime = new Date(co.punch_time).getTime();
+              return coTime > clockInTime && !usedClockOutIds.has(co.id);
+            });
+            
+            if (!clockOut) {
+              issues.push(`${day}: Missing clock out${clockIns.length > 1 ? ` (shift ${shiftIndex + 1})` : ''}`);
+              return;
+            }
+            
+            usedClockOutIds.add(clockOut.id);
+            const clockOutTime = new Date(clockOut.punch_time).getTime();
+            
             // Handle midnight crossover - if negative, the shift crossed midnight
-            let hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
+            let hours = (clockOutTime - clockInTime) / 3600000;
             if (hours < 0) hours += 24;
             
-            // Subtract meal break if present
-            if (mealBreakStart && mealBreakEnd) {
-              let breakHours = (new Date(mealBreakEnd.punch_time).getTime() - new Date(mealBreakStart.punch_time).getTime()) / 3600000;
-              if (breakHours < 0) breakHours += 24;
-              totalHours += (hours - breakHours);
+            // Find meal break that falls within this shift
+            const shiftMealBreakStart = mealBreaks.find(mb => {
+              const mbTime = new Date(mb.punch_time).getTime();
+              return mbTime > clockInTime && mbTime < clockOutTime;
+            });
+            
+            if (shiftMealBreakStart) {
+              const breakStartTime = new Date(shiftMealBreakStart.punch_time).getTime();
+              // Find break end - either explicit break_end or clock_in after break
+              const breakEnd = sortedPunches.find(p => 
+                (p.punch_type === 'break_end' && p.notes?.includes('30 minute') && 
+                 new Date(p.punch_time).getTime() > breakStartTime && 
+                 new Date(p.punch_time).getTime() < clockOutTime) ||
+                (p.punch_type === 'clock_in' && 
+                 new Date(p.punch_time).getTime() > breakStartTime && 
+                 new Date(p.punch_time).getTime() < clockOutTime)
+              );
+              
+              if (breakEnd) {
+                let breakHours = (new Date(breakEnd.punch_time).getTime() - breakStartTime) / 3600000;
+                if (breakHours < 0) breakHours += 24;
+                totalHours += (hours - breakHours);
+              } else {
+                totalHours += hours;
+              }
             } else {
               totalHours += hours;
               
               // Check if shift is over 5 hours and no meal break
               if (hours > 5) {
-                issues.push(`${day}: Missing required meal break`);
+                issues.push(`${day}: Missing required meal break${clockIns.length > 1 ? ` (shift ${shiftIndex + 1})` : ''}`);
               }
             }
-          }
+          });
         });
 
         return {
@@ -652,47 +683,111 @@ export default function PayrollReview() {
   };
 
   const calculateDayHours = (dayPunches: any[], showLive = true) => {
-    const clockIn = dayPunches.find(p => p.punch_type === 'clock_in');
-    const clockOut = dayPunches.find(p => p.punch_type === 'clock_out');
-    const mealBreakStart = dayPunches.find(p => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
-    let mealBreakEnd = dayPunches.find(p => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
+    // Sort punches by time to properly pair clock_in/clock_out for multiple shifts
+    const sortedPunches = [...dayPunches].sort((a, b) => 
+      new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
+    );
     
-    // Fallback: clock_in after break_start can indicate break end
-    if (mealBreakStart && !mealBreakEnd) {
-      const breakStartTime = new Date(mealBreakStart.punch_time).getTime();
-      const clockInAfterBreak = dayPunches.find(p => 
-        p.punch_type === 'clock_in' && new Date(p.punch_time).getTime() > breakStartTime
-      );
-      if (clockInAfterBreak) mealBreakEnd = clockInAfterBreak;
-    }
+    const clockIns = sortedPunches.filter(p => p.punch_type === 'clock_in');
+    const clockOuts = sortedPunches.filter(p => p.punch_type === 'clock_out');
+    const mealBreaks = sortedPunches.filter(p => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
     
-    if (!clockIn) return 0;
+    if (clockIns.length === 0) return 0;
     
-    // If no clock out, use current time for live shifts
-    const endTime = clockOut ? new Date(clockOut.punch_time) : (showLive ? new Date() : null);
-    if (!endTime) return 0;
+    let totalHours = 0;
+    const usedClockOutIds = new Set<string>();
     
-    const hours = calculateTimeDifferenceHours(new Date(clockIn.punch_time), endTime);
+    clockIns.forEach((clockIn) => {
+      const clockInTime = new Date(clockIn.punch_time).getTime();
+      
+      // Find the next clock_out after this clock_in that hasn't been used
+      const clockOut = clockOuts.find(co => {
+        const coTime = new Date(co.punch_time).getTime();
+        return coTime > clockInTime && !usedClockOutIds.has(co.id);
+      });
+      
+      // If no clock out, use current time for live shifts (only for the last clock_in)
+      const endTime = clockOut 
+        ? new Date(clockOut.punch_time) 
+        : (showLive ? new Date() : null);
+      
+      if (!endTime) return;
+      
+      if (clockOut) usedClockOutIds.add(clockOut.id);
+      
+      let hours = calculateTimeDifferenceHours(new Date(clockIn.punch_time), endTime);
+      
+      // Find meal break that falls within this shift
+      const clockOutTime = endTime.getTime();
+      const shiftMealBreakStart = mealBreaks.find(mb => {
+        const mbTime = new Date(mb.punch_time).getTime();
+        return mbTime > clockInTime && mbTime < clockOutTime;
+      });
+      
+      if (shiftMealBreakStart) {
+        const breakStartTime = new Date(shiftMealBreakStart.punch_time).getTime();
+        const breakEnd = sortedPunches.find(p => 
+          (p.punch_type === 'break_end' && p.notes?.includes('30 minute') && 
+           new Date(p.punch_time).getTime() > breakStartTime && 
+           new Date(p.punch_time).getTime() < clockOutTime) ||
+          (p.punch_type === 'clock_in' && 
+           new Date(p.punch_time).getTime() > breakStartTime && 
+           new Date(p.punch_time).getTime() < clockOutTime)
+        );
+        
+        if (breakEnd) {
+          const breakHours = calculateTimeDifferenceHours(
+            new Date(shiftMealBreakStart.punch_time), 
+            new Date(breakEnd.punch_time)
+          );
+          hours -= breakHours;
+        }
+      }
+      
+      totalHours += hours;
+    });
     
-    if (mealBreakStart && mealBreakEnd) {
-      const breakHours = calculateTimeDifferenceHours(new Date(mealBreakStart.punch_time), new Date(mealBreakEnd.punch_time));
-      return hours - breakHours;
-    }
-    
-    return hours;
+    return totalHours;
   };
 
   const hasDayIssues = (dayPunches: any[]) => {
-    const clockIn = dayPunches.find(p => p.punch_type === 'clock_in');
-    const clockOut = dayPunches.find(p => p.punch_type === 'clock_out');
-    const mealBreak = dayPunches.filter(p => p.notes?.includes('30 minute'));
+    const sortedPunches = [...dayPunches].sort((a, b) => 
+      new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
+    );
     
-    if (clockIn && !clockOut) return true;
+    const clockIns = sortedPunches.filter(p => p.punch_type === 'clock_in');
+    const clockOuts = sortedPunches.filter(p => p.punch_type === 'clock_out');
+    const mealBreaks = sortedPunches.filter(p => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
     
-    if (clockIn && clockOut) {
-      let hours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
-      if (hours < 0) hours += 24; // Handle midnight crossover
-      if (hours > 5 && mealBreak.length === 0) return true;
+    // Check if any clock_in is missing a clock_out
+    if (clockIns.length > clockOuts.length) return true;
+    
+    // Check each shift for meal break violations
+    const usedClockOutIds = new Set<string>();
+    
+    for (const clockIn of clockIns) {
+      const clockInTime = new Date(clockIn.punch_time).getTime();
+      
+      const clockOut = clockOuts.find(co => {
+        const coTime = new Date(co.punch_time).getTime();
+        return coTime > clockInTime && !usedClockOutIds.has(co.id);
+      });
+      
+      if (!clockOut) return true; // Missing clock out
+      
+      usedClockOutIds.add(clockOut.id);
+      const clockOutTime = new Date(clockOut.punch_time).getTime();
+      
+      let hours = (clockOutTime - clockInTime) / 3600000;
+      if (hours < 0) hours += 24;
+      
+      // Check if this shift has a meal break
+      const hasMealBreak = mealBreaks.some(mb => {
+        const mbTime = new Date(mb.punch_time).getTime();
+        return mbTime > clockInTime && mbTime < clockOutTime;
+      });
+      
+      if (hours > 5 && !hasMealBreak) return true;
     }
     
     return false;
