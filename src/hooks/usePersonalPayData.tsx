@@ -286,11 +286,11 @@ export function usePersonalPayData(periodOffset: number = 0) {
             const shiftStart = new Date(clockIn.punch_time);
             let grossMinutes = differenceInMinutes(shiftEnd, shiftStart);
 
-            // Subtract unpaid breaks within this shift
+            // Subtract 30-minute meal breaks within this shift (same logic as PayrollReview)
             const clockOutTime = shiftEnd.getTime();
             const shiftBreakStarts = dayPunches.filter(p => 
               p.punch_type === 'break_start' && 
-              p.notes?.toLowerCase().includes('unpaid') &&
+              p.notes?.includes('30 minute') &&
               new Date(p.punch_time).getTime() > clockInTime &&
               new Date(p.punch_time).getTime() < clockOutTime
             );
