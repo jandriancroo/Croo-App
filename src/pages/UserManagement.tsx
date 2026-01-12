@@ -40,7 +40,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { CrooCashCard } from '@/components/users/CrooCashCard';
 import { getTodayInPST, getDateInPST } from '@/utils/dateUtils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useLocation as useAppLocation } from '@/hooks/useLocation';
@@ -1962,13 +1961,6 @@ export default function UserManagement() {
                   </div>
                 </div>
 
-                {/* Croo Cash Card */}
-                <div className="border-t pt-3">
-                  <CrooCashCard 
-                    userId={viewingUser.id}
-                    balance={users.find(u => u.id === viewingUser.id)?.croo_cash_balance || 0}
-                  />
-                </div>
               </div>
             )}
             </div>

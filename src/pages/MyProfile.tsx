@@ -18,8 +18,6 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { CalendarIcon } from 'lucide-react';
-import { FEATURE_FLAGS } from '@/config/featureFlags';
-import crooCashIcon from '@/assets/croo-cash-icon.png';
 
 const parseDateOnlyToLocalDate = (dateStr: string): Date => {
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -287,19 +285,6 @@ const MyProfile = () => {
                 </PopoverContent>
               </Popover>
             </div>
-
-            {/* Croo Cash Balance */}
-            {FEATURE_FLAGS.CROO_CASH_ENABLED && (
-              <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
-                <div className="flex items-center gap-3">
-                  <img src={crooCashIcon} alt="Croo Cash" className="h-6 w-6" />
-                  <span className="font-medium">Croo Cash Balance</span>
-                </div>
-                <span className={`text-xl font-bold ${(profile?.croo_cash_balance || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                  ${((profile?.croo_cash_balance || 0) / 100).toFixed(2)}
-                </span>
-              </div>
-            )}
 
             {/* Save Button */}
             <Button onClick={handleSave} className="w-full" disabled={saving}>
