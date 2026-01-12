@@ -876,11 +876,14 @@ export default function PayrollReview() {
           }
 
           if (!punchesByDay[day]) punchesByDay[day] = [];
-          // Attach creator name if different from employee
+          // Attach creator/editor name if different from employee
           const createdByName = punch.created_by && punch.created_by !== profile.id
             ? creatorMap.get(punch.created_by) || null
             : null;
-          punchesByDay[day].push({ ...punch, created_by_name: createdByName });
+          const editedByName = punch.edited_by && punch.edited_by !== profile.id
+            ? creatorMap.get(punch.edited_by) || null
+            : null;
+          punchesByDay[day].push({ ...punch, created_by_name: createdByName, edited_by_name: editedByName });
         });
 
         // Issues are tracked but hours calculation moved to render time for consistency
@@ -2108,15 +2111,27 @@ export default function PayrollReview() {
                                             </div>
                                           )}
                                           
-                                          {/* Manager edit indicator - show if any punch was created by someone else */}
+                                          {/* Manager edit indicator - show edited by (priority) or entered by */}
                                           {(() => {
-                                            const creatorName = dayPunches.find((p: any) => p.created_by_name)?.created_by_name;
-                                            return creatorName ? (
-                                              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
-                                                <Pencil className="h-2.5 w-2.5" />
-                                                <span>Entered by {creatorName}</span>
-                                              </div>
-                                            ) : null;
+                                            const editedPunch = dayPunches.find((p: any) => p.edited_by_name);
+                                            const createdPunch = dayPunches.find((p: any) => p.created_by_name);
+                                            if (editedPunch?.edited_by_name) {
+                                              return (
+                                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                                  <Pencil className="h-2.5 w-2.5" />
+                                                  <span>Edited by {editedPunch.edited_by_name}</span>
+                                                </div>
+                                              );
+                                            }
+                                            if (createdPunch?.created_by_name) {
+                                              return (
+                                                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                                  <Pencil className="h-2.5 w-2.5" />
+                                                  <span>Entered by {createdPunch.created_by_name}</span>
+                                                </div>
+                                              );
+                                            }
+                                            return null;
                                           })()}
                                         </div>
 
