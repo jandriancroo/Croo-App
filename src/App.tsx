@@ -47,6 +47,7 @@ import InstallGuide from "./pages/InstallGuide";
 import ResetPassword from "./pages/ResetPassword";
 import ForgotPassword from "./pages/ForgotPassword";
 import MyWallet from "./pages/MyWallet";
+import MyTeam from "./pages/MyTeam";
 
 import CompletedStampPreview from "./pages/CompletedStampPreview";
 import OrganizationProfile from "./pages/OrganizationProfile";
@@ -139,6 +140,7 @@ const AppContent = () => {
       <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
       <Route path="/submission/:id" element={<ProtectedRoute><SubmissionDetails /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
+      <Route path="/my-team" element={<ProtectedRoute><MyTeam /></ProtectedRoute>} />
       <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
       <Route path="/shift-templates" element={<ProtectedRoute><ShiftTemplates /></ProtectedRoute>} />
       <Route path="/schedule-templates" element={<ProtectedRoute><ScheduleTemplates /></ProtectedRoute>} />
