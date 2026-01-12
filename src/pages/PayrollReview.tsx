@@ -735,9 +735,11 @@ export default function PayrollReview() {
                 new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
               
               if (shouldMoveToPrevDay) {
-                const prevDate = new Date(punchTime);
-                prevDate.setDate(prevDate.getDate() - 1);
-                const prevDay = getDateInTimezone(prevDate, timezone);
+                // Calculate previous day in local timezone, not UTC
+                const localDateStr = formatInTimeZone(punchTime, timezone, 'yyyy-MM-dd');
+                const localDate = new Date(localDateStr + 'T12:00:00');
+                localDate.setDate(localDate.getDate() - 1);
+                const prevDay = format(localDate, 'yyyy-MM-dd');
                 // Only reassign if previous day has a clock_in
                 if (clockInsByDay.has(prevDay)) {
                   day = prevDay;
@@ -755,9 +757,10 @@ export default function PayrollReview() {
                 new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
               
               if (shouldMoveToPrevDay) {
-                const prevDate = new Date(punchTime);
-                prevDate.setDate(prevDate.getDate() - 1);
-                const prevDay = getDateInTimezone(prevDate, timezone);
+                const localDateStr = formatInTimeZone(punchTime, timezone, 'yyyy-MM-dd');
+                const localDate = new Date(localDateStr + 'T12:00:00');
+                localDate.setDate(localDate.getDate() - 1);
+                const prevDay = format(localDate, 'yyyy-MM-dd');
                 if (clockInsByDay.has(prevDay)) {
                   day = prevDay;
                 }
