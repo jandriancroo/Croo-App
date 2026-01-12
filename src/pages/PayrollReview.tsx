@@ -622,18 +622,26 @@ export default function PayrollReview() {
           const punchTime = new Date(punch.punch_time);
           let day = getDateInTimezone(punchTime, timezone);
           
-          // Check if this is an overnight clock_out (early AM without clock_in on same day)
+          // Check if this is an overnight clock_out (early AM without clock_in on same day BEFORE it)
           if (punch.punch_type === 'clock_out') {
             const punchHour = parseInt(formatInTimeZone(punchTime, timezone, 'H'));
-            // If clock_out is before 6 AM and no clock_in exists on this day
-            if (punchHour < 6 && !clockInsByDay.has(day)) {
-              // Move to previous day
-              const prevDate = new Date(punchTime);
-              prevDate.setDate(prevDate.getDate() - 1);
-              const prevDay = getDateInTimezone(prevDate, timezone);
-              // Only reassign if previous day has a clock_in
-              if (clockInsByDay.has(prevDay)) {
-                day = prevDay;
+            // If clock_out is before 6 AM
+            if (punchHour < 6) {
+              const sameDayClockIn = clockInsByDay.get(day);
+              // Move to previous day if:
+              // 1. No clock_in on same day, OR
+              // 2. The clock_in on same day is AFTER this clock_out (meaning clock_out belongs to prev day)
+              const shouldMoveToPrevDay = !sameDayClockIn || 
+                new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
+              
+              if (shouldMoveToPrevDay) {
+                const prevDate = new Date(punchTime);
+                prevDate.setDate(prevDate.getDate() - 1);
+                const prevDay = getDateInTimezone(prevDate, timezone);
+                // Only reassign if previous day has a clock_in
+                if (clockInsByDay.has(prevDay)) {
+                  day = prevDay;
+                }
               }
             }
           }
@@ -641,12 +649,18 @@ export default function PayrollReview() {
           // Also handle break_end that might belong to previous day's overnight shift
           if (punch.punch_type === 'break_end') {
             const punchHour = parseInt(formatInTimeZone(punchTime, timezone, 'H'));
-            if (punchHour < 6 && !clockInsByDay.has(day)) {
-              const prevDate = new Date(punchTime);
-              prevDate.setDate(prevDate.getDate() - 1);
-              const prevDay = getDateInTimezone(prevDate, timezone);
-              if (clockInsByDay.has(prevDay)) {
-                day = prevDay;
+            if (punchHour < 6) {
+              const sameDayClockIn = clockInsByDay.get(day);
+              const shouldMoveToPrevDay = !sameDayClockIn || 
+                new Date(sameDayClockIn.punch_time).getTime() > punchTime.getTime();
+              
+              if (shouldMoveToPrevDay) {
+                const prevDate = new Date(punchTime);
+                prevDate.setDate(prevDate.getDate() - 1);
+                const prevDay = getDateInTimezone(prevDate, timezone);
+                if (clockInsByDay.has(prevDay)) {
+                  day = prevDay;
+                }
               }
             }
           }
