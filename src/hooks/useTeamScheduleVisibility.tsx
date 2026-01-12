@@ -16,8 +16,8 @@ export const useTeamScheduleVisibility = () => {
   const { role, isShiftManager, loading: roleLoading } = useUserRole();
 
   // Fetch the org-level role permission for team member schedule visibility
-  const { data: permissionData, isLoading: permissionLoading } = useQuery({
-    queryKey: ['team-schedule-permission'],
+  const { data: permissionData, isLoading: permissionLoading, error: permissionError } = useQuery({
+    queryKey: ['role-permission', 'team_member', 'view_full_schedule'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('role_permissions')
@@ -27,7 +27,7 @@ export const useTeamScheduleVisibility = () => {
         .maybeSingle();
 
       if (error) {
-        console.error('Error fetching team schedule permission:', error);
+        console.error('[useTeamScheduleVisibility] Error fetching team schedule permission:', error);
         return { enabled: false };
       }
 
@@ -36,6 +36,16 @@ export const useTeamScheduleVisibility = () => {
     staleTime: 30 * 1000, // 30 seconds - changes should reflect quickly
     refetchInterval: 30 * 1000, // Refetch every 30 seconds to pick up changes
   });
+
+  if (import.meta.env.DEV) {
+    console.info('[useTeamScheduleVisibility]', {
+      role,
+      isShiftManager,
+      permissionEnabled: permissionData?.enabled,
+      permissionLoading,
+      permissionError,
+    });
+  }
 
   // Determine if the user can see the full schedule
   // - Shift managers and above: always yes (based on role hierarchy)

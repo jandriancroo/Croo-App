@@ -385,6 +385,19 @@ export function MobileScheduleView({
   // Get shifts and events for selected day
   // Use shift_date as source of truth (matches EmployeeRow.tsx fix)
   const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
+
+  if (import.meta.env.DEV) {
+    console.info('[MobileScheduleView]', {
+      selectedDateStr,
+      isPublished,
+      scheduleVisibilityLoading,
+      canSeeFullSchedule,
+      isAdmin,
+      isManager,
+      userId: user?.id,
+      shiftsCount: shifts.length,
+    });
+  }
   
   // Admins/managers see all shifts, team members see all if canSeeFullSchedule, otherwise only their own shifts
   // While loading visibility permission, show only user's own shifts to be safe
