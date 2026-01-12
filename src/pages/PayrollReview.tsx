@@ -1857,7 +1857,16 @@ export default function PayrollReview() {
                                           {scheduledShift && !scheduledShift.is_time_off && (
                                             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                                               <Calendar className="h-2.5 w-2.5" />
-                                              <span>Scheduled: {scheduledShift.start_time?.slice(0, 5)} → {scheduledShift.end_time?.slice(0, 5)}</span>
+                                              <span>Scheduled: {(() => {
+                                                const formatScheduleTime = (timeStr: string | null | undefined) => {
+                                                  if (!timeStr) return '—';
+                                                  const [hours, minutes] = timeStr.split(':').map(Number);
+                                                  const period = hours >= 12 ? 'PM' : 'AM';
+                                                  const displayHours = hours % 12 || 12;
+                                                  return `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+                                                };
+                                                return `${formatScheduleTime(scheduledShift.start_time)} → ${formatScheduleTime(scheduledShift.end_time)}`;
+                                              })()}</span>
                                             </div>
                                           )}
                                           {scheduledShift?.is_time_off && (
