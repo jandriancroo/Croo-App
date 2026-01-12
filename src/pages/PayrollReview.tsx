@@ -498,18 +498,38 @@ export default function PayrollReview() {
 
     const cards = await Promise.all(
       profiles.map(async (profile) => {
-        const { data: punches } = await supabase
-          .from('time_punches')
-          .select('*')
-          .eq('user_id', profile.id)
-          .eq('location_id', currentLocation.id)
-          .gte('punch_time', selectedPeriod.start.toISOString())
-          .lte('punch_time', selectedPeriod.end.toISOString())
-          .order('punch_time');
-
-        // Get current wage for this employee
-        const { data: currentWage } = await supabase
-          .rpc('get_current_wage', { p_user_id: profile.id });
+        // Fetch punches and scheduled shifts in parallel
+        const [punchesResult, shiftsResult, wageResult] = await Promise.all([
+          supabase
+            .from('time_punches')
+            .select('*')
+            .eq('user_id', profile.id)
+            .eq('location_id', currentLocation.id)
+            .gte('punch_time', selectedPeriod.start.toISOString())
+            .lte('punch_time', selectedPeriod.end.toISOString())
+            .order('punch_time'),
+          (supabase
+            .from('scheduled_shifts' as any)
+            .select('shift_date, start_time, end_time, is_time_off')
+            .eq('user_id', profile.id)
+            .gte('shift_date', selectedPeriod.startDate)
+            .lte('shift_date', selectedPeriod.endDate) as any),
+          supabase.rpc('get_current_wage', { p_user_id: profile.id })
+        ]);
+        
+        const punches = punchesResult.data;
+        const scheduledShifts = shiftsResult.data || [];
+        const currentWage = wageResult.data;
+        
+        // Create a map of scheduled shifts by date
+        const shiftsByDate = new Map<string, { start_time: string; end_time: string; is_time_off: boolean }>();
+        scheduledShifts.forEach((shift: any) => {
+          shiftsByDate.set(shift.shift_date, {
+            start_time: shift.start_time,
+            end_time: shift.end_time,
+            is_time_off: shift.is_time_off
+          });
+        });
 
         // Fetch creator profiles for punches made by someone other than the employee
         const creatorIds = [...new Set((punches || [])
@@ -675,6 +695,7 @@ export default function PayrollReview() {
           },
           punches: punches || [],
           punchesByDay,
+          shiftsByDate,
           totalHours,
           issues
         };
@@ -1758,6 +1779,9 @@ export default function PayrollReview() {
                                     const hasOvertime = dayPunches.some((p: any) => p.has_overtime);
                                     const hasExtendedBreak = dayPunches.some((p: any) => p.has_extended_break);
                                     
+                                    // Get scheduled shift for this day
+                                    const scheduledShift = card.shiftsByDate?.get(day);
+                                    
                                     // Calculate break violation: shift > 5 hours without meal break
                                     let hasBreakViolation = false;
                                     if (clockIn && clockOut) {
@@ -1828,6 +1852,20 @@ export default function PayrollReview() {
                                               </Badge>
                                             )}
                                           </div>
+                                          
+                                          {/* Scheduled time display */}
+                                          {scheduledShift && !scheduledShift.is_time_off && (
+                                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                              <Calendar className="h-2.5 w-2.5" />
+                                              <span>Scheduled: {scheduledShift.start_time?.slice(0, 5)} → {scheduledShift.end_time?.slice(0, 5)}</span>
+                                            </div>
+                                          )}
+                                          {scheduledShift?.is_time_off && (
+                                            <div className="flex items-center gap-1 text-xs text-blue-500 mt-0.5">
+                                              <Calendar className="h-2.5 w-2.5" />
+                                              <span>Scheduled: Time Off</span>
+                                            </div>
+                                          )}
                                           
                                           {/* Break times display */}
                                           {breakStarts.length > 0 && (
