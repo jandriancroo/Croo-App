@@ -591,11 +591,20 @@ export default function PayrollReview() {
         // AND must be after the earliest clock_in (to exclude orphaned early AM clock_outs from previous day)
         return coTime > clockInTime && coTime < nextShiftStartTime && !usedClockOutIds.has(co.id) && coTime > earliestClockInTime;
       });
-      
       const clockOut = shiftClockOuts.length > 0 ? shiftClockOuts[shiftClockOuts.length - 1] : null;
-      const endTime = clockOut 
-        ? new Date(clockOut.punch_time) 
-        : (showLive && index === shiftStartClockIns.length - 1 ? new Date() : null);
+
+      // If there's no clock_out, do NOT extend the shift to "now" for past days.
+      // Instead, cap at the last recorded punch inside this day/shift window (so we don't show 54+ hour shifts).
+      const lastPunchInWindow = sortedPunches
+        .filter(p => {
+          const t = new Date(p.punch_time).getTime();
+          return t >= clockInTime && t < nextShiftStartTime;
+        })
+        .at(-1);
+
+      const endTime = clockOut
+        ? new Date(clockOut.punch_time)
+        : (lastPunchInWindow ? new Date(lastPunchInWindow.punch_time) : null);
       
       if (!endTime) return;
       
