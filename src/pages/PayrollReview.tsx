@@ -575,6 +575,11 @@ export default function PayrollReview() {
     let totalHours = 0;
     const usedClockOutIds = new Set<string>();
     
+    // Find the earliest clock_in time to identify orphaned clock_outs that precede all clock_ins
+    const earliestClockInTime = shiftStartClockIns.length > 0 
+      ? new Date(shiftStartClockIns[0].punch_time).getTime() 
+      : Infinity;
+    
     shiftStartClockIns.forEach((clockIn, index) => {
       const clockInTime = new Date(clockIn.punch_time).getTime();
       const nextShiftStart = shiftStartClockIns[index + 1];
@@ -582,7 +587,9 @@ export default function PayrollReview() {
       
       const shiftClockOuts = clockOuts.filter(co => {
         const coTime = new Date(co.punch_time).getTime();
-        return coTime > clockInTime && coTime < nextShiftStartTime && !usedClockOutIds.has(co.id);
+        // Must be after this clock_in, before next clock_in, not already used
+        // AND must be after the earliest clock_in (to exclude orphaned early AM clock_outs from previous day)
+        return coTime > clockInTime && coTime < nextShiftStartTime && !usedClockOutIds.has(co.id) && coTime > earliestClockInTime;
       });
       
       const clockOut = shiftClockOuts.length > 0 ? shiftClockOuts[shiftClockOuts.length - 1] : null;
@@ -883,8 +890,12 @@ export default function PayrollReview() {
     const clockOuts = sortedPunches.filter(p => p.punch_type === 'clock_out');
     const mealBreaks = sortedPunches.filter(p => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
     
-    // Check if any clock_in is missing a clock_out
-    if (clockIns.length > clockOuts.length) return true;
+    // Identify orphaned clock_outs (those before any clock_in) - don't count them
+    const earliestClockInTime = clockIns.length > 0 ? new Date(clockIns[0].punch_time).getTime() : Infinity;
+    const validClockOuts = clockOuts.filter(co => new Date(co.punch_time).getTime() > earliestClockInTime);
+    
+    // Check if any clock_in is missing a clock_out (using valid clock_outs only)
+    if (clockIns.length > validClockOuts.length) return true;
     
     // Check each shift for meal break violations
     const usedClockOutIds = new Set<string>();
@@ -892,7 +903,7 @@ export default function PayrollReview() {
     for (const clockIn of clockIns) {
       const clockInTime = new Date(clockIn.punch_time).getTime();
       
-      const clockOut = clockOuts.find(co => {
+      const clockOut = validClockOuts.find(co => {
         const coTime = new Date(co.punch_time).getTime();
         return coTime > clockInTime && !usedClockOutIds.has(co.id);
       });
