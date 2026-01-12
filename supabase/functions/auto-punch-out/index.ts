@@ -123,8 +123,8 @@ Deno.serve(async (req) => {
       }
 
       // Find all employees at this location who are still clocked in
-      // Look back up to 48 hours to catch overnight shifts and missed days
-      const lookbackTime = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+      // Look back up to 7 days (168 hours) to catch overnight shifts and any missed days
+      const lookbackTime = new Date(now.getTime() - 168 * 60 * 60 * 1000);
       
       const { data: openPunches, error: punchError } = await supabase
         .from('time_punches')
