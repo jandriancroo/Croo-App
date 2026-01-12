@@ -20,6 +20,9 @@ export interface PersonalPayData {
   hoursPayroll: number;
   payWeek: number;
   payPayroll: number;
+  regularHours: number;
+  overtimeHours: number;
+  doubleTimeHours: number;
   shifts: ShiftEntry[];
   payPeriodStart: string;
   payPeriodEnd: string;
@@ -85,6 +88,20 @@ export function usePersonalPayData(periodOffset: number = 0) {
       }
 
       const hourlyWage = profile?.hourly_wage || 0;
+
+      // Fetch labor rules for OT thresholds
+      const { data: laborRules } = await supabase
+        .from('labor_rules')
+        .select('daily_overtime_threshold, daily_double_time_threshold, weekly_overtime_threshold, overtime_multiplier, double_time_multiplier')
+        .eq('location_id', currentLocation.id)
+        .maybeSingle();
+
+      // OT thresholds with California defaults
+      const dailyOTThreshold = laborRules?.daily_overtime_threshold ?? 8;
+      const dailyDTThreshold = laborRules?.daily_double_time_threshold ?? 12;
+      const weeklyOTThreshold = laborRules?.weekly_overtime_threshold ?? 40;
+      const otMultiplier = laborRules?.overtime_multiplier ?? 1.5;
+      const dtMultiplier = laborRules?.double_time_multiplier ?? 2.0;
 
       // Fetch location hours for dynamic cutoff calculation
       const { data: locationHours } = await supabase
@@ -323,11 +340,94 @@ export function usePersonalPayData(periodOffset: number = 0) {
       const weekResult = calculateHoursAndShifts(weekStartStr, weekEndStr);
       const payrollResult = calculateHoursAndShifts(payPeriodStartStr, payPeriodEndStr);
 
+      // Calculate OT using California rules:
+      // - Daily OT: hours > 8 per day
+      // - Daily DT: hours > 12 per day  
+      // - Weekly OT: hours > 40 per week (use higher of daily OT sum or weekly OT)
+      
+      // Helper to get week start (Monday) for a date
+      const getWeekStartForDate = (dateStr: string): string => {
+        const d = new Date(dateStr + 'T12:00:00');
+        const dow = d.getDay(); // 0=Sun, 1=Mon, ...
+        const mondayOffset = dow === 0 ? -6 : 1 - dow;
+        const weekStart = new Date(d);
+        weekStart.setDate(d.getDate() + mondayOffset);
+        return weekStart.toISOString().slice(0, 10);
+      };
+
+      // Group shifts by day, then by week
+      const hoursByDay: Record<string, number> = {};
+      payrollResult.shifts.forEach(shift => {
+        if (!hoursByDay[shift.date]) {
+          hoursByDay[shift.date] = 0;
+        }
+        hoursByDay[shift.date] += shift.hours;
+      });
+
+      // Group days by week
+      const hoursByWeek: Record<string, Record<string, number>> = {};
+      Object.entries(hoursByDay).forEach(([day, hours]) => {
+        const weekStart = getWeekStartForDate(day);
+        if (!hoursByWeek[weekStart]) {
+          hoursByWeek[weekStart] = {};
+        }
+        hoursByWeek[weekStart][day] = hours;
+      });
+
+      // Calculate OT per week using California rules
+      let totalRegular = 0;
+      let totalOT = 0;
+      let totalDT = 0;
+      
+      Object.values(hoursByWeek).forEach(weekDays => {
+        const dailyHoursList = Object.values(weekDays);
+        
+        // Calculate daily breakdown first
+        let weeklyDailyOT = 0;
+        let weeklyDailyDT = 0;
+        let weeklyDailyRegular = 0;
+        let weeklyTotalHours = 0;
+        
+        dailyHoursList.forEach(hours => {
+          weeklyTotalHours += hours;
+          
+          if (hours <= dailyOTThreshold) {
+            weeklyDailyRegular += hours;
+          } else if (hours <= dailyDTThreshold) {
+            weeklyDailyRegular += dailyOTThreshold;
+            weeklyDailyOT += hours - dailyOTThreshold;
+          } else {
+            weeklyDailyRegular += dailyOTThreshold;
+            weeklyDailyOT += dailyDTThreshold - dailyOTThreshold;
+            weeklyDailyDT += hours - dailyDTThreshold;
+          }
+        });
+        
+        // Calculate weekly OT (hours over 40 in the week)
+        const weeklyOT = Math.max(0, weeklyTotalHours - weeklyOTThreshold);
+        
+        // Use the HIGHER of daily OT sum or weekly OT (California rule)
+        const actualOT = Math.max(weeklyDailyOT, weeklyOT);
+        
+        // Regular = Total - OT - DT
+        const actualRegular = weeklyTotalHours - actualOT - weeklyDailyDT;
+        
+        totalRegular += Math.max(0, actualRegular);
+        totalOT += actualOT;
+        totalDT += weeklyDailyDT;
+      });
+
+      // Calculate pay with OT rates
+      const payPayroll = (totalRegular * hourlyWage) + (totalOT * hourlyWage * otMultiplier) + (totalDT * hourlyWage * dtMultiplier);
+
       return {
         hoursWeek: weekResult.hours,
         hoursPayroll: payrollResult.hours,
         payWeek: weekResult.hours * hourlyWage,
-        payPayroll: payrollResult.hours * hourlyWage,
+        payPayroll,
+        regularHours: totalRegular,
+        overtimeHours: totalOT,
+        doubleTimeHours: totalDT,
         shifts: payrollResult.shifts,
         payPeriodStart: payPeriod.startStr,
         payPeriodEnd: formatTZ(payPeriod.end, 'yyyy-MM-dd', { timeZone: timezone }),
