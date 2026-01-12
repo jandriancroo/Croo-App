@@ -827,12 +827,22 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
   // and passed via onSalesDataChange effect after accumulatedWeekDelta/accumulatedMonthDelta are defined
 
   // Only include days that fall within the selected month to avoid bleeding into other months
+  // For the current week, use weeklyBreakdown projections (same source as Week view) for consistency
   const monthlyWeeklyAggregated = useMemo(() => {
     if (!salesData?.monthlyBreakdown || salesData.monthlyBreakdown.length === 0) return [];
     
     // Get the month we're viewing
     const viewingMonth = targetDate.getMonth();
     const viewingYear = targetDate.getFullYear();
+    
+    // Build a map of weeklyBreakdown projections for the current week (keyed by date string)
+    // This ensures the month chart uses the same projection values as the week view
+    const weeklyProjectionMap = new Map<string, number>();
+    if (salesData?.weeklyBreakdown) {
+      for (const day of salesData.weeklyBreakdown) {
+        weeklyProjectionMap.set(day.date, day.projected || 0);
+      }
+    }
     
     // Group by Monday-Sunday weeks, but only count days within the target month
     const weeklyBuckets: Array<{ weekStart: Date; sales: number; projected: number; daysInMonth: number; firstDayInMonth: Date; lastDayInMonth: Date }> = [];
@@ -861,7 +871,14 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
         weeklyBuckets.push(bucket);
       }
       bucket.sales += day.sales;
-      bucket.projected += (day.projected || 0);
+      
+      // Use weeklyBreakdown projection if available (for current week consistency)
+      // Otherwise fall back to monthlyBreakdown projection
+      const projectedValue = weeklyProjectionMap.has(day.date) 
+        ? weeklyProjectionMap.get(day.date)! 
+        : (day.projected || 0);
+      bucket.projected += projectedValue;
+      
       bucket.daysInMonth += 1;
       if (date < bucket.firstDayInMonth) bucket.firstDayInMonth = date;
       if (date > bucket.lastDayInMonth) bucket.lastDayInMonth = date;
@@ -878,7 +895,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
           ? format(bucket.firstDayInMonth, 'MMM d')
           : `${format(bucket.firstDayInMonth, 'MMM d')} - ${format(bucket.lastDayInMonth, 'MMM d')}`
       }));
-  }, [salesData?.monthlyBreakdown, targetDate]);
+  }, [salesData?.monthlyBreakdown, salesData?.weeklyBreakdown, targetDate]);
 
   const navigateDay = (direction: 'prev' | 'next') => {
     setTargetDate(prev => direction === 'prev' ? subDays(prev, 1) : addDays(prev, 1));
