@@ -715,109 +715,86 @@ export default function PayrollReview() {
     return hours;
   };
 
-  const formatTimeOfDay12h = (time: string | null | undefined) => {
-    if (!time) return '';
-    const [hhRaw, mmRaw] = time.split(':');
-    const hh = Number(hhRaw);
-    const mm = mmRaw ?? '00';
-    const suffix = hh >= 12 ? 'PM' : 'AM';
-    const hh12 = (hh % 12) || 12;
-    return `${hh12}:${mm} ${suffix}`;
-  };
-
-  const getDayShiftPairs = (dayPunches: any[], showLive = true, includeIncomplete = false) => {
-    const sortedPunches = [...dayPunches].sort((a, b) =>
+  const calculateDayHours = (dayPunches: any[], showLive = true) => {
+    // Sort punches by time to properly pair clock_in/clock_out for multiple shifts
+    const sortedPunches = [...dayPunches].sort((a, b) => 
       new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
     );
-
-    const clockIns = sortedPunches.filter((p) => p.punch_type === 'clock_in');
-    const clockOuts = sortedPunches.filter((p) => p.punch_type === 'clock_out');
-
+    
+    const clockIns = sortedPunches.filter(p => p.punch_type === 'clock_in');
+    const clockOuts = sortedPunches.filter(p => p.punch_type === 'clock_out');
+    
+    if (clockIns.length === 0) return 0;
+    
+    let totalHours = 0;
     const usedClockOutIds = new Set<string>();
-
-    const pairs = clockIns.map((clockIn, index) => {
+    
+    clockIns.forEach((clockIn, index) => {
       const clockInTime = new Date(clockIn.punch_time).getTime();
+      
+      // Get the NEXT clock_in time to avoid matching across shifts
       const nextClockIn = clockIns[index + 1];
       const nextClockInTime = nextClockIn ? new Date(nextClockIn.punch_time).getTime() : Infinity;
-
-      const clockOut = clockOuts.find((co) => {
+      
+      // Find the next clock_out after this clock_in that hasn't been used
+      // and is BEFORE the next clock_in (to properly scope to this shift)
+      const clockOut = clockOuts.find(co => {
         const coTime = new Date(co.punch_time).getTime();
         return coTime > clockInTime && coTime < nextClockInTime && !usedClockOutIds.has(co.id);
       });
-
-      const endTime = clockOut
-        ? new Date(clockOut.punch_time)
+      
+      // If no clock out, use current time for live shifts (only for the last shift)
+      const endTime = clockOut 
+        ? new Date(clockOut.punch_time) 
         : (showLive && index === clockIns.length - 1 ? new Date() : null);
-
-      if (clockOut) usedClockOutIds.add(clockOut.id);
-
-      return {
-        clockIn,
-        clockOut: clockOut ?? null,
-        endTime,
-      };
-    });
-
-    // For display, include all pairs (even incomplete); for calculations, filter by endTime
-    return includeIncomplete ? pairs : pairs.filter((p) => !!p.endTime);
-  };
-
-  const calculateDayHours = (dayPunches: any[], showLive = true) => {
-    const sortedPunches = [...dayPunches].sort((a, b) =>
-      new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
-    );
-
-    const shiftPairs = getDayShiftPairs(dayPunches, showLive);
-    if (shiftPairs.length === 0) return 0;
-
-    let totalHours = 0;
-
-    shiftPairs.forEach(({ clockIn, endTime }) => {
+      
       if (!endTime) return;
-
-      const clockInTime = new Date(clockIn.punch_time).getTime();
-      const clockOutTime = endTime.getTime();
-
+      
+      if (clockOut) usedClockOutIds.add(clockOut.id);
+      
       let hours = calculateTimeDifferenceHours(new Date(clockIn.punch_time), endTime);
-
-      // Find meal breaks within this shift
-      const shiftBreaks = sortedPunches.filter((p) =>
-        p.punch_type === 'break_start' &&
+      
+      // Find meal break that falls within THIS specific shift (between this clock_in and its clock_out)
+      const clockOutTime = endTime.getTime();
+      const shiftBreaks = sortedPunches.filter(p => 
+        p.punch_type === 'break_start' && 
         p.notes?.includes('30 minute') &&
         new Date(p.punch_time).getTime() > clockInTime &&
         new Date(p.punch_time).getTime() < clockOutTime
       );
-
-      shiftBreaks.forEach((breakStart) => {
+      
+      shiftBreaks.forEach(breakStart => {
         const breakStartTime = new Date(breakStart.punch_time).getTime();
-
-        // Find break end: explicit break_end OR the next clock_in that immediately follows
-        const breakEnd = sortedPunches.find((p) => {
+        
+        // Find the break end - explicit break_end OR the next clock_in that immediately follows
+        const breakEnd = sortedPunches.find(p => {
           const pTime = new Date(p.punch_time).getTime();
           if (p.punch_type === 'break_end' && p.notes?.includes('30 minute')) {
             return pTime > breakStartTime && pTime < clockOutTime;
           }
+          // Only match clock_in as break_end if it's the NEXT punch after break_start
           if (p.punch_type === 'clock_in' && pTime > breakStartTime && pTime < clockOutTime) {
-            const nextPunchAfterBreak = sortedPunches.find((np) =>
+            // Make sure this is the immediate next punch
+            const nextPunchAfterBreak = sortedPunches.find(np => 
               new Date(np.punch_time).getTime() > breakStartTime
             );
             return nextPunchAfterBreak?.id === p.id;
           }
           return false;
         });
-
+        
         if (breakEnd) {
           const breakHours = calculateTimeDifferenceHours(
-            new Date(breakStart.punch_time),
+            new Date(breakStart.punch_time), 
             new Date(breakEnd.punch_time)
           );
           hours -= breakHours;
         }
       });
-
+      
       totalHours += hours;
     });
-
+    
     return totalHours;
   };
 
@@ -1790,11 +1767,8 @@ export default function PayrollReview() {
                                 {Object.entries(weekData.days)
                                   .sort(([a], [b]) => a.localeCompare(b))
                                   .map(([day, dayPunches]: [string, any]) => {
-                                    const shiftPairs = getDayShiftPairs(dayPunches, true, true); // includeIncomplete=true for display
-                                    const primaryShift = shiftPairs[0];
-                                    const clockIn = primaryShift?.clockIn;
-                                    const clockOut = primaryShift?.clockOut;
-
+                                    const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
+                                    const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
                                     const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
                                     const allBreaks = dayPunches.filter((p: any) => p.punch_type === 'break_start' || p.punch_type === 'break_end');
                                     const breakStarts = dayPunches.filter((p: any) => p.punch_type === 'break_start');
@@ -1804,7 +1778,7 @@ export default function PayrollReview() {
                                     const hasAutoClockOut = dayPunches.some((p: any) => p.is_auto_punched_out);
                                     const hasOvertime = dayPunches.some((p: any) => p.has_overtime);
                                     const hasExtendedBreak = dayPunches.some((p: any) => p.has_extended_break);
-
+                                    
                                     // Get scheduled shift for this day
                                     const scheduledShift = card.shiftsByDate?.get(day);
                                     
@@ -1846,11 +1820,6 @@ export default function PayrollReview() {
                                             <span className="text-red-600 font-medium whitespace-nowrap">
                                               {clockOut ? formatTimeDisplay(clockOut.punch_time, timezone) : '—'}
                                             </span>
-                                            {shiftPairs.length > 1 && (
-                                              <Badge variant="secondary" className="text-[10px] px-1 py-0 h-4 shrink-0">
-                                                +{shiftPairs.length - 1}
-                                              </Badge>
-                                            )}
 
                                             {/* Status Badges - inline with times */}
                                             {hasBreakViolation && (
@@ -1884,37 +1853,15 @@ export default function PayrollReview() {
                                             )}
                                           </div>
                                           
-                                          {/* Additional shifts (same day) */}
-                                          {shiftPairs.length > 1 && (
-                                            <div className="mt-0.5 space-y-0.5">
-                                              {shiftPairs.slice(1).map((sp: any, idx: number) => (
-                                                <div
-                                                  key={sp.clockIn?.id ?? idx}
-                                                  className="flex items-center gap-1.5 text-xs text-muted-foreground"
-                                                >
-                                                  <span className="whitespace-nowrap">
-                                                    {sp.clockIn ? formatTimeDisplay(sp.clockIn.punch_time, timezone) : '—'}
-                                                  </span>
-                                                  <span className="text-muted-foreground">→</span>
-                                                  <span className="whitespace-nowrap">
-                                                    {sp.clockOut ? formatTimeDisplay(sp.clockOut.punch_time, timezone) : '—'}
-                                                  </span>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          )}
-
                                           {/* Scheduled time display */}
                                           {scheduledShift && !scheduledShift.is_time_off && (
                                             <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                                               <Calendar className="h-2.5 w-2.5" />
-                                              <span>
-                                                Scheduled: {formatTimeOfDay12h(scheduledShift.start_time)} → {formatTimeOfDay12h(scheduledShift.end_time)}
-                                              </span>
+                                              <span>Scheduled: {scheduledShift.start_time?.slice(0, 5)} → {scheduledShift.end_time?.slice(0, 5)}</span>
                                             </div>
                                           )}
                                           {scheduledShift?.is_time_off && (
-                                            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
+                                            <div className="flex items-center gap-1 text-xs text-blue-500 mt-0.5">
                                               <Calendar className="h-2.5 w-2.5" />
                                               <span>Scheduled: Time Off</span>
                                             </div>
