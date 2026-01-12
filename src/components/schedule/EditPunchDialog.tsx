@@ -213,6 +213,24 @@ export function EditPunchDialog({
     setSaving(true);
     try {
       const breakNotes = `${breakType} break`;
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id || null;
+      const now = new Date().toISOString();
+
+      // Helper to determine if a time crosses midnight relative to clock-in
+      const getAdjustedDateForTime = (timeStr: string, referenceTimeStr: string, baseDate: string): string => {
+        const [timeHour] = timeStr.split(':').map(Number);
+        const [refHour] = referenceTimeStr.split(':').map(Number);
+        
+        // If the time is significantly earlier than reference (e.g., 01:30 vs 18:00)
+        // it means the time crosses midnight and should be on the next day
+        if (timeHour < 12 && refHour >= 12) {
+          const nextDay = new Date(baseDate);
+          nextDay.setDate(nextDay.getDate() + 1);
+          return nextDay.toISOString().slice(0, 10);
+        }
+        return baseDate;
+      };
 
       // Update or create each punch type
       const updates: Array<{ type: string; time: string; existingId?: string; notes?: string }> = [];
@@ -238,14 +256,19 @@ export function EditPunchDialog({
       }
 
       for (const update of updates) {
-        // Use timezone-aware conversion to ISO string
-        const punchTime = toISOStringInTimezone(punchDate, update.time, timezone);
+        // Use timezone-aware conversion to ISO string with midnight-crossing adjustment
+        const adjustedDate = update.type === 'clock_in' 
+          ? punchDate 
+          : getAdjustedDateForTime(update.time, clockInTime, punchDate);
+        const punchTime = toISOStringInTimezone(adjustedDate, update.time, timezone);
 
         if (update.existingId) {
-          // Update existing punch - clear auto_punched_out flag if manually editing clock_out
+          // Update existing punch - use edited_by (not created_by), clear auto_punched flag if clock_out
           const updateData: Record<string, unknown> = { 
             punch_time: punchTime, 
-            notes: update.notes || null 
+            notes: update.notes || null,
+            edited_by: currentUserId,
+            edited_at: now
           };
           
           // If editing a clock_out, clear the auto-punched flag since it's now a manual edit
@@ -259,7 +282,7 @@ export function EditPunchDialog({
             .eq('id', update.existingId);
           if (error) throw error;
         } else {
-          // Create new punch
+          // Create new punch - use created_by for inserts
           const { error } = await supabase
             .from('time_punches')
             .insert({
@@ -267,7 +290,8 @@ export function EditPunchDialog({
               punch_type: update.type,
               punch_time: punchTime,
               notes: update.notes || null,
-              location_id: locationId
+              location_id: locationId,
+              created_by: currentUserId
             });
           if (error) throw error;
         }
