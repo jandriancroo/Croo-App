@@ -297,9 +297,12 @@ export default function EditChecklist() {
         if (deleteError) throw deleteError;
       }
 
+      // Filter out empty items before saving
+      const validItems = items.filter(item => item.question.trim() !== '');
+      
       // Update existing items and insert new ones
-      for (let index = 0; index < items.length; index++) {
-        const item = items[index];
+      for (let index = 0; index < validItems.length; index++) {
+        const item = validItems[index];
         const itemData = {
           checklist_id: id,
           question: item.question,
