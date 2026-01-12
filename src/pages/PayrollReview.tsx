@@ -52,17 +52,56 @@ function EditShiftForm({
   onCancel: () => void;
   onDelete: () => void;
 }) {
-  const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
-  const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
-  const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
-  let mealBreakEnd = dayPunches.find((p: any) => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
+  // Sort punches chronologically to identify first clock_in and last clock_out
+  const sortedPunches = [...dayPunches].sort((a: any, b: any) => 
+    new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
+  );
+  
+  // Identify SHIFT-STARTING clock_ins (not return-from-break clock_ins)
+  const shiftStartClockIns: any[] = [];
+  sortedPunches.forEach((punch: any, idx: number) => {
+    if (punch.punch_type !== 'clock_in') return;
+    if (idx === 0) {
+      shiftStartClockIns.push(punch);
+      return;
+    }
+    const prevPunch = sortedPunches[idx - 1];
+    if (prevPunch.punch_type === 'clock_out') {
+      shiftStartClockIns.push(punch);
+    }
+  });
+  
+  // For single-shift editing: use the FIRST shift-starting clock_in
+  const clockIn = shiftStartClockIns[0] || null;
+  
+  // Find the LAST clock_out of the day (for the shift that started with clockIn)
+  const clockOuts = sortedPunches.filter((p: any) => p.punch_type === 'clock_out');
+  // If there are multiple shifts, get the clock_out that belongs to the first shift
+  // (the one before the next shift-starting clock_in, or the last if only one shift)
+  let clockOut: any = null;
+  if (shiftStartClockIns.length === 1) {
+    // Single shift - use last clock_out
+    clockOut = clockOuts[clockOuts.length - 1] || null;
+  } else if (shiftStartClockIns.length > 1 && clockIn) {
+    // Multiple shifts - find clock_out between first and second shift
+    const firstShiftStart = new Date(clockIn.punch_time).getTime();
+    const secondShiftStart = new Date(shiftStartClockIns[1].punch_time).getTime();
+    clockOut = clockOuts.find((co: any) => {
+      const coTime = new Date(co.punch_time).getTime();
+      return coTime > firstShiftStart && coTime < secondShiftStart;
+    }) || null;
+  }
+  
+  const mealBreakStart = sortedPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
+  let mealBreakEnd = sortedPunches.find((p: any) => p.punch_type === 'break_end' && p.notes?.includes('30 minute'));
   
   // Fallback: If no explicit break_end, check if a clock_in follows the break_start (used to end break)
   if (mealBreakStart && !mealBreakEnd) {
     const breakStartTime = new Date(mealBreakStart.punch_time).getTime();
-    const clockInAfterBreak = dayPunches.find((p: any) => 
+    const clockInAfterBreak = sortedPunches.find((p: any) => 
       p.punch_type === 'clock_in' && 
-      new Date(p.punch_time).getTime() > breakStartTime
+      new Date(p.punch_time).getTime() > breakStartTime &&
+      !shiftStartClockIns.includes(p) // Must NOT be a shift-starting clock_in
     );
     if (clockInAfterBreak) {
       mealBreakEnd = clockInAfterBreak;
@@ -90,16 +129,26 @@ function EditShiftForm({
   const handleSave = async () => {
     setSaving(true);
     try {
+      // Get current user for change tracking
+      const { data: { user } } = await supabase.auth.getUser();
+      const currentUserId = user?.id || null;
+      
       // Update clock in - use timezone-aware conversion
       if (clockIn && clockInTime) {
         const newClockInTime = toISOStringInTimezone(shiftDate, clockInTime, timezone);
-        await supabase.from('time_punches').update({ punch_time: newClockInTime }).eq('id', clockIn.id);
+        await supabase.from('time_punches').update({ 
+          punch_time: newClockInTime,
+          created_by: currentUserId 
+        }).eq('id', clockIn.id);
       }
 
       // Update clock out
       if (clockOut && clockOutTime) {
         const newClockOutTime = toISOStringInTimezone(shiftDate, clockOutTime, timezone);
-        await supabase.from('time_punches').update({ punch_time: newClockOutTime }).eq('id', clockOut.id);
+        await supabase.from('time_punches').update({ 
+          punch_time: newClockOutTime,
+          created_by: currentUserId 
+        }).eq('id', clockOut.id);
       } else if (!clockOut && clockOutTime) {
         // Add missing clock out
         const newClockOutTime = toISOStringInTimezone(shiftDate, clockOutTime, timezone);
@@ -107,7 +156,8 @@ function EditShiftForm({
           user_id: userId,
           location_id: locationId,
           punch_type: 'clock_out',
-          punch_time: newClockOutTime
+          punch_time: newClockOutTime,
+          created_by: currentUserId
         });
       }
 
@@ -117,26 +167,34 @@ function EditShiftForm({
         const breakEndTime = toISOStringInTimezone(shiftDate, mealBreakEndTime, timezone);
 
         if (mealBreakStart) {
-          await supabase.from('time_punches').update({ punch_time: breakStartTime }).eq('id', mealBreakStart.id);
+          await supabase.from('time_punches').update({ 
+            punch_time: breakStartTime,
+            created_by: currentUserId 
+          }).eq('id', mealBreakStart.id);
         } else {
           await supabase.from('time_punches').insert({
             user_id: userId,
             location_id: locationId,
             punch_type: 'break_start',
             punch_time: breakStartTime,
-            notes: '30 minute meal break'
+            notes: '30 minute meal break',
+            created_by: currentUserId
           });
         }
 
         if (mealBreakEnd) {
-          await supabase.from('time_punches').update({ punch_time: breakEndTime }).eq('id', mealBreakEnd.id);
+          await supabase.from('time_punches').update({ 
+            punch_time: breakEndTime,
+            created_by: currentUserId 
+          }).eq('id', mealBreakEnd.id);
         } else {
           await supabase.from('time_punches').insert({
             user_id: userId,
             location_id: locationId,
             punch_type: 'break_end',
             punch_time: breakEndTime,
-            notes: '30 minute meal break'
+            notes: '30 minute meal break',
+            created_by: currentUserId
           });
         }
       } else {
