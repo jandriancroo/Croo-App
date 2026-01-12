@@ -37,6 +37,10 @@ export const useTeamScheduleVisibility = () => {
     refetchInterval: 30 * 1000, // Refetch every 30 seconds to pick up changes
   });
 
+  // IMPORTANT: Consider role "loading" if role is null/undefined (query disabled or not yet resolved)
+  // This prevents false negatives when auth is still initializing
+  const effectiveRoleLoading = roleLoading || role === null || role === undefined;
+
   if (import.meta.env.DEV) {
     console.info('[useTeamScheduleVisibility]', {
       role,
@@ -44,6 +48,7 @@ export const useTeamScheduleVisibility = () => {
       permissionEnabled: permissionData?.enabled,
       permissionLoading,
       permissionError,
+      effectiveRoleLoading,
     });
   }
 
@@ -59,7 +64,7 @@ export const useTeamScheduleVisibility = () => {
 
   return {
     canSeeFullSchedule,
-    loading: roleLoading || permissionLoading,
+    loading: effectiveRoleLoading || permissionLoading,
     teamMemberFullScheduleEnabled,
   };
 };
