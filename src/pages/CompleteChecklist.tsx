@@ -33,6 +33,8 @@ interface ChecklistItem {
   reference_link?: string;
   reference_video_url?: string;
   reference_notes?: string;
+  manager_shift?: string | null;
+  order_index?: number;
 }
 interface Checklist {
   id: string;
@@ -40,6 +42,7 @@ interface Checklist {
   description: string | null;
   location_id: string | null;
   frequency: string;
+  enable_am_pm_division?: boolean;
 }
 interface ResponseWithCompleter {
   responseId: string;
@@ -856,16 +859,45 @@ export default function CompleteChecklist() {
         </div>
 
         <div className="space-y-3">
-          {items
-            .filter(item => {
+          {(() => {
+            // Filter items based on hideCompleted
+            let filteredItems = items.filter(item => {
               if (!hideCompleted) return true;
               const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
               const hasResponse = isImageItem 
                 ? isMultiPhotoComplete(item, responses[item.id])
                 : responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
               return !hasResponse;
-            })
-            .map(item => {
+            });
+
+            // If AM/PM division is enabled, sort and group items
+            const hasAmPmDivision = checklist?.enable_am_pm_division;
+            let sortedItems = filteredItems;
+            
+            if (hasAmPmDivision) {
+              // Sort: AM first (by order_index), then PM (by order_index), then unassigned (by order_index)
+              sortedItems = [...filteredItems].sort((a, b) => {
+                const shiftOrder = { 'am': 0, 'pm': 1, null: 2, undefined: 2 };
+                const aOrder = shiftOrder[a.manager_shift as keyof typeof shiftOrder] ?? 2;
+                const bOrder = shiftOrder[b.manager_shift as keyof typeof shiftOrder] ?? 2;
+                if (aOrder !== bOrder) return aOrder - bOrder;
+                return (a.order_index || 0) - (b.order_index || 0);
+              });
+            }
+
+            // Render items with optional divider
+            let lastShift: string | null | undefined = undefined;
+            let renderedDivider = false;
+            
+            return sortedItems.map((item, idx) => {
+              const showDivider = hasAmPmDivision && 
+                !renderedDivider && 
+                item.manager_shift === 'pm' && 
+                sortedItems.some(i => i.manager_shift === 'am');
+              
+              if (showDivider) {
+                renderedDivider = true;
+              }
           const isCompleted = responsesWithCompleters[item.id]?.completedBy;
           const completerInfo = responsesWithCompleters[item.id]?.completedBy;
           const isImageItem = item.item_type === 'image' || item.item_type === 'PHOTO' || item.item_type === 'temperature';
@@ -874,7 +906,31 @@ export default function CompleteChecklist() {
             : responses[item.id] !== undefined && responses[item.id] !== '' && responses[item.id] !== null;
           const currentPhotos = isImageItem ? getPhotosForItem(item.id) : [];
           
-          return <div key={item.id} className="space-y-2">
+          return (
+            <div key={item.id}>
+              {/* AM/PM Division Divider */}
+              {showDivider && (
+                <div className="flex items-center gap-3 py-4 my-2">
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
+                  <span className="text-sm font-semibold text-amber-600 dark:text-amber-400 px-3 py-1 rounded-full bg-amber-100/50 dark:bg-amber-900/30">
+                    PM Manager Tasks
+                  </span>
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-500 to-transparent" />
+                </div>
+              )}
+              
+              {/* Show AM label for first AM item */}
+              {hasAmPmDivision && idx === 0 && item.manager_shift === 'am' && (
+                <div className="flex items-center gap-3 pb-3 mb-2">
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
+                  <span className="text-sm font-semibold text-blue-600 dark:text-blue-400 px-3 py-1 rounded-full bg-blue-100/50 dark:bg-blue-900/30">
+                    AM Manager Tasks
+                  </span>
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-blue-500 to-transparent" />
+                </div>
+              )}
+              
+              <div className="space-y-2">
               {/* Title above divider - never blurred */}
               <div className="px-1">
                 <h3 className="text-base font-medium">
@@ -1132,8 +1188,11 @@ export default function CompleteChecklist() {
                     </div>}
                 </CardContent>
               </Card>
-            </div>;
-          })}
+              </div>
+            </div>
+          );
+            });
+          })()}
 
           {showNotes && (
             <Card>
