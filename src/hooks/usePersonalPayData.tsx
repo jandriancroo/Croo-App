@@ -7,11 +7,23 @@ import { startOfWeek, endOfWeek, addDays, differenceInMinutes, parseISO } from '
 import { toZonedTime, format as formatTZ } from 'date-fns-tz';
 import { calculateCutoffHour } from '@/utils/timezoneUtils';
 
-interface PersonalPayData {
+export interface ShiftEntry {
+  date: string;
+  clockIn: Date;
+  clockOut: Date | null;
+  hours: number;
+  estimatedPay: number;
+}
+
+export interface PersonalPayData {
   hoursWeek: number;
   hoursPayroll: number;
   payWeek: number;
   payPayroll: number;
+  shifts: ShiftEntry[];
+  payPeriodStart: string;
+  payPeriodEnd: string;
+  hourlyWage: number;
 }
 
 interface TimePunch {
@@ -22,13 +34,41 @@ interface TimePunch {
   notes: string | null;
 }
 
-export function usePersonalPayData() {
+// Baseline for pay periods: Nov 3, 2025 (Monday)
+const PAY_PERIOD_BASELINE = new Date(2025, 10, 3);
+
+export function getPayPeriodDates(periodOffset: number = 0, timezone: string = 'America/Los_Angeles'): { start: Date; end: Date; startStr: string; endStr: string } {
+  const now = new Date();
+  const zonedNow = toZonedTime(now, timezone);
+  
+  // Calculate days since baseline
+  const daysSinceBaseline = Math.floor((zonedNow.getTime() - PAY_PERIOD_BASELINE.getTime()) / (1000 * 60 * 60 * 24));
+  
+  // Each pay period is 14 days
+  const periodsElapsed = Math.floor(daysSinceBaseline / 14) + periodOffset;
+  
+  // Calculate period start
+  const periodStart = new Date(PAY_PERIOD_BASELINE);
+  periodStart.setDate(PAY_PERIOD_BASELINE.getDate() + (periodsElapsed * 14));
+  
+  const periodEnd = new Date(periodStart);
+  periodEnd.setDate(periodStart.getDate() + 13);
+  
+  return {
+    start: periodStart,
+    end: periodEnd,
+    startStr: formatTZ(periodStart, 'yyyy-MM-dd', { timeZone: timezone }),
+    endStr: formatTZ(periodEnd, 'yyyy-MM-dd', { timeZone: timezone }),
+  };
+}
+
+export function usePersonalPayData(periodOffset: number = 0) {
   const { user } = useAuth();
   const { currentLocation } = useLocation();
   const { timezone } = useLocationTimezone();
 
   return useQuery({
-    queryKey: ['personal-pay-data', user?.id, currentLocation?.id],
+    queryKey: ['personal-pay-data', user?.id, currentLocation?.id, periodOffset],
     queryFn: async (): Promise<PersonalPayData | null> => {
       if (!user?.id || !currentLocation?.id) return null;
 
@@ -59,13 +99,6 @@ export function usePersonalPayData() {
       });
       const defaultCutoff = 5;
 
-      // Get labor rules for pay period info
-      const { data: laborRules } = await supabase
-        .from('labor_rules')
-        .select('pay_period_type, pay_period_start_date, meal_break_hours, meal_break_duration')
-        .eq('location_id', currentLocation.id)
-        .maybeSingle();
-
       // Calculate week start/end in timezone
       const now = new Date();
       const zonedNow = toZonedTime(now, timezone);
@@ -75,29 +108,10 @@ export function usePersonalPayData() {
       const weekStartStr = formatTZ(weekStart, 'yyyy-MM-dd', { timeZone: timezone });
       const weekEndStr = formatTZ(addDays(weekEnd, 1), 'yyyy-MM-dd', { timeZone: timezone }); // Include full Sunday
       
-      console.log('[usePersonalPayData] Week range:', weekStartStr, 'to', weekEndStr, 'timezone:', timezone);
-
-      // Calculate pay period dates
-      let payPeriodStart: Date;
-      let payPeriodEnd: Date;
-      
-      if (laborRules?.pay_period_start_date) {
-        const periodStartBase = parseISO(laborRules.pay_period_start_date);
-        const periodLengthDays = laborRules.pay_period_type === 'biweekly' ? 14 : 7;
-        
-        // Find the current pay period
-        const daysSinceBase = Math.floor((now.getTime() - periodStartBase.getTime()) / (1000 * 60 * 60 * 24));
-        const periodsElapsed = Math.floor(daysSinceBase / periodLengthDays);
-        payPeriodStart = addDays(periodStartBase, periodsElapsed * periodLengthDays);
-        payPeriodEnd = addDays(payPeriodStart, periodLengthDays);
-      } else {
-        // Default to current week if no pay period configured
-        payPeriodStart = weekStart;
-        payPeriodEnd = addDays(weekEnd, 1);
-      }
-      
-      const payPeriodStartStr = formatTZ(payPeriodStart, 'yyyy-MM-dd', { timeZone: timezone });
-      const payPeriodEndStr = formatTZ(payPeriodEnd, 'yyyy-MM-dd', { timeZone: timezone });
+      // Calculate pay period dates using shared function
+      const payPeriod = getPayPeriodDates(periodOffset, timezone);
+      const payPeriodStartStr = payPeriod.startStr;
+      const payPeriodEndStr = formatTZ(addDays(payPeriod.end, 1), 'yyyy-MM-dd', { timeZone: timezone }); // day after end for < comparison
 
       // Fetch punches for both week and pay period (use wider range + buffer for overnight)
       const earlierDate = payPeriodStartStr < weekStartStr ? payPeriodStartStr : weekStartStr;
@@ -122,9 +136,6 @@ export function usePersonalPayData() {
         console.error('[usePersonalPayData] Error fetching punches:', punchError);
         return null;
       }
-      
-      console.log('[usePersonalPayData] Query range:', earlierDate, 'to', laterDate);
-      console.log('[usePersonalPayData] Fetched punches count:', punches?.length);
 
       // Helper to get cutoff hour for a given date
       const getCutoffForDate = (dateStr: string): number => {
@@ -184,14 +195,13 @@ export function usePersonalPayData() {
         return punchesByDay;
       };
 
-      // Calculate hours for a given date range using business day grouping
-      const calculateHours = (startDate: string, endDate: string): number => {
-        console.log('[usePersonalPayData] calculateHours for range:', startDate, 'to', endDate);
-        
-        const allPunches = (punches || []) as TimePunch[];
-        const punchesByBusinessDay = groupPunchesByBusinessDay(allPunches);
-        
+      const allPunches = (punches || []) as TimePunch[];
+      const punchesByBusinessDay = groupPunchesByBusinessDay(allPunches);
+
+      // Calculate hours and build shift entries for a given date range
+      const calculateHoursAndShifts = (startDate: string, endDate: string): { hours: number; shifts: ShiftEntry[] } => {
         let totalMinutes = 0;
+        const shiftEntries: ShiftEntry[] = [];
 
         punchesByBusinessDay.forEach((dayPunches, day) => {
           // Only count days within the requested range
@@ -210,11 +220,17 @@ export function usePersonalPayData() {
           const firstClockIn = clockIns[0];
           const lastClockOut = clockOuts.length > 0 ? clockOuts[clockOuts.length - 1] : null;
 
-          if (!lastClockOut) return; // Still clocked in
-
           const shiftStart = new Date(firstClockIn.punch_time);
-          const shiftEnd = new Date(lastClockOut.punch_time);
-          const grossMinutes = differenceInMinutes(shiftEnd, shiftStart);
+          const shiftEnd = lastClockOut ? new Date(lastClockOut.punch_time) : null;
+          
+          // Calculate gross minutes
+          let grossMinutes = 0;
+          if (shiftEnd) {
+            grossMinutes = differenceInMinutes(shiftEnd, shiftStart);
+          } else if (periodOffset === 0) {
+            // Still clocked in - only count for current period
+            grossMinutes = differenceInMinutes(new Date(), shiftStart);
+          }
 
           // Subtract unpaid breaks
           let breakMinutes = 0;
@@ -236,22 +252,37 @@ export function usePersonalPayData() {
             }
           });
 
-          totalMinutes += Math.max(0, grossMinutes - breakMinutes);
+          const netMinutes = Math.max(0, grossMinutes - breakMinutes);
+          totalMinutes += netMinutes;
+          
+          const shiftHours = netMinutes / 60;
+          shiftEntries.push({
+            date: day,
+            clockIn: shiftStart,
+            clockOut: shiftEnd,
+            hours: shiftHours,
+            estimatedPay: shiftHours * hourlyWage,
+          });
         });
 
-        return totalMinutes / 60; // Convert to hours
+        // Sort shifts by date descending
+        shiftEntries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+        return { hours: totalMinutes / 60, shifts: shiftEntries };
       };
 
-      const hoursWeek = calculateHours(weekStartStr, weekEndStr);
-      const hoursPayroll = calculateHours(payPeriodStartStr, payPeriodEndStr);
-      
-      console.log('[usePersonalPayData] Final result - hoursWeek:', hoursWeek, 'hoursPayroll:', hoursPayroll, 'wage:', hourlyWage);
+      const weekResult = calculateHoursAndShifts(weekStartStr, weekEndStr);
+      const payrollResult = calculateHoursAndShifts(payPeriodStartStr, payPeriodEndStr);
 
       return {
-        hoursWeek,
-        hoursPayroll,
-        payWeek: hoursWeek * hourlyWage,
-        payPayroll: hoursPayroll * hourlyWage,
+        hoursWeek: weekResult.hours,
+        hoursPayroll: payrollResult.hours,
+        payWeek: weekResult.hours * hourlyWage,
+        payPayroll: payrollResult.hours * hourlyWage,
+        shifts: payrollResult.shifts,
+        payPeriodStart: payPeriod.startStr,
+        payPeriodEnd: formatTZ(payPeriod.end, 'yyyy-MM-dd', { timeZone: timezone }),
+        hourlyWage,
       };
     },
     enabled: !!user?.id && !!currentLocation?.id,
