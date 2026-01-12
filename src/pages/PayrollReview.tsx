@@ -523,11 +523,31 @@ export default function PayrollReview() {
     return hours;
   };
 
+  // Deterministic punch sort: timestamp first, then type priority.
+  // This prevents edge-cases where break_start and clock_in share the same timestamp
+  // (which can otherwise produce 0.0 hrs because the first punch isn't clock_in).
+  const sortPunches = (punches: any[]) => {
+    const priority: Record<string, number> = {
+      clock_in: 0,
+      break_start: 1,
+      break_end: 2,
+      clock_out: 3,
+    };
+
+    return [...punches].sort((a, b) => {
+      const t = new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime();
+      if (t !== 0) return t;
+      const pa = priority[a.punch_type] ?? 99;
+      const pb = priority[b.punch_type] ?? 99;
+      if (pa !== pb) return pa - pb;
+      // final tie-breaker for stable-ish ordering
+      return String(a.id ?? '').localeCompare(String(b.id ?? ''));
+    });
+  };
+
   // Calculate day hours - used for both totalHours calculation and UI display
   const calculateDayHours = (dayPunches: any[], showLive = true) => {
-    const sortedPunches = [...dayPunches].sort((a, b) => 
-      new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
-    );
+    const sortedPunches = sortPunches(dayPunches);
     
     if (sortedPunches.length === 0) return 0;
     
@@ -857,9 +877,7 @@ export default function PayrollReview() {
 
 
   const hasDayIssues = (dayPunches: any[]) => {
-    const sortedPunches = [...dayPunches].sort((a, b) => 
-      new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
-    );
+    const sortedPunches = sortPunches(dayPunches);
     
     const clockIns = sortedPunches.filter(p => p.punch_type === 'clock_in');
     const clockOuts = sortedPunches.filter(p => p.punch_type === 'clock_out');
@@ -1825,10 +1843,8 @@ export default function PayrollReview() {
                                 {Object.entries(weekData.days)
                                   .sort(([a], [b]) => a.localeCompare(b))
                                   .map(([day, dayPunches]: [string, any]) => {
-                                    // Sort punches chronologically
-                                    const sortedPunches = [...dayPunches].sort((a: any, b: any) => 
-                                      new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
-                                    );
+                                    // Sort punches chronologically (with stable tie-breakers)
+                                    const sortedPunches = sortPunches(dayPunches);
                                     
                                     // Identify distinct shifts (a shift starts with clock_in after clock_out or first punch)
                                     const shifts: { clockIn: any; clockOut: any | null; breaks: any[] }[] = [];
