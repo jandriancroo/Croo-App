@@ -4,10 +4,12 @@ import { PageHeaderDivider } from "@/components/ui/page-header-divider";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
-import { format, parseISO } from "date-fns";
-import { Clock, DollarSign, TrendingUp, TrendingDown, Calendar } from "lucide-react";
+import { format, parseISO, addDays, subDays } from "date-fns";
+import { Clock, DollarSign, TrendingUp, TrendingDown, Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import crooCashIcon from "@/assets/croo-cash-icon.png";
+import { useLocation } from "@/hooks/useLocation";
 
 interface Transaction {
   id: string;
@@ -33,6 +35,7 @@ interface ShiftEntry {
 
 export default function MyWallet() {
   const { user } = useAuth();
+  const { currentLocation } = useLocation();
   const [loading, setLoading] = useState(true);
   const [hoursWorked, setHoursWorked] = useState(0);
   const [estimatedGross, setEstimatedGross] = useState(0);
@@ -41,30 +44,27 @@ export default function MyWallet() {
   const [currentPayPeriod, setCurrentPayPeriod] = useState<PayPeriod | null>(null);
   const [hourlyWage, setHourlyWage] = useState(15);
   const [shifts, setShifts] = useState<ShiftEntry[]>([]);
+  const [periodOffset, setPeriodOffset] = useState(0); // 0 = current, -1 = previous, etc.
+  const [cutoffHour, setCutoffHour] = useState(3); // Default 3am cutoff
 
-  useEffect(() => {
-    if (user) {
-      fetchWalletData();
-    }
-  }, [user]);
+  // Baseline: Nov 3, 2025 (Monday)
+  const baseline = new Date(2025, 10, 3);
 
-  const getCurrentPayPeriod = (): PayPeriod => {
-    // Baseline: Nov 3, 2025 (Monday)
-    const baseline = new Date(2025, 10, 3); // Month is 0-indexed
+  const getPayPeriod = (offset: number): PayPeriod => {
     const today = new Date();
     
     // Calculate days since baseline
     const daysSinceBaseline = Math.floor((today.getTime() - baseline.getTime()) / (1000 * 60 * 60 * 24));
     
     // Each pay period is 14 days
-    const periodsElapsed = Math.floor(daysSinceBaseline / 14);
+    const periodsElapsed = Math.floor(daysSinceBaseline / 14) + offset;
     
-    // Calculate current period start
+    // Calculate period start
     const periodStart = new Date(baseline);
     periodStart.setDate(baseline.getDate() + (periodsElapsed * 14));
     
-    // If today is before baseline, use baseline as start
-    if (today < baseline) {
+    // If this would be before baseline, use baseline
+    if (periodStart < baseline) {
       return {
         start_date: format(baseline, 'yyyy-MM-dd'),
         end_date: format(new Date(baseline.getTime() + 13 * 24 * 60 * 60 * 1000), 'yyyy-MM-dd')
@@ -80,12 +80,57 @@ export default function MyWallet() {
     };
   };
 
+  const isCurrentPeriod = periodOffset === 0;
+
+  useEffect(() => {
+    if (user) {
+      fetchWalletData();
+    }
+  }, [user, periodOffset, currentLocation?.id]);
+
+  // Fetch location hours for cutoff calculation
+  useEffect(() => {
+    const fetchCutoffHour = async () => {
+      if (!currentLocation?.id) return;
+      
+      const { data: locationHours } = await supabase
+        .from("location_hours")
+        .select("close_time")
+        .eq("location_id", currentLocation.id)
+        .not("close_time", "is", null)
+        .limit(1)
+        .single();
+      
+      if (locationHours?.close_time) {
+        const [hours] = locationHours.close_time.split(':').map(Number);
+        // Cutoff is close_time + 3 hours
+        setCutoffHour((hours + 3) % 24);
+      }
+    };
+    
+    fetchCutoffHour();
+  }, [currentLocation]);
+
+  // Helper to get business day for a punch time
+  const getBusinessDay = (punchTimeStr: string): string => {
+    const punchTime = new Date(punchTimeStr);
+    const hours = punchTime.getHours();
+    
+    // If punch is before cutoff hour (e.g., 3am), it belongs to previous business day
+    if (hours < cutoffHour) {
+      const prevDay = subDays(punchTime, 1);
+      return format(prevDay, 'yyyy-MM-dd');
+    }
+    
+    return format(punchTime, 'yyyy-MM-dd');
+  };
+
   const fetchWalletData = async () => {
     if (!user) return;
 
     try {
       setLoading(true);
-      const payPeriod = getCurrentPayPeriod();
+      const payPeriod = getPayPeriod(periodOffset);
       setCurrentPayPeriod(payPeriod);
 
       // Fetch user profile for wage and croo cash
@@ -101,33 +146,40 @@ export default function MyWallet() {
         setCrooCashBalance(profile.croo_cash_balance || 0);
       }
 
-      // Fetch time punches for current pay period
+      // Fetch time punches with a buffer for overnight shifts
+      // Buffer: 1 day before start, 1 day after end to catch overnight punches
+      const bufferStart = format(subDays(parseISO(payPeriod.start_date), 1), 'yyyy-MM-dd');
+      const bufferEnd = format(addDays(parseISO(payPeriod.end_date), 1), 'yyyy-MM-dd');
+      
       const { data: punches } = await supabase
         .from("time_punches")
         .select("*")
         .eq("user_id", user.id)
-        .gte("punch_time", `${payPeriod.start_date}T00:00:00`)
-        .lte("punch_time", `${payPeriod.end_date}T23:59:59`)
+        .gte("punch_time", `${bufferStart}T00:00:00`)
+        .lte("punch_time", `${bufferEnd}T23:59:59`)
         .order("punch_time", { ascending: true });
 
-      // Calculate hours worked from punches and build shift entries
-      // Group punches by day and calculate net hours (subtracting unpaid breaks)
+      // Group punches by BUSINESS DAY (not calendar day)
       let totalMinutes = 0;
       const shiftEntries: ShiftEntry[] = [];
       
       if (punches && punches.length > 0) {
-        // Group punches by date
-        const punchesByDate: Record<string, any[]> = {};
+        const punchesByBusinessDay: Record<string, any[]> = {};
+        
         for (const punch of punches) {
-          const punchDate = format(new Date(punch.punch_time), 'yyyy-MM-dd');
-          if (!punchesByDate[punchDate]) {
-            punchesByDate[punchDate] = [];
+          const businessDay = getBusinessDay(punch.punch_time);
+          
+          // Only include if business day falls within pay period
+          if (businessDay >= payPeriod.start_date && businessDay <= payPeriod.end_date) {
+            if (!punchesByBusinessDay[businessDay]) {
+              punchesByBusinessDay[businessDay] = [];
+            }
+            punchesByBusinessDay[businessDay].push(punch);
           }
-          punchesByDate[punchDate].push(punch);
         }
 
-        // Process each day
-        for (const [date, dayPunches] of Object.entries(punchesByDate)) {
+        // Process each business day
+        for (const [date, dayPunches] of Object.entries(punchesByBusinessDay)) {
           // Sort punches by time
           dayPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
           
@@ -145,12 +197,13 @@ export default function MyWallet() {
             if (clockOutTime) {
               grossMinutes = (clockOutTime.getTime() - clockInTime.getTime()) / (1000 * 60);
             } else {
-              // Currently clocked in
-              grossMinutes = (new Date().getTime() - clockInTime.getTime()) / (1000 * 60);
+              // Currently clocked in - only for current period
+              if (isCurrentPeriod) {
+                grossMinutes = (new Date().getTime() - clockInTime.getTime()) / (1000 * 60);
+              }
             }
             
             // Calculate unpaid break time
-            // break_start followed by clock_in (which acts as break_end in this system)
             let breakMinutes = 0;
             const breakStarts = dayPunches.filter(p => 
               p.punch_type === 'break_start' && 
@@ -159,7 +212,6 @@ export default function MyWallet() {
             
             for (const breakStart of breakStarts) {
               const breakStartTime = new Date(breakStart.punch_time);
-              // Find the next clock_in after this break_start (acts as break_end)
               const breakEnd = dayPunches.find(p => 
                 p.punch_type === 'clock_in' && 
                 new Date(p.punch_time) > breakStartTime
@@ -252,11 +304,41 @@ export default function MyWallet() {
       <div className="space-y-4">
         <div>
           <h1 className="text-3xl font-bold">My Wallet</h1>
-          <p className="text-muted-foreground">
-            {currentPayPeriod && (
-              <>Pay Period: {format(parseISO(currentPayPeriod.start_date), "MMM d")} - {format(parseISO(currentPayPeriod.end_date), "MMM d, yyyy")}</>
-            )}
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="text-muted-foreground">
+              {currentPayPeriod && (
+                <>Pay Period: {format(parseISO(currentPayPeriod.start_date), "MMM d")} - {format(parseISO(currentPayPeriod.end_date), "MMM d, yyyy")}</>
+              )}
+            </p>
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setPeriodOffset(prev => prev - 1)}
+                className="h-8 w-8"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setPeriodOffset(0)}
+                disabled={isCurrentPeriod}
+                className="text-xs"
+              >
+                {isCurrentPeriod ? "Current" : "Today"}
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setPeriodOffset(prev => prev + 1)}
+                disabled={isCurrentPeriod}
+                className="h-8 w-8"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
           <PageHeaderDivider />
         </div>
 
