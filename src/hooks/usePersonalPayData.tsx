@@ -284,7 +284,8 @@ export function usePersonalPayData(periodOffset: number = 0) {
             if (!shiftEnd) return;
             
             const shiftStart = new Date(clockIn.punch_time);
-            let grossMinutes = differenceInMinutes(shiftEnd, shiftStart);
+            // Use millisecond math (not differenceInMinutes) to avoid rounding down partial minutes
+            const grossMinutes = (shiftEnd.getTime() - shiftStart.getTime()) / 60000;
 
             // Subtract 30-minute meal breaks within this shift (same logic as PayrollReview)
             const clockOutTime = shiftEnd.getTime();
@@ -308,9 +309,9 @@ export function usePersonalPayData(periodOffset: number = 0) {
                 return !shiftStartClockIns.some(s => s.id === p.id);
               });
               
-              if (breakEndPunch) {
-                breakMinutes += differenceInMinutes(new Date(breakEndPunch.punch_time), new Date(breakStart.punch_time));
-              }
+               if (breakEndPunch) {
+                 breakMinutes += (new Date(breakEndPunch.punch_time).getTime() - new Date(breakStart.punch_time).getTime()) / 60000;
+               }
             });
 
             const netMinutes = Math.max(0, grossMinutes - breakMinutes);
