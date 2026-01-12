@@ -956,33 +956,53 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     return calculatedWeekPace - calculatedWeekProjected;
   }, [calculatedWeekPace, calculatedWeekProjected]);
 
-  // Calculate accumulated month delta: sum of (actual - projection) for all completed days + today's pace delta
-  const accumulatedMonthDelta = useMemo(() => {
-    if (!salesData?.monthlyBreakdown) return 0;
-    
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
-    let delta = 0;
-    
-    for (const day of salesData.monthlyBreakdown) {
-      const actual = day.sales || 0;
-      const projected = day.projected || 0;
-      
-      if (day.date < todayStr && actual > 0) {
-        // Past day with sales: add the difference (actual - projected)
-        delta += actual - projected;
-      } else if (day.date === todayStr && isToday) {
-        // Today: use pace delta if available, otherwise use actual - projected
-        if (salesData?.projections?.todayPaceAdjusted && salesData?.projections?.todayProjected) {
-          delta += salesData.projections.todayPaceAdjusted - salesData.projections.todayProjected;
-        } else if (actual > 0) {
-          delta += actual - projected;
-        }
-      }
-      // Future days: no delta yet
+  // Calculate Month Projected (Goal): sum of all daily projections
+  const calculatedMonthProjected = useMemo(() => {
+    if (!salesData?.monthlyBreakdown || salesData.monthlyBreakdown.length === 0) {
+      return salesData?.projections?.monthProjected || 0;
     }
     
-    return delta;
-  }, [salesData?.monthlyBreakdown, salesData?.projections?.todayPaceAdjusted, salesData?.projections?.todayProjected, isToday]);
+    // Sum all daily projections to get the fixed monthly goal
+    let total = 0;
+    for (const day of salesData.monthlyBreakdown) {
+      total += day.projected || 0;
+    }
+    
+    return total > 0 ? total : (salesData?.projections?.monthProjected || 0);
+  }, [salesData?.monthlyBreakdown, salesData?.projections?.monthProjected]);
+
+  // Calculate Month Pace: actual past days + today's paced finish + projected future days
+  // This mirrors the weekly pace logic exactly
+  const calculatedMonthPace = useMemo(() => {
+    if (!salesData?.monthlyBreakdown || salesData.monthlyBreakdown.length === 0) {
+      return salesData?.projections?.monthProjected || 0;
+    }
+    
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    
+    let total = 0;
+    for (const day of salesData.monthlyBreakdown) {
+      if (day.date < todayStr) {
+        // Past day: use actual if available, otherwise projected
+        total += day.sales > 0 ? day.sales : (day.projected || 0);
+      } else if (day.date === todayStr && isToday) {
+        // Today: use daily pace (todayPaceAdjusted) to show real-time trending
+        const todayValue = salesData?.projections?.todayPaceAdjusted 
+          ?? (day.sales > 0 ? day.sales : (day.projected || 0));
+        total += todayValue;
+      } else {
+        // Future days: use projected
+        total += day.projected || 0;
+      }
+    }
+    
+    return total > 0 ? total : (salesData?.projections?.monthProjected || 0);
+  }, [salesData?.monthlyBreakdown, salesData?.projections?.monthProjected, salesData?.projections?.todayPaceAdjusted, isToday]);
+
+  // Calculate accumulated month delta: Pace - Target (the difference between trending and goal)
+  const accumulatedMonthDelta = useMemo(() => {
+    return calculatedMonthPace - calculatedMonthProjected;
+  }, [calculatedMonthPace, calculatedMonthProjected]);
 
   // Notify parent component when sales data changes (for data cubes to use)
   // Include pace-adjusted values that are calculated in the useMemo hooks above.
@@ -998,7 +1018,8 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
 
     const weekTargetEow = calculatedWeekProjected;
     const weekPace = calculatedWeekPace;
-    const monthPace = (salesData.projections?.monthProjected || 0) + accumulatedMonthDelta;
+    const monthTargetEom = calculatedMonthProjected;
+    const monthPace = calculatedMonthPace;
 
     const emitKey = JSON.stringify({
       daily: salesData.daily,
@@ -1008,7 +1029,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       todayPaceAdjusted: salesData.projections?.todayPaceAdjusted,
       weekTargetEow,
       weekPace,
-      monthProjected: salesData.projections?.monthProjected,
+      monthProjected: monthTargetEom,
       monthPace,
       prevDayFullDay: salesData.comparison?.prevDayFullDay,
       prevWeek: salesData.comparison?.prevWeek,
@@ -1032,8 +1053,9 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
       projections: salesData.projections
         ? {
             ...salesData.projections,
-            // Make Target EOW match "Proj Weekly" cubes
+            // Make Target EOW/EOM match calculated goals
             weekProjected: weekTargetEow,
+            monthProjected: monthTargetEom,
             // Expose pace for cubes (Weekly + Monthly)
             weekPaceAdjusted: weekPace,
             monthPaceAdjusted: monthPace,
@@ -1046,7 +1068,8 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     salesData,
     calculatedWeekProjected,
     calculatedWeekPace,
-    accumulatedMonthDelta,
+    calculatedMonthProjected,
+    calculatedMonthPace,
     onSalesDataChange,
   ]);
 
