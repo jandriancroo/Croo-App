@@ -42,7 +42,7 @@ export function DataCube({
       case 'currency':
         return `$${Math.round(value).toLocaleString()}`;
       case 'percent':
-        return `${Math.round(value)}%`;
+        return `${value.toFixed(1)}%`;
       case 'hours':
         return `${Math.round(value)}h`;
       case 'number':
