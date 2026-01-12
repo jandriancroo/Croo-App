@@ -101,6 +101,9 @@ export default function MyWallet() {
   const estimatedGross = payData?.payPayroll ?? 0;
   const hourlyWage = payData?.hourlyWage ?? 15;
   const shifts = payData?.shifts ?? [];
+  const regularHours = payData?.regularHours ?? 0;
+  const overtimeHours = payData?.overtimeHours ?? 0;
+  const doubleTimeHours = payData?.doubleTimeHours ?? 0;
 
   return (
     <Layout>
@@ -153,14 +156,24 @@ export default function MyWallet() {
               Hours Worked this Pay Period
             </div>
             <p className="text-2xl font-bold">{hoursWorked.toFixed(1)}</p>
+            {(overtimeHours > 0 || doubleTimeHours > 0) && (
+              <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                <p>Regular: {regularHours.toFixed(1)} hrs</p>
+                {overtimeHours > 0 && <p className="text-amber-600">OT (1.5x): {overtimeHours.toFixed(1)} hrs</p>}
+                {doubleTimeHours > 0 && <p className="text-orange-600">DT (2x): {doubleTimeHours.toFixed(1)} hrs</p>}
+              </div>
+            )}
           </Card>
 
           <Card className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-2">
               <DollarSign className="h-4 w-4" />
-              Estimated Gross Pay @ ${hourlyWage.toFixed(0)}/hr
+              Estimated Gross Pay
             </div>
             <p className="text-2xl font-bold">${estimatedGross.toFixed(2)}</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              @ ${hourlyWage.toFixed(0)}/hr base
+            </p>
           </Card>
         </div>
 
