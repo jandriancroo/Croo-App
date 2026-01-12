@@ -201,7 +201,7 @@ export function Add3DCubeDialog({
                         Select up to 5 metrics (4 corners + 1 center)
                       </span>
                       <span className="text-xs font-medium">
-                        {faceMetrics[idx].length}/4
+                        {faceMetrics[idx].length}/5
                       </span>
                     </div>
                     

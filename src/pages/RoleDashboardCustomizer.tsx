@@ -196,7 +196,7 @@ export default function RoleDashboardCustomizer() {
     if (!selectedCube || selectedCube.cubeType !== 'data-3d') return;
     
     const currentFaceMetrics = faceMetrics[activeFace];
-    const maxMetrics = 4;
+    const maxMetrics = 5; // 4 corners + 1 center
     
     let updated: MetricType[][];
     if (currentFaceMetrics.includes(metric)) {
@@ -555,7 +555,7 @@ export default function RoleDashboardCustomizer() {
                     <div>
                       <div className="flex justify-between mb-2">
                         <Label className="text-xs">Metrics</Label>
-                        <span className="text-xs text-muted-foreground">{faceMetrics[idx].length}/4</span>
+                        <span className="text-xs text-muted-foreground">{faceMetrics[idx].length}/5</span>
                       </div>
                       <ScrollArea className="h-48">
                         {METRIC_GROUPS.map(group => (
