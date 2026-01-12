@@ -888,8 +888,8 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     setTargetDate(prev => direction === 'prev' ? subWeeks(prev, 1) : addWeeks(prev, 1));
   };
 
-  // Calculate Target EOW from weekly breakdown: actual sales + projected for days without actuals
-  // For today, use todayPaceAdjusted (daily pace) if available to show a real-time "where will week end up" number
+  // Calculate Target EOW (AI Goal): actual past days + projected for today and future days
+  // This represents the TARGET - what we should hit based on projections
   const calculatedWeekProjected = useMemo(() => {
     if (!salesData?.weeklyBreakdown || salesData.weeklyBreakdown.length === 0) {
       return salesData?.projections?.weekProjected || 0;
@@ -897,54 +897,55 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     
-    // Sum: for each day, use actual if > 0, otherwise use projected
-    // For today: use todayPaceAdjusted if available (so weekly pace reflects today's projected finish)
+    // Sum: for past days use actual if > 0, for today and future use projected
     let total = 0;
     for (const day of salesData.weeklyBreakdown) {
-      if (day.date === todayStr && isToday) {
-        // Today: use daily pace if available, otherwise fall back to actual > 0 ? actual : projected
-        const todayValue = salesData?.projections?.todayPaceAdjusted 
-          ?? (day.sales > 0 ? day.sales : (day.projected || 0));
-        total += todayValue;
-      } else {
-        // Past/future days: use actual if available, otherwise projected
+      if (day.date < todayStr) {
+        // Past day: use actual if available, otherwise projected
         total += day.sales > 0 ? day.sales : (day.projected || 0);
+      } else {
+        // Today and future: use projected (this is the TARGET)
+        total += day.projected || 0;
       }
     }
     
     // If we have 7 days with projections, use our calculated total
     // Otherwise fall back to the backend's weekProjected
     return total > 0 ? total : (salesData?.projections?.weekProjected || 0);
-  }, [salesData?.weeklyBreakdown, salesData?.projections?.weekProjected, salesData?.projections?.todayPaceAdjusted, isToday]);
+  }, [salesData?.weeklyBreakdown, salesData?.projections?.weekProjected]);
 
-  // Calculate accumulated week delta: sum of (actual - projection) for all days
-  // Since calculatedWeekProjected now uses todayPaceAdjusted for today, the delta for today is already built-in
-  // So we calculate: for past days (actual - projected), for today (pace - projected), for future (0)
-  const accumulatedWeekDelta = useMemo(() => {
-    if (!salesData?.weeklyBreakdown) return 0;
-    
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
-    let delta = 0;
-    
-    for (const day of salesData.weeklyBreakdown) {
-      const projected = day.projected || 0;
-      
-      if (day.date < todayStr) {
-        // Past day: delta = actual - projected
-        const actual = day.sales || 0;
-        if (actual > 0) {
-          delta += actual - projected;
-        }
-      } else if (day.date === todayStr && isToday) {
-        // Today: delta = todayPaceAdjusted - projected (mirrors what calculatedWeekProjected uses)
-        const todayValue = salesData?.projections?.todayPaceAdjusted ?? day.sales ?? 0;
-        delta += todayValue - projected;
-      }
-      // Future days: no delta yet
+  // Calculate Week Pace: actual past days + today's paced finish + projected future days
+  // This represents where we're TRENDING - using daily pace for today
+  const calculatedWeekPace = useMemo(() => {
+    if (!salesData?.weeklyBreakdown || salesData.weeklyBreakdown.length === 0) {
+      return salesData?.projections?.weekProjected || 0;
     }
     
-    return delta;
-  }, [salesData?.weeklyBreakdown, salesData?.projections?.todayPaceAdjusted, isToday]);
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    
+    let total = 0;
+    for (const day of salesData.weeklyBreakdown) {
+      if (day.date < todayStr) {
+        // Past day: use actual if available, otherwise projected
+        total += day.sales > 0 ? day.sales : (day.projected || 0);
+      } else if (day.date === todayStr && isToday) {
+        // Today: use daily pace (todayPaceAdjusted) to show real-time trending
+        const todayValue = salesData?.projections?.todayPaceAdjusted 
+          ?? (day.sales > 0 ? day.sales : (day.projected || 0));
+        total += todayValue;
+      } else {
+        // Future days: use projected
+        total += day.projected || 0;
+      }
+    }
+    
+    return total > 0 ? total : (salesData?.projections?.weekProjected || 0);
+  }, [salesData?.weeklyBreakdown, salesData?.projections?.weekProjected, salesData?.projections?.todayPaceAdjusted, isToday]);
+
+  // Calculate accumulated week delta: Pace - Target (the difference between trending and goal)
+  const accumulatedWeekDelta = useMemo(() => {
+    return calculatedWeekPace - calculatedWeekProjected;
+  }, [calculatedWeekPace, calculatedWeekProjected]);
 
   // Calculate accumulated month delta: sum of (actual - projection) for all completed days + today's pace delta
   const accumulatedMonthDelta = useMemo(() => {
@@ -987,7 +988,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     }
 
     const weekTargetEow = calculatedWeekProjected;
-    const weekPace = calculatedWeekProjected + accumulatedWeekDelta;
+    const weekPace = calculatedWeekPace;
     const monthPace = (salesData.projections?.monthProjected || 0) + accumulatedMonthDelta;
 
     const emitKey = JSON.stringify({
@@ -1035,7 +1036,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
   }, [
     salesData,
     calculatedWeekProjected,
-    accumulatedWeekDelta,
+    calculatedWeekPace,
     accumulatedMonthDelta,
     onSalesDataChange,
   ]);
@@ -1581,7 +1582,7 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
                         <div className="flex flex-col items-end">
                           <span className="text-xs text-muted-foreground">Pace</span>
                           {(() => {
-                            const weekPacing = calculatedWeekProjected + accumulatedWeekDelta;
+                            const weekPacing = calculatedWeekPace;
                             const isPositive = accumulatedWeekDelta >= 0;
                             return (
                               <div className="flex items-center gap-1.5">
