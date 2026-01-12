@@ -614,11 +614,17 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
 
   // Other menu items (non-Time)
   const mobileMenuItems = isChecklistOnlyLocation ? checklistOnlyMobileMenuItems : [
+    // Admins see Users, others see My Team
     ...(isAdmin ? [{
       path: '/users',
       label: 'Users',
       icon: Users
-    }, {
+    }] : [{
+      path: '/my-team',
+      label: 'My Team',
+      icon: Users
+    }]),
+    ...(isAdmin ? [{
       path: '/hiring',
       label: 'Hiring',
       icon: Briefcase
@@ -757,6 +763,12 @@ const [updateAvailable, setUpdateAvailable] = useState<boolean | null>(null); //
                         Hiring
                       </DropdownMenuItem>
                     </>
+                  )}
+                  {!isAdmin && (
+                    <DropdownMenuItem onClick={() => navigate('/my-team')} className="gap-2 cursor-pointer">
+                      <Users className="h-4 w-4" />
+                      My Team
+                    </DropdownMenuItem>
                   )}
                   <DropdownMenuItem onClick={() => navigate('/games')} className="gap-2 cursor-pointer">
                     <Gamepad2 className="h-4 w-4" />
