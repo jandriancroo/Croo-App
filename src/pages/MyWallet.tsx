@@ -180,25 +180,51 @@ export default function MyWallet() {
               <p className="text-muted-foreground text-center py-4">No shifts recorded yet</p>
             ) : (
               <div className="space-y-3">
-                {shifts.map((shift, idx) => (
-                  <div key={idx} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium">
-                          {format(parseISO(shift.date), "EEE, MMM d")}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(shift.clockIn, "h:mm a")} - {shift.clockOut ? format(shift.clockOut, "h:mm a") : "In Progress"}
-                        </p>
+                {/* Group shifts by date */}
+                {Object.entries(
+                  shifts.reduce((acc, shift) => {
+                    if (!acc[shift.date]) {
+                      acc[shift.date] = [];
+                    }
+                    acc[shift.date].push(shift);
+                    return acc;
+                  }, {} as Record<string, typeof shifts>)
+                )
+                  .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+                  .map(([date, dayShifts]) => {
+                    const totalHours = dayShifts.reduce((sum, s) => sum + s.hours, 0);
+                    const totalPay = dayShifts.reduce((sum, s) => sum + s.estimatedPay, 0);
+                    
+                    return (
+                      <div key={date} className="p-3 border rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <p className="font-medium">
+                              {format(parseISO(date), "EEE, MMM d")}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold">{totalHours.toFixed(1)} hrs</p>
+                            <p className="text-xs text-muted-foreground">${totalPay.toFixed(2)}</p>
+                          </div>
+                        </div>
+                        {/* Show individual shifts within the day */}
+                        <div className="ml-7 space-y-1">
+                          {dayShifts
+                            .sort((a, b) => a.clockIn.getTime() - b.clockIn.getTime())
+                            .map((shift, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-sm text-muted-foreground">
+                                <span>
+                                  {format(shift.clockIn, "h:mm a")} - {shift.clockOut ? format(shift.clockOut, "h:mm a") : "In Progress"}
+                                </span>
+                                <span>{shift.hours.toFixed(1)} hrs</span>
+                              </div>
+                            ))}
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold">{shift.hours.toFixed(1)} hrs</p>
-                      <p className="text-xs text-muted-foreground">${shift.estimatedPay.toFixed(2)}</p>
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
               </div>
             )}
           </CardContent>
