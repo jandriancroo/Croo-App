@@ -716,37 +716,68 @@ export default function PayrollReview() {
   };
 
   const calculateDayHours = (dayPunches: any[], showLive = true) => {
-    // Sort punches by time to properly pair clock_in/clock_out for multiple shifts
+    // Sort punches by time
     const sortedPunches = [...dayPunches].sort((a, b) => 
       new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
     );
     
-    const clockIns = sortedPunches.filter(p => p.punch_type === 'clock_in');
+    if (sortedPunches.length === 0) return 0;
+    
+    // Identify SHIFT-STARTING clock_ins vs BREAK-RETURN clock_ins
+    // A clock_in is a SHIFT START if:
+    // 1. It's the first punch of the day, OR
+    // 2. The previous punch was a clock_out (not a break_start)
+    const shiftStartClockIns: any[] = [];
+    
+    sortedPunches.forEach((punch, idx) => {
+      if (punch.punch_type !== 'clock_in') return;
+      
+      if (idx === 0) {
+        // First punch of the day - this is a shift start
+        shiftStartClockIns.push(punch);
+        return;
+      }
+      
+      // Look at the previous punch
+      const prevPunch = sortedPunches[idx - 1];
+      
+      // If previous punch was a clock_out, this is a NEW shift
+      if (prevPunch.punch_type === 'clock_out') {
+        shiftStartClockIns.push(punch);
+        return;
+      }
+      
+      // If previous punch was a break_start, this is a return from break (NOT a new shift)
+      // Do NOT add to shiftStartClockIns
+    });
+    
     const clockOuts = sortedPunches.filter(p => p.punch_type === 'clock_out');
     
-    if (clockIns.length === 0) return 0;
+    if (shiftStartClockIns.length === 0) return 0;
     
     let totalHours = 0;
     const usedClockOutIds = new Set<string>();
     
-    clockIns.forEach((clockIn, index) => {
+    shiftStartClockIns.forEach((clockIn, index) => {
       const clockInTime = new Date(clockIn.punch_time).getTime();
       
-      // Get the NEXT clock_in time to avoid matching across shifts
-      const nextClockIn = clockIns[index + 1];
-      const nextClockInTime = nextClockIn ? new Date(nextClockIn.punch_time).getTime() : Infinity;
+      // Get the NEXT shift-starting clock_in time to avoid matching across shifts
+      const nextShiftStart = shiftStartClockIns[index + 1];
+      const nextShiftStartTime = nextShiftStart ? new Date(nextShiftStart.punch_time).getTime() : Infinity;
       
-      // Find the next clock_out after this clock_in that hasn't been used
-      // and is BEFORE the next clock_in (to properly scope to this shift)
-      const clockOut = clockOuts.find(co => {
+      // Find the LAST clock_out for this shift (before the next shift starts)
+      const shiftClockOuts = clockOuts.filter(co => {
         const coTime = new Date(co.punch_time).getTime();
-        return coTime > clockInTime && coTime < nextClockInTime && !usedClockOutIds.has(co.id);
+        return coTime > clockInTime && coTime < nextShiftStartTime && !usedClockOutIds.has(co.id);
       });
+      
+      // Use the LAST clock_out for this shift (in case there are multiple)
+      const clockOut = shiftClockOuts.length > 0 ? shiftClockOuts[shiftClockOuts.length - 1] : null;
       
       // If no clock out, use current time for live shifts (only for the last shift)
       const endTime = clockOut 
         ? new Date(clockOut.punch_time) 
-        : (showLive && index === clockIns.length - 1 ? new Date() : null);
+        : (showLive && index === shiftStartClockIns.length - 1 ? new Date() : null);
       
       if (!endTime) return;
       
@@ -754,7 +785,7 @@ export default function PayrollReview() {
       
       let hours = calculateTimeDifferenceHours(new Date(clockIn.punch_time), endTime);
       
-      // Find meal break that falls within THIS specific shift (between this clock_in and its clock_out)
+      // Find meal breaks that fall within THIS specific shift
       const clockOutTime = endTime.getTime();
       const shiftBreaks = sortedPunches.filter(p => 
         p.punch_type === 'break_start' && 
@@ -772,9 +803,8 @@ export default function PayrollReview() {
           if (p.punch_type === 'break_end' && p.notes?.includes('30 minute')) {
             return pTime > breakStartTime && pTime < clockOutTime;
           }
-          // Only match clock_in as break_end if it's the NEXT punch after break_start
+          // Match clock_in as break_end if it immediately follows break_start
           if (p.punch_type === 'clock_in' && pTime > breakStartTime && pTime < clockOutTime) {
-            // Make sure this is the immediate next punch
             const nextPunchAfterBreak = sortedPunches.find(np => 
               new Date(np.punch_time).getTime() > breakStartTime
             );
@@ -1767,10 +1797,33 @@ export default function PayrollReview() {
                                 {Object.entries(weekData.days)
                                   .sort(([a], [b]) => a.localeCompare(b))
                                   .map(([day, dayPunches]: [string, any]) => {
-                                    const clockIn = dayPunches.find((p: any) => p.punch_type === 'clock_in');
-                                    const clockOut = dayPunches.find((p: any) => p.punch_type === 'clock_out');
+                                    // Sort punches chronologically
+                                    const sortedPunches = [...dayPunches].sort((a: any, b: any) => 
+                                      new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime()
+                                    );
+                                    
+                                    // Identify distinct shifts (a shift starts with clock_in after clock_out or first punch)
+                                    const shifts: { clockIn: any; clockOut: any | null; breaks: any[] }[] = [];
+                                    let currentShift: { clockIn: any; clockOut: any | null; breaks: any[] } | null = null;
+                                    
+                                    sortedPunches.forEach((punch: any, idx: number) => {
+                                      if (punch.punch_type === 'clock_in') {
+                                        const prevPunch = idx > 0 ? sortedPunches[idx - 1] : null;
+                                        // Start new shift if: first punch, or previous was clock_out
+                                        if (!prevPunch || prevPunch.punch_type === 'clock_out') {
+                                          if (currentShift) shifts.push(currentShift);
+                                          currentShift = { clockIn: punch, clockOut: null, breaks: [] };
+                                        }
+                                        // If previous was break_start, this is return from break (not new shift)
+                                      } else if (punch.punch_type === 'clock_out' && currentShift) {
+                                        currentShift.clockOut = punch;
+                                      } else if (punch.punch_type === 'break_start' && currentShift) {
+                                        currentShift.breaks.push(punch);
+                                      }
+                                    });
+                                    if (currentShift) shifts.push(currentShift);
+                                    
                                     const mealBreakStart = dayPunches.find((p: any) => p.punch_type === 'break_start' && p.notes?.includes('30 minute'));
-                                    const allBreaks = dayPunches.filter((p: any) => p.punch_type === 'break_start' || p.punch_type === 'break_end');
                                     const breakStarts = dayPunches.filter((p: any) => p.punch_type === 'break_start');
                                     const dayDate = parseDateStringInTimezone(day, timezone);
                                     const dayHours = calculateDayHours(dayPunches);
@@ -1782,15 +1835,18 @@ export default function PayrollReview() {
                                     // Get scheduled shift for this day
                                     const scheduledShift = card.shiftsByDate?.get(day);
                                     
-                                    // Calculate break violation: shift > 5 hours without meal break
+                                    // Calculate break violation for any shift over 5 hours without meal break
                                     let hasBreakViolation = false;
-                                    if (clockIn && clockOut) {
-                                      let shiftHours = (new Date(clockOut.punch_time).getTime() - new Date(clockIn.punch_time).getTime()) / 3600000;
-                                      if (shiftHours < 0) shiftHours += 24; // Handle midnight crossover
-                                      if (shiftHours > 5 && !mealBreakStart) {
-                                        hasBreakViolation = true;
+                                    shifts.forEach(shift => {
+                                      if (shift.clockIn && shift.clockOut) {
+                                        let shiftHours = (new Date(shift.clockOut.punch_time).getTime() - new Date(shift.clockIn.punch_time).getTime()) / 3600000;
+                                        if (shiftHours < 0) shiftHours += 24;
+                                        const shiftHasMealBreak = shift.breaks.some((b: any) => b.notes?.includes('30 minute'));
+                                        if (shiftHours > 5 && !shiftHasMealBreak) {
+                                          hasBreakViolation = true;
+                                        }
                                       }
-                                    }
+                                    });
                                     
                                     const hasIssue = hasDayIssues(dayPunches);
                                     const hasAnyFlag = hasAutoClockOut || hasBreakViolation || hasOvertime || hasExtendedBreak;
@@ -1812,46 +1868,56 @@ export default function PayrollReview() {
 
                                         {/* Time Range and Breaks */}
                                         <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-1.5 text-sm">
-                                            <span className="text-green-600 font-medium whitespace-nowrap">
-                                              {clockIn ? formatTimeDisplay(clockIn.punch_time, timezone) : '—'}
-                                            </span>
-                                            <span className="text-muted-foreground">→</span>
-                                            <span className="text-red-600 font-medium whitespace-nowrap">
-                                              {clockOut ? formatTimeDisplay(clockOut.punch_time, timezone) : '—'}
-                                            </span>
+                                          {/* Show each shift on its own line */}
+                                          {shifts.map((shift, shiftIdx) => (
+                                            <div key={shiftIdx} className="flex items-center gap-1.5 text-sm">
+                                              {shifts.length > 1 && (
+                                                <span className="text-[10px] text-muted-foreground font-medium mr-1">#{shiftIdx + 1}</span>
+                                              )}
+                                              <span className="text-green-600 font-medium whitespace-nowrap">
+                                                {shift.clockIn ? formatTimeDisplay(shift.clockIn.punch_time, timezone) : '—'}
+                                              </span>
+                                              <span className="text-muted-foreground">→</span>
+                                              <span className="text-red-600 font-medium whitespace-nowrap">
+                                                {shift.clockOut ? formatTimeDisplay(shift.clockOut.punch_time, timezone) : '—'}
+                                              </span>
 
-                                            {/* Status Badges - inline with times */}
-                                            {hasBreakViolation && (
-                                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-300 gap-0.5 shrink-0">
-                                                <Coffee className="h-2.5 w-2.5" />
-                                                <span className="hidden sm:inline">No Break</span>
-                                              </Badge>
-                                            )}
-                                            {hasAutoClockOut && (
-                                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-orange-600 border-orange-300 gap-0.5 shrink-0">
-                                                <img src={autoPunchIcon} alt="Auto" className="h-3 w-3" />
-                                                <span className="hidden sm:inline">Auto</span>
-                                              </Badge>
-                                            )}
-                                            {hasOvertime && (
-                                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-purple-600 border-purple-300 gap-0.5 shrink-0">
-                                                <Clock className="h-2.5 w-2.5" />
-                                                <span className="hidden sm:inline">OT</span>
-                                              </Badge>
-                                            )}
-                                            {hasExtendedBreak && (
-                                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-blue-600 border-blue-300 gap-0.5 shrink-0">
-                                                <Coffee className="h-2.5 w-2.5" />
-                                                <span className="hidden sm:inline">Long Break</span>
-                                              </Badge>
-                                            )}
-                                            {hasIssue && !hasBreakViolation && !clockOut && (
-                                              <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-destructive border-destructive/30 shrink-0">
-                                                !
-                                              </Badge>
-                                            )}
-                                          </div>
+                                              {/* Status Badges - inline with times (only on first shift row) */}
+                                              {shiftIdx === 0 && (
+                                                <>
+                                                  {hasBreakViolation && (
+                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-amber-600 border-amber-300 gap-0.5 shrink-0">
+                                                      <Coffee className="h-2.5 w-2.5" />
+                                                      <span className="hidden sm:inline">No Break</span>
+                                                    </Badge>
+                                                  )}
+                                                  {hasAutoClockOut && (
+                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-orange-600 border-orange-300 gap-0.5 shrink-0">
+                                                      <img src={autoPunchIcon} alt="Auto" className="h-3 w-3" />
+                                                      <span className="hidden sm:inline">Auto</span>
+                                                    </Badge>
+                                                  )}
+                                                  {hasOvertime && (
+                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-purple-600 border-purple-300 gap-0.5 shrink-0">
+                                                      <Clock className="h-2.5 w-2.5" />
+                                                      <span className="hidden sm:inline">OT</span>
+                                                    </Badge>
+                                                  )}
+                                                  {hasExtendedBreak && (
+                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-blue-600 border-blue-300 gap-0.5 shrink-0">
+                                                      <Coffee className="h-2.5 w-2.5" />
+                                                      <span className="hidden sm:inline">Long Break</span>
+                                                    </Badge>
+                                                  )}
+                                                  {hasIssue && !hasBreakViolation && !shift.clockOut && (
+                                                    <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 text-destructive border-destructive/30 shrink-0">
+                                                      !
+                                                    </Badge>
+                                                  )}
+                                                </>
+                                              )}
+                                            </div>
+                                          ))}
                                           
                                           {/* Scheduled time display */}
                                           {scheduledShift && !scheduledShift.is_time_off && (
