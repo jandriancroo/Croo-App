@@ -888,28 +888,20 @@ export function SalesOverview({ locationSettings, onSalesDataChange }: SalesOver
     setTargetDate(prev => direction === 'prev' ? subWeeks(prev, 1) : addWeeks(prev, 1));
   };
 
-  // Calculate Target EOW (AI Goal): actual past days + projected for today and future days
-  // This represents the TARGET - what we should hit based on projections
+  // Calculate Target EOW (AI Goal): sum of all daily projections for the week
+  // This is a FIXED target - the goal you're aiming for, not influenced by actuals
   const calculatedWeekProjected = useMemo(() => {
     if (!salesData?.weeklyBreakdown || salesData.weeklyBreakdown.length === 0) {
       return salesData?.projections?.weekProjected || 0;
     }
     
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
-    
-    // Sum: for past days use actual if > 0, for today and future use projected
+    // Sum all daily projections to get the fixed weekly goal
     let total = 0;
     for (const day of salesData.weeklyBreakdown) {
-      if (day.date < todayStr) {
-        // Past day: use actual if available, otherwise projected
-        total += day.sales > 0 ? day.sales : (day.projected || 0);
-      } else {
-        // Today and future: use projected (this is the TARGET)
-        total += day.projected || 0;
-      }
+      total += day.projected || 0;
     }
     
-    // If we have 7 days with projections, use our calculated total
+    // If we have projections, use our calculated total
     // Otherwise fall back to the backend's weekProjected
     return total > 0 ? total : (salesData?.projections?.weekProjected || 0);
   }, [salesData?.weeklyBreakdown, salesData?.projections?.weekProjected]);
