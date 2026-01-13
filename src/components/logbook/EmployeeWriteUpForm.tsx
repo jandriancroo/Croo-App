@@ -74,17 +74,30 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
     reason: string;
   }
 
-  // Fetch employees for the location
+  // Fetch employees for the location via user_locations join
   const { data: employees = [] } = useQuery({
     queryKey: ['location-employees-writeup', currentLocation?.id],
     queryFn: async (): Promise<EmployeeOption[]> => {
       if (!currentLocation) return [];
-      const { data, error } = await (supabase as any)
+      // Get all user IDs assigned to this location
+      const { data: userLocations, error: ulError } = await supabase
+        .from('user_locations')
+        .select('user_id')
+        .eq('location_id', currentLocation.id);
+      
+      if (ulError) throw ulError;
+      if (!userLocations || userLocations.length === 0) return [];
+      
+      const userIds = userLocations.map(ul => ul.user_id);
+      
+      // Fetch profiles for those users
+      const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, profile_photo_url')
-        .eq('location_id', currentLocation.id)
+        .in('id', userIds)
         .eq('is_active', true)
         .order('full_name');
+      
       if (error) throw error;
       return (data as EmployeeOption[]) || [];
     },
