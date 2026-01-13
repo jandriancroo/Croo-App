@@ -6,9 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Camera, Check, ChevronsUpDown, Loader2, Plus, Settings, User, X } from "lucide-react";
+import { AlertTriangle, Camera, Check, ChevronsUpDown, Loader2, Plus, Settings, User, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation as useAppLocation } from "@/hooks/useLocation";
 import { useAuth } from "@/lib/auth";
@@ -31,6 +32,7 @@ export interface WriteUpData {
   issueDescription: string;
   nextSteps: string;
   photoUrl?: string;
+  isFinalWarning: boolean;
 }
 
 const DEFAULT_REASONS = [
@@ -56,6 +58,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
   const [nextSteps, setNextSteps] = useState("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [isFinalWarning, setIsFinalWarning] = useState(false);
   const [showReasonDialog, setShowReasonDialog] = useState(false);
   const [newReasonName, setNewReasonName] = useState("");
   const [addingReason, setAddingReason] = useState(false);
@@ -185,6 +188,7 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
       issueDescription: issueDescription.trim(),
       nextSteps: nextSteps.trim(),
       photoUrl: photoUrl || undefined,
+      isFinalWarning,
     });
   };
 
@@ -296,8 +300,23 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
           placeholder="What should the team member do to improve..."
           value={nextSteps}
           onChange={(e) => setNextSteps(e.target.value)}
-          rows={3}
+        rows={3}
         />
+      </div>
+
+      {/* Final Warning Checkbox */}
+      <div className="flex items-center space-x-3 py-2 px-3 rounded-lg border border-destructive/30 bg-destructive/5">
+        <Checkbox
+          id="finalWarning"
+          checked={isFinalWarning}
+          onCheckedChange={(checked) => setIsFinalWarning(checked === true)}
+        />
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-4 w-4 text-destructive" />
+          <Label htmlFor="finalWarning" className="text-sm font-medium cursor-pointer">
+            This is a final warning
+          </Label>
+        </div>
       </div>
 
       {/* Photo Upload */}
