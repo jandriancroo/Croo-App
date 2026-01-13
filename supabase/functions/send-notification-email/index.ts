@@ -28,6 +28,8 @@ type NotificationType =
   | 'drawer_count'
   | 'safe_count'
   | 'bank_deposit'
+  | 'employee_writeup'
+  | 'employee_writeup_signed'
   | 'test';
 
 interface NotificationEmailRequest {
@@ -430,6 +432,82 @@ function generateEmailContent(type: NotificationType, data: Record<string, any>)
                   ` : ''}
                 </table>
               </div>
+            </td>
+          </tr>
+          ${getEmailFooter()}
+        `)
+      };
+
+    case 'employee_writeup':
+      return {
+        subject: `⚠️ Employee Write-Up Notice`,
+        html: wrapEmail(`
+          ${getEmailHeader('Employee Write-Up', '⚠️')}
+          <tr>
+            <td style="padding: 30px 40px;">
+              <p style="color: ${textColor}; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
+                You have received an employee write-up that requires your attention and signature.
+              </p>
+              <div style="background-color: #fef2f2; border-radius: 10px; padding: 16px; margin: 16px 0; border-left: 4px solid #ef4444;">
+                <strong style="color: ${textColor}; font-size: 15px;">Reason: ${data.reason || 'See details in app'}</strong>
+                ${data.is_final_warning ? `<p style="color: #ef4444; font-size: 13px; margin: 8px 0 0; font-weight: 600;">⚠️ This is a FINAL WARNING</p>` : ''}
+              </div>
+              ${data.issue_description ? `
+                <div style="margin: 16px 0;">
+                  <p style="color: #666; font-size: 12px; text-transform: uppercase; margin: 0 0 4px;">Issue Description</p>
+                  <p style="color: ${textColor}; font-size: 14px; line-height: 1.5; margin: 0;">${data.issue_description}</p>
+                </div>
+              ` : ''}
+              ${data.next_steps ? `
+                <div style="background-color: ${backgroundColor}; border-radius: 10px; padding: 16px; margin: 16px 0;">
+                  <p style="color: #666; font-size: 12px; text-transform: uppercase; margin: 0 0 4px;">Next Steps</p>
+                  <p style="color: ${textColor}; font-size: 14px; line-height: 1.5; margin: 0;">${data.next_steps}</p>
+                </div>
+              ` : ''}
+              <p style="color: #666; font-size: 13px; margin: 16px 0 0;">
+                Issued by <strong>${data.manager_name || 'Management'}</strong>${data.location_name ? ` at ${data.location_name}` : ''} on ${data.date || new Date().toLocaleDateString()}
+              </p>
+              <p style="color: ${primaryColor}; font-size: 13px; margin: 16px 0 0; font-weight: 600;">
+                Please open the Croo app to review and sign this write-up.
+              </p>
+            </td>
+          </tr>
+          ${getEmailFooter()}
+        `)
+      };
+
+    case 'employee_writeup_signed':
+      return {
+        subject: `✅ Write-Up Acknowledged - Copy for Your Records`,
+        html: wrapEmail(`
+          ${getEmailHeader('Write-Up Acknowledgment Confirmed', '✅')}
+          <tr>
+            <td style="padding: 30px 40px;">
+              <p style="color: ${textColor}; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">
+                This is a copy of your acknowledged employee write-up for your records.
+              </p>
+              <div style="background-color: #f0fdf4; border-radius: 10px; padding: 16px; margin: 16px 0; border-left: 4px solid #22c55e;">
+                <strong style="color: ${textColor}; font-size: 15px;">Reason: ${data.reason || 'See details'}</strong>
+                <p style="color: #22c55e; font-size: 13px; margin: 8px 0 0;">✓ Signed on ${data.signed_date || new Date().toLocaleDateString()}</p>
+              </div>
+              ${data.issue_description ? `
+                <div style="margin: 16px 0;">
+                  <p style="color: #666; font-size: 12px; text-transform: uppercase; margin: 0 0 4px;">Issue Description</p>
+                  <p style="color: ${textColor}; font-size: 14px; line-height: 1.5; margin: 0;">${data.issue_description}</p>
+                </div>
+              ` : ''}
+              ${data.next_steps ? `
+                <div style="background-color: ${backgroundColor}; border-radius: 10px; padding: 16px; margin: 16px 0;">
+                  <p style="color: #666; font-size: 12px; text-transform: uppercase; margin: 0 0 4px;">Next Steps</p>
+                  <p style="color: ${textColor}; font-size: 14px; line-height: 1.5; margin: 0;">${data.next_steps}</p>
+                </div>
+              ` : ''}
+              <p style="color: #666; font-size: 13px; margin: 16px 0 0;">
+                Originally issued by <strong>${data.manager_name || 'Management'}</strong>${data.location_name ? ` at ${data.location_name}` : ''}
+              </p>
+              <p style="color: #666; font-size: 12px; margin: 16px 0 0; font-style: italic;">
+                Keep this email as documentation for your records.
+              </p>
             </td>
           </tr>
           ${getEmailFooter()}

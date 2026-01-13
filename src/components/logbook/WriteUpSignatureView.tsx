@@ -19,6 +19,7 @@ interface WriteUpSignatureViewProps {
     photo_url?: string;
     created_at: string;
     created_by_profile?: { full_name: string };
+    location?: { name: string };
   };
   onComplete: () => void;
   onClose: () => void;
@@ -58,6 +59,30 @@ export function WriteUpSignatureView({ writeUp, onComplete, onClose }: WriteUpSi
         .eq('id', writeUp.id);
 
       if (updateError) throw updateError;
+
+      // Send signed copy email to the employee
+      try {
+        if (user?.email) {
+          await supabase.functions.invoke('send-notification-email', {
+            body: {
+              type: 'employee_writeup_signed',
+              to: user.email,
+              data: {
+                reason: writeUp.reason,
+                issue_description: writeUp.issue_description,
+                next_steps: writeUp.next_steps,
+                manager_name: writeUp.created_by_profile?.full_name || 'Management',
+                location_name: writeUp.location?.name,
+                signed_date: new Date().toLocaleDateString(),
+              },
+            },
+          });
+          console.log('Signed write-up email sent to employee');
+        }
+      } catch (emailError) {
+        console.error('Failed to send signed write-up email:', emailError);
+        // Don't block completion if email fails
+      }
 
       toast.success("Write-up acknowledged");
       onComplete();

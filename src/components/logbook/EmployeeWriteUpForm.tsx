@@ -176,6 +176,21 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
     }
   };
 
+  // Get manager name
+  const { data: managerProfile } = useQuery({
+    queryKey: ['manager-profile', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single();
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
   const handleSubmit = async () => {
     if (!selectedEmployee) {
       toast.error("Please select an employee");
@@ -203,6 +218,38 @@ export function EmployeeWriteUpForm({ onSave, isSaving }: EmployeeWriteUpFormPro
       photoUrl: photoUrl || undefined,
       isFinalWarning,
     });
+
+    // Send email notification to the employee
+    try {
+      // Get employee email
+      const { data: employeeData } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', selectedEmployee.id)
+        .single();
+
+      if (employeeData?.email) {
+        await supabase.functions.invoke('send-notification-email', {
+          body: {
+            type: 'employee_writeup',
+            to: employeeData.email,
+            data: {
+              reason,
+              issue_description: issueDescription.trim(),
+              next_steps: nextSteps.trim(),
+              is_final_warning: isFinalWarning,
+              manager_name: managerProfile?.full_name || 'Management',
+              location_name: currentLocation?.name,
+              date: new Date().toLocaleDateString(),
+            },
+          },
+        });
+        console.log('Write-up email sent to employee');
+      }
+    } catch (emailError) {
+      console.error('Failed to send write-up email:', emailError);
+      // Don't block the form submission if email fails
+    }
   };
 
   return (
