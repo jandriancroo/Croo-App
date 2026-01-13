@@ -33,11 +33,9 @@ export function EmployeeWriteUpEntry({ writeUp }: EmployeeWriteUpEntryProps) {
 
   return (
     <>
-      {/* Compact Single-Line View */}
+      {/* Compact Single-Line View - name already shown in card header */}
       <div className="flex items-center justify-between gap-2 -my-1">
         <div className="flex items-center gap-2 min-w-0 flex-1">
-          <span className="font-medium text-sm truncate">{employeeName}</span>
-          <span className="text-muted-foreground text-sm">•</span>
           <Badge variant="outline" className="text-xs shrink-0 h-5 px-1.5">{writeUp.reason}</Badge>
           {writeUp.is_final_warning && (
             <Badge variant="outline" className="border-destructive text-destructive text-xs shrink-0 h-5 px-1.5">
@@ -47,9 +45,15 @@ export function EmployeeWriteUpEntry({ writeUp }: EmployeeWriteUpEntryProps) {
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {isSigned ? (
-            <Check className="h-3.5 w-3.5 text-green-600" />
+            <span className="text-xs text-green-600 flex items-center gap-1">
+              <Check className="h-3.5 w-3.5" />
+              Signed
+            </span>
           ) : (
-            <Clock className="h-3.5 w-3.5 text-amber-600" />
+            <span className="text-xs text-amber-600 flex items-center gap-1">
+              <Clock className="h-3.5 w-3.5" />
+              Pending
+            </span>
           )}
           <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setShowDetails(true)}>
             <Eye className="h-3.5 w-3.5" />
