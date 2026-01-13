@@ -33,35 +33,26 @@ export function EmployeeWriteUpEntry({ writeUp }: EmployeeWriteUpEntryProps) {
 
   return (
     <>
-      {/* Compact List View */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <Avatar className="h-8 w-8 shrink-0">
-            <AvatarImage src={writeUp.employee?.profile_photo_url} />
-            <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-medium text-sm truncate">{employeeName}</p>
-              <Badge variant="destructive" className="text-xs shrink-0">{writeUp.reason}</Badge>
-              {writeUp.is_final_warning && (
-                <Badge variant="outline" className="border-destructive text-destructive text-xs shrink-0">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  Final
-                </Badge>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {format(new Date(writeUp.created_at), 'MMM d, yyyy')}
-            </p>
-          </div>
+      {/* Compact Single-Line View */}
+      <div className="flex items-center justify-between gap-2 -my-1">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span className="font-medium text-sm truncate">{employeeName}</span>
+          <span className="text-muted-foreground text-sm">•</span>
+          <Badge variant="outline" className="text-xs shrink-0 h-5 px-1.5">{writeUp.reason}</Badge>
+          {writeUp.is_final_warning && (
+            <Badge variant="outline" className="border-destructive text-destructive text-xs shrink-0 h-5 px-1.5">
+              Final
+            </Badge>
+          )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <Badge variant={isSigned ? "default" : "outline"} className={`text-xs ${isSigned ? "bg-green-600" : "text-amber-600 border-amber-600"}`}>
-            {isSigned ? <Check className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-          </Badge>
-          <Button variant="ghost" size="sm" onClick={() => setShowDetails(true)}>
-            <Eye className="h-4 w-4" />
+        <div className="flex items-center gap-1 shrink-0">
+          {isSigned ? (
+            <Check className="h-3.5 w-3.5 text-green-600" />
+          ) : (
+            <Clock className="h-3.5 w-3.5 text-amber-600" />
+          )}
+          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setShowDetails(true)}>
+            <Eye className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>

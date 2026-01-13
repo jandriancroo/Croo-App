@@ -1544,6 +1544,56 @@ export default function LogBook() {
                                     name => categoryName.includes(name)
                                   );
                                   
+                                  // Write-ups have no edit and need special delete handling
+                                  if (isWriteUp) {
+                                    return (
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button variant="ghost" size="icon" className="h-6 w-6">
+                                            <MoreVertical className="h-4 w-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          <DropdownMenuItem 
+                                            onClick={async () => {
+                                              if (!entry._writeUpData?.id) return;
+                                              try {
+                                                // Delete associated task if exists
+                                                const { data: writeUp } = await supabase
+                                                  .from('employee_writeups')
+                                                  .select('task_id')
+                                                  .eq('id', entry._writeUpData.id)
+                                                  .single();
+                                                
+                                                if (writeUp?.task_id) {
+                                                  await supabase.from('temporary_tasks').delete().eq('id', writeUp.task_id);
+                                                }
+                                                
+                                                // Delete the write-up
+                                                const { error } = await supabase
+                                                  .from('employee_writeups')
+                                                  .delete()
+                                                  .eq('id', entry._writeUpData.id);
+                                                  
+                                                if (error) throw error;
+                                                
+                                                toast({ title: "Write-up deleted" });
+                                                queryClient.invalidateQueries({ queryKey: ['logbook-recent-entries'] });
+                                                queryClient.invalidateQueries({ queryKey: ['logbook-search'] });
+                                              } catch (error: any) {
+                                                toast({ title: "Error deleting write-up", description: error.message, variant: "destructive" });
+                                              }
+                                            }}
+                                            className="text-destructive focus:text-destructive"
+                                          >
+                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            Delete
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    );
+                                  }
+                                  
                                   return (
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
