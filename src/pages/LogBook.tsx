@@ -262,12 +262,17 @@ export default function LogBook() {
   // Debounced search query - only fires when user is actively searching
   const debouncedSearch = useMemo(() => searchQuery.trim(), [searchQuery]);
   
+  // Parse search terms - split by space for multi-term search (like Apple Mail)
+  const searchTerms = useMemo(() => 
+    debouncedSearch.toLowerCase().split(/\s+/).filter(term => term.length >= 2),
+    [debouncedSearch]
+  );
+  
   // Server-side search for full history (only when searching)
   const { data: searchResults = [], isLoading: isSearching } = useQuery({
     queryKey: ['logbook-search', currentLocation?.id, debouncedSearch],
     queryFn: async () => {
-      if (!currentLocation || !debouncedSearch) return [];
-      const searchLower = debouncedSearch.toLowerCase();
+      if (!currentLocation || searchTerms.length === 0) return [];
       
       // Search across all entries (no limit for search)
       const { data, error } = await supabase
@@ -284,22 +289,43 @@ export default function LogBook() {
 
       if (error) throw error;
       
-      // Filter results client-side for more flexible matching
-      return (data || []).filter((entry: any) => 
-        entry.profiles?.full_name?.toLowerCase().includes(searchLower) ||
-        entry.logbook_categories?.name?.toLowerCase().includes(searchLower) ||
-        entry.logbook_entry_values?.some((val: any) => 
-          val.value_text?.toLowerCase().includes(searchLower)
-        )
-      );
+      // Filter results client-side - ALL search terms must match (AND logic)
+      return (data || []).filter((entry: any) => {
+        const searchableText = [
+          entry.profiles?.full_name || '',
+          entry.logbook_categories?.name || '',
+          ...(entry.logbook_entry_values?.map((val: any) => val.value_text || '') || [])
+        ].join(' ').toLowerCase();
+        
+        // Every search term must be found somewhere in the entry
+        return searchTerms.every(term => searchableText.includes(term));
+      });
     },
-    enabled: !!currentLocation && !!debouncedSearch && debouncedSearch.length >= 2,
+    enabled: !!currentLocation && searchTerms.length > 0,
     staleTime: 60 * 1000, // 1 minute for search results
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
+  
+  // Also filter write-ups when searching
+  const filteredWriteUps = useMemo(() => {
+    if (searchTerms.length === 0) return employeeWriteUps;
+    
+    return employeeWriteUps.filter((wu: any) => {
+      const searchableText = [
+        wu.employee?.full_name || '',
+        wu.created_by_profile?.full_name || '',
+        wu.reason || '',
+        wu.issue_description || '',
+        'write up', 'writeup', 'write-up' // Include these so "write up" search finds them
+      ].join(' ').toLowerCase();
+      
+      return searchTerms.every(term => searchableText.includes(term));
+    });
+  }, [employeeWriteUps, searchTerms]);
 
   // Combine regular log entries with write-ups for unified display
-  const writeUpEntries = employeeWriteUps.map((wu: any) => ({
+  // Use filtered write-ups when searching
+  const writeUpEntries = (searchTerms.length > 0 ? filteredWriteUps : employeeWriteUps).map((wu: any) => ({
     id: wu.id,
     entry_date: format(new Date(wu.created_at), 'yyyy-MM-dd'),
     created_at: wu.created_at,
@@ -308,11 +334,14 @@ export default function LogBook() {
     logbook_categories: { name: 'Employee Write-Up' },
     _isWriteUp: true,
     _writeUpData: wu,
+    _virtualId: `writeup-${wu.id}`, // Unique key for React
   }));
 
   // Use search results when searching, otherwise combine recent entries with write-ups
-  const allEntries = debouncedSearch && debouncedSearch.length >= 2 
-    ? searchResults 
+  const allEntries = searchTerms.length > 0
+    ? [...searchResults, ...writeUpEntries].sort((a: any, b: any) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      )
     : [...recentEntries, ...writeUpEntries].sort((a: any, b: any) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       ).slice(0, 100);
