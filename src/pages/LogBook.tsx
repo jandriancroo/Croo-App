@@ -628,7 +628,7 @@ export default function LogBook() {
     const isWeeklySummary = currentCategoryName === 'weekly summary';
     // Bank deposit can be triggered via virtual 'bank-deposit' string OR by selecting the actual category
     const isBankDeposit = selectedCategory === 'bank-deposit' || currentCategoryName === 'bank deposit';
-    const isEmployeeWriteUp = currentCategoryName === 'employee write-up' || currentCategoryName === 'employee writeup' || currentCategoryName === 'write-up' || currentCategoryName === 'writeup';
+    const isEmployeeWriteUp = currentCategoryName === 'employee write-up' || currentCategoryName === 'employee writeup' || currentCategoryName === 'employee write up' || currentCategoryName === 'write-up' || currentCategoryName === 'writeup' || currentCategoryName === 'write up';
     
     // Employee Write-Up form
     if (isEmployeeWriteUp) {
