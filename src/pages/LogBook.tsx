@@ -1515,6 +1515,13 @@ export default function LogBook() {
                                 <AvatarImage src={crooLogo} />
                                 <AvatarFallback className="bg-primary/10">AI</AvatarFallback>
                               </Avatar>
+                            ) : isWriteUp ? (
+                              <Avatar>
+                                <AvatarImage src={entry._writeUpData?.employee?.profile_photo_url} />
+                                <AvatarFallback>
+                                  <User className="h-4 w-4" />
+                                </AvatarFallback>
+                              </Avatar>
                             ) : (
                               <Avatar>
                                 <AvatarImage src={entry.profiles?.profile_photo_url} />
@@ -1527,10 +1534,10 @@ export default function LogBook() {
                               <div className="flex justify-between items-start">
                                 <div>
                                   <div className="font-medium">
-                                    {isWeeklySummary ? "Croo AI" : entry.profiles?.full_name}
+                                    {isWeeklySummary ? "Croo AI" : isWriteUp ? (entry._writeUpData?.employee?.full_name || 'Unknown') : entry.profiles?.full_name}
                                   </div>
                                   <div className="text-sm text-muted-foreground">
-                                    {entry.logbook_categories?.name}
+                                    {isWriteUp ? `Written up by ${entry.profiles?.full_name}` : entry.logbook_categories?.name}
                                   </div>
                                 </div>
                               <div className="flex items-center gap-2">
