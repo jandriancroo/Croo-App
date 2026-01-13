@@ -1516,12 +1516,17 @@ export default function LogBook() {
                                 <AvatarFallback className="bg-primary/10">AI</AvatarFallback>
                               </Avatar>
                             ) : isWriteUp ? (
-                              <Avatar>
-                                <AvatarImage src={entry._writeUpData?.employee?.profile_photo_url} />
-                                <AvatarFallback>
-                                  <User className="h-4 w-4" />
-                                </AvatarFallback>
-                              </Avatar>
+                              <div className="relative">
+                                <Avatar>
+                                  <AvatarImage src={entry._writeUpData?.employee?.profile_photo_url} />
+                                  <AvatarFallback>
+                                    <User className="h-4 w-4" />
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className={`absolute -bottom-1 -right-1 rounded-full p-0.5 ${isFinalWarning ? 'bg-destructive' : 'bg-amber-500'}`}>
+                                  <AlertTriangle className="h-3 w-3 text-white" />
+                                </div>
+                              </div>
                             ) : (
                               <Avatar>
                                 <AvatarImage src={entry.profiles?.profile_photo_url} />
