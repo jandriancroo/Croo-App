@@ -970,6 +970,121 @@ export type Database = {
           },
         ]
       }
+      employee_writeup_reasons: {
+        Row: {
+          created_at: string
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          location_id: string | null
+          reason: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          location_id?: string | null
+          reason: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          location_id?: string | null
+          reason?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_writeup_reasons_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      employee_writeups: {
+        Row: {
+          created_at: string
+          created_by: string
+          employee_id: string
+          id: string
+          issue_description: string
+          location_id: string
+          next_steps: string
+          photo_url: string | null
+          reason: string
+          signature_url: string | null
+          signed_at: string | null
+          task_id: string | null
+          updated_at: string
+          viewed_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          employee_id: string
+          id?: string
+          issue_description: string
+          location_id: string
+          next_steps: string
+          photo_url?: string | null
+          reason: string
+          signature_url?: string | null
+          signed_at?: string | null
+          task_id?: string | null
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          employee_id?: string
+          id?: string
+          issue_description?: string
+          location_id?: string
+          next_steps?: string
+          photo_url?: string | null
+          reason?: string
+          signature_url?: string | null
+          signed_at?: string | null
+          task_id?: string | null
+          updated_at?: string
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employee_writeups_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_writeups_employee_id_fkey"
+            columns: ["employee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_writeups_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employee_writeups_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "temporary_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_categories: {
         Row: {
           color: string

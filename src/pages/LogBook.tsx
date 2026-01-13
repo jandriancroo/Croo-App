@@ -34,10 +34,12 @@ import { WeeklySummaryEntry, parseWeeklySummaryData } from "@/components/logbook
 import { CateringOrdersSection } from "@/components/logbook/CateringOrdersSection";
 import { BankDepositForm, BankDepositData } from "@/components/logbook/BankDepositForm";
 import { BankDepositEntry, parseBankDepositData } from "@/components/logbook/BankDepositEntry";
+import { EmployeeWriteUpForm, WriteUpData } from "@/components/logbook/EmployeeWriteUpForm";
+import { EmployeeWriteUpEntry } from "@/components/logbook/EmployeeWriteUpEntry";
 import { useLocationTimezone } from "@/hooks/useLocationTimezone";
 import { startOfWeek, endOfWeek, getDay, subDays } from "date-fns";
 import crooLogo from "@/assets/croo-logo.png";
-import { Building2 } from "lucide-react";
+import { Building2, UserX } from "lucide-react";
 
 // Cache time constants for LogBook
 const LOGBOOK_STALE_TIME = 5 * 60 * 1000; // 5 minutes for recent data
@@ -1275,9 +1277,9 @@ export default function LogBook() {
                             return (a.display_order || 0) - (b.display_order || 0);
                           })
                           .map((category: any) => {
-                          // Map category names to icons
                           const getCategoryIcon = (name: string) => {
                             const lower = name.toLowerCase();
+                            if (lower.includes('write') && lower.includes('up')) return <UserX className="h-6 w-6" />;
                             if (lower.includes('drawer')) return <DollarSign className="h-6 w-6" />;
                             if (lower.includes('safe')) return <ShieldCheck className="h-6 w-6" />;
                             if (lower.includes('bank') || lower.includes('deposit')) return <Building2 className="h-6 w-6" />;
