@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format, formatDistanceToNow } from "date-fns";
 import { compressImage, uploadWithRetry } from "@/utils/imageCompression";
+import { WriteUpSignatureView } from "@/components/logbook/WriteUpSignatureView";
 
 interface TemporaryTaskDetailsDialogProps {
   open: boolean;
@@ -42,6 +43,26 @@ export function TemporaryTaskDetailsDialog({
   const [uploadingSubtaskId, setUploadingSubtaskId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeSubtaskId, setActiveSubtaskId] = useState<string | null>(null);
+  const [showWriteUpSignature, setShowWriteUpSignature] = useState(false);
+
+  // Fetch write-up data if this task has a write_up_id
+  const { data: writeUpData } = useQuery({
+    queryKey: ['write-up-for-task', task?.write_up_id],
+    queryFn: async () => {
+      if (!task?.write_up_id) return null;
+      const { data, error } = await supabase
+        .from('employee_writeups')
+        .select(`
+          *,
+          created_by_profile:profiles!employee_writeups_created_by_fkey(full_name)
+        `)
+        .eq('id', task.write_up_id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!task?.write_up_id,
+  });
 
   // Fetch subtasks
   const { data: subtasks = [], refetch: refetchSubtasks } = useQuery({
@@ -240,6 +261,77 @@ export function TemporaryTaskDetailsDialog({
 
   const allSubtasksComplete = subtasks.length === 0 || subtasks.every((s: any) => s.completed_at);
   const completedCount = subtasks.filter((s: any) => s.completed_at).length;
+
+  // Handle write-up signature completion
+  const handleWriteUpComplete = async () => {
+    // Mark the task as completed
+    const { error } = await supabase
+      .from('temporary_tasks')
+      .update({ 
+        completed_at: new Date().toISOString(),
+        completed_by: user!.id,
+        is_active: false
+      })
+      .eq('id', task.id);
+
+    if (error) {
+      toast.error("Failed to complete task");
+      return;
+    }
+
+    queryClient.invalidateQueries({ queryKey: ['employee-writeups'] });
+    queryClient.invalidateQueries({ queryKey: ['temporary-tasks'] });
+    setShowWriteUpSignature(false);
+    onComplete();
+    onOpenChange(false);
+  };
+
+  // If this is a write-up task, show the signature view
+  if (task?.write_up_id && writeUpData) {
+    if (showWriteUpSignature) {
+      return (
+        <WriteUpSignatureView
+          writeUp={writeUpData}
+          onComplete={handleWriteUpComplete}
+          onClose={() => setShowWriteUpSignature(false)}
+        />
+      );
+    }
+    
+    // Show a prompt to open the signature view
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <div className="w-3 h-3 rounded-full bg-destructive" />
+              Write-Up Acknowledgment
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              You have a write-up that requires your acknowledgment. Please review and sign to complete this task.
+            </p>
+            
+            <div className="p-3 bg-destructive/10 rounded-lg border border-destructive/30">
+              <Badge variant="destructive" className="mb-2">{writeUpData.reason}</Badge>
+              <p className="text-sm font-medium">Issued by {writeUpData.created_by_profile?.full_name}</p>
+              <p className="text-xs text-muted-foreground">{format(new Date(writeUpData.created_at), 'MMM d, yyyy h:mm a')}</p>
+            </div>
+          </div>
+          
+          <Button 
+            onClick={() => setShowWriteUpSignature(true)}
+            className="w-full"
+            variant="destructive"
+          >
+            Review & Sign Write-Up
+          </Button>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

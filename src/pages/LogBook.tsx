@@ -235,6 +235,30 @@ export default function LogBook() {
     gcTime: LOGBOOK_GC_TIME,
   });
 
+  // Fetch employee write-ups for the location
+  const { data: employeeWriteUps = [] } = useQuery({
+    queryKey: ['employee-writeups', currentLocation?.id],
+    queryFn: async () => {
+      if (!currentLocation) return [];
+      const { data, error } = await supabase
+        .from('employee_writeups')
+        .select(`
+          *,
+          employee:profiles!employee_writeups_employee_id_fkey(full_name, profile_photo_url),
+          created_by_profile:profiles!employee_writeups_created_by_fkey(full_name, profile_photo_url)
+        `)
+        .eq('location_id', currentLocation.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!currentLocation,
+    staleTime: LOGBOOK_STALE_TIME,
+    gcTime: LOGBOOK_GC_TIME,
+  });
+
   // Debounced search query - only fires when user is actively searching
   const debouncedSearch = useMemo(() => searchQuery.trim(), [searchQuery]);
   
@@ -274,8 +298,24 @@ export default function LogBook() {
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Use search results when searching, otherwise recent entries
-  const allEntries = debouncedSearch && debouncedSearch.length >= 2 ? searchResults : recentEntries;
+  // Combine regular log entries with write-ups for unified display
+  const writeUpEntries = employeeWriteUps.map((wu: any) => ({
+    id: wu.id,
+    entry_date: format(new Date(wu.created_at), 'yyyy-MM-dd'),
+    created_at: wu.created_at,
+    created_by: wu.created_by,
+    profiles: wu.created_by_profile,
+    logbook_categories: { name: 'Employee Write-Up' },
+    _isWriteUp: true,
+    _writeUpData: wu,
+  }));
+
+  // Use search results when searching, otherwise combine recent entries with write-ups
+  const allEntries = debouncedSearch && debouncedSearch.length >= 2 
+    ? searchResults 
+    : [...recentEntries, ...writeUpEntries].sort((a: any, b: any) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      ).slice(0, 100);
 
   // Find bank deposit category ID (create if doesn't exist)
   const bankDepositCategoryId = categories.find((c: any) => c.name?.toLowerCase() === 'bank deposit')?.id;
@@ -588,6 +628,87 @@ export default function LogBook() {
     const isWeeklySummary = currentCategoryName === 'weekly summary';
     // Bank deposit can be triggered via virtual 'bank-deposit' string OR by selecting the actual category
     const isBankDeposit = selectedCategory === 'bank-deposit' || currentCategoryName === 'bank deposit';
+    const isEmployeeWriteUp = currentCategoryName === 'employee write-up' || currentCategoryName === 'employee writeup' || currentCategoryName === 'write-up' || currentCategoryName === 'writeup';
+    
+    // Employee Write-Up form
+    if (isEmployeeWriteUp) {
+      return (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Employee Write-Up</h2>
+          <EmployeeWriteUpForm
+            onSave={async (data: WriteUpData) => {
+              if (isSavingSpecialForm) return;
+              setIsSavingSpecialForm(true);
+              try {
+                const dateStr = getDateInTimezone(selectedDate);
+                
+                // 1. Create the write-up record in employee_writeups table
+                const { data: writeUp, error: writeUpError } = await supabase
+                  .from('employee_writeups')
+                  .insert({
+                    location_id: currentLocation!.id,
+                    employee_id: data.employeeId,
+                    created_by: user!.id,
+                    reason: data.reason,
+                    issue_description: data.issueDescription,
+                    next_steps: data.nextSteps,
+                    photo_url: data.photoUrl || null,
+                    is_final_warning: data.isFinalWarning,
+                  })
+                  .select()
+                  .single();
+                
+                if (writeUpError) throw writeUpError;
+                
+                // 2. Create a temporary task assigned ONLY to that employee for signature
+                const { error: taskError } = await supabase
+                  .from('temporary_tasks')
+                  .insert({
+                    location_id: currentLocation!.id,
+                    title: `Sign Write-Up: ${data.reason}`,
+                    description: 'You have a write-up that requires your acknowledgment and signature.',
+                    created_by: user!.id,
+                    accent_color: '#ef4444', // red for urgency
+                    task_style: 'quick',
+                    is_active: true,
+                    write_up_id: writeUp.id,
+                    push_enabled: true,
+                  });
+                
+                if (taskError) throw taskError;
+                
+                // 3. Create task assignment for the employee
+                const { data: taskData } = await supabase
+                  .from('temporary_tasks')
+                  .select('id')
+                  .eq('write_up_id', writeUp.id)
+                  .single();
+                
+                if (taskData) {
+                  await supabase
+                    .from('temporary_task_assignments')
+                    .insert({
+                      task_id: taskData.id,
+                      user_id: data.employeeId,
+                    });
+                }
+
+                toast({ title: "Write-up submitted", description: `${data.employeeName} will be notified to sign.` });
+                queryClient.invalidateQueries({ queryKey: ['employee-writeups'] });
+                queryClient.invalidateQueries({ queryKey: ['temporary-tasks'] });
+                setShowNewEntrySheet(false);
+                setActiveTab('search');
+              } catch (error: any) {
+                toast({ title: "Error saving write-up", description: error.message, variant: "destructive" });
+              } finally {
+                setIsSavingSpecialForm(false);
+              }
+            }}
+            isSaving={isSavingSpecialForm}
+          />
+        </div>
+      );
+    }
     
     // Weekly Summary - special generate UI
     if (isWeeklySummary) {
@@ -1373,8 +1494,20 @@ export default function LogBook() {
                     {entriesByDay[dateKey].map((entry: any) => {
                       const isWeeklySummary = entry.logbook_categories?.name === 'Weekly Summary';
                       const isBankDeposit = entry.logbook_categories?.name?.toLowerCase() === 'bank deposit';
+                      const isWriteUp = entry._isWriteUp || entry.logbook_categories?.name?.toLowerCase()?.includes('write');
+                      const isFinalWarning = entry._writeUpData?.is_final_warning;
                       return (
-                      <Card key={entry._virtualId || entry.id} className={isWeeklySummary ? "border-primary/30 bg-gradient-to-br from-primary/5 to-transparent" : isBankDeposit ? "border-teal-500/30 bg-gradient-to-br from-teal-500/5 to-transparent" : ""}>
+                      <Card key={entry._virtualId || entry.id} className={
+                        isWriteUp 
+                          ? isFinalWarning 
+                            ? "border-destructive/50 bg-gradient-to-br from-destructive/10 to-transparent" 
+                            : "border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-transparent"
+                          : isWeeklySummary 
+                            ? "border-primary/30 bg-gradient-to-br from-primary/5 to-transparent" 
+                            : isBankDeposit 
+                              ? "border-teal-500/30 bg-gradient-to-br from-teal-500/5 to-transparent" 
+                              : ""
+                      }>
                         <CardContent className="p-4">
                           <div className="flex items-start gap-3">
                             {isWeeklySummary ? (
@@ -1457,8 +1590,13 @@ export default function LogBook() {
                               </div>
                               </div>
                               <div className="mt-2 space-y-1">
+                                {/* Handle write-up entries (from employee_writeups table) */}
+                                {entry._isWriteUp && entry._writeUpData && (
+                                  <EmployeeWriteUpEntry writeUp={entry._writeUpData} />
+                                )}
+                                
                                 {/* Entry values - parse based on data type */}
-                                {entry.logbook_entry_values?.map((val: any) => {
+                                {!entry._isWriteUp && entry.logbook_entry_values?.map((val: any) => {
                                   // Check if this is bank deposit data
                                   const bankDepositData = val.value_text ? parseBankDepositData(val.value_text) : null;
                                   if (bankDepositData) {
