@@ -15,6 +15,7 @@ interface WriteUpData {
   signed_at?: string;
   viewed_at?: string;
   created_at: string;
+  is_final_warning?: boolean;
   employee?: { full_name: string; profile_photo_url?: string };
   created_by_profile?: { full_name: string };
 }
@@ -58,8 +59,16 @@ export function EmployeeWriteUpEntry({ writeUp }: EmployeeWriteUpEntryProps) {
         </Badge>
       </div>
 
-      {/* Reason */}
-      <Badge variant="destructive">{writeUp.reason}</Badge>
+      {/* Reason and Final Warning */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Badge variant="destructive">{writeUp.reason}</Badge>
+        {writeUp.is_final_warning && (
+          <Badge variant="outline" className="border-destructive text-destructive bg-destructive/10">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            Final Warning
+          </Badge>
+        )}
+      </div>
 
       {/* Issue Description */}
       <div className="space-y-1">

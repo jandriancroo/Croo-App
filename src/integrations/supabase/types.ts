@@ -4075,6 +4075,7 @@ export type Database = {
           show_on_punch_clock: boolean | null
           task_style: string
           title: string
+          write_up_id: string | null
         }
         Insert: {
           accent_color?: string | null
@@ -4102,6 +4103,7 @@ export type Database = {
           show_on_punch_clock?: boolean | null
           task_style?: string
           title: string
+          write_up_id?: string | null
         }
         Update: {
           accent_color?: string | null
@@ -4129,6 +4131,7 @@ export type Database = {
           show_on_punch_clock?: boolean | null
           task_style?: string
           title?: string
+          write_up_id?: string | null
         }
         Relationships: [
           {
@@ -4157,6 +4160,13 @@ export type Database = {
             columns: ["location_id"]
             isOneToOne: false
             referencedRelation: "locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "temporary_tasks_write_up_id_fkey"
+            columns: ["write_up_id"]
+            isOneToOne: false
+            referencedRelation: "employee_writeups"
             referencedColumns: ["id"]
           },
         ]
