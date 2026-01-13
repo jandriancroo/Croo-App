@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { AlertTriangle, Check, Clock, FileText, User } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { AlertTriangle, Check, Clock, Eye, User } from "lucide-react";
 import { format } from "date-fns";
 
 interface WriteUpData {
@@ -25,91 +27,140 @@ interface EmployeeWriteUpEntryProps {
 }
 
 export function EmployeeWriteUpEntry({ writeUp }: EmployeeWriteUpEntryProps) {
+  const [showDetails, setShowDetails] = useState(false);
   const isSigned = !!writeUp.signature_url;
-  const isPending = !isSigned;
+  const employeeName = writeUp.employee?.full_name || writeUp.employee_name || 'Unknown';
 
   return (
-    <div className="space-y-3">
-      {/* Header with employee and status */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Avatar className="h-8 w-8">
+    <>
+      {/* Compact List View */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <Avatar className="h-8 w-8 shrink-0">
             <AvatarImage src={writeUp.employee?.profile_photo_url} />
             <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
           </Avatar>
-          <div>
-            <p className="font-medium text-sm">{writeUp.employee?.full_name || writeUp.employee_name}</p>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-medium text-sm truncate">{employeeName}</p>
+              <Badge variant="destructive" className="text-xs shrink-0">{writeUp.reason}</Badge>
+              {writeUp.is_final_warning && (
+                <Badge variant="outline" className="border-destructive text-destructive text-xs shrink-0">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  Final
+                </Badge>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Written by {writeUp.created_by_profile?.full_name}
+              {format(new Date(writeUp.created_at), 'MMM d, yyyy')}
             </p>
           </div>
         </div>
-        <Badge variant={isSigned ? "default" : "outline"} className={isSigned ? "bg-green-600" : "text-amber-600 border-amber-600"}>
-          {isSigned ? (
-            <>
-              <Check className="h-3 w-3 mr-1" />
-              Signed
-            </>
-          ) : (
-            <>
-              <Clock className="h-3 w-3 mr-1" />
-              Pending
-            </>
-          )}
-        </Badge>
-      </div>
-
-      {/* Reason and Final Warning */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Badge variant="destructive">{writeUp.reason}</Badge>
-        {writeUp.is_final_warning && (
-          <Badge variant="outline" className="border-destructive text-destructive bg-destructive/10">
-            <AlertTriangle className="h-3 w-3 mr-1" />
-            Final Warning
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge variant={isSigned ? "default" : "outline"} className={`text-xs ${isSigned ? "bg-green-600" : "text-amber-600 border-amber-600"}`}>
+            {isSigned ? <Check className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
           </Badge>
-        )}
-      </div>
-
-      {/* Issue Description */}
-      <div className="space-y-1">
-        <p className="text-xs font-medium text-muted-foreground">Issue</p>
-        <p className="text-sm whitespace-pre-wrap">{writeUp.issue_description}</p>
-      </div>
-
-      {/* Next Steps */}
-      <div className="space-y-1">
-        <p className="text-xs font-medium text-muted-foreground">Next Steps</p>
-        <p className="text-sm whitespace-pre-wrap">{writeUp.next_steps}</p>
-      </div>
-
-      {/* Photo */}
-      {writeUp.photo_url && (
-        <img 
-          src={writeUp.photo_url} 
-          alt="Evidence" 
-          className="w-full h-32 object-cover rounded-lg border"
-        />
-      )}
-
-      {/* Signature */}
-      {isSigned && writeUp.signature_url && (
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground">Employee Signature</p>
-          <div className="bg-white dark:bg-slate-900 rounded-lg border p-2">
-            <img 
-              src={writeUp.signature_url} 
-              alt="Signature" 
-              className="h-16 object-contain mx-auto"
-            />
-          </div>
-          {writeUp.signed_at && (
-            <p className="text-xs text-muted-foreground text-center">
-              Signed on {format(new Date(writeUp.signed_at), 'MMM d, yyyy h:mm a')}
-            </p>
-          )}
+          <Button variant="ghost" size="sm" onClick={() => setShowDetails(true)}>
+            <Eye className="h-4 w-4" />
+          </Button>
         </div>
-      )}
-    </div>
+      </div>
+
+      {/* Details Sheet */}
+      <Sheet open={showDetails} onOpenChange={setShowDetails}>
+        <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Write-Up Details
+            </SheetTitle>
+          </SheetHeader>
+          
+          <div className="space-y-4 mt-4">
+            {/* Employee Info */}
+            <div className="flex items-center gap-3">
+              <Avatar className="h-10 w-10">
+                <AvatarImage src={writeUp.employee?.profile_photo_url} />
+                <AvatarFallback><User className="h-5 w-5" /></AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-medium">{employeeName}</p>
+                <p className="text-sm text-muted-foreground">
+                  Written by {writeUp.created_by_profile?.full_name} • {format(new Date(writeUp.created_at), 'MMM d, yyyy')}
+                </p>
+              </div>
+            </div>
+
+            {/* Badges */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="destructive">{writeUp.reason}</Badge>
+              {writeUp.is_final_warning && (
+                <Badge variant="outline" className="border-destructive text-destructive bg-destructive/10">
+                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  Final Warning
+                </Badge>
+              )}
+              <Badge variant={isSigned ? "default" : "outline"} className={isSigned ? "bg-green-600" : "text-amber-600 border-amber-600"}>
+                {isSigned ? (
+                  <>
+                    <Check className="h-3 w-3 mr-1" />
+                    Signed
+                  </>
+                ) : (
+                  <>
+                    <Clock className="h-3 w-3 mr-1" />
+                    Pending Signature
+                  </>
+                )}
+              </Badge>
+            </div>
+
+            {/* Issue Description */}
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Issue Description</p>
+              <p className="text-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-lg">{writeUp.issue_description}</p>
+            </div>
+
+            {/* Next Steps */}
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Next Steps</p>
+              <p className="text-sm whitespace-pre-wrap bg-primary/5 p-3 rounded-lg border border-primary/20">{writeUp.next_steps}</p>
+            </div>
+
+            {/* Photo Evidence */}
+            {writeUp.photo_url && (
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Photo Evidence</p>
+                <img 
+                  src={writeUp.photo_url} 
+                  alt="Evidence" 
+                  className="w-full h-48 object-cover rounded-lg border"
+                />
+              </div>
+            )}
+
+            {/* Signature */}
+            {isSigned && writeUp.signature_url && (
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Employee Signature</p>
+                <div className="bg-white dark:bg-slate-900 rounded-lg border p-3">
+                  <img 
+                    src={writeUp.signature_url} 
+                    alt="Signature" 
+                    className="h-20 object-contain mx-auto"
+                  />
+                </div>
+                {writeUp.signed_at && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Signed on {format(new Date(writeUp.signed_at), 'MMM d, yyyy h:mm a')}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+    </>
   );
 }
 
