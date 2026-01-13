@@ -1011,6 +1011,7 @@ export type Database = {
           created_by: string
           employee_id: string
           id: string
+          is_final_warning: boolean
           issue_description: string
           location_id: string
           next_steps: string
@@ -1027,6 +1028,7 @@ export type Database = {
           created_by: string
           employee_id: string
           id?: string
+          is_final_warning?: boolean
           issue_description: string
           location_id: string
           next_steps: string
@@ -1043,6 +1045,7 @@ export type Database = {
           created_by?: string
           employee_id?: string
           id?: string
+          is_final_warning?: boolean
           issue_description?: string
           location_id?: string
           next_steps?: string
