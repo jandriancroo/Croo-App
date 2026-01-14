@@ -64,6 +64,14 @@ interface HourlySale {
   hour: string;
   sales: number;
   projected?: number;
+  checksCount?: number;
+}
+
+interface SelectedHourInfo {
+  hour: number;
+  label: string;
+  sales: number;
+  projected: number;
 }
 
 interface LaborCut {
@@ -83,6 +91,7 @@ export function ManagerDashboardOverlay({
   const [showCutOptions, setShowCutOptions] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [customTime, setCustomTime] = useState('');
+  const [selectedHour, setSelectedHour] = useState<SelectedHourInfo | null>(null);
 
   // Build storage key for labor cuts persistence
   const laborCutsStorageKey = useMemo(() => 
@@ -348,11 +357,21 @@ export function ManagerDashboardOverlay({
   // Read from the same React Query cache key that SalesOverview uses
   const cachedSalesOverviewData = queryClient.getQueryData<{
     daily: number;
+    hourly?: Array<{ hour: string; sales: number; projected?: number; checksCount?: number }>;
+    pizzaCount?: number | { daily: number; weekly: number; monthly: number };
     projections?: {
       todayProjected: number;
       todayPaceAdjusted?: number;
     };
   }>(['qubeyond-sales', locationId, todayStr]);
+  
+  // Get pizza count from cached data
+  const pizzaCount = useMemo(() => {
+    const pc = cachedSalesOverviewData?.pizzaCount;
+    if (typeof pc === 'number') return pc;
+    if (typeof pc === 'object' && pc?.daily) return pc.daily;
+    return 0;
+  }, [cachedSalesOverviewData]);
   
   // EOD Goal: use SalesOverview's cached todayProjected
   const eodGoal = useMemo(() => {
@@ -374,16 +393,22 @@ export function ManagerDashboardOverlay({
     return totalSales;
   }, [cachedSalesOverviewData, totalSales]);
 
-  // Get last 4 hours of sales
+  // Get last 4 hours of sales with projections from cached SalesOverview data
   const currentHour = new Date(currentTime.toLocaleString('en-US', { timeZone: timezone })).getHours();
+  const cachedHourly = cachedSalesOverviewData?.hourly || hourlyData;
+  
   const last4Hours = Array.from({ length: 4 }, (_, i) => {
     const hour = currentHour - 3 + i;
     const hourStr = `${String(hour).padStart(2, '0')}:00`;
-    const hourData = hourlyData.find(h => h.hour === hourStr);
+    // Try cached data first, then fall back to DB data
+    const cachedHourData = cachedHourly?.find(h => h.hour.startsWith(String(hour).padStart(2, '0')) || h.hour === hourStr);
+    const dbHourData = hourlyData.find(h => h.hour === hourStr);
+    const hourData = cachedHourData || dbHourData;
     return {
       hour: hour,
       label: hour >= 12 ? `${hour === 12 ? 12 : hour - 12}PM` : `${hour === 0 ? 12 : hour}AM`,
       sales: hourData?.sales || 0,
+      projected: hourData?.projected || 0,
     };
   }).filter(h => h.hour >= 0 && h.hour <= 23);
 
@@ -463,7 +488,7 @@ export function ManagerDashboardOverlay({
     }).format(date);
   };
 
-  const maxHourlySale = Math.max(...last4Hours.map(h => h.sales), 1);
+  const maxHourlySale = Math.max(...last4Hours.map(h => Math.max(h.sales, h.projected)), 1);
 
   // Labor Cut Functions
   const getCutForEmployee = (userId: string): LaborCut | undefined => {
@@ -692,34 +717,151 @@ export function ManagerDashboardOverlay({
               {/* Hourly Chart */}
               <Card className="bg-white/10 backdrop-blur-xl border-white/20 flex-1 min-h-[200px] lg:min-h-[300px] xl:min-h-[400px]">
                 <CardContent className="p-2 sm:p-4 lg:p-6 h-full flex flex-col">
-                  <h3 className="text-white/80 text-xs sm:text-sm lg:text-base xl:text-lg font-semibold mb-2 lg:mb-4 flex items-center gap-2">
-                    <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5 xl:h-6 xl:w-6" />
-                    Last 4 Hours
-                  </h3>
-                  {last4Hours.length > 0 && last4Hours.some(h => h.sales > 0) ? (
-                    <div className="flex items-end justify-around gap-2 sm:gap-3 lg:gap-4 xl:gap-6 flex-1 pb-2">
-                      {last4Hours.map((hour, i) => {
-                        const barHeightPercent = maxHourlySale > 0 ? (hour.sales / maxHourlySale) * 100 : 0;
-                        return (
-                          <div
-                            key={hour.hour}
-                            className="flex flex-col items-center flex-1 h-full"
-                          >
-                            <span className="text-white font-bold text-[10px] sm:text-xs lg:text-sm xl:text-base 2xl:text-lg mb-1 lg:mb-2">
-                              {formatCurrency(hour.sales)}
-                            </span>
-                            <div className="w-full flex-1 bg-white/10 rounded-t-lg overflow-hidden relative min-h-[50px]">
-                              <motion.div
-                                initial={{ height: 0 }}
-                                animate={{ height: `${barHeightPercent}%` }}
-                                transition={{ delay: 0.4 + i * 0.1, duration: 0.5 }}
-                                className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/60 rounded-t-lg"
-                              />
-                            </div>
-                            <span className="text-white/60 text-[10px] sm:text-xs lg:text-sm xl:text-base mt-1 lg:mt-2">{hour.label}</span>
+                  <div className="flex items-center justify-between mb-2 lg:mb-4">
+                    <h3 className="text-white/80 text-xs sm:text-sm lg:text-base xl:text-lg font-semibold flex items-center gap-2">
+                      <TrendingUp className="h-3 w-3 sm:h-4 sm:w-4 lg:h-5 lg:w-5 xl:h-6 xl:w-6" />
+                      Last 4 Hours
+                    </h3>
+                    {/* Legend */}
+                    {last4Hours.some(h => h.projected > 0) && (
+                      <div className="flex items-center gap-3 text-[10px] sm:text-xs">
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-sm bg-primary/60" />
+                          <span className="text-white/60">Actual</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-white/80 border border-white/40" />
+                          <span className="text-white/60">Projected</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Selected Hour Info */}
+                  <AnimatePresence>
+                    {selectedHour && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="mb-3 p-2 sm:p-3 bg-white/10 rounded-lg border border-white/20"
+                        onClick={() => setSelectedHour(null)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-white font-semibold text-sm sm:text-base">{selectedHour.label}</span>
+                          <X className="h-4 w-4 text-white/60 cursor-pointer hover:text-white" onClick={() => setSelectedHour(null)} />
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          <div className="text-center">
+                            <p className="text-white/60 text-[10px] sm:text-xs">Sales</p>
+                            <p className="text-white font-bold text-sm sm:text-lg">{formatCurrency(selectedHour.sales)}</p>
                           </div>
-                        );
-                      })}
+                          <div className="text-center">
+                            <p className="text-white/60 text-[10px] sm:text-xs">Projected</p>
+                            <p className="text-white/80 font-bold text-sm sm:text-lg">
+                              {selectedHour.projected > 0 ? formatCurrency(selectedHour.projected) : '—'}
+                            </p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-white/60 text-[10px] sm:text-xs">🍕 Today</p>
+                            <p className="text-white/80 font-bold text-sm sm:text-lg">{pizzaCount || '—'}</p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                  
+                  {last4Hours.length > 0 && last4Hours.some(h => h.sales > 0) ? (
+                    <div className="relative flex-1 pb-2">
+                      {/* Chart container with bars and projection line */}
+                      <div className="flex items-end justify-around gap-2 sm:gap-3 lg:gap-4 xl:gap-6 h-full relative">
+                        {last4Hours.map((hour, i) => {
+                          const barHeightPercent = maxHourlySale > 0 ? (hour.sales / maxHourlySale) * 100 : 0;
+                          const projectedHeightPercent = maxHourlySale > 0 && hour.projected > 0 ? (hour.projected / maxHourlySale) * 100 : 0;
+                          const isSelected = selectedHour?.hour === hour.hour;
+                          return (
+                            <div
+                              key={hour.hour}
+                              className={`flex flex-col items-center flex-1 h-full cursor-pointer transition-transform ${
+                                isSelected ? 'scale-105' : 'hover:scale-102'
+                              }`}
+                              onClick={() => setSelectedHour(isSelected ? null : {
+                                hour: hour.hour,
+                                label: hour.label,
+                                sales: hour.sales,
+                                projected: hour.projected,
+                              })}
+                            >
+                              <span className="text-white font-bold text-[10px] sm:text-xs lg:text-sm xl:text-base 2xl:text-lg mb-1 lg:mb-2">
+                                {formatCurrency(hour.sales)}
+                              </span>
+                              <div className="w-full flex-1 bg-white/10 rounded-t-lg overflow-visible relative min-h-[50px]">
+                                {/* Sales bar */}
+                                <motion.div
+                                  initial={{ height: 0 }}
+                                  animate={{ height: `${barHeightPercent}%` }}
+                                  transition={{ delay: 0.4 + i * 0.1, duration: 0.5 }}
+                                  className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-primary to-primary/60 rounded-t-lg ${
+                                    isSelected ? 'ring-2 ring-white/50' : ''
+                                  }`}
+                                />
+                                {/* Projection dot */}
+                                {hour.projected > 0 && (
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: 0.6 + i * 0.1, duration: 0.3 }}
+                                    className="absolute left-1/2 -translate-x-1/2 w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-white border-2 border-white/40 shadow-lg z-10"
+                                    style={{ bottom: `${projectedHeightPercent}%`, transform: 'translateX(-50%) translateY(50%)' }}
+                                  />
+                                )}
+                              </div>
+                              <span className={`text-[10px] sm:text-xs lg:text-sm xl:text-base mt-1 lg:mt-2 ${
+                                isSelected ? 'text-white font-semibold' : 'text-white/60'
+                              }`}>{hour.label}</span>
+                            </div>
+                          );
+                        })}
+                        
+                        {/* Projection line connecting dots */}
+                        {last4Hours.some(h => h.projected > 0) && (
+                          <svg 
+                            className="absolute inset-0 pointer-events-none overflow-visible" 
+                            style={{ zIndex: 5 }}
+                            preserveAspectRatio="none"
+                          >
+                            <motion.path
+                              initial={{ pathLength: 0, opacity: 0 }}
+                              animate={{ pathLength: 1, opacity: 1 }}
+                              transition={{ delay: 0.8, duration: 0.6 }}
+                              d={(() => {
+                                const points = last4Hours.map((hour, i) => {
+                                  const projectedHeightPercent = maxHourlySale > 0 && hour.projected > 0 
+                                    ? (hour.projected / maxHourlySale) * 100 
+                                    : null;
+                                  if (projectedHeightPercent === null) return null;
+                                  // Calculate x position: center of each bar
+                                  const barWidth = 100 / last4Hours.length;
+                                  const x = (i + 0.5) * barWidth;
+                                  // Y position from bottom (SVG y increases downward)
+                                  const y = 100 - projectedHeightPercent;
+                                  return { x, y };
+                                }).filter(Boolean) as { x: number; y: number }[];
+                                
+                                if (points.length < 2) return '';
+                                return points.map((p, i) => 
+                                  `${i === 0 ? 'M' : 'L'} ${p.x}% ${p.y}%`
+                                ).join(' ');
+                              })()}
+                              fill="none"
+                              stroke="rgba(255,255,255,0.6)"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="flex-1 flex items-center justify-center">
